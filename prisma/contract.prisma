@@ -1,0 +1,4 @@
+type Character {
+  id Int @id
+  name String
+}

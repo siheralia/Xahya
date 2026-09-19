@@ -1,0 +1,586 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.character",
+    "label": "Create table \"character\"",
+    "summary": "Creates table \"character\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "character"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"character\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"character\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"character\"",
+        "sql": "CREATE TABLE \"public\".\"character\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" int4 NOT NULL,\n  \"name\" text NOT NULL,\n  \"userId\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"character\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"character\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.characterModifier",
+    "label": "Create table \"characterModifier\"",
+    "summary": "Creates table \"characterModifier\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "characterModifier"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"characterModifier\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"characterModifier\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"characterModifier\"",
+        "sql": "CREATE TABLE \"public\".\"characterModifier\" (\n  \"amount\" int4 NOT NULL,\n  \"characterId\" int4 NOT NULL,\n  \"id\" int4 NOT NULL,\n  \"source\" text NOT NULL,\n  \"stat\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"characterModifier\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"characterModifier\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.characterResource",
+    "label": "Create table \"characterResource\"",
+    "summary": "Creates table \"characterResource\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "characterResource"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"characterResource\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"characterResource\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"characterResource\"",
+        "sql": "CREATE TABLE \"public\".\"characterResource\" (\n  \"characterId\" int4 NOT NULL,\n  \"id\" int4 NOT NULL,\n  \"karma\" int4 DEFAULT 0 NOT NULL,\n  \"money\" int4 DEFAULT 0 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"characterResource\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"characterResource\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.characterStat",
+    "label": "Create table \"characterStat\"",
+    "summary": "Creates table \"characterStat\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "characterStat"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"characterStat\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"characterStat\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"characterStat\"",
+        "sql": "CREATE TABLE \"public\".\"characterStat\" (\n  \"agility\" int4 DEFAULT 0 NOT NULL,\n  \"characterId\" int4 NOT NULL,\n  \"charisma\" int4 DEFAULT 0 NOT NULL,\n  \"constitution\" int4 DEFAULT 0 NOT NULL,\n  \"id\" int4 NOT NULL,\n  \"intelligence\" int4 DEFAULT 0 NOT NULL,\n  \"luck\" int4 DEFAULT 0 NOT NULL,\n  \"spirit\" int4 DEFAULT 0 NOT NULL,\n  \"strength\" int4 DEFAULT 0 NOT NULL,\n  \"wisdom\" int4 DEFAULT 0 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"characterStat\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"characterStat\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.user",
+    "label": "Create table \"user\"",
+    "summary": "Creates table \"user\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"user\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"user\"",
+        "sql": "CREATE TABLE \"public\".\"user\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"id\" int4 NOT NULL,\n  \"name\" text,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"user\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.characterResource.characterResource_characterId_key",
+    "label": "Add unique constraint on \"characterResource\" (characterId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "characterResource_characterId_key",
+        "table": "characterResource"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"characterResource_characterId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "characterResource_characterId_key",
+          "public",
+          "\"public\".\"characterResource\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"characterResource_characterId_key\"",
+        "sql": "ALTER TABLE \"public\".\"characterResource\" ADD CONSTRAINT \"characterResource_characterId_key\" UNIQUE (\"characterId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"characterResource_characterId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "characterResource_characterId_key",
+          "public",
+          "\"public\".\"characterResource\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.characterStat.characterStat_characterId_key",
+    "label": "Add unique constraint on \"characterStat\" (characterId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "characterStat_characterId_key",
+        "table": "characterStat"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"characterStat_characterId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "characterStat_characterId_key",
+          "public",
+          "\"public\".\"characterStat\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"characterStat_characterId_key\"",
+        "sql": "ALTER TABLE \"public\".\"characterStat\" ADD CONSTRAINT \"characterStat_characterId_key\" UNIQUE (\"characterId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"characterStat_characterId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "characterStat_characterId_key",
+          "public",
+          "\"public\".\"characterStat\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.user.user_email_key",
+    "label": "Add unique constraint on \"user\" (email)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "user_email_key",
+        "table": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"user_email_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_email_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"user_email_key\"",
+        "sql": "ALTER TABLE \"public\".\"user\" ADD CONSTRAINT \"user_email_key\" UNIQUE (\"email\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"user_email_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_email_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.character.character_userId_idx_a489d58a",
+    "label": "Create index \"character_userId_idx_a489d58a\" on \"character\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "character_userId_idx_a489d58a",
+        "table": "character"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"character_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"character_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"character_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"character_userId_idx_a489d58a\" ON \"public\".\"character\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"character_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"character_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.characterModifier.characterModifier_characterId_idx_2423fe9d",
+    "label": "Create index \"characterModifier_characterId_idx_2423fe9d\" on \"characterModifier\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "characterModifier_characterId_idx_2423fe9d",
+        "table": "characterModifier"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"characterModifier_characterId_idx_2423fe9d\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"characterModifier_characterId_idx_2423fe9d\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"characterModifier_characterId_idx_2423fe9d\"",
+        "sql": "CREATE INDEX \"characterModifier_characterId_idx_2423fe9d\" ON \"public\".\"characterModifier\" (\"characterId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"characterModifier_characterId_idx_2423fe9d\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"characterModifier_characterId_idx_2423fe9d\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.character.character_userId_fkey",
+    "label": "Add foreign key \"character_userId_fkey\" on \"character\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "character_userId_fkey",
+        "table": "character"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"character_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "character_userId_fkey",
+          "public",
+          "\"public\".\"character\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"character_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"character\"\nADD CONSTRAINT \"character_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"character_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "character_userId_fkey",
+          "public",
+          "\"public\".\"character\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.characterModifier.characterModifier_characterId_fkey",
+    "label": "Add foreign key \"characterModifier_characterId_fkey\" on \"characterModifier\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "characterModifier_characterId_fkey",
+        "table": "characterModifier"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"characterModifier_characterId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "characterModifier_characterId_fkey",
+          "public",
+          "\"public\".\"characterModifier\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"characterModifier_characterId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"characterModifier\"\nADD CONSTRAINT \"characterModifier_characterId_fkey\"\nFOREIGN KEY (\"characterId\")\nREFERENCES \"public\".\"character\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"characterModifier_characterId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "characterModifier_characterId_fkey",
+          "public",
+          "\"public\".\"characterModifier\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.characterResource.characterResource_characterId_fkey",
+    "label": "Add foreign key \"characterResource_characterId_fkey\" on \"characterResource\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "characterResource_characterId_fkey",
+        "table": "characterResource"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"characterResource_characterId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "characterResource_characterId_fkey",
+          "public",
+          "\"public\".\"characterResource\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"characterResource_characterId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"characterResource\"\nADD CONSTRAINT \"characterResource_characterId_fkey\"\nFOREIGN KEY (\"characterId\")\nREFERENCES \"public\".\"character\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"characterResource_characterId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "characterResource_characterId_fkey",
+          "public",
+          "\"public\".\"characterResource\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.characterStat.characterStat_characterId_fkey",
+    "label": "Add foreign key \"characterStat_characterId_fkey\" on \"characterStat\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "characterStat_characterId_fkey",
+        "table": "characterStat"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"characterStat_characterId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "characterStat_characterId_fkey",
+          "public",
+          "\"public\".\"characterStat\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"characterStat_characterId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"characterStat\"\nADD CONSTRAINT \"characterStat_characterId_fkey\"\nFOREIGN KEY (\"characterId\")\nREFERENCES \"public\".\"character\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"characterStat_characterId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "characterStat_characterId_fkey",
+          "public",
+          "\"public\".\"characterStat\""
+        ]
+      }
+    ]
+  }
+]

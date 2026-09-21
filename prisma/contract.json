@@ -817,6 +817,10 @@
                 },
                 "id": {
                   "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
                   "nativeType": "int4",
                   "nullable": false
                 },
@@ -847,7 +851,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "41d20e4e2b8d96c18bc59db2536ebf6d2e793ad55655263e79cf10424582f38e"
+    "storageHash": "d311ea2f813560a442d486b0fe0efcadb22fb8bedf4639c17151e668cca5e039"
   },
   "capabilities": {
     "postgres": {

@@ -7,7 +7,7 @@ model User {
 }
 
 model Character {
-  id        Int                 @id
+  id        Int                 @id @default(autoincrement())
   name      String
   userId    Int
   user      User                @relation(fields:[userId], references:[id])
@@ -18,7 +18,7 @@ model Character {
 }
 
 model CharacterStat {
-  id           Int       @id
+  id           Int       @id @default(autoincrement())
   characterId  Int
   character    Character @relation(fields:[characterId], references:[id])
   strength     Int       @default(0)
@@ -34,7 +34,7 @@ model CharacterStat {
 }
 
 model CharacterResource {
-  id          Int       @id
+  id          Int       @id @default(autoincrement())
   characterId Int
   character   Character @relation(fields:[characterId], references:[id])
   karma       Int       @default(0)
@@ -44,7 +44,7 @@ model CharacterResource {
 }
 
 model CharacterModifier {
-  id          Int       @id
+  id          Int       @id @default(autoincrement())
   characterId Int
   character   Character @relation(fields:[characterId], references:[id])
   stat        String

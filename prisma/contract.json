@@ -507,6 +507,10 @@
                 },
                 "id": {
                   "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
                   "nativeType": "int4",
                   "nullable": false
                 },
@@ -570,6 +574,10 @@
                 },
                 "id": {
                   "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
                   "nativeType": "int4",
                   "nullable": false
                 },
@@ -628,6 +636,10 @@
                 },
                 "id": {
                   "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
                   "nativeType": "int4",
                   "nullable": false
                 },
@@ -718,6 +730,10 @@
                 },
                 "id": {
                   "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
                   "nativeType": "int4",
                   "nullable": false
                 },
@@ -851,7 +867,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "d311ea2f813560a442d486b0fe0efcadb22fb8bedf4639c17151e668cca5e039"
+    "storageHash": "9ab53b6932469956e838f42c906b4d65d0bdf687dafa23cbe0d32d9793a1a666"
   },
   "capabilities": {
     "postgres": {

@@ -110,10 +110,12 @@ export default function CharacterPage({
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Estadísticas base</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {Object.entries(character.stats).map(([key, value]) => (
+              {Object.entries(statLabels).map(([key, label]) => (
                 <div key={key} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-                  <p className="text-sm text-zinc-500">{statLabels[key]}</p>
-                  <p className="mt-1 text-2xl font-semibold">{value}</p>
+                  <p className="text-sm text-zinc-500">{label}</p>
+                  <p className="mt-1 text-2xl font-semibold">
+                    {character.stats?.[key as keyof typeof character.stats]}
+                  </p>
                 </div>
               ))}
             </div>

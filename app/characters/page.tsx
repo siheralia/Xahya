@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type Character = {
@@ -40,9 +41,7 @@ export default function CharactersPage() {
           <p className="mt-8 text-zinc-500">Cargando personajes...</p>
         )}
 
-        {error && (
-          <p className="mt-8 text-red-400">{error}</p>
-        )}
+        {error && <p className="mt-8 text-red-400">{error}</p>}
 
         {!loading && !error && characters.length === 0 && (
           <p className="mt-8 text-zinc-500">
@@ -53,15 +52,16 @@ export default function CharactersPage() {
         {!loading && !error && characters.length > 0 && (
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {characters.map((character) => (
-              <article
+              <Link
                 key={character.id}
-                className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5"
+                href={`/characters/${character.id}`}
+                className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 transition hover:border-zinc-600 hover:bg-zinc-900"
               >
                 <h2 className="text-xl font-semibold">{character.name}</h2>
                 <p className="mt-2 text-sm text-zinc-500">
                   Personaje #{character.id}
                 </p>
-              </article>
+              </Link>
             ))}
           </div>
         )}

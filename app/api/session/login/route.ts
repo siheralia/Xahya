@@ -3,6 +3,29 @@ import { NextResponse } from "next/server";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 
+const RELEVANT_ACTIONS = new Set([
+  "GLOBAL_REWARD",
+  "RESOURCE_GRANT",
+  "LEVEL_UP",
+  "KARMA_BOOST",
+  "STAT_UPDATE",
+  "CHARACTER_RENAME",
+  "CHARACTER_TRANSFER",
+  "CHARACTER_DELETE",
+  "CASINO_ROULETTE",
+  "CASINO_BLACKJACK",
+  "CASINO_DICE",
+]);
+
+function parseDetails(value: unknown) {
+  if (!value) return null;
+  try {
+    return JSON.parse(String(value)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST() {
   const { userId: clerkId, sessionId } = await auth();
 
@@ -22,37 +45,73 @@ export async function POST() {
   const result = await db.transaction(async (tx) => {
     const user = await tx.orm.public.User.where({ id: currentUser.id }).first();
 
-    if (!user) {
-      return { show: false as const };
-    }
-
-    if (user.lastLoginSessionId === sessionId) {
+    if (!user || user.lastLoginSessionId === sessionId) {
       return { show: false as const };
     }
 
     const previousLogin = user.lastLoginAt;
-
-    const logs = await tx.orm.public.AuditLog.all();
     const previousTime = previousLogin
       ? new Date(String(previousLogin)).getTime()
       : null;
 
-    const globalRewards = logs.filter((log) => {
-      if (String(log.action) !== "GLOBAL_REWARD") return false;
+    const characters = await tx.orm.public.Character.all();
+    const characterIds = new Set(
+      characters
+        .filter((character) => Number(character.userId) === Number(user.id))
+        .map((character) => Number(character.id)),
+    );
 
-      const createdAt = new Date(String(log.createdAt)).getTime();
-      if (!Number.isFinite(createdAt)) return false;
-      if (previousTime !== null && createdAt <= previousTime) return false;
+    const logs = await tx.orm.public.AuditLog.all();
 
-      if (!log.details) return false;
+    const events = logs
+      .filter((log) => {
+        const action = String(log.action);
+        if (!RELEVANT_ACTIONS.has(action)) return false;
 
-      try {
-        const details = JSON.parse(String(log.details)) as Record<string, unknown>;
-        return details.allCharacters === true && Number(details.karma) === 5;
-      } catch {
-        return false;
-      }
-    });
+        const createdAt = new Date(String(log.createdAt)).getTime();
+        if (!Number.isFinite(createdAt)) return false;
+        if (previousTime !== null && createdAt <= previousTime) return false;
+
+        const characterId = log.characterId ?? log.entityId;
+        const belongsToCharacter =
+          characterId != null && characterIds.has(Number(characterId));
+
+        const targetsUser =
+          log.targetUserId != null &&
+          Number(log.targetUserId) === Number(user.id);
+
+        const isGlobal =
+          action === "GLOBAL_REWARD" &&
+          parseDetails(log.details)?.allCharacters === true;
+
+        return belongsToCharacter || targetsUser || isGlobal;
+      })
+      .sort(
+        (a, b) =>
+          new Date(String(b.createdAt)).getTime() -
+          new Date(String(a.createdAt)).getTime(),
+      )
+      .slice(0, 20)
+      .map((log) => {
+        const details = parseDetails(log.details);
+        const rawCharacterId = log.characterId ?? log.entityId;
+        const characterId =
+          rawCharacterId != null && characterIds.has(Number(rawCharacterId))
+            ? Number(rawCharacterId)
+            : null;
+        const character = characterId
+          ? characters.find((item) => Number(item.id) === characterId)
+          : null;
+
+        return {
+          id: String(log.id),
+          action: String(log.action),
+          characterId,
+          characterName: character?.name ?? null,
+          details,
+          createdAt: log.createdAt,
+        };
+      });
 
     const updatedUser = await tx.orm.public.User.where({
       id: user.id,
@@ -62,13 +121,13 @@ export async function POST() {
       lastLoginSessionId: sessionId,
     });
 
-    if (!updatedUser || globalRewards.length === 0) {
+    if (!updatedUser || events.length === 0) {
       return { show: false as const };
     }
 
     return {
       show: true as const,
-      rewards: globalRewards.length,
+      events,
     };
   });
 

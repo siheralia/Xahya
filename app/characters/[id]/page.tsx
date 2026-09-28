@@ -22,6 +22,7 @@ type Character = {
   } | null;
   derivedStats: Record<string, number> | null;
   canSeeCharacterId: boolean;
+  canManageCharacter: boolean;
 };
 
 const statLabels: Record<string, string> = {
@@ -145,6 +146,14 @@ export default function CharacterPage({
 
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <h1 className="text-4xl font-bold">{character.name}</h1>
+          {character.canManageCharacter && (
+            <Link
+              href={"/management?characterId=" + character.id}
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Gestionar personaje
+            </Link>
+          )}
           <button
             type="button"
             onClick={copyToClipboard}

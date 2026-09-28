@@ -10,6 +10,8 @@ export type BaseStats = {
 };
 
 export function calculateDerivedStats(stats: BaseStats) {
+  const floor2 = (value: number) => Math.floor(value * 100) / 100;
+
   const precision =
     stats.agility / 2 +
     stats.intelligence / 2 +
@@ -18,52 +20,55 @@ export function calculateDerivedStats(stats: BaseStats) {
     stats.luck / 3;
 
   return {
-    maxHp: 10 + stats.constitution * 2,
+    maxHp: floor2(10 + stats.constitution * 2),
 
-    maxMana: 5 + stats.intelligence + stats.spirit,
+    maxMana: floor2(5 + stats.intelligence + stats.spirit),
 
-    physicalAttack: stats.strength + stats.agility / 4,
+    physicalAttack: floor2(stats.strength + stats.agility / 4),
 
-    magicAttack: stats.intelligence + stats.spirit,
+    magicAttack: floor2(stats.intelligence + stats.spirit),
 
-    physicalDefense: stats.constitution + stats.agility / 4,
+    physicalDefense: floor2(stats.constitution + stats.agility / 4),
 
-    magicDefense: stats.spirit + stats.wisdom,
+    magicDefense: floor2(stats.spirit + stats.wisdom),
 
-    precision,
+    precision: floor2(precision),
 
-    critical:
+    critical: floor2(
       stats.luck * 2 +
       precision / 10 +
       stats.wisdom / 2,
+    ),
 
-    discovery: stats.luck + stats.wisdom,
+    discovery: floor2(stats.luck + stats.wisdom),
 
-    miracle:
+    miracle: floor2(
       stats.luck +
       stats.spirit / 2 +
       stats.charisma / 2,
+    ),
 
-    intimidation: stats.charisma + stats.strength,
+    intimidation: floor2(stats.charisma + stats.strength),
 
-    conquest: stats.charisma + stats.luck,
+    conquest: floor2(stats.charisma + stats.luck),
 
-    race:
+    race: floor2(
       Math.min(stats.agility, stats.strength) +
       stats.constitution / 4,
+    ),
 
-    dodge:
+    dodge: floor2(
       stats.luck * 3 +
       stats.agility +
       stats.wisdom / 2,
+    ),
 
-    stealth:
+    stealth: floor2(
       stats.agility +
       stats.intelligence / 2 -
       stats.spirit / 10,
+    ),
 
-    detection:
-      stats.wisdom +
-      stats.luck / 3,
+    detection: floor2(stats.wisdom + stats.luck / 3),
   };
 }

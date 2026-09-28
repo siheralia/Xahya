@@ -170,6 +170,13 @@ export default async function Home() {
               Ver personajes
             </Link>
 
+            <Link
+              href="/casino"
+              className="rounded-lg border border-amber-500/40 px-6 py-3 font-medium text-amber-300 transition hover:bg-amber-400/10"
+            >
+              🎰 Casino
+            </Link>
+
             {isManagementUser && (
               <Link
                 href="/management"

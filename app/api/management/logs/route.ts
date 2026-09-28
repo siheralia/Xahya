@@ -8,7 +8,7 @@ const TYPE_ACTIONS: Record<string, string[]> = {
   Recursos: ["RESOURCE_GRANT", "GLOBAL_REWARD"],
   "Level Up": ["LEVEL_UP"],
   Karma: ["KARMA_BOOST"],
-  Sistema: ["USER_ROLE_CHANGE", "USER_DELETE"],
+  Sistema: ["USER_ROLE_CHANGE", "USER_DELETE", "LOGIN_REWARD"],
 };
 
 export async function GET(request: Request) {

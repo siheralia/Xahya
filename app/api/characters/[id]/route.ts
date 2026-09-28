@@ -70,9 +70,14 @@ export async function GET(
     : null;
 
   if (effectiveStats) {
+    type StatKey = "strength" | "agility" | "constitution" | "intelligence" | "wisdom" | "charisma" | "spirit" | "luck";
+
     for (const modifier of modifiers) {
-      const stat: keyof typeof effectiveStats = String(modifier.stat) as keyof typeof effectiveStats;
-      if (stat in effectiveStats) effectiveStats[stat] += Number(modifier.amount);
+      const statName = String(modifier.stat);
+      if (Object.prototype.hasOwnProperty.call(effectiveStats, statName)) {
+        const statKey = statName as StatKey;
+        effectiveStats[statKey] += Number(modifier.amount);
+      }
     }
   }
 

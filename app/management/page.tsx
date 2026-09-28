@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type Character = {
@@ -28,7 +27,6 @@ function emptyStats() {
 }
 
 export default function ManagementPage() {
-  const searchParams = useSearchParams();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -81,11 +79,11 @@ export default function ManagementPage() {
   }, [deleteOpen]);
 
   useEffect(() => {
-    const requestedCharacterId = searchParams.get("characterId");
+    const requestedCharacterId = new URLSearchParams(window.location.search).get("characterId");
     if (requestedCharacterId && characters.some((character) => String(character.id) === requestedCharacterId)) {
       setCharacterId(requestedCharacterId);
     }
-  }, [searchParams, characters]);
+  }, [characters]);
 
   function updateStat(stat: string, value: string) {
     const parsed = Number(value);
@@ -274,7 +272,7 @@ export default function ManagementPage() {
 
         <div className="mt-6">
           <button
-          type="button"
+            type="button"
           onClick={applyChanges}
           disabled={saving || !characterId}
           className="mt-6 w-full rounded-lg bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"

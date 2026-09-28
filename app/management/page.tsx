@@ -29,6 +29,7 @@ function emptyStats() {
 export default function ManagementPage() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isGM, setIsGM] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteCountdown, setDeleteCountdown] = useState(5);
   const [deleting, setDeleting] = useState(false);
@@ -59,6 +60,7 @@ export default function ManagementPage() {
       .then((data) => {
         setCharacters(data.characters ?? data);
         setIsAdmin(Boolean(data.isAdmin));
+        setIsGM(Boolean(data.isGM));
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar personajes."))
       .finally(() => setLoading(false));
@@ -185,7 +187,7 @@ export default function ManagementPage() {
 
         <h1 className="mt-6 text-4xl font-bold">Gestión de personajes</h1>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-zinc-500">Otorga cambios permanentes a las estadísticas base y recursos.</p>
+          <p className="text-zinc-500">{isAdmin ? "Otorga cambios permanentes a las estadísticas base y recursos." : "Otorga recursos y puntos de Level Up a los personajes."}</p>
           <div className="flex flex-wrap gap-3">
             <Link
               href="/management/logs"
@@ -256,6 +258,7 @@ export default function ManagementPage() {
             ))}
           </div>
         </section>
+          )}
 
         <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <h2 className="text-xl font-semibold">Recursos</h2>

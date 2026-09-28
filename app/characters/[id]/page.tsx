@@ -52,7 +52,7 @@ const radarStats = [
 
 type RadarValues = Record<(typeof radarStats)[number]["key"], number>;
 
-function StatsRadar({ values }: { values: RadarValues }) {
+function StatsRadar({ values, name }: { values: RadarValues; name: string }) {
   const center = 150;
   const radius = 105;
   const maxValue = Math.max(20, ...Object.values(values));
@@ -95,6 +95,19 @@ function StatsRadar({ values }: { values: RadarValues }) {
         );
       })}
       <polygon points={polygon} fill="rgb(34 211 238)" fillOpacity="0.16" stroke="rgb(34 211 238)" strokeWidth="2" />
+      <text
+        x={center}
+        y={170}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill="white"
+        fontSize="20"
+        fontWeight="600"
+        fontStyle="italic"
+        fontFamily='"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive'
+      >
+        {name}
+      </text>
     </svg>
   );
 }
@@ -215,7 +228,6 @@ export default function CharacterPage({
         </Link>
 
         <div className="mt-6 flex flex-wrap items-center gap-4">
-          <h1 className="text-4xl font-bold">{character.name}</h1>
           {character.canLevelUp && (
             <Link
               href={"/characters/" + character.id + "/levelup"}
@@ -264,7 +276,7 @@ export default function CharacterPage({
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Perfil</p>
               <h3 className="mt-1 text-lg font-semibold">Distribución de estadísticas</h3>
               <div className="mt-3">
-                <StatsRadar values={radarValues} />
+                <StatsRadar values={radarValues} name={character.name} />
               </div>
             </div>
           </section>

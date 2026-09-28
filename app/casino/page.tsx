@@ -16,11 +16,11 @@ const games = [
     available: true,
   },
   {
-    href: "#",
+    href: "/casino/dice",
     icon: "🎲",
     title: "Dados",
-    description: "Próximamente.",
-    available: false,
+    description: "Lanza un D20 y elige entre número exacto, alto/bajo, par/impar o rango.",
+    available: true,
   },
 ];
 

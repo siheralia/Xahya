@@ -28,8 +28,9 @@ export async function POST(request: Request) {
 
   const users = await db.orm.public.User.all();
   const currentUser = users.find((user) => user.clerkId === clerkId);
+  const role = String(currentUser?.role);
 
-  if (!currentUser || !["GM", "ADMIN"].includes(String(currentUser.role))) {
+  if (!currentUser || !["GM", "ADMIN"].includes(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -57,6 +58,13 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+  }
+
+  if (role === "GM" && statNames.some((stat) => (stats[stat] ?? 0) !== 0)) {
+    return NextResponse.json(
+      { error: "Los GM no pueden modificar las estadísticas base." },
+      { status: 403 },
+    );
   }
 
   const karma = body.karma ?? 0;
@@ -96,16 +104,20 @@ export async function POST(request: Request) {
       throw new Error("Datos del personaje incompletos");
     }
 
-    const updatedStats = await tx.orm.public.CharacterStat
-      .where({ id: currentStats.id })
-      .update(
-        Object.fromEntries(
-          statNames.map((stat) => [
-            stat,
-            Number(currentStats[stat]) + (stats[stat] ?? 0),
-          ]),
-        ) as Record<StatName, number>,
-      );
+    let updatedStats = currentStats;
+
+    if (role === "ADMIN") {
+      updatedStats = await tx.orm.public.CharacterStat
+        .where({ id: currentStats.id })
+        .update(
+          Object.fromEntries(
+            statNames.map((stat) => [
+              stat,
+              Number(currentStats[stat]) + (stats[stat] ?? 0),
+            ]),
+          ) as Record<StatName, number>,
+        );
+    }
 
     const updatedResources = await tx.orm.public.CharacterResource
       .where({ id: currentResources.id })

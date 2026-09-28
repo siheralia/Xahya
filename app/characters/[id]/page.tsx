@@ -400,12 +400,12 @@ export default function CharacterPage({
           <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>
         )}
 
-        {character.canLevelUp && character.stats && (
+        {character.stats && (
           <section className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold">Boost de Karma</h2>
-                <p className="mt-1 text-sm text-zinc-500">Gasta 20 de karma para obtener +20 temporalmente en una estadística.</p>
+                <p className="mt-1 text-sm text-zinc-500">Gasta 20 de karma para obtener +20 como modificador activo en una estadística.</p>
               </div>
               <span className="rounded-full border border-amber-400/20 px-3 py-1 text-sm text-amber-300">🪷 20</span>
             </div>

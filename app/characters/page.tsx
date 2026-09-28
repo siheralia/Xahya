@@ -7,6 +7,16 @@ type Character = {
   id: number;
   name: string;
   userId: number;
+  stats: {
+    strength: number;
+    agility: number;
+    constitution: number;
+    intelligence: number;
+    wisdom: number;
+    charisma: number;
+    spirit: number;
+    luck: number;
+  } | null;
 };
 
 export default function CharactersPage() {
@@ -68,6 +78,12 @@ export default function CharactersPage() {
                 <h2 className="text-xl font-semibold">{character.name}</h2>
                 <p className="mt-2 text-sm text-zinc-500">
                   Personaje #{character.id}
+                </p>
+                <p className="mt-3 text-sm font-semibold text-cyan-300">
+                  {character.stats
+                    ? Object.values(character.stats).reduce((sum, value) => sum + value, 0)
+                    : 0}{" "}
+                  puntos totales
                 </p>
               </Link>
             ))}

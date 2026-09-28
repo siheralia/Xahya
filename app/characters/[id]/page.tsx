@@ -173,6 +173,117 @@ export default function CharacterPage({
     }
   }
 
+  function exportProfileCard() {
+    if (!character?.stats) return;
+
+    const scale = Math.min(window.devicePixelRatio || 1, 2);
+    const width = 720;
+    const height = 760;
+    const canvas = document.createElement("canvas");
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.scale(scale, scale);
+
+    ctx.fillStyle = "#09090b";
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = "#27272a";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(1, 1, width - 2, height - 2, 22);
+    ctx.stroke();
+
+    ctx.fillStyle = "#52525b";
+    ctx.font = "600 12px Arial, sans-serif";
+    ctx.letterSpacing = "3px";
+    ctx.fillText("PERFIL", 28, 38);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "600 22px Arial, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText("Distribución de estadísticas", width - 28, 38);
+    ctx.textAlign = "center";
+
+    const centerX = width / 2;
+    const centerY = 365;
+    const radius = 245;
+    const maxValue = Math.max(20, ...Object.values(character.stats));
+
+    const point = (index: number, value: number) => {
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
+      const r = radius * value / maxValue;
+      return {
+        x: centerX + Math.cos(angle) * r,
+        y: centerY + Math.sin(angle) * r,
+      };
+    };
+
+    for (const gridScale of [0.25, 0.5, 0.75, 1]) {
+      ctx.beginPath();
+      radarStats.forEach((_, index) => {
+        const p = point(index, maxValue * gridScale);
+        if (index === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.closePath();
+      ctx.strokeStyle = "rgba(63,63,70,0.65)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    radarStats.forEach((stat, index) => {
+      const outer = point(index, maxValue);
+      const label = point(index, maxValue * 1.13);
+
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.lineTo(outer.x, outer.y);
+      ctx.strokeStyle = "rgba(63,63,70,0.65)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = "#a1a1aa";
+      ctx.font = "11px Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(stat.short, label.x, label.y);
+    });
+
+    ctx.beginPath();
+    radarStats.forEach((stat, index) => {
+      const value = character.stats?.[stat.key] ?? 0;
+      const p = point(index, value);
+      if (index === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = "rgba(34,211,238,0.16)";
+    ctx.fill();
+    ctx.strokeStyle = "rgb(34,211,238)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = '600 28px "Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive';
+    ctx.fillText(character.name, 28, height - 28);
+
+    ctx.textAlign = "right";
+    ctx.font = "600 20px Arial, sans-serif";
+    ctx.fillStyle = "#d4d4d8";
+    ctx.fillText("🪷 " + character.resources?.karma?.toLocaleString("en-US") ?? "🪷 0", width - 28, height - 30);
+
+    const link = document.createElement("a");
+    link.download = character.name.replace(/[^a-z0-9-_]+/gi, "_") + "-perfil.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }
+
   useEffect(() => {
     params
       .then(({ id }) => fetch(`/api/characters/${id}`))
@@ -238,6 +349,13 @@ export default function CharacterPage({
             className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
           >
             {copied ? "✓ Copiado" : "Copiar para WhatsApp"}
+          </button>
+          <button
+            type="button"
+            onClick={exportProfileCard}
+            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+          >
+            Exportar imagen
           </button>
         </div>
         {character.canSeeCharacterId && (

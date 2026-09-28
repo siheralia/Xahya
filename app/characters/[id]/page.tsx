@@ -327,10 +327,10 @@ export default function CharacterPage({
             ← Personajes
           </Link>
           <Link
-            href={"/casino/roulette?characterId=" + character.id}
+            href={"/casino?characterId=" + character.id}
             className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-400/10"
           >
-            🎰 Ir al casino
+            🎰 Casino
           </Link>
         </div>
 

@@ -322,9 +322,17 @@ export default function CharacterPage({
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-6xl px-6 py-12">
-        <Link href="/characters" className="text-sm text-zinc-500 hover:text-white">
-          ← Personajes
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link href="/characters" className="text-sm text-zinc-500 hover:text-white">
+            ← Personajes
+          </Link>
+          <Link
+            href={"/casino?characterId=" + character.id}
+            className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-400/10"
+          >
+            🎰 Ir al casino
+          </Link>
+        </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <h1 className="w-full text-4xl font-bold">{character.name}</h1>

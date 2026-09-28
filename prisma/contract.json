@@ -420,6 +420,13 @@
           },
           "User": {
             "fields": {
+              "clerkId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "createdAt": {
                 "nullable": false,
                 "type": {
@@ -428,13 +435,6 @@
                 }
               },
               "email": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "clerkId": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/text@1",
@@ -482,6 +482,9 @@
             },
             "storage": {
               "fields": {
+                "clerkId": {
+                  "column": "clerkId"
+                },
                 "createdAt": {
                   "column": "createdAt"
                 },
@@ -529,11 +532,6 @@
                     "kind": "function"
                   },
                   "nativeType": "int4",
-                  "nullable": false
-                },
-                "clerkId": {
-                  "codecId": "pg/text@1",
-                  "nativeType": "text",
                   "nullable": false
                 },
                 "name": {
@@ -839,6 +837,11 @@
             },
             "user": {
               "columns": {
+                "clerkId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "default": {
@@ -849,11 +852,6 @@
                   "nullable": false
                 },
                 "email": {
-                  "codecId": "pg/text@1",
-                  "nativeType": "text",
-                  "nullable": false
-                },
-                "clerkId": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": false
@@ -871,25 +869,30 @@
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": true
+                },
+                "role": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "PLAYER"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
                 }
               },
               "foreignKeys": [],
-              "indexes": [
-                {
-                  "columns": [
-                    "clerkId"
-                  ],
-                  "name": "user_clerkId_key",
-                  "prefix": "user_clerkId_key",
-                  "unique": true
-                }
-              ],
+              "indexes": [],
               "primaryKey": {
                 "columns": [
                   "id"
                 ]
               },
               "uniques": [
+                {
+                  "columns": [
+                    "clerkId"
+                  ]
+                },
                 {
                   "columns": [
                     "email"
@@ -903,7 +906,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "9ab53b6932469956e838f42c906b4d65d0bdf687dafa23cbe0d32d9793a1a666"
+    "storageHash": "ad663543e287e3cf3d5c61ac3bfaef9bad2f520f1b34088c4707f3b677539968"
   },
   "capabilities": {
     "postgres": {

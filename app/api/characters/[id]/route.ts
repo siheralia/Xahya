@@ -49,7 +49,12 @@ export async function GET(
     .where({ characterId })
     .first();
 
-  const modifiers = await db.orm.public.CharacterModifier.where({ characterId }).all();
+  const allModifiers = await db.orm.public.CharacterModifier.where({ characterId }).all();
+  const now = Date.now();
+  const modifiers = allModifiers.filter((modifier) => {
+    if (!modifier.expiresAt) return true;
+    return new Date(String(modifier.expiresAt)).getTime() > now;
+  });
 
   const effectiveStats = stats
     ? {

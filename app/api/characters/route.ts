@@ -20,21 +20,22 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const characters = await db.orm.public.Character.all();
+  const allCharacters = await db.orm.public.Character.all();
+  const visibleCharacters = ["GM", "ADMIN"].includes(String(user.role))
+    ? allCharacters
+    : allCharacters.filter((character) => Number(character.userId) === Number(user.id));
+
   const stats = await db.orm.public.CharacterStat.all();
 
-  const charactersWithStats = characters.map((character) => ({
-    ...character,
+  const charactersWithStats = visibleCharacters.map((character) => ({
+    id: character.id,
+    name: character.name,
+    userId: character.userId,
+    createdAt: character.createdAt,
     stats: stats.find((stat) => Number(stat.characterId) === Number(character.id)) ?? null,
   }));
 
-  if (["GM", "ADMIN"].includes(String(user.role))) {
-    return NextResponse.json(charactersWithStats);
-  }
-
-  return NextResponse.json(
-    charactersWithStats.filter((character) => Number(character.userId) === Number(user.id))
-  );
+  return NextResponse.json(charactersWithStats);
 }
 
 export async function POST(request: Request) {

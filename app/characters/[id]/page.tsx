@@ -62,6 +62,45 @@ export default function CharacterPage({
   const [character, setCharacter] = useState<Character | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  function buildWhatsAppText(character: Character) {
+    const lines = [
+      "*" + character.name + "*",
+      character.canSeeCharacterId ? "_Personaje #" + character.id + "_" : "",
+      "",
+      "*ESTADÍSTICAS BASE*",
+      character.stats
+        ? Object.entries(statLabels).map(([key, label]) =>
+            "• " + label + ": " + character.stats?.[key as keyof typeof character.stats]
+          ).join("\n")
+        : "",
+      "",
+      "*ESTADÍSTICAS DERIVADAS*",
+      character.derivedStats
+        ? Object.entries(character.derivedStats).map(([key, value]) =>
+            "• " + (derivedLabels[key] ?? key) + ": " + value
+          ).join("\n")
+        : "",
+      "",
+      "*RECURSOS*",
+      character.resources
+        ? "• Karma: " + character.resources.karma + "\n• Dinero: " + character.resources.money
+        : "",
+    ];
+    return lines.join("\n");
+  }
+
+  async function copyToClipboard() {
+    if (!character) return;
+    try {
+      await navigator.clipboard.writeText(buildWhatsAppText(character));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("No se pudo copiar la ficha al portapapeles.");
+    }
+  }
 
   useEffect(() => {
     params
@@ -104,7 +143,16 @@ export default function CharacterPage({
           ← Personajes
         </Link>
 
-        <h1 className="mt-6 text-4xl font-bold">{character.name}</h1>
+        <div className="mt-6 flex flex-wrap items-center gap-4">
+          <h1 className="text-4xl font-bold">{character.name}</h1>
+          <button
+            type="button"
+            onClick={copyToClipboard}
+            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+          >
+            {copied ? "✓ Copiado" : "Copiar para WhatsApp"}
+          </button>
+        </div>
         {character.canSeeCharacterId && (
           <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>
         )}

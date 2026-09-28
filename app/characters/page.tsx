@@ -44,12 +44,20 @@ export default function CharactersPage() {
       <div className="mx-auto max-w-6xl px-6 py-12">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-3xl font-bold">Personajes</h1>
-          <Link
-            href="/"
-            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-          >
-            ← Volver a Xahya
-          </Link>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link
+              href="/casino"
+              className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-400/10"
+            >
+              🎰 Casino
+            </Link>
+            <Link
+              href="/"
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              ← Volver a Xahya
+            </Link>
+          </div>
         </div>
 
         <p className="mt-2 text-zinc-400">

@@ -45,6 +45,13 @@
                   "kind": "scalar"
                 }
               },
+              "clerkId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "name": {
                 "nullable": false,
                 "type": {
@@ -434,6 +441,13 @@
                   "kind": "scalar"
                 }
               },
+              "clerkId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -512,6 +526,11 @@
                     "kind": "function"
                   },
                   "nativeType": "int4",
+                  "nullable": false
+                },
+                "clerkId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
                   "nullable": false
                 },
                 "name": {
@@ -831,6 +850,11 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "clerkId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
                 "id": {
                   "codecId": "pg/int4@1",
                   "default": {
@@ -853,6 +877,16 @@
                   "id"
                 ]
               },
+              "indexes": [
+                {
+                  "columns": [
+                    "clerkId"
+                  ],
+                  "name": "user_clerkId_key",
+                  "prefix": "user_clerkId_key",
+                  "unique": true
+                }
+              ],
               "uniques": [
                 {
                   "columns": [

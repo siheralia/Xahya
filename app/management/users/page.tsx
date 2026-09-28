@@ -18,6 +18,8 @@ export default function ManagementUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [savingRole, setSavingRole] = useState<number | null>(null);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     fetch("/api/management/users")
@@ -38,6 +40,34 @@ export default function ManagementUsersPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar usuarios."))
       .finally(() => setLoading(false));
   }, []);
+
+  async function changeRole(userId: number, role: "PLAYER" | "GM") {
+    setSavingRole(userId);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/management/users/" + userId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudo cambiar el rol.");
+      }
+
+      setUsers((current) =>
+        current.map((user) => user.id === userId ? { ...user, role: data.role } : user),
+      );
+      setMessage("Rol actualizado correctamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar el rol.");
+    } finally {
+      setSavingRole(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -64,6 +94,11 @@ export default function ManagementUsersPage() {
             {error}
           </div>
         )}
+        {message && (
+          <div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">
+            {message}
+          </div>
+        )}
 
         <div className="mt-8 space-y-4">
           {users.map((user) => (
@@ -73,9 +108,30 @@ export default function ManagementUsersPage() {
                   <h2 className="text-xl font-semibold">{user.name}</h2>
                   <p className="mt-1 text-sm text-zinc-500">{user.email}</p>
                 </div>
-                <span className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400">
-                  {user.role}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400">
+                    {user.role}
+                  </span>
+                  {user.role === "PLAYER" ? (
+                    <button
+                      type="button"
+                      onClick={() => changeRole(user.id, "GM")}
+                      disabled={savingRole === user.id}
+                      className="rounded-lg border border-cyan-900/70 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-950/40 disabled:opacity-40"
+                    >
+                      Dar GM
+                    </button>
+                  ) : user.role === "GM" ? (
+                    <button
+                      type="button"
+                      onClick={() => changeRole(user.id, "PLAYER")}
+                      disabled={savingRole === user.id}
+                      className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
+                    >
+                      Quitar GM
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               <div className="mt-5">

@@ -21,6 +21,7 @@ type Character = {
     money: number;
   } | null;
   derivedStats: Record<string, number> | null;
+  canSeeCharacterId: boolean;
 };
 
 const statLabels: Record<string, string> = {
@@ -104,7 +105,9 @@ export default function CharacterPage({
         </Link>
 
         <h1 className="mt-6 text-4xl font-bold">{character.name}</h1>
-        <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>
+        {character.canSeeCharacterId && (
+          <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>
+        )}
 
         {character.stats && (
           <section className="mt-10">

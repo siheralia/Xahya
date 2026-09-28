@@ -113,10 +113,10 @@ export default async function Home() {
                   ? "border-emerald-400/30 text-emerald-300"
                   : "border-red-400/30 text-red-300"
               }`}
-              title={databaseOnline ? "Supabase responde correctamente" : "Supabase no responde"}
+              title={databaseOnline ? "El sistema responde correctamente" : "El sistema no responde"}
             >
               <span className="mr-1.5">●</span>
-              Supabase {databaseOnline ? "Online" : "Offline"}
+              Sistema {databaseOnline ? "en línea" : "desconectado"}
             </span>
 
             <Link

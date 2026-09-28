@@ -42,6 +42,7 @@ model CharacterResource {
   karma        Int       @default(0)
   money        Int       @default(0)
   levelUpPoints Int       @default(0)
+  blackjackState String?
 
   @@unique([characterId])
 }

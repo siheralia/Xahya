@@ -37,6 +37,13 @@ export async function POST(request: Request) {
   const body = await request.json();
   const allCharacters = body.allCharacters === true;
 
+  if (allCharacters && role !== "ADMIN") {
+    return NextResponse.json(
+      { error: "Solo el ADMIN puede hacer entregas globales." },
+      { status: 403 },
+    );
+  }
+
   if (!allCharacters) {
     const characterId = Number(body.characterId);
 

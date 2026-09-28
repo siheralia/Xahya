@@ -19,7 +19,7 @@ type StatKey = (typeof stats)[number]["key"];
 
 const INITIAL_POINTS = 40;
 const MIN_STAT = 1;
-const MAX_STAT = INITIAL_POINTS;
+const MAX_STAT = INITIAL_POINTS + MIN_STAT;
 
 const suggestedNames = [
   "Ariana Lailas",

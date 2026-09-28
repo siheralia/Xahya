@@ -31,7 +31,15 @@ export default function CharactersPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-6xl px-6 py-12">
-        <div className="flex items-center justify-between gap-4">\n          <h1 className="text-3xl font-bold">Personajes</h1>\n          <Link\n            href="/"\n            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"\n          >\n            ← Volver a Xahya\n          </Link>\n        </div>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-3xl font-bold">Personajes</h1>
+          <Link
+            href="/"
+            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+          >
+            ← Volver a Xahya
+          </Link>
+        </div>
 
         <p className="mt-2 text-zinc-400">
           Personajes registrados en Xahya.

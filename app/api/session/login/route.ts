@@ -3,8 +3,6 @@ import { NextResponse } from "next/server";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 
-const RETURN_KARMA = 5;
-
 export async function POST() {
   const { userId: clerkId, sessionId } = await auth();
 
@@ -33,9 +31,28 @@ export async function POST() {
     }
 
     const previousLogin = user.lastLoginAt;
-    const characters = (await tx.orm.public.Character.all()).filter(
-      (character) => Number(character.userId) === Number(user.id),
-    );
+
+    const logs = await tx.orm.public.AuditLog.all();
+    const previousTime = previousLogin
+      ? new Date(String(previousLogin)).getTime()
+      : null;
+
+    const globalRewards = logs.filter((log) => {
+      if (String(log.action) !== "GLOBAL_REWARD") return false;
+
+      const createdAt = new Date(String(log.createdAt)).getTime();
+      if (!Number.isFinite(createdAt)) return false;
+      if (previousTime !== null && createdAt <= previousTime) return false;
+
+      if (!log.details) return false;
+
+      try {
+        const details = JSON.parse(String(log.details)) as Record<string, unknown>;
+        return details.allCharacters === true && Number(details.karma) === 5;
+      } catch {
+        return false;
+      }
+    });
 
     const updatedUser = await tx.orm.public.User.where({
       id: user.id,
@@ -45,71 +62,13 @@ export async function POST() {
       lastLoginSessionId: sessionId,
     });
 
-    if (!updatedUser) {
+    if (!updatedUser || globalRewards.length === 0) {
       return { show: false as const };
     }
-
-    if (!previousLogin || characters.length === 0) {
-      return { show: false as const };
-    }
-
-    const logs = await tx.orm.public.AuditLog.all();
-    const previousTime = new Date(String(previousLogin)).getTime();
-
-    const characterIds = new Set(characters.map((character) => Number(character.id)));
-    const activity = logs.filter((log) => {
-      const createdAt = new Date(String(log.createdAt)).getTime();
-      if (!Number.isFinite(createdAt) || createdAt <= previousTime) return false;
-
-      const characterId = log.characterId == null
-        ? log.entityType === "CHARACTER" && log.entityId != null
-          ? Number(log.entityId)
-          : null
-        : Number(log.characterId);
-
-      return characterId != null && characterIds.has(characterId);
-    });
-
-    if (activity.length === 0) {
-      return { show: false as const };
-    }
-
-    let updatedCharacters = 0;
-
-    for (const character of characters) {
-      const resources = await tx.orm.public.CharacterResource.where({
-        characterId: character.id,
-      }).first();
-
-      if (!resources) continue;
-
-      await tx.orm.public.CharacterResource.where({ id: resources.id }).update({
-        karma: Number(resources.karma) + RETURN_KARMA,
-      });
-
-      updatedCharacters += 1;
-    }
-
-    await tx.orm.public.AuditLog.create({
-      actorUserId: user.id,
-      action: "LOGIN_REWARD",
-      entityType: "SYSTEM",
-      entityId: null,
-      characterId: null,
-      targetUserId: user.id,
-      details: JSON.stringify({
-        reward: "RETURN_KARMA",
-        karma: RETURN_KARMA,
-        activityEvents: activity.length,
-        characterIds: [...characterIds],
-        previousLogin: String(previousLogin),
-      }),
-    });
 
     return {
-      show: updatedCharacters > 0,
-      activityEvents: activity.length,
-      updatedCharacters,
+      show: true as const,
+      rewards: globalRewards.length,
     };
   });
 

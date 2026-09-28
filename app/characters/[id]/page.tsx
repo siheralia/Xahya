@@ -22,6 +22,8 @@ type Character = {
     levelUpPoints: number;
   } | null;
   derivedStats: Record<string, number> | null;
+  effectiveStats: Record<string, number> | null;
+  modifiers: { id: number; stat: string; amount: number; source: string }[];
   canSeeCharacterId: boolean;
   canManageCharacter: boolean;
   canLevelUp: boolean;
@@ -127,10 +129,12 @@ export default function CharacterPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [boostStat, setBoostStat] = useState("strength");
+  const [boosting, setBoosting] = useState(false);
 
   const radarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
-        result[stat.key] = character.stats?.[stat.key] ?? 0;
+        result[stat.key] = character.effectiveStats?.[stat.key] ?? character.stats?.[stat.key] ?? 0;
         return result;
       }, {} as RadarValues)
     : null;
@@ -162,6 +166,31 @@ export default function CharacterPage({
     return lines.join("\n");
   }
 
+  async function applyKarmaBoost() {
+    if (!character || boosting) return;
+    if ((character.resources?.karma ?? 0) < 20) {
+      setError("Necesitas 20 de karma para realizar un boost.");
+      return;
+    }
+    setBoosting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/boost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stat: boostStat }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo aplicar el boost.");
+      const refreshed = await fetch("/api/characters/" + character.id);
+      if (!refreshed.ok) throw new Error("El boost se aplicó, pero no se pudo actualizar la ficha.");
+      setCharacter(await refreshed.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo aplicar el boost.");
+    } finally {
+      setBoosting(false);
+    }
+  }
   async function copyToClipboard() {
     if (!character) return;
     try {
@@ -371,6 +400,29 @@ export default function CharacterPage({
           <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>
         )}
 
+        {character.canLevelUp && character.stats && (
+          <section className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Boost de Karma</h2>
+                <p className="mt-1 text-sm text-zinc-500">Gasta 20 de karma para obtener +20 temporalmente en una estadística.</p>
+              </div>
+              <span className="rounded-full border border-amber-400/20 px-3 py-1 text-sm text-amber-300">🪷 20</span>
+            </div>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <select value={boostStat} onChange={(event) => setBoostStat(event.target.value)} disabled={boosting} className="h-12 min-w-0 flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-white outline-none focus:border-amber-400">
+                {Object.entries(statLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+              </select>
+              <button type="button" onClick={applyKarmaBoost} disabled={boosting || (character.resources?.karma ?? 0) < 20} className="rounded-xl bg-amber-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40">
+                {boosting ? "Aplicando..." : "Aplicar boost"}
+              </button>
+            </div>
+            {character.modifiers.length > 0 && (
+              <p className="mt-3 text-xs text-zinc-600">Boosts activos: {character.modifiers.filter((modifier) => modifier.source === "KARMA_BOOST").map((modifier) => `+${modifier.amount} ${statLabels[modifier.stat] ?? modifier.stat}`).join(" · ")}</p>
+            )}
+          </section>
+        )}
+
         {character.stats && radarValues && (
           <section className="mt-10 grid gap-6 lg:grid-cols-[1fr_0.85fr] lg:items-center">
             <div>
@@ -380,8 +432,11 @@ export default function CharacterPage({
                   <div key={key} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
                     <p className="text-sm text-zinc-500">{label}</p>
                     <p className="mt-1 text-2xl font-semibold">
-                      {character.stats?.[key as keyof typeof character.stats]}
+                      {character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats]}
                     </p>
+                    {character.effectiveStats && character.effectiveStats[key] !== character.stats?.[key as keyof typeof character.stats] && (
+                      <p className="mt-1 text-xs text-amber-300">Base: {character.stats?.[key as keyof typeof character.stats]}</p>
+                    )}
                   </div>
                 ))}
               </div>

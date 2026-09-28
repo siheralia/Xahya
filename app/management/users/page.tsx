@@ -21,6 +21,9 @@ export default function ManagementUsersPage() {
   const [error, setError] = useState("");
   const [savingRole, setSavingRole] = useState<number | null>(null);
   const [deletingUser, setDeletingUser] = useState<number | null>(null);
+  const [transferCharacter, setTransferCharacter] = useState<{ id: number; name: string; ownerId: number } | null>(null);
+  const [transferTargetId, setTransferTargetId] = useState("");
+  const [transferring, setTransferring] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -78,6 +81,74 @@ export default function ManagementUsersPage() {
       setError(err instanceof Error ? err.message : "No se pudo cambiar el rol.");
     } finally {
       setSavingRole(null);
+    }
+  }
+
+  function openTransfer(character: { id: number; name: string }, ownerId: number) {
+    setTransferCharacter({ ...character, ownerId });
+    setTransferTargetId("");
+    setError("");
+    setMessage("");
+  }
+
+  async function transferCharacterToUser() {
+    if (!transferCharacter || !transferTargetId) return;
+
+    setTransferring(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        "/api/management/characters/" + transferCharacter.id + "/transfer",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: Number(transferTargetId) }),
+        },
+      );
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudo transferir el personaje.");
+      }
+
+      const targetId = Number(transferTargetId);
+
+      setUsers((current) =>
+        current.map((user) => {
+          if (user.id === transferCharacter.ownerId) {
+            return {
+              ...user,
+              characters: user.characters.filter(
+                (character) => character.id !== transferCharacter.id,
+              ),
+            };
+          }
+
+          if (user.id === targetId) {
+            return {
+              ...user,
+              characters: [
+                ...user.characters,
+                { id: transferCharacter.id, name: transferCharacter.name },
+              ],
+            };
+          }
+
+          return user;
+        }),
+      );
+
+      setTransferCharacter(null);
+      setTransferTargetId("");
+      setMessage(
+        `“${transferCharacter.name}” fue transferido a ${data.userName}.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo transferir el personaje.");
+    } finally {
+      setTransferring(false);
     }
   }
 
@@ -213,12 +284,21 @@ export default function ManagementUsersPage() {
                         >
                           {character.name}
                         </Link>
-                        <Link
-                          href={"/management?characterId=" + character.id}
-                          className="shrink-0 text-sm text-zinc-500 hover:text-white"
-                        >
-                          Gestionar →
-                        </Link>
+                        <div className="flex shrink-0 items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => openTransfer(character, user.id)}
+                            className="text-sm text-cyan-400 hover:text-cyan-300"
+                          >
+                            Transferir
+                          </button>
+                          <Link
+                            href={"/management?characterId=" + character.id}
+                            className="text-sm text-zinc-500 hover:text-white"
+                          >
+                            Gestionar →
+                          </Link>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -230,6 +310,69 @@ export default function ManagementUsersPage() {
           ))}
         </div>
       </div>
+      {transferCharacter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+              Transferir personaje
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">
+              {transferCharacter.name}
+            </h2>
+            <p className="mt-4 text-sm text-zinc-500">
+              Selecciona el nuevo propietario. Esta acción solo cambia quién posee el personaje.
+            </p>
+
+            <label className="mt-6 block text-sm font-medium text-zinc-300">
+              Nuevo propietario
+              <select
+                value={transferTargetId}
+                onChange={(event) => setTransferTargetId(event.target.value)}
+                disabled={transferring}
+                className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-cyan-700"
+              >
+                <option value="">Selecciona un usuario...</option>
+                {users
+                  .filter(
+                    (user) =>
+                      user.role !== "SYSTEM" &&
+                      user.id !== transferCharacter.ownerId,
+                  )
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} — {user.role}
+                    </option>
+                  ))}
+              </select>
+            </label>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!transferring) {
+                    setTransferCharacter(null);
+                    setTransferTargetId("");
+                  }
+                }}
+                disabled={transferring}
+                className="rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-300 hover:bg-zinc-900 disabled:opacity-40"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={transferCharacterToUser}
+                disabled={!transferTargetId || transferring}
+                className="rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {transferring ? "Transfiriendo..." : "Transferir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }

@@ -32,6 +32,14 @@ export async function POST(request: Request) {
 
     await tx.orm.public.CharacterStat.create({
       characterId: character.id,
+      strength: body.stats?.strength ?? 0,
+      agility: body.stats?.agility ?? 0,
+      constitution: body.stats?.constitution ?? 0,
+      intelligence: body.stats?.intelligence ?? 0,
+      wisdom: body.stats?.wisdom ?? 0,
+      charisma: body.stats?.charisma ?? 0,
+      spirit: body.stats?.spirit ?? 0,
+      luck: body.stats?.luck ?? 0,
     });
 
     await tx.orm.public.CharacterResource.create({

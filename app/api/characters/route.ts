@@ -26,6 +26,7 @@ export async function GET() {
     : allCharacters.filter((character) => Number(character.userId) === Number(user.id));
 
   const stats = await db.orm.public.CharacterStat.all();
+  const resources = await db.orm.public.CharacterResource.all();
 
   const charactersWithStats = visibleCharacters.map((character) => ({
     id: character.id,
@@ -33,6 +34,8 @@ export async function GET() {
     userId: character.userId,
     createdAt: character.createdAt,
     stats: stats.find((stat) => Number(stat.characterId) === Number(character.id)) ?? null,
+    levelUpPoints:
+      resources.find((resource) => Number(resource.characterId) === Number(character.id))?.levelUpPoints ?? 0,
   }));
 
   return NextResponse.json(charactersWithStats);

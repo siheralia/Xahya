@@ -9,11 +9,11 @@ const games = [
     available: true,
   },
   {
-    href: "#",
+    href: "/casino/blackjack",
     icon: "🃏",
     title: "Blackjack",
-    description: "Próximamente.",
-    available: false,
+    description: "Llega a 21 sin pasarte. Pedir o plantarte; cada partida cuesta 1 karma.",
+    available: true,
   },
   {
     href: "#",

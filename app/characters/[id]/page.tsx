@@ -223,9 +223,12 @@ export default function CharacterPage({
       "",
       "*ESTADÍSTICAS BASE*",
       character.stats
-        ? Object.entries(statLabels).map(([key, label]) =>
-            "• " + label + ": " + character.stats?.[key as keyof typeof character.stats]
-          ).join("\n")
+        ? Object.entries(statLabels).map(([key, label]) => {
+            const base = character.stats?.[key as keyof typeof character.stats] ?? 0;
+            const effective = character.effectiveStats?.[key] ?? base;
+            const boost = effective - base;
+            return "• " + label + ": " + base + (boost > 0 ? " + " + boost + " = " + effective : "");
+          }).join("\n")
         : "",
       "",
       "*ESTADÍSTICAS DERIVADAS*",
@@ -317,7 +320,8 @@ export default function CharacterPage({
     const centerX = width / 2;
     const centerY = 365;
     const radius = 245;
-    const maxValue = Math.max(20, ...Object.values(character.stats));
+    const effectiveStats = character.effectiveStats ?? character.stats;
+    const maxValue = Math.max(20, ...Object.values(effectiveStats));
 
     const point = (index: number, value: number) => {
       const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
@@ -359,10 +363,12 @@ export default function CharacterPage({
       ctx.fillText(stat.short, label.x, label.y);
     });
 
+    const basePoints = radarStats.map((stat, index) => point(index, character.stats?.[stat.key] ?? 0));
+    const effectivePoints = radarStats.map((stat, index) => point(index, effectiveStats?.[stat.key] ?? 0));
+    const hasBoost = radarStats.some((stat) => (effectiveStats?.[stat.key] ?? 0) > (character.stats?.[stat.key] ?? 0));
+
     ctx.beginPath();
-    radarStats.forEach((stat, index) => {
-      const value = character.stats?.[stat.key] ?? 0;
-      const p = point(index, value);
+    basePoints.forEach((p, index) => {
       if (index === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     });
@@ -372,6 +378,34 @@ export default function CharacterPage({
     ctx.strokeStyle = "rgb(34,211,238)";
     ctx.lineWidth = 3;
     ctx.stroke();
+
+    if (hasBoost) {
+      ctx.beginPath();
+      effectivePoints.forEach((p, index) => {
+        if (index === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.closePath();
+      ctx.save();
+      ctx.fillStyle = "rgba(248,113,113,0.38)";
+      ctx.fill("evenodd");
+      ctx.restore();
+
+      radarStats.forEach((stat, index) => {
+        const base = character.stats?.[stat.key] ?? 0;
+        const effective = effectiveStats?.[stat.key] ?? base;
+        if (effective <= base) return;
+        const from = basePoints[index];
+        const to = effectivePoints[index];
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.strokeStyle = "rgb(248,113,113)";
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+        ctx.stroke();
+      });
+    }
 
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
@@ -384,6 +418,13 @@ export default function CharacterPage({
     ctx.fillStyle = "#d4d4d8";
     const karmaText = character.resources?.karma?.toLocaleString("en-US") ?? "0";
     ctx.fillText(`🪷 ${karmaText}`, width - 28, height - 30);
+
+    if (hasBoost) {
+      ctx.textAlign = "left";
+      ctx.font = "12px Arial, sans-serif";
+      ctx.fillStyle = "#a1a1aa";
+      ctx.fillText("Cian: base · Rojo: boost", 28, 58);
+    }
 
     const link = document.createElement("a");
     link.download = character.name.replace(/[^a-z0-9-_]+/gi, "_") + "-perfil.png";

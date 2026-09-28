@@ -44,6 +44,11 @@ export default function ManagementPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [globalOpen, setGlobalOpen] = useState(false);
+  const [globalKarma, setGlobalKarma] = useState(0);
+  const [globalMoney, setGlobalMoney] = useState(0);
+  const [globalLevelUpPoints, setGlobalLevelUpPoints] = useState(0);
+  const [globalSaving, setGlobalSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/management/characters")
@@ -221,6 +226,42 @@ export default function ManagementPage() {
     }
   }
 
+  async function applyGlobalResources() {
+    if (globalKarma === 0 && globalMoney === 0 && globalLevelUpPoints === 0) {
+      setError("Indica al menos un recurso para entregar.");
+      return;
+    }
+
+    setGlobalSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/grant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          allCharacters: true,
+          karma: globalKarma,
+          money: globalMoney,
+          levelUpPoints: globalLevelUpPoints,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo hacer la entrega global.");
+
+      setGlobalKarma(0);
+      setGlobalMoney(0);
+      setGlobalLevelUpPoints(0);
+      setGlobalOpen(false);
+      setSuccess("Entrega global aplicada a " + (data.updatedCharacters ?? 0) + " personajes.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo hacer la entrega global.");
+    } finally {
+      setGlobalSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-zinc-950 p-12 text-white">
@@ -269,6 +310,18 @@ export default function ManagementPage() {
             {success}
           </div>
         )}
+
+        <section className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-950/10 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold">Entrega global</h2>
+              <p className="mt-1 text-sm text-zinc-500">Entrega Karma, Dinero o Puntos de Level Up a todos los personajes de jugadores.</p>
+            </div>
+            <button type="button" onClick={() => setGlobalOpen(true)} className="rounded-lg bg-amber-400 px-5 py-3 font-semibold text-zinc-950 transition hover:bg-amber-300">
+              Dar a todos
+            </button>
+          </div>
+        </section>
 
         <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <label className="block text-sm font-medium text-zinc-300">
@@ -397,6 +450,23 @@ export default function ManagementPage() {
           )}
         </div>
 
+        {globalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
+              <h2 className="text-xl font-semibold">Dar recursos a todos</h2>
+              <p className="mt-2 text-sm text-zinc-500">Los valores se sumarán al saldo actual de cada personaje. No modifica estadísticas base.</p>
+              <div className="mt-5 grid gap-4">
+                <label className="block"><span className="text-sm text-zinc-400">Karma</span><input type="number" value={globalKarma} onChange={(e) => setGlobalKarma(Math.trunc(Number(e.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" /></label>
+                <label className="block"><span className="text-sm text-zinc-400">Dinero</span><input type="number" value={globalMoney} onChange={(e) => setGlobalMoney(Math.trunc(Number(e.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" /></label>
+                <label className="block"><span className="text-sm text-zinc-400">Puntos de Level Up</span><input type="number" value={globalLevelUpPoints} onChange={(e) => setGlobalLevelUpPoints(Math.trunc(Number(e.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" /></label>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => setGlobalOpen(false)} disabled={globalSaving} className="rounded-lg border border-zinc-700 px-4 py-2 text-zinc-300">Cancelar</button>
+                <button type="button" onClick={applyGlobalResources} disabled={globalSaving} className="rounded-lg bg-amber-400 px-4 py-2 font-semibold text-zinc-950 disabled:opacity-40">{globalSaving ? "Entregando..." : "Confirmar entrega"}</button>
+              </div>
+            </div>
+          </div>
+        )}
         {isAdmin && deleteOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
             <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">

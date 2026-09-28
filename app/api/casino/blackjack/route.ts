@@ -279,7 +279,7 @@ export async function POST(request: Request) {
       const dealerResult = dealerPlay(activeState);
       const outcome = resultFor(activeState.player, dealerResult.dealer);
       const payout = payoutFor(outcome, activeState.bet, false);
-      const finalMoney = money + payout - activeState.bet;
+      const finalMoney = money + payout;
 
       await tx.orm.public.CharacterResource.where({ id: resource.id }).update({
         money: finalMoney,

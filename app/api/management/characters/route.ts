@@ -17,11 +17,16 @@ export async function GET() {
   }
 
   const characters = await db.orm.public.Character.all();
+  const manageableCharacters = characters.filter((character) => {
+    if (String(currentUser.role) === "ADMIN") return true;
+    const owner = users.find((user) => user.id === character.userId);
+    return String(owner?.role) !== "SYSTEM";
+  });
 
   return NextResponse.json({
     isAdmin: String(currentUser.role) === "ADMIN",
     isGM: String(currentUser.role) === "GM",
-    characters: characters.map((character) => {
+    characters: manageableCharacters.map((character) => {
       const owner = users.find((user) => user.id === character.userId);
 
       return {

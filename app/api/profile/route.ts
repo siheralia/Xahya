@@ -48,10 +48,9 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  await db.orm.public.User.update({
-    where: { id: user.id },
-    data: { name },
-  });
+  await db.orm.public.User
+    .where({ id: user.id })
+    .update({ name });
 
   return NextResponse.json({ success: true, name });
 }

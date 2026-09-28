@@ -61,5 +61,6 @@ export async function GET(
     resources,
     derivedStats,
     canSeeCharacterId: user.role === "ADMIN",
+    canManageCharacter: ["GM", "ADMIN"].includes(String(user.role)),
   });
 }

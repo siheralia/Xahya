@@ -47,11 +47,14 @@ export async function POST(
       .where({ id: resources.id })
       .update({ karma: karma - 20 });
 
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
     const modifier = await tx.orm.public.CharacterModifier.create({
       characterId,
       stat,
       amount: 20,
       source: "KARMA_BOOST",
+      expiresAt,
     });
 
     return { updatedResources, modifier };

@@ -77,6 +77,21 @@ export async function POST(request: Request) {
         });
         updated += 1;
       }
+      await tx.orm.public.AuditLog.create({
+        actorUserId: currentUser.id,
+        action: "GLOBAL_REWARD",
+        entityType: "SYSTEM",
+        entityId: null,
+        characterId: null,
+        targetUserId: null,
+        details: JSON.stringify({
+          allCharacters: true,
+          karma,
+          money,
+          levelUpPoints,
+          updatedCharacters: updated,
+        }),
+      });
       return { updatedCharacters: updated };
     }
 
@@ -100,21 +115,23 @@ export async function POST(request: Request) {
     return { updatedCharacters: 1 };
   });
 
-  await recordAuditEvent({
-    actorUserId: currentUser.id,
-    action: allCharacters ? "GLOBAL_REWARD" : "RESOURCE_GRANT",
+  if (!allCharacters) {
+    await recordAuditEvent({
+      actorUserId: currentUser.id,
+      action: "RESOURCE_GRANT",
     entityType: allCharacters ? "SYSTEM" : "CHARACTER",
     entityId: targetCharacter?.id ?? null,
     characterId: targetCharacter?.id ?? null,
-    details: {
-      allCharacters,
-      karma,
-      money,
-      levelUpPoints,
-      stats: allCharacters ? undefined : stats,
-      updatedCharacters: result.updatedCharacters,
-    },
-  });
+      details: {
+        allCharacters: false,
+        karma,
+        money,
+        levelUpPoints,
+        stats,
+        updatedCharacters: result.updatedCharacters,
+      },
+    });
+  }
 
   return NextResponse.json(result);
 }

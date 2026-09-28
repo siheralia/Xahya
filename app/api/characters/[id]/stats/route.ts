@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -7,6 +8,27 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const characterId = Number(id);
+
+  const { userId: clerkId } = await auth();
+
+  if (!clerkId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const users = await db.orm.public.User.all();
+  const user = users.find((candidate) => candidate.clerkId === clerkId);
+
+  if (!user) {
+    return NextResponse.json({ error: "Xahya user not found" }, { status: 404 });
+  }
+
+  if (!["GM", "ADMIN"].includes(String(user.role))) {
+    return NextResponse.json(
+      { error: "Solo GM o ADMIN pueden modificar las estadísticas base" },
+      { status: 403 }
+    );
+  }
+
   const body = await request.json();
 
   const statNames = [

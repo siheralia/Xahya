@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const stats = [
   { key: "strength", label: "Fuerza", short: "STR" },
@@ -77,7 +78,10 @@ function Radar({ values }: { values: Record<StatKey, number> }) {
 }
 
 export default function CreateCharacterPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState("");
   const [values, setValues] = useState<Record<StatKey, number>>(
     Object.fromEntries(stats.map((stat) => [stat.key, MIN_STAT])) as Record<StatKey, number>,
   );
@@ -128,7 +132,33 @@ export default function CreateCharacterPage() {
     setValues(Object.fromEntries(stats.map((stat) => [stat.key, MIN_STAT])) as Record<StatKey, number>);
   }
 
-  const canCreate = name.trim().length > 0 && remaining === 0;
+  const canCreate = name.trim().length > 0 && remaining === 0 && !isCreating;
+
+  async function createCharacter() {
+    if (!canCreate) return;
+
+    setIsCreating(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/characters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), stats: values }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error ?? "No se pudo crear el personaje.");
+      }
+
+      const character = await response.json();
+      router.push(`/characters/${character.id}`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "No se pudo crear el personaje.");
+      setIsCreating(false);
+    }
+  }
 
   return (
     <main className="min-h-screen overflow-hidden bg-zinc-950 text-white">

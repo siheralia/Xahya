@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordAuditEvent } from "@/lib/audit";
 
 type Mode = "exact" | "highlow" | "evenodd" | "range";
 
@@ -180,11 +181,14 @@ export async function POST(request: Request) {
       karma: finalKarma,
     });
 
-  return NextResponse.json({
-    roll,
-    won,
-    payout,
-    money: finalMoney,
-    karma: finalKarma,
+  await recordAuditEvent({
+    actorUserId: currentUser.id,
+    action: "CASINO_DICE",
+    entityType: "CHARACTER",
+    entityId: characterId,
+    characterId,
+    details: { mode, target, bet, roll, won, payout, moneyAfter: finalMoney, karmaAfter: finalKarma },
   });
+
+  return NextResponse.json({ roll, won, payout, money: finalMoney, karma: finalKarma });
 }

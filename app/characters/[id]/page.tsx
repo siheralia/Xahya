@@ -268,12 +268,17 @@ export default function CharacterPage({
               <div className="mt-3">
                 <StatsRadar values={radarValues} name={character.name} />
               </div>
-              <p
-                className="absolute bottom-3 left-5 text-xl font-semibold italic text-white"
-                style={{ fontFamily: '"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive' }}
-              >
-                {character.name}
-              </p>
+              <div className="absolute bottom-3 left-5 right-5 flex items-center justify-between gap-4">
+                <p
+                  className="text-xl font-semibold italic text-white"
+                  style={{ fontFamily: '"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive' }}
+                >
+                  {character.name}
+                </p>
+                <p className="text-base font-semibold text-zinc-300">
+                  🪷 {character.resources?.karma?.toLocaleString("en-US") ?? 0}
+                </p>
+              </div>
             </div>
           </section>
         )}

@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordAuditEvent } from "@/lib/audit";
 
 const segments = [
   { label: "0", weight: 100, multiplier: -1 },
@@ -187,6 +188,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: "No se pudo completar el giro." }, { status: 500 });
   }
+
+  await recordAuditEvent({
+    actorUserId: user.id,
+    action: "CASINO_ROULETTE",
+    entityType: "CHARACTER",
+    entityId: characterId,
+    characterId,
+    details: { bet, result: result.label, payout: result.payout, moneyAfter: result.money, karmaAfter: result.karma },
+  });
 
   return NextResponse.json(result);
 }

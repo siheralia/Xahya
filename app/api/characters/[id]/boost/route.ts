@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { Temporal } from "@js-temporal/polyfill";
 
 const statNames = [
   "strength", "agility", "constitution", "intelligence",
@@ -47,7 +48,7 @@ export async function POST(
       .where({ id: resources.id })
       .update({ karma: karma - 20 });
 
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = Temporal.Instant.fromEpochMilliseconds(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const modifier = await tx.orm.public.CharacterModifier.create({
       characterId,

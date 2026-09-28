@@ -62,5 +62,6 @@ export async function GET(
     derivedStats,
     canSeeCharacterId: user.role === "ADMIN",
     canManageCharacter: ["GM", "ADMIN"].includes(String(user.role)),
+    canLevelUp: Number(character.userId) === Number(user.id) && Number(resources?.levelUpPoints ?? 0) > 0,
   });
 }

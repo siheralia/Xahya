@@ -454,6 +454,13 @@
                   "codecId": "pg/text@1",
                   "kind": "scalar"
                 }
+              },
+              "role": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
               }
             },
             "relations": {
@@ -486,6 +493,9 @@
                 },
                 "name": {
                   "column": "name"
+                },
+                "role": {
+                  "column": "role"
                 }
               },
               "namespaceId": "public",
@@ -879,16 +889,6 @@
                   "id"
                 ]
               },
-              "indexes": [
-                {
-                  "columns": [
-                    "clerkId"
-                  ],
-                  "name": "user_clerkId_key",
-                  "prefix": "user_clerkId_key",
-                  "unique": true
-                }
-              ],
               "uniques": [
                 {
                   "columns": [

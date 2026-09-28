@@ -16,6 +16,7 @@ type User = {
 
 export default function ManagementUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingRole, setSavingRole] = useState<number | null>(null);
@@ -35,7 +36,8 @@ export default function ManagementUsersPage() {
           );
         }
 
-        return data;
+        setCurrentUserId(data.currentUserId);
+        return data.users;
       })
       .then(setUsers)
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar usuarios."))
@@ -71,7 +73,7 @@ export default function ManagementUsersPage() {
   }
 
   async function deleteUser(user: User) {
-    if (user.role === "SYSTEM") return;
+    if (user.role === "SYSTEM" || user.id === currentUserId) return;
 
     const confirmed = window.confirm(
       `¿Eliminar a ${user.name}? Sus ${user.characters.length} personaje(s) pasarán al usuario Sistema y su cuenta de Clerk será eliminada.`,
@@ -171,7 +173,7 @@ export default function ManagementUsersPage() {
                       Quitar GM
                     </button>
                   ) : null}
-                  {user.role !== "SYSTEM" && (
+                  {user.role !== "SYSTEM" && user.id !== currentUserId && (
                     <button
                       type="button"
                       onClick={() => deleteUser(user)}

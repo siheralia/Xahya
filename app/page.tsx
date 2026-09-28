@@ -31,9 +31,12 @@ export default function Home() {
           </p>
 
           <div className="mt-10 flex gap-4">
-            <button className="rounded-lg bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200">
+            <Link
+              href="/characters/create"
+              className="rounded-lg bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200"
+            >
               Crear personaje
-            </button>
+            </Link>
 
             <Link
               href="/characters"

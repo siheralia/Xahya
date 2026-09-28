@@ -24,8 +24,8 @@ export async function GET(
   }
 
   const character = await db.orm.public.Character
-  .where({ id: characterId })
-  .first();
+    .where({ id: characterId })
+    .first();
 
   if (!character) {
     return NextResponse.json(
@@ -34,26 +34,33 @@ export async function GET(
     );
   }
 
+  const isManagementUser = ["GM", "ADMIN"].includes(String(user.role));
+  const isOwner = Number(character.userId) === Number(user.id);
+
+  if (!isOwner && !isManagementUser) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const stats = await db.orm.public.CharacterStat
-  .where({ characterId })
-  .first();
+    .where({ characterId })
+    .first();
 
   const resources = await db.orm.public.CharacterResource
-  .where({ characterId })
-  .first();
+    .where({ characterId })
+    .first();
 
- const derivedStats = stats
-  ? calculateDerivedStats({
-      strength: Number(stats.strength),
-      agility: Number(stats.agility),
-      constitution: Number(stats.constitution),
-      intelligence: Number(stats.intelligence),
-      wisdom: Number(stats.wisdom),
-      charisma: Number(stats.charisma),
-      spirit: Number(stats.spirit),
-      luck: Number(stats.luck),
-    })
-  : null;
+  const derivedStats = stats
+    ? calculateDerivedStats({
+        strength: Number(stats.strength),
+        agility: Number(stats.agility),
+        constitution: Number(stats.constitution),
+        intelligence: Number(stats.intelligence),
+        wisdom: Number(stats.wisdom),
+        charisma: Number(stats.charisma),
+        spirit: Number(stats.spirit),
+        luck: Number(stats.luck),
+      })
+    : null;
 
   return NextResponse.json({
     ...character,
@@ -61,7 +68,7 @@ export async function GET(
     resources,
     derivedStats,
     canSeeCharacterId: user.role === "ADMIN",
-    canManageCharacter: ["GM", "ADMIN"].includes(String(user.role)),
-    canLevelUp: Number(character.userId) === Number(user.id) && Number(resources?.levelUpPoints ?? 0) > 0,
+    canManageCharacter: isManagementUser,
+    canLevelUp: isOwner && Number(resources?.levelUpPoints ?? 0) > 0,
   });
 }

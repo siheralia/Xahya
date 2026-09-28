@@ -66,7 +66,7 @@ function Radar({ current, projected }: { current: Values; projected: Values }) {
           </text>
         </g>
       ))}
-      <polygon points={polygon(current)} fill="rgb(113 113 122)" fillOpacity="0.08" stroke="rgb(113 113 122)" strokeOpacity="0.65" strokeWidth="2" />
+      <polygon points={polygon(current)} fill="white" fillOpacity="0.10" stroke="white" strokeOpacity="0.85" strokeWidth="2" />
       <polygon points={polygon(projected)} fill="rgb(34 211 238)" fillOpacity="0.18" stroke="rgb(34 211 238)" strokeWidth="2" />
     </svg>
   );
@@ -235,7 +235,7 @@ export default function LevelUpPage({ params }: { params: Promise<{ id: string }
             </div>
 
             <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-zinc-500">
-              <span><span className="mr-2 inline-block h-2 w-2 rounded-full bg-zinc-500/70" />Actual</span>
+              <span><span className="mr-2 inline-block h-2 w-2 rounded-full bg-white" />Actual</span>
               <span><span className="mr-2 inline-block h-2 w-2 rounded-full bg-cyan-400" />Proyectado</span>
             </div>
 

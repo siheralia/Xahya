@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type Character = {
@@ -27,7 +28,9 @@ function emptyStats() {
 }
 
 export default function ManagementPage() {
+  const searchParams = useSearchParams();
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [characterId, setCharacterId] = useState("");
   const [stats, setStats] = useState<Record<string, number>>(emptyStats);
   const [karma, setKarma] = useState(0);
@@ -51,10 +54,20 @@ export default function ManagementPage() {
 
         return response.json();
       })
-      .then((data) => setCharacters(data))
+      .then((data) => {
+        setCharacters(data.characters ?? data);
+        setIsAdmin(Boolean(data.isAdmin));
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar personajes."))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const requestedCharacterId = searchParams.get("characterId");
+    if (requestedCharacterId && characters.some((character) => String(character.id) === requestedCharacterId)) {
+      setCharacterId(requestedCharacterId);
+    }
+  }, [searchParams, characters]);
 
   function updateStat(stat: string, value: string) {
     const parsed = Number(value);
@@ -119,9 +132,17 @@ export default function ManagementPage() {
         </Link>
 
         <h1 className="mt-6 text-4xl font-bold">Gestión de personajes</h1>
-        <p className="mt-2 text-zinc-500">
-          Otorga cambios permanentes a las estadísticas base y recursos.
-        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-zinc-500">Otorga cambios permanentes a las estadísticas base y recursos.</p>
+          {isAdmin && (
+            <Link
+              href="/management/users"
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Ver usuarios
+            </Link>
+          )}
+        </div>
 
         {error && (
           <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">
@@ -201,14 +222,16 @@ export default function ManagementPage() {
           </div>
         </section>
 
-        <button
+        <div className="mt-6">
+          <button
           type="button"
           onClick={applyChanges}
           disabled={saving || !characterId}
           className="mt-6 w-full rounded-lg bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {saving ? "Aplicando..." : "Aplicar cambios"}
-        </button>
+          </button>
+        </div>
       </div>
     </main>
   );

@@ -39,8 +39,9 @@ model CharacterResource {
   id          Int       @id @default(autoincrement())
   characterId Int
   character   Character @relation(fields:[characterId], references:[id])
-  karma       Int       @default(0)
-  money       Int       @default(0)
+  karma        Int       @default(0)
+  money        Int       @default(0)
+  levelUpPoints Int       @default(0)
 
   @@unique([characterId])
 }

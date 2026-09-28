@@ -38,15 +38,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userCharacters = (await db.orm.public.Character.all()).filter(
-    (character) => Number(character.userId) === Number(user.id)
-  );
-
-  if (userCharacters.length >= 3) {
-    return NextResponse.json(
-      { error: "Cada usuario puede tener un máximo de 3 personajes." },
-      { status: 400 }
+  if (String(user.role) === "PLAYER") {
+    const userCharacters = (await db.orm.public.Character.all()).filter(
+      (character) => Number(character.userId) === Number(user.id)
     );
+
+    if (userCharacters.length >= 3) {
+      return NextResponse.json(
+        { error: "Cada usuario puede tener un máximo de 3 personajes." },
+        { status: 400 }
+      );
+    }
   }
 
   const body = await request.json();

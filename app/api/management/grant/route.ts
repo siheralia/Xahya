@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const users = await db.orm.public.User.all();
   const currentUser = users.find((user) => user.clerkId === clerkId);
 
-  if (!currentUser || !["GM", "ADMIN"].includes(currentUser.role)) {
+  if (!currentUser || !["GM", "ADMIN"].includes(String(currentUser.role))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -245,6 +245,13 @@
                   "kind": "scalar"
                 }
               },
+              "levelUpPoints": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "money": {
                 "nullable": false,
                 "type": {
@@ -281,6 +288,9 @@
                 },
                 "karma": {
                   "column": "karma"
+                },
+                "levelUpPoints": {
+                  "column": "levelUpPoints"
                 },
                 "money": {
                   "column": "money"
@@ -672,6 +682,15 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "levelUpPoints": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
                 "money": {
                   "codecId": "pg/int4@1",
                   "default": {
@@ -906,7 +925,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "ad663543e287e3cf3d5c61ac3bfaef9bad2f520f1b34088c4707f3b677539968"
+    "storageHash": "29f1ff7b2aa4f255eba7b29a7426c9445a599c946191c4a4829a93d5bcdfc5c2"
   },
   "capabilities": {
     "postgres": {

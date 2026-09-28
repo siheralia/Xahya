@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'ad663543e287e3cf3d5c61ac3bfaef9bad2f520f1b34088c4707f3b677539968'>;
+  StorageHashBase<'29f1ff7b2aa4f255eba7b29a7426c9445a599c946191c4a4829a93d5bcdfc5c2'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
@@ -259,6 +259,7 @@ export type FieldOutputTypes = {
       readonly characterId: CodecTypes['pg/int4@1']['output'];
       readonly karma: CodecTypes['pg/int4@1']['output'];
       readonly money: CodecTypes['pg/int4@1']['output'];
+      readonly levelUpPoints: CodecTypes['pg/int4@1']['output'];
     };
     readonly CharacterStat: {
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -302,6 +303,7 @@ export type FieldInputTypes = {
       readonly characterId: CodecTypes['pg/int4@1']['input'];
       readonly karma: CodecTypes['pg/int4@1']['input'];
       readonly money: CodecTypes['pg/int4@1']['input'];
+      readonly levelUpPoints: CodecTypes['pg/int4@1']['input'];
     };
     readonly CharacterStat: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -344,6 +346,7 @@ export type StorageColumnTypes = {
       readonly characterId: CodecTypes['pg/int4@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly karma: CodecTypes['pg/int4@1']['output'];
+      readonly levelUpPoints: CodecTypes['pg/int4@1']['output'];
       readonly money: CodecTypes['pg/int4@1']['output'];
     };
     readonly characterStat: {
@@ -387,6 +390,7 @@ export type StorageColumnInputTypes = {
       readonly characterId: CodecTypes['pg/int4@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly karma: CodecTypes['pg/int4@1']['input'];
+      readonly levelUpPoints: CodecTypes['pg/int4@1']['input'];
       readonly money: CodecTypes['pg/int4@1']['input'];
     };
     readonly characterStat: {
@@ -453,6 +457,7 @@ export namespace Models {
     characterId: CodecTypes['pg/int4@1']['output'];
     karma: CodecTypes['pg/int4@1']['output'];
     money: CodecTypes['pg/int4@1']['output'];
+    levelUpPoints: CodecTypes['pg/int4@1']['output'];
     character: public_Character;
     readonly [RelationKeys]?: 'character';
   };
@@ -631,6 +636,15 @@ type ContractBase = Omit<
                   };
                 };
                 readonly money: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly levelUpPoints: {
                   readonly nativeType: 'int4';
                   readonly codecId: 'pg/int4@1';
                   readonly nullable: false;
@@ -991,6 +1005,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
+              readonly levelUpPoints: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
             };
             readonly relations: {
               readonly character: {
@@ -1014,6 +1032,7 @@ type ContractBase = Omit<
                 readonly characterId: { readonly column: 'characterId' };
                 readonly karma: { readonly column: 'karma' };
                 readonly money: { readonly column: 'money' };
+                readonly levelUpPoints: { readonly column: 'levelUpPoints' };
               };
             };
           };

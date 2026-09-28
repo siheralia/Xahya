@@ -6,6 +6,8 @@ model User {
   name       String?
   createdAt  DateTime    @default(now())
   characters Character[]
+  auditLogsAsActor AuditLog[] @relation("AuditActor")
+  auditLogsAsTarget AuditLog[] @relation("AuditTarget")
 }
 
 model Character {
@@ -17,6 +19,7 @@ model Character {
   resources CharacterResource?
   modifiers CharacterModifier[]
   createdAt DateTime            @default(now())
+  auditLogs AuditLog[]
 }
 
 model CharacterStat {
@@ -55,4 +58,25 @@ model CharacterModifier {
   amount      Int
   source      String
   expiresAt   DateTime?
+}
+
+model AuditLog {
+  id           BigInt   @id @default(autoincrement())
+  actorUserId  Int?
+  actorUser    User?    @relation("AuditActor", fields:[actorUserId], references:[id], onDelete:SetNull)
+  action       String
+  entityType   String
+  entityId     Int?
+  characterId  Int?
+  character    Character? @relation(fields:[characterId], references:[id], onDelete:SetNull)
+  targetUserId Int?
+  targetUser   User?    @relation("AuditTarget", fields:[targetUserId], references:[id], onDelete:SetNull)
+  details      String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([characterId])
 }

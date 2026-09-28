@@ -427,16 +427,18 @@ export default function CharacterPage({
           <section className="mt-10 grid gap-6 lg:grid-cols-[1fr_0.85fr] lg:items-center">
             <div>
               <h2 className="text-xl font-semibold">Estadísticas base</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
+              <div className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                 {Object.entries(statLabels).map(([key, label]) => (
-                  <div key={key} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-                    <p className="text-sm text-zinc-500">{label}</p>
-                    <p className="mt-1 text-2xl font-semibold">
-                      {character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats]}
-                    </p>
-                    {character.effectiveStats && character.effectiveStats[key] !== character.stats?.[key as keyof typeof character.stats] && (
-                      <p className="mt-1 text-xs text-amber-300">Base: {character.stats?.[key as keyof typeof character.stats]}</p>
-                    )}
+                  <div key={key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2">
+                    <p className="text-sm text-zinc-400">{label}</p>
+                    <div className="text-right">
+                      <span className="text-lg font-semibold text-white">
+                        {character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats]}
+                      </span>
+                      {character.effectiveStats && character.effectiveStats[key] !== character.stats?.[key as keyof typeof character.stats] && (
+                        <span className="ml-2 text-xs text-amber-300">({character.stats?.[key as keyof typeof character.stats]})</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -468,11 +470,11 @@ export default function CharacterPage({
         {character.derivedStats && (
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Estadísticas derivadas</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-4 grid gap-x-8 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
               {Object.entries(character.derivedStats).map(([key, value]) => (
-                <div key={key} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-                  <p className="text-sm text-zinc-500">{derivedLabels[key] ?? key}</p>
-                  <p className="mt-1 text-2xl font-semibold">{value}</p>
+                <div key={key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2">
+                  <p className="text-sm text-zinc-400">{derivedLabels[key] ?? key}</p>
+                  <p className="text-lg font-semibold">{value}</p>
                 </div>
               ))}
             </div>

@@ -36,8 +36,17 @@ export default function ManagementUsersPage() {
           );
         }
 
-        setCurrentUserId(data.currentUserId);
-        return data.users;
+        if (Array.isArray(data)) {
+          setCurrentUserId(null);
+          return data as User[];
+        }
+
+        if (!data || !Array.isArray(data.users)) {
+          throw new Error("La respuesta de usuarios no es válida.");
+        }
+
+        setCurrentUserId(typeof data.currentUserId === "number" ? data.currentUserId : null);
+        return data.users as User[];
       })
       .then(setUsers)
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar usuarios."))

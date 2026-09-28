@@ -95,19 +95,6 @@ function StatsRadar({ values, name }: { values: RadarValues; name: string }) {
         );
       })}
       <polygon points={polygon} fill="rgb(34 211 238)" fillOpacity="0.16" stroke="rgb(34 211 238)" strokeWidth="2" />
-      <text
-        x={42}
-        y={264}
-        textAnchor="start"
-        dominantBaseline="middle"
-        fill="white"
-        fontSize="20"
-        fontWeight="600"
-        fontStyle="italic"
-        fontFamily='"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive'
-      >
-        {name}
-      </text>
     </svg>
   );
 }
@@ -273,12 +260,20 @@ export default function CharacterPage({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Perfil</p>
-              <h3 className="mt-1 text-lg font-semibold">Distribución de estadísticas</h3>
+            <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 pb-12">
+              <div className="flex items-baseline justify-between gap-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Perfil</p>
+                <h3 className="text-lg font-semibold text-right">Distribución de estadísticas</h3>
+              </div>
               <div className="mt-3">
                 <StatsRadar values={radarValues} name={character.name} />
               </div>
+              <p
+                className="absolute bottom-3 left-5 text-xl font-semibold italic text-white"
+                style={{ fontFamily: '"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive' }}
+              >
+                {character.name}
+              </p>
             </div>
           </section>
         )}

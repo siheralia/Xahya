@@ -17,6 +17,7 @@ type Character = {
     spirit: number;
     luck: number;
   } | null;
+  levelUpPoints: number;
 };
 
 export default function CharactersPage() {
@@ -92,6 +93,12 @@ export default function CharactersPage() {
                     : 0}{" "}
                   puntos totales
                 </p>
+                {character.levelUpPoints > 0 && (
+                  <p className="mt-1 text-sm font-semibold text-amber-300">
+                    + {character.levelUpPoints}{" "}
+                    {character.levelUpPoints === 1 ? "punto" : "puntos"} por asignar
+                  </p>
+                )}
               </Link>
             ))}
           </div>

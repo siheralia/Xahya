@@ -54,50 +54,120 @@ const radarStats = [
 
 type RadarValues = Record<(typeof radarStats)[number]["key"], number>;
 
-function StatsRadar({ values, name }: { values: RadarValues; name: string }) {
+function StatsRadar({ baseValues, values }: { baseValues: RadarValues; values: RadarValues }) {
   const center = 150;
   const radius = 105;
   const maxValue = Math.max(20, ...Object.values(values));
 
-  const polygon = radarStats.map((stat, index) => {
-    const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
-    const r = radius * Math.max(0, values[stat.key]) / maxValue;
-    return (center + Math.cos(angle) * r).toFixed(1) + "," + (center + Math.sin(angle) * r).toFixed(1);
-  }).join(" ");
+  const getPoints = (source: RadarValues) =>
+    radarStats.map((stat, index) => {
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
+      const r = radius * Math.max(0, source[stat.key]) / maxValue;
+      return {
+        x: center + Math.cos(angle) * r,
+        y: center + Math.sin(angle) * r,
+      };
+    });
+
+  const basePoints = getPoints(baseValues);
+  const effectivePoints = getPoints(values);
+
+  const polygonPoints = (points: { x: number; y: number }[]) =>
+    points.map((point) => point.x.toFixed(1) + "," + point.y.toFixed(1)).join(" ");
+
+  const hasBoost = radarStats.some((stat) => values[stat.key] > baseValues[stat.key]);
+
+  const boostPath = hasBoost
+    ? polygonPoints(effectivePoints) +
+      " " +
+      polygonPoints([...basePoints].reverse())
+    : "";
 
   return (
-    <svg viewBox="0 0 300 300" className="mx-auto w-full max-w-[360px]" aria-label="Polígono de estadísticas base">
-      {[0.25, 0.5, 0.75, 1].map((scale) => (
+    <div>
+      <svg viewBox="0 0 300 300" className="mx-auto w-full max-w-[360px]" aria-label="Polígono de estadísticas base y boosts activos">
+        {[0.25, 0.5, 0.75, 1].map((scale) => (
+          <polygon
+            key={scale}
+            points={radarStats.map((_, index) => {
+              const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
+              const r = radius * scale;
+              return (center + Math.cos(angle) * r) + "," + (center + Math.sin(angle) * r);
+            }).join(" ")}
+            fill="none"
+            stroke="rgb(63 63 70)"
+            strokeOpacity={0.55}
+            strokeWidth="1"
+          />
+        ))}
+        {radarStats.map((stat, index) => {
+          const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
+          const x = center + Math.cos(angle) * 124;
+          const y = center + Math.sin(angle) * 124;
+          const x2 = center + Math.cos(angle) * radius;
+          const y2 = center + Math.sin(angle) * radius;
+          return (
+            <g key={stat.key}>
+              <line x1={center} y1={center} x2={x2} y2={y2} stroke="rgb(63 63 70)" strokeWidth="1" />
+              <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="rgb(161 161 170)" fontSize="11">
+                {stat.short}
+              </text>
+            </g>
+          );
+        })}
+
         <polygon
-          key={scale}
-          points={radarStats.map((_, index) => {
-            const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
-            const r = radius * scale;
-            return (center + Math.cos(angle) * r) + "," + (center + Math.sin(angle) * r);
-          }).join(" ")}
-          fill="none"
-          stroke="rgb(63 63 70)"
-          strokeOpacity={0.55}
-          strokeWidth="1"
+          points={polygonPoints(basePoints)}
+          fill="rgb(34 211 238)"
+          fillOpacity="0.16"
+          stroke="rgb(34 211 238)"
+          strokeWidth="2"
         />
-      ))}
-      {radarStats.map((stat, index) => {
-        const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
-        const x = center + Math.cos(angle) * 124;
-        const y = center + Math.sin(angle) * 124;
-        const x2 = center + Math.cos(angle) * radius;
-        const y2 = center + Math.sin(angle) * radius;
-        return (
-          <g key={stat.key}>
-            <line x1={center} y1={center} x2={x2} y2={y2} stroke="rgb(63 63 70)" strokeWidth="1" />
-            <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="rgb(161 161 170)" fontSize="11">
-              {stat.short}
-            </text>
-          </g>
-        );
-      })}
-      <polygon points={polygon} fill="rgb(34 211 238)" fillOpacity="0.16" stroke="rgb(34 211 238)" strokeWidth="2" />
-    </svg>
+
+        {hasBoost && (
+          <polygon
+            points={boostPath}
+            fill="rgb(248 113 113)"
+            fillOpacity="0.38"
+            fillRule="evenodd"
+            stroke="rgb(248 113 113)"
+            strokeOpacity="0.75"
+            strokeWidth="1.5"
+          />
+        )}
+
+        {hasBoost && radarStats.map((stat, index) => {
+          if (values[stat.key] <= baseValues[stat.key]) return null;
+          const base = basePoints[index];
+          const boosted = effectivePoints[index];
+          return (
+            <line
+              key={"boost-" + stat.key}
+              x1={base.x}
+              y1={base.y}
+              x2={boosted.x}
+              y2={boosted.y}
+              stroke="rgb(248 113 113)"
+              strokeWidth="4"
+              strokeLinecap="round"
+            />
+          );
+        })}
+      </svg>
+
+      {hasBoost && (
+        <div className="mt-2 flex items-center justify-center gap-4 text-xs text-zinc-500">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-cyan-400/70" />
+            Base
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+            Boost
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -135,6 +205,13 @@ export default function CharacterPage({
   const radarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
         result[stat.key] = character.effectiveStats?.[stat.key] ?? character.stats?.[stat.key] ?? 0;
+        return result;
+      }, {} as RadarValues)
+    : null;
+
+  const baseRadarValues = character?.stats
+    ? radarStats.reduce((result, stat) => {
+        result[stat.key] = character.stats?.[stat.key] ?? 0;
         return result;
       }, {} as RadarValues)
     : null;
@@ -450,7 +527,7 @@ export default function CharacterPage({
                 <h3 className="text-lg font-semibold text-right">Distribución de estadísticas</h3>
               </div>
               <div className="mt-3">
-                <StatsRadar values={radarValues} name={character.name} />
+                <StatsRadar baseValues={baseRadarValues!} values={radarValues} />
               </div>
               <div className="absolute bottom-3 left-5 right-5 flex items-center justify-between gap-4">
                 <p

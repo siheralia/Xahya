@@ -7,11 +7,17 @@ const sakuraPetals = Array.from({ length: 24 }, (_, index) => index);
 export default async function Home() {
   const { userId: clerkId } = await auth();
   let isManagementUser = false;
+  let databaseOnline = true;
 
-  if (clerkId) {
+  try {
     const users = await db.orm.public.User.all();
-    const user = users.find((candidate) => candidate.clerkId === clerkId);
-    isManagementUser = user ? ["GM", "ADMIN"].includes(String(user.role)) : false;
+
+    if (clerkId) {
+      const user = users.find((candidate) => candidate.clerkId === clerkId);
+      isManagementUser = user ? ["GM", "ADMIN"].includes(String(user.role)) : false;
+    }
+  } catch {
+    databaseOnline = false;
   }
 
   return (
@@ -76,44 +82,17 @@ export default async function Home() {
         .sakura-petal:nth-child(24) { left: 90%; animation-duration: 15s; animation-delay: -14s; transform: scale(.55) rotate(40deg); }
 
         @keyframes sakura-fall {
-          0% {
-            top: -12%;
-            opacity: 0;
-            margin-left: 0;
-          }
-          8% {
-            opacity: .8;
-          }
-          30% {
-            margin-left: 35px;
-            transform: rotate(120deg);
-          }
-          55% {
-            margin-left: -30px;
-            transform: rotate(240deg);
-          }
-          80% {
-            margin-left: 25px;
-            transform: rotate(330deg);
-          }
-          100% {
-            top: 112%;
-            margin-left: -15px;
-            opacity: 0;
-            transform: rotate(450deg);
-          }
+          0% { top: -12%; opacity: 0; margin-left: 0; }
+          8% { opacity: .8; }
+          30% { margin-left: 35px; transform: rotate(120deg); }
+          55% { margin-left: -30px; transform: rotate(240deg); }
+          80% { margin-left: 25px; transform: rotate(330deg); }
+          100% { top: 112%; margin-left: -15px; opacity: 0; transform: rotate(450deg); }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .sakura-petal {
-            animation: none;
-            opacity: .35;
-            top: 18%;
-          }
-
-          .sakura-petal:nth-child(n+13) {
-            display: none;
-          }
+          .sakura-petal { animation: none; opacity: .35; top: 18%; }
+          .sakura-petal:nth-child(n+13) { display: none; }
         }
       `}</style>
 
@@ -128,6 +107,18 @@ export default async function Home() {
           <h1 className="text-2xl font-bold tracking-tight">Xahya</h1>
 
           <div className="flex items-center gap-3">
+            <span
+              className={`rounded-full border px-3 py-1 text-sm ${
+                databaseOnline
+                  ? "border-emerald-400/30 text-emerald-300"
+                  : "border-red-400/30 text-red-300"
+              }`}
+              title={databaseOnline ? "Supabase responde correctamente" : "Supabase no responde"}
+            >
+              <span className="mr-1.5">●</span>
+              Supabase {databaseOnline ? "Online" : "Offline"}
+            </span>
+
             <Link
               href="/profile"
               className="rounded-full border border-zinc-800 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-900 hover:text-white"

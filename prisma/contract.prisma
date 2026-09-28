@@ -54,4 +54,5 @@ model CharacterModifier {
   stat        String
   amount      Int
   source      String
+  expiresAt   DateTime?
 }

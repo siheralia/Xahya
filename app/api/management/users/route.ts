@@ -18,8 +18,9 @@ export async function GET() {
 
   const characters = await db.orm.public.Character.all();
 
-  return NextResponse.json(
-    users.map((user) => ({
+  return NextResponse.json({
+    currentUserId: currentUser.id,
+    users: users.map((user) => ({
       id: user.id,
       name: user.name ?? "Sin nombre",
       email: user.email,
@@ -31,5 +32,5 @@ export async function GET() {
           name: character.name,
         })),
     })),
-  );
+  });
 }

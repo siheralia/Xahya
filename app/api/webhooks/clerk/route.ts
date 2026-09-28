@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     return new Response("User created", { status: 201 });
   } catch (error) {
-    console.error("Clerk webhook error:", error);
+    console.error("CLERK WEBHOOK ERROR:", error);
     return new Response("Webhook processing failed", { status: 500 });
   }
 }

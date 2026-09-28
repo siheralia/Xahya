@@ -36,6 +36,7 @@ export default function ManagementPage() {
   const [stats, setStats] = useState<Record<string, number>>(emptyStats);
   const [karma, setKarma] = useState(0);
   const [money, setMoney] = useState(0);
+  const [levelUpPoints, setLevelUpPoints] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -118,6 +119,7 @@ export default function ManagementPage() {
       setStats(emptyStats());
       setKarma(0);
       setMoney(0);
+      setLevelUpPoints(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo borrar el personaje.");
     } finally {
@@ -144,6 +146,7 @@ export default function ManagementPage() {
           stats,
           karma,
           money,
+          levelUpPoints,
         }),
       });
 
@@ -156,6 +159,7 @@ export default function ManagementPage() {
       setStats(emptyStats());
       setKarma(0);
       setMoney(0);
+      setLevelUpPoints(0);
       setSuccess("Cambios aplicados correctamente.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron aplicar los cambios.");
@@ -264,6 +268,16 @@ export default function ManagementPage() {
                 type="number"
                 value={money}
                 onChange={(event) => setMoney(Math.trunc(Number(event.target.value) || 0))}
+                className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm text-zinc-400">Puntos de Level Up</span>
+              <input
+                type="number"
+                value={levelUpPoints}
+                onChange={(event) => setLevelUpPoints(Math.trunc(Number(event.target.value) || 0))}
                 className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
               />
             </label>

@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordAuditEvent } from "@/lib/audit";
 
 type Card = { rank: string; suit: string; value: number };
 type GameState = {
@@ -299,6 +300,23 @@ export async function POST(request: Request) {
         karma,
         active: false,
       };
+    });
+
+    await recordAuditEvent({
+      actorUserId: user.id,
+      action: "CASINO_BLACKJACK",
+      entityType: "CHARACTER",
+      entityId: characterId,
+      characterId,
+      details: {
+        action,
+        bet: action === "start" ? bet : undefined,
+        outcome: result.outcome,
+        payout: result.payout,
+        moneyAfter: result.money,
+        karmaAfter: result.karma,
+        active: result.active,
+      },
     });
 
     return NextResponse.json(result);

@@ -241,8 +241,8 @@ export default function CreateCharacterPage() {
               Las estadísticas derivadas se mostrarán después de crear el personaje.
             </p>
 
-            <button type="button" disabled={!canCreate} className="mt-6 w-full rounded-xl bg-cyan-400 px-5 py-3.5 font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-30">
-              Crear personaje
+            <button type="button" onClick={createCharacter} disabled={!canCreate} className="mt-6 w-full rounded-xl bg-cyan-400 px-5 py-3.5 font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-30">
+              {isCreating ? "Creando..." : "Crear personaje"}
             </button>
 
             {!name.trim() && <p className="mt-3 text-center text-xs text-zinc-600">Escribe un nombre para continuar.</p>}

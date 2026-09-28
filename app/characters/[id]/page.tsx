@@ -38,6 +38,67 @@ const statLabels: Record<string, string> = {
   luck: "Suerte",
 };
 
+
+const radarStats = [
+  { key: "strength", short: "STR" },
+  { key: "agility", short: "AGI" },
+  { key: "constitution", short: "CON" },
+  { key: "intelligence", short: "INT" },
+  { key: "wisdom", short: "WIS" },
+  { key: "charisma", short: "CHA" },
+  { key: "spirit", short: "SPI" },
+  { key: "luck", short: "LCK" },
+] as const;
+
+type RadarValues = Record<(typeof radarStats)[number]["key"], number>;
+
+function StatsRadar({ values }: { values: RadarValues }) {
+  const center = 150;
+  const radius = 105;
+  const maxValue = Math.max(20, ...Object.values(values));
+
+  const polygon = radarStats.map((stat, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
+    const r = radius * Math.max(0, values[stat.key]) / maxValue;
+    return (center + Math.cos(angle) * r).toFixed(1) + "," + (center + Math.sin(angle) * r).toFixed(1);
+  }).join(" ");
+
+  return (
+    <svg viewBox="0 0 300 300" className="mx-auto w-full max-w-[360px]" aria-label="Polígono de estadísticas base">
+      {[0.25, 0.5, 0.75, 1].map((scale) => (
+        <polygon
+          key={scale}
+          points={radarStats.map((_, index) => {
+            const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
+            const r = radius * scale;
+            return (center + Math.cos(angle) * r) + "," + (center + Math.sin(angle) * r);
+          }).join(" ")}
+          fill="none"
+          stroke="rgb(63 63 70)"
+          strokeOpacity={0.55}
+          strokeWidth="1"
+        />
+      ))}
+      {radarStats.map((stat, index) => {
+        const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
+        const x = center + Math.cos(angle) * 124;
+        const y = center + Math.sin(angle) * 124;
+        const x2 = center + Math.cos(angle) * radius;
+        const y2 = center + Math.sin(angle) * radius;
+        return (
+          <g key={stat.key}>
+            <line x1={center} y1={center} x2={x2} y2={y2} stroke="rgb(63 63 70)" strokeWidth="1" />
+            <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="rgb(161 161 170)" fontSize="11">
+              {stat.short}
+            </text>
+          </g>
+        );
+      })}
+      <polygon points={polygon} fill="rgb(34 211 238)" fillOpacity="0.16" stroke="rgb(34 211 238)" strokeWidth="2" />
+    </svg>
+  );
+}
+
 const derivedLabels: Record<string, string> = {
   maxHp: "HP Máx.",
   maxMana: "Mana Máx.",
@@ -66,6 +127,13 @@ export default function CharacterPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+
+  const radarValues = character?.stats
+    ? radarStats.reduce((result, stat) => {
+        result[stat.key] = character.stats?.[stat.key] ?? 0;
+        return result;
+      }, {} as RadarValues)
+    : null;
 
   function buildWhatsAppText(character: Character) {
     const lines = [
@@ -176,18 +244,28 @@ export default function CharacterPage({
           <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>
         )}
 
-        {character.stats && (
-          <section className="mt-10">
-            <h2 className="text-xl font-semibold">Estadísticas base</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {Object.entries(statLabels).map(([key, label]) => (
-                <div key={key} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-                  <p className="text-sm text-zinc-500">{label}</p>
-                  <p className="mt-1 text-2xl font-semibold">
-                    {character.stats?.[key as keyof typeof character.stats]}
-                  </p>
-                </div>
-              ))}
+        {character.stats && radarValues && (
+          <section className="mt-10 grid gap-6 lg:grid-cols-[1fr_0.85fr] lg:items-center">
+            <div>
+              <h2 className="text-xl font-semibold">Estadísticas base</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
+                {Object.entries(statLabels).map(([key, label]) => (
+                  <div key={key} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+                    <p className="text-sm text-zinc-500">{label}</p>
+                    <p className="mt-1 text-2xl font-semibold">
+                      {character.stats?.[key as keyof typeof character.stats]}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Perfil</p>
+              <h3 className="mt-1 text-lg font-semibold">Distribución de estadísticas</h3>
+              <div className="mt-3">
+                <StatsRadar values={radarValues} />
+              </div>
             </div>
           </section>
         )}

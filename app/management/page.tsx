@@ -227,7 +227,7 @@ export default function ManagementPage() {
   }
 
   async function applyGlobalResources() {
-    if (globalKarma === 0 && globalMoney === 0 && globalLevelUpPoints === 0) {
+    if (!globalKarma && !globalMoney && !globalLevelUpPoints) {
       setError("Indica al menos un recurso para entregar.");
       return;
     }
@@ -291,10 +291,10 @@ export default function ManagementPage() {
             {isAdmin && (
               <Link
                 href="/management/users"
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-            >
-              Ver usuarios
-            </Link>
+                className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+              >
+                Ver usuarios
+              </Link>
             )}
           </div>
         </div>
@@ -311,17 +311,19 @@ export default function ManagementPage() {
           </div>
         )}
 
-        <section className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-950/10 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-semibold">Entrega global</h2>
-              <p className="mt-1 text-sm text-zinc-500">Entrega Karma, Dinero o Puntos de Level Up a todos los personajes de jugadores.</p>
+        {isAdmin && (
+          <section className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-950/10 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Entrega global</h2>
+                <p className="mt-1 text-sm text-zinc-500">Entrega Karma, Dinero o Puntos de Level Up a todos los personajes de jugadores.</p>
+              </div>
+              <button type="button" onClick={() => setGlobalOpen(true)} className="rounded-lg bg-amber-400 px-5 py-3 font-semibold text-zinc-950 transition hover:bg-amber-300">
+                Dar a todos
+              </button>
             </div>
-            <button type="button" onClick={() => setGlobalOpen(true)} className="rounded-lg bg-amber-400 px-5 py-3 font-semibold text-zinc-950 transition hover:bg-amber-300">
-              Dar a todos
-            </button>
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <label className="block text-sm font-medium text-zinc-300">
@@ -431,11 +433,11 @@ export default function ManagementPage() {
         <div className="mt-6">
           <button
             type="button"
-          onClick={applyChanges}
-          disabled={saving || !characterId}
-          className="mt-6 w-full rounded-lg bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {saving ? "Aplicando..." : "Aplicar cambios"}
+            onClick={applyChanges}
+            disabled={saving || !characterId}
+            className="mt-6 w-full rounded-lg bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {saving ? "Aplicando..." : "Aplicar cambios"}
           </button>
 
           {isAdmin && characterId && (
@@ -450,7 +452,7 @@ export default function ManagementPage() {
           )}
         </div>
 
-        {globalOpen && (
+        {globalOpen && isAdmin && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
             <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
               <h2 className="text-xl font-semibold">Dar recursos a todos</h2>

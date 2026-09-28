@@ -19,6 +19,32 @@ const segments = [
 
 const totalWeight = segments.reduce((sum, segment) => sum + segment.weight, 0);
 
+function getLuckAdjustedWeights(luck: number) {
+  const safeLuck = Number.isFinite(luck) ? Math.max(0, luck) : 0;
+
+  return segments.map((segment) => {
+    let weight = segment.weight;
+
+    if (safeLuck < 10) {
+      const penalty = Math.min(0.2, (10 - safeLuck) * 0.02);
+      if (segment.multiplier === -1) {
+        weight *= 1 + penalty;
+      } else if (segment.multiplier > 0) {
+        weight *= 1 - penalty;
+      }
+    } else if (safeLuck > 20) {
+      const bonus = Math.min(0.08, (safeLuck - 20) * 0.008);
+      if (segment.multiplier > 0) {
+        weight *= 1 + bonus;
+      } else if (segment.multiplier === -1) {
+        weight *= 1 - bonus;
+      }
+    }
+
+    return Math.max(0, weight);
+  });
+}
+
 async function getCurrentUser() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
@@ -100,6 +126,14 @@ export async function POST(request: Request) {
     const money = Number(resource.money);
     const karma = Number(resource.karma);
 
+    const stats = await tx.orm.public.CharacterStat
+      .where({ characterId })
+      .first();
+
+    const luck = Number(stats?.luck ?? 0);
+    const adjustedWeights = getLuckAdjustedWeights(luck);
+    const adjustedTotalWeight = adjustedWeights.reduce((sum, weight) => sum + weight, 0);
+
     if (karma < 1) {
       throw new Error("Necesitas al menos 1 karma para girar.");
     }
@@ -108,15 +142,15 @@ export async function POST(request: Request) {
       throw new Error("La apuesta no puede superar el dinero disponible.");
     }
 
-    let roll = Math.random() * totalWeight;
+    let roll = Math.random() * adjustedTotalWeight;
     let segmentIndex = segments.length - 1;
 
     for (let index = 0; index < segments.length; index += 1) {
-      if (roll < segments[index].weight) {
+      if (roll < adjustedWeights[index]) {
         segmentIndex = index;
         break;
       }
-      roll -= segments[index].weight;
+      roll -= adjustedWeights[index];
     }
 
     const segment = segments[segmentIndex];

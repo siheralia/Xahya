@@ -37,13 +37,17 @@ export async function POST() {
       (character) => Number(character.userId) === Number(user.id),
     );
 
-    await tx.orm.public.User.where({
+    const updatedUser = await tx.orm.public.User.where({
       id: user.id,
       lastLoginSessionId: user.lastLoginSessionId,
     }).update({
       lastLoginAt: now,
       lastLoginSessionId: sessionId,
     });
+
+    if (!updatedUser) {
+      return { show: false as const };
+    }
 
     if (!previousLogin || characters.length === 0) {
       return { show: false as const };

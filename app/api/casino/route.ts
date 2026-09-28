@@ -3,13 +3,13 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 const segments = [
-  { label: "0", weight: 100, multiplier: 0 },
+  { label: "0", weight: 100, multiplier: -1 },
   { label: "+10%", weight: 80, multiplier: 0.1 },
-  { label: "0", weight: 100, multiplier: 0 },
+  { label: "0", weight: 100, multiplier: -1 },
   { label: "+50%", weight: 60, multiplier: 0.5 },
-  { label: "0", weight: 100, multiplier: 0 },
+  { label: "0", weight: 100, multiplier: -1 },
   { label: "+100%", weight: 40, multiplier: 1 },
-  { label: "0", weight: 20, multiplier: 0 },
+  { label: "0", weight: 20, multiplier: -1 },
   { label: "+150%", weight: 30, multiplier: 1.5 },
   { label: "+200%", weight: 20, multiplier: 2 },
   { label: "+500%", weight: 10, multiplier: 5 },

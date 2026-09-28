@@ -8,7 +8,6 @@ type Character = {
   name: string;
   money: number;
   karma: number;
-  luck: number;
 };
 
 type Mode = "exact" | "highlow" | "evenodd" | "range";
@@ -196,10 +195,6 @@ export default function DicePage() {
                     <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
                       <p className="text-xs text-zinc-500">Karma</p>
                       <p className="mt-1 font-bold text-amber-300">🪷 {selected.karma}</p>
-                    </div>
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
-                      <p className="text-xs text-zinc-500">LCK</p>
-                      <p className="mt-1 font-bold text-cyan-300">{selected.luck}</p>
                     </div>
                   </div>
                 )}

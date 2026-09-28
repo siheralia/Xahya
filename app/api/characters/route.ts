@@ -83,6 +83,8 @@ export async function POST(request: Request) {
 
     await tx.orm.public.CharacterResource.create({
       characterId: character.id,
+      karma: 1,
+      money: 1000,
     });
 
     return character;

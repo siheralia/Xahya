@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -8,12 +9,25 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const { userId: clerkId } = await auth();
+
+  if (!clerkId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const users = await db.orm.public.User.all();
+  const user = users.find((candidate) => candidate.clerkId === clerkId);
+
+  if (!user) {
+    return NextResponse.json({ error: "Xahya user not found" }, { status: 404 });
+  }
+
   const body = await request.json();
 
   const character = await db.transaction(async (tx) => {
     const character = await tx.orm.public.Character.create({
       name: body.name,
-      userId: body.userId,
+      userId: user.id,
     });
 
     await tx.orm.public.CharacterStat.create({

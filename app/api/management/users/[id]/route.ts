@@ -46,10 +46,9 @@ export async function PATCH(
     );
   }
 
-  await db.orm.public.User.update({
-    where: { id: targetUser.id },
-    data: { role },
-  });
+  await db.orm.public.User
+    .where({ id: targetUser.id })
+    .update({ role });
 
   return NextResponse.json({ success: true, role });
 }

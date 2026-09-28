@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma skills sync || exit 0"
+    "postinstall": "prisma skills sync || exit 0",
+    "prebuild": "prisma contract emit"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.7",

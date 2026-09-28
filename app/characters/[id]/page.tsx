@@ -96,9 +96,9 @@ function StatsRadar({ values, name }: { values: RadarValues; name: string }) {
       })}
       <polygon points={polygon} fill="rgb(34 211 238)" fillOpacity="0.16" stroke="rgb(34 211 238)" strokeWidth="2" />
       <text
-        x={center}
-        y={170}
-        textAnchor="middle"
+        x={42}
+        y={264}
+        textAnchor="start"
         dominantBaseline="middle"
         fill="white"
         fontSize="20"
@@ -228,6 +228,7 @@ export default function CharacterPage({
         </Link>
 
         <div className="mt-6 flex flex-wrap items-center gap-4">
+          <h1 className="w-full text-4xl font-bold">{character.name}</h1>
           {character.canLevelUp && (
             <Link
               href={"/characters/" + character.id + "/levelup"}

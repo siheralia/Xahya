@@ -23,7 +23,7 @@ type Character = {
   } | null;
   derivedStats: Record<string, number> | null;
   effectiveStats: Record<string, number> | null;
-  modifiers: { id: number; stat: string; amount: number; source: string }[];
+  modifiers: { id: number; stat: string; amount: number; source: string; expiresAt?: string | null }[];
   canSeeCharacterId: boolean;
   canManageCharacter: boolean;
   canLevelUp: boolean;
@@ -418,7 +418,7 @@ export default function CharacterPage({
               </button>
             </div>
             {character.modifiers.length > 0 && (
-              <p className="mt-3 text-xs text-zinc-600">Boosts activos: {character.modifiers.filter((modifier) => modifier.source === "KARMA_BOOST").map((modifier) => `+${modifier.amount} ${statLabels[modifier.stat] ?? modifier.stat}`).join(" · ")}</p>
+              <p className="mt-3 text-xs text-zinc-600">Boosts activos: {character.modifiers.filter((modifier) => modifier.source === "KARMA_BOOST").map((modifier) => `+${modifier.amount} ${statLabels[modifier.stat] ?? modifier.stat} · hasta ${new Date(String(modifier.expiresAt)).toLocaleDateString("es-MX")}`).join(" · ")}</p>
             )}
           </section>
         )}

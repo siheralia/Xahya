@@ -66,8 +66,8 @@ function Radar({ current, projected }: { current: Values; projected: Values }) {
           </text>
         </g>
       ))}
-      <polygon points={polygon(current)} fill="white" fillOpacity="0.10" stroke="white" strokeOpacity="0.85" strokeWidth="2" />
       <polygon points={polygon(projected)} fill="rgb(34 211 238)" fillOpacity="0.18" stroke="rgb(34 211 238)" strokeWidth="2" />
+      <polygon points={polygon(current)} fill="rgb(250 204 21)" fillOpacity="0.42" stroke="rgb(250 204 21)" strokeOpacity="0.95" strokeWidth="2" />
     </svg>
   );
 }
@@ -235,12 +235,12 @@ export default function LevelUpPage({ params }: { params: Promise<{ id: string }
             </div>
 
             <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-zinc-500">
-              <span><span className="mr-2 inline-block h-2 w-2 rounded-full bg-white" />Actual</span>
+              <span><span className="mr-2 inline-block h-2 w-2 rounded-full bg-yellow-300" />Actual</span>
               <span><span className="mr-2 inline-block h-2 w-2 rounded-full bg-cyan-400" />Proyectado</span>
             </div>
 
             <p className="mt-5 text-sm leading-6 text-zinc-500">
-              La figura gris representa tus estadísticas actuales. La figura cian muestra cómo quedarían después de gastar los puntos.
+              La figura amarilla representa tus estadísticas actuales. La figura cian muestra únicamente el aumento proyectado, dejando visible solo el área nueva.
             </p>
           </aside>
         </div>

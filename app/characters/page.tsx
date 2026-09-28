@@ -81,7 +81,14 @@ export default function CharactersPage() {
                 </p>
                 <p className="mt-3 text-sm font-semibold text-cyan-300">
                   {character.stats
-                    ? Object.values(character.stats).reduce((sum, value) => sum + value, 0)
+                    ? character.stats.strength +
+                      character.stats.agility +
+                      character.stats.constitution +
+                      character.stats.intelligence +
+                      character.stats.wisdom +
+                      character.stats.charisma +
+                      character.stats.spirit +
+                      character.stats.luck
                     : 0}{" "}
                   puntos totales
                 </p>

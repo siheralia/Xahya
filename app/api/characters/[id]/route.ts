@@ -71,7 +71,7 @@ export async function GET(
 
   if (effectiveStats) {
     for (const modifier of modifiers) {
-      const stat = String(modifier.stat) as keyof typeof effectiveStats;
+      const stat: keyof typeof effectiveStats = String(modifier.stat) as keyof typeof effectiveStats;
       if (stat in effectiveStats) effectiveStats[stat] += Number(modifier.amount);
     }
   }

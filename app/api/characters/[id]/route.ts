@@ -49,8 +49,10 @@ export async function GET(
     .where({ characterId })
     .first();
 
-  const derivedStats = stats
-    ? calculateDerivedStats({
+  const modifiers = await db.orm.public.CharacterModifier.where({ characterId }).all();
+
+  const effectiveStats = stats
+    ? {
         strength: Number(stats.strength),
         agility: Number(stats.agility),
         constitution: Number(stats.constitution),
@@ -59,13 +61,24 @@ export async function GET(
         charisma: Number(stats.charisma),
         spirit: Number(stats.spirit),
         luck: Number(stats.luck),
-      })
+      }
     : null;
+
+  if (effectiveStats) {
+    for (const modifier of modifiers) {
+      const stat = String(modifier.stat) as keyof typeof effectiveStats;
+      if (stat in effectiveStats) effectiveStats[stat] += Number(modifier.amount);
+    }
+  }
+
+  const derivedStats = effectiveStats ? calculateDerivedStats(effectiveStats) : null;
 
   return NextResponse.json({
     ...character,
     stats,
     resources,
+    modifiers,
+    effectiveStats,
     derivedStats,
     canSeeCharacterId: user.role === "ADMIN",
     canManageCharacter: isManagementUser,

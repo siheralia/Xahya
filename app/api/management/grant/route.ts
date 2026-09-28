@@ -104,10 +104,8 @@ export async function POST(request: Request) {
       throw new Error("Datos del personaje incompletos");
     }
 
-    let updatedStats = currentStats;
-
     if (role === "ADMIN") {
-      updatedStats = await tx.orm.public.CharacterStat
+      await tx.orm.public.CharacterStat
         .where({ id: currentStats.id })
         .update(
           Object.fromEntries(
@@ -127,7 +125,7 @@ export async function POST(request: Request) {
         levelUpPoints: Number(currentResources.levelUpPoints) + levelUpPoints,
       });
 
-    return { updatedStats, updatedResources };
+    return { updatedResources };
   });
 
   return NextResponse.json(result);

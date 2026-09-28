@@ -21,6 +21,23 @@ const INITIAL_POINTS = 40;
 const MIN_STAT = 1;
 const MAX_STAT = 20;
 
+const suggestedNames = [
+  "Ariana Lailas",
+  "Lyra Vesper",
+  "Kael Ardent",
+  "Seraphine Vale",
+  "Noelle Astris",
+  "Darian Crowe",
+  "Elara Veyne",
+  "Lucien Aster",
+  "Mira Solenne",
+  "Ren Valerius",
+];
+
+function getRandomSuggestedName() {
+  return suggestedNames[Math.floor(Math.random() * suggestedNames.length)];
+}
+
 function Radar({ values }: { values: Record<StatKey, number> }) {
   const center = 150;
   const radius = 105;
@@ -79,7 +96,7 @@ function Radar({ values }: { values: Record<StatKey, number> }) {
 
 export default function CreateCharacterPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
+  const [name, setName] = useState(() => getRandomSuggestedName());
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
   const [values, setValues] = useState<Record<StatKey, number>>(
@@ -128,7 +145,7 @@ export default function CreateCharacterPage() {
   }
 
   function reset() {
-    setName("");
+    setName(getRandomSuggestedName());
     setValues(Object.fromEntries(stats.map((stat) => [stat.key, MIN_STAT])) as Record<StatKey, number>);
   }
 

@@ -1,6 +1,17 @@
+import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
+import { db } from "@/lib/db";
 
-export default function Home() {
+export default async function Home() {
+  const { userId: clerkId } = await auth();
+  let isManagementUser = false;
+
+  if (clerkId) {
+    const users = await db.orm.public.User.all();
+    const user = users.find((candidate) => candidate.clerkId === clerkId);
+    isManagementUser = user ? ["GM", "ADMIN"].includes(String(user.role)) : false;
+  }
+
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-12">
@@ -30,7 +41,7 @@ export default function Home() {
             personajes para tus RPG.
           </p>
 
-          <div className="mt-10 flex gap-4">
+          <div className="mt-10 flex flex-wrap justify-center gap-4">
             <Link
               href="/characters/create"
               className="rounded-lg bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200"
@@ -44,6 +55,15 @@ export default function Home() {
             >
               Ver personajes
             </Link>
+
+            {isManagementUser && (
+              <Link
+                href="/management"
+                className="rounded-lg border border-zinc-700 px-6 py-3 font-medium text-white transition hover:bg-zinc-900"
+              >
+                Gestión GM / Admin
+              </Link>
+            )}
           </div>
         </section>
 

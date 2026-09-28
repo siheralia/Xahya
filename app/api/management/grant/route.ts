@@ -35,18 +35,22 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const characterId = Number(body.characterId);
+  const allCharacters = body.allCharacters === true;
 
-  if (!Number.isInteger(characterId) || characterId <= 0) {
-    return NextResponse.json({ error: "Personaje inválido" }, { status: 400 });
-  }
+  if (!allCharacters) {
+    const characterId = Number(body.characterId);
 
-  const character = await db.orm.public.Character
-    .where({ id: characterId })
-    .first();
+    if (!Number.isInteger(characterId) || characterId <= 0) {
+      return NextResponse.json({ error: "Personaje inválido" }, { status: 400 });
+    }
 
-  if (!character) {
-    return NextResponse.json({ error: "Personaje no encontrado" }, { status: 404 });
+    const character = await db.orm.public.Character
+      .where({ id: characterId })
+      .first();
+
+    if (!character) {
+      return NextResponse.json({ error: "Personaje no encontrado" }, { status: 404 });
+    }
   }
 
   const stats = body.stats ?? {};
@@ -58,6 +62,13 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+  }
+
+  if (allCharacters && statNames.some((stat) => (stats[stat] ?? 0) !== 0)) {
+    return NextResponse.json(
+      { error: "La entrega global solo puede modificar recursos." },
+      { status: 400 },
+    );
   }
 
   if (role === "GM" && statNames.some((stat) => (stats[stat] ?? 0) !== 0)) {
@@ -92,6 +103,34 @@ export async function POST(request: Request) {
   }
 
   const result = await db.transaction(async (tx) => {
+    if (allCharacters) {
+      const characters = await tx.orm.public.Character.all();
+      const systemUser = (await tx.orm.public.User.where({ role: "SYSTEM" }).first())?.id;
+      const targets = characters.filter((character) => Number(character.userId) !== Number(systemUser));
+
+      let updated = 0;
+      for (const character of targets) {
+        const resources = await tx.orm.public.CharacterResource
+          .where({ characterId: character.id })
+          .first();
+
+        if (!resources) continue;
+
+        await tx.orm.public.CharacterResource
+          .where({ id: resources.id })
+          .update({
+            karma: Number(resources.karma) + karma,
+            money: Number(resources.money) + money,
+            levelUpPoints: Number(resources.levelUpPoints) + levelUpPoints,
+          });
+
+        updated += 1;
+      }
+
+      return { updatedCharacters: updated };
+    }
+
+    const characterId = Number(body.characterId);
     const currentStats = await tx.orm.public.CharacterStat
       .where({ characterId })
       .first();
@@ -117,7 +156,7 @@ export async function POST(request: Request) {
         );
     }
 
-    const updatedResources = await tx.orm.public.CharacterResource
+    await tx.orm.public.CharacterResource
       .where({ id: currentResources.id })
       .update({
         karma: Number(currentResources.karma) + karma,
@@ -125,7 +164,7 @@ export async function POST(request: Request) {
         levelUpPoints: Number(currentResources.levelUpPoints) + levelUpPoints,
       });
 
-    return { updatedResources };
+    return { updatedCharacters: 1 };
   });
 
   return NextResponse.json(result);

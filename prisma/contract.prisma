@@ -1,6 +1,7 @@
 model User {
   id         Int         @id @default(autoincrement())
   clerkId    String      @unique
+  role       String      @default("PLAYER")
   email      String      @unique
   name       String?
   createdAt  DateTime    @default(now())

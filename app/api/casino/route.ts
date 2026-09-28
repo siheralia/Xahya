@@ -85,7 +85,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Ese personaje no te pertenece." }, { status: 403 });
   }
 
-  const result = await db.transaction(async (tx) => {
+  let result;
+
+  try {
+    result = await db.transaction(async (tx) => {
     const resource = await tx.orm.public.CharacterResource
       .where({ characterId })
       .first();
@@ -132,14 +135,29 @@ export async function POST(request: Request) {
         karma: newKarma,
       });
 
-    return {
-      segmentIndex,
-      label: segment.label,
-      payout,
-      money: newMoney,
-      karma: newKarma,
-    };
-  });
+      return {
+        segmentIndex,
+        label: segment.label,
+        payout,
+        money: newMoney,
+        karma: newKarma,
+      };
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo completar el giro.";
+    const knownErrors = new Set([
+      "Los recursos del personaje no están disponibles.",
+      "Necesitas al menos 1 karma para girar.",
+      "La apuesta no puede superar el dinero disponible.",
+      "El resultado no puede dejar el dinero por debajo de 0.",
+    ]);
+
+    if (knownErrors.has(message)) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    return NextResponse.json({ error: "No se pudo completar el giro." }, { status: 500 });
+  }
 
   return NextResponse.json(result);
 }

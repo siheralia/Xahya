@@ -34,6 +34,8 @@ export default function ManagementPage() {
   const [deleteCountdown, setDeleteCountdown] = useState(5);
   const [deleting, setDeleting] = useState(false);
   const [characterId, setCharacterId] = useState("");
+  const [characterName, setCharacterName] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const [stats, setStats] = useState<Record<string, number>>(emptyStats);
   const [karma, setKarma] = useState(0);
   const [money, setMoney] = useState(0);
@@ -84,9 +86,57 @@ export default function ManagementPage() {
   useEffect(() => {
     const requestedCharacterId = new URLSearchParams(window.location.search).get("characterId");
     if (requestedCharacterId && characters.some((character) => String(character.id) === requestedCharacterId)) {
-      setCharacterId(requestedCharacterId);
+      selectCharacter(requestedCharacterId);
     }
   }, [characters]);
+
+  function selectCharacter(value: string) {
+    setCharacterId(value);
+    const selected = characters.find((character) => String(character.id) === value);
+    setCharacterName(selected?.name ?? "");
+  }
+
+  async function renameCharacter() {
+    if (!isAdmin || !characterId) return;
+
+    const name = characterName.trim();
+
+    if (!name || name.length > 80) {
+      setError("El nombre debe tener entre 1 y 80 caracteres.");
+      return;
+    }
+
+    setSavingName(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/characters/" + characterId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudo cambiar el nombre.");
+      }
+
+      setCharacters((current) =>
+        current.map((character) =>
+          String(character.id) === characterId
+            ? { ...character, name }
+            : character,
+        ),
+      );
+      setCharacterName(name);
+      setSuccess("Nombre actualizado correctamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar el nombre.");
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   function updateStat(stat: string, value: string) {
     const parsed = Number(value);
@@ -116,6 +166,7 @@ export default function ManagementPage() {
       const deletedName = characters.find((character) => String(character.id) === characterId)?.name ?? "Personaje";
       setCharacters((current) => current.filter((character) => String(character.id) !== characterId));
       setCharacterId("");
+      setCharacterName("");
       setDeleteOpen(false);
       setSuccess("\"" + deletedName + "\" fue eliminado correctamente.");
       setStats(emptyStats());
@@ -226,7 +277,7 @@ export default function ManagementPage() {
 
           <select
             value={characterId}
-            onChange={(event) => setCharacterId(event.target.value)}
+            onChange={(event) => selectCharacter(event.target.value)}
             className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white outline-none focus:border-zinc-500"
           >
             <option value="">Selecciona un personaje</option>
@@ -238,6 +289,34 @@ export default function ManagementPage() {
           </select>
         </section>
 
+        {isAdmin && characterId && (
+          <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+            <h2 className="text-xl font-semibold">Nombre del personaje</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Solo el ADMIN puede cambiarlo.
+            </p>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                maxLength={80}
+                value={characterName}
+                onChange={(event) => setCharacterName(event.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+              <button
+                type="button"
+                onClick={renameCharacter}
+                disabled={savingName || !characterName.trim()}
+                className="rounded-lg bg-white px-5 py-2 font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {savingName ? "Guardando..." : "Cambiar nombre"}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {isAdmin && (
         <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <h2 className="text-xl font-semibold">Estadísticas base</h2>
           <p className="mt-1 text-sm text-zinc-500">
@@ -258,7 +337,7 @@ export default function ManagementPage() {
             ))}
           </div>
         </section>
-          )}
+        )}
 
         <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <h2 className="text-xl font-semibold">Recursos</h2>

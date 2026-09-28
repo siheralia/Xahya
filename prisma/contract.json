@@ -45,13 +45,6 @@
                   "kind": "scalar"
                 }
               },
-              "clerkId": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
               "name": {
                 "nullable": false,
                 "type": {
@@ -871,7 +864,16 @@
                 }
               },
               "foreignKeys": [],
-              "indexes": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "clerkId"
+                  ],
+                  "name": "user_clerkId_key",
+                  "prefix": "user_clerkId_key",
+                  "unique": true
+                }
+              ],
               "primaryKey": {
                 "columns": [
                   "id"

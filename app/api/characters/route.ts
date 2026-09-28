@@ -21,13 +21,19 @@ export async function GET() {
   }
 
   const characters = await db.orm.public.Character.all();
+  const stats = await db.orm.public.CharacterStat.all();
+
+  const charactersWithStats = characters.map((character) => ({
+    ...character,
+    stats: stats.find((stat) => Number(stat.characterId) === Number(character.id)) ?? null,
+  }));
 
   if (["GM", "ADMIN"].includes(String(user.role))) {
-    return NextResponse.json(characters);
+    return NextResponse.json(charactersWithStats);
   }
 
   return NextResponse.json(
-    characters.filter((character) => Number(character.userId) === Number(user.id))
+    charactersWithStats.filter((character) => Number(character.userId) === Number(user.id))
   );
 }
 

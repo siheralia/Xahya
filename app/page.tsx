@@ -126,9 +126,14 @@ export default async function Home() {
               Mi perfil
             </Link>
 
-            <span className="rounded-full border border-zinc-800 px-3 py-1 text-sm text-zinc-400">
-              RPG System
-            </span>
+            {isManagementUser ? (
+              <Link
+                href="/management"
+                className="rounded-full border border-zinc-800 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-900 hover:text-white"
+              >
+                RPG System
+              </Link>
+            ) : null}
           </div>
         </header>
 

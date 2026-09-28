@@ -13,7 +13,7 @@ const segments = [
   { label: "+150%", weight: 30, multiplier: 1.5 },
   { label: "+200%", weight: 20, multiplier: 2 },
   { label: "+500%", weight: 10, multiplier: 5 },
-  { label: "-100%", weight: 1, multiplier: -1 },
+  { label: "-100%", weight: 1, multiplier: -2 },
   { label: "+1000%", weight: 5, multiplier: 10 },
 ] as const;
 
@@ -124,10 +124,6 @@ export async function POST(request: Request) {
     const newMoney = money + payout;
     const newKarma = karma - 1;
 
-    if (newMoney < 0) {
-      throw new Error("El resultado no puede dejar el dinero por debajo de 0.");
-    }
-
     await tx.orm.public.CharacterResource
       .where({ id: resource.id })
       .update({
@@ -149,7 +145,6 @@ export async function POST(request: Request) {
       "Los recursos del personaje no están disponibles.",
       "Necesitas al menos 1 karma para girar.",
       "La apuesta no puede superar el dinero disponible.",
-      "El resultado no puede dejar el dinero por debajo de 0.",
     ]);
 
     if (knownErrors.has(message)) {

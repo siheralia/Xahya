@@ -31,6 +31,9 @@ export default function ManagementPage() {
   const searchParams = useSearchParams();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteCountdown, setDeleteCountdown] = useState(5);
+  const [deleting, setDeleting] = useState(false);
   const [characterId, setCharacterId] = useState("");
   const [stats, setStats] = useState<Record<string, number>>(emptyStats);
   const [karma, setKarma] = useState(0);
@@ -63,6 +66,21 @@ export default function ManagementPage() {
   }, []);
 
   useEffect(() => {
+    if (!deleteOpen) return;
+    setDeleteCountdown(5);
+    const timer = window.setInterval(() => {
+      setDeleteCountdown((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [deleteOpen]);
+
+  useEffect(() => {
     const requestedCharacterId = searchParams.get("characterId");
     if (requestedCharacterId && characters.some((character) => String(character.id) === requestedCharacterId)) {
       setCharacterId(requestedCharacterId);
@@ -75,6 +93,38 @@ export default function ManagementPage() {
       ...current,
       [stat]: Number.isFinite(parsed) ? Math.trunc(parsed) : 0,
     }));
+  }
+
+  async function deleteCharacter() {
+    if (!characterId || deleteCountdown > 0 || !isAdmin) return;
+
+    setDeleting(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/characters/" + characterId, {
+        method: "DELETE",
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudo borrar el personaje.");
+      }
+
+      const deletedName = characters.find((character) => String(character.id) === characterId)?.name ?? "Personaje";
+      setCharacters((current) => current.filter((character) => String(character.id) !== characterId));
+      setCharacterId("");
+      setDeleteOpen(false);
+      setSuccess("\"" + deletedName + "\" fue eliminado correctamente.");
+      setStats(emptyStats());
+      setKarma(0);
+      setMoney(0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo borrar el personaje.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function applyChanges() {
@@ -231,7 +281,56 @@ export default function ManagementPage() {
         >
           {saving ? "Aplicando..." : "Aplicar cambios"}
           </button>
+
+          {isAdmin && characterId && (
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(true)}
+              disabled={saving || deleting}
+              className="rounded-lg border border-red-900/70 px-6 py-3 font-medium text-red-300 transition hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Borrar personaje
+            </button>
+          )}
         </div>
+
+        {isAdmin && deleteOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
+              <h2 className="text-xl font-semibold">¿Borrar personaje?</h2>
+              <p className="mt-3 text-zinc-400">
+                Esta acción eliminará permanentemente a{" "}
+                <span className="font-medium text-white">
+                  {characters.find((character) => String(character.id) === characterId)?.name ?? "este personaje"}
+                </span>{" "}
+                y sus datos.
+              </p>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDeleteOpen(false)}
+                  disabled={deleting}
+                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteCharacter}
+                  disabled={deleteCountdown > 0 || deleting}
+                  className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {deleting
+                    ? "Borrando..."
+                    : deleteCountdown > 0
+                      ? "Confirmar en " + deleteCountdown + "s"
+                      : "Confirmar borrado"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

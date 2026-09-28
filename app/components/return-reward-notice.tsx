@@ -5,8 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 
 type Reward = {
-  activityEvents: number;
-  updatedCharacters: number;
+  rewards: number;
 };
 
 export default function ReturnRewardNotice() {
@@ -30,8 +29,7 @@ export default function ReturnRewardNotice() {
       .then((data) => {
         if (!cancelled && data?.show) {
           setReward({
-            activityEvents: Number(data.activityEvents) || 0,
-            updatedCharacters: Number(data.updatedCharacters) || 0,
+            rewards: Number(data.rewards) || 0,
           });
         }
       })
@@ -55,15 +53,13 @@ export default function ReturnRewardNotice() {
 
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-yellow-300">
-            Recompensa de regreso
+            🎁 Recompensa global
           </p>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Desde tu última entrada hubo {reward.activityEvents}{" "}
-            {reward.activityEvents === 1 ? "evento" : "eventos"} en tus personajes.
+            Se aplicó una entrega global de +5 Karma mientras no estabas.
           </p>
           <p className="mt-1 text-sm font-semibold text-white">
-            Se agregaron +5 Karma a {reward.updatedCharacters}{" "}
-            {reward.updatedCharacters === 1 ? "personaje" : "personajes"}.
+            El Karma ya fue entregado automáticamente por la entrega global.
           </p>
 
           <div className="mt-4 flex items-center justify-end gap-2">

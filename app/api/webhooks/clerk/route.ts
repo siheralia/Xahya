@@ -16,7 +16,12 @@ export async function POST(request: NextRequest) {
     );
 
     if (!primaryEmail) {
-      return new Response("User has no email address", { status: 400 });
+      console.error("CLERK WEBHOOK: missing primary email", {
+        primaryEmailAddressId: clerkUser.primary_email_address_id,
+        emailAddresses: clerkUser.email_addresses,
+        clerkUserId: clerkUser.id,
+      });
+      return new Response("User has no primary email address", { status: 400 });
     }
 
     const users = await db.orm.public.User.all();

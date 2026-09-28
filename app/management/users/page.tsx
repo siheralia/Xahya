@@ -335,7 +335,6 @@ export default function ManagementUsersPage() {
                 {users
                   .filter(
                     (user) =>
-                      user.role !== "SYSTEM" &&
                       user.id !== transferCharacter.ownerId,
                   )
                   .map((user) => (

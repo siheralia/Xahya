@@ -5,6 +5,8 @@ model User {
   email      String      @unique
   name       String?
   createdAt  DateTime    @default(now())
+  lastLoginAt DateTime?
+  lastLoginSessionId String?
   characters Character[]
   auditLogsAsActor AuditLog[] @relation("AuditActor")
   auditLogsAsTarget AuditLog[] @relation("AuditTarget")
@@ -42,8 +44,8 @@ model CharacterResource {
   id          Int       @id @default(autoincrement())
   characterId Int
   character   Character @relation(fields:[characterId], references:[id])
-  karma        Int       @default(0)
-  money        Int       @default(0)
+  karma       Int       @default(0)
+  money       Int       @default(0)
   levelUpPoints Int       @default(0)
   blackjackState String?
 

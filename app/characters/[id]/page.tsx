@@ -19,10 +19,12 @@ type Character = {
   resources: {
     karma: number;
     money: number;
+    levelUpPoints: number;
   } | null;
   derivedStats: Record<string, number> | null;
   canSeeCharacterId: boolean;
   canManageCharacter: boolean;
+  canLevelUp: boolean;
 };
 
 const statLabels: Record<string, string> = {
@@ -146,6 +148,14 @@ export default function CharacterPage({
 
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <h1 className="text-4xl font-bold">{character.name}</h1>
+          {character.canLevelUp && (
+            <Link
+              href={"/characters/" + character.id + "/levelup"}
+              className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300"
+            >
+              Level Up
+            </Link>
+          )}
           {character.canManageCharacter && (
             <Link
               href={"/management?characterId=" + character.id}
@@ -207,6 +217,10 @@ export default function CharacterPage({
               <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
                 <p className="text-sm text-zinc-500">Dinero</p>
                 <p className="mt-1 text-2xl font-semibold">{character.resources.money}</p>
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+                <p className="text-sm text-zinc-500">Puntos de Level Up</p>
+                <p className="mt-1 text-2xl font-semibold">{character.resources.levelUpPoints}</p>
               </div>
             </div>
           </section>

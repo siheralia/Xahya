@@ -17,7 +17,7 @@ const stats = [
 
 type StatKey = (typeof stats)[number]["key"];
 
-const INITIAL_POINTS = 40;
+const INITIAL_POINTS = 42;
 const MIN_STAT = 1;
 const MAX_STAT = INITIAL_POINTS + MIN_STAT;
 

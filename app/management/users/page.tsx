@@ -19,6 +19,7 @@ export default function ManagementUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingRole, setSavingRole] = useState<number | null>(null);
+  const [deletingUser, setDeletingUser] = useState<number | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -69,6 +70,41 @@ export default function ManagementUsersPage() {
     }
   }
 
+  async function deleteUser(user: User) {
+    if (user.role === "SYSTEM") return;
+
+    const confirmed = window.confirm(
+      `¿Eliminar a ${user.name}? Sus ${user.characters.length} personaje(s) pasarán al usuario Sistema y su cuenta de Clerk será eliminada.`,
+    );
+
+    if (!confirmed) return;
+
+    setDeletingUser(user.id);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/management/users/" + user.id, {
+        method: "DELETE",
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudo eliminar el usuario.");
+      }
+
+      setUsers((current) => current.filter((item) => item.id !== user.id));
+      setMessage(
+        data?.warning ??
+          `Usuario eliminado. ${data?.transferredCharacters ?? user.characters.length} personaje(s) fueron transferidos a Sistema.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar el usuario.");
+    } finally {
+      setDeletingUser(null);
+    }
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-zinc-950 p-12 text-white">
@@ -112,7 +148,11 @@ export default function ManagementUsersPage() {
                   <span className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400">
                     {user.role}
                   </span>
-                  {user.role === "PLAYER" ? (
+                  {user.role === "SYSTEM" ? (
+                    <span className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-500">
+                      Usuario protegido
+                    </span>
+                  ) : user.role === "PLAYER" ? (
                     <button
                       type="button"
                       onClick={() => changeRole(user.id, "GM")}
@@ -131,6 +171,16 @@ export default function ManagementUsersPage() {
                       Quitar GM
                     </button>
                   ) : null}
+                  {user.role !== "SYSTEM" && (
+                    <button
+                      type="button"
+                      onClick={() => deleteUser(user)}
+                      disabled={deletingUser === user.id || user.id === users.find((item) => item.role === "ADMIN" && item.email === "arisihel@gmail.com")?.id}
+                      className="rounded-lg border border-red-900/70 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-950/40 disabled:opacity-40"
+                    >
+                      {deletingUser === user.id ? "Eliminando..." : "Eliminar"}
+                    </button>
+                  )}
                 </div>
               </div>
 

@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { calculateDerivedStats } from "@/lib/stats/derived";
@@ -8,6 +9,19 @@ export async function GET(
 ) {
   const { id } = await params;
   const characterId = Number(id);
+
+  const { userId: clerkId } = await auth();
+
+  if (!clerkId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const users = await db.orm.public.User.all();
+  const user = users.find((candidate) => candidate.clerkId === clerkId);
+
+  if (!user) {
+    return NextResponse.json({ error: "Xahya user not found" }, { status: 404 });
+  }
 
   const character = await db.orm.public.Character
   .where({ id: characterId })
@@ -46,5 +60,6 @@ export async function GET(
     stats,
     resources,
     derivedStats,
+    canSeeCharacterId: user.role === "ADMIN",
   });
 }

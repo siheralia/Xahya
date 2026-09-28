@@ -139,7 +139,7 @@ export default async function Home() {
 
         <section className="flex flex-1 flex-col items-center justify-center text-center">
           <p className="mb-4 text-sm font-medium uppercase tracking-[0.3em] text-zinc-500">
-            Character Management
+            Xahya Character System
           </p>
 
           <h2 className="max-w-3xl text-5xl font-bold tracking-tight sm:text-6xl">
@@ -151,8 +151,7 @@ export default async function Home() {
           </h2>
 
           <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-400">
-            Xahya será la central de fichas, estadísticas y sistemas de
-            personajes para tus RPG.
+            Xahya centraliza tus personajes, estadísticas, recursos y sistemas de juego en un solo lugar.
           </p>
 
           <div className="mt-10 flex flex-wrap justify-center gap-4">
@@ -189,7 +188,7 @@ export default async function Home() {
         </section>
 
         <footer className="border-t border-zinc-900 pt-6 text-sm text-zinc-600">
-          Xahya — RPG Character Management System
+          Xahya — Sistema de gestión de personajes y RPG
         </footer>
       </div>
     </main>

@@ -175,7 +175,7 @@ export default function ManagementUsersPage() {
                     <button
                       type="button"
                       onClick={() => deleteUser(user)}
-                      disabled={deletingUser === user.id || user.id === users.find((item) => item.role === "ADMIN" && item.email === "arisihel@gmail.com")?.id}
+                      disabled={deletingUser === user.id}
                       className="rounded-lg border border-red-900/70 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-950/40 disabled:opacity-40"
                     >
                       {deletingUser === user.id ? "Eliminando..." : "Eliminar"}

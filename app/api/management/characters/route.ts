@@ -18,8 +18,9 @@ export async function GET() {
 
   const characters = await db.orm.public.Character.all();
 
-  return NextResponse.json(
-    characters.map((character) => {
+  return NextResponse.json({
+    isAdmin: String(currentUser.role) === "ADMIN",
+    characters: characters.map((character) => {
       const owner = users.find((user) => user.id === character.userId);
 
       return {
@@ -28,5 +29,5 @@ export async function GET() {
         ownerName: owner?.name ?? owner?.email ?? "Usuario desconocido",
       };
     }),
-  );
+  });
 }

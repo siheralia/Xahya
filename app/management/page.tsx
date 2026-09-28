@@ -186,14 +186,23 @@ export default function ManagementPage() {
         <h1 className="mt-6 text-4xl font-bold">Gestión de personajes</h1>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="text-zinc-500">Otorga cambios permanentes a las estadísticas base y recursos.</p>
-          {isAdmin && (
+          <div className="flex flex-wrap gap-3">
             <Link
-              href="/management/users"
+              href="/management/logs"
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Ver logs
+            </Link>
+
+            {isAdmin && (
+              <Link
+                href="/management/users"
               className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
             >
               Ver usuarios
             </Link>
-          )}
+            )}
+          </div>
         </div>
 
         {error && (

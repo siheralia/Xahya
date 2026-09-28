@@ -130,7 +130,7 @@ export async function DELETE(
 
   try {
     const client = await clerkClient();
-    await client.users.deleteUser(targetUser.clerkId);
+    await client.users.deleteUser(String(targetUser.clerkId));
   } catch {
     return NextResponse.json(
       {

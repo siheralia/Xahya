@@ -276,7 +276,8 @@ export default function CharacterPage({
     ctx.textAlign = "right";
     ctx.font = "600 20px Arial, sans-serif";
     ctx.fillStyle = "#d4d4d8";
-    ctx.fillText("🪷 " + character.resources?.karma?.toLocaleString("en-US") ?? "🪷 0", width - 28, height - 30);
+    const karmaText = character.resources?.karma?.toLocaleString("en-US") ?? "0";
+    ctx.fillText(`🪷 ${karmaText}`, width - 28, height - 30);
 
     const link = document.createElement("a");
     link.download = character.name.replace(/[^a-z0-9-_]+/gi, "_") + "-perfil.png";

@@ -66,5 +66,5 @@ export async function POST(
   });
 
   if ("error" in result) return NextResponse.json(result, { status: 400 });
-  return NextResponse.json({ karma: Number(result.updatedResources.karma), modifier: result.modifier });
+  return NextResponse.json({ karma: Number(result.updatedResources?.karma ?? 0), modifier: result.modifier });
 }

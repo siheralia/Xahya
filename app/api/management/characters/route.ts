@@ -20,6 +20,7 @@ export async function GET() {
 
   return NextResponse.json({
     isAdmin: String(currentUser.role) === "ADMIN",
+    isGM: String(currentUser.role) === "GM",
     characters: characters.map((character) => {
       const owner = users.find((user) => user.id === character.userId);
 

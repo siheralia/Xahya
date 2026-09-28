@@ -112,15 +112,15 @@ export async function DELETE(
   );
 
   try {
-    for (const character of ownedCharacters) {
-      await db.orm.public.Character
-        .where({ id: character.id })
-        .update({ userId: systemUser.id });
-    }
+    await db.transaction(async (tx) => {
+      await tx.orm.public.Character
+        .where({ userId: targetUser.id })
+        .updateAll({ userId: systemUser.id });
 
-    await db.orm.public.User
-      .where({ id: targetUser.id })
-      .delete();
+      await tx.orm.public.User
+        .where({ id: targetUser.id })
+        .delete();
+    });
   } catch {
     return NextResponse.json(
       { error: "No se pudo completar la transferencia y eliminación del usuario." },

@@ -61,10 +61,11 @@ export async function POST(request: Request) {
 
   const karma = body.karma ?? 0;
   const money = body.money ?? 0;
+  const levelUpPoints = body.levelUpPoints ?? 0;
 
-  if (!isValidInteger(karma) || !isValidInteger(money)) {
+  if (!isValidInteger(karma) || !isValidInteger(money) || !isValidInteger(levelUpPoints)) {
     return NextResponse.json(
-      { error: "Karma y dinero deben ser enteros válidos" },
+      { error: "Karma, dinero y puntos de Level Up deben ser enteros válidos" },
       { status: 400 },
     );
   }
@@ -72,7 +73,8 @@ export async function POST(request: Request) {
   const hasChanges =
     statNames.some((stat) => (stats[stat] ?? 0) !== 0) ||
     karma !== 0 ||
-    money !== 0;
+    money !== 0 ||
+    levelUpPoints !== 0;
 
   if (!hasChanges) {
     return NextResponse.json(
@@ -110,6 +112,7 @@ export async function POST(request: Request) {
       .update({
         karma: Number(currentResources.karma) + karma,
         money: Number(currentResources.money) + money,
+        levelUpPoints: Number(currentResources.levelUpPoints) + levelUpPoints,
       });
 
     return { updatedStats, updatedResources };

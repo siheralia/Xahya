@@ -1,0 +1,1 @@
+ALTER TABLE public."characterResource" ADD COLUMN IF NOT EXISTS "blackjackState" TEXT;

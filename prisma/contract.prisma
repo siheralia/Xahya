@@ -137,7 +137,7 @@ model Maze {
   maxRooms    Int?
   status      String    @default("ACTIVE")
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  updatedAt   temporal.updatedAt()
   rooms       MazeRoom[]
   positions   MazeCharacterPosition[]
 }

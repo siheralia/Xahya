@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 type Character = {
   id: number;
   name: string;
+  flair: string | null;
   userId: number;
   stats: {
     strength: number;
@@ -71,7 +72,7 @@ export default function CharactersPage() {
                 href={`/characters/${character.id}`}
                 className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 transition hover:border-zinc-600 hover:bg-zinc-900"
               >
-                <h2 className="text-xl font-semibold">{character.name}</h2>
+                <h2 className="text-xl font-semibold">{character.name} {character.flair && <span className="text-base font-normal">⟨{character.flair}⟩</span>}</h2>
                 <p className="mt-2 text-sm text-zinc-500">
                   Personaje #{character.id}
                 </p>

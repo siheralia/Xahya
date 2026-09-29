@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted } from "@/lib/maze";
+import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted, depthMultiplier, pickEnemyFocus, pickEnemyBehavior, scaleEnemyStats } from "@/lib/maze";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -22,6 +22,39 @@ function roomDescription(type: string) {
     MOBILE_ENEMY:"Hay señales recientes de una criatura que no permanece en un solo lugar.",
     NPC:"Alguien parece habitar esta habitación.",
   } as Record<string,string>)[type] ?? "Una habitación del laberinto.";
+}
+
+
+
+async function getGroupPower(tx: any, mazeId: number) {
+  const positions = await (tx.orm.public as any).MazeCharacterPosition.where({ mazeId }).all();
+  if (positions.length === 0) return 0;
+  const stats = await Promise.all(positions.map(async (position: any) =>
+    (tx.orm.public as any).CharacterStat.where({ characterId: Number(position.characterId) }).first()
+  ));
+  const totals = stats.map((stat:any) => stat
+    ? ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"]
+      .reduce((sum,key) => sum + Number(stat[key] ?? 0), 0)
+    : 0
+  );
+  return totals.reduce((sum,n) => sum + n, 0) / totals.length;
+}
+
+async function scaleEncounter(tx: any, maze: any, room: any, encounter: any, enemy: any) {
+  const groupPower = await getGroupPower(tx, Number(maze.id));
+  if (groupPower <= 0 || !enemy) return;
+  const isBoss = Boolean(enemy.isBoss) || String(enemy.rank) === "BOSS";
+  const focus = String(encounter.focus || pickEnemyFocus(isBoss)) as any;
+  const behavior = String(encounter.behavior || pickEnemyBehavior(isBoss));
+  const scaled = scaleEnemyStats((enemy.stats ?? {}) as any, groupPower, Number(room.roomNumber), focus);
+  await tx.orm.public.MazeRoomEnemy.where({ id: Number(encounter.id) }).update({
+    generatedStats: scaled.stats,
+    focus,
+    behavior,
+    targetPower: scaled.targetPower,
+    depthMultiplier: depthMultiplier(Number(room.roomNumber)),
+  });
+  return { ...scaled, focus, behavior };
 }
 
 function hasActiveEnemies(room: any, enemies: any[]) {
@@ -69,7 +102,7 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
 
   if ((roomType === "ENEMY" || roomType === "MOBILE_ENEMY" || roomType === "BOSS") && Enemy && MazeRoomEnemy) {
     if (selectedEnemy) {
-      await MazeRoomEnemy.create({ roomId: room.id, enemyId: selectedEnemy.id, quantity: roomType === "BOSS" ? 1 : Math.floor(Math.random()*3)+1, status:"ACTIVE", isMobile:roomType === "MOBILE_ENEMY" });
+      const encounter = await MazeRoomEnemy.create({ roomId: room.id, enemyId: selectedEnemy.id, quantity: roomType === "BOSS" ? 1 : Math.floor(Math.random()*3)+1, status:"ACTIVE", isMobile:roomType === "MOBILE_ENEMY", generatedStats:{}, focus:null, behavior:null, targetPower:null, depthMultiplier:null });
     } else {
       await tx.orm.public.MazeRoom.where({ id:room.id }).update({ status:"OPEN" });
     }
@@ -137,7 +170,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const enemy:any = pickWeighted<any>(candidates as any[]);
         if (!enemy) continue;
         await MazeRoomEnemy.create({ roomId:room.id, enemyId:enemy.id, quantity:String(room.roomType)==="BOSS"?1:Math.floor(Math.random()*3)+1, status:"ACTIVE", isMobile:String(room.roomType)==="MOBILE_ENEMY" });
+        const encounter = await MazeRoomEnemy.create({ roomId:room.id, enemyId:enemy.id, quantity:String(room.roomType)==="BOSS"?1:Math.floor(Math.random()*3)+1, status:"ACTIVE", isMobile:String(room.roomType)==="MOBILE_ENEMY", generatedStats:{}, focus:null, behavior:null, targetPower:null, depthMultiplier:null });
         await Room.where({ id:room.id }).update({ status:"BLOCKED", contentName:enemy.name, contentDescription:enemy.description ?? "Una criatura desconocida." });
+        await scaleEncounter(tx, maze, room, encounter, enemy);
         loaded++;
       }
       return { loaded };

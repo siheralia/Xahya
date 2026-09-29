@@ -123,12 +123,14 @@ export async function GET(
     .flatMap((owned: any) => {
       const item = itemDefinitions.find((candidate: any) => Number(candidate.id) === Number(owned.itemId));
       const effects = Array.isArray(item?.effects) ? item.effects : [];
-      return effects.map((effect: any) => ({
-        type: String(effect.type),
-        value: Number(effect.value),
-        source: "ITEM:" + String(item.name),
-        expiresAt: null,
-      }));
+      return effects.flatMap((effect: any) => {
+        const type = String(effect.type);
+        const stat = String(effect.stat ?? "");
+        if (type === "stat_multiplier" && stat === "ATTACK_TOTAL") return [{ type: "attack_multiplier_all", value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
+        if (type === "stat_bonus" && stat === "DAMAGE_REDUCTION_ALL") return [{ type: "damage_reduction_all", value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
+        if (type === "attack_multiplier_all" || type === "damage_reduction_all") return [{ type, value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
+        return [];
+      });
     });
 
   const combatEffects = [

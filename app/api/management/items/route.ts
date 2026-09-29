@@ -6,7 +6,8 @@ import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 
 const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","OTHER"] as const;
 const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","OTHER"] as const;
-const EFFECT_TYPES = ["attack_multiplier_all","damage_reduction_all"] as const;
+const EFFECT_TYPES = ["stat_multiplier","stat_bonus"] as const;
+const EFFECT_STATS = ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK","ATTACK_TOTAL","DAMAGE_REDUCTION_ALL"] as const;
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -31,6 +32,7 @@ function validate(body: any) {
   if (!allowedSlots.length || allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return "Slots de equipo inválidos.";
   for (const effect of effects) {
     if (!EFFECT_TYPES.includes(String(effect?.type) as any)) return "Efecto de objeto inválido.";
+    if (!EFFECT_STATS.includes(String(effect?.stat) as any)) return "Estadística de efecto inválida.";
     if (!Number.isFinite(Number(effect?.value)) || Number(effect.value) <= 0) return "Valor de efecto inválido.";
   }
   return null;

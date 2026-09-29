@@ -33,7 +33,8 @@ export default function SocialManagementPage() {
     setError("");
     fetch("/api/management/social?characterId=" + characterId)
       .then(async (response) => {
-        const data = await response.json();
+        const text = await response.text();
+        const data = text ? JSON.parse(text) : null;
         if (!response.ok) throw new Error(data?.error ?? "No se pudieron cargar las relaciones.");
         setKnown(new Set((data.knownCharacterIds ?? []).map(Number)));
       })
@@ -61,7 +62,8 @@ export default function SocialManagementPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ characterId: Number(characterId), knownCharacterIds: [...known] }),
       });
-      const data = await response.json();
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : null;
       if (!response.ok) throw new Error(data?.error ?? "No se pudieron guardar las relaciones.");
       setKnown(new Set((data.knownCharacterIds ?? []).map(Number)));
       setSuccess("Relaciones sociales actualizadas.");

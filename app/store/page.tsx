@@ -17,6 +17,7 @@ export default function StorePage() {
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<number | null>(null);
   const [selling, setSelling] = useState<number | null>(null);
+  const [sellQuantities, setSellQuantities] = useState<Record<number, number>>({});
   const [ownedItems, setOwnedItems] = useState<OwnedItem[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -84,7 +85,7 @@ export default function StorePage() {
   }
 
   async function sell(entry: OwnedItem) {
-    const quantity = entry.quantity;
+    const quantity = Math.max(1, Math.min(entry.quantity, Number(sellQuantities[entry.id] ?? 1)));
     setSelling(entry.id); setError(""); setSuccess("");
     try {
       const response = await fetch("/api/store/sell", {
@@ -138,8 +139,11 @@ export default function StorePage() {
           const total = saleValue * entry.quantity;
           return <article key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
             <div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold">{item?.name ?? "Objeto"}</p><p className="mt-1 text-xs text-zinc-500">{entry.equipped ? "Equipado" : "En inventario"}{entry.flair ? " · " + entry.flair : ""}</p></div><span className="text-sm font-semibold text-emerald-300">◈ {saleValue.toLocaleString("es-MX")} c/u</span></div>
-            <p className="mt-3 text-xs text-zinc-500">Cantidad: {entry.quantity} · Total: ◈ {total.toLocaleString("es-MX")}</p>
-            <button type="button" onClick={() => sell(entry)} disabled={selling !== null || buying !== null} className="mt-4 w-full rounded-lg border border-emerald-900/70 px-3 py-2 text-sm text-emerald-300 disabled:opacity-40">{selling === entry.id ? "Vendiendo..." : "Vender todo · ◈ " + total.toLocaleString("es-MX")}</button>
+            <p className="mt-3 text-xs text-zinc-500">Cantidad disponible: {entry.quantity}</p>
+            <div className="mt-3 flex gap-2">
+              <input type="number" min={1} max={entry.quantity} value={Math.max(1, Math.min(entry.quantity, Number(sellQuantities[entry.id] ?? 1)))} onChange={(event) => setSellQuantities((current) => ({ ...current, [entry.id]: Math.max(1, Math.min(entry.quantity, Number(event.target.value) || 1)) }))} className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-center" />
+              <button type="button" onClick={() => sell(entry)} disabled={selling !== null || buying !== null} className="flex-1 rounded-lg border border-emerald-900/70 px-3 py-2 text-sm text-emerald-300 disabled:opacity-40">{selling === entry.id ? "Vendiendo..." : "Vender · ◈ " + (saleValue * Math.max(1, Math.min(entry.quantity, Number(sellQuantities[entry.id] ?? 1)))).toLocaleString("es-MX")}</button>
+            </div>
           </article>;
         })}</div>}
     </section>

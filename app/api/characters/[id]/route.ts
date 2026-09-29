@@ -100,7 +100,29 @@ export async function GET(
     : null;
 
   const derivedStats = effectiveStats ? calculateDerivedStats(effectiveStats) : null;
-  const combatEffects = getCombatEffects(modifiers);
+  const CharacterItem = (db.orm.public as any).CharacterItem;
+  const ownedItems = CharacterItem
+    ? await CharacterItem.where({ characterId }).all()
+    : [];
+  const Item = (db.orm.public as any).Item;
+  const itemDefinitions = Item ? await Item.all() : [];
+  const itemEffects = ownedItems
+    .filter((owned: any) => Boolean(owned.equipped))
+    .flatMap((owned: any) => {
+      const item = itemDefinitions.find((candidate: any) => Number(candidate.id) === Number(owned.itemId));
+      const effects = Array.isArray(item?.effects) ? item.effects : [];
+      return effects.map((effect: any) => ({
+        type: String(effect.type),
+        value: Number(effect.value),
+        source: "ITEM:" + String(item.name),
+        expiresAt: null,
+      }));
+    });
+
+  const combatEffects = [
+    ...getCombatEffects(modifiers),
+    ...itemEffects,
+  ];
 
   const normalizedCharacter = { ...character, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
 

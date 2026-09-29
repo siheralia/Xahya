@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type Effect = { type: string; value: number; description: string };
+type Effect = { type: string; stat: string; value: number; description: string };
 type Item = {
   id: number; name: string; description: string | null; itemType: string;
   acquisitionType: string; price: number; effects: Effect[]; allowedSlots: string[];
@@ -17,14 +17,19 @@ const acquisitionTypes = [
   ["QUEST","Misión"],["EVENT","Evento"],["OTHER","Otro"],
 ];
 const effectTypes = [
-  ["attack_multiplier_all","× Ataque total"],["damage_reduction_all","Reducción de daño recibido"],
+  ["stat_multiplier","× Estadística"],["stat_bonus","+ Estadística"],
+];
+const effectStats = [
+  ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],
+  ["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
+  ["ATTACK_TOTAL","Ataque total"],["DAMAGE_REDUCTION_ALL","Reducción de daño recibido"],
 ];
 const equipmentSlots = [
   ["MAIN_HAND","Mano principal"],["OFF_HAND","Mano secundaria"],["HEAD","Cabeza"],["BODY","Cuerpo"],
   ["FEET","Pies"],["ARMS","Brazos"],["BACK","Espalda"],["ACCESSORY_1","Accesorio 1"],["ACCESSORY_2","Accesorio 2"],
 ];
 
-const emptyEffect = (): Effect => ({ type: "attack_multiplier_all", value: 100, description: "" });
+const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", value: 100, description: "" });
 const defaultSlots = ["ACCESSORY"];
 const noEffects = (effects: Effect[]) => !Array.isArray(effects) || effects.length === 0;
 
@@ -45,7 +50,7 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects: [],allowedSlots:Array.isArray(item.allowedSlots)&&item.allowedSlots.length?item.allowedSlots:defaultSlots});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:String(effect.type),stat:String(effect.stat??"STR"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)&&item.allowedSlots.length?item.allowedSlots:defaultSlots});
     setSuccess(""); setError("");
   }
   function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");}
@@ -97,7 +102,8 @@ export default function ItemsManagementPage() {
           <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">El objeto solo podrá equiparse en los slots seleccionados.</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>
           <div><div className="flex items-center justify-between"><h3 className="font-medium">Efectos</h3>{noEffects(form.effects)?<span className="text-sm text-zinc-500">Sin efectos</span>:<button type="button" onClick={()=>setForm(f=>({...f,effects:[...f.effects,emptyEffect()]}))} className="text-sm text-zinc-300">+ Añadir efecto</button>}</div>
           <div className="mt-3 space-y-3">{form.effects.map((effect,i)=><div key={i} className="rounded-xl border border-zinc-800 p-4">
-            <div className="grid gap-3 sm:grid-cols-2"><select value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{effectTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
+            <div className="grid gap-3 sm:grid-cols-3"><select value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{effectTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
+            <select value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{effectStats.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
             <input type="number" value={effect.value} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Valor"/></div>
             <input value={effect.description} onChange={e=>updateEffect(i,"description",e.target.value)} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Descripción del efecto"/>
             <button type="button" onClick={() => setForm(f => ({ ...f, effects: f.effects.filter((_, j) => j !== i) }))} className="mt-2 text-sm text-red-300">Quitar efecto</button>

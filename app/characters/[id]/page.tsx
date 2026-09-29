@@ -28,6 +28,7 @@ type Character = {
   derivedStats: Record<string, number> | null;
   effectiveStats: Record<string, number> | null;
   modifiers: { id: number; stat: string; amount: number; source: string; expiresAt?: string | null }[];
+  combatEffects: { type: "attack_multiplier_all" | "damage_reduction_all"; value: number; source: string; expiresAt: string | null }[];
   canSeeCharacterId: boolean;
   canManageCharacter: boolean;
   canLevelUp: boolean;
@@ -186,6 +187,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         return result;
       }, {} as RadarValues)
     : null;
+
+  const allAttackMultiplier = character?.combatEffects?.filter((effect) => effect.type === "attack_multiplier_all").reduce((multiplier, effect) => multiplier * (effect.value / 100), 1) ?? 1;
+  const allDamageMultiplier = character?.combatEffects?.filter((effect) => effect.type === "damage_reduction_all").reduce((multiplier, effect) => multiplier * (effect.value / 100), 1) ?? 1;
 
   const baseRadarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
@@ -641,9 +645,33 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Estadísticas derivadas</h2>
             <div className="mt-4 grid gap-x-8 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(character.derivedStats).map(([key, value]) => <div key={key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2"><p className="text-sm text-zinc-400">{derivedLabels[key] ?? key}</p><p className="text-lg font-semibold">{value}</p></div>)}
+              {Object.entries(character.derivedStats).map(([key, value]) => {
+                const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
+                const displayedValue = affectedByAttackMultiplier ? value * allAttackMultiplier : value;
+                return <div key={key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2">
+                  <p className="text-sm text-zinc-400">{derivedLabels[key] ?? key}</p>
+                  <p className="text-lg font-semibold">{displayedValue}{affectedByAttackMultiplier && allAttackMultiplier !== 1 && <span className="ml-2 text-xs text-amber-300">(base {value} · ×{allAttackMultiplier})</span>}</p>
+                </div>;
+              })}
             </div>
           </section>
+        )}
+
+        {character.combatEffects.length > 0 && (
+          <section className="mt-10 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
+            <h2 className="text-xl font-semibold">Objetos y efectos</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {character.combatEffects.map((effect) => (
+                <div key={effect.type + effect.source} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <p className="font-semibold">{effect.source.replace(/^ITEM:/, "")}</p>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    {effect.type === "attack_multiplier_all" ? `×${effect.value / 100} a todos los ataques` : `×${effect.value / 100} al daño recibido`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
         )}
 
         {character.resources && (

@@ -1,7 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import ReturnRewardNotice from "@/app/components/return-reward-notice";
+import NotificationBell from "@/app/components/notification-bell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,7 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <ClerkProvider>
           {children}
-          <ReturnRewardNotice />
+          <NotificationBell />
         </ClerkProvider>
       </body>
     </html>

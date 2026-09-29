@@ -61,7 +61,7 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
 
   const room = await tx.orm.public.MazeRoom.create({
     mazeId: maze.id, roomNumber, roomType,
-    status: roomType === "SAFE" || roomType === "TREASURE" || roomType === "NPC" ? "OPEN" : "BLOCKED",
+    status: ["ENEMY","MOBILE_ENEMY","BOSS"].includes(roomType) ? "BLOCKED" : "OPEN",
     description: roomDescription(roomType), contentName, contentDescription,
     treasureClaimed:false, treasureRewards,
   });

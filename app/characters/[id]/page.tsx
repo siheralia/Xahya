@@ -597,7 +597,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             </div>
           </section>
         )}
-        )}
 
         {character.resources && (
           <section className="mt-10">

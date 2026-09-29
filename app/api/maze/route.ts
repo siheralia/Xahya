@@ -126,14 +126,25 @@ export async function POST(request: Request) {
   if (mazeType === "FINITE" && (!Number.isInteger(maxRooms) || (maxRooms as number) < 2)) return NextResponse.json({ error: "Un laberinto finito necesita al menos 2 habitaciones." }, { status: 400 });
 
   const safeMaxRooms = mazeType === "FINITE" ? (maxRooms as number) : null;
-  const result = await db.transaction(async (tx) => {
+  if (mazeType === "INFINITE") {
+    const existing = await (db.orm.public as any).Maze.where({ mazeType: "INFINITE", status: "ACTIVE" }).first();
+    if (existing) return NextResponse.json({ error: "Ya existe un laberinto infinito activo." }, { status: 400 });
+  }
+
+  let result;
+  try {
+    result = await db.transaction(async (tx) => {
     const maze = await tx.orm.public.Maze.create({ name, description, mazeType, maxRooms: safeMaxRooms, status:"ACTIVE" });
     const room = await createRoom(tx, maze, 1);
     for (const direction of pickRandomDirections()) {
       await tx.orm.public.MazeExit.create({ mazeId: maze.id, fromRoomId: room.id, direction, toRoomId: null });
     }
-    return { maze, room };
-  });
+      return { maze, room };
+    });
+  } catch (error) {
+    console.error("MAZE_CREATE_ERROR", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo crear el laberinto." }, { status: 500 });
+  }
 
   await recordAuditEvent({
     actorUserId: user.id,

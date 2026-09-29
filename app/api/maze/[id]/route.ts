@@ -169,7 +169,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           : allEnemies.filter((enemy:any) => !Boolean(enemy.isBoss));
         const enemy:any = pickWeighted<any>(candidates as any[]);
         if (!enemy) continue;
-        await MazeRoomEnemy.create({ roomId:room.id, enemyId:enemy.id, quantity:String(room.roomType)==="BOSS"?1:Math.floor(Math.random()*3)+1, status:"ACTIVE", isMobile:String(room.roomType)==="MOBILE_ENEMY" });
         const encounter = await MazeRoomEnemy.create({ roomId:room.id, enemyId:enemy.id, quantity:String(room.roomType)==="BOSS"?1:Math.floor(Math.random()*3)+1, status:"ACTIVE", isMobile:String(room.roomType)==="MOBILE_ENEMY", generatedStats:{}, focus:null, behavior:null, targetPower:null, depthMultiplier:null });
         await Room.where({ id:room.id }).update({ status:"BLOCKED", contentName:enemy.name, contentDescription:enemy.description ?? "Una criatura desconocida." });
         await scaleEncounter(tx, maze, room, encounter, enemy);
@@ -208,6 +207,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await Position.create({ mazeId, characterId, roomId:currentRoom.id });
     }
 
+    const currentEncounters = MazeRoomEnemy ? await MazeRoomEnemy.where({ roomId:currentRoom.id, status:"ACTIVE" }).all() : [];
+    if (currentEncounters.length > 0) {
+      const definitions = await (tx.orm.public as any).Enemy.all();
+      for (const encounter of currentEncounters) {
+        const definition = definitions.find((enemy:any) => Number(enemy.id) === Number(encounter.enemyId));
+        if (!encounter.generatedStats || Object.keys(encounter.generatedStats as any).length === 0) {
+          await scaleEncounter(tx, maze, currentRoom, encounter, definition);
+        }
+      }
+    }
+
     const activeEnemies = MazeRoomEnemy ? await MazeRoomEnemy.where({ roomId:currentRoom.id, status:"ACTIVE" }).all() : [];
     const requestedExit = await Exit.where({ fromRoomId:currentRoom.id, direction }).first();
     if (!requestedExit) throw new Error("EXIT_NOT_FOUND");
@@ -217,6 +227,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const destination = await Room.where({ id:Number(requestedExit.toRoomId) }).first();
       if (!destination) throw new Error("DESTINATION_NOT_FOUND");
       await Position.where({ id:position?.id ?? (await Position.where({ mazeId, characterId }).first())?.id }).update({ roomId:destination.id, previousRoomId:currentRoom.id });
+      const encounters = MazeRoomEnemy ? await MazeRoomEnemy.where({ roomId:destination.id, status:"ACTIVE" }).all() : [];
+      if (encounters.length > 0) {
+        const definitions = await (tx.orm.public as any).Enemy.all();
+        for (const encounter of encounters) {
+          const definition = definitions.find((enemy:any) => Number(enemy.id) === Number(encounter.enemyId));
+          if (!encounter.generatedStats || Object.keys(encounter.generatedStats as any).length === 0) {
+            await scaleEncounter(tx, maze, destination, encounter, definition);
+          }
+        }
+      }
       return { room:destination, generated:false };
     }
 
@@ -230,6 +250,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const updatedPosition = await Position.where({ mazeId, characterId }).first();
     await Position.where({ id:updatedPosition.id }).update({ roomId:destination.id, previousRoomId:currentRoom.id });
+
+    const destinationEncounters = MazeRoomEnemy ? await MazeRoomEnemy.where({ roomId:destination.id, status:"ACTIVE" }).all() : [];
+    if (destinationEncounters.length > 0) {
+      const definitions = await (tx.orm.public as any).Enemy.all();
+      for (const encounter of destinationEncounters) {
+        const definition = definitions.find((enemy:any) => Number(enemy.id) === Number(encounter.enemyId));
+        await scaleEncounter(tx, maze, destination, encounter, definition);
+      }
+    }
 
     if (String(maze.mazeType) === "FINITE" && nextNumber === Number(maze.maxRooms)) {
       await tx.orm.public.Maze.where({ id:mazeId }).update({ status:"BOSS_ACTIVE" });

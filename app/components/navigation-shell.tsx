@@ -29,9 +29,6 @@ function getRouteInfo(pathname: string, characters: Character[]) {
       sectionKey === "characters" ? "Personajes" :
       sectionKey === "casino" ? "Casino" :
       section.label;
-  } else if (sectionKey === "characters" || sectionKey === "casino" || sectionKey === "profile" || sectionKey === "management" || sectionKey === "notifications") {
-    backHref = "/";
-    backLabel = "Inicio";
   }
 
   const character =

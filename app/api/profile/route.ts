@@ -16,11 +16,20 @@ export async function GET() {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  const characters = (await db.orm.public.Character.all())
+    .filter((character) => Number(character.userId) === Number(user.id))
+    .map((character) => ({
+      id: character.id,
+      name: character.name,
+      createdAt: character.createdAt,
+    }));
+
   return NextResponse.json({
     id: user.id,
     name: user.name ?? "",
     email: user.email,
     role: user.role,
+    characters,
   });
 }
 

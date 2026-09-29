@@ -148,6 +148,47 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const user = await getUser();
   if (!user) return NextResponse.json({ error:"Unauthorized" }, { status:401 });
   const body = await request.json().catch(() => null);
+  if (body?.action === "deleteMaze" || body?.action === "resetMaze") {
+    if (String(user.role) !== "ADMIN") return NextResponse.json({ error:"Solo ADMIN puede borrar o resetear laberintos." }, { status:403 });
+    const mazeId = Number((await params).id);
+    const maze = await db.orm.public.Maze.where({ id:mazeId }).first();
+    if (!maze) return NextResponse.json({ error:"Laberinto no encontrado." }, { status:404 });
+
+    if (body.action === "deleteMaze") {
+      await db.transaction(async (tx) => {
+        await tx.orm.public.Maze.where({ id:mazeId }).delete();
+      });
+      await recordAuditEvent({
+        actorUserId:user.id,
+        action:"MAZE_DELETED",
+        entityType:"MAZE",
+        entityId:mazeId,
+        details:{ name:maze.name, mazeType:maze.mazeType },
+      });
+      return NextResponse.json({ success:true, action:"deleteMaze" });
+    }
+
+    const result = await db.transaction(async (tx) => {
+      await (tx.orm.public as any).MazeCharacterPosition.where({ mazeId }).delete();
+      await (tx.orm.public as any).MazeExit.where({ mazeId }).delete();
+      await tx.orm.public.MazeRoom.where({ mazeId }).delete();
+      const freshMaze = await tx.orm.public.Maze.where({ id:mazeId }).update({
+        status:"ACTIVE",
+      });
+      const room = await generateRoom(tx, freshMaze, 1);
+      return { room };
+    });
+
+    await recordAuditEvent({
+      actorUserId:user.id,
+      action:"MAZE_RESET",
+      entityType:"MAZE",
+      entityId:mazeId,
+      details:{ name:maze.name, mazeType:maze.mazeType },
+    });
+    return NextResponse.json({ success:true, action:"resetMaze", room:result.room });
+  }
+
   if (body?.action === "reloadEnemies") {
     if (!["GM","ADMIN"].includes(String(user.role))) return NextResponse.json({ error:"Forbidden" }, { status:403 });
     const mazeId = Number((await params).id);

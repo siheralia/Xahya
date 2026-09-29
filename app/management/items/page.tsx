@@ -50,7 +50,7 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:String(effect.type),stat:String(effect.stat??"STR"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)&&item.allowedSlots.length?item.allowedSlots:defaultSlots});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:effect.type==="attack_multiplier_all"?"stat_multiplier":effect.type==="damage_reduction_all"?"stat_bonus":String(effect.type),stat:effect.stat??(effect.type==="attack_multiplier_all"?"ATTACK_TOTAL":effect.type==="damage_reduction_all"?"DAMAGE_REDUCTION_ALL":"STR"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)&&item.allowedSlots.length?item.allowedSlots:defaultSlots});
     setSuccess(""); setError("");
   }
   function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");}

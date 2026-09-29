@@ -6,6 +6,7 @@ export default function ProfilePage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
+  const [characters, setCharacters] = useState<Array<{ id: number; name: string; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -22,6 +23,7 @@ export default function ProfilePage() {
         setName(data.name);
         setEmail(data.email);
         setRole(data.role);
+        setCharacters(data.characters ?? []);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar el perfil."))
       .finally(() => setLoading(false));
@@ -87,6 +89,37 @@ export default function ProfilePage() {
           >
             {saving ? "Guardando..." : "Guardar nombre"}
           </button>
+        </section>
+
+        <section className="mt-8">
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold">Mis personajes</h2>
+            <p className="mt-1 text-sm text-zinc-500">Solo los personajes pertenecientes a tu cuenta.</p>
+          </div>
+
+          {characters.length === 0 ? (
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 text-zinc-500">
+              Todavía no tienes personajes.
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {characters.map((character) => (
+                <a
+                  key={character.id}
+                  href={`/characters/${character.id}`}
+                  className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 transition hover:border-zinc-600 hover:bg-zinc-900"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{character.name}</h3>
+                      <p className="mt-1 text-sm text-zinc-500">Personaje #{character.id}</p>
+                    </div>
+                    <span className="text-zinc-400">→</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </main>

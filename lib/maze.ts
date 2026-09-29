@@ -56,3 +56,73 @@ export function pickWeighted<T extends { encounterWeight: number }>(items: T[]) 
   }
   return items[items.length - 1];
 }
+
+
+export const ENEMY_FOCUSES = [
+  "PHYSICAL","DEFENSIVE","MAGICAL","CONTROL","SPEED","PRECISION","BALANCED",
+] as const;
+
+export const ENEMY_BEHAVIORS = [
+  "AGGRESSIVE","HUNTER","AMBUSHER","DEFENSIVE","ROAMER","GUARDIAN","CONTROLLER",
+] as const;
+
+export type EnemyFocus = (typeof ENEMY_FOCUSES)[number];
+export type EnemyBehavior = (typeof ENEMY_BEHAVIORS)[number];
+
+const STAT_KEYS = ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK"] as const;
+type EnemyStats = Record<(typeof STAT_KEYS)[number], number>;
+
+const FOCUS_WEIGHTS: Record<EnemyFocus, EnemyStats> = {
+  PHYSICAL:{STR:.30,AGI:.25,CON:.15,INT:.05,WIS:.05,CHA:.05,SPI:.05,LCK:.10},
+  DEFENSIVE:{STR:.10,AGI:.10,CON:.40,INT:.05,WIS:.15,CHA:.05,SPI:.10,LCK:.05},
+  MAGICAL:{STR:.05,AGI:.05,CON:.05,INT:.35,WIS:.15,CHA:.05,SPI:.30,LCK:.05},
+  CONTROL:{STR:.05,AGI:.05,CON:.05,INT:.25,WIS:.30,CHA:.10,SPI:.20,LCK:0},
+  SPEED:{STR:.15,AGI:.40,CON:.05,INT:.05,WIS:.05,CHA:.05,SPI:.05,LCK:.20},
+  PRECISION:{STR:.05,AGI:.30,CON:.05,INT:.10,WIS:.10,CHA:.05,SPI:.05,LCK:.30},
+  BALANCED:{STR:.125,AGI:.125,CON:.125,INT:.125,WIS:.125,CHA:.125,SPI:.125,LCK:.125},
+};
+
+export function depthMultiplier(roomNumber: number) {
+  if (roomNumber <= 5) return 1;
+  if (roomNumber <= 10) return 1.2;
+  if (roomNumber <= 20) return 1.4;
+  if (roomNumber <= 30) return 1.6;
+  if (roomNumber <= 40) return 1.8;
+  return 2;
+}
+
+export function pickEnemyFocus(isBoss = false): EnemyFocus {
+  const pool: EnemyFocus[] = isBoss
+    ? ["PHYSICAL","DEFENSIVE","MAGICAL","CONTROL","BALANCED"]
+    : [...ENEMY_FOCUSES];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+export function pickEnemyBehavior(isBoss = false): EnemyBehavior {
+  const pool: EnemyBehavior[] = isBoss
+    ? ["AGGRESSIVE","DEFENSIVE","GUARDIAN","CONTROLLER"]
+    : [...ENEMY_BEHAVIORS];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+export function scaleEnemyStats(
+  template: Partial<EnemyStats>,
+  groupPower: number,
+  roomNumber: number,
+  focus: EnemyFocus,
+) {
+  const base: EnemyStats = Object.fromEntries(
+    STAT_KEYS.map((key) => [key, Math.max(0, Number(template[key] ?? 0))]),
+  ) as EnemyStats;
+  const baseTotal = STAT_KEYS.reduce((sum,key) => sum + base[key], 0);
+  const targetPower = Math.max(1, Math.round(groupPower * 1.6 * depthMultiplier(roomNumber)));
+  const focusWeights = FOCUS_WEIGHTS[focus];
+  const blended: EnemyStats = Object.fromEntries(
+    STAT_KEYS.map((key) => [key, baseTotal > 0 ? base[key] * .6 + baseTotal * focusWeights[key] * .4 : baseTotal * focusWeights[key]]),
+  ) as EnemyStats;
+  const blendedTotal = STAT_KEYS.reduce((sum,key) => sum + blended[key], 0) || 1;
+  return {
+    targetPower,
+    stats: Object.fromEntries(STAT_KEYS.map((key) => [key, Math.max(0, Math.round(blended[key] * targetPower / blendedTotal))])),
+  };
+}

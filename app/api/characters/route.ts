@@ -25,6 +25,7 @@ export async function GET() {
     id: character.id, name: character.name, userId: character.userId, createdAt: character.createdAt,
     stats: stats.find((stat) => Number(stat.characterId) === Number(character.id)) ?? null,
     levelUpPoints: resources.find((resource) => Number(resource.characterId) === Number(character.id))?.levelUpPoints ?? 0,
+    money: resources.find((resource) => Number(resource.characterId) === Number(character.id))?.money ?? 0,
   })));
 }
 

@@ -124,6 +124,18 @@ export async function GET(
     ...itemEffects,
   ];
 
+  const equipment = ownedItems.map((owned: any) => {
+    const item = itemDefinitions.find((candidate: any) => Number(candidate.id) === Number(owned.itemId));
+    return {
+      id: Number(owned.id),
+      itemId: Number(owned.itemId),
+      quantity: Number(owned.quantity),
+      equipped: Boolean(owned.equipped),
+      equippedSlot: owned.equippedSlot == null ? null : String(owned.equippedSlot),
+      item: item ?? null,
+    };
+  });
+
   const normalizedCharacter = { ...character, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
 
   return NextResponse.json({
@@ -132,6 +144,7 @@ export async function GET(
     resources,
     modifiers,
     combatEffects,
+    equipment,
     effectiveStats,
     derivedStats,
     canSeeCharacterId: user.role === "ADMIN",

@@ -60,6 +60,7 @@ export default function ManagementPage() {
   const [equipment, setEquipment] = useState<CharacterEquipment[]>([]);
   const [equipmentLoading, setEquipmentLoading] = useState(false);
   const [flairSaving, setFlairSaving] = useState<number | null>(null);
+  const [equipmentDeleting, setEquipmentDeleting] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/management/characters")
@@ -447,6 +448,34 @@ export default function ManagementPage() {
                       }}
                       className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
                     />
+                    <button
+                      type="button"
+                      disabled={equipmentDeleting !== null}
+                      onClick={async () => {
+                        if (!window.confirm("¿Eliminar este objeto del personaje?")) return;
+                        setEquipmentDeleting(entry.id);
+                        setError("");
+                        setSuccess("");
+                        try {
+                          const response = await fetch("/api/management/characters/" + characterId + "/equipment", {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ characterItemId: entry.id }),
+                          });
+                          const data = await response.json().catch(() => null);
+                          if (!response.ok) throw new Error(data?.error ?? "No se pudo eliminar el objeto.");
+                          setEquipment((current) => current.filter((item) => item.id !== entry.id));
+                          setSuccess("Objeto eliminado del inventario.");
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : "No se pudo eliminar el objeto.");
+                        } finally {
+                          setEquipmentDeleting(null);
+                        }
+                      }}
+                      className="mt-2 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-40"
+                    >
+                      {equipmentDeleting === entry.id ? "Eliminando..." : "Eliminar objeto"}
+                    </button>
                   </label>
                 ))}
               </div>

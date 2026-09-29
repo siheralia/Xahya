@@ -34,6 +34,7 @@ body {
   background: rgba(9,9,11,.94); backdrop-filter: blur(14px);
 }
 .xahya-nav-left { min-width: 0; }
+.xahya-brand-row { display: flex; align-items: center; gap: 7px; }
 .xahya-brand {
   display: inline-flex; align-items: center; gap: 9px; color: white;
   font-size: 1.2rem; font-weight: 700; letter-spacing: -.02em; text-decoration: none;
@@ -57,7 +58,7 @@ body {
   text-transform: uppercase; letter-spacing: .3em;
 }
 .xahya-system-status {
-  display: block; margin-top: 5px; font-size: .62rem; line-height: 1;
+  display: inline-block; font-size: 1.15rem; line-height: 1; transform: translateY(-1px);
 }
 .xahya-system-status.online { color: #34d399; }
 .xahya-system-status.offline { color: #f87171; }

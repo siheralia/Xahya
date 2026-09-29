@@ -30,7 +30,7 @@ const equipmentSlots = [
 ];
 
 const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", value: 100, description: "" });
-const defaultSlots = ["ACCESSORY"];
+const defaultSlots: string[] = [];
 const noEffects = (effects: Effect[]) => !Array.isArray(effects) || effects.length === 0;
 
 export default function ItemsManagementPage() {
@@ -50,7 +50,7 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:effect.type==="attack_multiplier_all"?"stat_multiplier":effect.type==="damage_reduction_all"?"stat_bonus":String(effect.type),stat:effect.stat??(effect.type==="attack_multiplier_all"?"ATTACK_TOTAL":effect.type==="damage_reduction_all"?"DAMAGE_REDUCTION_ALL":"STR"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)&&item.allowedSlots.length?item.allowedSlots:defaultSlots});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:effect.type==="attack_multiplier_all"?"stat_multiplier":effect.type==="damage_reduction_all"?"stat_bonus":String(effect.type),stat:effect.stat??(effect.type==="attack_multiplier_all"?"ATTACK_TOTAL":effect.type==="damage_reduction_all"?"DAMAGE_REDUCTION_ALL":"STR"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
     setSuccess(""); setError("");
   }
   function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");}
@@ -99,8 +99,8 @@ export default function ItemsManagementPage() {
             <label>Obtención<select value={form.acquisitionType} onChange={e=>setForm({...form,acquisitionType:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{acquisitionTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
             <label>Precio<input type="number" min={0} value={form.price} onChange={e=>setForm({...form,price:Number(e.target.value)||0})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           </div>
-          <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">El objeto solo podrá equiparse en los slots seleccionados.</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>
-          <div><div className="flex items-center justify-between"><h3 className="font-medium">Efectos</h3>{noEffects(form.effects)?<span className="text-sm text-zinc-500">Sin efectos</span>:<button type="button" onClick={()=>setForm(f=>({...f,effects:[...f.effects,emptyEffect()]}))} className="text-sm text-zinc-300">+ Añadir efecto</button>}</div>
+          <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">{form.allowedSlots.length ? "El objeto solo podrá equiparse en los slots seleccionados." : "Este objeto no se equipa."}</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>
+          <div><div className="flex items-center justify-between"><h3 className="font-medium">Efectos</h3><div className="flex items-center gap-3">{noEffects(form.effects)&&<span className="text-sm text-zinc-500">Sin efectos</span>}<button type="button" onClick={()=>setForm(f=>({...f,effects:[...f.effects,emptyEffect()]}))} className="text-sm text-zinc-300">+ Añadir efecto</button></div></div>
           <div className="mt-3 space-y-3">{form.effects.map((effect,i)=><div key={i} className="rounded-xl border border-zinc-800 p-4">
             <div className="grid gap-3 sm:grid-cols-3"><select value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{effectTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
             <select value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{effectStats.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>

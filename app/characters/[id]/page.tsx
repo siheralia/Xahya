@@ -43,6 +43,11 @@ const statLabels: Record<string, string> = {
   luck: "Suerte",
 };
 
+const genderOptions = [
+  { value: "masculino", label: "Masculino" },
+  { value: "femenino", label: "Femenino" },
+  { value: "indefinido", label: "Indefinido" },
+] as const;
 
 const radarStats = [
   { key: "strength", short: "STR" },
@@ -119,55 +124,24 @@ function StatsRadar({ baseValues, values }: { baseValues: RadarValues; values: R
           );
         })}
 
-        <polygon
-          points={polygonPoints(basePoints)}
-          fill="rgb(34 211 238)"
-          fillOpacity="0.16"
-          stroke="rgb(34 211 238)"
-          strokeWidth="2"
-        />
+        <polygon points={polygonPoints(basePoints)} fill="rgb(34 211 238)" fillOpacity="0.16" stroke="rgb(34 211 238)" strokeWidth="2" />
 
         {hasBoost && (
-          <polygon
-            points={boostPath}
-            fill="rgb(248 113 113)"
-            fillOpacity="0.38"
-            fillRule="evenodd"
-            stroke="rgb(248 113 113)"
-            strokeOpacity="0.75"
-            strokeWidth="1.5"
-          />
+          <polygon points={boostPath} fill="rgb(248 113 113)" fillOpacity="0.38" fillRule="evenodd" stroke="rgb(248 113 113)" strokeOpacity="0.75" strokeWidth="1.5" />
         )}
 
         {hasBoost && radarStats.map((stat, index) => {
           if (values[stat.key] <= baseValues[stat.key]) return null;
           const base = basePoints[index];
           const boosted = effectivePoints[index];
-          return (
-            <line
-              key={"boost-" + stat.key}
-              x1={base.x}
-              y1={base.y}
-              x2={boosted.x}
-              y2={boosted.y}
-              stroke="rgb(248 113 113)"
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-          );
+          return <line key={"boost-" + stat.key} x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke="rgb(248 113 113)" strokeWidth="4" strokeLinecap="round" />;
         })}
       </svg>
 
       {hasBoost && (
         <div className="mt-2 flex items-center justify-center gap-4 text-xs text-zinc-500">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-cyan-400/70" />
-            Base
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
-            Boost
-          </span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-cyan-400/70" />Base</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-400" />Boost</span>
         </div>
       )}
     </div>
@@ -193,11 +167,7 @@ const derivedLabels: Record<string, string> = {
   detection: "Detección",
 };
 
-export default function CharacterPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function CharacterPage({ params }: { params: Promise<{ id: string }> }) {
   const [character, setCharacter] = useState<Character | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -240,15 +210,11 @@ export default function CharacterPage({
       "",
       "*ESTADÍSTICAS DERIVADAS*",
       character.derivedStats
-        ? Object.entries(character.derivedStats).map(([key, value]) =>
-            "• " + (derivedLabels[key] ?? key) + ": " + value
-          ).join("\n")
+        ? Object.entries(character.derivedStats).map(([key, value]) => "• " + (derivedLabels[key] ?? key) + ": " + value).join("\n")
         : "",
       "",
       "*RECURSOS*",
-      character.resources
-        ? "• Karma: " + character.resources.karma + "\n• Dinero: " + character.resources.money
-        : "",
+      character.resources ? "• Karma: " + character.resources.karma + "\n• Dinero: " + character.resources.money : "",
     ];
     return lines.join("\n");
   }
@@ -261,11 +227,7 @@ export default function CharacterPage({
       const response = await fetch("/api/characters/" + character.id + "/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          age: profileAge,
-          gender: profileGender,
-          height: profileHeight,
-        }),
+        body: JSON.stringify({ age: profileAge, gender: profileGender, height: profileHeight }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar la ficha básica.");
@@ -304,6 +266,7 @@ export default function CharacterPage({
       setBoosting(false);
     }
   }
+
   async function copyToClipboard() {
     if (!character) return;
     try {
@@ -317,33 +280,26 @@ export default function CharacterPage({
 
   function exportProfileCard() {
     if (!character?.stats) return;
-
     const scale = Math.min(window.devicePixelRatio || 1, 2);
     const width = 720;
     const height = 760;
     const canvas = document.createElement("canvas");
     canvas.width = width * scale;
     canvas.height = height * scale;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     ctx.scale(scale, scale);
-
     ctx.fillStyle = "#09090b";
     ctx.fillRect(0, 0, width, height);
-
     ctx.strokeStyle = "#27272a";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(1, 1, width - 2, height - 2, 22);
     ctx.stroke();
-
     ctx.fillStyle = "#52525b";
     ctx.font = "600 12px Arial, sans-serif";
     ctx.letterSpacing = "3px";
     ctx.fillText("PERFIL", 28, 38);
-
     ctx.fillStyle = "#ffffff";
     ctx.font = "600 22px Arial, sans-serif";
     ctx.textAlign = "right";
@@ -355,22 +311,17 @@ export default function CharacterPage({
     const radius = 245;
     const effectiveStats = character.effectiveStats ?? character.stats;
     const maxValue = Math.max(20, ...Object.values(effectiveStats));
-
     const point = (index: number, value: number) => {
       const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
       const r = radius * value / maxValue;
-      return {
-        x: centerX + Math.cos(angle) * r,
-        y: centerY + Math.sin(angle) * r,
-      };
+      return { x: centerX + Math.cos(angle) * r, y: centerY + Math.sin(angle) * r };
     };
 
     for (const gridScale of [0.25, 0.5, 0.75, 1]) {
       ctx.beginPath();
       radarStats.forEach((_, index) => {
         const p = point(index, maxValue * gridScale);
-        if (index === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
+        if (index === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
       });
       ctx.closePath();
       ctx.strokeStyle = "rgba(63,63,70,0.65)";
@@ -381,14 +332,12 @@ export default function CharacterPage({
     radarStats.forEach((stat, index) => {
       const outer = point(index, maxValue);
       const label = point(index, maxValue * 1.13);
-
       ctx.beginPath();
       ctx.moveTo(centerX, centerY);
       ctx.lineTo(outer.x, outer.y);
       ctx.strokeStyle = "rgba(63,63,70,0.65)";
       ctx.lineWidth = 1;
       ctx.stroke();
-
       ctx.fillStyle = "#a1a1aa";
       ctx.font = "11px Arial, sans-serif";
       ctx.textAlign = "center";
@@ -401,10 +350,7 @@ export default function CharacterPage({
     const hasBoost = radarStats.some((stat) => (effectiveStats?.[stat.key] ?? 0) > (character.stats?.[stat.key] ?? 0));
 
     ctx.beginPath();
-    basePoints.forEach((p, index) => {
-      if (index === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    });
+    basePoints.forEach((p, index) => { if (index === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
     ctx.closePath();
     ctx.fillStyle = "rgba(34,211,238,0.16)";
     ctx.fill();
@@ -414,10 +360,7 @@ export default function CharacterPage({
 
     if (hasBoost) {
       ctx.beginPath();
-      effectivePoints.forEach((p, index) => {
-        if (index === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
-      });
+      effectivePoints.forEach((p, index) => { if (index === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
       ctx.closePath();
       ctx.save();
       ctx.fillStyle = "rgba(248,113,113,0.38)";
@@ -445,7 +388,6 @@ export default function CharacterPage({
     ctx.fillStyle = "#ffffff";
     ctx.font = '600 28px "Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive';
     ctx.fillText(character.name, 28, height - 28);
-
     ctx.textAlign = "right";
     ctx.font = "600 20px Arial, sans-serif";
     ctx.fillStyle = "#d4d4d8";
@@ -469,10 +411,7 @@ export default function CharacterPage({
     params
       .then(({ id }) => fetch(`/api/characters/${id}`))
       .then((response) => {
-        if (!response.ok) {
-          throw new Error();
-        }
-
+        if (!response.ok) throw new Error();
         return response.json();
       })
       .then(setCharacter)
@@ -481,20 +420,14 @@ export default function CharacterPage({
   }, [params]);
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-zinc-950 p-12 text-white">
-        <p className="text-zinc-500">Cargando personaje...</p>
-      </main>
-    );
+    return <main className="min-h-screen bg-zinc-950 p-12 text-white"><p className="text-zinc-500">Cargando personaje...</p></main>;
   }
 
   if (error || !character) {
     return (
       <main className="min-h-screen bg-zinc-950 p-12 text-white">
         <p className="text-red-400">{error || "Personaje no encontrado."}</p>
-        <Link href="/characters" className="mt-4 inline-block text-zinc-300 hover:text-white">
-          ← Volver a personajes
-        </Link>
+        <Link href="/characters" className="mt-4 inline-block text-zinc-300 hover:text-white">← Volver a personajes</Link>
       </main>
     );
   }
@@ -503,106 +436,41 @@ export default function CharacterPage({
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-6xl px-6 py-12">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link href="/characters" className="text-sm text-zinc-500 hover:text-white">
-            ← Personajes
-          </Link>
-          <Link
-            href={"/casino?characterId=" + character.id}
-            className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-400/10"
-          >
-            🎰 Casino
-          </Link>
+          <Link href="/characters" className="text-sm text-zinc-500 hover:text-white">← Personajes</Link>
+          <Link href={"/casino?characterId=" + character.id} className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-400/10">🎰 Casino</Link>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <h1 className="w-full text-4xl font-bold">{character.name}</h1>
-          {character.canLevelUp && (
-            <Link
-              href={"/characters/" + character.id + "/levelup"}
-              className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300"
-            >
-              Level Up
-            </Link>
-          )}
-          {character.canManageCharacter && (
-            <Link
-              href={"/management?characterId=" + character.id}
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-            >
-              Gestionar personaje
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={copyToClipboard}
-            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-          >
-            {copied ? "✓ Copiado" : "Copiar para WhatsApp"}
-          </button>
-          <button
-            type="button"
-            onClick={exportProfileCard}
-            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-          >
-            Exportar imagen
-          </button>
+          {character.canLevelUp && <Link href={"/characters/" + character.id + "/levelup"} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300">Level Up</Link>}
+          {character.canManageCharacter && <Link href={"/management?characterId=" + character.id} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Gestionar personaje</Link>}
+          <button type="button" onClick={copyToClipboard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">{copied ? "✓ Copiado" : "Copiar para WhatsApp"}</button>
+          <button type="button" onClick={exportProfileCard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Exportar imagen</button>
         </div>
-        {character.canSeeCharacterId && (
-          <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>
-        )}
+        {character.canSeeCharacterId && <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>}
 
         {character.age === null && character.gender === null && character.height === null && (
           <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
             <h2 className="text-xl font-semibold">Datos básicos</h2>
-            <p className="mt-1 text-sm text-zinc-500">
-              Estos datos se establecen una sola vez y después quedan bloqueados.
-            </p>
+            <p className="mt-1 text-sm text-zinc-500">Estos datos se establecen una sola vez y después quedan bloqueados.</p>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
               <label className="text-sm text-zinc-400">
                 Edad
-                <input
-                  type="number"
-                  min="0"
-                  max="1000"
-                  value={profileAge}
-                  onChange={(event) => setProfileAge(event.target.value)}
-                  disabled={savingProfile}
-                  className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400"
-                  placeholder="Años"
-                />
+                <input type="number" min="0" max="1000" value={profileAge} onChange={(event) => setProfileAge(event.target.value)} disabled={savingProfile} className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400" placeholder="Años" />
               </label>
               <label className="text-sm text-zinc-400">
                 Género
-                <input
-                  type="text"
-                  maxLength={50}
-                  value={profileGender}
-                  onChange={(event) => setProfileGender(event.target.value)}
-                  disabled={savingProfile}
-                  className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400"
-                  placeholder="Género"
-                />
+                <select value={profileGender} onChange={(event) => setProfileGender(event.target.value)} disabled={savingProfile} className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400">
+                  <option value="">Selecciona</option>
+                  {genderOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
               </label>
               <label className="text-sm text-zinc-400">
                 Altura
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  value={profileHeight}
-                  onChange={(event) => setProfileHeight(event.target.value)}
-                  disabled={savingProfile}
-                  className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400"
-                  placeholder="cm"
-                />
+                <input type="number" min="1" max="1000" value={profileHeight} onChange={(event) => setProfileHeight(event.target.value)} disabled={savingProfile} className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400" placeholder="cm" />
               </label>
             </div>
-            <button
-              type="button"
-              onClick={saveProfile}
-              disabled={savingProfile || !profileAge || !profileGender.trim() || !profileHeight}
-              className="mt-5 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
-            >
+            <button type="button" onClick={saveProfile} disabled={savingProfile || !profileAge || !profileGender || !profileHeight} className="mt-5 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">
               {savingProfile ? "Guardando..." : "Guardar datos"}
             </button>
           </section>
@@ -612,18 +480,9 @@ export default function CharacterPage({
           <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
             <h2 className="text-xl font-semibold">Datos básicos</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div>
-                <p className="text-sm text-zinc-500">Edad</p>
-                <p className="mt-1 text-lg font-semibold">{character.age ?? "—"}{character.age !== null ? " años" : ""}</p>
-              </div>
-              <div>
-                <p className="text-sm text-zinc-500">Género</p>
-                <p className="mt-1 text-lg font-semibold">{character.gender ?? "—"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-zinc-500">Altura</p>
-                <p className="mt-1 text-lg font-semibold">{character.height !== null ? character.height + " cm" : "—"}</p>
-              </div>
+              <div><p className="text-sm text-zinc-500">Edad</p><p className="mt-1 text-lg font-semibold">{character.age ?? "—"}{character.age !== null ? " años" : ""}</p></div>
+              <div><p className="text-sm text-zinc-500">Género</p><p className="mt-1 text-lg font-semibold">{character.gender ? genderOptions.find((option) => option.value === character.gender)?.label ?? character.gender : "—"}</p></div>
+              <div><p className="text-sm text-zinc-500">Altura</p><p className="mt-1 text-lg font-semibold">{character.height !== null ? character.height + " cm" : "—"}</p></div>
             </div>
           </section>
         )}
@@ -631,23 +490,16 @@ export default function CharacterPage({
         {character.stats && (
           <section className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold">Boost de Karma</h2>
-                <p className="mt-1 text-sm text-zinc-500">Gasta 20 de karma para obtener +20 como modificador activo en una estadística.</p>
-              </div>
+              <div><h2 className="text-xl font-semibold">Boost de Karma</h2><p className="mt-1 text-sm text-zinc-500">Gasta 20 de karma para obtener +20 como modificador activo en una estadística.</p></div>
               <span className="rounded-full border border-amber-400/20 px-3 py-1 text-sm text-amber-300">🪷 20</span>
             </div>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row">
               <select value={boostStat} onChange={(event) => setBoostStat(event.target.value)} disabled={boosting} className="h-12 min-w-0 flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-white outline-none focus:border-amber-400">
                 {Object.entries(statLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
               </select>
-              <button type="button" onClick={applyKarmaBoost} disabled={boosting || (character.resources?.karma ?? 0) < 20} className="rounded-xl bg-amber-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40">
-                {boosting ? "Aplicando..." : "Aplicar boost"}
-              </button>
+              <button type="button" onClick={applyKarmaBoost} disabled={boosting || (character.resources?.karma ?? 0) < 20} className="rounded-xl bg-amber-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40">{boosting ? "Aplicando..." : "Aplicar boost"}</button>
             </div>
-            {character.modifiers.length > 0 && (
-              <p className="mt-3 text-xs text-zinc-600">Boosts activos: {character.modifiers.filter((modifier) => modifier.source === "KARMA_BOOST").map((modifier) => `+${modifier.amount} ${statLabels[modifier.stat] ?? modifier.stat} · hasta ${new Date(String(modifier.expiresAt)).toLocaleDateString("es-MX")}`).join(" · ")}</p>
-            )}
+            {character.modifiers.length > 0 && <p className="mt-3 text-xs text-zinc-600">Boosts activos: {character.modifiers.filter((modifier) => modifier.source === "KARMA_BOOST").map((modifier) => `+${modifier.amount} ${statLabels[modifier.stat] ?? modifier.stat} · hasta ${new Date(String(modifier.expiresAt)).toLocaleDateString("es-MX")}`).join(" · ")}</p>}
           </section>
         )}
 
@@ -659,38 +511,15 @@ export default function CharacterPage({
                 {Object.entries(statLabels).map(([key, label]) => (
                   <div key={key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2">
                     <p className="text-sm text-zinc-400">{label}</p>
-                    <div className="text-right">
-                      <span className="text-lg font-semibold text-white">
-                        {character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats]}
-                      </span>
-                      {character.effectiveStats && character.effectiveStats[key] !== character.stats?.[key as keyof typeof character.stats] && (
-                        <span className="ml-2 text-xs text-amber-300">({character.stats?.[key as keyof typeof character.stats]})</span>
-                      )}
-                    </div>
+                    <div className="text-right"><span className="text-lg font-semibold text-white">{character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats]}</span>{character.effectiveStats && character.effectiveStats[key] !== character.stats?.[key as keyof typeof character.stats] && <span className="ml-2 text-xs text-amber-300">({character.stats?.[key as keyof typeof character.stats]})</span>}</div>
                   </div>
                 ))}
               </div>
             </div>
-
             <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 pb-12">
-              <div className="flex items-baseline justify-between gap-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Perfil</p>
-                <h3 className="text-lg font-semibold text-right">Distribución de estadísticas</h3>
-              </div>
-              <div className="mt-3">
-                <StatsRadar baseValues={baseRadarValues!} values={radarValues} />
-              </div>
-              <div className="absolute bottom-3 left-5 right-5 flex items-center justify-between gap-4">
-                <p
-                  className="text-xl font-semibold italic text-white"
-                  style={{ fontFamily: '"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive' }}
-                >
-                  {character.name}
-                </p>
-                <p className="text-base font-semibold text-zinc-300">
-                  🪷 {character.resources?.karma?.toLocaleString("en-US") ?? 0}
-                </p>
-              </div>
+              <div className="flex items-baseline justify-between gap-4"><p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Perfil</p><h3 className="text-lg font-semibold text-right">Distribución de estadísticas</h3></div>
+              <div className="mt-3"><StatsRadar baseValues={baseRadarValues!} values={radarValues} /></div>
+              <div className="absolute bottom-3 left-5 right-5 flex items-center justify-between gap-4"><p className="text-xl font-semibold italic text-white" style={{ fontFamily: '"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive' }}>{character.name}</p><p className="text-base font-semibold text-zinc-300">🪷 {character.resources?.karma?.toLocaleString("en-US") ?? 0}</p></div>
             </div>
           </section>
         )}
@@ -699,12 +528,7 @@ export default function CharacterPage({
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Estadísticas derivadas</h2>
             <div className="mt-4 grid gap-x-8 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(character.derivedStats).map(([key, value]) => (
-                <div key={key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2">
-                  <p className="text-sm text-zinc-400">{derivedLabels[key] ?? key}</p>
-                  <p className="text-lg font-semibold">{value}</p>
-                </div>
-              ))}
+              {Object.entries(character.derivedStats).map(([key, value]) => <div key={key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2"><p className="text-sm text-zinc-400">{derivedLabels[key] ?? key}</p><p className="text-lg font-semibold">{value}</p></div>)}
             </div>
           </section>
         )}
@@ -713,18 +537,9 @@ export default function CharacterPage({
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Recursos</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-                <p className="text-sm text-zinc-500">Karma</p>
-                <p className="mt-1 text-2xl font-semibold">{character.resources.karma}</p>
-              </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-                <p className="text-sm text-zinc-500">Dinero</p>
-                <p className="mt-1 text-2xl font-semibold">{character.resources.money}</p>
-              </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-                <p className="text-sm text-zinc-500">Puntos de Level Up</p>
-                <p className="mt-1 text-2xl font-semibold">{character.resources.levelUpPoints}</p>
-              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4"><p className="text-sm text-zinc-500">Karma</p><p className="mt-1 text-2xl font-semibold">{character.resources.karma}</p></div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4"><p className="text-sm text-zinc-500">Dinero</p><p className="mt-1 text-2xl font-semibold">{character.resources.money}</p></div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4"><p className="text-sm text-zinc-500">Puntos de Level Up</p><p className="mt-1 text-2xl font-semibold">{character.resources.levelUpPoints}</p></div>
             </div>
           </section>
         )}

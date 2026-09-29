@@ -28,6 +28,7 @@ model Character {
   auditLogs AuditLog[]
   knownCharacters CharacterRelationship[] @relation("CharacterKnows")
   knownByCharacters CharacterRelationship[] @relation("CharacterKnownBy")
+  mazePositions MazeCharacterPosition[]
 }
 
 model CharacterStat {
@@ -126,4 +127,89 @@ model CharacterRelationship {
   @@unique([characterId, knownCharacterId])
   @@index([characterId])
   @@index([knownCharacterId])
+}
+
+model Maze {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  mazeType    String    @default("INFINITE")
+  maxRooms    Int?
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  rooms       MazeRoom[]
+  positions   MazeCharacterPosition[]
+}
+
+model MazeRoom {
+  id                 Int       @id @default(autoincrement())
+  mazeId             Int
+  maze               Maze      @relation(fields:[mazeId], references:[id], onDelete:Cascade)
+  roomNumber         Int
+  roomType           String
+  status             String    @default("OPEN")
+  description        String
+  contentName        String?
+  contentDescription String?
+  treasureClaimed    Boolean   @default(false)
+  treasureRewards   Json      @default("{}")
+  createdAt          DateTime  @default(now())
+  exits              MazeExit[]
+  enemies            MazeRoomEnemy[]
+  positions          MazeCharacterPosition[]
+  @@unique([mazeId, roomNumber])
+}
+
+model MazeExit {
+  id         Int       @id @default(autoincrement())
+  mazeId     Int
+  maze       Maze      @relation(fields:[mazeId], references:[id], onDelete:Cascade)
+  fromRoomId Int
+  fromRoom   MazeRoom  @relation(fields:[fromRoomId], references:[id], onDelete:Cascade)
+  toRoomId   Int?
+  toRoom     MazeRoom? @relation(fields:[toRoomId], references:[id], onDelete:Cascade)
+  direction  String
+  createdAt  DateTime  @default(now())
+  @@unique([fromRoomId, direction])
+}
+
+model Enemy {
+  id              Int       @id @default(autoincrement())
+  name            String
+  description     String?
+  rank            String    @default("NORMAL")
+  stats           Json      @default("{}")
+  abilities       Json      @default("[]")
+  loot            Json      @default("[]")
+  encounterWeight Int       @default(1)
+  isBoss          Boolean   @default(false)
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  instances       MazeRoomEnemy[]
+}
+
+model MazeRoomEnemy {
+  id        Int       @id @default(autoincrement())
+  roomId    Int
+  room      MazeRoom  @relation(fields:[roomId], references:[id], onDelete:Cascade)
+  enemyId   Int
+  enemy     Enemy     @relation(fields:[enemyId], references:[id], onDelete:Restrict)
+  quantity  Int       @default(1)
+  status    String    @default("ACTIVE")
+  isMobile  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  @@unique([roomId, enemyId, isMobile])
+}
+
+model MazeCharacterPosition {
+  id          Int       @id @default(autoincrement())
+  mazeId      Int
+  maze        Maze      @relation(fields:[mazeId], references:[id], onDelete:Cascade)
+  characterId Int
+  character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
+  roomId      Int
+  room        MazeRoom  @relation(fields:[roomId], references:[id], onDelete:Cascade)
+  updatedAt   DateTime  @updatedAt
+  @@unique([mazeId, characterId])
 }

@@ -30,9 +30,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const acquisitionType = String(body.acquisitionType ?? item.acquisitionType);
   const price = Number(body.price ?? item.price);
   const effects = Array.isArray(body.effects) ? body.effects : item.effects;
-  const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : (Array.isArray(item.allowedSlots) ? item.allowedSlots : ["ACCESSORY"]);
+  const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : (Array.isArray(item.allowedSlots) ? item.allowedSlots : []);
   if (!name || name.length > 100 || !Number.isInteger(price) || price < 0) return NextResponse.json({ error: "Datos del objeto inválidos." }, { status: 400 });
-  if (!allowedSlots.length || allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return NextResponse.json({ error: "Slots de equipo inválidos." }, { status: 400 });
+  if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return NextResponse.json({ error: "Slots de equipo inválidos." }, { status: 400 });
   for (const effect of effects) {
     if (!EFFECT_TYPES.includes(String(effect?.type) as any) || !EFFECT_STATS.includes(String(effect?.stat) as any) || !Number.isFinite(Number(effect?.value)) || Number(effect.value) <= 0) return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
   }

@@ -24,7 +24,7 @@ function validate(body: any) {
   const acquisitionType = String(body.acquisitionType ?? "PURCHASABLE");
   const price = Number(body.price ?? 0);
   const effects = Array.isArray(body.effects) ? body.effects : [];
-  const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : ["ACCESSORY"];
+  const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : [];
   if (!name || name.length > 100) return "El nombre debe tener entre 1 y 100 caracteres.";
   if (!ITEM_TYPES.includes(itemType as any)) return "Tipo de objeto inválido.";
   if (!ACQUISITION_TYPES.includes(acquisitionType as any)) return "Tipo de obtención inválido.";
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const error = validate(body);
   if (error) return NextResponse.json({ error }, { status: 400 });
   const Item = (db.orm.public as any).Item;
-  const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : ["ACCESSORY"];
+  const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : [];
   const item = await Item.create({
     name: body.name.trim(),
     description: typeof body.description === "string" ? body.description.trim() || null : null,

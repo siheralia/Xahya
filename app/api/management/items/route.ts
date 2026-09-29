@@ -28,7 +28,7 @@ function validate(body: any) {
   if (!ITEM_TYPES.includes(itemType as any)) return "Tipo de objeto inválido.";
   if (!ACQUISITION_TYPES.includes(acquisitionType as any)) return "Tipo de obtención inválido.";
   if (!Number.isInteger(price) || price < 0) return "El precio debe ser un entero no negativo.";
-  if (!allowedSlots.length || allowedSlots.some((slot) => !EQUIPMENT_SLOTS.includes(slot as any))) return "Slots de equipo inválidos.";
+  if (!allowedSlots.length || allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return "Slots de equipo inválidos.";
   for (const effect of effects) {
     if (!EFFECT_TYPES.includes(String(effect?.type) as any)) return "Efecto de objeto inválido.";
     if (!Number.isFinite(Number(effect?.value)) || Number(effect.value) <= 0) return "Valor de efecto inválido.";
@@ -51,6 +51,7 @@ export async function POST(request: Request) {
   const error = validate(body);
   if (error) return NextResponse.json({ error }, { status: 400 });
   const Item = (db.orm.public as any).Item;
+  const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : ["ACCESSORY"];
   const item = await Item.create({
     name: body.name.trim(),
     description: typeof body.description === "string" ? body.description.trim() || null : null,

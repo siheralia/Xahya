@@ -234,6 +234,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!Object.prototype.hasOwnProperty.call(DIRECTION_LABELS, direction)) return NextResponse.json({ error:"Dirección inválida." }, { status:400 });
   if (String(maze.status) === "COMPLETED") return NextResponse.json({ error:"Este laberinto ya está completado." }, { status:400 });
 
+  const leave = body?.action === "leave";
+  if (leave) {
+    const Position = (db.orm.public as any).MazeCharacterPosition;
+    const Character = db.orm.public.Character;
+    const characterId = Number(body?.characterId);
+    const character = await Character.where({ id:characterId }).first();
+    if (!character) return NextResponse.json({ error:"Personaje no encontrado." }, { status:404 });
+    const privileged = ["GM","ADMIN"].includes(String(user.role));
+    if (!privileged && Number(character.userId) !== Number(user.id)) return NextResponse.json({ error:"Forbidden" }, { status:403 });
+    const position = await Position.where({ mazeId, characterId }).first();
+    if (!position) return NextResponse.json({ error:"El personaje no está dentro de este laberinto." }, { status:400 });
+    const root = await db.orm.public.MazeRoom.where({ id:Number(position.roomId) }).first();
+    if (!root || Number(root.roomNumber) !== 1) return NextResponse.json({ error:"Solo puedes salir del laberinto desde la habitación 1." }, { status:400 });
+    await Position.where({ id:Number(position.id) }).delete();
+    await recordAuditEvent({ actorUserId:user.id, action:"MAZE_LEAVE", entityType:"MAZE", entityId:mazeId, characterId, details:{ mazeId } });
+    return NextResponse.json({ success:true });
+  }
+
   const Position = (db.orm.public as any).MazeCharacterPosition;
   const Room = db.orm.public.MazeRoom;
   const Exit = (db.orm.public as any).MazeExit;

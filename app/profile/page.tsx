@@ -6,7 +6,7 @@ export default function ProfilePage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
-  const [characters, setCharacters] = useState<Array<{ id: number; name: string; createdAt: string }>>([]);
+  const [characters, setCharacters] = useState<Array<{ id: number; name: string; flair: string | null; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -111,7 +111,7 @@ export default function ProfilePage() {
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <h3 className="text-lg font-semibold text-white">{character.name}</h3>
+                      <h3 className="text-lg font-semibold text-white">{character.name} {character.flair && <span className="text-base font-normal">⟨{character.flair}⟩</span>}</h3>
                       <p className="mt-1 text-sm text-zinc-500">Personaje #{character.id}</p>
                     </div>
                     <span className="text-zinc-400">→</span>

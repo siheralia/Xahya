@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 type Character = {
   id: number;
   name: string;
+  age: number | null;
+  gender: string | null;
+  height: number | null;
   stats: {
     strength: number;
     agility: number;
@@ -201,6 +204,10 @@ export default function CharacterPage({
   const [copied, setCopied] = useState(false);
   const [boostStat, setBoostStat] = useState("strength");
   const [boosting, setBoosting] = useState(false);
+  const [profileAge, setProfileAge] = useState("");
+  const [profileGender, setProfileGender] = useState("");
+  const [profileHeight, setProfileHeight] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const radarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
@@ -244,6 +251,32 @@ export default function CharacterPage({
         : "",
     ];
     return lines.join("\n");
+  }
+
+  async function saveProfile() {
+    if (!character || savingProfile) return;
+    setSavingProfile(true);
+    setError("");
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          age: profileAge,
+          gender: profileGender,
+          height: profileHeight,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar la ficha básica.");
+      const refreshed = await fetch("/api/characters/" + character.id);
+      if (!refreshed.ok) throw new Error("Los datos se guardaron, pero no se pudo actualizar la ficha.");
+      setCharacter(await refreshed.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar la ficha básica.");
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   async function applyKarmaBoost() {
@@ -516,6 +549,83 @@ export default function CharacterPage({
         </div>
         {character.canSeeCharacterId && (
           <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>
+        )}
+
+        {character.age === null && character.gender === null && character.height === null && (
+          <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+            <h2 className="text-xl font-semibold">Datos básicos</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Estos datos se establecen una sola vez y después quedan bloqueados.
+            </p>
+            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+              <label className="text-sm text-zinc-400">
+                Edad
+                <input
+                  type="number"
+                  min="0"
+                  max="1000"
+                  value={profileAge}
+                  onChange={(event) => setProfileAge(event.target.value)}
+                  disabled={savingProfile}
+                  className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400"
+                  placeholder="Años"
+                />
+              </label>
+              <label className="text-sm text-zinc-400">
+                Género
+                <input
+                  type="text"
+                  maxLength={50}
+                  value={profileGender}
+                  onChange={(event) => setProfileGender(event.target.value)}
+                  disabled={savingProfile}
+                  className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400"
+                  placeholder="Género"
+                />
+              </label>
+              <label className="text-sm text-zinc-400">
+                Altura
+                <input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={profileHeight}
+                  onChange={(event) => setProfileHeight(event.target.value)}
+                  disabled={savingProfile}
+                  className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400"
+                  placeholder="cm"
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={saveProfile}
+              disabled={savingProfile || !profileAge || !profileGender.trim() || !profileHeight}
+              className="mt-5 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {savingProfile ? "Guardando..." : "Guardar datos"}
+            </button>
+          </section>
+        )}
+
+        {(character.age !== null || character.gender !== null || character.height !== null) && (
+          <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+            <h2 className="text-xl font-semibold">Datos básicos</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div>
+                <p className="text-sm text-zinc-500">Edad</p>
+                <p className="mt-1 text-lg font-semibold">{character.age ?? "—"}{character.age !== null ? " años" : ""}</p>
+              </div>
+              <div>
+                <p className="text-sm text-zinc-500">Género</p>
+                <p className="mt-1 text-lg font-semibold">{character.gender ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-zinc-500">Altura</p>
+                <p className="mt-1 text-lg font-semibold">{character.height !== null ? character.height + " cm" : "—"}</p>
+              </div>
+            </div>
+          </section>
         )}
 
         {character.stats && (

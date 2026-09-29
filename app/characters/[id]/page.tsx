@@ -215,7 +215,23 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       "",
       "*ESTADÍSTICAS DERIVADAS*",
       character.derivedStats
-        ? Object.entries(character.derivedStats).map(([key, value]) => "• " + (derivedLabels[key] ?? key) + ": " + value).join("\n")
+        ? Object.entries(character.derivedStats).map(([key, value]) => {
+            const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
+            const displayedValue = affectedByAttackMultiplier ? value * allAttackMultiplier : value;
+            return "• " + (derivedLabels[key] ?? key) + ": " + displayedValue + (affectedByAttackMultiplier && allAttackMultiplier !== 1 ? " (base " + value + " · ×" + allAttackMultiplier + ")" : "");
+          }).join("\n")
+        : "",
+      "",
+      character.combatEffects.length > 0
+        ? [
+            "*OBJETOS Y EFECTOS*",
+            ...character.combatEffects.map((effect) =>
+              "• " + effect.source.replace(/^ITEM:/, "") + ": " +
+              (effect.type === "attack_multiplier_all"
+                ? "×" + (effect.value / 100) + " a todos los ataques"
+                : "×" + (effect.value / 100) + " al daño recibido")
+            ),
+          ].join("\n")
         : "",
       "",
       "*RECURSOS*",
@@ -332,7 +348,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       if (silhouetteImage.complete && silhouetteImage.naturalWidth > 0) {
         ctx.save();
         ctx.globalAlpha = 0.9;
-        ctx.drawImage(silhouetteImage, centerX - 175, centerY - 235, 350, 455);
+        ctx.drawImage(silhouetteImage, centerX - 110, centerY - 235, 220, 455);
         ctx.restore();
       }
     }
@@ -461,7 +477,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
-      <div className="mx-auto max-w-6xl px-6 py-12">
+      <div className="mx-auto max-w-6xl px-6 py-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href="/characters" className="text-sm text-zinc-500 hover:text-white">← Personajes</Link>
           <Link href={"/casino?characterId=" + character.id} className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-400/10">🎰 Casino</Link>

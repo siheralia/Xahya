@@ -272,12 +272,8 @@ export default function ManagementPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
-      <div className="mx-auto max-w-5xl px-6 py-12">
-        <Link href="/" className="text-sm text-zinc-500 hover:text-white">
-          ← Inicio
-        </Link>
-
-        <h1 className="mt-6 text-4xl font-bold">Gestión de personajes</h1>
+      <div className="mx-auto max-w-5xl px-6 py-6">
+        <h1 className="text-4xl font-bold">Gestión de personajes</h1>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="text-zinc-500">{isAdmin ? "Otorga cambios permanentes a las estadísticas base y recursos." : "Otorga recursos y puntos de Level Up a los personajes."}</p>
           <div className="flex flex-wrap gap-3">

@@ -192,6 +192,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [character, setCharacter] = useState<Character | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [copied, setCopied] = useState(false);
   const [boostStat, setBoostStat] = useState("strength");
   const [boosting, setBoosting] = useState(false);

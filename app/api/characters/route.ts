@@ -80,10 +80,10 @@ export async function POST(request: Request) {
     actorUserId: user.id,
     action: "CHARACTER_CREATED",
     entityType: "CHARACTER",
-    entityId: character.id,
-    characterId: character.id,
+    entityId: character.character.id,
+    characterId: character.character.id,
     details: {
-      name: character.name,
+      name: character.character.name,
       initialKarma: 1,
       initialMoney: 1000,
       creationPerks: (character.awardedPerks ?? []).map((entry: any) => Number(entry.perkId)),

@@ -125,8 +125,9 @@ export async function POST(request: Request) {
   if (!name) return NextResponse.json({ error: "El laberinto necesita un nombre." }, { status: 400 });
   if (mazeType === "FINITE" && (!Number.isInteger(maxRooms) || maxRooms < 2)) return NextResponse.json({ error: "Un laberinto finito necesita al menos 2 habitaciones." }, { status: 400 });
 
+  const safeMaxRooms = mazeType === "FINITE" ? maxRooms as number : null;
   const result = await db.transaction(async (tx) => {
-    const maze = await tx.orm.public.Maze.create({ name, description, mazeType, maxRooms, status:"ACTIVE" });
+    const maze = await tx.orm.public.Maze.create({ name, description, mazeType, maxRooms: safeMaxRooms, status:"ACTIVE" });
     const room = await createRoom(tx, maze, 1);
     for (const direction of pickRandomDirections()) {
       await tx.orm.public.MazeExit.create({ mazeId: maze.id, fromRoomId: room.id, direction, toRoomId: null });

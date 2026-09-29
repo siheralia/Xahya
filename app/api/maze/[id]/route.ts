@@ -47,15 +47,16 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
     contentDescription = item ? `Un tesoro contiene dinero y ${item.name}.` : "Un tesoro contiene una cantidad de dinero.";
   }
 
+  let selectedEnemy: any = null;
   if (roomType === "ENEMY" || roomType === "MOBILE_ENEMY" || roomType === "BOSS") {
     const allEnemies = Enemy ? await Enemy.where({ active:true }).all() : [];
     const candidates = roomType === "BOSS"
       ? allEnemies.filter((enemy:any) => Boolean(enemy.isBoss) || String(enemy.rank) === "BOSS")
       : allEnemies.filter((enemy:any) => !Boolean(enemy.isBoss));
-    const enemy: any = pickWeighted<any>(candidates as any[]);
-    if (enemy) {
-      contentName = enemy.name;
-      contentDescription = enemy.description ?? "Una criatura desconocida.";
+    selectedEnemy = pickWeighted<any>(candidates as any[]);
+    if (selectedEnemy) {
+      contentName = selectedEnemy.name;
+      contentDescription = selectedEnemy.description ?? "Una criatura desconocida.";
     }
   }
 
@@ -67,13 +68,8 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
   });
 
   if ((roomType === "ENEMY" || roomType === "MOBILE_ENEMY" || roomType === "BOSS") && Enemy && MazeRoomEnemy) {
-    const allEnemies = await Enemy.where({ active:true }).all();
-    const candidates = roomType === "BOSS"
-      ? allEnemies.filter((enemy:any) => Boolean(enemy.isBoss) || String(enemy.rank) === "BOSS")
-      : allEnemies.filter((enemy:any) => !Boolean(enemy.isBoss));
-    const enemy: any = pickWeighted<any>(candidates as any[]);
-    if (enemy) {
-      await MazeRoomEnemy.create({ roomId: room.id, enemyId: enemy.id, quantity: roomType === "BOSS" ? 1 : Math.floor(Math.random()*3)+1, status:"ACTIVE", isMobile:roomType === "MOBILE_ENEMY" });
+    if (selectedEnemy) {
+      await MazeRoomEnemy.create({ roomId: room.id, enemyId: selectedEnemy.id, quantity: roomType === "BOSS" ? 1 : Math.floor(Math.random()*3)+1, status:"ACTIVE", isMobile:roomType === "MOBILE_ENEMY" });
     } else {
       await tx.orm.public.MazeRoom.where({ id:room.id }).update({ status:"OPEN" });
     }
@@ -83,6 +79,47 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
     await tx.orm.public.MazeExit.create({ mazeId:maze.id, fromRoomId:room.id, direction, toRoomId:null });
   }
   return await tx.orm.public.MazeRoom.where({ id:room.id }).first();
+}
+
+export async function POST(request: Request, { params }: { params: Promise<{ id:string }> }) {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error:"Unauthorized" }, { status:401 });
+  if (!["GM","ADMIN"].includes(String(user.role))) return NextResponse.json({ error:"Forbidden" }, { status:403 });
+  const mazeId = Number((await params).id);
+  const maze = await db.orm.public.Maze.where({ id:mazeId }).first();
+  if (!maze) return NextResponse.json({ error:"Laberinto no encontrado." }, { status:404 });
+
+  const Enemy = (db.orm.public as any).Enemy;
+  const MazeRoomEnemy = (db.orm.public as any).MazeRoomEnemy;
+  const Room = db.orm.public.MazeRoom;
+  if (!Enemy || !MazeRoomEnemy) return NextResponse.json({ error:"El catálogo de enemigos no está disponible." }, { status:500 });
+
+  const result = await db.transaction(async (tx) => {
+    const rooms = await Room.where({ mazeId }).all();
+    const enemyRooms = rooms.filter((room:any) => ["ENEMY","MOBILE_ENEMY","BOSS"].includes(String(room.roomType)));
+    let loaded = 0;
+    for (const room of enemyRooms) {
+      const active = await MazeRoomEnemy.where({ roomId:room.id, status:"ACTIVE" }).all();
+      if (active.length > 0) continue;
+      const allEnemies = await Enemy.where({ active:true }).all();
+      const candidates = String(room.roomType) === "BOSS"
+        ? allEnemies.filter((enemy:any) => Boolean(enemy.isBoss) || String(enemy.rank) === "BOSS")
+        : allEnemies.filter((enemy:any) => !Boolean(enemy.isBoss));
+      const enemy:any = pickWeighted<any>(candidates as any[]);
+      if (!enemy) continue;
+      await MazeRoomEnemy.create({
+        roomId:room.id,
+        enemyId:enemy.id,
+        quantity:String(room.roomType) === "BOSS" ? 1 : Math.floor(Math.random()*3)+1,
+        status:"ACTIVE",
+        isMobile:String(room.roomType) === "MOBILE_ENEMY",
+      });
+      await Room.where({ id:room.id }).update({ status:"BLOCKED", contentName:enemy.name, contentDescription:enemy.description ?? "Una criatura desconocida." });
+      loaded++;
+    }
+    return { loaded };
+  });
+  return NextResponse.json(result);
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id:string }> }) {

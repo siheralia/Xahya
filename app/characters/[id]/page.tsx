@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CharacterSilhouette, getCharacterSilhouetteSvg } from "@/components/CharacterSilhouette";
 
+type EquipmentItem = {
+  id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null;
+  item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; value: number; description?: string }[] } | null;
+};
+
 type Character = {
   id: number;
   name: string;
@@ -37,6 +42,7 @@ type Character = {
     value: number;
   }> | null;
   combatEffects: { type: "attack_multiplier_all" | "damage_reduction_all"; value: number; source: string; expiresAt: string | null }[];
+  equipment: EquipmentItem[];
   canSeeCharacterId: boolean;
   canManageCharacter: boolean;
   canLevelUp: boolean;
@@ -52,6 +58,11 @@ const statLabels: Record<string, string> = {
   spirit: "Espíritu",
   luck: "Suerte",
 };
+
+const equipmentSlots = [
+  ["MAIN_HAND", "Mano principal"], ["OFF_HAND", "Mano secundaria"], ["HEAD", "Cabeza"], ["BODY", "Cuerpo"],
+  ["FEET", "Pies"], ["ARMS", "Brazos"], ["BACK", "Espalda"], ["ACCESSORY_1", "Accesorio 1"], ["ACCESSORY_2", "Accesorio 2"],
+] as const;
 
 const genderOptions = [
   { value: "masculino", label: "Masculino" },
@@ -188,6 +199,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [profileGender, setProfileGender] = useState("");
   const [profileHeight, setProfileHeight] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [equipmentBusy, setEquipmentBusy] = useState<number | null>(null);
 
   const radarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
@@ -252,6 +264,26 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       character.resources ? "• Karma: " + character.resources.karma + "\n• Dinero: " + character.resources.money : "",
     ];
     return lines.join("\n");
+  }
+
+
+  async function changeEquipment(characterItemId: number, equipped: boolean, slot?: string) {
+    if (!character || equipmentBusy !== null) return;
+    setEquipmentBusy(characterItemId);
+    setError("");
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/equipment", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characterItemId, equipped, slot: slot ?? null }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo cambiar el equipamiento.");
+      const refreshed = await fetch("/api/characters/" + character.id);
+      if (!refreshed.ok) throw new Error("El equipamiento cambió, pero no se pudo actualizar la ficha.");
+      setCharacter(await refreshed.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar el equipamiento.");
+    } finally { setEquipmentBusy(null); }
   }
 
   async function saveProfile() {
@@ -539,6 +571,25 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           </section>
         )}
 
+
+        <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+          <div className="flex items-baseline justify-between gap-4">
+            <div><h2 className="text-xl font-semibold">Equipamiento</h2><p className="mt-1 text-sm text-zinc-500">Cada objeto solo puede ocupar uno de sus slots permitidos.</p></div>
+            <span className="text-xs text-zinc-600">{character.equipment.filter((entry) => entry.equipped).length} equipados</span>
+          </div>
+          {character.equipment.length === 0 ? <p className="mt-5 text-sm text-zinc-500">No tienes objetos en el inventario.</p> : (
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {character.equipment.map((entry) => {
+                const allowed = Array.isArray(entry.item?.allowedSlots) ? entry.item.allowedSlots : [];
+                return <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                  <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{entry.item?.name ?? "Objeto"}</p><p className="mt-1 text-xs text-zinc-500">x{entry.quantity}</p></div>{entry.equipped && <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>}</div>
+                  {entry.equipped ? <div className="mt-3 flex gap-2"><span className="flex-1 rounded-lg border border-zinc-800 px-3 py-2 text-xs text-zinc-400">{equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot}</span><button type="button" onClick={() => changeEquipment(entry.id, false)} disabled={equipmentBusy !== null} className="rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">Desequipar</button></div> :
+                  <div className="mt-3 space-y-2"><select defaultValue={allowed[0] ?? ""} id={"equipment-slot-" + entry.id} disabled={equipmentBusy !== null || allowed.length === 0} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">{allowed.map((slot) => <option key={slot} value={slot}>{equipmentSlots.find((candidate) => candidate[0] === slot)?.[1] ?? slot}</option>)}</select><button type="button" onClick={() => { const select = document.getElementById("equipment-slot-" + entry.id) as HTMLSelectElement | null; changeEquipment(entry.id, true, select?.value); }} disabled={equipmentBusy !== null || allowed.length === 0} className="w-full rounded-lg bg-white px-3 py-2 text-sm font-medium text-black disabled:opacity-50">Equipar</button></div>}
+                </div>;
+              })}
+            </div>
+          )}
+        </section>
 
         {character.stats && (
           <section className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6">

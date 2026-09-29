@@ -10,8 +10,14 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   const character=await db.orm.public.Character.where({id:characterId}).first(); const maze=await db.orm.public.Maze.where({id:mazeId}).first();
   if(!character||!maze)return NextResponse.json({error:"Personaje o laberinto no encontrado."},{status:404});
   if(!["GM","ADMIN"].includes(String(user.role))&&Number(character.userId)!==Number(user.id))return NextResponse.json({error:"Forbidden"},{status:403});
-  const Position=(db.orm.public as any).MazeCharacterPosition; const existing=await Position.where({mazeId,characterId}).first();
+  const Position=(db.orm.public as any).MazeCharacterPosition;
+  const existing=await Position.where({mazeId,characterId}).first();
   if(existing)return NextResponse.json({roomId:Number(existing.roomId)});
+  const otherMazePosition=await Position.where({characterId}).first();
+  if(otherMazePosition && Number(otherMazePosition.mazeId)!==mazeId){
+    const otherMaze=await db.orm.public.Maze.where({id:Number(otherMazePosition.mazeId)}).first();
+    return NextResponse.json({error:"Este personaje ya está dentro de otro laberinto." ,mazeId:Number(otherMazePosition.mazeId),mazeName:otherMaze?.name??null},{status:409});
+  }
   const root=await db.orm.public.MazeRoom.where({mazeId,roomNumber:1}).first();
   if(!root)return NextResponse.json({error:"El laberinto no tiene habitación inicial."},{status:500});
   const position=await Position.create({mazeId,characterId,roomId:root.id,previousRoomId:null});

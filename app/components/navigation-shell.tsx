@@ -11,6 +11,7 @@ const sectionMap: Record<string, { label: string; color: string }> = {
   characters: { label: "Personajes", color: "text-cyan-300/70" },
   profile: { label: "Perfil", color: "text-violet-300/70" },
   management: { label: "Management", color: "text-rose-300/70" },
+  store: { label: "Tienda", color: "text-emerald-300/70" },
   notifications: { label: "Buzón", color: "text-yellow-300/70" },
   "": { label: "Inicio", color: "text-zinc-500" },
 };
@@ -118,6 +119,9 @@ export default function NavigationShell({ children }: { children: React.ReactNod
             )}
             <Link href="/profile" className={pathname === "/profile" ? "xahya-nav-active" : ""}>
               Mi perfil
+            </Link>
+            <Link href="/store" className={pathname.startsWith("/store") ? "xahya-nav-active" : ""}>
+              Tienda
             </Link>
           </nav>
 

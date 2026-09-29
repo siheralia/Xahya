@@ -514,6 +514,22 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       });
     }
 
+    const equippedItems = character.equipment.filter((entry) => entry.equipped);
+    if (equippedItems.length > 0) {
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.font = "500 11px Arial, sans-serif";
+      ctx.fillStyle = "#a1a1aa";
+      equippedItems.slice(0, 6).forEach((entry, index) => {
+        const slotLabel = entry.equippedSlot
+          ? equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot
+          : "";
+        const flair = entry.flair ? " — " + entry.flair : "";
+        const line = "• " + (entry.item?.name ?? "Objeto") + flair + (slotLabel ? " [" + slotLabel + "]" : "");
+        ctx.fillText(line.slice(0, 105), 28, height - 106 - (5 - Math.min(index, 5)) * 13);
+      });
+    }
+
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "#ffffff";

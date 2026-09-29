@@ -23,7 +23,7 @@ function getRouteInfo(pathname: string, characters: Character[]) {
   let backHref: string | null = null;
   let backLabel = "";
 
-  if (parts.length >= 2) {
+  if (parts.length >= 2 && !(sectionKey === "characters" && parts.length === 2)) {
     backHref = `/${parts.slice(0, -1).join("/")}`;
     backLabel =
       sectionKey === "characters" ? "Personajes" :

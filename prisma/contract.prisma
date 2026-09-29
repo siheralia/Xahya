@@ -99,7 +99,7 @@ model Item {
   acquisitionType String   @default("PURCHASABLE")
   price          Int       @default(0)
   effects        Json
-  allowedSlots   Json      @default("[\"ACCESSORY\"]")
+  allowedSlots   Json      @default("[]")
   createdAt      DateTime  @default(now())
   characterItems CharacterItem[]
 }

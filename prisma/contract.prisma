@@ -214,6 +214,6 @@ model MazeCharacterPosition {
   room        MazeRoom  @relation("MazeRoomPositions", fields:[roomId], references:[id], onDelete:Cascade)
   previousRoomId Int?
   previousRoom  MazeRoom? @relation("MazeRoomPreviousPositions", fields:[previousRoomId], references:[id], onDelete:SetNull)
-  updatedAt   DateTime  @updatedAt
+  updatedAt   temporal.updatedAt()
   @@unique([mazeId, characterId])
 }

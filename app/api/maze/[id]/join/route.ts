@@ -14,6 +14,6 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   if(existing)return NextResponse.json({roomId:Number(existing.roomId)});
   const root=await db.orm.public.MazeRoom.where({mazeId,roomNumber:1}).first();
   if(!root)return NextResponse.json({error:"El laberinto no tiene habitación inicial."},{status:500});
-  const position=await Position.create({mazeId,characterId,roomId:root.id});
+  const position=await Position.create({mazeId,characterId,roomId:root.id,previousRoomId:null});
   return NextResponse.json({roomId:Number(position.roomId)},{status:201});
 }

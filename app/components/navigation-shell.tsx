@@ -107,7 +107,7 @@ export default function NavigationShell({ children }: { children: React.ReactNod
           <nav className="xahya-user-nav" aria-label="Navegación de usuario">
             {isManagement && (
               <Link href="/management" className={pathname.startsWith("/management") ? "xahya-nav-active" : ""}>
-                Management
+                RPG System
               </Link>
             )}
             <Link href="/profile" className={pathname === "/profile" ? "xahya-nav-active" : ""}>

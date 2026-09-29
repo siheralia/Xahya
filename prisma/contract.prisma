@@ -86,3 +86,29 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([characterId])
 }
+
+
+model Item {
+  id             Int       @id @default(autoincrement())
+  name           String
+  description    String?
+  itemType       String    @default("OTHER")
+  acquisitionType String   @default("PURCHASABLE")
+  price          Int       @default(0)
+  effects        Json
+  createdAt      DateTime  @default(now())
+  characterItems CharacterItem[]
+}
+
+model CharacterItem {
+  id          Int       @id @default(autoincrement())
+  characterId Int
+  character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
+  itemId      Int
+  item        Item      @relation(fields:[itemId], references:[id], onDelete:Cascade)
+  quantity    Int       @default(1)
+  equipped    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@unique([characterId, itemId])
+}

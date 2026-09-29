@@ -120,14 +120,7 @@ export async function PATCH(
     return NextResponse.json({ error: slotCapacity > 1 ? `Ese slot ya alcanzó su capacidad de ${slotCapacity} objetos.` : "Ese slot ya está ocupado." }, { status: 409 });
   }
 
-  const occupied = equippedItems.find(
-    (candidate: any) =>
-      Number(candidate.id) !== characterItemId &&
-      Boolean(candidate.equipped) &&
-      String(candidate.equippedSlot) === slot,
-  );
-
-  if (occupied) {
+  if (slotCapacity === 1 && occupiedCount > 0) {
     return NextResponse.json({ error: "Ese slot ya está ocupado." }, { status: 409 });
   }
 

@@ -128,6 +128,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const position = Number.isInteger(characterId) && characterId > 0
     ? await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first()
     : null;
+  const positions = await (db.orm.public as any).MazeCharacterPosition.where({ mazeId }).all();
+  const characters = await db.orm.public.Character.all();
+  const occupants = positions.map((entry:any) => {
+    const character = characters.find((candidate:any) => Number(candidate.id) === Number(entry.characterId));
+    return character ? {
+      id: Number(character.id),
+      name: String(character.name),
+      flair: character.flair ?? null,
+      roomId: Number(entry.roomId),
+    } : null;
+  }).filter(Boolean);
   return NextResponse.json({
     maze,
     position: position ? Number(position.roomId) : null,
@@ -140,6 +151,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       })),
     })),
     exits,
+    occupants,
     directionLabels:DIRECTION_LABELS,
   });
 }

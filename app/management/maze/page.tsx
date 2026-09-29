@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function MazeManagement(){
  const [mazes,setMazes]=useState<any[]>([]);const [name,setName]=useState("");const [description,setDescription]=useState("");const [type,setType]=useState("INFINITE");const [maxRooms,setMaxRooms]=useState(20);const [selected,setSelected]=useState<any>(null);const [error,setError]=useState("");
- async function load(){const r=await fetch("/api/maze");const d=await r.json();setMazes(Array.isArray(d)?d:[]);}
+ async function load(){try{const r=await fetch("/api/maze");const text=await r.text();const d=text?JSON.parse(text):null;if(!r.ok)throw new Error(d?.error??"No se pudo cargar.");setMazes(Array.isArray(d)?d:[]);}catch(e){setError(e instanceof Error?e.message:"No se pudo cargar.");}}
  useEffect(()=>{load();},[]);
  async function create(){setError("");try{const r=await fetch("/api/maze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,description,mazeType:type,maxRooms})});const text=await r.text();const d=text?JSON.parse(text):null;if(!r.ok)throw new Error(d?.error??"No se pudo crear.");setName("");setDescription("");await load();}catch(e){setError(e instanceof Error?e.message:"No se pudo crear el laberinto.");}}
  async function inspect(id:number){const r=await fetch("/api/maze/"+id);const d=await r.json();if(r.ok)setSelected(d);}

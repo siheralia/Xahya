@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 
 const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","OTHER"] as const;
 const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","OTHER"] as const;
@@ -22,10 +23,12 @@ function validate(body: any) {
   const acquisitionType = String(body.acquisitionType ?? "PURCHASABLE");
   const price = Number(body.price ?? 0);
   const effects = Array.isArray(body.effects) ? body.effects : [];
+  const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : ["ACCESSORY"];
   if (!name || name.length > 100) return "El nombre debe tener entre 1 y 100 caracteres.";
   if (!ITEM_TYPES.includes(itemType as any)) return "Tipo de objeto inválido.";
   if (!ACQUISITION_TYPES.includes(acquisitionType as any)) return "Tipo de obtención inválido.";
   if (!Number.isInteger(price) || price < 0) return "El precio debe ser un entero no negativo.";
+  if (!allowedSlots.length || allowedSlots.some((slot) => !EQUIPMENT_SLOTS.includes(slot as any))) return "Slots de equipo inválidos.";
   for (const effect of effects) {
     if (!EFFECT_TYPES.includes(String(effect?.type) as any)) return "Efecto de objeto inválido.";
     if (!Number.isFinite(Number(effect?.value)) || Number(effect.value) <= 0) return "Valor de efecto inválido.";
@@ -55,6 +58,7 @@ export async function POST(request: Request) {
     acquisitionType: String(body.acquisitionType),
     price: Number(body.price ?? 0),
     effects: body.effects,
+    allowedSlots,
   });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_CREATE", entityType: "ITEM", entityId: Number(item.id), details: { name: item.name, itemType: item.itemType, acquisitionType: item.acquisitionType } });
   return NextResponse.json({ item });

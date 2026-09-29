@@ -106,9 +106,8 @@ model CharacterItem {
   character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
   itemId      Int
   item        Item      @relation(fields:[itemId], references:[id], onDelete:Cascade)
-  quantity    Int       @default(1)
-  equipped    Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-
-  @@unique([characterId, itemId])
+  quantity      Int       @default(1)
+  equipped      Boolean   @default(false)
+  equippedSlot  String?
+  createdAt     DateTime  @default(now())
 }

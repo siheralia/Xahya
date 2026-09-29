@@ -83,8 +83,10 @@ export async function GET(
 
   const derivedStats = effectiveStats ? calculateDerivedStats(effectiveStats) : null;
 
+  const normalizedCharacter = { ...character, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
+
   return NextResponse.json({
-    ...character,
+    ...normalizedCharacter,
     stats,
     resources,
     modifiers,

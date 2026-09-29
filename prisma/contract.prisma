@@ -26,6 +26,8 @@ model Character {
   modifiers CharacterModifier[]
   createdAt DateTime            @default(now())
   auditLogs AuditLog[]
+  knownCharacters CharacterRelationship[] @relation("CharacterKnows")
+  knownByCharacters CharacterRelationship[] @relation("CharacterKnownBy")
 }
 
 model CharacterStat {

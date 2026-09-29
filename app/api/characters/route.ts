@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { pickWeightedPerk } from "@/lib/perks";
 
 async function getCurrentUser() {
   const { userId: clerkId } = await auth();
@@ -52,7 +53,27 @@ export async function POST(request: Request) {
       charisma: body.stats?.charisma ?? 0, spirit: body.stats?.spirit ?? 0, luck: body.stats?.luck ?? 0,
     });
     await tx.orm.public.CharacterResource.create({ characterId: character.id, karma: 1, money: 1000 });
-    return character;
+
+    const Perk = (tx.orm.public as any).Perk;
+    const CharacterPerk = (tx.orm.public as any).CharacterPerk;
+    const awardedPerks: any[] = [];
+    if (Perk && CharacterPerk) {
+      const availablePerks = await Perk.where({ active: true }).all();
+      for (let roll = 0; roll < 3; roll += 1) {
+        const selected = pickWeightedPerk(availablePerks);
+        if (!selected) continue;
+        const existingCount = awardedPerks.filter((entry) => Number(entry.perkId) === Number(selected.id)).length;
+        if (!Boolean(selected.stackable) && Number(selected.maxStacks ?? 1) <= existingCount) continue;
+        const awarded = await CharacterPerk.create({
+          characterId: character.id,
+          perkId: selected.id,
+          source: "CREATION_ROLL",
+        });
+        awardedPerks.push(awarded);
+      }
+    }
+    return { character, awardedPerks };
+
   });
 
   await recordAuditEvent({
@@ -61,8 +82,13 @@ export async function POST(request: Request) {
     entityType: "CHARACTER",
     entityId: character.id,
     characterId: character.id,
-    details: { name: character.name, initialKarma: 1, initialMoney: 1000 },
+    details: {
+      name: character.name,
+      initialKarma: 1,
+      initialMoney: 1000,
+      creationPerks: (character.awardedPerks ?? []).map((entry: any) => Number(entry.perkId)),
+    },
   });
 
-  return NextResponse.json(character, { status: 201 });
+  return NextResponse.json({ ...character.character, perks: character.awardedPerks ?? [] }, { status: 201 });
 }

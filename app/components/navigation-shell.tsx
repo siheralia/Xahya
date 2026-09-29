@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 
-type Character = { id: number; name: string };
+type Character = { id: number; name: string; flair: string | null };
 
 const sectionMap: Record<string, { label: string; color: string }> = {
   casino: { label: "Casino", color: "text-amber-300/70" },
@@ -38,7 +38,7 @@ function getRouteInfo(pathname: string, characters: Character[]) {
       ? characters.find((item) => String(item.id) === parts[1])
       : undefined;
 
-  const page = character?.name ?? (
+  const page = character ? character.name + (character.flair ? " ⟨" + character.flair + "⟩" : "") : (
     parts.length === 0
       ? "Inicio"
       : parts.length === 1
@@ -137,7 +137,7 @@ export default function NavigationShell({ children }: { children: React.ReactNod
               <div className="xahya-character-list">
                 {characters.map((character) => (
                   <Link key={character.id} href={`/characters/${character.id}`}>
-                    {character.name}
+                    {character.name} {character.flair && <span className="text-xs text-zinc-500">⟨{character.flair}⟩</span>}
                   </Link>
                 ))}
               </div>

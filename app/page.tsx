@@ -1,25 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
-import { db } from "@/lib/db";
 
 const sakuraPetals = Array.from({ length: 24 }, (_, index) => index);
 
-export default async function Home() {
-  const { userId: clerkId } = await auth();
-  let isManagementUser = false;
-  let databaseOnline = true;
-
-  try {
-    const users = await db.orm.public.User.all();
-
-    if (clerkId) {
-      const user = users.find((candidate) => candidate.clerkId === clerkId);
-      isManagementUser = user ? ["GM", "ADMIN"].includes(String(user.role)) : false;
-    }
-  } catch {
-    databaseOnline = false;
-  }
-
+export default function Home() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-zinc-950 text-white">
       <style>{`
@@ -103,40 +86,6 @@ export default async function Home() {
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-12">
-        <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">Xahya</h1>
-
-          <div className="flex items-center gap-3">
-            <span
-              className={`rounded-full border px-3 py-1 text-sm ${
-                databaseOnline
-                  ? "border-emerald-400/30 text-emerald-300"
-                  : "border-red-400/30 text-red-300"
-              }`}
-              title={databaseOnline ? "El sistema responde correctamente" : "El sistema no responde"}
-            >
-              <span className="mr-1.5">●</span>
-              Sistema {databaseOnline ? "en línea" : "desconectado"}
-            </span>
-
-            <Link
-              href="/profile"
-              className="rounded-full border border-zinc-800 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-900 hover:text-white"
-            >
-              Mi perfil
-            </Link>
-
-            {isManagementUser ? (
-              <Link
-                href="/management"
-                className="rounded-full border border-zinc-800 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-900 hover:text-white"
-              >
-                RPG System
-              </Link>
-            ) : null}
-          </div>
-        </header>
-
         <section className="flex flex-1 flex-col items-center justify-center text-center">
           <p className="mb-4 text-sm font-medium uppercase tracking-[0.3em] text-zinc-500">
             Xahya Character System
@@ -154,36 +103,13 @@ export default async function Home() {
             Xahya centraliza tus personajes, estadísticas, recursos y sistemas de juego en un solo lugar.
           </p>
 
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
+          <div className="mt-10">
             <Link
               href="/characters/create"
               className="rounded-lg bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200"
             >
               Crear personaje
             </Link>
-
-            <Link
-              href="/characters"
-              className="rounded-lg border border-zinc-700 px-6 py-3 font-medium text-white transition hover:bg-zinc-900"
-            >
-              Ver personajes
-            </Link>
-
-            <Link
-              href="/casino"
-              className="rounded-lg border border-amber-500/40 px-6 py-3 font-medium text-amber-300 transition hover:bg-amber-400/10"
-            >
-              🎰 Casino
-            </Link>
-
-            {isManagementUser && (
-              <Link
-                href="/management"
-                className="rounded-lg border border-zinc-700 px-6 py-3 font-medium text-white transition hover:bg-zinc-900"
-              >
-                Gestión GM / Admin
-              </Link>
-            )}
           </div>
         </section>
 

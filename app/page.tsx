@@ -4,7 +4,7 @@ const sakuraPetals = Array.from({ length: 24 }, (_, index) => index);
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-zinc-950 text-white">
+    <main className="relative min-h-full overflow-hidden bg-zinc-950 text-white">
       <style>{`
         .sakura-layer {
           position: absolute;
@@ -85,7 +85,7 @@ export default function Home() {
         ))}
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-12">
+      <div className="relative z-10 mx-auto flex min-h-full max-w-6xl flex-col px-6 py-6">
         <section className="flex flex-1 flex-col items-center justify-center text-center">
           <p className="mb-4 text-sm font-medium uppercase tracking-[0.3em] text-zinc-500">
             Xahya Character System

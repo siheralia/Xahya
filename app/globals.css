@@ -24,3 +24,53 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.xahya-page-content { min-height: calc(100vh - 96px); }
+.xahya-nav {
+  position: relative; z-index: 40; min-height: 96px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 2rem; padding: 18px 28px 14px;
+  border-bottom: 1px solid rgba(39,39,42,.7);
+  background: rgba(9,9,11,.94); backdrop-filter: blur(14px);
+}
+.xahya-nav-left { min-width: 0; }
+.xahya-brand {
+  display: inline-flex; align-items: center; gap: 9px; color: white;
+  font-size: 1.2rem; font-weight: 700; letter-spacing: -.02em; text-decoration: none;
+}
+.xahya-logo { width: 28px; height: 28px; color: #f4a7bd; }
+.xahya-back { display: block; width: fit-content; margin-top: 5px; color: #71717a; font-size: .78rem; text-decoration: none; }
+.xahya-back:hover { color: white; }
+.xahya-user-nav { display: flex; align-items: center; gap: 12px; margin-top: 9px; }
+.xahya-user-nav a { color: #a1a1aa; font-size: .82rem; text-decoration: none; }
+.xahya-user-nav a:hover, .xahya-user-nav .xahya-nav-active { color: white; }
+.xahya-user-nav a:first-child { border-right: 1px solid #27272a; padding-right: 12px; }
+.xahya-characters { margin-top: 7px; }
+.xahya-characters summary { cursor: pointer; color: #71717a; font-size: .74rem; user-select: none; }
+.xahya-characters summary:hover { color: #d4d4d8; }
+.xahya-character-list { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; max-width: 430px; }
+.xahya-character-list a { color: #52525b; font-size: .72rem; text-decoration: none; }
+.xahya-character-list a:hover { color: #67e8f9; }
+.xahya-nav-right { flex: 0 0 auto; text-align: right; padding-top: 2px; }
+.xahya-section {
+  display: block; font-size: .68rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .3em;
+}
+.xahya-breadcrumb { display: block; margin-top: 4px; color: #e4e4e7; font-size: 1rem; font-weight: 700; }
+.xahya-casino {
+  position: fixed; left: 18px; bottom: 18px; z-index: 50;
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid rgba(245,158,11,.25); border-radius: 999px;
+  background: rgba(9,9,11,.92); padding: 8px 13px; color: #fcd34d;
+  font-size: .78rem; text-decoration: none; box-shadow: 0 8px 30px rgba(0,0,0,.25);
+  backdrop-filter: blur(12px);
+}
+.xahya-casino:hover { background: rgba(39,39,42,.95); border-color: rgba(245,158,11,.5); }
+@media (max-width: 640px) {
+  .xahya-nav { padding: 14px 16px 12px; gap: 1rem; }
+  .xahya-nav-right { max-width: 42%; }
+  .xahya-breadcrumb { font-size: .82rem; }
+  .xahya-user-nav { gap: 8px; }
+  .xahya-user-nav a:first-child { padding-right: 8px; }
+  .xahya-character-list { max-width: 260px; }
+}

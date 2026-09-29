@@ -29,7 +29,7 @@ function validate(body: any) {
   if (!ITEM_TYPES.includes(itemType as any)) return "Tipo de objeto inválido.";
   if (!ACQUISITION_TYPES.includes(acquisitionType as any)) return "Tipo de obtención inválido.";
   if (!Number.isInteger(price) || price < 0) return "El precio debe ser un entero no negativo.";
-  if (!allowedSlots.length || allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return "Slots de equipo inválidos.";
+  if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return "Slots de equipo inválidos.";
   for (const effect of effects) {
     if (!EFFECT_TYPES.includes(String(effect?.type) as any)) return "Efecto de objeto inválido.";
     if (!EFFECT_STATS.includes(String(effect?.stat) as any)) return "Estadística de efecto inválida.";

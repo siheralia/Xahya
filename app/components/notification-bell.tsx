@@ -17,7 +17,7 @@ export default function NotificationBell() {
     <Link
       href="/notifications"
       aria-label={count ? `Buzón: ${count} notificaciones sin leer` : "Buzón"}
-      className="fixed right-4 top-4 z-50 rounded-full border border-zinc-800 bg-zinc-950/90 px-4 py-2 text-sm text-zinc-300 shadow-lg backdrop-blur transition hover:border-zinc-700 hover:bg-zinc-900 hover:text-white"
+      className="fixed bottom-4 right-4 z-50 rounded-full border border-zinc-800 bg-zinc-950/90 px-4 py-2 text-sm text-zinc-300 shadow-lg backdrop-blur transition hover:border-zinc-700 hover:bg-zinc-900 hover:text-white"
     >
       🔔 Buzón
       {count > 0 ? (

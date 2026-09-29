@@ -29,8 +29,12 @@ export async function PUT(request: Request) {
   if (!manager) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json();
   const characterId = Number(body?.characterId);
-  const knownCharacterIds = Array.isArray(body?.knownCharacterIds)
-    ? [...new Set(body.knownCharacterIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0))]
+  const knownCharacterIds: number[] = Array.isArray(body?.knownCharacterIds)
+    ? Array.from(new Set<number>(
+        body.knownCharacterIds
+          .map((id: unknown) => Number(id))
+          .filter((id: number) => Number.isInteger(id) && id > 0),
+      ))
     : [];
   if (!Number.isInteger(characterId) || characterId <= 0) return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });
   if (knownCharacterIds.includes(characterId)) return NextResponse.json({ error: "Un personaje no puede conocerse a sí mismo." }, { status: 400 });

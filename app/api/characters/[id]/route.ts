@@ -132,6 +132,7 @@ export async function GET(
       quantity: Number(owned.quantity),
       equipped: Boolean(owned.equipped),
       equippedSlot: owned.equippedSlot == null ? null : String(owned.equippedSlot),
+      flair: owned.flair == null ? null : String(owned.flair),
       item: item ?? null,
     };
   });

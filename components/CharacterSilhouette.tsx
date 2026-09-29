@@ -86,7 +86,6 @@ function SilhouetteFigure({ gender, stage, fill }: { gender: Gender; stage: AgeS
           <circle cx="116" cy="30" r="8" />
           <path d="M83 29 C77 39 80 48 87 51 L87 35 Z" />
           <path d="M117 29 C123 39 120 48 113 51 L113 35 Z" />
-          <path d={"M" + (100 - 16) + " " + shoulderY + " C88 70 88 94 88 108 L112 108 C112 94 112 70 116 61 Z"} />
           <path d="M88 108 L83 157 L94 157 L100 116 L106 157 L117 157 L112 108 Z" />
         </>
       ) : null}

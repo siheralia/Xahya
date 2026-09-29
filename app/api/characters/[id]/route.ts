@@ -72,14 +72,26 @@ export async function GET(
       }
     : null;
 
+  const equippedItemEffects = ownedItems
+    .filter((owned: any) => Boolean(owned.equipped))
+    .flatMap((owned: any) => {
+      const item = itemDefinitions.find((candidate: any) => Number(candidate.id) === Number(owned.itemId));
+      const effects = Array.isArray(item?.effects) ? item.effects : [];
+      return effects.map((effect: any) => ({
+        type: String(effect.type), stat: String(effect.stat ?? ""), value: Number(effect.value), source: "ITEM:" + String(item.name),
+      }));
+    });
+
   const statBreakdown = baseStats
     ? (Object.keys(baseStats) as StatKey[]).reduce((result, statKey) => {
         const base = baseStats[statKey];
         const flatModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey);
         const multiplierModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey + "_multiplier");
-        const objectFlatBonus = flatModifiers.filter((modifier) => String(modifier.source).startsWith("ITEM:")).reduce((sum, modifier) => sum + Number(modifier.amount), 0);
+        const itemStatBonuses = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" && effect.stat === statKey).reduce((sum: number, effect: any) => sum + Number(effect.value), 0);
+        const itemStatMultipliers = equippedItemEffects.filter((effect: any) => effect.type === "stat_multiplier" && effect.stat === statKey).reduce((sum: number, effect: any) => sum + Number(effect.value) / 100, 0);
+        const objectFlatBonus = flatModifiers.filter((modifier) => String(modifier.source).startsWith("ITEM:")).reduce((sum, modifier) => sum + Number(modifier.amount), 0) + itemStatBonuses;
         const karmaBonus = flatModifiers.filter((modifier) => String(modifier.source) === "KARMA_BOOST").reduce((sum, modifier) => sum + Number(modifier.amount), 0);
-        const combinedMultiplier = 1 + multiplierModifiers.reduce((sum, modifier) => sum + Number(modifier.amount) / 100, 0);
+        const combinedMultiplier = 1 + multiplierModifiers.reduce((sum, modifier) => sum + Number(modifier.amount) / 100, 0) + itemStatMultipliers;
         result[statKey] = {
           base,
           multipliers: multiplierModifiers.map((modifier) => 1 + Number(modifier.amount) / 100),

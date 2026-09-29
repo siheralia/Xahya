@@ -3,87 +3,181 @@
 type Gender = "masculino" | "femenino" | "indefinido";
 type AgeStage = "niño" | "adolescente" | "adulto";
 
-type CharacterSilhouetteProps = {
-  age: number;
-  gender: Gender;
-  height: number;
-  className?: string;
-};
-
 function getAgeStage(age: number): AgeStage {
   if (age < 13) return "niño";
   if (age < 18) return "adolescente";
   return "adulto";
 }
 
-function Body({ gender, stage, fill }: { gender: Gender; stage: AgeStage; fill: string }) {
+function normalizeGender(gender: string): Gender {
+  const value = String(gender).trim().toLowerCase();
+  return value === "masculino" || value === "femenino" ? value : "indefinido";
+}
+
+type SilhouetteOptions = {
+  gender: Gender;
+  stage: AgeStage;
+  color?: string;
+  opacity?: number;
+};
+
+function SilhouetteFigure({ gender, stage, fill }: { gender: Gender; stage: AgeStage; fill: string }) {
   const child = stage === "niño";
   const teen = stage === "adolescente";
   const female = gender === "femenino";
   const neutral = gender === "indefinido";
 
-  const head = child ? 15 : teen ? 14 : 13;
-  const neck = child ? 5 : 6;
-  const shoulder = child ? 23 : teen ? (female ? 27 : 31) : (female ? 30 : 36);
-  const waist = child ? 19 : teen ? (female ? 19 : 23) : (female ? 18 : 24);
-  const hip = child ? 22 : teen ? (female ? 27 : 24) : (female ? 30 : 25);
-  const torso = child ? 53 : teen ? 61 : 68;
-  const leg = child ? 48 : teen ? 61 : 72;
-  const arm = child ? 47 : teen ? 57 : 65;
-  const cx = 100;
-  const headY = 27;
-  const shoulderY = 58;
-  const waistY = shoulderY + torso * 0.63;
-  const hipY = shoulderY + torso;
-  const footY = hipY + leg;
-  const armW = child ? 7 : 8;
-  const legW = child ? 9 : 10;
+  const headR = child ? 18 : teen ? 16 : 15;
+  const headY = 30;
+  const shoulder = child ? 36 : teen ? (female ? 43 : 48) : (female ? 48 : 56);
+  const waist = child ? 29 : teen ? (female ? 28 : 36) : (female ? 29 : 39);
+  const hip = child ? 34 : teen ? (female ? 40 : 36) : (female ? 47 : 39);
+  const shoulderY = 61;
+  const waistY = child ? 99 : 108;
+  const hipY = child ? 117 : 132;
+  const legBottom = child ? 205 : teen ? 222 : 236;
+  const armBottom = child ? 124 : teen ? 145 : 158;
 
   return (
     <g fill={fill}>
-      <circle cx={cx} cy={headY} r={head} />
-      <path d={"M " + (cx-neck) + " 40 L " + (cx+neck) + " 40 L " + (cx+neck-1) + " " + shoulderY + " L " + (cx-neck+1) + " " + shoulderY + " Z"} />
-      <path d={
-        "M " + (cx-shoulder/2) + " " + shoulderY +
-        " C " + (cx-shoulder*0.34) + " " + (shoulderY-4) + " " + (cx-shoulder*0.22) + " " + (shoulderY-2) + " " + (cx-waist/2) + " " + waistY +
-        " C " + (cx-waist*0.36) + " " + (waistY+7) + " " + (cx-hip/2) + " " + (hipY-3) + " " + (cx-hip/2) + " " + hipY +
-        " L " + (cx+hip/2) + " " + hipY +
-        " C " + (cx+hip/2) + " " + (hipY-3) + " " + (cx+waist*0.36) + " " + (waistY+7) + " " + (cx+waist/2) + " " + waistY +
-        " C " + (cx+shoulder*0.22) + " " + (shoulderY-2) + " " + (cx+shoulder*0.34) + " " + (shoulderY-4) + " " + (cx+shoulder/2) + " " + shoulderY +
-        " Z"
-      } />
-      <ellipse cx={cx} cy={waistY + 5} rx={female && !child ? waist * 0.42 : waist * 0.45} ry={child ? 6 : 7} />
-      <rect x={cx-shoulder/2-armW/2} y={shoulderY-1} width={armW} height={arm} rx={armW/2} transform={"rotate(5 " + (cx-shoulder/2) + " " + shoulderY + ")"} />
-      <rect x={cx+shoulder/2-armW/2} y={shoulderY-1} width={armW} height={arm} rx={armW/2} transform={"rotate(-5 " + (cx+shoulder/2) + " " + shoulderY + ")"} />
-      <circle cx={cx-shoulder/2-4} cy={shoulderY+arm-2} r={child ? 3.5 : 4} />
-      <circle cx={cx+shoulder/2+4} cy={shoulderY+arm-2} r={child ? 3.5 : 4} />
-      <path d={"M " + (cx-hip/2+2) + " " + hipY + " C " + (cx-hip/4) + " " + (hipY+2) + " " + (cx-7) + " " + (hipY+8) + " " + (cx-6) + " " + (hipY+10) + " L " + (cx-6) + " " + footY + " L " + (cx-15) + " " + footY + " Q " + (cx-19) + " " + (footY+1) + " " + (cx-18) + " " + (footY+5) + " L " + (cx-4) + " " + (footY+5) + " L " + (cx-4) + " " + (hipY+10) + " C " + (cx-4) + " " + (hipY+5) + " " + (cx-8) + " " + (hipY+2) + " " + (cx-hip/2+2) + " " + hipY + " Z"} />
-      <path d={"M " + (cx+hip/2-2) + " " + hipY + " C " + (cx+hip/4) + " " + (hipY+2) + " " + (cx+7) + " " + (hipY+8) + " " + (cx+6) + " " + (hipY+10) + " L " + (cx+6) + " " + footY + " L " + (cx+15) + " " + footY + " Q " + (cx+19) + " " + (footY+1) + " " + (cx+18) + " " + (footY+5) + " L " + (cx+4) + " " + (footY+5) + " L " + (cx+4) + " " + (hipY+10) + " C " + (cx+4) + " " + (hipY+5) + " " + (cx+8) + " " + (hipY+2) + " " + (cx+hip/2-2) + " " + hipY + " Z"} />
+      <circle cx="100" cy={headY} r={headR} />
+
+      {female && !child ? (
+        <>
+          <path d="M82 31 C81 17 90 9 101 10 C114 10 121 19 119 35 C114 27 108 23 100 24 C94 25 88 28 82 31Z" />
+          <path d={"M" + (100 - shoulder / 2) + " " + shoulderY +
+            " C" + (100 - shoulder * 0.38) + " 56 " + (100 - waist / 2) + " 79 " + (100 - waist / 2) + " " + waistY +
+            " L" + (100 - hip / 2) + " " + hipY +
+            " L" + (100 + hip / 2) + " " + hipY +
+            " L" + (100 + waist / 2) + " " + waistY +
+            " C" + (100 + waist / 2) + " 79 " + (100 + shoulder * 0.38) + " 56 " + (100 + shoulder / 2) + " " + shoulderY + " Z"} />
+          <path d={"M" + (100 - hip / 2) + " " + hipY +
+            " L" + (100 - 14) + " " + legBottom +
+            " L" + (100 - 5) + " " + legBottom +
+            " L" + (100 - 3) + " " + (hipY + 7) +
+            " L" + (100 + 3) + " " + (hipY + 7) +
+            " L" + (100 + 5) + " " + legBottom +
+            " L" + (100 + 14) + " " + legBottom +
+            " L" + (100 + hip / 2) + " " + hipY + " Z"} />
+        </>
+      ) : (
+        <>
+          <path d={"M" + (100 - shoulder / 2) + " " + shoulderY +
+            " C" + (100 - shoulder * 0.36) + " 57 " + (100 - waist / 2) + " 84 " + (100 - waist / 2) + " " + waistY +
+            " L" + (100 - hip / 2) + " " + hipY +
+            " L" + (100 + hip / 2) + " " + hipY +
+            " L" + (100 + waist / 2) + " " + waistY +
+            " C" + (100 + waist / 2) + " 84 " + (100 + shoulder * 0.36) + " 57 " + (100 + shoulder / 2) + " " + shoulderY + " Z"} />
+          {neutral && !child && <path d={"M" + (100 - 3) + " " + hipY + " L" + (100 - 11) + " " + legBottom + " L" + (100 - 3) + " " + legBottom + " L100 " + (hipY + 14) + " L" + (100 + 3) + " " + legBottom + " L" + (100 + 11) + " " + legBottom + " L" + (100 + 3) + " " + hipY + " Z"} />}
+          {!neutral && <path d={"M" + (100 - hip / 2 + 3) + " " + hipY +
+            " L" + (100 - 12) + " " + legBottom +
+            " L" + (100 - 3) + " " + legBottom +
+            " L" + (100 - 3) + " " + (hipY + 9) +
+            " L" + (100 + 3) + " " + (hipY + 9) +
+            " L" + (100 + 3) + " " + legBottom +
+            " L" + (100 + 12) + " " + legBottom +
+            " L" + (100 + hip / 2 - 3) + " " + hipY + " Z"} />}
+        </>
+      )}
+
+      {child && female ? (
+        <>
+          <circle cx="84" cy="30" r="8" />
+          <circle cx="116" cy="30" r="8" />
+          <path d="M83 29 C77 39 80 48 87 51 L87 35 Z" />
+          <path d="M117 29 C123 39 120 48 113 51 L113 35 Z" />
+          <path d={"M" + (100 - 16) + " " + shoulderY + " C88 70 88 94 88 108 L112 108 C112 94 112 70 116 61 Z"} />
+          <path d="M88 108 L83 157 L94 157 L100 116 L106 157 L117 157 L112 108 Z" />
+        </>
+      ) : null}
+
+      <rect x={100 - shoulder / 2 - 5} y={shoulderY - 2} width="10" height={armBottom - shoulderY} rx="5" transform={"rotate(5 " + (100 - shoulder / 2) + " " + shoulderY + ")"} />
+      <rect x={100 + shoulder / 2 - 5} y={shoulderY - 2} width="10" height={armBottom - shoulderY} rx="5" transform={"rotate(-5 " + (100 + shoulder / 2) + " " + shoulderY + ")"} />
+      <circle cx={100 - shoulder / 2 - 5} cy={armBottom} r="5" />
+      <circle cx={100 + shoulder / 2 + 5} cy={armBottom} r="5" />
     </g>
   );
 }
 
-export function CharacterSilhouette({ age, gender, height, className = "" }: CharacterSilhouetteProps) {
+export function getCharacterSilhouetteSvg({
+  gender,
+  stage,
+  color = "#a1a1aa",
+  opacity = 0.16,
+}: SilhouetteOptions) {
+  const safeGender = normalizeGender(gender);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260"><g opacity="${opacity}" fill="${color}">${getSilhouetteMarkup(safeGender, stage)}</g></svg>`;
+}
+
+function getSilhouetteMarkup(gender: Gender, stage: AgeStage) {
+  const child = stage === "niño";
+  const teen = stage === "adolescente";
+  const female = gender === "femenino";
+  const neutral = gender === "indefinido";
+
+  const headR = child ? 18 : teen ? 16 : 15;
+  const shoulder = child ? 36 : teen ? (female ? 43 : 48) : (female ? 48 : 56);
+  const waist = child ? 29 : teen ? (female ? 28 : 36) : (female ? 29 : 39);
+  const hip = child ? 34 : teen ? (female ? 40 : 36) : (female ? 47 : 39);
+  const shoulderY = 61;
+  const waistY = child ? 99 : 108;
+  const hipY = child ? 117 : 132;
+  const legBottom = child ? 205 : teen ? 222 : 236;
+  const armBottom = child ? 124 : teen ? 145 : 158;
+  const circle = `<circle cx="100" cy="30" r="${headR}"/>`;
+  const arms = `<rect x="${100 - shoulder / 2 - 5}" y="59" width="10" height="${armBottom - shoulderY}" rx="5" transform="rotate(5 ${100 - shoulder / 2} 61)"/><rect x="${100 + shoulder / 2 - 5}" y="59" width="10" height="${armBottom - shoulderY}" rx="5" transform="rotate(-5 ${100 + shoulder / 2} 61)"/><circle cx="${95 - shoulder / 2}" cy="${armBottom}" r="5"/><circle cx="${105 + shoulder / 2}" cy="${armBottom}" r="5"/>`;
+  const torso = `M${100 - shoulder / 2} 61 C${100 - shoulder * .36} 57 ${100 - waist / 2} 84 ${100 - waist / 2} ${waistY} L${100 - hip / 2} ${hipY} L${100 + hip / 2} ${hipY} L${100 + waist / 2} ${waistY} C${100 + waist / 2} 84 ${100 + shoulder * .36} 57 ${100 + shoulder / 2} 61Z`;
+  const legs = female && !child
+    ? `M${100 - hip / 2} ${hipY} L86 ${legBottom} L97 ${legBottom} L100 ${hipY + 7} L103 ${legBottom} L114 ${legBottom} L${100 + hip / 2} ${hipY}Z`
+    : neutral && !child
+      ? `M97 ${hipY} L89 ${legBottom} L97 ${legBottom} L100 ${hipY + 14} L103 ${legBottom} L111 ${legBottom} L103 ${hipY}Z`
+      : `M${100 - hip / 2 + 3} ${hipY} L88 ${legBottom} L97 ${legBottom} L97 ${hipY + 9} L103 ${hipY + 9} L103 ${legBottom} L112 ${legBottom} L${100 + hip / 2 - 3} ${hipY}Z`;
+
+  let figure = circle;
+  if (female && !child) {
+    figure += `<path d="M82 31 C81 17 90 9 101 10 C114 10 121 19 119 35 C114 27 108 23 100 24 C94 25 88 28 82 31Z"/><path d="${torso}"/><path d="${legs}"/>`;
+  } else {
+    figure += `<path d="${torso}"/>${neutral && !child ? `<path d="${legs}"/>` : `<path d="${legs}"/>`}`;
+  }
+  if (child && female) {
+    figure += `<circle cx="84" cy="30" r="8"/><circle cx="116" cy="30" r="8"/><path d="M83 29 C77 39 80 48 87 51 L87 35Z"/><path d="M117 29 C123 39 120 48 113 51 L113 35Z"/>`;
+  }
+  return figure + arms;
+}
+
+export function CharacterSilhouette({
+  age,
+  gender,
+  className = "",
+}: {
+  age: number;
+  gender: Gender;
+  className?: string;
+}) {
   const stage = getAgeStage(age);
-  const normalizedGender = String(gender).trim().toLowerCase() as Gender;
-  const safeGender: Gender = normalizedGender === "masculino" || normalizedGender === "femenino" ? normalizedGender : "indefinido";
-  const variant = safeGender + "-" + stage;
-  const scale = Math.max(0.55, Math.min(1.08, height / 180));
-  const label = safeGender === "masculino" ? "Masculina" : safeGender === "femenino" ? "Femenina" : "Indefinida";
+  const safeGender = normalizeGender(gender);
 
   return (
-    <div className={"flex flex-col items-center " + className}>
-      <div className="flex h-[280px] w-full items-end justify-center overflow-hidden">
-        <svg viewBox="0 0 200 230" className="h-[235px] w-auto origin-bottom" style={{ transform: "scale(" + scale + ")" }} role="img" aria-label={"Silueta " + label + ", etapa " + stage + ", " + height + " cm"} data-silhouette={variant}>
-          <line x1="100" y1="205" x2="100" y2="213" stroke="rgb(63 63 70)" strokeWidth="1" />
-          <ellipse cx="100" cy="214" rx="48" ry="4" fill="rgb(39 39 42)" />
-          <Body gender={safeGender} stage={stage} fill="rgb(161 161 170)" />
-        </svg>
-      </div>
-      <div className="mt-2 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-        <p className="mt-1 text-sm text-zinc-400">{stage} · {height} cm</p>
-      </div>
-    </div>
+    <svg
+      viewBox="0 0 200 260"
+      className={className}
+      preserveAspectRatio="xMidYMax meet"
+      aria-hidden="true"
+      focusable="false"
+      data-silhouette={safeGender + "-" + stage}
+    >
+      <defs>
+        <filter id="xahya-silhouette-glow" x="-60%" y="-30%" width="220%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <g fill="currentColor" opacity="0.16" filter="url(#xahya-silhouette-glow)">
+        <SilhouetteFigure gender={safeGender} stage={stage} fill="currentColor" />
+      </g>
+    </svg>
   );
 }

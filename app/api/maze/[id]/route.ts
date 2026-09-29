@@ -95,8 +95,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const exits = await (db.orm.public as any).MazeExit.where({ mazeId }).all();
   const enemies = await (db.orm.public as any).MazeRoomEnemy.all();
   const definitions = await (db.orm.public as any).Enemy.all();
+  const characterId = Number(new URL(_request.url).searchParams.get("characterId"));
+  const position = Number.isInteger(characterId) && characterId > 0
+    ? await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first()
+    : null;
   return NextResponse.json({
     maze,
+    position: position ? Number(position.roomId) : null,
     rooms: rooms.map((room:any) => ({
       ...room,
       treasureRewards: undefined,

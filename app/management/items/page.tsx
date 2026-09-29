@@ -47,7 +47,7 @@ export default function ItemsManagementPage() {
     setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)&&item.effects.length?item.effects: [emptyEffect()],allowedSlots:Array.isArray(item.allowedSlots)&&item.allowedSlots.length?item.allowedSlots:defaultSlots});
     setSuccess(""); setError("");
   }
-  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()]});setSuccess("");setError("");}
+  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()],allowedSlots:defaultSlots});setSuccess("");setError("");}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>i===index?{...e,[key]:key==="value"?Number(value):value}:e)}));
   }

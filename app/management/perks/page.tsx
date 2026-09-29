@@ -39,6 +39,13 @@ export default function PerksManagementPage(){
     setName("");setDescription("");setProbability("10");setEffects("[]");setStackable(true);setMaxStacks("");setSuccess("Perk creado.");await load();
   }
 
+  async function updateProbability(perk:Perk, value:string){
+    const probability=Number(value);
+    if(!Number.isFinite(probability)||probability<0)return;
+    const r=await fetch("/api/management/perks/"+perk.id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({probability})});
+    if(r.ok) await load();
+  }
+
   async function toggle(perk:Perk){
     const r=await fetch("/api/management/perks/"+perk.id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({active:!perk.active})});
     if(r.ok) await load();
@@ -80,6 +87,6 @@ export default function PerksManagementPage(){
       </div>
     </section>
 
-    <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6"><h2 className="text-xl font-semibold">Catálogo</h2><div className="mt-4 space-y-3">{perks.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><div><div className="font-semibold">{p.name} <span className="ml-2 text-xs text-zinc-500">{p.probability}%</span></div><p className="mt-1 text-sm text-zinc-500">{p.description??"Sin descripción."}</p><p className="mt-1 text-xs text-zinc-600">{p.stackable?"Acumulable":"No acumulable"} · {p.assignedCount} otorgados</p></div><button onClick={()=>toggle(p)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">{p.active?"Desactivar":"Activar"}</button></div>)}</div></section>
+    <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6"><h2 className="text-xl font-semibold">Catálogo</h2><div className="mt-4 space-y-3">{perks.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><div><div className="font-semibold">{p.name} <span className="ml-2 text-xs text-zinc-500">{p.probability}%</span></div><p className="mt-1 text-sm text-zinc-500">{p.description??"Sin descripción."}</p><p className="mt-1 text-xs text-zinc-600">{p.stackable?"Acumulable":"No acumulable"} · {p.assignedCount} otorgados</p></div><div className="flex items-center gap-2"><label className="text-xs text-zinc-500">Prob.<input type="number" min="0" step="0.1" defaultValue={p.probability} onBlur={e=>updateProbability(p,e.target.value)} className="ml-1 w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm text-white"/></label><button onClick={()=>toggle(p)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">{p.active?"Desactivar":"Activar"}</button></div></div>)}</div></section>
   </div></main>;
 }

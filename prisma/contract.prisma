@@ -159,6 +159,7 @@ model MazeRoom {
   incomingExits      MazeExit[] @relation("MazeExitTo")
   enemies            MazeRoomEnemy[]
   positions          MazeCharacterPosition[] @relation("MazeRoomPositions")
+  previousPositions  MazeCharacterPosition[] @relation("MazeRoomPreviousPositions")
   @@unique([mazeId, roomNumber])
 }
 
@@ -211,6 +212,8 @@ model MazeCharacterPosition {
   character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
   roomId      Int
   room        MazeRoom  @relation("MazeRoomPositions", fields:[roomId], references:[id], onDelete:Cascade)
+  previousRoomId Int?
+  previousRoom  MazeRoom? @relation("MazeRoomPreviousPositions", fields:[previousRoomId], references:[id], onDelete:SetNull)
   updatedAt   DateTime  @updatedAt
   @@unique([mazeId, characterId])
 }

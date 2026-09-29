@@ -287,28 +287,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
 
-  async function saveFlair(characterItemId: number, flair: string) {
-    if (!character || equipmentBusy !== null) return;
-    setEquipmentBusy(characterItemId);
-    setError("");
-    try {
-      const response = await fetch("/api/characters/" + character.id + "/equipment", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ characterItemId, equipped: character.equipment.find((entry) => entry.id === characterItemId)?.equipped ?? false, slot: character.equipment.find((entry) => entry.id === characterItemId)?.equippedSlot ?? null, flair }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar la variante.");
-      const refreshed = await fetch("/api/characters/" + character.id);
-      if (!refreshed.ok) throw new Error("La variante se guardó, pero no se pudo actualizar la ficha.");
-      setCharacter(await refreshed.json());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar la variante.");
-    } finally {
-      setEquipmentBusy(null);
-    }
-  }
-
   async function changeEquipment(characterItemId: number, equipped: boolean, slot?: string) {
     if (!character || equipmentBusy !== null) return;
     setEquipmentBusy(characterItemId);
@@ -683,22 +661,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                         {entry.item.description && <p className="pt-1 text-sm text-zinc-400">{entry.item.description}</p>}
                       </div>
                     )}
-                    <div className="mt-4 space-y-2">
-                      <label className="block text-xs text-zinc-500">
-                        Variante / flair
-                        <input
-                          defaultValue={entry.flair ?? ""}
-                          maxLength={500}
-                          placeholder="Ej. Mandoble de 2 metros"
-                          disabled={equipmentBusy !== null}
-                          onBlur={(event) => {
-                            const value = event.target.value.trim();
-                            if (value !== (entry.flair ?? "")) saveFlair(entry.id, value);
-                          }}
-                          className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
-                        />
-                      </label>
-                    </div>
+                    {entry.flair && <p className="mt-3 text-xs italic text-violet-300">✦ {entry.flair}</p>}
                     {!entry.equipped && (
                       <div className="mt-2 space-y-2">
                         <select defaultValue={allowed[0] ?? ""} id={"equipment-slot-" + entry.id} disabled={equipmentBusy !== null || allowed.length === 0} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">

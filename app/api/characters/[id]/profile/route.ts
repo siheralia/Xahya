@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 
+const ALLOWED_GENDERS = ["masculino", "femenino", "indefinido"] as const;
+type AllowedGender = (typeof ALLOWED_GENDERS)[number];
+
 async function getCurrentUser() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
@@ -35,7 +38,7 @@ export async function PATCH(
   const body = await request.json().catch(() => null);
   const age = body?.age === null || body?.age === "" ? null : Number(body?.age);
   const height = body?.height === null || body?.height === "" ? null : Number(body?.height);
-  const gender = body?.gender === null || body?.gender === "" ? null : String(body?.gender).trim();
+  const gender = body?.gender === null || body?.gender === "" ? null : String(body?.gender).trim().toLowerCase();
 
   if (age !== null && (!Number.isInteger(age) || age < 0 || age > 1000)) {
     return NextResponse.json({ error: "La edad debe ser un número entero válido." }, { status: 400 });
@@ -45,8 +48,11 @@ export async function PATCH(
     return NextResponse.json({ error: "La altura debe ser un número entero en centímetros." }, { status: 400 });
   }
 
-  if (gender !== null && gender.length > 50) {
-    return NextResponse.json({ error: "El género es demasiado largo." }, { status: 400 });
+  if (gender !== null && !ALLOWED_GENDERS.includes(gender as AllowedGender)) {
+    return NextResponse.json(
+      { error: "El género debe ser masculino, femenino o indefinido." },
+      { status: 400 }
+    );
   }
 
   const current = {

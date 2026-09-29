@@ -354,6 +354,13 @@ export default function ManagementPage() {
                 Ver usuarios
               </Link>
             )}
+
+            <Link
+              href="/management/social"
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Relaciones sociales
+            </Link>
           </div>
         </div>
 

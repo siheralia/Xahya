@@ -164,6 +164,7 @@ export async function GET(
     effectiveStats,
     derivedStats,
     canSeeCharacterId: user.role === "ADMIN",
+    isAdmin: String(user.role) === "ADMIN",
     canManageCharacter: isManagementUser,
     canLevelUp: isOwner && Number(resources?.levelUpPoints ?? 0) > 0,
   });

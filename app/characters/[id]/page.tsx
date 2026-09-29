@@ -200,6 +200,53 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [profileHeight, setProfileHeight] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [equipmentBusy, setEquipmentBusy] = useState<number | null>(null);
+  const [knownCharacters, setKnownCharacters] = useState<{ id: number; name: string }[]>([]);
+  const [transferTarget, setTransferTarget] = useState("");
+  const [transferMoney, setTransferMoney] = useState(0);
+  const [transferItem, setTransferItem] = useState("");
+  const [transferQuantity, setTransferQuantity] = useState(1);
+  const [transferBusy, setTransferBusy] = useState(false);
+
+  useEffect(() => {
+    if (!character) return;
+    fetch("/api/characters/" + character.id + "/relationships", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json();
+        setKnownCharacters(data.characters ?? []);
+      })
+      .catch(() => setKnownCharacters([]));
+  }, [character?.id]);
+
+  async function transfer() {
+    if (!character || !transferTarget || (transferMoney <= 0 && !transferItem)) return;
+    setTransferBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetCharacterId: Number(transferTarget),
+          money: transferItem ? 0 : Math.trunc(transferMoney),
+          characterItemId: transferItem ? Number(transferItem) : null,
+          quantity: transferItem ? Math.trunc(transferQuantity) : 1,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo completar la entrega.");
+      setSuccess("Entrega realizada correctamente.");
+      setTransferMoney(0);
+      setTransferItem("");
+      setTransferQuantity(1);
+      const refresh = await fetch("/api/characters/" + character.id, { cache: "no-store" });
+      if (refresh.ok) setCharacter(await refresh.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo completar la entrega.");
+    } finally {
+      setTransferBusy(false);
+    }
+  }
 
   const radarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
@@ -758,6 +805,41 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   </p>
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {knownCharacters.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-xl font-semibold">Dar a otro personaje</h2>
+            <p className="mt-1 text-sm text-zinc-500">Solo puedes entregar dinero u objetos a personajes que conoces.</p>
+            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block"><span className="text-sm text-zinc-400">Destinatario</span>
+                  <select value={transferTarget} onChange={(e) => setTransferTarget(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+                    <option value="">Selecciona un personaje</option>
+                    {knownCharacters.map((known) => <option key={known.id} value={known.id}>{known.name}</option>)}
+                  </select>
+                </label>
+                <label className="block"><span className="text-sm text-zinc-400">Objeto</span>
+                  <select value={transferItem} onChange={(e) => { setTransferItem(e.target.value); setTransferMoney(0); }} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+                    <option value="">Ninguno — entregar dinero</option>
+                    {character.equipment.filter((entry) => !entry.equipped).map((entry) => <option key={entry.id} value={entry.id}>{entry.item?.name ?? "Objeto"} ×{entry.quantity}{entry.flair ? " — " + entry.flair : ""}</option>)}
+                  </select>
+                </label>
+                {transferItem ? (
+                  <label className="block"><span className="text-sm text-zinc-400">Cantidad</span>
+                    <input type="number" min={1} value={transferQuantity} onChange={(e) => setTransferQuantity(Math.max(1, Math.trunc(Number(e.target.value) || 1)))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" />
+                  </label>
+                ) : (
+                  <label className="block"><span className="text-sm text-zinc-400">Dinero</span>
+                    <input type="number" min={0} value={transferMoney} onChange={(e) => setTransferMoney(Math.max(0, Math.trunc(Number(e.target.value) || 0)))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" />
+                  </label>
+                )}
+              </div>
+              <button type="button" onClick={transfer} disabled={transferBusy || !transferTarget || (!transferItem && transferMoney <= 0)} className="mt-4 w-full rounded-lg bg-white px-5 py-3 font-medium text-black disabled:opacity-40">
+                {transferBusy ? "Entregando..." : "Dar"}
+              </button>
             </div>
           </section>
         )}

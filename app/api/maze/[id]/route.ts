@@ -151,11 +151,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const requestedExit = await Exit.where({ fromRoomId:currentRoom.id, direction }).first();
     if (!requestedExit) throw new Error("EXIT_NOT_FOUND");
 
-    if (activeEnemies.length > 0 && requestedExit.toRoomId == null) throw new Error("ROOM_BLOCKED");
+    if (activeEnemies.length > 0 && Number(requestedExit.toRoomId) !== Number(position?.previousRoomId ?? -1)) throw new Error("ROOM_BLOCKED");
     if (requestedExit.toRoomId != null) {
       const destination = await Room.where({ id:Number(requestedExit.toRoomId) }).first();
       if (!destination) throw new Error("DESTINATION_NOT_FOUND");
-      await Position.where({ id:position?.id ?? (await Position.where({ mazeId, characterId }).first())?.id }).update({ roomId:destination.id });
+      await Position.where({ id:position?.id ?? (await Position.where({ mazeId, characterId }).first())?.id }).update({ roomId:destination.id, previousRoomId:currentRoom.id });
       return { room:destination, generated:false };
     }
 
@@ -168,7 +168,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await Exit.create({ mazeId, fromRoomId:destination.id, direction:OPPOSITE_DIRECTION[direction as keyof typeof OPPOSITE_DIRECTION], toRoomId:currentRoom.id });
 
     const updatedPosition = await Position.where({ mazeId, characterId }).first();
-    await Position.where({ id:updatedPosition.id }).update({ roomId:destination.id });
+    await Position.where({ id:updatedPosition.id }).update({ roomId:destination.id, previousRoomId:currentRoom.id });
 
     if (String(maze.mazeType) === "FINITE" && nextNumber === Number(maze.maxRooms)) {
       await tx.orm.public.Maze.where({ id:mazeId }).update({ status:"BOSS_ACTIVE" });

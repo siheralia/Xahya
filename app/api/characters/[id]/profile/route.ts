@@ -32,10 +32,10 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
-  const age = body.age === null || body.age === "" ? null : Number(body.age);
-  const height = body.height === null || body.height === "" ? null : Number(body.height);
-  const gender = body.gender === null || body.gender === "" ? null : String(body.gender).trim();
+  const body = await request.json().catch(() => null);
+  const age = body?.age === null || body?.age === "" ? null : Number(body?.age);
+  const height = body?.height === null || body?.height === "" ? null : Number(body?.height);
+  const gender = body?.gender === null || body?.gender === "" ? null : String(body?.gender).trim();
 
   if (age !== null && (!Number.isInteger(age) || age < 0 || age > 1000)) {
     return NextResponse.json({ error: "La edad debe ser un número entero válido." }, { status: 400 });
@@ -69,10 +69,19 @@ export async function PATCH(
     );
   }
 
-  const updated = await db.orm.public.Character.update(
-    { id: characterId },
-    { age, gender, height }
-  );
+  const updated = await db.orm.public.Character.where({
+    id: characterId,
+    age: null,
+    gender: null,
+    height: null,
+  }).update({ age, gender, height });
+
+  if (!updated) {
+    return NextResponse.json(
+      { error: "Los datos básicos del personaje ya fueron establecidos y no pueden modificarse." },
+      { status: 409 }
+    );
+  }
 
   await recordAuditEvent({
     actorUserId: user.id,
@@ -83,10 +92,5 @@ export async function PATCH(
     details: { age, gender, height },
   });
 
-  return NextResponse.json({
-    id: updated.id,
-    age: updated.age,
-    gender: updated.gender,
-    height: updated.height,
-  });
+  return NextResponse.json({ id: characterId, age, gender, height });
 }

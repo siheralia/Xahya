@@ -88,7 +88,7 @@ export function depthMultiplier(roomNumber: number) {
   if (roomNumber <= 20) return 1.4;
   if (roomNumber <= 30) return 1.6;
   if (roomNumber <= 40) return 1.8;
-  return 2;
+  return 2 + Math.floor((roomNumber - 41) / 10) * 0.2;
 }
 
 export function pickEnemyFocus(isBoss = false): EnemyFocus {

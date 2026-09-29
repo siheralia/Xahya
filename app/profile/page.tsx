@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 export default function ProfilePage() {
   const [name, setName] = useState("");
@@ -58,9 +57,8 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
-      <div className="mx-auto max-w-xl px-6 py-12">
-        <Link href="/" className="text-sm text-zinc-500 hover:text-white">← Inicio</Link>
-        <h1 className="mt-6 text-4xl font-bold">Mi perfil</h1>
+      <div className="mx-auto max-w-xl px-6 py-6">
+        <h1 className="text-4xl font-bold">Mi perfil</h1>
 
         {error && <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
         {message && <div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{message}</div>}

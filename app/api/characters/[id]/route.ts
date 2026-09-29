@@ -72,6 +72,13 @@ export async function GET(
       }
     : null;
 
+  const CharacterItem = (db.orm.public as any).CharacterItem;
+  const ownedItems = CharacterItem
+    ? await CharacterItem.where({ characterId }).all()
+    : [];
+  const Item = (db.orm.public as any).Item;
+  const itemDefinitions = Item ? await Item.all() : [];
+
   const equippedItemEffects = ownedItems
     .filter((owned: any) => Boolean(owned.equipped))
     .flatMap((owned: any) => {
@@ -112,12 +119,6 @@ export async function GET(
     : null;
 
   const derivedStats = effectiveStats ? calculateDerivedStats(effectiveStats) : null;
-  const CharacterItem = (db.orm.public as any).CharacterItem;
-  const ownedItems = CharacterItem
-    ? await CharacterItem.where({ characterId }).all()
-    : [];
-  const Item = (db.orm.public as any).Item;
-  const itemDefinitions = Item ? await Item.all() : [];
   const itemEffects = ownedItems
     .filter((owned: any) => Boolean(owned.equipped))
     .flatMap((owned: any) => {

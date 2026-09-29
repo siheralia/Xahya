@@ -311,10 +311,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     const centerY = 375;
     const radius = 245;
     const effectiveStats = character.effectiveStats ?? character.stats;
+    const exportGender = character.gender == null ? null : String(character.gender).trim().toLowerCase();
 
     if (character.age !== null && character.gender !== null && character.height !== null) {
       const age = character.age;
-      const gender = character.gender;
+      const gender = String(character.gender).trim().toLowerCase();
       const stage = age < 13 ? "niño" : age < 18 ? "adolescente" : "adulto";
       const scale = Math.max(0.55, Math.min(1.08, character.height / 180));
       const cx = 170;

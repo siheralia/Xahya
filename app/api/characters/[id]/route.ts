@@ -57,7 +57,9 @@ export async function GET(
     return new Date(String(modifier.expiresAt)).getTime() > now;
   });
 
-  const effectiveStats = stats
+  type StatKey = "strength" | "agility" | "constitution" | "intelligence" | "wisdom" | "charisma" | "spirit" | "luck";
+
+  const baseStats = stats
     ? {
         strength: Number(stats.strength),
         agility: Number(stats.agility),
@@ -70,17 +72,32 @@ export async function GET(
       }
     : null;
 
-  if (effectiveStats) {
-    type StatKey = "strength" | "agility" | "constitution" | "intelligence" | "wisdom" | "charisma" | "spirit" | "luck";
+  const statBreakdown = baseStats
+    ? (Object.keys(baseStats) as StatKey[]).reduce((result, statKey) => {
+        const base = baseStats[statKey];
+        const flatModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey);
+        const multiplierModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey + "_multiplier");
+        const objectFlatBonus = flatModifiers.filter((modifier) => String(modifier.source).startsWith("ITEM:")).reduce((sum, modifier) => sum + Number(modifier.amount), 0);
+        const karmaBonus = flatModifiers.filter((modifier) => String(modifier.source) === "KARMA_BOOST").reduce((sum, modifier) => sum + Number(modifier.amount), 0);
+        const combinedMultiplier = 1 + multiplierModifiers.reduce((sum, modifier) => sum + Number(modifier.amount) / 100, 0);
+        result[statKey] = {
+          base,
+          multipliers: multiplierModifiers.map((modifier) => 1 + Number(modifier.amount) / 100),
+          combinedMultiplier,
+          objectFlatBonus,
+          karmaBonus,
+          value: base * combinedMultiplier + objectFlatBonus + karmaBonus,
+        };
+        return result;
+      }, {} as Record<StatKey, { base: number; multipliers: number[]; combinedMultiplier: number; objectFlatBonus: number; karmaBonus: number; value: number }>)
+    : null;
 
-    for (const modifier of modifiers) {
-      const statName = String(modifier.stat);
-      if (Object.prototype.hasOwnProperty.call(effectiveStats, statName)) {
-        const statKey = statName as StatKey;
-        effectiveStats[statKey] += Number(modifier.amount);
-      }
-    }
-  }
+  const effectiveStats = statBreakdown
+    ? (Object.keys(statBreakdown) as StatKey[]).reduce((result, statKey) => {
+        result[statKey] = statBreakdown[statKey].value;
+        return result;
+      }, {} as Record<StatKey, number>)
+    : null;
 
   const derivedStats = effectiveStats ? calculateDerivedStats(effectiveStats) : null;
   const combatEffects = getCombatEffects(modifiers);

@@ -31,6 +31,7 @@ type Character = {
     money: number;
     levelUpPoints: number;
   } | null;
+  perks: { id: number; perkId: number; source: string; perk: { name: string; description: string | null } | null }[];
   derivedStats: Record<string, number> | null;
   effectiveStats: Record<string, number> | null;
   modifiers: { id: number; stat: string; amount: number; source: string; expiresAt?: string | null }[];
@@ -736,7 +737,25 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <div><h2 className="text-xl font-semibold">Equipamiento</h2><p className="mt-1 text-sm text-zinc-500">Objetos activos y sus ranuras.</p></div>
             <span className="text-xs text-zinc-600">{character.equipment.filter((entry) => entry.equipped).length} equipados</span>
           </div>
-          {character.equipment.some((entry) => entry.equipped) ? (
+          <section className="mt-10 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6">
+          <div className="flex items-baseline justify-between gap-4">
+            <div><h2 className="text-xl font-semibold">Perks</h2><p className="mt-1 text-sm text-zinc-500">Beneficios permanentes obtenidos por el personaje.</p></div>
+            <span className="text-xs text-zinc-600">{character.perks.length} obtenidos</span>
+          </div>
+          {character.perks.length > 0 ? (
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {character.perks.map((entry) => (
+                <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                  <p className="font-semibold">{entry.perk?.name ?? "Perk"}</p>
+                  {entry.perk?.description && <p className="mt-2 text-sm text-zinc-400">{entry.perk.description}</p>}
+                  <p className="mt-2 text-xs text-zinc-600">{entry.source === "CREATION_ROLL" ? "Obtenido al crear personaje" : "Otorgado por gestión"}</p>
+                </div>
+              ))}
+            </div>
+          ) : <p className="mt-5 text-sm text-zinc-500">No tiene perks.</p>}
+        </section>
+
+        {character.equipment.some((entry) => entry.equipped) ? (
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {character.equipment.filter((entry) => entry.equipped).map((entry) => (
                 <div key={entry.id} className="rounded-xl border border-emerald-400/15 bg-zinc-950/50 p-4">

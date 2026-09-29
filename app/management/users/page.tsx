@@ -197,12 +197,8 @@ export default function ManagementUsersPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
-      <div className="mx-auto max-w-5xl px-6 py-12">
-        <Link href="/management" className="text-sm text-zinc-500 hover:text-white">
-          ← Gestión
-        </Link>
-
-        <h1 className="mt-6 text-4xl font-bold">Usuarios</h1>
+      <div className="mx-auto max-w-5xl px-6 py-6">
+        <h1 className="text-4xl font-bold">Usuarios</h1>
         <p className="mt-2 text-zinc-500">
           Usuarios registrados en Xahya y sus personajes.
         </p>

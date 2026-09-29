@@ -302,7 +302,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   async function exportProfileCard() {
     if (!character?.stats) return;
     const scale = Math.min(window.devicePixelRatio || 1, 2);
-    const width = 960;
+    const width = 760;
     const height = 760;
     const canvas = document.createElement("canvas");
     canvas.width = width * scale;
@@ -327,8 +327,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     ctx.fillText("Distribución de estadísticas", width - 28, 38);
     ctx.textAlign = "center";
 
-    const centerX = 650;
-    const centerY = 375;
+    const centerX = 380;
+    const centerY = 380;
     const radius = 245;
     const effectiveStats = character.effectiveStats ?? character.stats;
     if (character.age !== null && character.gender !== null) {
@@ -478,11 +478,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-6xl px-6 py-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link href="/characters" className="text-sm text-zinc-500 hover:text-white">← Personajes</Link>
-          <Link href={"/casino?characterId=" + character.id} className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-400/10">🎰 Casino</Link>
-        </div>
-
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <h1 className="w-full text-4xl font-bold">{character.name}</h1>
           {character.canLevelUp && <Link href={"/characters/" + character.id + "/levelup"} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300">Level Up</Link>}

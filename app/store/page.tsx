@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type Item = { id: number; name: string; description: string | null; itemType: string; price: number; effects: { type: string; value: number; description?: string }[] };
+type Item = { id: number; name: string; description: string | null; itemType: string; price: number; effects: { type: string; value: number; description?: string }[] };\ntype OwnedItem = { id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null; flair: string | null; item: Item | null };
 type Character = { id: number; name: string; money?: number };
 
 const typeLabels: Record<string, string> = { WEAPON: "Arma", ARMOR: "Armadura", ACCESSORY: "Accesorio", CONSUMABLE: "Consumible", MATERIAL: "Material", OTHER: "Otro" };
@@ -16,7 +16,7 @@ export default function StorePage() {
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [success, setSuccess] = useState("");\n  const [ownedItems, setOwnedItems] = useState<OwnedItem[]>([]);\n  const [selling, setSelling] = useState<number | null>(null);
 
   async function load() {
     setLoading(true); setError("");

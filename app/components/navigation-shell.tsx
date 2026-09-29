@@ -57,22 +57,37 @@ export default function NavigationShell({ children }: { children: React.ReactNod
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isManagement, setIsManagement] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [systemOnline, setSystemOnline] = useState(true);
   const route = useMemo(() => getRouteInfo(pathname, characters), [pathname, characters]);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      fetch("/api/characters", { cache: "no-store" }).then((r) => r.ok ? r.json() : []),
-      fetch("/api/profile", { cache: "no-store" }).then((r) => r.ok ? r.json() : null),
-      fetch("/api/notifications", { cache: "no-store" }).then((r) => r.ok ? r.json() : null),
-    ]).then(([chars, profile, notifications]) => {
+      fetch("/api/characters", { cache: "no-store" }),
+      fetch("/api/profile", { cache: "no-store" }),
+      fetch("/api/notifications", { cache: "no-store" }),
+    ]).then(async ([charactersResponse, profileResponse, notificationsResponse]) => {
       if (cancelled) return;
+
+      setSystemOnline(charactersResponse.ok && profileResponse.ok);
+
+      const [chars, profile, notifications] = await Promise.all([
+        charactersResponse.ok ? charactersResponse.json() : Promise.resolve([]),
+        profileResponse.ok ? profileResponse.json() : Promise.resolve(null),
+        notificationsResponse.ok ? notificationsResponse.json() : Promise.resolve(null),
+      ]);
+
       setCharacters(Array.isArray(chars) ? chars : []);
       setIsManagement(["GM", "ADMIN"].includes(String(profile?.role ?? "")));
       setUnreadCount(Number(notifications?.unreadCount) || 0);
-    }).catch(() => {});
+    }).catch(() => {
+      if (!cancelled) setSystemOnline(false);
+    });
+
     return () => { cancelled = true; };
   }, []);
+
+  const showPageBreadcrumb = route.page !== route.section.label;
 
   return (
     <>
@@ -116,9 +131,16 @@ export default function NavigationShell({ children }: { children: React.ReactNod
 
         <div className="xahya-nav-right">
           <span className={`xahya-section ${route.section.color}`}>{route.section.label}</span>
-          <span className="xahya-breadcrumb">
-            {route.section.label}<span className="text-zinc-700"> &gt; </span>{route.page}
+          <span
+            className={`xahya-system-status ${systemOnline ? "online" : "offline"}`}
+            title={systemOnline ? "Sistema en línea" : "Sistema desconectado"}
+            aria-label={systemOnline ? "Sistema en línea" : "Sistema desconectado"}
+          >
+            ●
           </span>
+          {showPageBreadcrumb && (
+            <span className="xahya-breadcrumb">{route.page}</span>
+          )}
         </div>
       </header>
 

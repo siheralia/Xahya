@@ -120,6 +120,7 @@ export default function NavigationShell({ children }: { children: React.ReactNod
             <Link href="/profile" className={pathname === "/profile" ? "xahya-nav-active" : ""}>
               Mi perfil
             </Link>
+            <span aria-hidden="true" className="mx-2 text-zinc-600">|</span>
             <Link href="/store" className={pathname.startsWith("/store") ? "xahya-nav-active" : ""}>
               Tienda
             </Link>

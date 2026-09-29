@@ -286,8 +286,13 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             const karmaBonus = breakdown?.karmaBonus ?? 0;
             const multiplierText = breakdown?.multipliers?.length
               ? " ×" + breakdown.multipliers.map((value) => value.toLocaleString("es-MX", { maximumFractionDigits: 2 })).join(" + ×") + " = ×" + multiplier.toLocaleString("es-MX", { maximumFractionDigits: 2 })
-              : " ×1";
-            return "• " + label + ": " + effective + " [(" + base + multiplierText + ") + " + objectBonus + " + " + karmaBonus + "]";
+              : "";
+            const bonuses = [
+              objectBonus !== 0 ? (objectBonus > 0 ? "+" : "") + objectBonus : "",
+              karmaBonus !== 0 ? (karmaBonus > 0 ? "+" : "") + karmaBonus : "",
+            ].filter(Boolean);
+            const formula = base + multiplierText;
+            return "• " + label + ": " + effective + (bonuses.length > 0 ? " [" + formula + " " + bonuses.join(" ") + "]" : " [" + formula + "]");
           }).join("\n")
         : "",
       "",

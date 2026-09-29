@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CharacterSilhouette } from "@/components/CharacterSilhouette";
 
 type Character = {
   id: number;
@@ -483,6 +484,39 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               <div><p className="text-sm text-zinc-500">Edad</p><p className="mt-1 text-lg font-semibold">{character.age ?? "—"}{character.age !== null ? " años" : ""}</p></div>
               <div><p className="text-sm text-zinc-500">Género</p><p className="mt-1 text-lg font-semibold">{character.gender ? genderOptions.find((option) => option.value === character.gender)?.label ?? character.gender : "—"}</p></div>
               <div><p className="text-sm text-zinc-500">Altura</p><p className="mt-1 text-lg font-semibold">{character.height !== null ? character.height + " cm" : "—"}</p></div>
+            </div>
+          </section>
+        )}
+
+        {character.age !== null && character.gender !== null && character.height !== null && (
+          <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+            <div className="grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-center">
+              <CharacterSilhouette
+                age={character.age}
+                gender={character.gender as "masculino" | "femenino" | "indefinido"}
+                height={character.height}
+              />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Representación</p>
+                <h2 className="mt-2 text-xl font-semibold">Silueta del personaje</h2>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
+                  La silueta se determina automáticamente por género y etapa de edad. La altura escala la figura proporcionalmente.
+                </p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+                    <p className="text-xs text-zinc-600">Edad</p>
+                    <p className="mt-1 font-semibold">{character.age} años</p>
+                  </div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+                    <p className="text-xs text-zinc-600">Género</p>
+                    <p className="mt-1 font-semibold">{genderOptions.find((option) => option.value === character.gender)?.label ?? character.gender}</p>
+                  </div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+                    <p className="text-xs text-zinc-600">Altura</p>
+                    <p className="mt-1 font-semibold">{character.height} cm</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         )}

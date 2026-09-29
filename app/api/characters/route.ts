@@ -22,7 +22,7 @@ export async function GET() {
   const resources = await db.orm.public.CharacterResource.all();
 
   return NextResponse.json(visibleCharacters.map((character) => ({
-    id: character.id, name: character.name, userId: character.userId, createdAt: character.createdAt,
+    id: character.id, name: character.name, flair: character.flair ?? null, userId: character.userId, createdAt: character.createdAt,
     stats: stats.find((stat) => Number(stat.characterId) === Number(character.id)) ?? null,
     levelUpPoints: resources.find((resource) => Number(resource.characterId) === Number(character.id))?.levelUpPoints ?? 0,
     money: resources.find((resource) => Number(resource.characterId) === Number(character.id))?.money ?? 0,
@@ -39,8 +39,13 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
+  const flair = typeof body.flair === "string" ? body.flair.trim() : "";
+  const flairCount = flair ? Array.from(new Intl.Segmenter("es", { granularity: "grapheme" }).segment(flair)).length : 0;
+  if (flairCount > 2) {
+    return NextResponse.json({ error: "El flair puede contener como máximo 2 emojis." }, { status: 400 });
+  }
   const character = await db.transaction(async (tx) => {
-    const character = await tx.orm.public.Character.create({ name: body.name, userId: user.id });
+    const character = await tx.orm.public.Character.create({ name: body.name, flair: flair || null, userId: user.id });
     await tx.orm.public.CharacterStat.create({
       characterId: character.id, strength: body.stats?.strength ?? 0, agility: body.stats?.agility ?? 0,
       constitution: body.stats?.constitution ?? 0, intelligence: body.stats?.intelligence ?? 0, wisdom: body.stats?.wisdom ?? 0,

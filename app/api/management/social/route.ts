@@ -30,7 +30,7 @@ export async function PUT(request: Request) {
   const body = await request.json();
   const characterId = Number(body?.characterId);
   const knownCharacterIds = Array.isArray(body?.knownCharacterIds)
-    ? [...new Set(body.knownCharacterIds.map(Number).filter((id: number) => Number.isInteger(id) && id > 0))]
+    ? [...new Set(body.knownCharacterIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0))]
     : [];
   if (!Number.isInteger(characterId) || characterId <= 0) return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });
   if (knownCharacterIds.includes(characterId)) return NextResponse.json({ error: "Un personaje no puede conocerse a sí mismo." }, { status: 400 });
@@ -38,7 +38,7 @@ export async function PUT(request: Request) {
   const Character = db.orm.public.Character;
   const allCharacters = await Character.all();
   const validIds = new Set(allCharacters.map((character: any) => Number(character.id)));
-  if (knownCharacterIds.some((id: number) => !validIds.has(Number(id)))) return NextResponse.json({ error: "Hay personajes inválidos en la relación." }, { status: 400 });
+  if (knownCharacterIds.some((id) => !validIds.has(id))) return NextResponse.json({ error: "Hay personajes inválidos en la relación." }, { status: 400 });
 
   const Relationship = (db.orm.public as any).CharacterRelationship;
   const current = await Relationship.where({ characterId }).all();

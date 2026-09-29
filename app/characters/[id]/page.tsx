@@ -574,18 +574,68 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
         <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <div className="flex items-baseline justify-between gap-4">
-            <div><h2 className="text-xl font-semibold">Equipamiento</h2><p className="mt-1 text-sm text-zinc-500">Cada objeto solo puede ocupar uno de sus slots permitidos.</p></div>
+            <div><h2 className="text-xl font-semibold">Equipamiento</h2><p className="mt-1 text-sm text-zinc-500">Objetos activos y sus ranuras.</p></div>
             <span className="text-xs text-zinc-600">{character.equipment.filter((entry) => entry.equipped).length} equipados</span>
           </div>
-          {character.equipment.length === 0 ? <p className="mt-5 text-sm text-zinc-500">No tienes objetos en el inventario.</p> : (
+          {character.equipment.some((entry) => entry.equipped) ? (
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {character.equipment.filter((entry) => entry.equipped).map((entry) => (
+                <div key={entry.id} className="rounded-xl border border-emerald-400/15 bg-zinc-950/50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{entry.item?.name ?? "Objeto"}</p>
+                      <p className="mt-1 text-xs text-zinc-500">{equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot ?? "Ranura"}</p>
+                    </div>
+                    <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>
+                  </div>
+                  {entry.item?.description && <p className="mt-3 text-sm text-zinc-400">{entry.item.description}</p>}
+                  <button type="button" onClick={() => changeEquipment(entry.id, false)} disabled={equipmentBusy !== null} className="mt-4 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">Desequipar</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-5 text-sm text-zinc-500">No tienes objetos equipados.</p>
+          )}
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+          <div className="flex items-baseline justify-between gap-4">
+            <div><h2 className="text-xl font-semibold">Inventario</h2><p className="mt-1 text-sm text-zinc-500">Todos los objetos que posee el personaje.</p></div>
+            <span className="text-xs text-zinc-600">{character.equipment.length} {character.equipment.length === 1 ? "objeto" : "objetos"}</span>
+          </div>
+          {character.equipment.length === 0 ? (
+            <p className="mt-5 text-sm text-zinc-500">El inventario está vacío.</p>
+          ) : (
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {character.equipment.map((entry) => {
                 const allowed = Array.isArray(entry.item?.allowedSlots) ? entry.item.allowedSlots : [];
-                return <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-                  <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{entry.item?.name ?? "Objeto"}</p><p className="mt-1 text-xs text-zinc-500">x{entry.quantity}</p></div>{entry.equipped && <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>}</div>
-                  {entry.equipped ? <div className="mt-3 flex gap-2"><span className="flex-1 rounded-lg border border-zinc-800 px-3 py-2 text-xs text-zinc-400">{equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot}</span><button type="button" onClick={() => changeEquipment(entry.id, false)} disabled={equipmentBusy !== null} className="rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">Desequipar</button></div> :
-                  <div className="mt-3 space-y-2"><select defaultValue={allowed[0] ?? ""} id={"equipment-slot-" + entry.id} disabled={equipmentBusy !== null || allowed.length === 0} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">{allowed.map((slot) => <option key={slot} value={slot}>{equipmentSlots.find((candidate) => candidate[0] === slot)?.[1] ?? slot}</option>)}</select><button type="button" onClick={() => { const select = document.getElementById("equipment-slot-" + entry.id) as HTMLSelectElement | null; changeEquipment(entry.id, true, select?.value); }} disabled={equipmentBusy !== null || allowed.length === 0} className="w-full rounded-lg bg-white px-3 py-2 text-sm font-medium text-black disabled:opacity-50">Equipar</button></div>}
-                </div>;
+                return (
+                  <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{entry.item?.name ?? "Objeto"}</p>
+                        <p className="mt-1 text-xs text-zinc-500">Cantidad: {entry.quantity}</p>
+                      </div>
+                      {entry.equipped && <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>}
+                    </div>
+                    {entry.item && (
+                      <div className="mt-3 space-y-1 text-xs text-zinc-500">
+                        <p>Tipo: {entry.item.itemType}</p>
+                        {entry.item.description && <p className="pt-1 text-sm text-zinc-400">{entry.item.description}</p>}
+                      </div>
+                    )}
+                    {!entry.equipped && (
+                      <div className="mt-4 space-y-2">
+                        <select defaultValue={allowed[0] ?? ""} id={"equipment-slot-" + entry.id} disabled={equipmentBusy !== null || allowed.length === 0} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">
+                          {allowed.map((slot) => <option key={slot} value={slot}>{equipmentSlots.find((candidate) => candidate[0] === slot)?.[1] ?? slot}</option>)}
+                        </select>
+                        <button type="button" onClick={() => { const select = document.getElementById("equipment-slot-" + entry.id) as HTMLSelectElement | null; changeEquipment(entry.id, true, select?.value); }} disabled={equipmentBusy !== null || allowed.length === 0} className="w-full rounded-lg bg-white px-3 py-2 text-sm font-medium text-black disabled:opacity-50">
+                          {allowed.length === 0 ? "No equipable" : "Equipar"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
               })}
             </div>
           )}

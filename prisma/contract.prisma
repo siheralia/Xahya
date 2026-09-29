@@ -112,3 +112,16 @@ model CharacterItem {
   flair        String?
   createdAt    DateTime  @default(now())
 }
+
+model CharacterRelationship {
+  id                Int       @id @default(autoincrement())
+  characterId       Int
+  character         Character @relation("CharacterKnows", fields:[characterId], references:[id], onDelete:Cascade)
+  knownCharacterId   Int
+  knownCharacter     Character @relation("CharacterKnownBy", fields:[knownCharacterId], references:[id], onDelete:Cascade)
+  createdAt         DateTime  @default(now())
+
+  @@unique([characterId, knownCharacterId])
+  @@index([characterId])
+  @@index([knownCharacterId])
+}

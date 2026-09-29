@@ -94,8 +94,19 @@ export async function GET(
         const base = baseStats[statKey];
         const flatModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey);
         const multiplierModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey + "_multiplier");
-        const itemStatBonuses = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" && effect.stat === statKey).reduce((sum: number, effect: any) => sum + Number(effect.value), 0);
-        const itemStatMultipliers = equippedItemEffects.filter((effect: any) => effect.type === "stat_multiplier" && effect.stat === statKey).reduce((sum: number, effect: any) => sum + Number(effect.value) / 100, 0);
+        const itemStatCode: Record<StatKey, string> = {
+          strength: "STR",
+          agility: "AGI",
+          constitution: "CON",
+          intelligence: "INT",
+          wisdom: "WIS",
+          charisma: "CHA",
+          spirit: "SPI",
+          luck: "LCK",
+        };
+        const itemStat = itemStatCode[statKey];
+        const itemStatBonuses = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" && effect.stat === itemStat).reduce((sum: number, effect: any) => sum + Number(effect.value), 0);
+        const itemStatMultipliers = equippedItemEffects.filter((effect: any) => effect.type === "stat_multiplier" && effect.stat === itemStat).reduce((sum: number, effect: any) => sum + Number(effect.value) / 100, 0);
         const objectFlatBonus = flatModifiers.filter((modifier) => String(modifier.source).startsWith("ITEM:")).reduce((sum, modifier) => sum + Number(modifier.amount), 0) + itemStatBonuses;
         const karmaBonus = flatModifiers.filter((modifier) => String(modifier.source) === "KARMA_BOOST").reduce((sum, modifier) => sum + Number(modifier.amount), 0);
         const combinedMultiplier = 1 + multiplierModifiers.reduce((sum, modifier) => sum + Number(modifier.amount) / 100, 0) + itemStatMultipliers;

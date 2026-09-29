@@ -152,6 +152,12 @@ export async function GET(
     };
   });
 
+  const MazePosition = (db.orm.public as any).MazeCharacterPosition;
+  const Maze = (db.orm.public as any).Maze;
+  const mazePosition = MazePosition ? await MazePosition.where({ characterId }).first() : null;
+  const currentMaze = mazePosition && Maze ? await Maze.where({ id: Number(mazePosition.mazeId) }).first() : null;
+  const mazeRoom = mazePosition ? await (db.orm.public as any).MazeRoom.where({ id: Number(mazePosition.roomId) }).first() : null;
+
   const normalizedCharacter = { ...character, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
 
   return NextResponse.json({
@@ -167,5 +173,11 @@ export async function GET(
     isAdmin: String(user.role) === "ADMIN",
     canManageCharacter: isManagementUser,
     canLevelUp: isOwner && Number(resources?.levelUpPoints ?? 0) > 0,
+    maze: currentMaze ? {
+      id: Number(currentMaze.id),
+      name: String(currentMaze.name),
+      roomId: Number(mazePosition.roomId),
+      roomNumber: mazeRoom ? Number(mazeRoom.roomNumber) : null,
+    } : null,
   });
 }

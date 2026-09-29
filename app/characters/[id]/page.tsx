@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { CharacterSilhouette, getCharacterSilhouetteSvg } from "@/components/CharacterSilhouette";
 
 type EquipmentItem = {
-  id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null;
+  id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null; flair: string | null;
   item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; value: number; description?: string }[] } | null;
 };
 
@@ -248,7 +248,27 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           }).join("\n")
         : "",
       "",
-      character.combatEffects.length > 0
+      character.equipment.some((entry) => entry.equipped)
+        ? [
+            "*EQUIPAMIENTO*",
+            ...character.equipment.filter((entry) => entry.equipped).map((entry) =>
+              "• " + (entry.item?.name ?? "Objeto") +
+              (entry.flair ? " — " + entry.flair : "") +
+              (entry.equippedSlot ? " [" + (equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot) + "]" : "")
+            ),
+            "",
+          ].join("\n") + (
+            character.combatEffects.length > 0 ? [
+              "*OBJETOS Y EFECTOS*",
+              ...character.combatEffects.map((effect) =>
+                "• " + effect.source.replace(/^ITEM:/, "") + ": " +
+                (effect.type === "attack_multiplier_all"
+                  ? "×" + (effect.value / 100) + " a todos los ataques"
+                  : "×" + (effect.value / 100) + " al daño recibido")
+              ),
+            ].join("\n") : ""
+          )
+        : character.combatEffects.length > 0
         ? [
             "*OBJETOS Y EFECTOS*",
             ...character.combatEffects.map((effect) =>
@@ -266,6 +286,28 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     return lines.join("\n");
   }
 
+
+  async function saveFlair(characterItemId: number, flair: string) {
+    if (!character || equipmentBusy !== null) return;
+    setEquipmentBusy(characterItemId);
+    setError("");
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/equipment", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characterItemId, equipped: character.equipment.find((entry) => entry.id === characterItemId)?.equipped ?? false, slot: character.equipment.find((entry) => entry.id === characterItemId)?.equippedSlot ?? null, flair }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar la variante.");
+      const refreshed = await fetch("/api/characters/" + character.id);
+      if (!refreshed.ok) throw new Error("La variante se guardó, pero no se pudo actualizar la ficha.");
+      setCharacter(await refreshed.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar la variante.");
+    } finally {
+      setEquipmentBusy(null);
+    }
+  }
 
   async function changeEquipment(characterItemId: number, equipped: boolean, slot?: string) {
     if (!character || equipmentBusy !== null) return;
@@ -589,6 +631,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>
                   </div>
                   {entry.item?.description && <p className="mt-3 text-sm text-zinc-400">{entry.item.description}</p>}
+                  {entry.flair && <p className="mt-2 text-xs italic text-violet-300">✦ {entry.flair}</p>}
                   <button type="button" onClick={() => changeEquipment(entry.id, false)} disabled={equipmentBusy !== null} className="mt-4 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">Desequipar</button>
                 </div>
               ))}
@@ -624,8 +667,24 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                         {entry.item.description && <p className="pt-1 text-sm text-zinc-400">{entry.item.description}</p>}
                       </div>
                     )}
+                    <div className="mt-4 space-y-2">
+                      <label className="block text-xs text-zinc-500">
+                        Variante / flair
+                        <input
+                          defaultValue={entry.flair ?? ""}
+                          maxLength={500}
+                          placeholder="Ej. Mandoble de 2 metros"
+                          disabled={equipmentBusy !== null}
+                          onBlur={(event) => {
+                            const value = event.target.value.trim();
+                            if (value !== (entry.flair ?? "")) saveFlair(entry.id, value);
+                          }}
+                          className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                        />
+                      </label>
+                    </div>
                     {!entry.equipped && (
-                      <div className="mt-4 space-y-2">
+                      <div className="mt-2 space-y-2">
                         <select defaultValue={allowed[0] ?? ""} id={"equipment-slot-" + entry.id} disabled={equipmentBusy !== null || allowed.length === 0} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">
                           {allowed.map((slot) => <option key={slot} value={slot}>{equipmentSlots.find((candidate) => candidate[0] === slot)?.[1] ?? slot}</option>)}
                         </select>

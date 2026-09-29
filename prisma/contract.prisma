@@ -1,3 +1,4 @@
+// use prisma-8
 model User {
   id         Int         @id @default(autoincrement())
   clerkId    String      @unique

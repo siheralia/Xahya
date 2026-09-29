@@ -282,7 +282,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   function exportProfileCard() {
     if (!character?.stats) return;
     const scale = Math.min(window.devicePixelRatio || 1, 2);
-    const width = 720;
+    const width = 960;
     const height = 760;
     const canvas = document.createElement("canvas");
     canvas.width = width * scale;
@@ -307,10 +307,88 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     ctx.fillText("Distribución de estadísticas", width - 28, 38);
     ctx.textAlign = "center";
 
-    const centerX = width / 2;
-    const centerY = 365;
+    const centerX = 650;
+    const centerY = 375;
     const radius = 245;
     const effectiveStats = character.effectiveStats ?? character.stats;
+
+    if (character.age !== null && character.gender !== null && character.height !== null) {
+      const age = character.age;
+      const gender = character.gender;
+      const stage = age < 13 ? "niño" : age < 18 ? "adolescente" : "adulto";
+      const scale = Math.max(0.55, Math.min(1.08, character.height / 180));
+      const cx = 170;
+      const baseY = 650;
+      const head = stage === "niño" ? 24 : stage === "adolescente" ? 22 : 20;
+      const shoulder = stage === "niño" ? 34 : stage === "adolescente" ? (gender === "femenino" ? 38 : 44) : (gender === "femenino" ? 42 : 50);
+      const waist = stage === "niño" ? 29 : stage === "adolescente" ? (gender === "femenino" ? 28 : 34) : (gender === "femenino" ? 27 : 35);
+      const hip = stage === "niño" ? 32 : stage === "adolescente" ? (gender === "femenino" ? 38 : 34) : (gender === "femenino" ? 41 : 35);
+      const sy = baseY - 190 * scale;
+      const headY = sy + 30 * scale;
+      const torsoTop = sy + 55 * scale;
+      const torsoBottom = sy + 125 * scale;
+      const shoulderY = torsoTop + 8 * scale;
+      const waistY = torsoBottom - 25 * scale;
+      const hipY = torsoBottom;
+      const s = (v:number) => v * scale;
+      ctx.save();
+      ctx.translate(cx, baseY);
+      ctx.scale(1, -1);
+      ctx.fillStyle = "#a1a1aa";
+      ctx.beginPath();
+      ctx.arc(0, -(headY-baseY), s(head), 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-s(shoulder/2), -(shoulderY-baseY));
+      ctx.quadraticCurveTo(0, -(torsoTop-baseY), s(shoulder/2), -(shoulderY-baseY));
+      ctx.lineTo(s(waist/2), -(waistY-baseY));
+      ctx.quadraticCurveTo(0, -((waistY+5*scale)-baseY), -s(waist/2), -(waistY-baseY));
+      ctx.closePath();
+      ctx.fill();
+      if (gender === "femenino" && stage !== "niño") {
+        ctx.beginPath();
+        ctx.moveTo(-s(waist/2), -(waistY-baseY));
+        ctx.quadraticCurveTo(0, -((waistY+4*scale)-baseY), s(waist/2), -(waistY-baseY));
+        ctx.lineTo(s(hip/2), -(hipY-baseY));
+        ctx.quadraticCurveTo(0, -((hipY+5*scale)-baseY), -s(hip/2), -(hipY-baseY));
+        ctx.closePath();
+        ctx.fill();
+      } else if (gender === "indefinido" && stage !== "niño") {
+        ctx.beginPath();
+        ctx.moveTo(-s(waist/2), -(waistY-baseY));
+        ctx.lineTo(-s(hip/2), -(hipY-baseY));
+        ctx.lineTo(s(hip/2), -(hipY-baseY));
+        ctx.lineTo(s(waist/2), -(waistY-baseY));
+        ctx.closePath();
+        ctx.fill();
+      }
+      const armW = s(stage === "niño" ? 7 : 8);
+      const armH = s(torsoBottom-shoulderY+18);
+      ctx.save();
+      ctx.translate(-s(shoulder/2), -(shoulderY-baseY));
+      ctx.rotate(-0.08);
+      ctx.fillRect(-armW/2, 0, armW, armH);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(s(shoulder/2), -(shoulderY-baseY));
+      ctx.rotate(0.08);
+      ctx.fillRect(-armW/2, 0, armW, armH);
+      ctx.restore();
+      const legW=s(stage==="niño"?7:stage==="adolescente"?8:9);
+      const legH=s(stage==="niño"?55:stage==="adolescente"?66:76);
+      const gap=s(gender==="femenino"&&stage!=="niño"?6:5);
+      ctx.fillRect(-s((hip-gap)/2)-legW/2, -(hipY-baseY), legW, legH);
+      ctx.fillRect(s((hip-gap)/2)-legW/2, -(hipY-baseY), legW, legH);
+      ctx.restore();
+      ctx.textAlign="center";
+      ctx.fillStyle="#a1a1aa";
+      ctx.font="600 12px Arial, sans-serif";
+      ctx.fillText("SILUETA", cx, 675);
+      ctx.font="12px Arial, sans-serif";
+      ctx.fillStyle="#71717a";
+      ctx.fillText(stage + " · " + character.height + " cm", cx, 694);
+    }
+
     const maxValue = Math.max(20, ...Object.values(effectiveStats));
     const point = (index: number, value: number) => {
       const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;

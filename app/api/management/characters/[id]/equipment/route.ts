@@ -56,3 +56,50 @@ export async function PATCH(
 
   return NextResponse.json({ item: updated });
 }
+
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const characterId = Number((await params).id);
+  if (!Number.isInteger(characterId) || characterId <= 0) {
+    return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });
+  }
+
+  const admin = await getAdmin();
+  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const body = await request.json().catch(() => null);
+  const characterItemId = Number(body?.characterItemId);
+  if (!Number.isInteger(characterItemId) || characterItemId <= 0) {
+    return NextResponse.json({ error: "Objeto inválido." }, { status: 400 });
+  }
+
+  const CharacterItem = (db.orm.public as any).CharacterItem;
+  const Item = (db.orm.public as any).Item;
+  const owned = await CharacterItem.where({ id: characterItemId, characterId }).first();
+  if (!owned) return NextResponse.json({ error: "Objeto no encontrado en el inventario." }, { status: 404 });
+
+  const item = await Item.where({ id: Number(owned.itemId) }).first();
+  if (!item) return NextResponse.json({ error: "Definición del objeto no encontrada." }, { status: 404 });
+
+  await CharacterItem.where({ id: characterItemId }).delete();
+
+  await recordAuditEvent({
+    actorUserId: admin.id,
+    action: "ITEM_ADMIN_DELETE",
+    entityType: "ITEM",
+    entityId: Number(item.id),
+    characterId,
+    details: {
+      characterItemId,
+      itemName: item.name,
+      quantity: Number(owned.quantity),
+      equipped: Boolean(owned.equipped),
+      equippedSlot: owned.equippedSlot == null ? null : String(owned.equippedSlot),
+    },
+  });
+
+  return NextResponse.json({ deleted: true, characterItemId });
+}

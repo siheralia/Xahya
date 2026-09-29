@@ -30,7 +30,7 @@ const actionLabels: Record<string,string> = {
   STAT_UPDATE:"Modificó estadísticas", RESOURCE_GRANT:"Entregó recursos",
   GLOBAL_REWARD:"Entrega global", LEVEL_UP:"Gastó Level Up",
   KARMA_BOOST:"Aplicó boost de Karma", USER_ROLE_CHANGE:"Cambió rol",
-  USER_DELETE:"Eliminó usuario", LOGIN_REWARD:"Recompensa de regreso",
+  USER_DELETE:"Eliminó usuario",
   CASINO_ROULETTE:"Jugó ruleta", CASINO_BLACKJACK:"Jugó Blackjack", CASINO_DICE:"Jugó dados",
 };
 

@@ -714,7 +714,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       className="mt-3 w-full rounded-lg border border-violet-900/60 bg-zinc-950 px-3 py-2 text-xs text-white outline-none focus:border-violet-400"
                     />
                   )}
-                  <button type="button" onClick={() => changeEquipment(entry.id, false) disabled={equipmentBusy !== null} className="mt-4 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">Desequipar</button>
+                  <button type="button" onClick={() => changeEquipment(entry.id, false)} disabled={equipmentBusy !== null} className="mt-4 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">Desequipar</button>
                 </div>
               ))}
             </div>

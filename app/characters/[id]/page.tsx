@@ -28,6 +28,14 @@ type Character = {
   derivedStats: Record<string, number> | null;
   effectiveStats: Record<string, number> | null;
   modifiers: { id: number; stat: string; amount: number; source: string; expiresAt?: string | null }[];
+  statBreakdown: Record<string, {
+    base: number;
+    multipliers: number[];
+    combinedMultiplier: number;
+    objectFlatBonus: number;
+    karmaBonus: number;
+    value: number;
+  }> | null;
   combatEffects: { type: "attack_multiplier_all" | "damage_reduction_all"; value: number; source: string; expiresAt: string | null }[];
   canSeeCharacterId: boolean;
   canManageCharacter: boolean;
@@ -206,10 +214,16 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       "*ESTADÍSTICAS BASE*",
       character.stats
         ? Object.entries(statLabels).map(([key, label]) => {
-            const base = character.stats?.[key as keyof typeof character.stats] ?? 0;
-            const effective = character.effectiveStats?.[key] ?? base;
-            const boost = effective - base;
-            return "• " + label + ": " + base + (boost > 0 ? " + " + boost + " = " + effective : "");
+            const breakdown = character.statBreakdown?.[key];
+            const base = breakdown?.base ?? character.stats?.[key as keyof typeof character.stats] ?? 0;
+            const effective = breakdown?.value ?? character.effectiveStats?.[key] ?? base;
+            const multiplier = breakdown?.combinedMultiplier ?? 1;
+            const objectBonus = breakdown?.objectFlatBonus ?? 0;
+            const karmaBonus = breakdown?.karmaBonus ?? 0;
+            const multiplierText = breakdown?.multipliers?.length
+              ? " ×" + breakdown.multipliers.map((value) => value.toLocaleString("es-MX", { maximumFractionDigits: 2 })).join(" + ×") + " = ×" + multiplier.toLocaleString("es-MX", { maximumFractionDigits: 2 })
+              : " ×1";
+            return "• " + label + ": " + effective + " [(" + base + multiplierText + ") + " + objectBonus + " + " + karmaBonus + "]";
           }).join("\n")
         : "",
       "",

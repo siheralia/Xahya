@@ -54,7 +54,7 @@ export async function PUT(request: Request) {
   }
 
   await recordAuditEvent({
-    actorUserId: manager.id,
+    actorUserId: Number(manager.id),
     action: "SOCIAL_RELATIONSHIPS_UPDATE",
     entityType: "CHARACTER",
     entityId: characterId,

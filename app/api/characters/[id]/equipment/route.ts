@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { isEquipmentSlot } from "@/lib/equipment";
+import { getPerkSlotCapacity } from "@/lib/perks";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -99,6 +100,26 @@ export async function PATCH(
   }
 
   const equippedItems = await CharacterItem.where({ characterId }).all();
+  const CharacterPerk = (db.orm.public as any).CharacterPerk;
+  const Perk = (db.orm.public as any).Perk;
+  const characterPerks = CharacterPerk ? await CharacterPerk.where({ characterId }).all() : [];
+  const perkDefinitions = Perk ? await Perk.all() : [];
+  const perkEntries = characterPerks.map((entry:any) => ({
+    ...entry,
+    perk: perkDefinitions.find((perk:any) => Number(perk.id) === Number(entry.perkId)) ?? null,
+  }));
+  const slotCapacity = getPerkSlotCapacity(perkEntries, slot);
+  const occupiedCount = equippedItems.filter(
+    (candidate:any) =>
+      Number(candidate.id) !== characterItemId &&
+      Boolean(candidate.equipped) &&
+      String(candidate.equippedSlot) === slot,
+  ).length;
+
+  if (occupiedCount >= slotCapacity) {
+    return NextResponse.json({ error: slotCapacity > 1 ? `Ese slot ya alcanzó su capacidad de ${slotCapacity} objetos.` : "Ese slot ya está ocupado." }, { status: 409 });
+  }
+
   const occupied = equippedItems.find(
     (candidate: any) =>
       Number(candidate.id) !== characterItemId &&

@@ -25,6 +25,7 @@ model Character {
   stats     CharacterStat?
   resources CharacterResource?
   modifiers CharacterModifier[]
+  perks CharacterPerk[]
   createdAt DateTime            @default(now())
   auditLogs AuditLog[]
   knownCharacters CharacterRelationship[] @relation("CharacterKnows")
@@ -217,4 +218,30 @@ model MazeCharacterPosition {
   previousRoom  MazeRoom? @relation("MazeRoomPreviousPositions", fields:[previousRoomId], references:[id], onDelete:SetNull)
   updatedAt   temporal.updatedAt()
   @@unique([mazeId, characterId])
+}
+
+
+model Perk {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  probability Float     @default(0)
+  effects     Json      @default("[]")
+  stackable   Boolean   @default(true)
+  maxStacks   Int?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  characterPerks CharacterPerk[]
+}
+
+model CharacterPerk {
+  id          Int       @id @default(autoincrement())
+  characterId Int
+  character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
+  perkId      Int
+  perk        Perk      @relation(fields:[perkId], references:[id], onDelete:Restrict)
+  source      String    @default("MANUAL")
+  createdAt   DateTime  @default(now())
+  @@index([characterId])
+  @@index([perkId])
 }

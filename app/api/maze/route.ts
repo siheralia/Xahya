@@ -67,7 +67,7 @@ async function createRoom(tx: any, maze: any, roomNumber: number, forcedType?: s
     mazeId: maze.id,
     roomNumber,
     roomType: type,
-    status: type === "SAFE" || type === "TREASURE" || type === "NPC" ? "OPEN" : "BLOCKED",
+    status: ["ENEMY","MOBILE_ENEMY","BOSS"].includes(type) ? "BLOCKED" : "OPEN",
     description: roomDescription(type),
     contentName,
     contentDescription,

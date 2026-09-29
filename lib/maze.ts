@@ -1,5 +1,5 @@
 export const MAZE_DIRECTIONS = [
-  "N","NE","E","SE","S","SO","O","NO",
+  "N","E","S","O",
   "N_UP","E_UP","S_UP","O_UP",
   "N_DOWN","E_DOWN","S_DOWN","O_DOWN",
   "UP","DOWN",
@@ -8,14 +8,14 @@ export const MAZE_DIRECTIONS = [
 export type MazeDirection = (typeof MAZE_DIRECTIONS)[number];
 
 export const DIRECTION_LABELS: Record<MazeDirection, string> = {
-  N:"Norte", NE:"Noreste", E:"Este", SE:"Sureste", S:"Sur", SO:"Suroeste", O:"Oeste", NO:"Noroeste",
+  N:"Norte", E:"Este", S:"Sur", O:"Oeste",
   N_UP:"Norte ↑", E_UP:"Este ↑", S_UP:"Sur ↑", O_UP:"Oeste ↑",
   N_DOWN:"Norte ↓", E_DOWN:"Este ↓", S_DOWN:"Sur ↓", O_DOWN:"Oeste ↓",
   UP:"Arriba", DOWN:"Abajo",
 };
 
 export const OPPOSITE_DIRECTION: Record<MazeDirection, MazeDirection> = {
-  N:"S", NE:"SO", E:"O", SE:"NO", S:"N", SO:"NE", O:"E", NO:"SE",
+  N:"S", E:"O", S:"N", O:"E",
   N_UP:"S_DOWN", E_UP:"O_DOWN", S_UP:"N_DOWN", O_UP:"E_DOWN",
   N_DOWN:"S_UP", E_DOWN:"O_UP", S_DOWN:"N_UP", O_DOWN:"E_UP",
   UP:"DOWN", DOWN:"UP",

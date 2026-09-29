@@ -18,6 +18,9 @@ model Character {
   name      String
   userId    Int
   user      User                @relation(fields:[userId], references:[id])
+  age       Int?
+  gender    String?
+  height    Int?
   stats     CharacterStat?
   resources CharacterResource?
   modifiers CharacterModifier[]

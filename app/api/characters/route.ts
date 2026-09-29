@@ -71,6 +71,27 @@ export async function POST(request: Request) {
         });
         awardedPerks.push(awarded);
       }
+
+      const resourceBonuses = awardedPerks
+        .map((entry) => availablePerks.find((perk:any) => Number(perk.id) === Number(entry.perkId)))
+        .flatMap((perk:any) => Array.isArray(perk?.effects) ? perk.effects : [])
+        .filter((effect:any) => String(effect.type) === "RESOURCE_BONUS")
+        .reduce((totals:any, effect:any) => {
+          const target = String(effect.target ?? "");
+          const value = Number(effect.value ?? 0);
+          if (target === "KARMA") totals.karma += value;
+          if (target === "MONEY") totals.money += value;
+          if (target === "LEVEL_UP_POINTS") totals.levelUpPoints += value;
+          return totals;
+        }, { karma: 0, money: 0, levelUpPoints: 0 });
+
+      if (resourceBonuses.karma || resourceBonuses.money || resourceBonuses.levelUpPoints) {
+        await tx.orm.public.CharacterResource.where({ characterId: character.id }).update({
+          karma: 1 + resourceBonuses.karma,
+          money: 1000 + resourceBonuses.money,
+          levelUpPoints: resourceBonuses.levelUpPoints,
+        });
+      }
     }
     return { character, awardedPerks };
 

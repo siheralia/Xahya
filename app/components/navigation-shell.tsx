@@ -49,6 +49,7 @@ export default function NavigationShell({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isManagement, setIsManagement] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const route = useMemo(() => getRouteInfo(pathname), [pathname]);
 
   useEffect(() => {
@@ -56,10 +57,12 @@ export default function NavigationShell({ children }: { children: React.ReactNod
     Promise.all([
       fetch("/api/characters", { cache: "no-store" }).then((r) => r.ok ? r.json() : []),
       fetch("/api/profile", { cache: "no-store" }).then((r) => r.ok ? r.json() : null),
-    ]).then(([chars, profile]) => {
+      fetch("/api/notifications", { cache: "no-store" }).then((r) => r.ok ? r.json() : null),
+    ]).then(([chars, profile, notifications]) => {
       if (cancelled) return;
       setCharacters(Array.isArray(chars) ? chars : []);
       setIsManagement(["GM", "ADMIN"].includes(String(profile?.role ?? "")));
+      setUnreadCount(Number(notifications?.unreadCount) || 0);
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -116,6 +119,17 @@ export default function NavigationShell({ children }: { children: React.ReactNod
 
       <Link href="/casino" className="xahya-casino">
         🎰 <span>Casino</span>
+      </Link>
+
+      <Link
+        href="/notifications"
+        aria-label={unreadCount ? `Buzón: ${unreadCount} notificaciones sin leer` : "Buzón"}
+        className="xahya-inbox"
+      >
+        🔔 <span>Buzón</span>
+        {unreadCount > 0 ? (
+          <span className="xahya-inbox-count">{unreadCount > 99 ? "99+" : unreadCount}</span>
+        ) : null}
       </Link>
     </>
   );

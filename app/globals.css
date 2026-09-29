@@ -56,7 +56,12 @@ body {
   display: block; font-size: .68rem; font-weight: 600;
   text-transform: uppercase; letter-spacing: .3em;
 }
-.xahya-breadcrumb { display: block; margin-top: 4px; color: #e4e4e7; font-size: 1rem; font-weight: 700; }
+.xahya-system-status {
+  display: block; margin-top: 5px; font-size: .62rem; line-height: 1;
+}
+.xahya-system-status.online { color: #34d399; }
+.xahya-system-status.offline { color: #f87171; }
+.xahya-breadcrumb { display: block; margin-top: 5px; color: #e4e4e7; font-size: 1rem; font-weight: 700; }
 .xahya-casino {
   position: fixed; left: 18px; bottom: 18px; z-index: 50;
   display: inline-flex; align-items: center; gap: 7px;

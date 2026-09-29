@@ -97,6 +97,7 @@ function Radar({ values }: { values: Record<StatKey, number> }) {
 export default function CreateCharacterPage() {
   const router = useRouter();
   const [name, setName] = useState(() => getRandomSuggestedName());
+  const [flair, setFlair] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
   const [values, setValues] = useState<Record<StatKey, number>>(
@@ -146,6 +147,7 @@ export default function CreateCharacterPage() {
 
   function reset() {
     setName(getRandomSuggestedName());
+    setFlair("");
     setValues(Object.fromEntries(stats.map((stat) => [stat.key, MIN_STAT])) as Record<StatKey, number>);
   }
 
@@ -161,7 +163,7 @@ export default function CreateCharacterPage() {
       const response = await fetch("/api/characters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), stats: values }),
+        body: JSON.stringify({ name: name.trim(), flair, stats: values }),
       });
 
       if (!response.ok) {
@@ -202,6 +204,19 @@ export default function CreateCharacterPage() {
               placeholder="Ej. Ariana Lailas"
               className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950/70 px-4 text-white outline-none transition placeholder:text-zinc-600 focus:border-cyan-400"
             />
+
+            <label className="mt-5 block text-sm font-medium text-zinc-300" htmlFor="flair">
+              Emoji del personaje <span className="text-zinc-600">(máx. 2)</span>
+            </label>
+            <input
+              id="flair"
+              value={flair}
+              onChange={(event) => setFlair(event.target.value)}
+              placeholder="Ej. 🪞🗡️"
+              maxLength={8}
+              className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950/70 px-4 text-2xl text-white outline-none transition placeholder:text-zinc-600 focus:border-cyan-400"
+            />
+            <p className="mt-2 text-xs text-zinc-600">Se mostrará junto al nombre como ⟨🪞🗡️⟩.</p>
 
             <div className="mt-8 flex items-end justify-between gap-4">
               <div>

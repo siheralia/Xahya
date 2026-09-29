@@ -155,9 +155,10 @@ model MazeRoom {
   treasureClaimed    Boolean   @default(false)
   treasureRewards   Json      @default("{}")
   createdAt          DateTime  @default(now())
-  exits              MazeExit[]
+  exits              MazeExit[] @relation("MazeExitFrom")
+  incomingExits      MazeExit[] @relation("MazeExitTo")
   enemies            MazeRoomEnemy[]
-  positions          MazeCharacterPosition[]
+  positions          MazeCharacterPosition[] @relation("MazeRoomPositions")
   @@unique([mazeId, roomNumber])
 }
 
@@ -166,9 +167,9 @@ model MazeExit {
   mazeId     Int
   maze       Maze      @relation(fields:[mazeId], references:[id], onDelete:Cascade)
   fromRoomId Int
-  fromRoom   MazeRoom  @relation(fields:[fromRoomId], references:[id], onDelete:Cascade)
+  fromRoom   MazeRoom  @relation("MazeExitFrom", fields:[fromRoomId], references:[id], onDelete:Cascade)
   toRoomId   Int?
-  toRoom     MazeRoom? @relation(fields:[toRoomId], references:[id], onDelete:Cascade)
+  toRoom     MazeRoom? @relation("MazeExitTo", fields:[toRoomId], references:[id], onDelete:Cascade)
   direction  String
   createdAt  DateTime  @default(now())
   @@unique([fromRoomId, direction])
@@ -209,7 +210,7 @@ model MazeCharacterPosition {
   characterId Int
   character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
   roomId      Int
-  room        MazeRoom  @relation(fields:[roomId], references:[id], onDelete:Cascade)
+  room        MazeRoom  @relation("MazeRoomPositions", fields:[roomId], references:[id], onDelete:Cascade)
   updatedAt   DateTime  @updatedAt
   @@unique([mazeId, characterId])
 }

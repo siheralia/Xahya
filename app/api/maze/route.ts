@@ -77,14 +77,10 @@ async function createRoom(tx: any, maze: any, roomNumber: number, forcedType?: s
 
   if (type === "ENEMY" || type === "MOBILE_ENEMY" || type === "BOSS") {
     const Enemy = (tx.orm.public as any).Enemy;
-    if (Enemy) {
-      const enemies = await Enemy.where({ active: true }).all();
-      const candidates = type === "BOSS"
-        ? enemies.filter((enemy: any) => Boolean(enemy.isBoss) || String(enemy.rank) === "BOSS")
-        : enemies.filter((enemy: any) => !Boolean(enemy.isBoss));
-      const enemy: any = pickWeighted<any>(candidates as any[]);
+    const MazeRoomEnemy = (tx.orm.public as any).MazeRoomEnemy;
+    if (Enemy && MazeRoomEnemy && contentName && !contentName.includes("sin definir")) {
+      const enemy = (await Enemy.where({ active: true }).all()).find((entry:any) => String(entry.name) === String(contentName));
       if (enemy) {
-        const MazeRoomEnemy = (tx.orm.public as any).MazeRoomEnemy;
         await MazeRoomEnemy.create({
           roomId: room.id,
           enemyId: enemy.id,
@@ -92,9 +88,9 @@ async function createRoom(tx: any, maze: any, roomNumber: number, forcedType?: s
           status: "ACTIVE",
           isMobile: type === "MOBILE_ENEMY",
         });
-      } else if (type !== "BOSS") {
-        await tx.orm.public.MazeRoom.where({ id: room.id }).update({ status: "OPEN" });
       }
+    } else if (type !== "BOSS") {
+      await tx.orm.public.MazeRoom.where({ id: room.id }).update({ status: "OPEN" });
     }
   }
 

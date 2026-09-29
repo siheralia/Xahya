@@ -21,6 +21,7 @@ export async function GET() {
     .map((character) => ({
       id: character.id,
       name: character.name,
+      flair: character.flair ?? null,
       createdAt: character.createdAt,
     }));
 

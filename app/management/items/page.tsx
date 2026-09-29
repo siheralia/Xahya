@@ -100,7 +100,7 @@ export default function ItemsManagementPage() {
             <div className="grid gap-3 sm:grid-cols-2"><select value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{effectTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
             <input type="number" value={effect.value} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Valor"/></div>
             <input value={effect.description} onChange={e=>updateEffect(i,"description",e.target.value)} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Descripción del efecto"/>
-            {<button type="button" onClick={()=>setForm(f=>({...f,effects:f.effects.filter((_,j)=>j!==i)}))} className="mt-2 text-sm text-red-300">Quitar efecto</button>} onClick={()=>setForm(f=>({...f,effects:f.effects.filter((_,j)=>j!==i)}))} className="mt-2 text-sm text-red-300">Quitar efecto</button>}
+            <button type="button" onClick={()=>setForm(f=>({...f,effects:f.effects.filter((_,j)=>j!==i)}))} className="mt-2 text-sm text-red-300">Quitar efecto</button>
           </div>)}</div></div>
           <div className="flex flex-wrap gap-3"><button onClick={save} disabled={saving} className="rounded-lg bg-white px-5 py-3 font-medium text-black">{saving?"Guardando...":selected?"Guardar cambios":"Fabricar objeto"}</button>{selected&&<button onClick={remove} className="rounded-lg border border-red-900/70 px-5 py-3 text-red-300">Eliminar</button>}</div>
         </div>

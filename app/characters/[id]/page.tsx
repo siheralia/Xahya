@@ -44,6 +44,7 @@ type Character = {
   combatEffects: { type: "attack_multiplier_all" | "damage_reduction_all"; value: number; source: string; expiresAt: string | null }[];
   equipment: EquipmentItem[];
   canSeeCharacterId: boolean;
+  isAdmin: boolean;
   canManageCharacter: boolean;
   canLevelUp: boolean;
 };
@@ -201,6 +202,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [profileHeight, setProfileHeight] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [equipmentBusy, setEquipmentBusy] = useState<number | null>(null);
+  const [flairSaving, setFlairSaving] = useState<number | null>(null);
   const [knownCharacters, setKnownCharacters] = useState<{ id: number; name: string }[]>([]);
   const [transferTarget, setTransferTarget] = useState("");
   const [transferMoney, setTransferMoney] = useState(0);
@@ -334,6 +336,30 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     return lines.join("\n");
   }
 
+
+  async function saveFlair(characterItemId: number, flair: string) {
+    if (!character || !character.isAdmin || flairSaving !== null) return;
+    setFlairSaving(characterItemId);
+    setError("");
+    try {
+      const response = await fetch("/api/management/characters/" + character.id + "/equipment", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characterItemId, flair }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo actualizar el flair.");
+      setCharacter((current) => current ? {
+        ...current,
+        equipment: current.equipment.map((entry) => entry.id === characterItemId ? { ...entry, flair: flair || null } : entry),
+      } : current);
+      setSuccess("Flair actualizado correctamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo actualizar el flair.");
+    } finally {
+      setFlairSaving(null);
+    }
+  }
 
   async function changeEquipment(characterItemId: number, equipped: boolean, slot?: string) {
     if (!character || equipmentBusy !== null) return;
@@ -674,7 +700,21 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   </div>
                   {entry.item?.description && <p className="mt-3 text-sm text-zinc-400">{entry.item.description}</p>}
                   {entry.flair && <p className="mt-2 text-xs italic text-violet-300">✦ {entry.flair}</p>}
-                  <button type="button" onClick={() => changeEquipment(entry.id, false)} disabled={equipmentBusy !== null} className="mt-4 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">Desequipar</button>
+                  {character.isAdmin && (
+                    <input
+                      key={entry.flair ?? ""}
+                      defaultValue={entry.flair ?? ""}
+                      maxLength={500}
+                      placeholder="Flair del objeto"
+                      disabled={flairSaving !== null}
+                      onBlur={(event) => {
+                        const value = event.target.value.trim();
+                        if (value !== (entry.flair ?? "")) saveFlair(entry.id, value);
+                      }}
+                      className="mt-3 w-full rounded-lg border border-violet-900/60 bg-zinc-950 px-3 py-2 text-xs text-white outline-none focus:border-violet-400"
+                    />
+                  )}
+                  <button type="button" onClick={() => changeEquipment(entry.id, false) disabled={equipmentBusy !== null} className="mt-4 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">Desequipar</button>
                 </div>
               ))}
             </div>

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { calculateDerivedStats } from "@/lib/stats/derived";
 import { getCombatEffects } from "@/lib/combat/effects";
+import { getPerkEffects } from "@/lib/perks";
 
 export async function GET(
   request: Request,
@@ -49,6 +50,19 @@ export async function GET(
   const resources = await db.orm.public.CharacterResource
     .where({ characterId })
     .first();
+
+  const CharacterPerk = (db.orm.public as any).CharacterPerk;
+  const Perk = (db.orm.public as any).Perk;
+  const characterPerks = CharacterPerk ? await CharacterPerk.where({ characterId }).all() : [];
+  const perkDefinitions = Perk ? await Perk.all() : [];
+  const perks = characterPerks.map((entry:any) => ({
+    id: Number(entry.id),
+    perkId: Number(entry.perkId),
+    source: String(entry.source),
+    createdAt: entry.createdAt,
+    perk: perkDefinitions.find((perk:any) => Number(perk.id) === Number(entry.perkId)) ?? null,
+  }));
+  const perkEffects = getPerkEffects(perks);
 
   const allModifiers = await db.orm.public.CharacterModifier.where({ characterId }).all();
   const now = Date.now();
@@ -130,6 +144,15 @@ export async function GET(
     : null;
 
   const derivedStats = effectiveStats ? calculateDerivedStats(effectiveStats) : null;
+  if (derivedStats) {
+    for (const effect of perkEffects) {
+      if (String(effect.type) !== "RESOURCE_BONUS") continue;
+      const target = String(effect.target ?? "");
+      const value = Number(effect.value ?? 0);
+      if (target === "HP") derivedStats.maxHp += value;
+      if (target === "MANA") derivedStats.maxMana += value;
+    }
+  }
   const itemEffects = ownedItems
     .filter((owned: any) => Boolean(owned.equipped))
     .flatMap((owned: any) => {
@@ -176,6 +199,8 @@ export async function GET(
     stats,
     resources,
     modifiers,
+    perks,
+    perkEffects,
     combatEffects,
     equipment,
     effectiveStats,

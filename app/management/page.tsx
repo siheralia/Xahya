@@ -9,6 +9,14 @@ type Character = {
   ownerName: string;
 };
 
+type CharacterEquipment = {
+  id: number;
+  item?: { name: string } | null;
+  flair: string | null;
+  equipped: boolean;
+  equippedSlot: string | null;
+};
+
 const statLabels: Record<string, string> = {
   strength: "Fuerza",
   agility: "Agilidad",
@@ -49,6 +57,9 @@ export default function ManagementPage() {
   const [globalMoney, setGlobalMoney] = useState(0);
   const [globalLevelUpPoints, setGlobalLevelUpPoints] = useState(0);
   const [globalSaving, setGlobalSaving] = useState(false);
+  const [equipment, setEquipment] = useState<CharacterEquipment[]>([]);
+  const [equipmentLoading, setEquipmentLoading] = useState(false);
+  const [flairSaving, setFlairSaving] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/management/characters")
@@ -99,6 +110,48 @@ export default function ManagementPage() {
     setCharacterId(value);
     const selected = characters.find((character) => String(character.id) === value);
     setCharacterName(selected?.name ?? "");
+  }
+
+  useEffect(() => {
+    if (!isAdmin || !characterId) {
+      setEquipment([]);
+      return;
+    }
+
+    setEquipmentLoading(true);
+    fetch("/api/characters/" + characterId)
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setEquipment(data.equipment ?? []);
+      })
+      .catch(() => setEquipment([]))
+      .finally(() => setEquipmentLoading(false));
+  }, [characterId, isAdmin]);
+
+  async function saveItemFlair(characterItemId: number, flair: string) {
+    setFlairSaving(characterItemId);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/characters/" + characterId + "/equipment", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characterItemId, flair }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo actualizar el flair.");
+
+      setEquipment((current) =>
+        current.map((entry) => entry.id === characterItemId ? { ...entry, flair: flair || null } : entry),
+      );
+      setSuccess("Flair actualizado correctamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo actualizar el flair.");
+    } finally {
+      setFlairSaving(null);
+    }
   }
 
   async function renameCharacter() {
@@ -348,6 +401,39 @@ export default function ManagementPage() {
             ))}
           </select>
         </section>
+
+        {isAdmin && characterId && (
+          <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-950/10 p-6">
+            <h2 className="text-xl font-semibold">Flair de objetos</h2>
+            <p className="mt-1 text-sm text-zinc-500">Solo ADMIN puede editar la variante de cada objeto. El flair pertenece a esta copia del objeto.</p>
+            {equipmentLoading ? (
+              <p className="mt-5 text-sm text-zinc-500">Cargando inventario...</p>
+            ) : equipment.length === 0 ? (
+              <p className="mt-5 text-sm text-zinc-500">Este personaje no tiene objetos.</p>
+            ) : (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {equipment.map((entry) => (
+                  <label key={entry.id} className="block rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                    <span className="text-sm font-medium text-zinc-300">{entry.item?.name ?? "Objeto"}</span>
+                    <span className="mt-1 block text-xs text-zinc-600">{entry.equipped ? "Equipado" : "En inventario"}</span>
+                    <input
+                      key={entry.flair ?? ""}
+                      defaultValue={entry.flair ?? ""}
+                      maxLength={500}
+                      placeholder="Ej. Mandoble de 2 metros"
+                      disabled={flairSaving !== null}
+                      onBlur={(event) => {
+                        const value = event.target.value.trim();
+                        if (value !== (entry.flair ?? "")) saveItemFlair(entry.id, value);
+                      }}
+                      className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+                    />
+                  </label>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {isAdmin && characterId && (
           <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">

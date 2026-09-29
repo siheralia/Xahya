@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 type Effect = { type: string; value: number; description: string };
 type Item = {
   id: number; name: string; description: string | null; itemType: string;
-  acquisitionType: string; price: number; effects: Effect[];
+  acquisitionType: string; price: number; effects: Effect[]; allowedSlots: string[];
 };
 
 const itemTypes = [
@@ -19,13 +19,18 @@ const acquisitionTypes = [
 const effectTypes = [
   ["attack_multiplier_all","× Ataque total"],["damage_reduction_all","Reducción de daño recibido"],
 ];
+const equipmentSlots = [
+  ["MAIN_HAND","Mano principal"],["OFF_HAND","Mano secundaria"],["HEAD","Cabeza"],["BODY","Cuerpo"],
+  ["FEET","Pies"],["ARMS","Brazos"],["BACK","Espalda"],["ACCESSORY_1","Accesorio 1"],["ACCESSORY_2","Accesorio 2"],
+];
 
 const emptyEffect = (): Effect => ({ type: "attack_multiplier_all", value: 100, description: "" });
+const defaultSlots = ["ACCESSORY"];
 
 export default function ItemsManagementPage() {
   const [items,setItems]=useState<Item[]>([]);
   const [selected,setSelected]=useState<number|null>(null);
-  const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()]});
+  const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
   const [error,setError]=useState(""); const [success,setSuccess]=useState("");
 
@@ -39,7 +44,7 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)&&item.effects.length?item.effects: [emptyEffect()]});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)&&item.effects.length?item.effects: [emptyEffect()],allowedSlots:Array.isArray(item.allowedSlots)&&item.allowedSlots.length?item.allowedSlots:defaultSlots});
     setSuccess(""); setError("");
   }
   function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()]});setSuccess("");setError("");}
@@ -88,6 +93,7 @@ export default function ItemsManagementPage() {
             <label>Obtención<select value={form.acquisitionType} onChange={e=>setForm({...form,acquisitionType:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{acquisitionTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
             <label>Precio<input type="number" min={0} value={form.price} onChange={e=>setForm({...form,price:Number(e.target.value)||0})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           </div>
+          <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">El objeto solo podrá equiparse en los slots seleccionados.</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>
           <div><div className="flex items-center justify-between"><h3 className="font-medium">Efectos</h3><button type="button" onClick={()=>setForm(f=>({...f,effects:[...f.effects,emptyEffect()]}))} className="text-sm text-zinc-300">+ Añadir efecto</button></div>
           <div className="mt-3 space-y-3">{form.effects.map((effect,i)=><div key={i} className="rounded-xl border border-zinc-800 p-4">
             <div className="grid gap-3 sm:grid-cols-2"><select value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{effectTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>

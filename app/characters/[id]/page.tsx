@@ -12,6 +12,7 @@ type EquipmentItem = {
 type Character = {
   id: number;
   name: string;
+  flair: string | null;
   age: number | null;
   gender: string | null;
   height: number | null;
@@ -272,7 +273,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   function buildWhatsAppText(character: Character) {
     const lines = [
-      "*" + character.name + "*",
+      "*" + character.name + (character.flair ? " ⟨" + character.flair + "⟩" : "") + "*",
       character.canSeeCharacterId ? "_Personaje #" + character.id + "_" : "",
       "",
       "*ESTADÍSTICAS BASE*",
@@ -668,7 +669,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-6xl px-6 py-6">
         <div className="mt-6 flex flex-wrap items-center gap-4">
-          <h1 className="w-full text-4xl font-bold">{character.name}</h1>
+          <h1 className="w-full text-4xl font-bold">{character.name} {character.flair && <span className="text-2xl font-normal text-zinc-400">⟨{character.flair}⟩</span>}</h1>
           {character.canLevelUp && <Link href={"/characters/" + character.id + "/levelup"} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300">Level Up</Link>}
           {character.canManageCharacter && <Link href={"/management?characterId=" + character.id} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Gestionar personaje</Link>}
           <button type="button" onClick={copyToClipboard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">{copied ? "✓ Copiado" : "Copiar para WhatsApp"}</button>

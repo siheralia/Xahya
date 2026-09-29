@@ -68,7 +68,6 @@ export async function POST(request: Request) {
   const item = await Item.where({ id: itemId }).first();
   if (!item) return NextResponse.json({ error: "Objeto no encontrado en el catálogo." }, { status: 404 });
 
-  const CharacterItem = (db.orm.public as any).CharacterItem;
   const owned = await db.transaction(async (tx) => {
     return await (tx.orm.public as any).CharacterItem.create({
       characterId,

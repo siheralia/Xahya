@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CharacterSilhouette } from "@/components/CharacterSilhouette";
+import { CharacterSilhouette, getCharacterSilhouetteSvg } from "@/components/CharacterSilhouette";
 
 type Character = {
   id: number;
@@ -283,7 +283,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     }
   }
 
-  function exportProfileCard() {
+  async function exportProfileCard() {
     if (!character?.stats) return;
     const scale = Math.min(window.devicePixelRatio || 1, 2);
     const width = 960;
@@ -315,83 +315,26 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     const centerY = 375;
     const radius = 245;
     const effectiveStats = character.effectiveStats ?? character.stats;
-    const exportGender = character.gender == null ? null : String(character.gender).trim().toLowerCase();
-
-    if (character.age !== null && character.gender !== null && character.height !== null) {
-      const age = character.age;
-      const gender = String(character.gender).trim().toLowerCase();
-      const stage = age < 13 ? "niño" : age < 18 ? "adolescente" : "adulto";
-      const scale = Math.max(0.55, Math.min(1.08, character.height / 180));
-      const cx = 170;
-      const baseY = 650;
-      const head = stage === "niño" ? 24 : stage === "adolescente" ? 22 : 20;
-      const shoulder = stage === "niño" ? 34 : stage === "adolescente" ? (gender === "femenino" ? 38 : 44) : (gender === "femenino" ? 42 : 50);
-      const waist = stage === "niño" ? 29 : stage === "adolescente" ? (gender === "femenino" ? 28 : 34) : (gender === "femenino" ? 27 : 35);
-      const hip = stage === "niño" ? 32 : stage === "adolescente" ? (gender === "femenino" ? 38 : 34) : (gender === "femenino" ? 41 : 35);
-      const sy = baseY - 190 * scale;
-      const headY = sy + 30 * scale;
-      const torsoTop = sy + 55 * scale;
-      const torsoBottom = sy + 125 * scale;
-      const shoulderY = torsoTop + 8 * scale;
-      const waistY = torsoBottom - 25 * scale;
-      const hipY = torsoBottom;
-      const s = (v:number) => v * scale;
-      ctx.save();
-      ctx.translate(cx, baseY);
-      ctx.scale(1, -1);
-      ctx.fillStyle = "#a1a1aa";
-      ctx.beginPath();
-      ctx.arc(0, -(headY-baseY), s(head), 0, Math.PI*2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-s(shoulder/2), -(shoulderY-baseY));
-      ctx.quadraticCurveTo(0, -(torsoTop-baseY), s(shoulder/2), -(shoulderY-baseY));
-      ctx.lineTo(s(waist/2), -(waistY-baseY));
-      ctx.quadraticCurveTo(0, -((waistY+5*scale)-baseY), -s(waist/2), -(waistY-baseY));
-      ctx.closePath();
-      ctx.fill();
-      if (gender === "femenino" && stage !== "niño") {
-        ctx.beginPath();
-        ctx.moveTo(-s(waist/2), -(waistY-baseY));
-        ctx.quadraticCurveTo(0, -((waistY+4*scale)-baseY), s(waist/2), -(waistY-baseY));
-        ctx.lineTo(s(hip/2), -(hipY-baseY));
-        ctx.quadraticCurveTo(0, -((hipY+5*scale)-baseY), -s(hip/2), -(hipY-baseY));
-        ctx.closePath();
-        ctx.fill();
-      } else if (gender === "indefinido" && stage !== "niño") {
-        ctx.beginPath();
-        ctx.moveTo(-s(waist/2), -(waistY-baseY));
-        ctx.lineTo(-s(hip/2), -(hipY-baseY));
-        ctx.lineTo(s(hip/2), -(hipY-baseY));
-        ctx.lineTo(s(waist/2), -(waistY-baseY));
-        ctx.closePath();
-        ctx.fill();
+    if (character.age !== null && character.gender !== null) {
+      const stage = character.age < 13 ? "niño" : character.age < 18 ? "adolescente" : "adulto";
+      const svg = getCharacterSilhouetteSvg({
+        gender: String(character.gender).trim().toLowerCase() as "masculino" | "femenino" | "indefinido",
+        stage,
+        color: "#a1a1aa",
+        opacity: 0.14,
+      });
+      const silhouetteImage = new Image();
+      silhouetteImage.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+      await new Promise<void>((resolve) => {
+        silhouetteImage.onload = () => resolve();
+        silhouetteImage.onerror = () => resolve();
+      });
+      if (silhouetteImage.complete && silhouetteImage.naturalWidth > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.drawImage(silhouetteImage, centerX - 175, centerY - 235, 350, 455);
+        ctx.restore();
       }
-      const armW = s(stage === "niño" ? 7 : 8);
-      const armH = s(torsoBottom-shoulderY+18);
-      ctx.save();
-      ctx.translate(-s(shoulder/2), -(shoulderY-baseY));
-      ctx.rotate(-0.08);
-      ctx.fillRect(-armW/2, 0, armW, armH);
-      ctx.restore();
-      ctx.save();
-      ctx.translate(s(shoulder/2), -(shoulderY-baseY));
-      ctx.rotate(0.08);
-      ctx.fillRect(-armW/2, 0, armW, armH);
-      ctx.restore();
-      const legW=s(stage==="niño"?7:stage==="adolescente"?8:9);
-      const legH=s(stage==="niño"?55:stage==="adolescente"?66:76);
-      const gap=s(gender==="femenino"&&stage!=="niño"?6:5);
-      ctx.fillRect(-s((hip-gap)/2)-legW/2, -(hipY-baseY), legW, legH);
-      ctx.fillRect(s((hip-gap)/2)-legW/2, -(hipY-baseY), legW, legH);
-      ctx.restore();
-      ctx.textAlign="center";
-      ctx.fillStyle="#a1a1aa";
-      ctx.font="600 12px Arial, sans-serif";
-      ctx.fillText("SILUETA", cx, 675);
-      ctx.font="12px Arial, sans-serif";
-      ctx.fillStyle="#71717a";
-      ctx.fillText(stage + " · " + character.height + " cm", cx, 694);
     }
 
     const maxValue = Math.max(20, ...Object.values(effectiveStats));
@@ -571,38 +514,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           </section>
         )}
 
-        {character.age !== null && character.gender !== null && character.height !== null && (
-          <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-            <div className="grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-center">
-              <CharacterSilhouette
-                age={character.age}
-                gender={character.gender as "masculino" | "femenino" | "indefinido"}
-                height={character.height}
-              />
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Representación</p>
-                <h2 className="mt-2 text-xl font-semibold">Silueta del personaje</h2>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
-                  La silueta se determina automáticamente por género y etapa de edad. La altura escala la figura proporcionalmente.
-                </p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
-                    <p className="text-xs text-zinc-600">Edad</p>
-                    <p className="mt-1 font-semibold">{character.age} años</p>
-                  </div>
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
-                    <p className="text-xs text-zinc-600">Género</p>
-                    <p className="mt-1 font-semibold">{genderOptions.find((option) => option.value === character.gender)?.label ?? character.gender}</p>
-                  </div>
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
-                    <p className="text-xs text-zinc-600">Altura</p>
-                    <p className="mt-1 font-semibold">{character.height} cm</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
 
         {character.stats && (
           <section className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6">
@@ -633,10 +544,24 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 ))}
               </div>
             </div>
-            <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 pb-12">
-              <div className="flex items-baseline justify-between gap-4"><p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Perfil</p><h3 className="text-lg font-semibold text-right">Distribución de estadísticas</h3></div>
-              <div className="mt-3"><StatsRadar baseValues={baseRadarValues!} values={radarValues} /></div>
-              <div className="absolute bottom-3 left-5 right-5 flex items-center justify-between gap-4"><p className="text-xl font-semibold italic text-white" style={{ fontFamily: '"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive' }}>{character.name}</p><p className="text-base font-semibold text-zinc-300">🪷 {character.resources?.karma?.toLocaleString("en-US") ?? 0}</p></div>
+            <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 pb-12">
+              {character.age !== null && character.gender !== null && (
+                <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
+                  <CharacterSilhouette
+                    age={character.age}
+                    gender={character.gender as "masculino" | "femenino" | "indefinido"}
+                    className="h-[125%] w-auto text-zinc-400"
+                  />
+                </div>
+              )}
+              <div className="relative z-10">
+                <div className="flex items-baseline justify-between gap-4"><p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Perfil</p><h3 className="text-lg font-semibold text-right">Distribución de estadísticas</h3></div>
+                <div className="mt-3"><StatsRadar baseValues={baseRadarValues!} values={radarValues} /></div>
+              </div>
+              <div className="absolute bottom-3 left-5 right-5 z-20 flex items-center justify-between gap-4">
+                <p className="text-xl font-semibold italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" style={{ fontFamily: '"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive' }}>{character.name}</p>
+                <p className="text-base font-semibold text-zinc-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">🪷 {character.resources?.karma?.toLocaleString("en-US") ?? 0}</p>
+              </div>
             </div>
           </section>
         )}

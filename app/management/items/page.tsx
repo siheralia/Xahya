@@ -26,6 +26,7 @@ const equipmentSlots = [
 
 const emptyEffect = (): Effect => ({ type: "attack_multiplier_all", value: 100, description: "" });
 const defaultSlots = ["ACCESSORY"];
+const noEffects = (effects: Effect[]) => !Array.isArray(effects) || effects.length === 0;
 
 export default function ItemsManagementPage() {
   const [items,setItems]=useState<Item[]>([]);
@@ -44,10 +45,10 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)&&item.effects.length?item.effects: [emptyEffect()],allowedSlots:Array.isArray(item.allowedSlots)&&item.allowedSlots.length?item.allowedSlots:defaultSlots});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects: [],allowedSlots:Array.isArray(item.allowedSlots)&&item.allowedSlots.length?item.allowedSlots:defaultSlots});
     setSuccess(""); setError("");
   }
-  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()],allowedSlots:defaultSlots});setSuccess("");setError("");}
+  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>i===index?{...e,[key]:key==="value"?Number(value):value}:e)}));
   }
@@ -94,12 +95,12 @@ export default function ItemsManagementPage() {
             <label>Precio<input type="number" min={0} value={form.price} onChange={e=>setForm({...form,price:Number(e.target.value)||0})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           </div>
           <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">El objeto solo podrá equiparse en los slots seleccionados.</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>
-          <div><div className="flex items-center justify-between"><h3 className="font-medium">Efectos</h3><button type="button" onClick={()=>setForm(f=>({...f,effects:[...f.effects,emptyEffect()]}))} className="text-sm text-zinc-300">+ Añadir efecto</button></div>
+          <div><div className="flex items-center justify-between"><h3 className="font-medium">Efectos</h3>{noEffects(form.effects)?<span className="text-sm text-zinc-500">Sin efectos</span>:<button type="button" onClick={()=>setForm(f=>({...f,effects:[...f.effects,emptyEffect()]}))} className="text-sm text-zinc-300">+ Añadir efecto</button>}</div>
           <div className="mt-3 space-y-3">{form.effects.map((effect,i)=><div key={i} className="rounded-xl border border-zinc-800 p-4">
             <div className="grid gap-3 sm:grid-cols-2"><select value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{effectTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
             <input type="number" value={effect.value} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Valor"/></div>
             <input value={effect.description} onChange={e=>updateEffect(i,"description",e.target.value)} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Descripción del efecto"/>
-            {form.effects.length>1&&<button type="button" onClick={()=>setForm(f=>({...f,effects:f.effects.filter((_,j)=>j!==i)}))} className="mt-2 text-sm text-red-300">Quitar efecto</button>}
+            {<button type="button" onClick={()=>setForm(f=>({...f,effects:f.effects.filter((_,j)=>j!==i)}))} className="mt-2 text-sm text-red-300">Quitar efecto</button>} onClick={()=>setForm(f=>({...f,effects:f.effects.filter((_,j)=>j!==i)}))} className="mt-2 text-sm text-red-300">Quitar efecto</button>}
           </div>)}</div></div>
           <div className="flex flex-wrap gap-3"><button onClick={save} disabled={saving} className="rounded-lg bg-white px-5 py-3 font-medium text-black">{saving?"Guardando...":selected?"Guardar cambios":"Fabricar objeto"}</button>{selected&&<button onClick={remove} className="rounded-lg border border-red-900/70 px-5 py-3 text-red-300">Eliminar</button>}</div>
         </div>

@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { calculateDerivedStats } from "@/lib/stats/derived";
+import { getCombatEffects } from "@/lib/combat/effects";
 
 export async function GET(
   request: Request,
@@ -82,6 +83,7 @@ export async function GET(
   }
 
   const derivedStats = effectiveStats ? calculateDerivedStats(effectiveStats) : null;
+  const combatEffects = getCombatEffects(modifiers);
 
   const normalizedCharacter = { ...character, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
 
@@ -90,6 +92,7 @@ export async function GET(
     stats,
     resources,
     modifiers,
+    combatEffects,
     effectiveStats,
     derivedStats,
     canSeeCharacterId: user.role === "ADMIN",

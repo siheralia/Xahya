@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -26,8 +27,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const acquisitionType = String(body.acquisitionType ?? item.acquisitionType);
   const price = Number(body.price ?? item.price);
   const effects = Array.isArray(body.effects) ? body.effects : item.effects;
+  const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : (Array.isArray(item.allowedSlots) ? item.allowedSlots : ["ACCESSORY"]);
   if (!name || name.length > 100 || !Number.isInteger(price) || price < 0) return NextResponse.json({ error: "Datos del objeto inválidos." }, { status: 400 });
-  const updated = await Item.where({ id }).update({ name, description, itemType, acquisitionType, price, effects });
+  if (!allowedSlots.length || allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return NextResponse.json({ error: "Slots de equipo inválidos." }, { status: 400 });
+  const updated = await Item.where({ id }).update({ name, description, itemType, acquisitionType, price, effects, allowedSlots });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_UPDATE", entityType: "ITEM", entityId: id, details: { before: item, after: updated } });
   return NextResponse.json({ item: updated });
 }

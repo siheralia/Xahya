@@ -53,7 +53,7 @@ async function createRoom(tx: any, maze: any, roomNumber: number, forcedType?: s
     const candidates = type === "BOSS"
       ? enemies.filter((enemy: any) => Boolean(enemy.isBoss) || String(enemy.rank) === "BOSS")
       : enemies.filter((enemy: any) => !Boolean(enemy.isBoss));
-    const enemy = pickWeighted(candidates);
+    const enemy: any = pickWeighted<any>(candidates as any[]);
     if (enemy) {
       contentName = enemy.name;
       contentDescription = enemy.description ?? "Una criatura desconocida.";
@@ -82,7 +82,7 @@ async function createRoom(tx: any, maze: any, roomNumber: number, forcedType?: s
       const candidates = type === "BOSS"
         ? enemies.filter((enemy: any) => Boolean(enemy.isBoss) || String(enemy.rank) === "BOSS")
         : enemies.filter((enemy: any) => !Boolean(enemy.isBoss));
-      const enemy = pickWeighted(candidates);
+      const enemy: any = pickWeighted<any>(candidates as any[]);
       if (enemy) {
         const MazeRoomEnemy = (tx.orm.public as any).MazeRoomEnemy;
         await MazeRoomEnemy.create({

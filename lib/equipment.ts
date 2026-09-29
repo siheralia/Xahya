@@ -27,3 +27,16 @@ export const EQUIPMENT_SLOT_LABELS: Record<EquipmentSlot, string> = {
 export function isEquipmentSlot(value: unknown): value is EquipmentSlot {
   return EQUIPMENT_SLOTS.includes(value as EquipmentSlot);
 }
+
+
+export const EQUIPMENT_SLOT_BASE_CAP: Record<EquipmentSlot, number> = {
+  MAIN_HAND: 1,
+  OFF_HAND: 1,
+  HEAD: 1,
+  BODY: 1,
+  FEET: 1,
+  ARMS: 1,
+  BACK: 1,
+  ACCESSORY_1: 1,
+  ACCESSORY_2: 1,
+};

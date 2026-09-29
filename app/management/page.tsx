@@ -17,6 +17,14 @@ type CharacterEquipment = {
   equippedSlot: string | null;
 };
 
+type GrantableItem = {
+  id: number;
+  name: string;
+  description: string | null;
+  itemType: string;
+  acquisitionType: string;
+};
+
 const statLabels: Record<string, string> = {
   strength: "Fuerza",
   agility: "Agilidad",
@@ -61,6 +69,11 @@ export default function ManagementPage() {
   const [equipmentLoading, setEquipmentLoading] = useState(false);
   const [flairSaving, setFlairSaving] = useState<number | null>(null);
   const [equipmentDeleting, setEquipmentDeleting] = useState<number | null>(null);
+  const [grantableItems, setGrantableItems] = useState<GrantableItem[]>([]);
+  const [grantItemId, setGrantItemId] = useState("");
+  const [grantQuantity, setGrantQuantity] = useState(1);
+  const [grantFlair, setGrantFlair] = useState("");
+  const [grantSaving, setGrantSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/management/characters")
@@ -114,6 +127,16 @@ export default function ManagementPage() {
   }
 
   useEffect(() => {
+    fetch("/api/management/grant-item")
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setGrantableItems(Array.isArray(data.items) ? data.items : []);
+      })
+      .catch(() => setGrantableItems([]));
+  }, []);
+
+  useEffect(() => {
     if (!isAdmin || !characterId) {
       setEquipment([]);
       return;
@@ -129,6 +152,51 @@ export default function ManagementPage() {
       .catch(() => setEquipment([]))
       .finally(() => setEquipmentLoading(false));
   }, [characterId, isAdmin]);
+
+  async function grantItem() {
+    if (!characterId || !grantItemId) {
+      setError("Selecciona un personaje y un objeto.");
+      return;
+    }
+
+    const quantity = Math.trunc(Number(grantQuantity));
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+      setError("La cantidad debe ser un entero entre 1 y 99.");
+      return;
+    }
+
+    setGrantSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/grant-item", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          characterId: Number(characterId),
+          itemId: Number(grantItemId),
+          quantity,
+          flair: grantFlair.trim() || null,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo entregar el objeto.");
+
+      setGrantQuantity(1);
+      setGrantFlair("");
+      setSuccess("Objeto entregado correctamente.");
+      const inventoryResponse = await fetch("/api/characters/" + characterId);
+      if (inventoryResponse.ok) {
+        const inventoryData = await inventoryResponse.json();
+        setEquipment(inventoryData.equipment ?? []);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo entregar el objeto.");
+    } finally {
+      setGrantSaving(false);
+    }
+  }
 
   async function saveItemFlair(characterItemId: number, flair: string) {
     setFlairSaving(characterItemId);
@@ -423,6 +491,67 @@ export default function ManagementPage() {
             ))}
           </select>
         </section>
+
+        {characterId && (
+          <section className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-6">
+            <h2 className="text-xl font-semibold">Entregar objeto</h2>
+            <p className="mt-1 text-sm text-zinc-500">GM y ADMIN pueden entregar directamente objetos del catálogo. No se cobra dinero.</p>
+
+            {grantableItems.length === 0 ? (
+              <p className="mt-5 text-sm text-zinc-500">No hay objetos disponibles en el catálogo.</p>
+            ) : (
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <label className="block sm:col-span-2">
+                  <span className="text-sm text-zinc-400">Objeto</span>
+                  <select
+                    value={grantItemId}
+                    onChange={(event) => setGrantItemId(event.target.value)}
+                    className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+                  >
+                    <option value="">Selecciona un objeto</option>
+                    {grantableItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} — {item.acquisitionType}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm text-zinc-400">Cantidad</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    value={grantQuantity}
+                    onChange={(event) => setGrantQuantity(Math.trunc(Number(event.target.value) || 1))}
+                    className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm text-zinc-400">Flair / variante (opcional)</span>
+                  <input
+                    maxLength={500}
+                    value={grantFlair}
+                    onChange={(event) => setGrantFlair(event.target.value)}
+                    placeholder="Ej. Premio del Festival de Verano"
+                    className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={grantItem}
+                  disabled={grantSaving || !grantItemId}
+                  className="sm:col-span-2 rounded-lg bg-emerald-400 px-5 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {grantSaving ? "Entregando..." : "Entregar objeto"}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
 
         {isAdmin && characterId && (
           <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-950/10 p-6">

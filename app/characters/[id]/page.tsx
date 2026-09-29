@@ -203,6 +203,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [savingProfile, setSavingProfile] = useState(false);
   const [equipmentBusy, setEquipmentBusy] = useState<number | null>(null);
   const [flairSaving, setFlairSaving] = useState<number | null>(null);
+  const [inventoryDeleting, setInventoryDeleting] = useState<number | null>(null);
   const [knownCharacters, setKnownCharacters] = useState<{ id: number; name: string }[]>([]);
   const [transferTarget, setTransferTarget] = useState("");
   const [transferMoney, setTransferMoney] = useState(0);
@@ -358,6 +359,32 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       setError(err instanceof Error ? err.message : "No se pudo actualizar el flair.");
     } finally {
       setFlairSaving(null);
+    }
+  }
+
+  async function deleteInventoryItem(characterItemId: number) {
+    if (!character || !character.isAdmin || inventoryDeleting !== null) return;
+    if (!window.confirm("¿Eliminar este objeto del inventario?")) return;
+    setInventoryDeleting(characterItemId);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/management/characters/" + character.id + "/equipment", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characterItemId }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo eliminar el objeto.");
+      setCharacter((current) => current ? {
+        ...current,
+        equipment: current.equipment.filter((entry) => entry.id !== characterItemId),
+      } : current);
+      setSuccess("Objeto eliminado del inventario.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar el objeto.");
+    } finally {
+      setInventoryDeleting(null);
     }
   }
 
@@ -750,6 +777,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       </div>
                     )}
                     {entry.flair && <p className="mt-3 text-xs italic text-violet-300">✦ {entry.flair}</p>}
+                    {character.isAdmin && (
+                      <button type="button" onClick={() => deleteInventoryItem(entry.id)} disabled={inventoryDeleting !== null} className="mt-3 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">
+                        {inventoryDeleting === entry.id ? "Eliminando..." : "Eliminar objeto"}
+                      </button>
+                    )}
                     {!entry.equipped && (
                       <div className="mt-2 space-y-2">
                         <select defaultValue={allowed[0] ?? ""} id={"equipment-slot-" + entry.id} disabled={equipmentBusy !== null || allowed.length === 0} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">

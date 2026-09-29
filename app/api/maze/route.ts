@@ -123,9 +123,9 @@ export async function POST(request: Request) {
   const maxRooms = mazeType === "FINITE" ? Number(body?.maxRooms) : null;
 
   if (!name) return NextResponse.json({ error: "El laberinto necesita un nombre." }, { status: 400 });
-  if (mazeType === "FINITE" && (!Number.isInteger(maxRooms) || maxRooms < 2)) return NextResponse.json({ error: "Un laberinto finito necesita al menos 2 habitaciones." }, { status: 400 });
+  if (mazeType === "FINITE" && (!Number.isInteger(maxRooms) || (maxRooms as number) < 2)) return NextResponse.json({ error: "Un laberinto finito necesita al menos 2 habitaciones." }, { status: 400 });
 
-  const safeMaxRooms = mazeType === "FINITE" ? maxRooms as number : null;
+  const safeMaxRooms = mazeType === "FINITE" ? (maxRooms as number) : null;
   const result = await db.transaction(async (tx) => {
     const maze = await tx.orm.public.Maze.create({ name, description, mazeType, maxRooms: safeMaxRooms, status:"ACTIVE" });
     const room = await createRoom(tx, maze, 1);

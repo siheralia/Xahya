@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 type Item = { id: number; name: string; description: string | null; itemType: string; price: number; effects: { type: string; value: number; description?: string }[] };
-type Character = { id: number; name: string; resources?: { money: number } | null };
+type Character = { id: number; name: string; money?: number };
 
 const typeLabels: Record<string, string> = { WEAPON: "Arma", ARMOR: "Armadura", ACCESSORY: "Accesorio", CONSUMABLE: "Consumible", MATERIAL: "Material", OTHER: "Otro" };
 const effectLabels: Record<string, string> = { attack_multiplier_all: "Ataque total", damage_reduction_all: "Reducción de daño recibido" };
@@ -36,7 +36,7 @@ export default function StorePage() {
   useEffect(() => { load(); }, []);
 
   const character = characters.find((entry) => String(entry.id) === selectedCharacter);
-  const money = Number(character?.resources?.money ?? 0);
+  const money = Number(character?.money ?? 0);
 
   async function buy(item: Item) {
     const characterId = Number(selectedCharacter);

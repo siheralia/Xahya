@@ -64,6 +64,8 @@ export async function PATCH(
   const characterItemId = Number(body.characterItemId);
   const equipped = Boolean(body.equipped);
   const slot = body.slot == null ? null : String(body.slot);
+  const hasFlair = Object.prototype.hasOwnProperty.call(body, "flair");
+  const flair = hasFlair && body.flair != null ? String(body.flair).trim().slice(0, 500) : null;
 
   const CharacterItem = (db.orm.public as any).CharacterItem;
   const Item = (db.orm.public as any).Item;
@@ -78,6 +80,7 @@ export async function PATCH(
     const updated = await CharacterItem.where({ id: characterItemId }).update({
       equipped: false,
       equippedSlot: null,
+      ...(hasFlair ? { flair } : {}),
     });
     await recordAuditEvent({
       actorUserId: access.user.id,
@@ -114,6 +117,7 @@ export async function PATCH(
   const updated = await CharacterItem.where({ id: characterItemId }).update({
     equipped: true,
     equippedSlot: slot,
+    ...(hasFlair ? { flair } : {}),
   });
 
   await recordAuditEvent({

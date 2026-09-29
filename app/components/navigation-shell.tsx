@@ -15,7 +15,7 @@ const sectionMap: Record<string, { label: string; color: string }> = {
   "": { label: "Inicio", color: "text-zinc-500" },
 };
 
-function getRouteInfo(pathname: string) {
+function getRouteInfo(pathname: string, characters: Character[]) {
   const parts = pathname.split("/").filter(Boolean);
   const sectionKey = parts[0] ?? "";
   const section = sectionMap[sectionKey] ?? { label: "Xahya", color: "text-zinc-500" };
@@ -34,13 +34,20 @@ function getRouteInfo(pathname: string) {
     backLabel = "Inicio";
   }
 
-  const page = parts.length === 0
-    ? "Inicio"
-    : parts.length === 1
-      ? section.label
-      : decodeURIComponent(parts[parts.length - 1])
-          .replace(/[-_]/g, " ")
-          .replace(/\b\w/g, (c) => c.toUpperCase());
+  const character =
+    sectionKey === "characters" && parts.length >= 2
+      ? characters.find((item) => String(item.id) === parts[1])
+      : undefined;
+
+  const page = character?.name ?? (
+    parts.length === 0
+      ? "Inicio"
+      : parts.length === 1
+        ? section.label
+        : decodeURIComponent(parts[parts.length - 1])
+            .replace(/[-_]/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+  );
 
   return { section, page, backHref, backLabel };
 }
@@ -50,7 +57,7 @@ export default function NavigationShell({ children }: { children: React.ReactNod
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isManagement, setIsManagement] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const route = useMemo(() => getRouteInfo(pathname), [pathname]);
+  const route = useMemo(() => getRouteInfo(pathname, characters), [pathname, characters]);
 
   useEffect(() => {
     let cancelled = false;

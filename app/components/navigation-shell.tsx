@@ -93,10 +93,19 @@ export default function NavigationShell({ children }: { children: React.ReactNod
     <>
       <header className="xahya-nav">
         <div className="xahya-nav-left">
-          <Link href="/" className="xahya-brand" aria-label="Ir al inicio de Xahya">
-            <img src="/sakura-petal.svg" alt="" className="xahya-logo" />
-            <span>Xahya</span>
-          </Link>
+          <div className="xahya-brand-row">
+            <Link href="/" className="xahya-brand" aria-label="Ir al inicio de Xahya">
+              <img src="/sakura-petal.svg" alt="" className="xahya-logo" />
+              <span>Xahya</span>
+            </Link>
+            <span
+              className={`xahya-system-status ${systemOnline ? "online" : "offline"}`}
+              title={systemOnline ? "Sistema en línea" : "Sistema desconectado"}
+              aria-label={systemOnline ? "Sistema en línea" : "Sistema desconectado"}
+            >
+              •
+            </span>
+          </div>
 
           {route.backHref && (
             <Link href={route.backHref} className="xahya-back">
@@ -131,13 +140,6 @@ export default function NavigationShell({ children }: { children: React.ReactNod
 
         <div className="xahya-nav-right">
           <span className={`xahya-section ${route.section.color}`}>{route.section.label}</span>
-          <span
-            className={`xahya-system-status ${systemOnline ? "online" : "offline"}`}
-            title={systemOnline ? "Sistema en línea" : "Sistema desconectado"}
-            aria-label={systemOnline ? "Sistema en línea" : "Sistema desconectado"}
-          >
-            ●
-          </span>
           {showPageBreadcrumb && (
             <span className="xahya-breadcrumb">{route.page}</span>
           )}

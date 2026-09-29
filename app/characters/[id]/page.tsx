@@ -47,6 +47,7 @@ type Character = {
   isAdmin: boolean;
   canManageCharacter: boolean;
   canLevelUp: boolean;
+  maze: { id: number; name: string; roomId: number; roomNumber: number | null } | null;
 };
 
 const statLabels: Record<string, string> = {
@@ -669,6 +670,21 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           <button type="button" onClick={exportProfileCard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Exportar imagen</button>
         </div>
         {character.canSeeCharacterId && <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>}
+
+        {character.maze && (
+          <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-violet-300/70">Exploración activa</p>
+                <h2 className="mt-1 text-xl font-semibold">Está dentro de {character.maze.name}</h2>
+                <p className="mt-1 text-sm text-zinc-400">Habitación #{character.maze.roomNumber ?? "?"}</p>
+              </div>
+              <Link href={"/maze?mazeId=" + character.maze.id + "&characterId=" + character.id} className="rounded-lg border border-violet-400/30 px-4 py-2 text-sm text-violet-200 hover:bg-violet-400/10">
+                Ver laberinto
+              </Link>
+            </div>
+          </section>
+        )}
 
         {character.age === null && character.gender === null && character.height === null && (
           <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">

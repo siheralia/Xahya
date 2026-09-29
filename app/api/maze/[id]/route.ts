@@ -56,13 +56,6 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
     if (enemy) {
       contentName = enemy.name;
       contentDescription = enemy.description ?? "Una criatura desconocida.";
-      if (MazeRoomEnemy) await MazeRoomEnemy.create({
-        roomId: 0,
-        enemyId: enemy.id,
-        quantity: roomType === "BOSS" ? 1 : Math.floor(Math.random() * 3) + 1,
-        status:"ACTIVE",
-        isMobile: roomType === "MOBILE_ENEMY",
-      });
     }
   }
 

@@ -16,6 +16,7 @@ type CharacterEquipment = {
   itemType?: string;
   equipped: boolean;
   equippedSlot: string | null;
+  quantity?: number;
 };
 
 type GrantableItem = {

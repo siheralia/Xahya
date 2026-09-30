@@ -21,6 +21,7 @@ export default function StorePage() {
   const [ownedItems, setOwnedItems] = useState<OwnedItem[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("ALL");
 
   async function loadOwnedItems(characterId: number) {
     if (!characterId) { setOwnedItems([]); return; }
@@ -63,6 +64,7 @@ export default function StorePage() {
 
   const character = characters.find((entry) => String(entry.id) === selectedCharacter);
   const money = Number(character?.money ?? 0);
+  const filteredItems = selectedCategory === "ALL" ? items : items.filter((item) => item.itemType === selectedCategory);
 
   async function buy(item: Item) {
     const characterId = Number(selectedCharacter);
@@ -114,9 +116,15 @@ export default function StorePage() {
     {success && <div className="mt-5 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
 
     <section className="mt-8">
-      <h2 className="text-2xl font-bold">Comprar</h2>
-      {items.length === 0 ? <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8 text-center"><p className="text-zinc-500">No hay objetos disponibles para comprar.</p></div> :
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{items.map((item) => {
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-2xl font-bold">Comprar</h2>
+        <select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)} className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white">
+          <option value="ALL">Todas las categorías</option>
+          {Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </div>
+      {filteredItems.length === 0 ? <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8 text-center"><p className="text-zinc-500">No hay objetos disponibles para comprar.</p></div> :
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{filteredItems.map((item) => {
           const quantity = Math.max(1, Math.min(99, Number(quantities[item.id] ?? 1))), total = item.price * quantity;
           return <article key={item.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
             <div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold">{item.name}</p><p className="mt-1 text-xs text-zinc-500">{typeLabels[item.itemType] ?? item.itemType}</p></div><span className="text-sm font-semibold text-amber-300">◈ {item.price.toLocaleString("es-MX")}</span></div>

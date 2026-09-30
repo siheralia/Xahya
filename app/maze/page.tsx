@@ -67,7 +67,7 @@ export default function MazePage(){
     room.contentDescription?room.contentDescription:"",
     `Salidas: ${exits.map((e:Exit)=>maze.directionLabels?.[e.direction]??e.direction).join(", ")}`,
   ].filter(Boolean).join("\n"):"",[room,maze,exits]);
-  async function copy(){await navigator.clipboard.writeText(copyText);}
+  async function copy(){try{await navigator.clipboard.writeText(copyText);setError("Descripción copiada para WhatsApp.");}catch{try{const area=document.createElement("textarea");area.value=copyText;area.style.position="fixed";area.style.opacity="0";document.body.appendChild(area);area.focus();area.select();document.execCommand("copy");area.remove();setError("Descripción copiada para WhatsApp.");}catch{setError("No se pudo copiar la descripción. Mantén pulsado el texto para copiarlo.");}}}
 
   return <main className="min-h-screen bg-zinc-950 text-white"><div className="mx-auto max-w-6xl px-6 py-8">
     <div className="flex flex-wrap items-end justify-between gap-4"><div><h1 className="text-4xl font-bold">Laberinto</h1><p className="mt-2 text-zinc-500">Exploración global compartida.</p></div><Link href="/" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300">Inicio</Link></div>

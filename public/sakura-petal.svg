@@ -1,6 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <path d="M32 58C28 49 19 44 10 42c5-8 13-13 22-13 9 0 17 5 22 13-9 2-18 7-22 16Z" fill="currentColor"/>
-  <path d="M32 29C29 19 30 10 32 4c7 6 11 14 9 23-2 1-5 2-9 2Z" fill="currentColor" opacity=".88"/>
-  <path d="M31 29C23 25 17 19 15 11c9 0 17 4 22 11-1 3-3 5-6 7Z" fill="currentColor" opacity=".72"/>
-  <path d="M35 29c8-4 14-10 16-18-9 0-17 4-22 11 1 3 3 5 6 7Z" fill="currentColor" opacity=".72"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <path
+    d="M19 84
+       C25 62 30 38 49 20
+       C56 14 65 10 76 8
+       C74 18 73 27 79 35
+       C84 29 89 25 94 23
+       C96 43 89 61 76 73
+       C61 87 40 92 19 84Z"
+    fill="#f4a7bd"
+  />
+  <path
+    d="M25 80
+       C39 66 52 53 66 34"
+    stroke="#fff7fb"
+    stroke-width="3.2"
+    stroke-linecap="round"
+    opacity=".72"
+  />
 </svg>

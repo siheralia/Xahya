@@ -6,7 +6,7 @@ import { CharacterSilhouette, getCharacterSilhouetteSvg } from "@/components/Cha
 
 type EquipmentItem = {
   id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null; flair: string | null;
-  item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; value: number; description?: string }[] } | null;
+  item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; value: number; description?: string; action?: string }[] } | null;
 };
 
 type Character = {

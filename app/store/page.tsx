@@ -143,7 +143,7 @@ export default function StorePage() {
       {ownedItems.length === 0 ? <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8 text-center"><p className="text-zinc-500">Este personaje no tiene objetos para vender.</p></div> :
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{ownedItems.map((entry) => {
           const item = entry.item;
-          const saleValue = item && item.acquisitionType === "PURCHASABLE" && item.price > 0 ? Math.max(1, Math.floor(item.price / 2)) : 1;
+          const saleValue = item && item.price > 0 ? Math.max(1, Math.floor(item.price / 2)) : 1;
           const total = saleValue * entry.quantity;
           return <article key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
             <div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold">{item?.name ?? "Objeto"}</p><p className="mt-1 text-xs text-zinc-500">{entry.equipped ? "Equipado" : "En inventario"}{entry.flair ? " · " + entry.flair : ""}</p></div><span className="text-sm font-semibold text-emerald-300">◈ {saleValue.toLocaleString("es-MX")} c/u</span></div>

@@ -78,7 +78,7 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
   const MazeRoomEnemy = (tx.orm.public as any).MazeRoomEnemy;
 
   if (roomType === "TREASURE") {
-    const items = await tx.orm.public.Item.all();
+    const items = (await tx.orm.public.Item.all()).filter((candidate:any) => String(candidate.acquisitionType) !== "SYSTEM");
     const normalizedLuck = Math.max(0, Number(luck) || 0);
     const itemChance = Math.min(0.75, 0.35 + normalizedLuck * 0.004);
     const item = items.length && Math.random() < itemChance ? items[Math.floor(Math.random() * items.length)] : null;

@@ -31,9 +31,10 @@ function validate(body: any) {
   if (!Number.isInteger(price) || price < 0) return "El precio debe ser un entero no negativo.";
   if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return "Slots de equipo inválidos.";
   for (const effect of effects) {
-    if (!EFFECT_TYPES.includes(String(effect?.type) as any)) return "Efecto de objeto inválido.";
-    if (!EFFECT_STATS.includes(String(effect?.stat) as any)) return "Estadística de efecto inválida.";
-    if (!Number.isFinite(Number(effect?.value)) || Number(effect.value) <= 0) return "Valor de efecto inválido.";
+    if (!effect || typeof effect !== "object") return "Efecto de objeto inválido.";
+    if (typeof effect.type !== "string" || !effect.type.trim()) return "Tipo de efecto inválido.";
+    if (typeof effect.stat !== "string" || !effect.stat.trim()) return "Estadística de efecto inválida.";
+    if (!Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return "Valor de efecto inválido.";
   }
   return null;
 }
@@ -67,4 +68,4 @@ export async function POST(request: Request) {
   return NextResponse.json({ item });
 }
 
-export { ITEM_TYPES, ACQUISITION_TYPES, EFFECT_TYPES };
+export { ITEM_TYPES, ACQUISITION_TYPES };

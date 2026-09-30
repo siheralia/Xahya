@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const stats = [
@@ -100,6 +100,10 @@ export default function CreateCharacterPage() {
   const [flair, setFlair] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
+  const [creationPerks, setCreationPerks] = useState<Array<{ id: number; name: string; description: string | null; probability: number }>>([]);
+  const [showPerks, setShowPerks] = useState(false);
+  const [revealed, setRevealed] = useState(0);
+  const [createdCharacterId, setCreatedCharacterId] = useState<number | null>(null);
   const [values, setValues] = useState<Record<StatKey, number>>(
     Object.fromEntries(stats.map((stat) => [stat.key, MIN_STAT])) as Record<StatKey, number>,
   );
@@ -172,7 +176,10 @@ export default function CreateCharacterPage() {
       }
 
       const character = await response.json();
-      router.push(`/characters/${character.id}`);
+      setCreatedCharacterId(Number(character.id));
+      setCreationPerks(Array.isArray(character.creationPerks) ? character.creationPerks : []);
+      setRevealed(0);
+      setShowPerks(true);
     } catch (error) {
       setError(error instanceof Error ? error.message : "No se pudo crear el personaje.");
       setIsCreating(false);
@@ -286,6 +293,69 @@ export default function CreateCharacterPage() {
           </aside>
         </div>
       </div>
+      {showPerks && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 px-4 py-8 backdrop-blur-sm">
+          <div className="w-full max-w-5xl rounded-3xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl sm:p-8">
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-400/80">Creación completada</p>
+              <h2 className="mt-2 text-3xl font-bold">Recompensas de creación</h2>
+              <p className="mt-2 text-sm text-zinc-500">Las tres tiradas ya fueron determinadas. Ahora estás viendo su revelación.</p>
+            </div>
+
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              {creationPerks.map((perk, index) => {
+                const done = revealed > index;
+                const strip = Array.from({ length: 5 }, () => creationPerks).flat();
+                const targetIndex = 3 * creationPerks.length + index;
+                const translate = targetIndex * 64 + 32 - 112;
+                return (
+                  <div key={`${perk.id}-${index}`} className={`rounded-2xl border p-4 transition-all duration-500 ${done ? "border-cyan-400/50 bg-zinc-900" : "border-zinc-800 bg-zinc-950/70"}`}>
+                    <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                      <span>Perk {index + 1}</span>
+                      <span>{perk.probability.toFixed(2)}%</span>
+                    </div>
+                    <div className="relative h-56 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+                      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-16 bg-gradient-to-b from-zinc-950 to-transparent" />
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 bg-gradient-to-t from-zinc-950 to-transparent" />
+                      <div className="pointer-events-none absolute inset-x-2 top-1/2 z-20 h-16 -translate-y-1/2 rounded-xl border-2 border-cyan-400/70" />
+                      <div
+                        className="absolute inset-x-0 top-1/2 -translate-y-1/2 transition-transform duration-[1700ms] ease-[cubic-bezier(.08,.72,.15,1)]"
+                        style={{ transform: `translateY(-${revealed > index ? translate : 0}px)` }}
+                      >
+                        {strip.map((item, itemIndex) => {
+                          const selected = itemIndex % creationPerks.length === index;
+                          return (
+                            <div key={`${index}-${itemIndex}`} className={`flex h-16 items-center justify-center px-3 text-center text-sm font-semibold transition-opacity duration-500 ${done && !selected ? "opacity-20" : "opacity-100"}`}>
+                              {item.name}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className={`mt-3 min-h-12 text-center transition-opacity duration-500 ${done ? "opacity-100" : "opacity-0"}`}>
+                      <p className="font-bold">{perk.name}</p>
+                      {perk.description && <p className="mt-1 text-xs text-zinc-500">{perk.description}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-7 text-center">
+              {revealed < creationPerks.length ? (
+                <p className="text-sm text-zinc-500">Revelando perk {revealed + 1} de {creationPerks.length}...</p>
+              ) : (
+                <>
+                  <p className="text-lg font-bold text-cyan-300">✨ Perks obtenidos ✨</p>
+                  <button type="button" onClick={continueAfterPerks} className="mt-4 rounded-xl bg-cyan-400 px-6 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300">
+                    Continuar
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

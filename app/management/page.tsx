@@ -405,6 +405,12 @@ export default function ManagementPage() {
             >
               Ver logs
             </Link>
+            <Link
+              href="/management/rules"
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Reglas
+            </Link>
 
             {isAdmin && (
               <Link

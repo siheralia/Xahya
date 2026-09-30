@@ -22,7 +22,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!character) return NextResponse.json({ error: "Personaje no encontrado." }, { status: 404 });
 
   const targetUser = users.find((user) => Number(user.id) === targetUserId);
-  if (!targetUser || String(targetUser.role) === "SYSTEM") return NextResponse.json({ error: "El usuario destino no es válido." }, { status: 400 });
+  if (!targetUser) return NextResponse.json({ error: "El usuario destino no es válido." }, { status: 400 });
   if (Number(character.userId) === targetUserId) return NextResponse.json({ error: "El personaje ya pertenece a ese usuario." }, { status: 400 });
 
   await db.orm.public.Character.where({ id: character.id }).update({ userId: targetUser.id });

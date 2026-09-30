@@ -280,7 +280,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   const radarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
-        result[stat.key] = character.effectiveStats?.[stat.key] ?? character.stats?.[stat.key] ?? 0;
+        const base = character.effectiveStats?.[stat.key] ?? character.stats?.[stat.key] ?? 0;
+        result[stat.key] = applyTemporaryEffects(stat.key, base);
         return result;
       }, {} as RadarValues)
     : null;
@@ -804,7 +805,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           {character.canLevelUp && <Link href={"/characters/" + character.id + "/levelup"} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300">Level Up</Link>}
           {character.canManageCharacter && <Link href={"/management?characterId=" + character.id} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Gestionar personaje</Link>}
           <button type="button" onClick={copyFichaToClipboard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">{copied === "ficha" ? "✓ Ficha copiada" : "Copiar ficha"}</button>
-          <button type="button" onClick={copyEstadoToClipboard} className="rounded-lg border border-violet-700/60 px-4 py-2 text-sm font-medium text-violet-200 transition hover:bg-violet-900/20">{copied === "estado" ? "✓ Estado copiado" : "Copiar estado"}</button>
           <button type="button" onClick={exportProfileCard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Exportar imagen</button>
         </div>
         {character.canSeeCharacterId && <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>}
@@ -822,6 +822,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               <input type="number" min="0" max={maxMana} value={currentMana} onChange={(e) => setCurrentMana(Math.min(maxMana, Math.max(0, Number(e.target.value) || 0)))} className="mt-2 h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" />
             </label>
           </div>
+          <p className="mt-3 text-xs text-zinc-500">Los cambios de HP y Mana se reflejan inmediatamente en el estado; no necesitas aplicar un efecto.</p>
+          <button type="button" onClick={copyEstadoToClipboard} className="mt-4 w-full rounded-xl border border-violet-700/60 px-4 py-3 text-sm font-semibold text-violet-200 transition hover:bg-violet-900/20">
+            {copied === "estado" ? "✓ Estado copiado" : "Copiar estado actual"}
+          </button>
           <div className="mt-5 grid gap-3 md:grid-cols-[1fr_140px_120px_1fr_auto]">
             <select value={effectTarget} onChange={(e) => setEffectTarget(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white">
               {Object.entries(statLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
@@ -1051,7 +1055,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 {Object.entries(statLabels).map(([key, label]) => (
                   <div key={key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2">
                     <p className="text-sm text-zinc-400">{label}</p>
-                    <div className="text-right"><span className="text-lg font-semibold text-white">{character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats]}</span>{character.effectiveStats && character.effectiveStats[key] !== character.stats?.[key as keyof typeof character.stats] && <span className="ml-2 text-xs text-amber-300">({character.stats?.[key as keyof typeof character.stats]})</span>}</div>
+                    <div className="text-right"><span className="text-lg font-semibold text-white">{formatNumber(applyTemporaryEffects(key, character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats] ?? 0))}</span>{character.effectiveStats && character.effectiveStats[key] !== character.stats?.[key as keyof typeof character.stats] && <span className="ml-2 text-xs text-amber-300">({formatNumber(character.stats?.[key as keyof typeof character.stats] ?? 0)})</span>}{temporaryEffects.some((effect) => effect.target === key) && <span className="ml-2 text-xs text-violet-300">◈ temporal</span>}</div>
                   </div>
                 ))}
               </div>
@@ -1084,10 +1088,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <div className="mt-4 grid gap-x-8 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
               {Object.entries(character.derivedStats).map(([key, value]) => {
                 const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
-                const displayedValue = affectedByAttackMultiplier ? value * allAttackMultiplier : value;
+                const displayedValue = applyTemporaryEffects(key, affectedByAttackMultiplier ? value * allAttackMultiplier : value);
                 return <div key={key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2">
                   <p className="text-sm text-zinc-400">{derivedLabels[key] ?? key}</p>
-                  <p className="text-lg font-semibold">{displayedValue}{affectedByAttackMultiplier && allAttackMultiplier !== 1 && <span className="ml-2 text-xs text-amber-300">(base {value} · ×{allAttackMultiplier})</span>}</p>
+                  <p className="text-lg font-semibold">{formatNumber(displayedValue)}{affectedByAttackMultiplier && allAttackMultiplier !== 1 && <span className="ml-2 text-xs text-amber-300">(base {formatNumber(value)} · ×{formatNumber(allAttackMultiplier)})</span>}{temporaryEffects.some((effect) => effect.target === key) && <span className="ml-2 text-xs text-violet-300">◈ temporal</span>}</p>
                 </div>;
               })}
             </div>

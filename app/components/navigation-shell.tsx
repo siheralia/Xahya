@@ -14,6 +14,7 @@ const sectionMap: Record<string, { label: string; color: string }> = {
   store: { label: "Tienda", color: "text-emerald-300/70" },
   maze: { label: "Laberinto", color: "text-fuchsia-300/70" },
   notifications: { label: "Buzón", color: "text-yellow-300/70" },
+  rules: { label: "Reglas", color: "text-rose-300/70" },
   "": { label: "Inicio", color: "text-zinc-500" },
 };
 
@@ -161,6 +162,15 @@ export default function NavigationShell({ children }: { children: React.ReactNod
 
       <Link href="/casino" className="xahya-casino">
         🎰 <span>Casino</span>
+      </Link>
+
+      <Link
+        href="/rules"
+        aria-label="Reglas"
+        title="Reglas"
+        className="xahya-rules"
+      >
+        📖
       </Link>
 
       <Link

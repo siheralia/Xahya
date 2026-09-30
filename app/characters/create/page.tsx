@@ -333,7 +333,7 @@ export default function CreateCharacterPage() {
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 bg-gradient-to-t from-zinc-950 to-transparent" />
                       <div className="pointer-events-none absolute inset-x-2 top-1/2 z-20 h-16 -translate-y-1/2 rounded-xl border-2 border-cyan-400/70" />
                       <div
-                        className="absolute inset-x-0 top-1/2 -translate-y-1/2 transition-transform duration-[1700ms] ease-[cubic-bezier(.08,.72,.15,1)]"
+                        className="absolute inset-x-0 top-0 transition-transform duration-[1700ms] ease-[cubic-bezier(.08,.72,.15,1)]"
                         style={{ transform: `translateY(-${revealed > index ? translate : 0}px)` }}
                       >
                         {strip.map((item, itemIndex) => {

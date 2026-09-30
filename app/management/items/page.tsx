@@ -24,7 +24,6 @@ const equipmentSlots = [
 const EFFECT_TYPES = [
   ["stat_multiplier", "Estadística ×"],
   ["stat_bonus", "Estadística +"],
-  ["OTHER", "Otro"],
 ] as const;
 
 const EFFECT_TARGETS = [
@@ -70,7 +69,7 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:["stat_multiplier","stat_bonus"].includes(String(effect.type))?String(effect.type):"OTHER",stat:EFFECT_TARGETS.some(x=>x[0]===String(effect.stat))?String(effect.stat):"OTHER",value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:String(effect.type)==="stat_bonus"?"stat_bonus":"stat_multiplier",stat:EFFECT_TARGETS.some(x=>x[0]===String(effect.stat))?String(effect.stat):"OTHER",value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
     setSuccess(""); setError("");
   }
   function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");}

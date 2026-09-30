@@ -204,6 +204,7 @@ export async function GET(
     combatEffects,
     equipment,
     effectiveStats,
+    statBreakdown,
     derivedStats,
     canSeeCharacterId: user.role === "ADMIN",
     isAdmin: String(user.role) === "ADMIN",

@@ -34,7 +34,7 @@ const SEGMENTS = [
   { label: "+150%", weight: 30, multiplier: 1.5 },
   { label: "+200%", weight: 20, multiplier: 2 },
   { label: "+500%", weight: 10, multiplier: 5 },
-  { label: "-100%", weight: 1, multiplier: -1 },
+  { label: "-100%", weight: 1, multiplier: -2 },
   { label: "+1000%", weight: 5, multiplier: 10 },
 ] as const;
 
@@ -241,9 +241,11 @@ export default function RoulettePage() {
                   id="character"
                   value={selectedId ?? ""}
                   onChange={(event) => {
-                    setSelectedId(Number(event.target.value));
+                    const nextId = Number(event.target.value);
+                    setSelectedId(nextId);
                     setResult(null);
                     setError("");
+                    fetch(`/api/casino?characterId=${nextId}`).then((r) => r.json()).then((data) => setHistory(data.history ?? [])).catch(() => setHistory([]));
                   }}
                   disabled={spinning}
                   className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-white outline-none focus:border-amber-400"

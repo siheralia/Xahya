@@ -16,7 +16,7 @@ const rankings = [
   ["Dinero ganado en casino", "casinoWon", "🎰"],
   ["Dinero gastado en casino", "casinoSpent", "💸"],
   ["Dinero ganado en exploración", "mazeMoney", "🗺️"],
-  ["Habitaciones descubiertas", "mazeRooms", "🚪"],
+  ["Habitaciones recorridas", "mazeRooms", "🚪"],
   ["Tesoros encontrados", "mazeTreasures", "💎"],
   ["Puntos de Level Up", "levelUpPoints", "⬆"],
   ["Suerte", "luck", "♧"],

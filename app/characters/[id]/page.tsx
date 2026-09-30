@@ -577,9 +577,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   async function copyToClipboard() {
     if (!character) return;
     try {
-      await navigator.clipboard.writeText(buildWhatsAppText(character));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(buildFichaWhatsApp(character));
+      setCopied("ficha");
+      setTimeout(() => setCopied(""), 2000);
     } catch {
       setError("No se pudo copiar la ficha al portapapeles.");
     }

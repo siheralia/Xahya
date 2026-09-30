@@ -63,6 +63,20 @@ function Radar({ values }: { values: Record<StatKey, number> }) {
     };
   });
 
+  useEffect(() => {
+    if (!showPerks || creationPerks.length === 0) return;
+    const timers = creationPerks.map((_, index) =>
+      window.setTimeout(() => setRevealed(index + 1), 1700 + index * 950),
+    );
+    return () => timers.forEach(window.clearTimeout);
+  }, [showPerks, creationPerks]);
+
+  function continueAfterPerks() {
+    if (createdCharacterId) {
+      router.push(`/characters/${createdCharacterId}`);
+    }
+  }
+
   return (
     <svg viewBox="0 0 300 300" className="mx-auto w-full max-w-[360px]" aria-label="Radar de estadísticas base">
       {[0.25, 0.5, 0.75, 1].map((scale) => (

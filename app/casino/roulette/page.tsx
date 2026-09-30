@@ -350,8 +350,12 @@ export default function RoulettePage() {
                           </span>
                         );
                       })}
-                      <div className="absolute inset-[39%] flex items-center justify-center rounded-full border-4 border-amber-300 bg-zinc-950 text-xs font-black text-amber-200">
-                        START
+                      <div className="absolute inset-[39%] flex items-center justify-center rounded-full border-4 border-amber-300 bg-zinc-950">
+                        <img
+                          src="/sakura-petal.svg"
+                          alt="Xahya"
+                          className="h-[72%] w-[72%] object-contain"
+                        />
                       </div>
                     </div>
                   </div>

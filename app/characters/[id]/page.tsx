@@ -401,10 +401,18 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         const karmaBonus = breakdown?.karmaBonus ?? 0;
         const permanentValue = breakdown?.value ?? character.effectiveStats?.[key] ?? base;
         const temporaryValue = applyTemporaryEffects(key, permanentValue);
-        const multiplierText = breakdown?.multipliers?.length
-          ? breakdown.multipliers.map((value) => formatNumber(value)).join(" × ")
-          : "1";
-        const permanentSyntax = "[(" + formatNumber(base) + " × " + multiplierText + ") + " + formatNumber(karmaBonus) + "🪷 + " + formatNumber(objectBonus) + "]";
+        const multiplierParts = (breakdown?.multipliers ?? [])
+          .filter((value) => value !== 1)
+          .map((value) => formatNumber(value));
+        if (multiplierParts.length === 0 && multiplier !== 1) {
+          multiplierParts.push(formatNumber(multiplier));
+        }
+        const multiplierText = multiplierParts.length ? " × " + multiplierParts.join(" × ") : "";
+        const bonusParts = [
+          karmaBonus !== 0 ? (karmaBonus > 0 ? "+" : "") + formatNumber(karmaBonus) + "🪷" : "",
+          objectBonus !== 0 ? (objectBonus > 0 ? "+" : "") + formatNumber(objectBonus) : "",
+        ].filter(Boolean);
+        const permanentSyntax = "[" + formatNumber(base) + multiplierText + (bonusParts.length ? " + " + bonusParts.join(" + ") : "") + "]";
         const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
         const temporaryText = temporaryEffectsForStat.length
           ? " → " + formatNumber(temporaryValue) + " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"

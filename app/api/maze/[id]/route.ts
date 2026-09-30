@@ -325,7 +325,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const destination = await generateRoom(tx, maze, nextNumber, String(maze.mazeType) === "FINITE" && nextNumber === Number(maze.maxRooms), returnDirection);
 
     await Exit.where({ id:requestedExit.id }).update({ toRoomId:destination.id });
-    await Exit.create({ mazeId, fromRoomId:destination.id, direction:returnDirection, toRoomId:currentRoom.id });
+
+    // La conexión de regreso es obligatoria, pero no debemos intentar duplicarla
+    // si la generación de la habitación ya la creó por alguna razón.
+    const existingReturnExit = await Exit.where({ fromRoomId:destination.id, direction:returnDirection }).first();
+    if (existingReturnExit) {
+      if (existingReturnExit.toRoomId == null) {
+        await Exit.where({ id:existingReturnExit.id }).update({ toRoomId:currentRoom.id });
+      }
+    } else {
+      await Exit.create({ mazeId, fromRoomId:destination.id, direction:returnDirection, toRoomId:currentRoom.id });
+    }
 
     const updatedPosition = await Position.where({ mazeId, characterId }).first();
     await Position.where({ id:updatedPosition.id }).update({ roomId:destination.id, previousRoomId:currentRoom.id });
@@ -347,6 +357,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }).catch((error) => ({ error:error instanceof Error ? error.message : "UNKNOWN" }));
 
   if ("error" in result) {
+    console.error("[MAZE_MOVE_ERROR]", result.error);
     const messages:Record<string,string> = {
       ROOT_NOT_FOUND:"El laberinto no tiene habitación inicial.",
       EXIT_NOT_FOUND:"No existe esa salida desde la habitación actual.",

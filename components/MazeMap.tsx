@@ -227,7 +227,7 @@ export default function MazeMap({rooms,exits,currentRoomId,directionLabels}:Maze
             {selected.contentName && <p className="mt-3 text-sm text-zinc-300">{selected.contentName}</p>}
             <p className="mt-2 text-xs text-zinc-500">{selected.status==="BLOCKED"?"Combate pendiente":"Transitable"}</p>
             {Number(selected.id)===Number(currentRoomId) && <p className="mt-2 text-xs font-semibold text-emerald-300">Estás aquí</p>}
-            {selected.enemies?.length>0 && <p className="mt-2 text-xs text-red-300">{selected.enemies.length} encuentro(s)</p>}
+            {(selected.enemies?.length ?? 0)>0 && <p className="mt-2 text-xs text-red-300">{selected.enemies?.length ?? 0} encuentro(s)</p>}
           </div>
         )}
       </div>

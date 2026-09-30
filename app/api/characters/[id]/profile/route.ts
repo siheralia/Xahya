@@ -36,6 +36,29 @@ export async function PATCH(
   }
 
   const body = await request.json().catch(() => null);
+
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "flair")) {
+    const flair = body?.flair === null ? "" : String(body?.flair ?? "").trim();
+    if (flair.length > 80) {
+      return NextResponse.json({ error: "El flair no puede superar 80 caracteres." }, { status: 400 });
+    }
+
+    await db.orm.public.Character.where({ id: characterId, userId: user.id }).update({
+      flair: flair || null,
+    });
+
+    await recordAuditEvent({
+      actorUserId: user.id,
+      action: "CHARACTER_FLAIR_UPDATE",
+      entityType: "CHARACTER",
+      entityId: characterId,
+      characterId,
+      details: { flair: flair || null },
+    });
+
+    return NextResponse.json({ id: characterId, flair: flair || null });
+  }
+
   const age = body?.age === null || body?.age === "" ? null : Number(body?.age);
   const height = body?.height === null || body?.height === "" ? null : Number(body?.height);
   const gender = body?.gender === null || body?.gender === "" ? null : String(body?.gender).trim().toLowerCase();

@@ -116,6 +116,9 @@ export async function POST(request: Request) {
   const name = String(body?.name ?? "").trim();
   const description = String(body?.description ?? "").trim() || null;
   const mazeType = body?.mazeType === "FINITE" ? "FINITE" : "INFINITE";
+  const generationMode = ["FREE_3D","PLANAR_2D","LINEAR","SPIRAL_TOWER"].includes(String(body?.generationMode))
+    ? String(body.generationMode)
+    : "FREE_3D";
   const maxRooms = mazeType === "FINITE" ? Number(body?.maxRooms) : null;
 
   if (!name) return NextResponse.json({ error: "El laberinto necesita un nombre." }, { status: 400 });
@@ -130,9 +133,9 @@ export async function POST(request: Request) {
   let result;
   try {
     result = await db.transaction(async (tx) => {
-    const maze = await tx.orm.public.Maze.create({ name, description, mazeType, maxRooms: safeMaxRooms, status:"ACTIVE" });
+    const maze = await tx.orm.public.Maze.create({ name, description, mazeType, generationMode, maxRooms: safeMaxRooms, status:"ACTIVE" });
     const room = await createRoom(tx, maze, 1);
-    for (const direction of pickRandomDirections()) {
+    for (const direction of pickRandomDirections(generationMode === "LINEAR" || generationMode === "SPIRAL_TOWER" ? 1 : 2, generationMode as any, 1)) {
       await tx.orm.public.MazeExit.create({ mazeId: maze.id, fromRoomId: room.id, direction, toRoomId: null });
     }
       return { maze, room };
@@ -147,7 +150,7 @@ export async function POST(request: Request) {
     action: "MAZE_CREATED",
     entityType: "MAZE",
     entityId: result.maze.id,
-    details: { name, mazeType, maxRooms },
+    details: { name, mazeType, generationMode, maxRooms },
   });
 
   return NextResponse.json(result, { status: 201 });

@@ -725,16 +725,16 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
         <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <h2 className="text-xl font-semibold">Flair</h2>
-          <p className="mt-1 text-sm text-zinc-500">Un título o distintivo para este personaje. Puedes dejarlo vacío para quitarlo.</p>
+          <p className="mt-1 text-sm text-zinc-500">Emoji del personaje <span className="text-zinc-600">(máx. 2)</span></p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <input
               type="text"
-              maxLength={80}
+              maxLength={8}
               value={characterFlair}
               onChange={(event) => setCharacterFlair(event.target.value)}
               disabled={savingFlair}
-              className="h-12 flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400"
-              placeholder="Ej. La Espadachina Carmesí"
+              className="h-12 flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-2xl text-white outline-none focus:border-cyan-400"
+              placeholder="Ej. 🪞🗡️"
             />
             <button type="button" onClick={saveCharacterFlair} disabled={savingFlair} className="rounded-xl bg-cyan-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">
               {savingFlair ? "Guardando..." : "Guardar flair"}

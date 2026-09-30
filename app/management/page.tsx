@@ -11,8 +11,9 @@ type Character = {
 
 type CharacterEquipment = {
   id: number;
-  item?: { name: string } | null;
+  item?: { name: string; itemType?: string; description?: string | null } | null;
   flair: string | null;
+  itemType?: string;
   equipped: boolean;
   equippedSlot: string | null;
 };
@@ -137,7 +138,7 @@ export default function ManagementPage() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin || !characterId) {
+    if (!(isAdmin || isGM) || !characterId) {
       setEquipment([]);
       return;
     }
@@ -147,11 +148,11 @@ export default function ManagementPage() {
       .then(async (response) => {
         if (!response.ok) throw new Error();
         const data = await response.json();
-        setEquipment(data.equipment ?? []);
+        setEquipment((data.equipment ?? []).map((entry: CharacterEquipment) => ({ ...entry, itemType: entry.item?.itemType })));
       })
       .catch(() => setEquipment([]))
       .finally(() => setEquipmentLoading(false));
-  }, [characterId, isAdmin]);
+  }, [characterId, isAdmin, isGM]);
 
   async function grantItem() {
     if (!characterId || !grantItemId) {
@@ -630,6 +631,46 @@ export default function ManagementPage() {
                       {equipmentDeleting === entry.id ? "Eliminando..." : "Eliminar objeto"}
                     </button>
                   </label>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {isGM && characterId && (
+          <section className="mt-6 rounded-2xl border border-orange-500/20 bg-orange-950/10 p-6">
+            <h2 className="text-xl font-semibold">Consumibles del inventario</h2>
+            <p className="mt-1 text-sm text-zinc-500">GM puede eliminar consumibles usados o retirados durante el rol. ADMIN puede eliminar cualquier objeto.</p>
+            {equipmentLoading ? (
+              <p className="mt-5 text-sm text-zinc-500">Cargando inventario...</p>
+            ) : equipment.filter((entry) => entry.itemType === "CONSUMABLE").length === 0 ? (
+              <p className="mt-5 text-sm text-zinc-500">Este personaje no tiene consumibles.</p>
+            ) : (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {equipment.filter((entry) => entry.itemType === "CONSUMABLE").map((entry) => (
+                  <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                    <p className="font-semibold">{entry.item?.name ?? "Consumible"}</p>
+                    <p className="mt-1 text-xs text-zinc-500">Cantidad: {entry.quantity}</p>
+                    {entry.item?.description && <p className="mt-3 text-sm text-zinc-400">{entry.item.description}</p>}
+                    <button type="button" disabled={equipmentDeleting !== null} onClick={async () => {
+                      if (!window.confirm("¿Eliminar este consumible del inventario?")) return;
+                      setEquipmentDeleting(entry.id); setError(""); setSuccess("");
+                      try {
+                        const response = await fetch("/api/management/characters/" + characterId + "/equipment", {
+                          method: "DELETE", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ characterItemId: entry.id }),
+                        });
+                        const data = await response.json().catch(() => null);
+                        if (!response.ok) throw new Error(data?.error ?? "No se pudo eliminar el consumible.");
+                        setEquipment((current) => current.filter((item) => item.id !== entry.id));
+                        setSuccess("Consumible eliminado del inventario.");
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "No se pudo eliminar el consumible.");
+                      } finally { setEquipmentDeleting(null); }
+                    }} className="mt-3 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-40">
+                      {equipmentDeleting === entry.id ? "Eliminando..." : "Eliminar consumible"}
+                    </button>
+                  </div>
                 ))}
               </div>
             )}

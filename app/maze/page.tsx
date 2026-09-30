@@ -21,7 +21,8 @@ export default function MazePage(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   const [selectedEnemy,setSelectedEnemy]=useState<any>(null);
-  const [selectedOccupant,setSelectedOccupant]=useState<Occupant|null>(null);\n  const [copied,setCopied]=useState(false);
+  const [selectedOccupant,setSelectedOccupant]=useState<Occupant|null>(null);
+  const [copied,setCopied]=useState(false);
 
   useEffect(()=>{Promise.all([fetch("/api/characters"),fetch("/api/maze")]).then(async([a,b])=>{const [charText,mazeText]=await Promise.all([a.text(),b.text()]);const chars=charText?JSON.parse(charText):[];const ms=mazeText?JSON.parse(mazeText):[];if(!a.ok)throw new Error(chars?.error??"No se pudieron cargar los personajes.");if(!b.ok)throw new Error(ms?.error??"No se pudieron cargar los laberintos.");setCharacters(Array.isArray(chars)?chars:[]);setMazes(Array.isArray(ms)?ms:[]);}).catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar la exploración."));},[]);
   useEffect(()=>{if(!mazeId||!characterId)return; loadMaze();},[mazeId,characterId]);
@@ -79,7 +80,34 @@ export default function MazePage(){
     })].join("\n") : "",
     `Salidas: ${exits.map((e:Exit)=>maze.directionLabels?.[e.direction]??e.direction).join(", ")}`,
   ].filter(Boolean).join("\n"):"",[room,maze,exits]);
-  async function copy(){\n    if(!copyText)return;\n    setError("");\n    setCopied(false);\n    try{\n      if(navigator.clipboard?.writeText) await navigator.clipboard.writeText(copyText);\n      else throw new Error("Clipboard API unavailable");\n      setCopied(true);\n      window.setTimeout(()=>setCopied(false),2500);\n    }catch{\n      try{\n        const area=document.createElement("textarea");\n        area.value=copyText;\n        area.setAttribute("readonly","");\n        area.style.position="fixed";\n        area.style.left="-9999px";\n        document.body.appendChild(area);\n        area.select();\n        const ok=document.execCommand("copy");\n        area.remove();\n        if(!ok)throw new Error("Copy failed");\n        setCopied(true);\n        window.setTimeout(()=>setCopied(false),2500);\n      }catch{\n        setError("No se pudo copiar. Mantén pulsado el texto de la habitación para copiarlo.");\n      }\n    }\n  }
+  async function copy(){
+    if(!copyText)return;
+    setError("");
+    setCopied(false);
+    try{
+      if(navigator.clipboard?.writeText) await navigator.clipboard.writeText(copyText);
+      else throw new Error("Clipboard API unavailable");
+      setCopied(true);
+      window.setTimeout(()=>setCopied(false),2500);
+    }catch{
+      try{
+        const area=document.createElement("textarea");
+        area.value=copyText;
+        area.setAttribute("readonly","");
+        area.style.position="fixed";
+        area.style.left="-9999px";
+        document.body.appendChild(area);
+        area.select();
+        const ok=document.execCommand("copy");
+        area.remove();
+        if(!ok)throw new Error("Copy failed");
+        setCopied(true);
+        window.setTimeout(()=>setCopied(false),2500);
+      }catch{
+        setError("No se pudo copiar. Mantén pulsado el texto de la habitación para copiarlo.");
+      }
+    }
+  }
 
   const statLabels:Record<string,string>={STR:"Fuerza",AGI:"Agilidad",CON:"Constitución",INT:"Inteligencia",WIS:"Sabiduría",CHA:"Carisma",SPI:"Espíritu",LCK:"Suerte"};
   const focusLabels:Record<string,string>={PHYSICAL:"Físico",DEFENSIVE:"Defensivo",MAGICAL:"Mágico",CONTROL:"Control",SPEED:"Velocidad",PRECISION:"Precisión",BALANCED:"Equilibrado"};

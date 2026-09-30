@@ -203,7 +203,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [profileAge, setProfileAge] = useState("");
   const [profileGender, setProfileGender] = useState("");
   const [profileHeight, setProfileHeight] = useState("");
+  const [characterFlair, setCharacterFlair] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [savingFlair, setSavingFlair] = useState(false);
   const [equipmentBusy, setEquipmentBusy] = useState<number | null>(null);
   const [flairSaving, setFlairSaving] = useState<number | null>(null);
   const [inventoryDeleting, setInventoryDeleting] = useState<number | null>(null);
@@ -216,6 +218,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     if (!character) return;
+    setCharacterFlair(character.flair ?? "");
     fetch("/api/characters/" + character.id + "/relationships", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return;
@@ -413,6 +416,29 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cambiar el equipamiento.");
     } finally { setEquipmentBusy(null); }
+  }
+
+  async function saveCharacterFlair() {
+    if (!character || savingFlair) return;
+    setSavingFlair(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flair: characterFlair }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar el flair.");
+      setCharacter((current) => current ? { ...current, flair: data.flair ?? null } : current);
+      setCharacterFlair(data.flair ?? "");
+      setSuccess("Flair actualizado correctamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar el flair.");
+    } finally {
+      setSavingFlair(false);
+    }
   }
 
   async function saveProfile() {
@@ -692,6 +718,25 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             </div>
           </section>
         )}
+
+        <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+          <h2 className="text-xl font-semibold">Flair</h2>
+          <p className="mt-1 text-sm text-zinc-500">Un título o distintivo para este personaje. Puedes dejarlo vacío para quitarlo.</p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              maxLength={80}
+              value={characterFlair}
+              onChange={(event) => setCharacterFlair(event.target.value)}
+              disabled={savingFlair}
+              className="h-12 flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-base text-white outline-none focus:border-cyan-400"
+              placeholder="Ej. La Espadachina Carmesí"
+            />
+            <button type="button" onClick={saveCharacterFlair} disabled={savingFlair} className="rounded-xl bg-cyan-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">
+              {savingFlair ? "Guardando..." : "Guardar flair"}
+            </button>
+          </div>
+        </section>
 
         {character.age === null && character.gender === null && character.height === null && (
           <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">

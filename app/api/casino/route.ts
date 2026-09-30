@@ -114,8 +114,7 @@ export async function GET(request: Request) {
             karmaAfter: Number(details.karmaAfter ?? 0),
           };
         })
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 100);
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
   }
 
@@ -136,7 +135,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const characterId = Number(body?.characterId);
   const bet = Number(body?.bet);
-  const count = Math.min(10, Math.max(1, Number(body?.count ?? 1)));
+  const requestedCount = Number(body?.count ?? 1);\n  const count = Number.isInteger(requestedCount) ? Math.min(10, Math.max(1, requestedCount)) : 1;
 
   if (!Number.isInteger(characterId) || characterId <= 0) {
     return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });

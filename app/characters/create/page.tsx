@@ -96,7 +96,7 @@ function Radar({ values }: { values: Record<StatKey, number> }) {
 
 export default function CreateCharacterPage() {
   const router = useRouter();
-  const [name, setName] = useState(() => getRandomSuggestedName());
+  const [name, setName] = useState("");
   const [flair, setFlair] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
@@ -150,7 +150,7 @@ export default function CreateCharacterPage() {
   }
 
   function reset() {
-    setName(getRandomSuggestedName());
+    setName("");
     setFlair("");
     setValues(Object.fromEntries(stats.map((stat) => [stat.key, MIN_STAT])) as Record<StatKey, number>);
   }
@@ -222,7 +222,7 @@ export default function CreateCharacterPage() {
               id="name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Ej. Ariana Lailas"
+              placeholder={`Ej. ${getRandomSuggestedName()}`}
               className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950/70 px-4 text-white outline-none transition placeholder:text-zinc-600 focus:border-cyan-400"
             />
 

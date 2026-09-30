@@ -28,10 +28,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const price = Number(body.price ?? item.price);
   const effects = Array.isArray(body.effects) ? body.effects : item.effects;
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : (Array.isArray(item.allowedSlots) ? item.allowedSlots : []);
+  const systemActions = ["ESCAPE_MAZE"];
   if (!name || name.length > 100 || !Number.isInteger(price) || price < 0) return NextResponse.json({ error: "Datos del objeto inválidos." }, { status: 400 });
   if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return NextResponse.json({ error: "Slots de equipo inválidos." }, { status: 400 });
   for (const effect of effects) {
-    if (!effect || typeof effect !== "object" || typeof effect.type !== "string" || !effect.type.trim() || typeof effect.stat !== "string" || !effect.stat.trim() || !Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
+    if (!effect || typeof effect !== "object" || typeof effect.type !== "string" || !effect.type.trim() || !Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
+    if (effect.type === "system_action") {
+      if (itemType !== "CONSUMABLE" || !systemActions.includes(String(effect.action))) return NextResponse.json({ error: "Acción del sistema inválida para este objeto." }, { status: 400 });
+    } else if (!["stat_multiplier","stat_bonus"].includes(effect.type) || typeof effect.stat !== "string" || !effect.stat.trim()) {
+      return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
+    }
   }
   const updated = await Item.where({ id }).update({ name, description, itemType, acquisitionType, price, effects, allowedSlots });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_UPDATE", entityType: "ITEM", entityId: id, details: { before: item, after: updated } });

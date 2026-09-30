@@ -22,6 +22,7 @@ const effectTypes = [
 const effectStats = [
   ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],
   ["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
+  ["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa"],["MAG_DEF","Defensa mágica"],["STEALTH","Sigilo"],
   ["ATTACK_TOTAL","Ataque total"],["DAMAGE_REDUCTION_ALL","Reducción de daño recibido"],
 ];
 const equipmentSlots = [

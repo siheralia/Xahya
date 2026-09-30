@@ -37,7 +37,7 @@ export async function GET() {
     let casinoWon = 0;
     let casinoSpent = 0;
     let mazeMoney = 0;
-    let mazeRooms = new Set<number>();
+    let mazeRooms = 0;
     let mazeTreasures = 0;
     for (const log of auditLogs) {
       if (Number(log.characterId) !== Number(character.id)) continue;
@@ -50,8 +50,7 @@ export async function GET() {
         if (Number.isFinite(payout) && payout > 0) casinoWon += payout;
       }
       if (action === "MAZE_EXPLORE") {
-        const roomId = Number(log.entityId);
-        if (Number.isFinite(roomId)) mazeRooms.add(roomId);
+        mazeRooms++;
       }
       if (action === "MAZE_TREASURE_CLAIM") {
         const money = Number(details.money ?? 0);
@@ -73,7 +72,7 @@ export async function GET() {
       casinoWon,
       casinoSpent,
       mazeMoney,
-      mazeRooms: mazeRooms.size,
+      mazeRooms,
       mazeTreasures,
     }];
   });

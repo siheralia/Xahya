@@ -65,6 +65,18 @@ export default function MazePage(){
     room.description,
     room.contentName?room.contentName:"",
     room.contentDescription?room.contentDescription:"",
+    room.enemies?.length ? [`Enemigos:`, ...room.enemies.map((enemy:any)=>{
+      const stats=Object.entries(enemy.generatedStats??{}).map(([key,value])=>`${statLabels[key]??key}: ${String(value)}`).join(" · ");
+      const details=[
+        `• ${enemy.enemy?.name??"Enemigo"}${enemy.quantity>1?` ×${enemy.quantity}`:""}${String(enemy.status)==="DEFEATED"?" (Derrotado)":""}`,
+        enemy.enemy?.rank?`  Rango: ${enemy.enemy.rank}`:"",
+        enemy.focus?`  Enfoque: ${focusLabels[enemy.focus]??enemy.focus}`:"",
+        enemy.behavior?`  Comportamiento: ${behaviorLabels[enemy.behavior]??enemy.behavior}`:"",
+        stats?`  Stats: ${stats}`:"",
+        enemy.targetPower!=null?`  Poder objetivo: ${enemy.targetPower}`:""
+      ].filter(Boolean);
+      return details.join("\n");
+    })].join("\n") : "",
     `Salidas: ${exits.map((e:Exit)=>maze.directionLabels?.[e.direction]??e.direction).join(", ")}`,
   ].filter(Boolean).join("\n"):"",[room,maze,exits]);
   async function copy(){\n    if(!copyText)return;\n    setError("");\n    setCopied(false);\n    try{\n      if(navigator.clipboard?.writeText) await navigator.clipboard.writeText(copyText);\n      else throw new Error("Clipboard API unavailable");\n      setCopied(true);\n      window.setTimeout(()=>setCopied(false),2500);\n    }catch{\n      try{\n        const area=document.createElement("textarea");\n        area.value=copyText;\n        area.setAttribute("readonly","");\n        area.style.position="fixed";\n        area.style.left="-9999px";\n        document.body.appendChild(area);\n        area.select();\n        const ok=document.execCommand("copy");\n        area.remove();\n        if(!ok)throw new Error("Copy failed");\n        setCopied(true);\n        window.setTimeout(()=>setCopied(false),2500);\n      }catch{\n        setError("No se pudo copiar. Mantén pulsado el texto de la habitación para copiarlo.");\n      }\n    }\n  }

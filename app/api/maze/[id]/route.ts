@@ -365,7 +365,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       DESTINATION_NOT_FOUND:"La habitación de destino no existe.",
       MAZE_LIMIT:"Este laberinto ya alcanzó su límite de habitaciones.",
     };
-    return NextResponse.json({ error:messages[result.error] ?? "No se pudo avanzar." }, { status:400 });
+    return NextResponse.json({ error:messages[result.error] ?? `No se pudo avanzar. (${result.error})` }, { status:400 });
   }
 
   await recordAuditEvent({

@@ -404,7 +404,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         const multiplierText = breakdown?.multipliers?.length
           ? breakdown.multipliers.map((value) => formatNumber(value)).join(" × ")
           : "1";
-        const permanentSyntax = "[" + formatNumber(base) + " × " + multiplierText + " + " + formatNumber(karmaBonus) + "🪷 + " + formatNumber(objectBonus) + "]";
+        const permanentSyntax = "[(" + formatNumber(base) + " × " + multiplierText + ") + " + formatNumber(karmaBonus) + "🪷 + " + formatNumber(objectBonus) + "]";
         const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
         const temporaryText = temporaryEffectsForStat.length
           ? " → " + formatNumber(temporaryValue) + " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"
@@ -842,7 +842,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <div className="mt-4 space-y-2">
               {temporaryEffects.map((effect) => (
                 <div key={effect.id} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm">
-                  <span>{effect.label} · {effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + effect.value + "%" : (effect.value > 0 ? "+" : "") + effect.value} {statLabels[effect.target] ?? derivedLabels[effect.target] ?? effect.target}</span>
+                  <span>{effect.label} · {effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value)} {statLabels[effect.target] ?? derivedLabels[effect.target] ?? effect.target} <span className="text-zinc-500">→ {formatNumber(applyTemporaryEffects(effect.target, character.effectiveStats?.[effect.target] ?? character.derivedStats?.[effect.target] ?? character.stats?.[effect.target as keyof typeof character.stats] ?? 0))}</span></span>
                   <button type="button" onClick={() => removeTemporaryEffect(effect.id)} className="text-red-300 hover:text-red-200">Quitar</button>
                 </div>
               ))}

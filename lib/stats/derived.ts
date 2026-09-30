@@ -72,3 +72,57 @@ export function calculateDerivedStats(stats: BaseStats) {
     detection: floor2(stats.wisdom + stats.luck / 3),
   };
 }
+
+export type ItemStatEffect = {
+  type: string;
+  stat: string;
+  value: number;
+};
+
+const DERIVED_STAT_ALIASES: Record<string, keyof ReturnType<typeof calculateDerivedStats>> = {
+  HP: "maxHp",
+  MAX_HP: "maxHp",
+  MANA: "maxMana",
+  MAX_MANA: "maxMana",
+  PHYS_ATK: "physicalAttack",
+  PHYSICAL_ATTACK: "physicalAttack",
+  MAGIC_ATK: "magicAttack",
+  PHYSICAL_DEF: "physicalDefense",
+  DEF: "physicalDefense",
+  DEFENSE: "physicalDefense",
+  MAG_DEF: "magicDefense",
+  MAGIC_DEFENSE: "magicDefense",
+  PRECISION: "precision",
+  CRITICAL: "critical",
+  DISCOVERY: "discovery",
+  MIRACLE: "miracle",
+  INTIMIDATION: "intimidation",
+  CONQUEST: "conquest",
+  RACE: "race",
+  DODGE: "dodge",
+  STEALTH: "stealth",
+  DETECTION: "detection",
+};
+
+export function applyDerivedItemEffects(
+  derivedStats: ReturnType<typeof calculateDerivedStats>,
+  effects: ItemStatEffect[],
+) {
+  const result = { ...derivedStats };
+
+  for (const effect of effects) {
+    const target = DERIVED_STAT_ALIASES[String(effect.stat ?? "").trim().toUpperCase()];
+    if (!target) continue;
+
+    const value = Number(effect.value);
+    if (!Number.isFinite(value)) continue;
+
+    if (effect.type === "stat_bonus") {
+      result[target] += value;
+    } else if (effect.type === "stat_multiplier") {
+      result[target] *= value / 100;
+    }
+  }
+
+  return result;
+}

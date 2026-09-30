@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { WhatsAppMarkup } from "@/components/WhatsAppMarkup";
 
 type Rule = {
   id: number;
@@ -46,8 +47,8 @@ export default function RulesPage() {
             {rules.map((rule) => (
               <article key={rule.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
                 <h2 className="text-2xl font-semibold">{rule.title}</h2>
-                <div className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-zinc-300">
-                  {rule.content}
+                <div className="mt-5">
+                  <WhatsAppMarkup text={rule.content} />
                 </div>
               </article>
             ))}

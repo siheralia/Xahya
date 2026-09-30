@@ -5,8 +5,8 @@ import { recordAuditEvent } from "@/lib/audit";
 import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 
 const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","OTHER"] as const;
-const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","OTHER"] as const;
-const EFFECT_TYPES = ["stat_multiplier","stat_bonus"] as const;
+const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","SYSTEM","OTHER"] as const;
+const EFFECT_TYPES = ["stat_multiplier","stat_bonus","system_action"] as const;
 const EFFECT_STATS = ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK","PHYS_ATK","MAGIC_ATK","DEF","MAG_DEF","STEALTH","ATTACK_TOTAL","DAMAGE_REDUCTION_ALL"] as const;
 
 async function getAdmin() {
@@ -25,6 +25,7 @@ function validate(body: any) {
   const price = Number(body.price ?? 0);
   const effects = Array.isArray(body.effects) ? body.effects : [];
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : [];
+  const systemActions = ["ESCAPE_MAZE"];
   if (!name || name.length > 100) return "El nombre debe tener entre 1 y 100 caracteres.";
   if (!ITEM_TYPES.includes(itemType as any)) return "Tipo de objeto inválido.";
   if (!ACQUISITION_TYPES.includes(acquisitionType as any)) return "Tipo de obtención inválido.";
@@ -33,7 +34,11 @@ function validate(body: any) {
   for (const effect of effects) {
     if (!effect || typeof effect !== "object") return "Efecto de objeto inválido.";
     if (typeof effect.type !== "string" || !effect.type.trim()) return "Tipo de efecto inválido.";
-    if (typeof effect.stat !== "string" || !effect.stat.trim()) return "Estadística de efecto inválida.";
+    if (effect.type === "system_action") {
+      if (itemType !== "CONSUMABLE" || !systemActions.includes(String(effect.action))) return "Acción del sistema inválida.";
+    } else {
+      if (!["stat_multiplier","stat_bonus"].includes(effect.type) || typeof effect.stat !== "string" || !effect.stat.trim()) return "Efecto de objeto inválido.";
+    }
     if (!Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return "Valor de efecto inválido.";
   }
   return null;

@@ -35,11 +35,26 @@ export async function GET() {
     const pointsTotal = STAT_KEYS.reduce((sum, key) => sum + Number((stat as Record<string, unknown> | null)?.[key] ?? 0), 0);
 
     let casinoWon = 0;
+    let mazeMoney = 0;
+    let mazeRooms = new Set<number>();
+    let mazeTreasures = 0;
     for (const log of auditLogs) {
-      if (Number(log.characterId) !== Number(character.id) || !CASINO_ACTIONS.has(String(log.action))) continue;
+      if (Number(log.characterId) !== Number(character.id)) continue;
+      const action = String(log.action);
       const details = parseDetails(log.details);
-      const payout = Number(details.payout ?? 0);
-      if (Number.isFinite(payout) && payout > 0) casinoWon += payout;
+      if (CASINO_ACTIONS.has(action)) {
+        const payout = Number(details.payout ?? 0);
+        if (Number.isFinite(payout) && payout > 0) casinoWon += payout;
+      }
+      if (action === "MAZE_EXPLORE") {
+        const roomId = Number(log.entityId);
+        if (Number.isFinite(roomId)) mazeRooms.add(roomId);
+      }
+      if (action === "MAZE_TREASURE_CLAIM") {
+        const money = Number(details.money ?? 0);
+        if (Number.isFinite(money) && money > 0) mazeMoney += money;
+        mazeTreasures++;
+      }
     }
 
     return [{
@@ -53,6 +68,9 @@ export async function GET() {
       hp: 10 + Number(stat?.constitution ?? 0) * 2,
       mana: 5 + Number(stat?.intelligence ?? 0) + Number(stat?.spirit ?? 0),
       casinoWon,
+      mazeMoney,
+      mazeRooms: mazeRooms.size,
+      mazeTreasures,
     }];
   });
 

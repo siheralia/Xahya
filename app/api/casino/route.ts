@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 
-// RULE NOTE: 0 charges the wager once (-bet). -100% charges the wager twice (-2 × bet).\n// Positive results only add their profit; they do not refund the wager separately. Negative money is allowed and represents debt to the casino.\nconst segments = [
+// RULE NOTE: 0 charges the wager once (-bet). -100% charges the wager twice (-2 × bet).
+// Positive results only add their profit; they do not refund the wager separately. Negative money is allowed and represents debt to the casino.
+const segments = [
   { label: "0", weight: 100, multiplier: -1 },
   { label: "+10%", weight: 80, multiplier: 0.1 },
   { label: "0", weight: 100, multiplier: -1 },
@@ -94,7 +96,8 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const characterId = Number(body?.characterId);
-  const bet = Number(body?.bet);\n  const count = Math.min(10, Math.max(1, Number(body?.count ?? 1)));
+  const bet = Number(body?.bet);
+  const count = Math.min(10, Math.max(1, Number(body?.count ?? 1)));
 
   if (!Number.isInteger(characterId) || characterId <= 0) {
     return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });

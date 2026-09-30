@@ -4,9 +4,6 @@ import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 
-const EFFECT_TYPES = ["stat_multiplier", "stat_bonus"] as const;
-const EFFECT_STATS = ["STR", "AGI", "CON", "INT", "WIS", "CHA", "SPI", "LCK", "PHYS_ATK", "MAGIC_ATK", "DEF", "MAG_DEF", "STEALTH", "ATTACK_TOTAL", "DAMAGE_REDUCTION_ALL"] as const;
-
 async function getAdmin() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
@@ -34,7 +31,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!name || name.length > 100 || !Number.isInteger(price) || price < 0) return NextResponse.json({ error: "Datos del objeto inválidos." }, { status: 400 });
   if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return NextResponse.json({ error: "Slots de equipo inválidos." }, { status: 400 });
   for (const effect of effects) {
-    if (!EFFECT_TYPES.includes(String(effect?.type) as any) || !EFFECT_STATS.includes(String(effect?.stat) as any) || !Number.isFinite(Number(effect?.value)) || Number(effect.value) <= 0) return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
+    if (!effect || typeof effect !== "object" || typeof effect.type !== "string" || !effect.type.trim() || typeof effect.stat !== "string" || !effect.stat.trim() || !Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
   }
   const updated = await Item.where({ id }).update({ name, description, itemType, acquisitionType, price, effects, allowedSlots });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_UPDATE", entityType: "ITEM", entityId: id, details: { before: item, after: updated } });

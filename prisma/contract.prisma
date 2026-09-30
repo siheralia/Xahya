@@ -157,6 +157,7 @@ model MazeRoom {
   contentDescription String?
   treasureClaimed    Boolean   @default(false)
   treasureRewards   Json      @default("{}")
+  trapActive        Boolean   @default(true)
   createdAt          DateTime  @default(now())
   exits              MazeExit[] @relation("MazeExitFrom")
   incomingExits      MazeExit[] @relation("MazeExitTo")
@@ -222,6 +223,8 @@ model MazeCharacterPosition {
   room        MazeRoom  @relation("MazeRoomPositions", fields:[roomId], references:[id], onDelete:Cascade)
   previousRoomId Int?
   previousRoom  MazeRoom? @relation("MazeRoomPreviousPositions", fields:[previousRoomId], references:[id], onDelete:SetNull)
+  status      String   @default("ACTIVE")
+  lockReason  String?
   updatedAt   temporal.updatedAt()
   @@unique([mazeId, characterId])
 }

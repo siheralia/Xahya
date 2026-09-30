@@ -204,6 +204,11 @@ model MazeRoomEnemy {
   status    String    @default("ACTIVE")
   isMobile  Boolean   @default(false)
   createdAt DateTime  @default(now())
+  generatedStats Json    @default("{}")
+  focus         String?
+  behavior      String?
+  targetPower   Int?
+  depthMultiplier Float?
   @@unique([roomId, enemyId, isMobile])
 }
 

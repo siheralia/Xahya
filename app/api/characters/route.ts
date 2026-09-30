@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { pickWeightedPerk } from "@/lib/perks";
+import { pickWeightedPerk, getCreationRollProbability } from "@/lib/perks";
 
 async function getCurrentUser() {
   const { userId: clerkId } = await auth();
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     if (Perk && CharacterPerk) {
       const availablePerks = await Perk.where({ active: true }).all();
       for (let roll = 0; roll < 3; roll += 1) {
-        const selected = pickWeightedPerk(availablePerks);
+        const selected = pickWeightedPerk(availablePerks, (perk: any) => getCreationRollProbability(perk, roll));
         if (!selected) continue;
         const existingCount = awardedPerks.filter((entry) => Number(entry.perkId) === Number(selected.id)).length;
         if (!Boolean(selected.stackable) && Number(selected.maxStacks ?? 1) <= existingCount) continue;
@@ -111,5 +111,25 @@ export async function POST(request: Request) {
     },
   });
 
-  return NextResponse.json({ ...character.character, perks: character.awardedPerks ?? [] }, { status: 201 });
+  const perkDefinitions = (await db.orm.public.Perk.where({ active: true }).all()).map((perk: any) => ({
+    id: Number(perk.id),
+    name: String(perk.name),
+    description: perk.description ?? null,
+    probability: Number(perk.probability),
+  }));
+  const creationPerks = (character.awardedPerks ?? []).map((entry: any, index: number) => {
+    const perk = perkDefinitions.find((candidate: any) => candidate.id === Number(entry.perkId));
+    return {
+      id: Number(entry.perkId),
+      name: String(perk?.name ?? "Perk"),
+      description: perk?.description ?? null,
+      probability: getCreationRollProbability(perk, index),
+    };
+  });
+
+  return NextResponse.json({
+    ...character.character,
+    perks: character.awardedPerks ?? [],
+    creationPerks,
+  }, { status: 201 });
 }

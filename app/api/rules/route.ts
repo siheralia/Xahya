@@ -19,11 +19,9 @@ async function getManager() {
   return user && ["GM", "ADMIN"].includes(String(user.role)) ? user : null;
 }
 
-const ruleTable = db.sql.public.ruleSection;
-
 export async function GET() {
   const query = db.raw.sql`
-    SELECT "id", "title", "content", "position", "createdAt", "updatedAt"
+    SELECT "id", "title", "content", "position", "createdAt"::text AS "createdAt", "updatedAt"::text AS "updatedAt"
     FROM "ruleSection"
     ORDER BY "position" ASC, "id" ASC
   `.returnsRow({
@@ -31,8 +29,8 @@ export async function GET() {
     title: "pg/text@1",
     content: "pg/text@1",
     position: "pg/int4@1",
-    createdAt: "pg/timestamptz@1",
-    updatedAt: "pg/timestamptz@1",
+    createdAt: "pg/text@1",
+    updatedAt: "pg/text@1",
   }).build();
 
   const rules = await db.runtime().query(query) as RuleRow[];

@@ -32,7 +32,18 @@ export const ROOM_WEIGHTS = [
   { type:"NPC", weight:5 },
 ] as const;
 
-export function pickRandomDirections(count = 2) {
+
+export type MazeGenerationMode = "FREE_3D" | "PLANAR_2D" | "LINEAR" | "SPIRAL_TOWER";
+
+export function pickRandomDirections(count = 2, mode: MazeGenerationMode = "FREE_3D", roomNumber = 1) {
+  if (mode === "PLANAR_2D") {
+    return [...(["N","E","S","O"] as const)].sort(() => Math.random() - 0.5).slice(0, Math.max(2, Math.min(4, count)));
+  }
+  if (mode === "LINEAR") return ["E"];
+  if (mode === "SPIRAL_TOWER") {
+    const spiral = ["E","N","O","S","UP"] as const;
+    return [spiral[(Math.max(1, roomNumber) - 1) % spiral.length]];
+  }
   return [...MAZE_DIRECTIONS].sort(() => Math.random() - 0.5).slice(0, Math.max(2, Math.min(4, count)));
 }
 

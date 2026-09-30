@@ -7,7 +7,7 @@ import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","OTHER"] as const;
 const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","OTHER"] as const;
 const EFFECT_TYPES = ["stat_multiplier","stat_bonus"] as const;
-const EFFECT_STATS = ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK","ATTACK_TOTAL","DAMAGE_REDUCTION_ALL"] as const;
+const EFFECT_STATS = ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK","PHYS_ATK","MAGIC_ATK","DEF","MAG_DEF","STEALTH","ATTACK_TOTAL","DAMAGE_REDUCTION_ALL"] as const;
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();

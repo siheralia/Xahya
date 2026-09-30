@@ -84,9 +84,10 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
     const item = items.length && Math.random() < itemChance ? items[Math.floor(Math.random() * items.length)] : null;
     const baseMoney = Math.floor(Math.random() * 901) + 100;
     const moneyMultiplier = 1 + Math.min(1, normalizedLuck / 100);
-    treasureRewards = { money: Math.round(baseMoney * moneyMultiplier), itemId: item ? Number(item.id) : null, quantity: item ? 1 : 0 };
+    const money = Math.round(baseMoney * moneyMultiplier);
+    treasureRewards = { money, itemId: item ? Number(item.id) : null, quantity: item ? 1 : 0 };
     contentName = "Tesoro";
-    contentDescription = item ? `Un tesoro contiene dinero y ${item.name}.` : "Un tesoro contiene una cantidad de dinero.";
+    contentDescription = item ? `Contiene ${money.toLocaleString("es-MX")} monedas y 1× ${item.name}.` : `Contiene ${money.toLocaleString("es-MX")} monedas.`;
   }
 
   let selectedEnemy: any = null;

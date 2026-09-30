@@ -153,11 +153,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       name: String(character.name),
       flair: character.flair ?? null,
       roomId: Number(entry.roomId),
-    } : null;
+        status: String(entry.status ?? "ACTIVE"),
+        lockReason: entry.lockReason ?? null,
+      } : null;
   }).filter(Boolean);
   return NextResponse.json({
     maze,
     position: position ? Number(position.roomId) : null,
+    positionStatus: position ? String(position.status ?? "ACTIVE") : null,
+    positionLockReason: position?.lockReason ?? null,
     rooms: rooms.map((room:any) => ({
       ...room,
       treasureRewards: undefined,
@@ -217,6 +221,37 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ success:true, action:"resetMaze", room:result.room });
   }
 
+  if (body?.action === "releasePlayer" || body?.action === "deactivateTrap") {
+    if (!["GM","ADMIN"].includes(String(user.role))) return NextResponse.json({ error:"Solo GM o ADMIN puede liberar jugadores o desactivar trampas." }, { status:403 });
+    const mazeId = Number((await params).id);
+    const roomId = Number(body?.roomId);
+    const characterId = Number(body?.characterId);
+    const maze = await db.orm.public.Maze.where({ id:mazeId }).first();
+    const room = await db.orm.public.MazeRoom.where({ id:roomId, mazeId }).first();
+    if (!maze || !room) return NextResponse.json({ error:"Laberinto o habitación no encontrados." }, { status:404 });
+
+    if (body.action === "releasePlayer") {
+      const position = await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first();
+      if (!position || Number(position.roomId) !== roomId) return NextResponse.json({ error:"Ese personaje no está atrapado en esta habitación." }, { status:400 });
+      await (db.orm.public as any).MazeCharacterPosition.where({ id:Number(position.id) }).update({ status:"ACTIVE", lockReason:null });
+      await recordAuditEvent({ actorUserId:user.id, action:"MAZE_RELEASE_PLAYER", entityType:"MAZE_ROOM", entityId:roomId, characterId, details:{ mazeId, roomId } });
+      return NextResponse.json({ success:true, action:"releasePlayer" });
+    }
+
+    if (String(room.roomType) !== "TRAP") return NextResponse.json({ error:"Solo las trampas pueden desactivarse." }, { status:400 });
+    await db.transaction(async (tx) => {
+      await tx.orm.public.MazeRoom.where({ id:roomId }).update({ trapActive:false, status:"CLEARED" });
+      const positions = await (tx.orm.public as any).MazeCharacterPosition.where({ mazeId, roomId }).all();
+      for (const position of positions) {
+        if (String(position.status) === "TRAPPED") {
+          await (tx.orm.public as any).MazeCharacterPosition.where({ id:Number(position.id) }).update({ status:"ACTIVE", lockReason:null });
+        }
+      }
+    });
+    await recordAuditEvent({ actorUserId:user.id, action:"MAZE_DEACTIVATE_TRAP", entityType:"MAZE_ROOM", entityId:roomId, details:{ mazeId, roomId } });
+    return NextResponse.json({ success:true, action:"deactivateTrap" });
+  }
+
   if (body?.action === "reloadEnemies") {
     if (!["GM","ADMIN"].includes(String(user.role))) return NextResponse.json({ error:"Forbidden" }, { status:403 });
     const mazeId = Number((await params).id);
@@ -263,6 +298,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!privileged && Number(character.userId) !== Number(user.id)) return NextResponse.json({ error:"Forbidden" }, { status:403 });
   if (!Object.prototype.hasOwnProperty.call(DIRECTION_LABELS, direction)) return NextResponse.json({ error:"Dirección inválida." }, { status:400 });
   if (String(maze.status) === "COMPLETED") return NextResponse.json({ error:"Este laberinto ya está completado." }, { status:400 });
+
+  const existingPosition = await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first();
+  if (existingPosition && String(existingPosition.status ?? "ACTIVE") !== "ACTIVE") {
+    const lockMessage = String(existingPosition.status) === "DEAD_LOCKED"
+      ? "☠️ Estás atrapado en una habitación de muerte. Un GM debe liberarte para poder continuar."
+      : "⚠️ Estás atrapado por una trampa. Un GM debe liberarte o desactivar la trampa.";
+    return NextResponse.json({ error:lockMessage, blocked:true, status:String(existingPosition.status), lockReason:existingPosition.lockReason ?? null }, { status:423 });
+  }
 
   const leave = body?.action === "leave";
   if (leave) {
@@ -323,7 +366,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (requestedExit.toRoomId != null) {
       const destination = await TxRoom.where({ id:Number(requestedExit.toRoomId) }).first();
       if (!destination) throw new Error("DESTINATION_NOT_FOUND");
-      await TxPosition.where({ id:position?.id ?? (await TxPosition.where({ mazeId, characterId }).first())?.id }).update({ roomId:destination.id, previousRoomId:currentRoom.id });
+      if (String(destination.roomType) === "DEATH") throw new Error("DEATH_BLOCKED");
+
+      const destinationLock = String(destination.roomType) === "TRAP" && Boolean(destination.trapActive);
+      await TxPosition.where({ id:position?.id ?? (await TxPosition.where({ mazeId, characterId }).first())?.id }).update({
+        roomId:destination.id,
+        previousRoomId:currentRoom.id,
+        status:destinationLock ? "TRAPPED" : "ACTIVE",
+        lockReason:destinationLock ? "TRAP" : null,
+      });
       const encounters = TxMazeRoomEnemy ? await TxMazeRoomEnemy.where({ roomId:destination.id, status:"ACTIVE" }).all() : [];
       if (encounters.length > 0) {
         const definitions = await (tx.orm.public as any).Enemy.all();
@@ -358,7 +409,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const updatedPosition = await TxPosition.where({ mazeId, characterId }).first();
-    await TxPosition.where({ id:updatedPosition.id }).update({ roomId:destination.id, previousRoomId:currentRoom.id });
+    const destinationStatus = String(destination.roomType) === "DEATH"
+      ? "DEAD_LOCKED"
+      : (String(destination.roomType) === "TRAP" && Boolean(destination.trapActive) ? "TRAPPED" : "ACTIVE");
+    const destinationLockReason = destinationStatus === "DEAD_LOCKED" ? "DEATH" : destinationStatus === "TRAPPED" ? "TRAP" : null;
+    await TxPosition.where({ id:updatedPosition.id }).update({
+      roomId:destination.id,
+      previousRoomId:currentRoom.id,
+      status:destinationStatus,
+      lockReason:destinationLockReason,
+    });
 
     const destinationEncounters = TxMazeRoomEnemy ? await TxMazeRoomEnemy.where({ roomId:destination.id, status:"ACTIVE" }).all() : [];
     if (destinationEncounters.length > 0) {
@@ -383,6 +443,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       EXIT_NOT_FOUND:"No existe esa salida desde la habitación actual.",
       ROOM_BLOCKED:"Hay enemigos activos. Solo puedes regresar por una salida ya descubierta.",
       DESTINATION_NOT_FOUND:"La habitación de destino no existe.",
+      DEATH_BLOCKED:"☠️ Esa habitación de muerte está cerrada. Nadie más puede entrar.",
       MAZE_LIMIT:"Este laberinto ya alcanzó su límite de habitaciones.",
     };
     return NextResponse.json({ error:messages[result.error] ?? `No se pudo avanzar. (${result.error})` }, { status:400 });

@@ -4,16 +4,40 @@ export type PerkEffect = {
   value?: number;
 };
 
-export function pickWeightedPerk(perks: any[]) {
-  const active = perks.filter((perk) => Boolean(perk.active) && Number(perk.probability) > 0);
-  const total = active.reduce((sum, perk) => sum + Number(perk.probability), 0);
+export function getCreationRollProbability(perk: any, rollIndex: number) {
+  const base = Number(perk?.probability ?? 0);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+
+  const isNothing = String(perk?.name ?? "").trim().toLowerCase() === "nada";
+  const moved = rollIndex === 0 ? 40 : rollIndex === 1 ? 20 : 0;
+
+  if (isNothing) return Math.max(0, 50 - moved);
+
+  // Redistribute the moved points proportionally among the non-Nada base weights.
+  // The current base table has 55 points outside Nada.
+  const otherBase = 55;
+  return base + (base / otherBase) * moved;
+}
+
+export function pickWeightedPerk(perks: any[], probabilityFor?: (perk: any) => number) {
+  const active = perks
+    .filter((perk) => Boolean(perk.active))
+    .map((perk) => ({
+      perk,
+      probability: probabilityFor ? Number(probabilityFor(perk)) : Number(perk.probability),
+    }))
+    .filter((entry) => Number.isFinite(entry.probability) && entry.probability > 0);
+
+  const total = active.reduce((sum, entry) => sum + entry.probability, 0);
   if (!active.length || total <= 0) return null;
+
   let roll = Math.random() * total;
-  for (const perk of active) {
-    roll -= Number(perk.probability);
-    if (roll < 0) return perk;
+  for (const entry of active) {
+    roll -= entry.probability;
+    if (roll < 0) return entry.perk;
   }
-  return active[active.length - 1];
+
+  return active[active.length - 1].perk;
 }
 
 export function getPerkEffects(perks: any[]) {

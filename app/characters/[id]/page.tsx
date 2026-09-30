@@ -218,7 +218,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     if (!character) return;
-    setCharacterFlair(character.flair ?? "");
     fetch("/api/characters/" + character.id + "/relationships", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return;
@@ -226,6 +225,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setKnownCharacters(data.characters ?? []);
       })
       .catch(() => setKnownCharacters([]));
+  }, [character?.id]);
+
+  useEffect(() => {
+    if (!character) return;
+    setCharacterFlair(character.flair ?? "");
   }, [character?.id]);
 
   async function transfer() {

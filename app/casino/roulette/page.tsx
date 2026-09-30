@@ -154,7 +154,7 @@ export default function RoulettePage() {
       const target = rotation + (animateWheel ? 1800 : 0) + ((360 - center - (rotation % 360)) + 360) % 360;
       setRotation(target);
 
-      window.setTimeout(() => {
+      window.setTimeout(async () => {
         const payout = Number(final.payout);
         const nextCharacter = {
           ...selected,

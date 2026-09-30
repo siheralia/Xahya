@@ -38,6 +38,7 @@ export async function GET() {
     let casinoSpent = 0;
     let mazeMoney = 0;
     let mazeRooms = 0;
+    let mazeDiscovered = 0;
     let mazeTreasures = 0;
     for (const log of auditLogs) {
       if (Number(log.characterId) !== Number(character.id)) continue;
@@ -51,6 +52,7 @@ export async function GET() {
       }
       if (action === "MAZE_EXPLORE") {
         mazeRooms++;
+        if (details.generated === true) mazeDiscovered++;
       }
       if (action === "MAZE_TREASURE_CLAIM") {
         const money = Number(details.money ?? 0);
@@ -73,6 +75,7 @@ export async function GET() {
       casinoSpent,
       mazeMoney,
       mazeRooms,
+      mazeDiscovered,
       mazeTreasures,
     }];
   });

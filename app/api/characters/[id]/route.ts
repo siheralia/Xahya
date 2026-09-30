@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { calculateDerivedStats } from "@/lib/stats/derived";
+import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
 import { getCombatEffects } from "@/lib/combat/effects";
 import { getPerkEffects } from "@/lib/perks";
 
@@ -143,7 +143,11 @@ export async function GET(
       }, {} as Record<StatKey, number>)
     : null;
 
-  const derivedStats = effectiveStats ? calculateDerivedStats(effectiveStats) : null;
+  const derivedItemEffects = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" || effect.type === "stat_multiplier");
+  let derivedStats = effectiveStats ? calculateDerivedStats(effectiveStats) : null;
+  if (derivedStats) {
+    derivedStats = applyDerivedItemEffects(derivedStats, derivedItemEffects);
+  }
   if (derivedStats) {
     for (const effect of perkEffects) {
       if (String(effect.type) !== "RESOURCE_BONUS") continue;

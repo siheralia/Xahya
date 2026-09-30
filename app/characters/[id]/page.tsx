@@ -574,6 +574,17 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     }
   }
 
+  async function copyToClipboard() {
+    if (!character) return;
+    try {
+      await navigator.clipboard.writeText(buildWhatsAppText(character));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("No se pudo copiar la ficha al portapapeles.");
+    }
+  }
+
   async function exportProfileCard() {
     if (!character?.stats) return;
     const scale = Math.min(window.devicePixelRatio || 1, 2);
@@ -774,7 +785,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           {character.canLevelUp && <Link href={"/characters/" + character.id + "/levelup"} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300">Level Up</Link>}
           {character.canManageCharacter && <Link href={"/management?characterId=" + character.id} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Gestionar personaje</Link>}
           <button type="button" onClick={copyFichaToClipboard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">{copied === "ficha" ? "✓ Ficha copiada" : "Copiar ficha"}</button>
-          <button type="button" onClick={copyEstadoToClipboard} className="rounded-lg border border-violet-700/60 px-4 py-2 text-sm font-medium text-violet-200 transition hover:bg-violet-900/20">{copied === "estado" ? "✓ Estado copiado" : "Copiar estado"}</button>\n          <button type="button" onClick={exportProfileCard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Exportar imagen</button>
+          <button type="button" onClick={copyEstadoToClipboard} className="rounded-lg border border-violet-700/60 px-4 py-2 text-sm font-medium text-violet-200 transition hover:bg-violet-900/20">{copied === "estado" ? "✓ Estado copiado" : "Copiar estado"}</button>
+          <button type="button" onClick={exportProfileCard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Exportar imagen</button>
         </div>
         {character.canSeeCharacterId && <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>}
 
@@ -1087,3 +1099,44 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block"><span className="text-sm text-zinc-400">Destinatario</span>
                   <select value={transferTarget} onChange={(e) => setTransferTarget(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+                    <option value="">Selecciona un personaje</option>
+                    {knownCharacters.map((known) => <option key={known.id} value={known.id}>{known.name}</option>)}
+                  </select>
+                </label>
+                <label className="block"><span className="text-sm text-zinc-400">Objeto</span>
+                  <select value={transferItem} onChange={(e) => { setTransferItem(e.target.value); setTransferMoney(0); }} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+                    <option value="">Ninguno — entregar dinero</option>
+                    {character.equipment.filter((entry) => !entry.equipped).map((entry) => <option key={entry.id} value={entry.id}>{entry.item?.name ?? "Objeto"} ×{entry.quantity}{entry.flair ? " — " + entry.flair : ""}</option>)}
+                  </select>
+                </label>
+                {transferItem ? (
+                  <label className="block"><span className="text-sm text-zinc-400">Cantidad</span>
+                    <input type="number" min={1} value={transferQuantity} onChange={(e) => setTransferQuantity(Math.max(1, Math.trunc(Number(e.target.value) || 1)))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" />
+                  </label>
+                ) : (
+                  <label className="block"><span className="text-sm text-zinc-400">Dinero</span>
+                    <input type="number" min={0} value={transferMoney} onChange={(e) => setTransferMoney(Math.max(0, Math.trunc(Number(e.target.value) || 0)))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" />
+                  </label>
+                )}
+              </div>
+              <button type="button" onClick={transfer} disabled={transferBusy || !transferTarget || (!transferItem && transferMoney <= 0)} className="mt-4 w-full rounded-lg bg-white px-5 py-3 font-medium text-black disabled:opacity-40">
+                {transferBusy ? "Entregando..." : "Dar"}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {character.resources && (
+          <section className="mt-10">
+            <h2 className="text-xl font-semibold">Recursos</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4"><p className="text-sm text-zinc-500">Karma</p><p className="mt-1 text-2xl font-semibold">{character.resources.karma}</p></div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4"><p className="text-sm text-zinc-500">Dinero</p><p className="mt-1 text-2xl font-semibold">{character.resources.money}</p></div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4"><p className="text-sm text-zinc-500">Puntos de Level Up</p><p className="mt-1 text-2xl font-semibold">{character.resources.levelUpPoints}</p></div>
+            </div>
+          </section>
+        )}
+      </div>
+    </main>
+  );
+}

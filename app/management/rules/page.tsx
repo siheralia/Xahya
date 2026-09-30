@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { WhatsAppMarkup } from "@/components/WhatsAppMarkup";
 
 type Rule = {
   id: number;
@@ -148,15 +149,22 @@ export default function RulesManagementPage() {
           </label>
 
           <label className="mt-5 block">
-            <span className="text-sm text-zinc-400">Reglas</span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-zinc-400">Reglas</span>
+              <span className="text-xs text-zinc-600">Sintaxis tipo WhatsApp: *negrita* · _cursiva_ · ~tachado~ · `código` · &gt; cita</span>
+            </div>
             <textarea
               maxLength={30000}
               value={content}
               onChange={(event) => setContent(event.target.value)}
               placeholder="Escribe aquí todas las reglas de esta sección..."
               rows={16}
-              className="mt-2 min-h-80 w-full resize-y rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white outline-none focus:border-zinc-500"
+              className="mt-2 min-h-80 w-full resize-y rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 font-mono text-sm text-white outline-none focus:border-zinc-500"
             />
+            <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-600">Previsualización</div>
+              {content.trim() ? <WhatsAppMarkup text={content} /> : <p className="text-sm text-zinc-600">La previsualización aparecerá aquí mientras escribes.</p>}
+            </div>
           </label>
 
           <button
@@ -188,7 +196,7 @@ export default function RulesManagementPage() {
                       <button type="button" onClick={() => removeRule(rule.id)} className="rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 hover:bg-red-950/40">Eliminar</button>
                     </div>
                   </div>
-                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-400">{rule.content}</p>
+                  <div className="mt-3"><WhatsAppMarkup text={rule.content} /></div>
                 </article>
               ))}
             </div>

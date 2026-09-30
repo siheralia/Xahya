@@ -118,7 +118,12 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
     }
   }
 
-  const directions = pickRandomDirections();
+  const generationMode = String(maze.generationMode ?? "FREE_3D");
+  const directions = pickRandomDirections(
+    generationMode === "LINEAR" || generationMode === "SPIRAL_TOWER" ? 1 : 2,
+    generationMode as any,
+    roomNumber,
+  );
   // La salida de regreso se crea por separado al conectar la nueva habitación.
   // Evitamos generar la misma dirección aquí para no provocar una colisión de
   // unicidad cuando la salida de regreso ya tenga que ocupar ese espacio.

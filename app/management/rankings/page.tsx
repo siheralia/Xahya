@@ -5,7 +5,7 @@ import Link from "next/link";
 
 type Row = {
   id:number; name:string; money:number; karma:number; levelUpPoints:number;
-  pointsTotal:number; luck:number; hp:number; mana:number; casinoWon:number;
+  pointsTotal:number; luck:number; hp:number; mana:number; casinoWon:number; casinoSpent:number;
   mazeMoney:number; mazeRooms:number; mazeTreasures:number;
 };
 
@@ -14,6 +14,7 @@ const rankings = [
   ["Puntos totales", "pointsTotal", "✦"],
   ["Karma", "karma", "☯"],
   ["Dinero ganado en casino", "casinoWon", "🎰"],
+  ["Dinero gastado en casino", "casinoSpent", "💸"],
   ["Dinero ganado en exploración", "mazeMoney", "🗺️"],
   ["Habitaciones descubiertas", "mazeRooms", "🚪"],
   ["Tesoros encontrados", "mazeTreasures", "💎"],

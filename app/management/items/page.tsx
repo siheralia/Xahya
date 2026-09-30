@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type Effect = { type: string; stat: string; value: number; description: string };
+type Effect = { type: string; stat: string; action?: string; value: number; description: string };
 type Item = {
   id: number; name: string; description: string | null; itemType: string;
   acquisitionType: string; price: number; effects: Effect[]; allowedSlots: string[];
@@ -14,7 +14,7 @@ const itemTypes = [
 ];
 const acquisitionTypes = [
   ["PURCHASABLE","Comprable"],["CRAFTED","Fabricado"],["ABILITY_GENERATED","Generado por habilidad"],
-  ["QUEST","Misión"],["EVENT","Evento"],["OTHER","Otro"],
+  ["QUEST","Misión"],["EVENT","Evento"],["SYSTEM","Sistema"],["OTHER","Otro"],
 ];
 const equipmentSlots = [
   ["MAIN_HAND","Mano principal"],["OFF_HAND","Mano secundaria"],["HEAD","Cabeza"],["BODY","Cuerpo"],
@@ -24,7 +24,9 @@ const equipmentSlots = [
 const EFFECT_TYPES = [
   ["stat_multiplier", "Estadística ×"],
   ["stat_bonus", "Estadística +"],
+  ["system_action", "Acción del sistema"],
 ] as const;
+const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"]] as const;
 
 const EFFECT_TARGETS = [
   ["STR", "Fuerza (STR)"], ["AGI", "Agilidad (AGI)"], ["CON", "Constitución (CON)"],
@@ -38,7 +40,7 @@ const EFFECT_TARGETS = [
   ["ATTACK_TOTAL", "Ataque total"], ["DAMAGE_REDUCTION_ALL", "Reducción de daño total"],
 ] as const;
 
-const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", value: 100, description: "" });
+const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", action: "ESCAPE_MAZE", value: 100, description: "" });
 const defaultSlots: string[] = [];
 const noEffects = (effects: Effect[]) => !Array.isArray(effects) || effects.length === 0;
 
@@ -69,14 +71,14 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:String(effect.type)==="stat_bonus"?"stat_bonus":"stat_multiplier",stat:EFFECT_TARGETS.some(x=>x[0]===String(effect.stat))?String(effect.stat):String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":"OTHER",value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:["stat_bonus","system_action"].includes(String(effect.type))?String(effect.type):"stat_multiplier",stat:EFFECT_TARGETS.some(x=>x[0]===String(effect.stat))?String(effect.stat):String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":"OTHER",action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
     setSuccess(""); setError("");
   }
   function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
-      if(key==="type") return {...e,type:value};
+      if(key==="type") return value==="system_action" ? {...e,type:value,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1} : {...e,type:value,stat:e.stat==="SYSTEM_ACTION"?"STR":e.stat};
       if(key==="stat") return {...e,stat:value};
       return {...e,[key]:key==="value"?Number(value):value};
     })}));
@@ -138,7 +140,11 @@ export default function ItemsManagementPage() {
               <select value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
                 {EFFECT_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}
               </select>
-              {effect.stat === "OTHER" ? (
+              {effect.type === "system_action" ? (
+                <select value={effect.action ?? "ESCAPE_MAZE"} onChange={e=>updateEffect(i,"action",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+                  {SYSTEM_ACTIONS.map(([value,label])=><option key={value} value={value}>{label}</option>)}
+                </select>
+              ) : effect.stat === "OTHER" ? (
                 <input value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Objetivo personalizado"/>
               ) : (
                 <select value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
@@ -146,7 +152,11 @@ export default function ItemsManagementPage() {
                   <option value="OTHER">Otro</option>
                 </select>
               )}
-              <input type="number" value={effect.value} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Valor"/>
+              {effect.type === "system_action" ? (
+                <input type="number" value={1} readOnly className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-500"/>
+              ) : (
+                <input type="number" value={effect.value} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Valor"/>
+              )}
             </div>
             <input value={effect.description} onChange={e=>updateEffect(i,"description",e.target.value)} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Descripción del efecto"/>
             <button type="button" onClick={() => setForm(f => ({ ...f, effects: f.effects.filter((_, j) => j !== i) }))} className="mt-2 text-sm text-red-300">Quitar efecto</button>

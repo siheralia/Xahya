@@ -16,15 +16,6 @@ const acquisitionTypes = [
   ["PURCHASABLE","Comprable"],["CRAFTED","Fabricado"],["ABILITY_GENERATED","Generado por habilidad"],
   ["QUEST","Misión"],["EVENT","Evento"],["OTHER","Otro"],
 ];
-const effectTypes = [
-  ["stat_multiplier","× Estadística"],["stat_bonus","+ Estadística"],
-];
-const effectStats = [
-  ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],
-  ["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
-  ["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa"],["MAG_DEF","Defensa mágica"],["STEALTH","Sigilo"],
-  ["ATTACK_TOTAL","Ataque total"],["DAMAGE_REDUCTION_ALL","Reducción de daño recibido"],
-];
 const equipmentSlots = [
   ["MAIN_HAND","Mano principal"],["OFF_HAND","Mano secundaria"],["HEAD","Cabeza"],["BODY","Cuerpo"],
   ["FEET","Pies"],["ARMS","Brazos"],["BACK","Espalda"],["ACCESSORY_1","Accesorio 1"],["ACCESSORY_2","Accesorio 2"],
@@ -40,6 +31,7 @@ export default function ItemsManagementPage() {
   const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
   const [error,setError]=useState(""); const [success,setSuccess]=useState("");
+  const [search,setSearch]=useState(""); const [filterType,setFilterType]=useState("ALL"); const [filterSlot,setFilterSlot]=useState("ALL"); const [filterAcquisition,setFilterAcquisition]=useState("ALL");
 
   async function load(){
     setLoading(true); setError("");
@@ -48,6 +40,15 @@ export default function ItemsManagementPage() {
     finally{setLoading(false);}
   }
   useEffect(()=>{load();},[]);
+
+  const filteredItems = items.filter(item => {
+    const q = search.trim().toLowerCase();
+    const matchesSearch = !q || item.name.toLowerCase().includes(q) || String(item.description ?? "").toLowerCase().includes(q);
+    const matchesType = filterType === "ALL" || item.itemType === filterType;
+    const matchesSlot = filterSlot === "ALL" || (Array.isArray(item.allowedSlots) && item.allowedSlots.includes(filterSlot));
+    const matchesAcquisition = filterAcquisition === "ALL" || item.acquisitionType === filterAcquisition;
+    return matchesSearch && matchesType && matchesSlot && matchesAcquisition;
+  });
 
   function edit(item: Item){
     setSelected(item.id);
@@ -86,9 +87,17 @@ export default function ItemsManagementPage() {
     <div className="mt-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 className="text-xl font-semibold">Catálogo</h2>
-        <div className="mt-4 space-y-2">{items.map(item=><button key={item.id} onClick={()=>edit(item)} className={"w-full rounded-xl border p-4 text-left transition "+(selected===item.id?"border-amber-400/50 bg-amber-950/20":"border-zinc-800 hover:bg-zinc-900")}>
+        <div className="mt-4 space-y-3">
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por nombre o descripción..." className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <select value={filterType} onChange={e=>setFilterType(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Todos los tipos</option>{itemTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
+            <select value={filterAcquisition} onChange={e=>setFilterAcquisition(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Toda obtención</option>{acquisitionTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
+            <select value={filterSlot} onChange={e=>setFilterSlot(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm sm:col-span-2"><option value="ALL">Todos los slots</option>{equipmentSlots.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
+          </div>
+          <div className="flex items-center justify-between text-xs text-zinc-500"><span>{filteredItems.length} de {items.length} objetos</span><button type="button" onClick={()=>{setSearch("");setFilterType("ALL");setFilterSlot("ALL");setFilterAcquisition("ALL");}} className="text-zinc-300">Limpiar filtros</button></div>
+          <div className="space-y-2">{filteredItems.map(item=><button key={item.id} onClick={()=>edit(item)} className={"w-full rounded-xl border p-4 text-left transition "+(selected===item.id?"border-amber-400/50 bg-amber-950/20":"border-zinc-800 hover:bg-zinc-900")}>
           <div className="font-medium">{item.name}</div><div className="mt-1 text-xs text-zinc-500">{itemTypes.find(x=>x[0]===item.itemType)?.[1]??item.itemType} · {acquisitionTypes.find(x=>x[0]===item.acquisitionType)?.[1]??item.acquisitionType}</div>
-        </button>)}</div>
+        </button>)}</div></div>
       </section>
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 className="text-xl font-semibold">{selected?"Editar objeto":"Fabricar objeto"}</h2>
@@ -103,8 +112,8 @@ export default function ItemsManagementPage() {
           <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">{form.allowedSlots.length ? "El objeto solo podrá equiparse en los slots seleccionados." : "Este objeto no se equipa."}</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>
           <div><div className="flex items-center justify-between"><h3 className="font-medium">Efectos</h3><div className="flex items-center gap-3">{noEffects(form.effects)&&<span className="text-sm text-zinc-500">Sin efectos</span>}<button type="button" onClick={()=>setForm(f=>({...f,effects:[...f.effects,emptyEffect()]}))} className="text-sm text-zinc-300">+ Añadir efecto</button></div></div>
           <div className="mt-3 space-y-3">{form.effects.map((effect,i)=><div key={i} className="rounded-xl border border-zinc-800 p-4">
-            <div className="grid gap-3 sm:grid-cols-3"><select value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{effectTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
-            <select value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{effectStats.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
+            <div className="grid gap-3 sm:grid-cols-3"><input value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Tipo de efecto (ej. stat_bonus)"/>
+            <input value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Stat/objetivo (ej. DEF)"/>
             <input type="number" value={effect.value} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Valor"/></div>
             <input value={effect.description} onChange={e=>updateEffect(i,"description",e.target.value)} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Descripción del efecto"/>
             <button type="button" onClick={() => setForm(f => ({ ...f, effects: f.effects.filter((_, j) => j !== i) }))} className="mt-2 text-sm text-red-300">Quitar efecto</button>

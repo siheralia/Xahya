@@ -61,7 +61,7 @@ function hasActiveEnemies(room: any, enemies: any[]) {
   return enemies.some((enemy: any) => Number(enemy.roomId) === Number(room.id) && String(enemy.status) === "ACTIVE");
 }
 
-async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = false) {
+async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = false, reservedDirection?: string) {
   let roomType = forceBoss ? "BOSS" : pickRoomType();
   if (maze.mazeType === "FINITE" && Number(maze.maxRooms) === roomNumber) roomType = "BOSS";
 
@@ -108,7 +108,14 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
     }
   }
 
-  for (const direction of pickRandomDirections()) {
+  const directions = pickRandomDirections();
+  // La salida de regreso se crea por separado al conectar la nueva habitación.
+  // Evitamos generar la misma dirección aquí para no provocar una colisión de
+  // unicidad cuando la salida de regreso ya tenga que ocupar ese espacio.
+  const availableDirections = reservedDirection
+    ? directions.filter((direction) => direction !== reservedDirection)
+    : directions;
+  for (const direction of availableDirections) {
     await tx.orm.public.MazeExit.create({ mazeId:maze.id, fromRoomId:room.id, direction, toRoomId:null });
   }
   return await tx.orm.public.MazeRoom.where({ id:room.id }).first();
@@ -314,10 +321,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const roomCount = (await Room.where({ mazeId }).all()).length;
     if (String(maze.mazeType) === "FINITE" && roomCount >= Number(maze.maxRooms)) throw new Error("MAZE_LIMIT");
     const nextNumber = roomCount + 1;
-    const destination = await generateRoom(tx, maze, nextNumber, String(maze.mazeType) === "FINITE" && nextNumber === Number(maze.maxRooms));
+    const returnDirection = OPPOSITE_DIRECTION[direction as keyof typeof OPPOSITE_DIRECTION];
+    const destination = await generateRoom(tx, maze, nextNumber, String(maze.mazeType) === "FINITE" && nextNumber === Number(maze.maxRooms), returnDirection);
 
     await Exit.where({ id:requestedExit.id }).update({ toRoomId:destination.id });
-    await Exit.create({ mazeId, fromRoomId:destination.id, direction:OPPOSITE_DIRECTION[direction as keyof typeof OPPOSITE_DIRECTION], toRoomId:currentRoom.id });
+    await Exit.create({ mazeId, fromRoomId:destination.id, direction:returnDirection, toRoomId:currentRoom.id });
 
     const updatedPosition = await Position.where({ mazeId, characterId }).first();
     await Position.where({ id:updatedPosition.id }).update({ roomId:destination.id, previousRoomId:currentRoom.id });

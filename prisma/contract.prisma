@@ -136,7 +136,8 @@ model Maze {
   id          Int       @id @default(autoincrement())
   name        String
   description String?
-  mazeType    String    @default("INFINITE")
+  mazeType        String   @default("INFINITE")
+  generationMode  String   @default("FREE_3D")
   maxRooms    Int?
   status      String    @default("ACTIVE")
   createdAt   DateTime  @default(now())

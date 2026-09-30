@@ -197,7 +197,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"ficha" | "estado" | "">("");
+  const [temporaryEffects, setTemporaryEffects] = useState<TemporaryEffect[]>([]);
+  const [effectTarget, setEffectTarget] = useState("strength");
+  const [effectMode, setEffectMode] = useState<"percent" | "flat">("percent");
+  const [effectValue, setEffectValue] = useState(0);
+  const [effectLabel, setEffectLabel] = useState("");
+  const [currentHp, setCurrentHp] = useState(0);
+  const [currentMana, setCurrentMana] = useState(0);
   const [boostStat, setBoostStat] = useState("strength");
   const [boosting, setBoosting] = useState(false);
   const [profileAge, setProfileAge] = useState("");
@@ -262,6 +269,15 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     }
   }
 
+  const maxHp = character?.derivedStats?.maxHp ?? 0;
+  const maxMana = character?.derivedStats?.maxMana ?? 0;
+
+  useEffect(() => {
+    if (!character) return;
+    setCurrentHp(maxHp);
+    setCurrentMana(maxMana);
+  }, [character?.id, maxHp, maxMana]);
+
   const radarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
         result[stat.key] = character.effectiveStats?.[stat.key] ?? character.stats?.[stat.key] ?? 0;
@@ -279,12 +295,41 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       }, {} as RadarValues)
     : null;
 
-  function buildWhatsAppText(character: Character) {
+  type TemporaryEffect = { id: number; target: string; mode: "percent" | "flat"; value: number; label: string };
+
+  function applyTemporaryEffects(target: string, value: number) {
+    return temporaryEffects.filter((effect) => effect.target === target).reduce(
+      (result, effect) => effect.mode === "percent" ? result * (1 + effect.value / 100) : result + effect.value,
+      value,
+    );
+  }
+
+  function addTemporaryEffect() {
+    if (!effectLabel.trim() || !effectValue) return;
+    setTemporaryEffects((effects) => [...effects, { id: Date.now(), target: effectTarget, mode: effectMode, value: effectValue, label: effectLabel.trim() }]);
+    setEffectLabel("");
+    setEffectValue(0);
+  }
+
+  function removeTemporaryEffect(id: number) {
+    setTemporaryEffects((effects) => effects.filter((effect) => effect.id !== id));
+  }
+
+  function formatNumber(value: number) {
+    return Number.isInteger(value) ? String(value) : value.toLocaleString("es-MX", { maximumFractionDigits: 2 });
+  }
+
+  function buildFichaWhatsApp(character: Character) {
     const lines = [
       "*" + character.name + (character.flair ? " ⟨" + character.flair + "⟩" : "") + "*",
       character.canSeeCharacterId ? "_Personaje #" + character.id + "_" : "",
       "",
-      "*ESTADÍSTICAS BASE*",
+      "*DATOS DEL PERSONAJE*",
+      character.age !== null ? "• Edad: " + character.age + " años" : "",
+      character.gender ? "• Género: " + (genderOptions.find((option) => option.value === character.gender)?.label ?? character.gender) : "",
+      character.height !== null ? "• Altura: " + character.height + " cm" : "",
+      "",
+      "*ESTADÍSTICAS*",
       character.stats
         ? Object.entries(statLabels).map(([key, label]) => {
             const breakdown = character.statBreakdown?.[key];
@@ -300,8 +345,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               objectBonus !== 0 ? (objectBonus > 0 ? "+" : "") + objectBonus : "",
               karmaBonus !== 0 ? (karmaBonus > 0 ? "+" : "") + karmaBonus : "",
             ].filter(Boolean);
-            const formula = base + multiplierText;
-            return "• " + label + ": " + effective + (bonuses.length > 0 ? " [" + formula + " " + bonuses.join(" ") + "]" : " [" + formula + "]");
+            return "• " + label + ": " + formatNumber(effective) + " [" + base + multiplierText + (bonuses.length ? " " + bonuses.join(" ") : "") + "]";
           }).join("\n")
         : "",
       "",
@@ -309,49 +353,86 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       character.derivedStats
         ? Object.entries(character.derivedStats).map(([key, value]) => {
             const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
-            const displayedValue = affectedByAttackMultiplier ? value * allAttackMultiplier : value;
-            return "• " + (derivedLabels[key] ?? key) + ": " + displayedValue + (affectedByAttackMultiplier && allAttackMultiplier !== 1 ? " (base " + value + " · ×" + allAttackMultiplier + ")" : "");
+            const valueWithEquipment = affectedByAttackMultiplier ? value * allAttackMultiplier : value;
+            return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(valueWithEquipment);
           }).join("\n")
         : "",
       "",
-      character.equipment.some((entry) => entry.equipped)
-        ? [
-            "*EQUIPAMIENTO*",
-            ...character.equipment.filter((entry) => entry.equipped).map((entry) =>
-              "• " + (entry.item?.name ?? "Objeto") +
-              (entry.flair ? " — " + entry.flair : "") +
-              (entry.equippedSlot ? " [" + (equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot) + "]" : "")
-            ),
-            "",
-          ].join("\n") + (
-            character.combatEffects.length > 0 ? [
-              "*OBJETOS Y EFECTOS*",
-              ...character.combatEffects.map((effect) =>
-                "• " + effect.source.replace(/^ITEM:/, "") + ": " +
-                (effect.type === "attack_multiplier_all"
-                  ? "×" + (effect.value / 100) + " a todos los ataques"
-                  : "×" + (effect.value / 100) + " al daño recibido")
-              ),
-            ].join("\n") : ""
-          )
-        : character.combatEffects.length > 0
-        ? [
-            "*OBJETOS Y EFECTOS*",
-            ...character.combatEffects.map((effect) =>
-              "• " + effect.source.replace(/^ITEM:/, "") + ": " +
-              (effect.type === "attack_multiplier_all"
-                ? "×" + (effect.value / 100) + " a todos los ataques"
-                : "×" + (effect.value / 100) + " al daño recibido")
-            ),
-          ].join("\n")
-        : "",
+      "*PERKS*",
+      character.perks.length
+        ? character.perks.map((entry) => "• " + (entry.perk?.name ?? "Perk") + (entry.perk?.description ? " — " + entry.perk.description : "")).join("\n")
+        : "• Ninguna",
       "",
-      "*RECURSOS*",
+      "*INVENTARIO*",
+      character.equipment.length
+        ? character.equipment.map((entry) =>
+            "• " + (entry.item?.name ?? "Objeto") + " ×" + entry.quantity +
+            (entry.equipped ? " [Equipado" + (entry.equippedSlot ? ": " + (equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot) : "") + "]" : "") +
+            (entry.flair ? " — " + entry.flair : "")
+          ).join("\n")
+        : "• Vacío",
+      "",
+      "*BONOS DE EQUIPO*",
+      character.equipment.filter((entry) => entry.equipped && (entry.item?.effects?.length ?? 0) > 0).flatMap((entry) =>
+        (entry.item?.effects ?? []).map((effect) => "• " + (entry.item?.name ?? "Objeto") + ": " + (effect.description ?? effect.type + " " + effect.value))
+      ).join("\n") || "• Ninguno",
+      "",
+      "*RECURSOS PERMANENTES*",
       character.resources ? "• Karma: " + character.resources.karma + "\n• Dinero: " + character.resources.money : "",
+    ];
+    return lines.filter((line, index) => !(line === "" && lines[index - 1] === "")).join("\n");
+  }
+
+  function buildEstadoWhatsApp(character: Character) {
+    const lines = [
+      "*" + character.name + (character.flair ? " ⟨" + character.flair + "⟩" : "") + "*",
+      "",
+      "*ESTADO ACTUAL*",
+      "• ❤️ HP: " + formatNumber(currentHp) + "/" + formatNumber(maxHp),
+      "• 🔷 Mana: " + formatNumber(currentMana) + "/" + formatNumber(maxMana),
+      "",
+      "*ESTADÍSTICAS EFECTIVAS*",
+      ...Object.entries(statLabels).map(([key, label]) => {
+        const base = character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats] ?? 0;
+        return "• " + label + ": " + formatNumber(applyTemporaryEffects(key, base));
+      }),
+      ...(character.derivedStats ? [
+        "",
+        ...Object.entries(character.derivedStats).map(([key, value]) => {
+          const valueWithEquipment = (key === "physicalAttack" || key === "magicAttack") ? value * allAttackMultiplier : value;
+          return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(applyTemporaryEffects(key, valueWithEquipment));
+        }),
+      ] : []),
+      "",
+      "*EFECTOS TEMPORALES*",
+      ...(temporaryEffects.length
+        ? temporaryEffects.map((effect) => "• " + effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + effect.value + "%" : (effect.value > 0 ? "+" : "") + effect.value))
+        : ["• Ninguno"]),
     ];
     return lines.join("\n");
   }
 
+  async function copyFichaToClipboard() {
+    if (!character) return;
+    try {
+      await navigator.clipboard.writeText(buildFichaWhatsApp(character));
+      setCopied("ficha");
+      setTimeout(() => setCopied(""), 2000);
+    } catch {
+      setError("No se pudo copiar la ficha al portapapeles.");
+    }
+  }
+
+  async function copyEstadoToClipboard() {
+    if (!character) return;
+    try {
+      await navigator.clipboard.writeText(buildEstadoWhatsApp(character));
+      setCopied("estado");
+      setTimeout(() => setCopied(""), 2000);
+    } catch {
+      setError("No se pudo copiar el estado al portapapeles.");
+    }
+  }
 
   async function saveFlair(characterItemId: number, flair: string) {
     if (!character || !character.isAdmin || flairSaving !== null) return;
@@ -703,10 +784,47 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           <h1 className="w-full text-4xl font-bold">{character.name} {character.flair && <span className="text-2xl font-normal text-zinc-400">⟨{character.flair}⟩</span>}</h1>
           {character.canLevelUp && <Link href={"/characters/" + character.id + "/levelup"} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300">Level Up</Link>}
           {character.canManageCharacter && <Link href={"/management?characterId=" + character.id} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Gestionar personaje</Link>}
-          <button type="button" onClick={copyToClipboard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">{copied ? "✓ Copiado" : "Copiar para WhatsApp"}</button>
-          <button type="button" onClick={exportProfileCard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Exportar imagen</button>
+          <button type="button" onClick={copyFichaToClipboard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">{copied === "ficha" ? "✓ Ficha copiada" : "Copiar ficha"}</button>
+          <button type="button" onClick={copyEstadoToClipboard} className="rounded-lg border border-violet-700/60 px-4 py-2 text-sm font-medium text-violet-200 transition hover:bg-violet-900/20">{copied === "estado" ? "✓ Estado copiado" : "Copiar estado"}</button>\n          <button type="button" onClick={exportProfileCard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Exportar imagen</button>
         </div>
         {character.canSeeCharacterId && <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>}
+
+        <section className="mt-10 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
+          <div className="flex items-baseline justify-between gap-4">
+            <div><h2 className="text-xl font-semibold">Estado de rol</h2><p className="mt-1 text-sm text-zinc-500">HP, Mana y efectos temporales. Nada de esta sección se guarda en la ficha.</p></div>
+            <button type="button" onClick={() => setTemporaryEffects([])} disabled={!temporaryEffects.length} className="text-xs text-zinc-500 hover:text-white disabled:opacity-30">Limpiar efectos</button>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <label className="text-sm text-zinc-400">❤️ HP actual
+              <input type="number" min="0" max={maxHp} value={currentHp} onChange={(e) => setCurrentHp(Math.min(maxHp, Math.max(0, Number(e.target.value) || 0)))} className="mt-2 h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" />
+            </label>
+            <label className="text-sm text-zinc-400">🔷 Mana actual
+              <input type="number" min="0" max={maxMana} value={currentMana} onChange={(e) => setCurrentMana(Math.min(maxMana, Math.max(0, Number(e.target.value) || 0)))} className="mt-2 h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" />
+            </label>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-[1fr_140px_120px_1fr_auto]">
+            <select value={effectTarget} onChange={(e) => setEffectTarget(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white">
+              {Object.entries(statLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+              {Object.entries(derivedLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+            <select value={effectMode} onChange={(e) => setEffectMode(e.target.value as "percent" | "flat")} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white">
+              <option value="percent">Porcentaje</option><option value="flat">Plano</option>
+            </select>
+            <input type="number" value={effectValue} onChange={(e) => setEffectValue(Number(e.target.value) || 0)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" placeholder="Valor" />
+            <input type="text" value={effectLabel} onChange={(e) => setEffectLabel(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" placeholder="Ej. Debuff del enemigo" />
+            <button type="button" onClick={addTemporaryEffect} disabled={!effectLabel.trim() || !effectValue} className="rounded-xl bg-violet-400 px-4 py-2 font-bold text-zinc-950 disabled:opacity-40">Aplicar</button>
+          </div>
+          {temporaryEffects.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {temporaryEffects.map((effect) => (
+                <div key={effect.id} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm">
+                  <span>{effect.label} · {effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + effect.value + "%" : (effect.value > 0 ? "+" : "") + effect.value} {statLabels[effect.target] ?? derivedLabels[effect.target] ?? effect.target}</span>
+                  <button type="button" onClick={() => removeTemporaryEffect(effect.id)} className="text-red-300 hover:text-red-200">Quitar</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {character.maze && (
           <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">

@@ -201,7 +201,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [temporaryEffects, setTemporaryEffects] = useState<TemporaryEffect[]>([]);
   const [effectTarget, setEffectTarget] = useState("strength");
   const [effectMode, setEffectMode] = useState<"percent" | "flat">("percent");
-  const [effectValue, setEffectValue] = useState(0);
+  const [effectValue, setEffectValue] = useState("");
   const [effectLabel, setEffectLabel] = useState("");
   const [currentHp, setCurrentHp] = useState(0);
   const [currentMana, setCurrentMana] = useState(0);
@@ -305,10 +305,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
   function addTemporaryEffect() {
-    if (!effectLabel.trim() || !effectValue) return;
-    setTemporaryEffects((effects) => [...effects, { id: Date.now(), target: effectTarget, mode: effectMode, value: effectValue, label: effectLabel.trim() }]);
+    const numericValue = Number(effectValue);
+    if (!effectLabel.trim() || effectValue === "" || !Number.isFinite(numericValue) || numericValue === 0) return;
+    setTemporaryEffects((effects) => [...effects, { id: Date.now(), target: effectTarget, mode: effectMode, value: numericValue, label: effectLabel.trim() }]);
     setEffectLabel("");
-    setEffectValue(0);
+    setEffectValue("");
   }
 
   function removeTemporaryEffect(id: number) {
@@ -322,7 +323,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   function buildFichaWhatsApp(character: Character) {
     const lines = [
       "*" + character.name + (character.flair ? " ⟨" + character.flair + "⟩" : "") + "*",
-      character.canSeeCharacterId ? "_Personaje #" + character.id + "_" : "",
       "",
       "*DATOS DEL PERSONAJE*",
       character.age !== null ? "• Edad: " + character.age + " años" : "",
@@ -393,20 +393,39 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       "",
       "*ESTADÍSTICAS EFECTIVAS*",
       ...Object.entries(statLabels).map(([key, label]) => {
-        const base = character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats] ?? 0;
-        return "• " + label + ": " + formatNumber(applyTemporaryEffects(key, base));
+        const breakdown = character.statBreakdown?.[key];
+        const base = breakdown?.base ?? character.stats?.[key as keyof typeof character.stats] ?? 0;
+        const multiplier = breakdown?.combinedMultiplier ?? 1;
+        const objectBonus = breakdown?.objectFlatBonus ?? 0;
+        const karmaBonus = breakdown?.karmaBonus ?? 0;
+        const permanentValue = breakdown?.value ?? character.effectiveStats?.[key] ?? base;
+        const temporaryValue = applyTemporaryEffects(key, permanentValue);
+        const multiplierText = breakdown?.multipliers?.length
+          ? breakdown.multipliers.map((value) => formatNumber(value)).join(" × ")
+          : "1";
+        const permanentSyntax = "[" + formatNumber(base) + " × " + multiplierText + " + " + formatNumber(karmaBonus) + "🪷 + " + formatNumber(objectBonus) + "]";
+        const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
+        const temporaryText = temporaryEffectsForStat.length
+          ? " → " + formatNumber(temporaryValue) + " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"
+          : "";
+        return "• " + label + ": " + formatNumber(temporaryValue) + " " + permanentSyntax + temporaryText;
       }),
       ...(character.derivedStats ? [
         "",
         ...Object.entries(character.derivedStats).map(([key, value]) => {
           const valueWithEquipment = (key === "physicalAttack" || key === "magicAttack") ? value * allAttackMultiplier : value;
-          return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(applyTemporaryEffects(key, valueWithEquipment));
+          const effectiveValue = applyTemporaryEffects(key, valueWithEquipment);
+          const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
+          const temporaryText = temporaryEffectsForStat.length
+            ? " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"
+            : "";
+          return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(effectiveValue) + temporaryText;
         }),
       ] : []),
       "",
       "*EFECTOS TEMPORALES*",
       ...(temporaryEffects.length
-        ? temporaryEffects.map((effect) => "• " + effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + effect.value + "%" : (effect.value > 0 ? "+" : "") + effect.value))
+        ? temporaryEffects.map((effect) => "• " + effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value)) + " → " + (statLabels[effect.target] ?? derivedLabels[effect.target] ?? effect.target))
         : ["• Ninguno"]),
     ];
     return lines.join("\n");
@@ -811,9 +830,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <select value={effectMode} onChange={(e) => setEffectMode(e.target.value as "percent" | "flat")} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white">
               <option value="percent">Porcentaje</option><option value="flat">Plano</option>
             </select>
-            <input type="number" value={effectValue} onChange={(e) => setEffectValue(Number(e.target.value) || 0)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" placeholder="Valor" />
+            <input type="number" value={effectValue} onChange={(e) => setEffectValue(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" placeholder="Valor" />
             <input type="text" value={effectLabel} onChange={(e) => setEffectLabel(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" placeholder="Ej. Debuff del enemigo" />
-            <button type="button" onClick={addTemporaryEffect} disabled={!effectLabel.trim() || !effectValue} className="rounded-xl bg-violet-400 px-4 py-2 font-bold text-zinc-950 disabled:opacity-40">Aplicar</button>
+            <button type="button" onClick={addTemporaryEffect} disabled={!effectLabel.trim() || effectValue === "" || Number(effectValue) === 0} className="rounded-xl bg-violet-400 px-4 py-2 font-bold text-zinc-950 disabled:opacity-40">Aplicar</button>
           </div>
           {temporaryEffects.length > 0 && (
             <div className="mt-4 space-y-2">

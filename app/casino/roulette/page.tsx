@@ -10,6 +10,8 @@ type Character = {
   karma: number;
 };
 
+type HistoryEntry = { id: number; createdAt: string; bet: number; label: string; payout: number; moneyAfter: number; karmaAfter: number; };
+
 type Segment = {
   label: string;
   weight: number;
@@ -56,8 +58,11 @@ export default function RoulettePage() {
   const [bet, setBet] = useState(50);
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
+  const [animateWheel, setAnimateWheel] = useState(true);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [batchResults, setBatchResults] = useState<Array<{ label: string; payout: number; money: number; karma: number }>>([]);
+  const [showBatch, setShowBatch] = useState(false);
   const [result, setResult] = useState<{ label: string; payout: number } | null>(null);
-  const [history, setHistory] = useState<{ label: string; payout: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -95,7 +100,10 @@ export default function RoulettePage() {
         const requested = nextCharacters.find((character) => character.id === requestedId);
         const initial = requested ?? nextCharacters[0] ?? null;
         setSelectedId(initial?.id ?? null);
-        if (initial) setBet(Math.min(50, Math.max(1, initial.money)));
+        if (initial) {
+          setBet(Math.min(50, Math.max(1, initial.money)));
+          fetch(`/api/casino?characterId=${initial.id}`).then((r) => r.json()).then((d) => setHistory(d.history ?? [])).catch(() => {});
+        }
       })
       .catch(() => setError("No se pudieron cargar tus personajes."))
       .finally(() => setLoading(false));
@@ -107,7 +115,7 @@ export default function RoulettePage() {
     }
   }, [selected]);
 
-  async function spin() {
+  async function spin(count = 1) {
     if (!selected || spinning) return;
 
     const wager = Math.floor(Number(bet));
@@ -128,28 +136,30 @@ export default function RoulettePage() {
 
     setError("");
     setResult(null);
+    setBatchResults([]);
     setSpinning(true);
 
     try {
       const response = await fetch("/api/casino", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ characterId: selected.id, bet: wager }),
+        body: JSON.stringify({ characterId: selected.id, bet: wager, count }),
       });
 
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "No se pudo girar la ruleta.");
 
-      const center = getSegmentCenter(Number(data.segmentIndex));
-      const target = rotation + 1800 + ((360 - center - (rotation % 360)) + 360) % 360;
+      const final = data.results?.[data.results.length - 1] ?? data;
+      const center = getSegmentCenter(Number(final.segmentIndex));
+      const target = rotation + (animateWheel ? 1800 : 0) + ((360 - center - (rotation % 360)) + 360) % 360;
       setRotation(target);
 
       window.setTimeout(() => {
-        const payout = Number(data.payout);
+        const payout = Number(final.payout);
         const nextCharacter = {
           ...selected,
-          money: Number(data.money),
-          karma: Number(data.karma),
+          money: Number(final.money),
+          karma: Number(final.karma),
         };
 
         setCharacters((current) =>
@@ -157,17 +167,29 @@ export default function RoulettePage() {
             character.id === nextCharacter.id ? nextCharacter : character,
           ),
         );
-        setResult({ label: data.label, payout });
-        setHistory((current) => [
-          { label: data.label, payout },
-          ...current,
-        ].slice(0, 10));
+        setResult({ label: final.label, payout });
+        if (count > 1) {
+          setBatchResults(data.results.map((roll: { label: string; payout: number; money: number; karma: number }) => ({
+            label: roll.label,
+            payout: Number(roll.payout),
+            money: Number(roll.money),
+            karma: Number(roll.karma),
+          })));
+          setShowBatch(true);
+        }
+        const refreshed = await fetch(`/api/casino?characterId=${selected.id}`).then((r) => r.json()).catch(() => null);
+        if (refreshed?.history) setHistory(refreshed.history);
         setSpinning(false);
       }, 4050);
     } catch (err) {
       setSpinning(false);
       setError(err instanceof Error ? err.message : "No se pudo girar la ruleta.");
     }
+  }
+
+  async function spinTen() {
+    if (!selected || spinning || selected.karma < 10) return;
+    await spin(10);
   }
 
   function maxBet() {
@@ -269,16 +291,33 @@ export default function RoulettePage() {
                   </button>
                 </div>
 
+                  <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+                    <label htmlFor="animate-wheel" className="text-sm text-zinc-400">Animación de giro</label>
+                    <button id="animate-wheel" type="button" role="switch" aria-checked={animateWheel} onClick={() => setAnimateWheel((value) => !value)} className={`relative h-6 w-11 rounded-full transition ${animateWheel ? "bg-amber-400" : "bg-zinc-700"}`}>
+                      <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${animateWheel ? "left-6" : "left-1"}`} />
+                    </button>
+                  </div>
+
                 <p className="mt-2 text-xs text-zinc-600">Cada giro consume 1 karma.</p>
 
-                <button
-                  type="button"
-                  onClick={spin}
-                  disabled={spinning || !selected || selected.karma < 1 || selected.money < 1}
-                  className="mt-5 w-full rounded-xl bg-gradient-to-b from-red-500 to-red-800 px-5 py-4 text-lg font-black tracking-wide text-white transition hover:from-red-400 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  {spinning ? "🎰 GIRANDO..." : "🎰 GIRAR — 1 KARMA"}
-                </button>
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => spin(1)}
+                    disabled={spinning || !selected || selected.karma < 1 || selected.money < 1}
+                    className="rounded-xl bg-gradient-to-b from-red-500 to-red-800 px-5 py-4 text-lg font-black tracking-wide text-white transition hover:from-red-400 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    {spinning ? "🎰 GIRANDO..." : "🎰 GIRAR — 1"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={spinTen}
+                    disabled={spinning || !selected || selected.karma < 10 || selected.money < 1}
+                    className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-5 py-4 text-lg font-black tracking-wide text-amber-200 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    🎰 10 TIRADAS
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 sm:p-7">
@@ -336,18 +375,55 @@ export default function RoulettePage() {
                 <h2 className="font-semibold">Historial</h2>
                 <p className="text-xs text-zinc-600">Últimos 10 giros</p>
               </div>
-              <div className="mt-3 text-sm text-zinc-400">
-                {history.length > 0
-                  ? history.map((entry, index) => (
-                      <span key={index} className="mr-4 inline-block">
-                        {entry.label} {entry.payout > 0 ? "+" : ""}{formatMoney(entry.payout)}
-                      </span>
-                    ))
-                  : "Aún no hay giros en esta sesión."}
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-600">
+                    <tr><th className="px-3 py-3">#</th><th className="px-3 py-3">Apuesta</th><th className="px-3 py-3">Resultado</th><th className="px-3 py-3">Ganó / perdió</th><th className="px-3 py-3">Total</th><th className="px-3 py-3">Karma</th></tr>
+                  </thead>
+                  <tbody>
+                    {history.map((entry, index) => (
+                      <tr key={entry.id} className="border-b border-zinc-900">
+                        <td className="px-3 py-3 text-zinc-600">{history.length - index}</td>
+                        <td className="px-3 py-3 text-zinc-300">$ {formatMoney(entry.bet)}</td>
+                        <td className="px-3 py-3 font-bold">{entry.label}</td>
+                        <td className={`px-3 py-3 font-semibold ${entry.payout >= 0 ? "text-emerald-300" : "text-red-400"}`}>{entry.payout > 0 ? "+" : ""}{formatMoney(entry.payout)}</td>
+                        <td className={`px-3 py-3 font-semibold ${entry.moneyAfter < 0 ? "text-red-400" : "text-white"}`}>$ {formatMoney(entry.moneyAfter)}</td>
+                        <td className="px-3 py-3 text-amber-300">🪷 {entry.karmaAfter}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {history.length === 0 && <p className="py-8 text-center text-sm text-zinc-600">Aún no hay giros registrados.</p>}
+              </div>
+              <div className="mt-5 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                {Object.entries(history.reduce<Record<string, number>>((counts, entry) => {
+                  counts[entry.label] = (counts[entry.label] ?? 0) + 1;
+                  return counts;
+                }, {})).map(([label, count]) => (
+                  <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-3 text-center">
+                    <p className="font-bold">{label}</p><p className="text-xs text-zinc-600">{count} aparición{count === 1 ? "" : "es"}</p>
+                  </div>
+                ))}
               </div>
             </section>
           </>
         )}
+
+          {showBatch && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowBatch(false)}>
+              <div className="w-full max-w-lg rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Resultados — 10 tiradas</h2><button onClick={() => setShowBatch(false)} className="text-zinc-500 hover:text-white">✕</button></div>
+                <div className="mt-4 max-h-[60vh] overflow-y-auto">
+                  {batchResults.map((entry, index) => (
+                    <div key={index} className="flex items-center justify-between border-b border-zinc-900 py-3 text-sm">
+                      <span className="text-zinc-600">#{index + 1}</span><span className="font-bold">{entry.label}</span><span className={entry.payout >= 0 ? "text-emerald-300" : "text-red-400"}>{entry.payout > 0 ? "+" : ""}{formatMoney(entry.payout)}</span><span className="text-zinc-400">$ {formatMoney(entry.money)}</span>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => setShowBatch(false)} className="mt-4 w-full rounded-xl bg-zinc-800 py-3 font-semibold hover:bg-zinc-700">Cerrar</button>
+              </div>
+            </div>
+          )}
       </div>
     </main>
   );

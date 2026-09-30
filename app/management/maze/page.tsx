@@ -58,7 +58,7 @@ export default function MazeManagement(){
         <button onClick={()=>mazeControl(selected.maze.id,"releasePlayer",r.id,o.id)} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300">Liberar jugador</button>
       </div>)}</div>
     </div>}
-    {r.enemies?.filter((e:any)=>e.status==="ACTIVE").map((e:any)=><p key={e.id} className="mt-2 text-sm text-red-300">⚔️ {e.enemy?.name??"Enemigo"} ×{e.quantity}</p>)}
+    {roomOccupants.filter((o:any)=>o.status!=="TRAPPED"&&o.status!=="DEAD_LOCKED").map((o:any)=><p key={o.id} className="mt-2 text-sm text-cyan-300">🧭 {o.flair?"⟨"+o.flair+"⟩ ":""}{o.name}</p>)}{r.enemies?.filter((e:any)=>e.status==="ACTIVE").map((e:any)=><p key={e.id} className="mt-2 text-sm text-red-300">⚔️ {e.enemy?.name??"Enemigo"} ×{e.quantity}</p>)}
     {r.enemies?.some((e:any)=>e.status==="ACTIVE")&&<button onClick={()=>clear(r.id)} className="mt-3 rounded-lg border border-red-900/60 px-3 py-2 text-xs text-red-300">Confirmar enemigos eliminados</button>}
   </div>
 })}</div></section>}</div></main>;

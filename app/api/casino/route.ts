@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 
-const segments = [
+// RULE NOTE: 0 charges the wager once (-bet). -100% charges the wager twice (-2 × bet).\n// Positive results only add their profit; they do not refund the wager separately. Negative money is allowed and represents debt to the casino.\nconst segments = [
   { label: "0", weight: 100, multiplier: -1 },
   { label: "+10%", weight: 80, multiplier: 0.1 },
   { label: "0", weight: 100, multiplier: -1 },
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const characterId = Number(body?.characterId);
-  const bet = Number(body?.bet);
+  const bet = Number(body?.bet);\n  const count = Math.min(10, Math.max(1, Number(body?.count ?? 1)));
 
   if (!Number.isInteger(characterId) || characterId <= 0) {
     return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });
@@ -116,69 +116,47 @@ export async function POST(request: Request) {
 
   try {
     result = await db.transaction(async (tx) => {
-    const resource = await tx.orm.public.CharacterResource
-      .where({ characterId })
-      .first();
+      const resource = await tx.orm.public.CharacterResource.where({ characterId }).first();
+      if (!resource) throw new Error("Los recursos del personaje no están disponibles.");
 
-    if (!resource) {
-      throw new Error("Los recursos del personaje no están disponibles.");
-    }
+      let money = Number(resource.money);
+      let karma = Number(resource.karma);
+      if (karma < count) throw new Error("No tienes suficiente karma para completar las tiradas.");
+      if (bet > money) throw new Error("La apuesta no puede superar el dinero disponible.");
 
-    const money = Number(resource.money);
-    const karma = Number(resource.karma);
+      const stats = await tx.orm.public.CharacterStat.where({ characterId }).first();
+      const luck = Number(stats?.luck ?? 0);
+      const adjustedWeights = getLuckAdjustedWeights(luck);
+      const adjustedTotalWeight = adjustedWeights.reduce((sum, weight) => sum + weight, 0);
+      const results = [];
 
-    const stats = await tx.orm.public.CharacterStat
-      .where({ characterId })
-      .first();
+      for (let rollNumber = 0; rollNumber < count; rollNumber += 1) {
+        let roll = Math.random() * adjustedTotalWeight;
+        let segmentIndex = segments.length - 1;
 
-    const luck = Number(stats?.luck ?? 0);
-    const adjustedWeights = getLuckAdjustedWeights(luck);
-    const adjustedTotalWeight = adjustedWeights.reduce((sum, weight) => sum + weight, 0);
+        for (let index = 0; index < segments.length; index += 1) {
+          if (roll < adjustedWeights[index]) {
+            segmentIndex = index;
+            break;
+          }
+          roll -= adjustedWeights[index];
+        }
 
-    if (karma < 1) {
-      throw new Error("Necesitas al menos 1 karma para girar.");
-    }
-
-    if (bet > money) {
-      throw new Error("La apuesta no puede superar el dinero disponible.");
-    }
-
-    let roll = Math.random() * adjustedTotalWeight;
-    let segmentIndex = segments.length - 1;
-
-    for (let index = 0; index < segments.length; index += 1) {
-      if (roll < adjustedWeights[index]) {
-        segmentIndex = index;
-        break;
+        const segment = segments[segmentIndex];
+        const payout = Math.round(bet * segment.multiplier);
+        money += payout;
+        karma -= 1;
+        results.push({ segmentIndex, label: segment.label, payout, money, karma });
       }
-      roll -= adjustedWeights[index];
-    }
 
-    const segment = segments[segmentIndex];
-    const payout = Math.round(bet * segment.multiplier);
-    const newMoney = money + payout;
-    const newKarma = karma - 1;
-
-    await tx.orm.public.CharacterResource
-      .where({ id: resource.id })
-      .update({
-        money: newMoney,
-        karma: newKarma,
-      });
-
-      return {
-        segmentIndex,
-        label: segment.label,
-        payout,
-        money: newMoney,
-        karma: newKarma,
-      };
+      await tx.orm.public.CharacterResource.where({ id: resource.id }).update({ money, karma });
+      return { ...results[results.length - 1], results };
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo completar el giro.";
     const knownErrors = new Set([
       "Los recursos del personaje no están disponibles.",
-      "Necesitas al menos 1 karma para girar.",
+      "No tienes suficiente karma para completar las tiradas.",
       "La apuesta no puede superar el dinero disponible.",
     ]);
 
@@ -189,14 +167,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No se pudo completar el giro." }, { status: 500 });
   }
 
-  await recordAuditEvent({
-    actorUserId: user.id,
-    action: "CASINO_ROULETTE",
-    entityType: "CHARACTER",
-    entityId: characterId,
-    characterId,
-    details: { bet, result: result.label, payout: result.payout, moneyAfter: result.money, karmaAfter: result.karma },
-  });
+  for (const roll of result.results) {
+    await recordAuditEvent({
+      actorUserId: user.id,
+      action: "CASINO_ROULETTE",
+      entityType: "CHARACTER",
+      entityId: characterId,
+      characterId,
+      details: {
+        bet,
+        result: roll.label,
+        payout: roll.payout,
+        moneyAfter: roll.money,
+        karmaAfter: roll.karma,
+      },
+    });
+  }
 
   return NextResponse.json(result);
 }

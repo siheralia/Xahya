@@ -12,6 +12,7 @@ type Rule = {
 
 export default function RulesManagementPage() {
   const [rules, setRules] = useState<Rule[]>([]);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -34,7 +35,20 @@ export default function RulesManagementPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    fetch("/api/profile", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        if (!["GM", "ADMIN"].includes(String(data?.role ?? ""))) {
+          window.location.replace("/rules");
+          return;
+        }
+        setCheckingAccess(false);
+        await load();
+      })
+      .catch(() => window.location.replace("/rules"));
+  }, []);
 
   function resetForm() {
     setEditingId(null);

@@ -367,8 +367,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (requestedExit.toRoomId != null) {
       const destination = await TxRoom.where({ id:Number(requestedExit.toRoomId) }).first();
       if (!destination) throw new Error("DESTINATION_NOT_FOUND");
-      if (String(destination.roomType) === "DEATH") throw new Error("DEATH_BLOCKED");
-
       const destinationLock = String(destination.roomType) === "TRAP" && Boolean(destination.trapActive);
       await TxPosition.where({ id:position?.id ?? (await TxPosition.where({ mazeId, characterId }).first())?.id }).update({
         roomId:destination.id,
@@ -444,7 +442,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       EXIT_NOT_FOUND:"No existe esa salida desde la habitación actual.",
       ROOM_BLOCKED:"Hay enemigos activos. Solo puedes regresar por una salida ya descubierta.",
       DESTINATION_NOT_FOUND:"La habitación de destino no existe.",
-      DEATH_BLOCKED:"☠️ Esa habitación de muerte está cerrada. Nadie más puede entrar.",
       MAZE_LIMIT:"Este laberinto ya alcanzó su límite de habitaciones.",
     };
     return NextResponse.json({ error:messages[result.error] ?? `No se pudo avanzar. (${result.error})` }, { status:400 });

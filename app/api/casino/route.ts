@@ -56,7 +56,7 @@ async function getCurrentUser() {
   return users.find((user) => user.clerkId === clerkId) ?? null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser();
 
   if (!user) {

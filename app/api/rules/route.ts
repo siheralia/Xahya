@@ -61,14 +61,14 @@ export async function POST(request: Request) {
   const query = db.raw.sql`
     INSERT INTO "ruleSection" ("title", "content", "position")
     VALUES (${title}, ${content}, ${position})
-    RETURNING "id", "title", "content", "position", "createdAt", "updatedAt"
+    RETURNING "id", "title", "content", "position", "createdAt"::text AS "createdAt", "updatedAt"::text AS "updatedAt"
   `.returnsRow({
     id: "pg/int4@1",
     title: "pg/text@1",
     content: "pg/text@1",
     position: "pg/int4@1",
-    createdAt: "pg/timestamptz@1",
-    updatedAt: "pg/timestamptz@1",
+    createdAt: "pg/text@1",
+    updatedAt: "pg/text@1",
   }).build();
 
   const [rule] = await db.runtime().query(query) as RuleRow[];

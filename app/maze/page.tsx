@@ -59,6 +59,10 @@ export default function MazePage(){
   const room=maze?.rooms?.find((r:Room)=>Number(r.id)===Number(position)) as Room|undefined;
   const exits=(maze?.exits??[]).filter((e:Exit)=>Number(e.fromRoomId)===Number(position));
   const occupants=(maze?.occupants??[]).filter((entry:Occupant)=>Number(entry.roomId)===Number(position));
+  const statLabels:Record<string,string>={STR:"Fuerza",AGI:"Agilidad",CON:"Constitución",INT:"Inteligencia",WIS:"Sabiduría",CHA:"Carisma",SPI:"Espíritu",LCK:"Suerte"};
+  const focusLabels:Record<string,string>={PHYSICAL:"Físico",DEFENSIVE:"Defensivo",MAGICAL:"Mágico",CONTROL:"Control",SPEED:"Velocidad",PRECISION:"Precisión",BALANCED:"Equilibrado"};
+  const behaviorLabels:Record<string,string>={AGGRESSIVE:"Agresivo",HUNTER:"Cazador",AMBUSHER:"Emboscador",DEFENSIVE:"Defensivo",ROAMER:"Errante",GUARDIAN:"Guardián",CONTROLLER:"Controlador"};
+
   const copyText=useMemo(()=>room?[
     `Laberinto: ${maze.maze.name}`,
     `Habitación #${room.roomNumber}`,
@@ -108,10 +112,6 @@ export default function MazePage(){
       }
     }
   }
-
-  const statLabels:Record<string,string>={STR:"Fuerza",AGI:"Agilidad",CON:"Constitución",INT:"Inteligencia",WIS:"Sabiduría",CHA:"Carisma",SPI:"Espíritu",LCK:"Suerte"};
-  const focusLabels:Record<string,string>={PHYSICAL:"Físico",DEFENSIVE:"Defensivo",MAGICAL:"Mágico",CONTROL:"Control",SPEED:"Velocidad",PRECISION:"Precisión",BALANCED:"Equilibrado"};
-  const behaviorLabels:Record<string,string>={AGGRESSIVE:"Agresivo",HUNTER:"Cazador",AMBUSHER:"Emboscador",DEFENSIVE:"Defensivo",ROAMER:"Errante",GUARDIAN:"Guardián",CONTROLLER:"Controlador"};
 
   return <main className="min-h-screen bg-zinc-950 text-white"><div className="mx-auto max-w-6xl px-6 py-8">
     <div className="flex flex-wrap items-end justify-between gap-4"><div><h1 className="text-4xl font-bold">Laberinto</h1><p className="mt-2 text-zinc-500">Exploración global compartida.</p></div><Link href="/" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300">Inicio</Link></div>

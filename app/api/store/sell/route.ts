@@ -39,12 +39,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No tienes suficientes copias de este objeto." }, { status: 400 });
   }
 
-  const hasSystemAction = Array.isArray(item.effects) && item.effects.some((effect: any) => effect && effect.type === "system_action");
-  if (hasSystemAction || String(item.acquisitionType) === "SYSTEM") {
-    return NextResponse.json({ error: "Los objetos del sistema no se pueden vender." }, { status: 400 });
-  }
-
-  const storeValue = String(item.acquisitionType) === "PURCHASABLE" && Number(item.price) > 0
+  const storeValue = Number(item.price) > 0
     ? Math.max(1, Math.floor(Number(item.price) / 2))
     : 1;
   const total = storeValue * quantity;

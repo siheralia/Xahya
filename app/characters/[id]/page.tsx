@@ -342,7 +342,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             const equippedItemEffects = character.equipment.filter((entry) => entry.equipped).flatMap((entry) => (entry.item?.effects ?? []).map((effect) => ({ item: entry.item?.name ?? "Objeto", type: effect.type, stat: effect.stat ?? "", value: Number(effect.value) })));
             const itemStatCode: Record<string, string> = { strength: "STR", agility: "AGI", constitution: "CON", intelligence: "INT", wisdom: "WIS", charisma: "CHA", spirit: "SPI", luck: "LCK" };
             const itemStatFlatBonus = equippedItemEffects.filter((effect) => effect.stat === itemStatCode[key] && effect.type === "stat_bonus").reduce((sum, effect) => sum + effect.value, 0);
-            const itemBonuses = equippedItemEffects.filter((effect) => effect.stat === itemStatCode[key]).map((effect) => effect.type === "stat_multiplier" ? "×" + formatNumber(effect.value / 100) + " (" + effect.item + ")" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + " (" + effect.item + ")");
+            const itemBonuses = equippedItemEffects
+              .filter((effect) => effect.stat === itemStatCode[key] && (effect.type === "stat_multiplier" ? effect.value / 100 !== 1 : effect.value !== 0))
+              .map((effect) => effect.type === "stat_multiplier" ? "×" + formatNumber(effect.value / 100) + " (" + effect.item + ")" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + " (" + effect.item + ")");
             const equipmentModifierBonus = objectBonus - itemStatFlatBonus;
             const multiplierText = breakdown?.multipliers?.length ? " ×" + breakdown.multipliers.map((value) => formatNumber(value)).join(" ×") + " = ×" + formatNumber(multiplier) : "";
             const bonuses = [karmaBonus !== 0 ? (karmaBonus > 0 ? "+" : "") + formatNumber(karmaBonus) + "🪷" : "", objectBonus !== 0 ? (objectBonus > 0 ? "+" : "") + formatNumber(objectBonus) : ""].filter(Boolean);
@@ -358,7 +360,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             const valueWithEquipment = affectedByAttackMultiplier ? value * allAttackMultiplier : value;
             const attackEquipment = affectedByAttackMultiplier
               ? character.equipment.filter((entry) => entry.equipped).flatMap((entry) => (entry.item?.effects ?? [])
-                  .filter((effect) => effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all")
+                  .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && Number(effect.value) / 100 !== 1)
                   .map((effect) => "×" + formatNumber(Number(effect.value) / 100) + " (" + (entry.item?.name ?? "Objeto") + ")"))
               : [];
             return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(valueWithEquipment) +
@@ -418,7 +420,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         const equippedItemEffects = character.equipment.filter((entry) => entry.equipped).flatMap((entry) => (entry.item?.effects ?? []).map((effect) => ({ item: entry.item?.name ?? "Objeto", type: effect.type, stat: effect.stat ?? "", value: Number(effect.value) })));
         const itemStatCode: Record<string, string> = { strength: "STR", agility: "AGI", constitution: "CON", intelligence: "INT", wisdom: "WIS", charisma: "CHA", spirit: "SPI", luck: "LCK" };
         const itemStatFlatBonus = equippedItemEffects.filter((effect) => effect.stat === itemStatCode[key] && effect.type === "stat_bonus").reduce((sum, effect) => sum + effect.value, 0);
-        const itemBonuses = equippedItemEffects.filter((effect) => effect.stat === itemStatCode[key]).map((effect) => effect.type === "stat_multiplier" ? "×" + formatNumber(effect.value / 100) + " (" + effect.item + ")" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + " (" + effect.item + ")");
+        const itemBonuses = equippedItemEffects
+          .filter((effect) => effect.stat === itemStatCode[key] && (effect.type === "stat_multiplier" ? effect.value / 100 !== 1 : effect.value !== 0))
+          .map((effect) => effect.type === "stat_multiplier" ? "×" + formatNumber(effect.value / 100) + " (" + effect.item + ")" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + " (" + effect.item + ")");
         const equipmentModifierBonus = objectBonus - itemStatFlatBonus;
         const bonusParts = [karmaBonus !== 0 ? (karmaBonus > 0 ? "+" : "") + formatNumber(karmaBonus) + "🪷" : "", objectBonus !== 0 ? (objectBonus > 0 ? "+" : "") + formatNumber(objectBonus) : ""].filter(Boolean);
         const detailParts = [multiplierText, ...itemBonuses, ...bonusParts].filter(Boolean);

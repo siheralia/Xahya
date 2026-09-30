@@ -81,9 +81,48 @@ export async function GET() {
       };
     });
 
+  const requestedCharacterId = Number(new URL(request.url).searchParams.get("characterId"));
+  let history: Array<{
+    id: number;
+    createdAt: string;
+    bet: number;
+    label: string;
+    payout: number;
+    moneyAfter: number;
+    karmaAfter: number;
+  }> = [];
+
+  if (Number.isInteger(requestedCharacterId) && requestedCharacterId > 0) {
+    const ownsCharacter = owned.some((character) => character.id === requestedCharacterId);
+    if (ownsCharacter) {
+      const logs = await db.orm.public.AuditLog
+        .where({ characterId: requestedCharacterId, action: "CASINO_ROULETTE" })
+        .all();
+
+      history = logs
+        .map((log) => {
+          const details = typeof log.details === "string"
+            ? JSON.parse(log.details)
+            : (log.details ?? {});
+          return {
+            id: Number(log.id),
+            createdAt: String(log.createdAt),
+            bet: Number(details.bet ?? 0),
+            label: String(details.result ?? ""),
+            payout: Number(details.payout ?? 0),
+            moneyAfter: Number(details.moneyAfter ?? 0),
+            karmaAfter: Number(details.karmaAfter ?? 0),
+          };
+        })
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 100);
+    }
+  }
+
   return NextResponse.json({
     characters: owned,
     segments: segments.map(({ label, weight }) => ({ label, weight })),
+    history,
   });
 }
 

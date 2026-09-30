@@ -35,6 +35,7 @@ export async function GET() {
     const pointsTotal = STAT_KEYS.reduce((sum, key) => sum + Number((stat as Record<string, unknown> | null)?.[key] ?? 0), 0);
 
     let casinoWon = 0;
+    let casinoSpent = 0;
     let mazeMoney = 0;
     let mazeRooms = new Set<number>();
     let mazeTreasures = 0;
@@ -43,6 +44,8 @@ export async function GET() {
       const action = String(log.action);
       const details = parseDetails(log.details);
       if (CASINO_ACTIONS.has(action)) {
+        const bet = Number(details.bet ?? 0);
+        if (Number.isFinite(bet) && bet > 0) casinoSpent += bet;
         const payout = Number(details.payout ?? 0);
         if (Number.isFinite(payout) && payout > 0) casinoWon += payout;
       }
@@ -68,6 +71,7 @@ export async function GET() {
       hp: 10 + Number(stat?.constitution ?? 0) * 2,
       mana: 5 + Number(stat?.intelligence ?? 0) + Number(stat?.spirit ?? 0),
       casinoWon,
+      casinoSpent,
       mazeMoney,
       mazeRooms: mazeRooms.size,
       mazeTreasures,

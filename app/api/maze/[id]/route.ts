@@ -218,6 +218,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const Room = db.orm.public.MazeRoom;
     if (!Enemy || !MazeRoomEnemy) return NextResponse.json({ error:"El catálogo de enemigos no está disponible." }, { status:500 });
     const result = await db.transaction(async (tx) => {
+      const TxRoom = tx.orm.public.MazeRoom;
+      const TxMazeRoomEnemy = (tx.orm.public as any).MazeRoomEnemy;
       const rooms = await TxRoom.where({ mazeId }).all();
       let loaded = 0;
       for (const room of rooms.filter((r:any) => ["ENEMY","MOBILE_ENEMY","BOSS"].includes(String(r.roomType)))) {
@@ -262,11 +264,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!character) return NextResponse.json({ error:"Personaje no encontrado." }, { status:404 });
     const privileged = ["GM","ADMIN"].includes(String(user.role));
     if (!privileged && Number(character.userId) !== Number(user.id)) return NextResponse.json({ error:"Forbidden" }, { status:403 });
-    const position = await TxPosition.where({ mazeId, characterId }).first();
+    const position = await Position.where({ mazeId, characterId }).first();
     if (!position) return NextResponse.json({ error:"El personaje no está dentro de este laberinto." }, { status:400 });
     const root = await db.orm.public.MazeRoom.where({ id:Number(position.roomId) }).first();
     if (!root || Number(root.roomNumber) !== 1) return NextResponse.json({ error:"Solo puedes salir del laberinto desde la habitación 1." }, { status:400 });
-    await TxPosition.where({ id:Number(position.id) }).delete();
+    await Position.where({ id:Number(position.id) }).delete();
     await recordAuditEvent({ actorUserId:user.id, action:"MAZE_LEAVE", entityType:"MAZE", entityId:mazeId, characterId, details:{ mazeId } });
     return NextResponse.json({ success:true });
   }
@@ -290,7 +292,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!currentRoom) throw new Error("ROOT_NOT_FOUND");
 
     if (!position) {
-      await Position.create({ mazeId, characterId, roomId:currentRoom.id });
+      await TxPosition.create({ mazeId, characterId, roomId:currentRoom.id });
     }
 
     const currentEncounters = TxMazeRoomEnemy ? await TxMazeRoomEnemy.where({ roomId:currentRoom.id, status:"ACTIVE" }).all() : [];
@@ -342,7 +344,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         await TxExit.where({ id:existingReturnExit.id }).update({ toRoomId:currentRoom.id });
       }
     } else {
-      await Exit.create({ mazeId, fromRoomId:destination.id, direction:returnDirection, toRoomId:currentRoom.id });
+      await TxExit.create({ mazeId, fromRoomId:destination.id, direction:returnDirection, toRoomId:currentRoom.id });
     }
 
     const updatedPosition = await TxPosition.where({ mazeId, characterId }).first();

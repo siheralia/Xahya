@@ -48,12 +48,12 @@ export const CASINO_SETS: readonly CasinoSet[] = [
   },
   {
     id: "balanced",
-    name: "Equilibrado",
+    name: "Estilizado · -4%",
     description: "Margen cercano a -4%, con los cuatro 0 distribuidos uniformemente.",
     houseEdgeLabel: "≈ -4.0% base",
     segments: [
       { label: "0", weight: 70, multiplier: -1, color: balancedColors[0] },
-      { label: "+10%", weight: 60, multiplier: 0.1, color: balancedColors[1] },
+      { label: "+10%", weight: 65.43, multiplier: 0.1, color: balancedColors[1] },
       { label: "+50%", weight: 60, multiplier: 0.5, color: balancedColors[2] },
       { label: "0", weight: 70, multiplier: -1, color: balancedColors[3] },
       { label: "+100%", weight: 40, multiplier: 1, color: balancedColors[4] },

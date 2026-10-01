@@ -444,35 +444,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ success:true, action:"deleteMaze" });
     }
 
-    const result = await db.transaction(async (tx) => {
-      await (tx.orm.public as any).MazeCharacterPosition.where({ mazeId }).delete();
-      const mazeRooms = await tx.orm.public.MazeRoom.where({ mazeId }).all();
-      const roomIds = mazeRooms.map((room:any) => Number(room.id));
-      if (roomIds.length > 0) {
-        const encounters = await (tx.orm.public as any).MazeRoomEnemy.all();
-        for (const encounter of encounters.filter((entry:any) => roomIds.includes(Number(entry.roomId)))) {
-          await (tx.orm.public as any).MazeRoomEnemy.where({ id:Number(encounter.id) }).delete();
+    try {
+      const result = await db.transaction(async (tx) => {
+        await (tx.orm.public as any).MazeCharacterPosition.where({ mazeId }).delete();
+        const mazeRooms = await tx.orm.public.MazeRoom.where({ mazeId }).all();
+        const roomIds = mazeRooms.map((room:any) => Number(room.id));
+        if (roomIds.length > 0) {
+          const encounters = await (tx.orm.public as any).MazeRoomEnemy.all();
+          for (const encounter of encounters.filter((entry:any) => roomIds.includes(Number(entry.roomId)))) {
+            await (tx.orm.public as any).MazeRoomEnemy.where({ id:Number(encounter.id) }).delete();
+          }
         }
-      }
-      await (tx.orm.public as any).MazeExit.where({ mazeId }).delete();
-      await tx.orm.public.MazeRoom.where({ mazeId }).delete();
-      await (tx.orm.public as any).MazeExit.where({ mazeId }).delete();
-      await tx.orm.public.MazeRoom.where({ mazeId }).delete();
-      await tx.orm.public.Maze.where({ id:mazeId }).update({
-        status:"ACTIVE",
-      });
-      // Algunas implementaciones del ORM devuelven el resultado de update()
-      // en un formato distinto al registro. Usamos el registro original para
-      // conservar todos los datos del laberinto al generar la habitación.
-      const room = await generateRoom(tx, maze, 1);
-      return { room };
-    });
+        await (tx.orm.public as any).MazeExit.where({ mazeId }).delete();
+        await tx.orm.public.MazeRoom.where({ mazeId }).delete();
+        await tx.orm.public.Maze.where({ id:mazeId }).update({ status:"ACTIVE" });
 
-    await recordAuditEvent({
-      actorUserId:user.id,
-      action:"MAZE_RESET",
-      entityType:"MAZE",
-      entityId:mazeId,
+        // Usamos el registro original para conservar todas las opciones del laberinto.
+        const room = await generateRoom(tx, maze, 1);
+        return { room };
+      });
+
+      await recordAuditEvent({
+        actorUserId:user.id,
+        action:"MAZE_RESET",
+        entityType:"MAZE",
+        entityId:mazeId,
         details:{ name:maze.name, mazeType:maze.mazeType },
       });
       return NextResponse.json({ success:true, action:"resetMaze", room:result.room });

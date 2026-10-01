@@ -226,6 +226,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [transferQuantity, setTransferQuantity] = useState(1);
   const [transferBusy, setTransferBusy] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [perkRecoveryBusy, setPerkRecoveryBusy] = useState(false);
 
   useEffect(() => {
     if (!character) return;
@@ -290,6 +291,30 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo eliminar la imagen.");
     } finally { setAvatarBusy(false); }
+  }
+
+  async function recoverCreationPerks() {
+    if (!character || character.perks.length >= 3 || perkRecoveryBusy) return;
+    setPerkRecoveryBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/characters/" + character.id, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudieron recuperar las perks de creación.");
+
+      const refresh = await fetch("/api/characters/" + character.id, { cache: "no-store" });
+      if (!refresh.ok) throw new Error("Las perks se otorgaron, pero no se pudo actualizar la ficha.");
+      setCharacter(await refresh.json());
+      setSuccess("Se recuperaron las perks de creación que faltaban.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudieron recuperar las perks de creación.");
+    } finally {
+      setPerkRecoveryBusy(false);
+    }
   }
 
   async function transfer() {
@@ -1156,9 +1181,21 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <span className="text-xs text-zinc-600">{character.equipment.filter((entry) => entry.equipped).length} equipados</span>
           </div>
           <section className="mt-10 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6">
-          <div className="flex items-baseline justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div><h2 className="text-xl font-semibold">Perks</h2><p className="mt-1 text-sm text-zinc-500">Beneficios permanentes obtenidos por el personaje.</p></div>
-            <span className="text-xs text-zinc-600">{character.perks.length} obtenidos</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-600">{character.perks.length}/3 obtenidos</span>
+              {character.perks.length < 3 && (
+                <button
+                  type="button"
+                  onClick={recoverCreationPerks}
+                  disabled={perkRecoveryBusy}
+                  className="rounded-lg border border-amber-400/40 px-3 py-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {perkRecoveryBusy ? "Recuperando..." : "Obtener perks de creación"}
+                </button>
+              )}
+            </div>
           </div>
           {character.perks.length > 0 ? (
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

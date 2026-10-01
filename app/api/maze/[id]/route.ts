@@ -473,9 +473,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       action:"MAZE_RESET",
       entityType:"MAZE",
       entityId:mazeId,
-      details:{ name:maze.name, mazeType:maze.mazeType },
-    });
-    return NextResponse.json({ success:true, action:"resetMaze", room:result.room });
+        details:{ name:maze.name, mazeType:maze.mazeType },
+      });
+      return NextResponse.json({ success:true, action:"resetMaze", room:result.room });
+    } catch (error) {
+      console.error("[MAZE_RESET_ERROR]", error);
+      return NextResponse.json({
+        error: error instanceof Error ? error.message : "No se pudo resetear el laberinto.",
+      }, { status:500 });
+    }
   }
 
   if (body?.action === "releasePlayer" || body?.action === "deactivateTrap") {

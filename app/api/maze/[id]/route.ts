@@ -215,6 +215,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const position = Number.isInteger(characterId) && characterId > 0
     ? await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first()
     : null;
+
+  // Los encuentros creados antes de escalar estadísticas pueden tener generatedStats vacío.
+  // Escalarlos aquí garantiza que defensa mágica/física y el botón de derrota tengan datos.
+  const activeMazeEnemies = enemies.filter((enemy:any) => String(enemy.status) === "ACTIVE");
+  for (const encounter of activeMazeEnemies) {
+    if (!encounter.generatedStats || Object.keys(encounter.generatedStats as any).length === 0) {
+      const room = rooms.find((entry:any) => Number(entry.id) === Number(encounter.roomId));
+      const definition = definitions.find((entry:any) => Number(entry.id) === Number(encounter.enemyId));
+      if (room && definition) {
+        await scaleEncounter(db, maze, room, encounter, definition);
+        encounter.generatedStats = (await (db.orm.public as any).MazeRoomEnemy.where({ id:Number(encounter.id) }).first())?.generatedStats ?? {};
+      }
+    }
+  }
+
   const characterCombat = Number.isInteger(characterId) && characterId > 0
     ? await getEffectiveCombatStats(db, characterId)
     : null;

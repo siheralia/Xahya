@@ -72,6 +72,12 @@ export async function GET(
   });
 
   type StatKey = "strength" | "agility" | "constitution" | "intelligence" | "wisdom" | "charisma" | "spirit" | "luck";
+  const perkBaseStatCode: Record<StatKey,string> = { strength:"STR", agility:"AGI", constitution:"CON", intelligence:"INT", wisdom:"WIS", charisma:"CHA", spirit:"SPI", luck:"LCK" };
+  const derivedStatCode: Record<string,string> = {
+    maxHp:"HP", maxMana:"MANA", physicalAttack:"PHYS_ATK", magicAttack:"MAGIC_ATK", physicalDefense:"DEF", magicDefense:"MAG_DEF",
+    precision:"PRECISION", critical:"CRITICAL", discovery:"DISCOVERY", miracle:"MIRACLE", intimidation:"INTIMIDATION",
+    conquest:"CONQUEST", race:"RACE", dodge:"DODGE", stealth:"STEALTH", detection:"DETECTION",
+  };
 
   const baseStats = stats
     ? {
@@ -121,9 +127,11 @@ export async function GET(
         const itemStat = itemStatCode[statKey];
         const itemStatBonuses = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" && effect.stat === itemStat).reduce((sum: number, effect: any) => sum + Number(effect.value), 0);
         const itemStatMultipliers = equippedItemEffects.filter((effect: any) => effect.type === "stat_multiplier" && effect.stat === itemStat).reduce((sum: number, effect: any) => sum + Number(effect.value) / 100, 0);
-        const objectFlatBonus = flatModifiers.filter((modifier) => String(modifier.source).startsWith("ITEM:")).reduce((sum, modifier) => sum + Number(modifier.amount), 0) + itemStatBonuses;
+        const perkStatBonuses = perkEffects.filter((effect:any) => String(effect.type)==="STAT_BONUS" && String(effect.target)===itemStat).reduce((sum:number,effect:any)=>sum+Number(effect.value),0);
+        const perkStatMultipliers = perkEffects.filter((effect:any) => String(effect.type)==="STAT_MULTIPLIER" && String(effect.target)===itemStat).reduce((sum:number,effect:any)=>sum+Number(effect.value)/100,0);
+        const objectFlatBonus = flatModifiers.filter((modifier) => String(modifier.source).startsWith("ITEM:")).reduce((sum, modifier) => sum + Number(modifier.amount), 0) + itemStatBonuses + perkStatBonuses;
         const karmaBonus = flatModifiers.filter((modifier) => String(modifier.source) === "KARMA_BOOST").reduce((sum, modifier) => sum + Number(modifier.amount), 0);
-        const combinedMultiplier = 1 + multiplierModifiers.reduce((sum, modifier) => sum + Number(modifier.amount) / 100, 0) + itemStatMultipliers;
+        const combinedMultiplier = 1 + multiplierModifiers.reduce((sum, modifier) => sum + Number(modifier.amount) / 100, 0) + itemStatMultipliers + perkStatMultipliers;
         result[statKey] = {
           base,
           multipliers: multiplierModifiers.map((modifier) => 1 + Number(modifier.amount) / 100),
@@ -150,11 +158,19 @@ export async function GET(
   }
   if (derivedStats) {
     for (const effect of perkEffects) {
-      if (String(effect.type) !== "RESOURCE_BONUS") continue;
+      const type = String(effect.type);
       const target = String(effect.target ?? "");
       const value = Number(effect.value ?? 0);
-      if (target === "HP") derivedStats.maxHp += value;
-      if (target === "MANA") derivedStats.maxMana += value;
+      if (type === "RESOURCE_BONUS" && target === "HP") derivedStats.maxHp += value;
+      if (type === "RESOURCE_BONUS" && target === "MANA") derivedStats.maxMana += value;
+      if (type === "STAT_BONUS" && derivedStatCode[target] === target) {
+        const key = Object.keys(derivedStatCode).find((candidate) => derivedStatCode[candidate] === target);
+        if (key) (derivedStats as any)[key] += value;
+      }
+      if (type === "STAT_MULTIPLIER" && derivedStatCode[target] === target) {
+        const key = Object.keys(derivedStatCode).find((candidate) => derivedStatCode[candidate] === target);
+        if (key) (derivedStats as any)[key] *= 1 + value / 100;
+      }
     }
   }
   const itemEffects = ownedItems

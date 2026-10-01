@@ -313,7 +313,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const luck = Math.max(0, Number(combat?.effectiveStats?.luck ?? 0));
       const baseTreasure = (Math.floor(Math.random() * 901) + 100) * 10;
       const treasureValue = Math.round(baseTreasure * (1 + Math.min(1, luck / 100)));
-      const isBoss = String(room.roomType) === "BOSS";\n      const moneyReward = Math.floor(treasureValue / 5) * (isBoss ? 2 : 1);
+      const isBoss = String(room.roomType) === "BOSS";
+      const moneyReward = Math.floor(treasureValue / 5) * (isBoss ? 2 : 1);
 
       await Encounter.where({ id:Number(encounter.id) }).update({ status:"DEFEATED" });
       await tx.orm.public.CharacterResource.where({ id:Number(resources.id) }).update({

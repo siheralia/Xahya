@@ -225,6 +225,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const mazeId = Number((await params).id);
   const maze = await db.orm.public.Maze.where({ id:mazeId }).first();
   if (!maze) return NextResponse.json({ error:"Laberinto no encontrado." }, { status:404 });
+
+  // Compatibilidad con laberintos creados antes de las opciones de contenido:
+  // null conserva el comportamiento histórico (todo permitido).
+  const normalizedMaze = {
+    ...maze,
+    allowTraps: maze.allowTraps == null ? true : Boolean(maze.allowTraps),
+    allowDeath: maze.allowDeath == null ? true : Boolean(maze.allowDeath),
+    allowTreasures: maze.allowTreasures == null ? true : Boolean(maze.allowTreasures),
+  };
+
+  // Repara los registros antiguos al cargarlos para que no vuelvan a quedar en null.
+  if (maze.allowTraps == null || maze.allowDeath == null || maze.allowTreasures == null) {
+    await (db.orm.public as any).Maze.where({ id:mazeId }).update({
+      allowTraps: normalizedMaze.allowTraps,
+      allowDeath: normalizedMaze.allowDeath,
+      allowTreasures: normalizedMaze.allowTreasures,
+    });
+  }
+
   const rooms = await db.orm.public.MazeRoom.where({ mazeId }).all();
   const exits = await (db.orm.public as any).MazeExit.where({ mazeId }).all();
   const enemies = await (db.orm.public as any).MazeRoomEnemy.all();
@@ -288,7 +307,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     };
   })).then((entries:any[]) => entries.filter(Boolean));
   return NextResponse.json({
-    maze,
+    maze: normalizedMaze,
     position: position ? Number(position.roomId) : null,
     positionStatus: position ? String(position.status ?? "ACTIVE") : null,
     positionLockReason: position?.lockReason ?? null,

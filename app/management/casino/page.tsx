@@ -84,7 +84,7 @@ export default function CasinoManagementPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error ?? "No se pudo cambiar el set.");
       setActiveSetId(data.activeSetId);
-      setSuccess("Set "" + selected.name + "" activado. Las siguientes tiradas usarán esta configuración.");
+      setSuccess(`Set "${selected.name}" activado. Las siguientes tiradas usarán esta configuración.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cambiar el set.");
     } finally {

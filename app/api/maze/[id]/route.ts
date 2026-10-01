@@ -448,10 +448,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await (tx.orm.public as any).MazeCharacterPosition.where({ mazeId }).delete();
       await (tx.orm.public as any).MazeExit.where({ mazeId }).delete();
       await tx.orm.public.MazeRoom.where({ mazeId }).delete();
-      const freshMaze = await tx.orm.public.Maze.where({ id:mazeId }).update({
+      await tx.orm.public.Maze.where({ id:mazeId }).update({
         status:"ACTIVE",
       });
-      const room = await generateRoom(tx, freshMaze, 1);
+      // Algunas implementaciones del ORM devuelven el resultado de update()
+      // en un formato distinto al registro. Usamos el registro original para
+      // conservar todos los datos del laberinto al generar la habitación.
+      const room = await generateRoom(tx, maze, 1);
       return { room };
     });
 

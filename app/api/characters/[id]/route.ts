@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
 import { getCombatEffects } from "@/lib/combat/effects";
-import { getPerkEffects } from "@/lib/perks";
+import { getPerkEffects, awardCreationPerks } from "@/lib/perks";
+import { recordAuditEvent } from "@/lib/audit";
 
 export async function GET(
   request: Request,
@@ -250,5 +251,66 @@ export async function GET(
       roomId: Number(mazePosition.roomId),
       roomNumber: mazeRoom ? Number(mazeRoom.roomNumber) : null,
     } : null,
+  });
+}
+
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const characterId = Number(id);
+  if (!Number.isInteger(characterId) || characterId <= 0) {
+    return NextResponse.json({ error: "Personaje inválido" }, { status: 400 });
+  }
+
+  const { userId: clerkId } = await auth();
+  if (!clerkId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const users = await db.orm.public.User.all();
+  const user = users.find((candidate) => candidate.clerkId === clerkId);
+  if (!user) return NextResponse.json({ error: "Xahya user not found" }, { status: 404 });
+
+  const character = await db.orm.public.Character.where({ id: characterId }).first();
+  if (!character) return NextResponse.json({ error: "Personaje no encontrado" }, { status: 404 });
+
+  const isManagementUser = ["GM", "ADMIN"].includes(String(user.role));
+  const isOwner = Number(character.userId) === Number(user.id);
+  if (!isOwner && !isManagementUser) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const result = await db.transaction(async (tx) => awardCreationPerks(tx, characterId));
+
+  if (!result.awardedPerks.length) {
+    const currentCount = result.existingCount;
+    return NextResponse.json(
+      { error: currentCount >= 3 ? "El personaje ya tiene sus 3 perks." : "No hay una perk válida disponible para completar la creación.", count: currentCount },
+      { status: 400 },
+    );
+  }
+
+  await recordAuditEvent({
+    actorUserId: user.id,
+    action: "CHARACTER_CREATION_PERKS_RESTORED",
+    entityType: "CHARACTER",
+    entityId: characterId,
+    characterId,
+    details: {
+      restoredPerks: result.awardedPerks.map((entry: any) => Number(entry.perkId)),
+      previousCount: result.existingCount,
+      finalCount: result.existingCount + result.awardedPerks.length,
+    },
+  });
+
+  return NextResponse.json({
+    success: true,
+    count: result.existingCount + result.awardedPerks.length,
+    awardedPerks: result.awardedPerks.map((entry: any) => ({
+      id: Number(entry.id),
+      perkId: Number(entry.perkId),
+      source: String(entry.source),
+    })),
   });
 }

@@ -61,3 +61,65 @@ export function getPerkSlotCapacity(perks: any[], slot: string) {
     .filter((value) => Number.isFinite(value) && value > 0);
   return caps.length ? Math.max(base, ...caps) : base;
 }
+
+
+export async function awardCreationPerks(tx: any, characterId: number) {
+  const Perk = tx?.orm?.public?.Perk;
+  const CharacterPerk = tx?.orm?.public?.CharacterPerk;
+  if (!Perk || !CharacterPerk) return { awardedPerks: [], existingCount: 0, availablePerks: [] };
+
+  const existingPerks = await CharacterPerk.where({ characterId }).all();
+  const existingCount = existingPerks.length;
+  if (existingCount >= 3) {
+    return { awardedPerks: [], existingCount, availablePerks: await Perk.where({ active: true }).all() };
+  }
+
+  const availablePerks = await Perk.where({ active: true }).all();
+  const awardedPerks: any[] = [];
+  const allAwarded = [...existingPerks];
+
+  for (let roll = existingCount; roll < 3; roll += 1) {
+    const selected = pickWeightedPerk(availablePerks, (perk: any) => getCreationRollProbability(perk, roll));
+    if (!selected) continue;
+
+    const existingSelectedCount = allAwarded.filter((entry) => Number(entry.perkId) === Number(selected.id)).length;
+    if (!Boolean(selected.stackable) && Number(selected.maxStacks ?? 1) <= existingSelectedCount) continue;
+
+    const awarded = await CharacterPerk.create({
+      characterId,
+      perkId: selected.id,
+      source: "CREATION_ROLL",
+    });
+    awardedPerks.push(awarded);
+    allAwarded.push(awarded);
+  }
+
+  const resourceBonuses = awardedPerks
+    .map((entry) => availablePerks.find((perk: any) => Number(perk.id) === Number(entry.perkId)))
+    .flatMap((perk: any) => Array.isArray(perk?.effects) ? perk.effects : [])
+    .filter((effect: any) => String(effect.type) === "RESOURCE_BONUS")
+    .reduce((totals: any, effect: any) => {
+      const target = String(effect.target ?? "");
+      const value = Number(effect.value ?? 0);
+      if (target === "KARMA") totals.karma += value;
+      if (target === "MONEY") totals.money += value;
+      if (target === "LEVEL_UP_POINTS") totals.levelUpPoints += value;
+      return totals;
+    }, { karma: 0, money: 0, levelUpPoints: 0 });
+
+  if (awardedPerks.length && (resourceBonuses.karma || resourceBonuses.money || resourceBonuses.levelUpPoints)) {
+    const CharacterResource = tx?.orm?.public?.CharacterResource;
+    if (CharacterResource) {
+      const resource = await CharacterResource.where({ characterId }).first();
+      if (resource) {
+        await CharacterResource.where({ characterId }).update({
+          karma: Number(resource.karma ?? 0) + resourceBonuses.karma,
+          money: Number(resource.money ?? 0) + resourceBonuses.money,
+          levelUpPoints: Number(resource.levelUpPoints ?? 0) + resourceBonuses.levelUpPoints,
+        });
+      }
+    }
+  }
+
+  return { awardedPerks, existingCount, availablePerks };
+}

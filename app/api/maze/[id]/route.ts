@@ -295,7 +295,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const resources = await tx.orm.public.CharacterResource.where({ characterId }).first();
       if (!resources) throw new Error("RESOURCE_NOT_FOUND");
 
-      const luck = Math.max(0, Number(stats?.luck ?? 0));
+      const luck = Math.max(0, Number(combat?.effectiveStats?.luck ?? 0));
       const baseTreasure = (Math.floor(Math.random() * 901) + 100) * 10;
       const treasureValue = Math.round(baseTreasure * (1 + Math.min(1, luck / 100)));
       const moneyReward = Math.floor(treasureValue / 5);

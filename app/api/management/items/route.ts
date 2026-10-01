@@ -21,6 +21,7 @@ function validate(body: any) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : null;
   const itemType = String(body.itemType ?? "OTHER");
+  const itemSubtype = typeof body.itemSubtype === "string" ? body.itemSubtype.trim() || null : null;
   const acquisitionType = String(body.acquisitionType ?? "PURCHASABLE");
   const price = Number(body.price ?? 0);
   const effects = Array.isArray(body.effects) ? body.effects : [];
@@ -64,6 +65,7 @@ export async function POST(request: Request) {
     name: body.name.trim(),
     description: typeof body.description === "string" ? body.description.trim() || null : null,
     itemType: String(body.itemType),
+    itemSubtype: typeof body.itemSubtype === "string" ? body.itemSubtype.trim() || null : null,
     acquisitionType: String(body.acquisitionType),
     price: Number(body.price ?? 0),
     effects: body.effects,

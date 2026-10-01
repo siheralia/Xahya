@@ -293,8 +293,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     } finally { setAvatarBusy(false); }
   }
 
+  const creationPerkCount = character?.perks?.filter((perk: any) => String(perk.source ?? "") === "CREATION_ROLL").length ?? 0;
+
   async function recoverCreationPerks() {
-    if (!character || character.perks.length >= 3 || perkRecoveryBusy) return;
+    if (!character || creationPerkCount >= 3 || perkRecoveryBusy) return;
     setPerkRecoveryBusy(true);
     setError("");
     setSuccess("");
@@ -1184,8 +1186,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div><h2 className="text-xl font-semibold">Perks</h2><p className="mt-1 text-sm text-zinc-500">Beneficios permanentes obtenidos por el personaje.</p></div>
             <div className="flex items-center gap-3">
-              <span className="text-xs text-zinc-600">{character.perks.length}/3 obtenidos</span>
-              {character.perks.length < 3 && (
+              <span className="text-xs text-zinc-600">{creationPerkCount}/3 de creación</span>
+              {creationPerkCount < 3 && (
                 <button
                   type="button"
                   onClick={recoverCreationPerks}

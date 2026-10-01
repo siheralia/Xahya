@@ -15,7 +15,18 @@ export default function PerksManagementPage(){
   const [name,setName]=useState("");
   const [description,setDescription]=useState("");
   const [probability,setProbability]=useState("10");
-  const [effects,setEffects]=useState("[]");
+  type EffectType="STAT_BONUS"|"STAT_MULTIPLIER"|"RESOURCE_BONUS"|"COMBAT_MULTIPLIER"|"EQUIPMENT_SLOT_CAP";
+  type Effect={type:EffectType;target:string;value:number};
+  const [effectRows,setEffectRows]=useState<Effect[]>([]);
+  const EFFECT_TYPES:[EffectType,string][]=[["STAT_BONUS","Bono de estadística"],["STAT_MULTIPLIER","Multiplicador de estadística"],["RESOURCE_BONUS","Bono de recurso"],["COMBAT_MULTIPLIER","Efecto de combate"],["EQUIPMENT_SLOT_CAP","Capacidad de equipamiento"]];
+  const TARGETS:Record<EffectType,[string,string][]> = {
+    STAT_BONUS:[["STR","Fuerza (STR)"],["AGI","Agilidad (AGI)"],["CON","Constitución (CON)"],["INT","Inteligencia (INT)"],["WIS","Sabiduría (WIS)"],["CHA","Carisma (CHA)"],["SPI","Espíritu (SPI)"],["LCK","Suerte (LCK)"],["HP","Vida máxima (HP)"],["MANA","Maná máximo"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"]],
+    STAT_MULTIPLIER:[["STR","Fuerza (STR)"],["AGI","Agilidad (AGI)"],["CON","Constitución (CON)"],["INT","Inteligencia (INT)"],["WIS","Sabiduría (WIS)"],["CHA","Carisma (CHA)"],["SPI","Espíritu (SPI)"],["LCK","Suerte (LCK)"],["HP","Vida máxima (HP)"],["MANA","Maná máximo"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"]],
+    RESOURCE_BONUS:[["HP","Vida máxima (HP)"],["MANA","Maná máximo"],["KARMA","Karma"],["MONEY","Dinero"],["LEVEL_UP_POINTS","Puntos de Level Up"]],
+    COMBAT_MULTIPLIER:[["ATTACK_TOTAL","Ataque total"],["DAMAGE_REDUCTION_ALL","Reducción de daño total"]],
+    EQUIPMENT_SLOT_CAP:[["MAIN_HAND","Mano principal"],["OFF_HAND","Mano secundaria"],["HEAD","Cabeza"],["BODY","Cuerpo"],["FEET","Pies"],["ARMS","Brazos"],["BACK","Espalda"],["ACCESSORY_1","Accesorio 1"],["ACCESSORY_2","Accesorio 2"]],
+  };
+  const [effects,setEffects]=useState("");
   const [stackable,setStackable]=useState(true);
   const [maxStacks,setMaxStacks]=useState("");
   const [error,setError]=useState("");
@@ -31,7 +42,7 @@ export default function PerksManagementPage(){
   useEffect(()=>{load().catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar."));},[]);
 
   function clearForm(){
-    setEditingId(null);setName("");setDescription("");setProbability("10");setEffects("[]");setStackable(true);setMaxStacks("");
+    setEditingId(null);setName("");setDescription("");setProbability("10");setEffectRows([]);setEffects("");setStackable(true);setMaxStacks("");
   }
 
   function edit(perk:Perk){
@@ -39,7 +50,7 @@ export default function PerksManagementPage(){
     setName(perk.name);
     setDescription(perk.description??"");
     setProbability(String(perk.probability));
-    setEffects(JSON.stringify(perk.effects??[],null,2));
+    setEffectRows((Array.isArray(perk.effects)?perk.effects:[]).map((effect:any)=>({type:(EFFECT_TYPES.some(([value])=>value===effect?.type)?effect.type:"STAT_BONUS") as EffectType,target:String(effect?.target??"STR"),value:Number(effect?.value??0)})));
     setStackable(perk.stackable);
     setMaxStacks(perk.maxStacks==null?"":String(perk.maxStacks));
     setError("");setSuccess("");
@@ -49,9 +60,8 @@ export default function PerksManagementPage(){
   async function savePerk(){
     setError("");setSuccess("");
     if(!name.trim()){setError("El perk necesita un nombre.");return;}
-    let parsed:any;
-    try{parsed=JSON.parse(effects);}catch{setError("Los efectos deben ser JSON válido.");return;}
-    if(!Array.isArray(parsed)){setError("Los efectos deben ser un arreglo JSON.");return;}
+    const parsed=effectRows.filter(effect=>EFFECT_TYPES.some(([type])=>type===effect.type)&&TARGETS[effect.type]?.some(([target])=>target===effect.target)).map(effect=>({type:effect.type,target:effect.target,value:Number(effect.value)}));
+    if(parsed.some(effect=>!Number.isFinite(effect.value))){setError("Todos los valores de los efectos deben ser números.");return;}
     const payload={name:name.trim(),description,effects:parsed,probability:Number(probability),stackable,maxStacks:stackable?null:(maxStacks===""?null:Number(maxStacks))};
     if(!Number.isFinite(payload.probability)||payload.probability<0){setError("Probabilidad inválida.");return;}
     if(!stackable&&maxStacks!==""&&(!Number.isFinite(Number(maxStacks))||Number(maxStacks)<1)){setError("El máximo de acumulaciones debe ser al menos 1.");return;}
@@ -98,7 +108,10 @@ export default function PerksManagementPage(){
           <input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"/>
           <input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Descripción" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"/>
           <label className="text-sm text-zinc-400">Probabilidad<input type="number" min="0" step="0.1" value={probability} onChange={e=>setProbability(e.target.value)} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"/></label>
-          <label className="text-sm text-zinc-400">Efectos JSON<textarea value={effects} onChange={e=>setEffects(e.target.value)} rows={7} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 font-mono text-xs"/></label>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">Efectos</div><div className="text-xs text-zinc-500">Configúralos con selectores, sin escribir JSON.</div></div><button type="button" onClick={()=>setEffectRows(rows=>[...rows,{type:"STAT_BONUS",target:"STR",value:0}])} className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm text-cyan-300">+ Añadir efecto</button></div>
+            <div className="mt-3 space-y-3">{effectRows.map((effect,index)=>{const targets=TARGETS[effect.type]??[];return <div key={index} className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 md:grid-cols-[1fr_1fr_120px_auto]"><select value={effect.type} onChange={e=>{const type=e.target.value as EffectType;setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,type,target:TARGETS[type][0][0]}:row));}} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">{EFFECT_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><select value={targets.some(([target])=>target===effect.target)?effect.target:targets[0]?.[0]} onChange={e=>setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,target:e.target.value}:row))} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">{targets.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><input type="number" step="0.1" value={effect.value} onChange={e=>setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,value:Number(e.target.value)}:row))} placeholder="Valor" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"/><button type="button" onClick={()=>setEffectRows(rows=>rows.filter((_,i)=>i!==index))} className="rounded-lg border border-red-900/60 px-3 py-2 text-sm text-red-300">Quitar</button></div>})}{!effectRows.length&&<p className="text-sm text-zinc-600">Sin efectos.</p>}</div>
+          </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={stackable} onChange={e=>setStackable(e.target.checked)}/> Acumulable</label>
           {!stackable&&<input type="number" min="1" value={maxStacks} onChange={e=>setMaxStacks(e.target.value)} placeholder="Máximo de acumulaciones" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"/>}
           <button onClick={savePerk} className="rounded-lg bg-white px-4 py-3 font-semibold text-black">{editingId?"Guardar cambios":"Crear perk"}</button>

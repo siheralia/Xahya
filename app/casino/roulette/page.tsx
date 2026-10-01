@@ -15,45 +15,38 @@ type HistoryEntry = { id: number; createdAt: string; bet: number; label: string;
 type Segment = {
   label: string;
   weight: number;
+  color: string;
 };
 
-const SEGMENT_COLORS = [
-  "#991b1b", "#d4d4d8", "#b91c1c", "#047857",
-  "#dc2626", "#2563eb", "#7f1d1d", "#7c3aed",
-  "#c026d3", "#ca8a04", "#111111", "#15803d",
+const FALLBACK_SEGMENTS: Segment[] = [
+  { label: "0", weight: 100, color: "#111111" },
+  { label: "+10%", weight: 80, color: "#b91c1c" },
+  { label: "0", weight: 100, color: "#171717" },
+  { label: "+50%", weight: 60, color: "#991b1b" },
+  { label: "0", weight: 100, color: "#27272a" },
+  { label: "+100%", weight: 40, color: "#dc2626" },
+  { label: "0", weight: 20, color: "#111111" },
+  { label: "+150%", weight: 30, color: "#b91c1c" },
+  { label: "+200%", weight: 20, color: "#18181b" },
+  { label: "+500%", weight: 10, color: "#7f1d1d" },
+  { label: "-100%", weight: 1, color: "#050505" },
+  { label: "+1000%", weight: 5, color: "#a16207" },
 ];
-
-const SEGMENTS = [
-  { label: "0", weight: 100, multiplier: 0 },
-  { label: "+10%", weight: 80, multiplier: 0.1 },
-  { label: "0", weight: 100, multiplier: 0 },
-  { label: "+50%", weight: 60, multiplier: 0.5 },
-  { label: "0", weight: 100, multiplier: 0 },
-  { label: "+100%", weight: 40, multiplier: 1 },
-  { label: "0", weight: 20, multiplier: 0 },
-  { label: "+150%", weight: 30, multiplier: 1.5 },
-  { label: "+200%", weight: 20, multiplier: 2 },
-  { label: "+500%", weight: 10, multiplier: 5 },
-  { label: "-100%", weight: 1, multiplier: -2 },
-  { label: "+1000%", weight: 5, multiplier: 10 },
-] as const;
-
-const TOTAL_WEIGHT = SEGMENTS.reduce((sum, segment) => sum + segment.weight, 0);
 
 function formatMoney(value: number) {
   return value.toLocaleString("en-US");
 }
 
-function getSegmentCenter(index: number) {
+function getSegmentCenter(segments: Segment[], index: number) {
+  const totalWeight = segments.reduce((sum, segment) => sum + segment.weight, 0);
   let degrees = 0;
-  for (let i = 0; i < index; i += 1) {
-    degrees += (SEGMENTS[i].weight / TOTAL_WEIGHT) * 360;
-  }
-  return degrees + (SEGMENTS[index].weight / TOTAL_WEIGHT) * 180;
+  for (let i = 0; i < index; i += 1) degrees += (segments[i].weight / totalWeight) * 360;
+  return degrees + (segments[index].weight / totalWeight) * 180;
 }
 
 export default function RoulettePage() {
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [segments, setSegments] = useState<Segment[]>(FALLBACK_SEGMENTS);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [bet, setBet] = useState(50);
   const [rotation, setRotation] = useState(0);
@@ -74,15 +67,16 @@ export default function RoulettePage() {
   const wheelBackground = useMemo(() => {
     let start = 0;
     const stops: string[] = [];
+    const totalWeight = segments.reduce((sum, segment) => sum + segment.weight, 0);
 
-    for (let index = 0; index < SEGMENTS.length; index += 1) {
-      const end = start + (SEGMENTS[index].weight / TOTAL_WEIGHT) * 360;
-      stops.push(`${SEGMENT_COLORS[index]} ${start}deg ${end}deg`);
+    for (let index = 0; index < segments.length; index += 1) {
+      const end = start + (segments[index].weight / totalWeight) * 360;
+      stops.push(`${segments[index].color} ${start}deg ${end}deg`);
       start = end;
     }
 
     return `conic-gradient(from 0deg, ${stops.join(", ")})`;
-  }, []);
+  }, [segments]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -95,6 +89,7 @@ export default function RoulettePage() {
       })
       .then((data) => {
         const nextCharacters = data.characters as Character[];
+        if (Array.isArray(data.segments)) setSegments(data.segments as Segment[]);
         setCharacters(nextCharacters);
 
         const requested = nextCharacters.find((character) => character.id === requestedId);
@@ -150,7 +145,7 @@ export default function RoulettePage() {
       if (!response.ok) throw new Error(data?.error ?? "No se pudo girar la ruleta.");
 
       const final = data.results?.[data.results.length - 1] ?? data;
-      const center = getSegmentCenter(Number(final.segmentIndex));
+      const center = getSegmentCenter(segments, Number(final.segmentIndex));
       const target = rotation + (animateWheel ? 1800 : 0) + ((360 - center - (rotation % 360)) + 360) % 360;
       setRotation(target);
 
@@ -335,8 +330,8 @@ export default function RoulettePage() {
                         transitionTimingFunction: "cubic-bezier(.12,.75,.18,1)",
                       }}
                     >
-                      {SEGMENTS.map((segment, index) => {
-                        const center = getSegmentCenter(index);
+                      {segments.map((segment, index) => {
+                        const center = getSegmentCenter(segments, index);
                         return (
                           <span
                             key={index}

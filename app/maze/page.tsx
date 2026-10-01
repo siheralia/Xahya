@@ -156,7 +156,7 @@ export default function MazePage(){
     <div className="mt-4 space-y-2">
       <p className="text-xs text-zinc-400">Tienes consumibles para resolver la trampa:</p>
       {maze.trapActions.map((entry:any)=>(
-        <button key={entry.characterItemId+"-"+entry.action"} onClick={()=>useTrapConsumable(Number(entry.characterItemId),entry.action)} disabled={trapBusy!==null||busy} className="w-full rounded-lg border border-amber-700/70 bg-zinc-950 px-4 py-3 text-left text-sm text-amber-200 disabled:opacity-50">
+        <button key={entry.characterItemId+"-"+entry.action} onClick={()=>useTrapConsumable(Number(entry.characterItemId),entry.action)} disabled={trapBusy!==null||busy} className="w-full rounded-lg border border-amber-700/70 bg-zinc-950 px-4 py-3 text-left text-sm text-amber-200 disabled:opacity-50">
           {trapBusy===Number(entry.characterItemId)?"Usando...":entry.action==="DISARM_MAZE_TRAP"?"🛠️ Desactivar trampa":"🔓 Liberarme de la trampa"} <span className="text-xs text-zinc-500">({entry.name} ×{entry.quantity})</span>
         </button>
       ))}

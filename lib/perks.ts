@@ -68,21 +68,32 @@ export async function awardCreationPerks(tx: any, characterId: number) {
   const CharacterPerk = tx?.orm?.public?.CharacterPerk;
   if (!Perk || !CharacterPerk) return { awardedPerks: [], existingCount: 0, availablePerks: [] };
 
-  const existingPerks = await CharacterPerk.where({ characterId }).all();
-  const existingCount = existingPerks.length;
+  const allCharacterPerks = await CharacterPerk.where({ characterId }).all();
+  // Solo cuentan las perks obtenidas durante la creación. Las otorgadas por
+  // gestión u otras fuentes no consumen ninguno de los 3 rolls de creación.
+  const creationPerks = allCharacterPerks.filter(
+    (entry: any) => String(entry.source ?? "") === "CREATION_ROLL"
+  );
+  const existingCount = creationPerks.length;
+
   if (existingCount >= 3) {
     return { awardedPerks: [], existingCount, availablePerks: await Perk.where({ active: true }).all() };
   }
 
   const availablePerks = await Perk.where({ active: true }).all();
   const awardedPerks: any[] = [];
-  const allAwarded = [...existingPerks];
+  const allCreationAwarded = [...creationPerks];
 
   for (let roll = existingCount; roll < 3; roll += 1) {
     const selected = pickWeightedPerk(availablePerks, (perk: any) => getCreationRollProbability(perk, roll));
     if (!selected) continue;
 
-    const existingSelectedCount = allAwarded.filter((entry) => Number(entry.perkId) === Number(selected.id)).length;
+    const existingSelectedCount = allCreationAwarded.filter(
+      (entry) => Number(entry.perkId) === Number(selected.id)
+    ).length;
+
+    // No hay un límite global de perks: solo respetamos maxStacks cuando
+    // la propia perk lo define y contamos únicamente las de creación.
     if (!Boolean(selected.stackable) && Number(selected.maxStacks ?? 1) <= existingSelectedCount) continue;
 
     const awarded = await CharacterPerk.create({
@@ -91,7 +102,7 @@ export async function awardCreationPerks(tx: any, characterId: number) {
       source: "CREATION_ROLL",
     });
     awardedPerks.push(awarded);
-    allAwarded.push(awarded);
+    allCreationAwarded.push(awarded);
   }
 
   const resourceBonuses = awardedPerks

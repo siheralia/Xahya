@@ -109,6 +109,10 @@ export async function GET() {
   const rooms = await db.orm.public.MazeRoom.all();
   return NextResponse.json(mazes.map((maze: any) => ({
     ...maze,
+    // Los laberintos antiguos con null conservan el comportamiento original.
+    allowTraps: maze.allowTraps == null ? true : Boolean(maze.allowTraps),
+    allowDeath: maze.allowDeath == null ? true : Boolean(maze.allowDeath),
+    allowTreasures: maze.allowTreasures == null ? true : Boolean(maze.allowTreasures),
     roomCount: rooms.filter((room: any) => Number(room.mazeId) === Number(maze.id)).length,
   })));
 }

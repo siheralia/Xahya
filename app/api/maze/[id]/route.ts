@@ -260,6 +260,29 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     ? await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first()
     : null;
 
+  let trapActions: Array<{ characterItemId:number; name:string; quantity:number; action:string }> = [];
+  if (position) {
+    const CharacterItem = (db.orm.public as any).CharacterItem;
+    const Item = (db.orm.public as any).Item;
+    if (CharacterItem && Item) {
+      const ownedItems = await CharacterItem.where({ characterId }).all();
+      const itemDefinitions = await Item.all();
+      trapActions = ownedItems.flatMap((owned:any) => {
+        const item = itemDefinitions.find((candidate:any) => Number(candidate.id) === Number(owned.itemId));
+        if (!item || String(item.itemType) !== "CONSUMABLE") return [];
+        const effects = Array.isArray(item.effects) ? item.effects : [];
+        return effects
+          .filter((effect:any) => effect?.type === "system_action" && ["DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED"].includes(String(effect.action)))
+          .map((effect:any) => ({
+            characterItemId: Number(owned.id),
+            name: String(item.name),
+            quantity: Number(owned.quantity ?? 0),
+            action: String(effect.action),
+          }));
+      }).filter((entry:any) => entry.quantity > 0);
+    }
+  }
+
   // Los encuentros creados antes de escalar estadísticas pueden tener generatedStats vacío.
   // Escalarlos aquí garantiza que defensa mágica/física y el botón de derrota tengan datos.
   const activeMazeEnemies = enemies.filter((enemy:any) => String(enemy.status) === "ACTIVE");
@@ -339,6 +362,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     })),
     exits,
     occupants,
+    trapActions,
     directionLabels:DIRECTION_LABELS,
   });
 }

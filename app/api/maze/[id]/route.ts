@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted, depthMultiplier, pickEnemyFocus, pickEnemyBehavior, scaleEnemyStats } from "@/lib/maze";
 import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
-import { getEnemyImageUrl } from "@/lib/enemy-image";
+import { getDefaultEnemyImageUrl, getEnemyImagePaths, getEnemyImageUrl } from "@/lib/enemy-image";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -249,10 +249,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const exits = await (db.orm.public as any).MazeExit.where({ mazeId }).all();
   const enemies = await (db.orm.public as any).MazeRoomEnemy.all();
   const definitions = await (db.orm.public as any).Enemy.all();
-  const Setting = (db.orm.public as any).AppSetting;
-  const defaultImageSetting = Setting ? await Setting.where({ key: "enemy_default_image_path" }).first() : null;
-  const defaultEnemyImageUrl = await getEnemyImageUrl(defaultImageSetting?.value ? String(defaultImageSetting.value) : null);
-  const definitionsWithImages = await Promise.all(definitions.map(async (enemy:any) => ({ ...enemy, imageUrl: await getEnemyImageUrl(enemy.imagePath ?? null) })));
+  const imagePaths = await getEnemyImagePaths(definitions.map((enemy:any)=>Number(enemy.id)));
+  const defaultEnemyImageUrl = await getDefaultEnemyImageUrl();
+  const definitionsWithImages = await Promise.all(definitions.map(async (enemy:any) => ({ ...enemy, imageUrl: await getEnemyImageUrl(imagePaths.get(Number(enemy.id))) })));
   const characterId = Number(new URL(_request.url).searchParams.get("characterId"));
   if (Number.isInteger(characterId) && characterId > 0) {
     const character = await db.orm.public.Character.where({ id: characterId }).first();

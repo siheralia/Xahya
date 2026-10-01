@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted, depthMultiplier, pickEnemyFocus, pickEnemyBehavior, scaleEnemyStats } from "@/lib/maze";
+import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -29,6 +30,70 @@ function roomDescription(type: string) {
 async function getCharacterLuck(tx: any, characterId: number) {
   const stat = await (tx.orm.public as any).CharacterStat.where({ characterId }).first();
   return Math.max(0, Number(stat?.luck ?? 0));
+}
+
+const STAT_KEYS = ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"] as const;
+const STAT_CODES: Record<(typeof STAT_KEYS)[number], string> = {
+  strength:"STR", agility:"AGI", constitution:"CON", intelligence:"INT",
+  wisdom:"WIS", charisma:"CHA", spirit:"SPI", luck:"LCK",
+};
+
+async function getEffectiveCombatStats(tx: any, characterId: number) {
+  const stats = await (tx.orm.public as any).CharacterStat.where({ characterId }).first();
+  if (!stats) return null;
+  const modifiers = await (tx.orm.public as any).CharacterModifier.where({ characterId }).all();
+  const now = Date.now();
+  const activeModifiers = modifiers.filter((modifier:any) =>
+    !modifier.expiresAt || new Date(String(modifier.expiresAt)).getTime() > now
+  );
+  const CharacterItem = (tx.orm.public as any).CharacterItem;
+  const Item = (tx.orm.public as any).Item;
+  const ownedItems = CharacterItem ? await CharacterItem.where({ characterId }).all() : [];
+  const itemDefinitions = Item ? await Item.all() : [];
+  const equippedEffects = ownedItems
+    .filter((owned:any) => Boolean(owned.equipped))
+    .flatMap((owned:any) => {
+      const item = itemDefinitions.find((candidate:any) => Number(candidate.id) === Number(owned.itemId));
+      return (Array.isArray(item?.effects) ? item.effects : []).map((effect:any) => ({
+        type:String(effect.type), stat:String(effect.stat ?? ""), value:Number(effect.value),
+      }));
+    });
+
+  const effectiveStats = Object.fromEntries(STAT_KEYS.map((key) => {
+    const base = Number(stats[key] ?? 0);
+    const flat = activeModifiers.filter((m:any) => String(m.stat) === key)
+      .reduce((sum:number,m:any) => sum + Number(m.amount),0);
+    const karma = activeModifiers.filter((m:any) => String(m.stat) === key && String(m.source) === "KARMA_BOOST")
+      .reduce((sum:number,m:any) => sum + Number(m.amount),0);
+    const multiplier = activeModifiers.filter((m:any) => String(m.stat) === key + "_multiplier")
+      .reduce((sum:number,m:any) => sum + Number(m.amount) / 100,0);
+    const itemBonus = equippedEffects.filter((e:any) => e.type === "stat_bonus" && e.stat === STAT_CODES[key])
+      .reduce((sum:number,e:any) => sum + Number(e.value),0);
+    const itemMultiplier = equippedEffects.filter((e:any) => e.type === "stat_multiplier" && e.stat === STAT_CODES[key])
+      .reduce((sum:number,e:any) => sum + Number(e.value) / 100,0);
+    return [key, base * (1 + multiplier + itemMultiplier) + flat + itemBonus + karma];
+  })) as Record<(typeof STAT_KEYS)[number], number>;
+
+  let derived = calculateDerivedStats(effectiveStats);
+  derived = applyDerivedItemEffects(
+    derived,
+    equippedEffects.filter((e:any) => e.type === "stat_bonus" || e.type === "stat_multiplier"),
+  );
+  const attackMultiplier = 1 + equippedEffects
+    .filter((e:any) => e.type === "stat_multiplier" && e.stat === "ATTACK_TOTAL")
+    .reduce((sum:number,e:any) => sum + Number(e.value) / 100, 0);
+  derived.physicalAttack *= attackMultiplier;
+  derived.magicAttack *= attackMultiplier;
+
+  return { effectiveStats, derived };
+}
+
+function canAutoDefeat(combat:any, enemyStats:any, quantity:number) {
+  if (!combat || !enemyStats) return false;
+  const enemyDerived = calculateDerivedStats(enemyStats);
+  const physicalDamageCheck = Number(combat.derived.physicalAttack) > Number(enemyDerived.physicalDefense);
+  const magicDamageCheck = Number(combat.derived.magicAttack) > Number(enemyDerived.magicDefense);
+  return quantity > 0 && (physicalDamageCheck || magicDamageCheck);
 }
 
 async function getGroupPower(tx: any, mazeId: number) {
@@ -150,13 +215,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const position = Number.isInteger(characterId) && characterId > 0
     ? await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first()
     : null;
-  const characterStats = Number.isInteger(characterId) && characterId > 0
-    ? await (db.orm.public as any).CharacterStat.where({ characterId }).first()
+  const characterCombat = Number.isInteger(characterId) && characterId > 0
+    ? await getEffectiveCombatStats(db, characterId)
     : null;
-  const characterPower = characterStats
-    ? ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"]
-      .reduce((sum,key) => sum + Number(characterStats[key] ?? 0), 0)
-    : 0;
   const positions = await (db.orm.public as any).MazeCharacterPosition.where({ mazeId }).all();
   const characters = await db.orm.public.Character.all();
   const occupants = positions.map((entry:any) => {
@@ -181,12 +242,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       enemies: enemies.filter((enemy:any) => Number(enemy.roomId) === Number(room.id)).map((enemy:any) => {
         const definition = definitions.find((entry:any) => Number(entry.id) === Number(enemy.enemyId)) ?? null;
         const opponentPower = Number(enemy.targetPower ?? 0) * Math.max(1, Number(enemy.quantity ?? 1));
+        const enemyStats = (enemy.generatedStats ?? {}) as any;
+        const enemyDerived = calculateDerivedStats(enemyStats);
         return {
           ...enemy,
           enemy: definition,
-          characterPower,
+          characterPower: characterCombat ? Object.values(characterCombat.effectiveStats).reduce((sum:number,value:any)=>sum+Number(value),0) : 0,
           opponentPower,
-          canAutoDefeat: String(enemy.status) === "ACTIVE" && characterPower > opponentPower,
+          combatStats: characterCombat?.derived ?? null,
+          opponentDerived: enemyDerived,
+          canAutoDefeat: String(enemy.status) === "ACTIVE" && canAutoDefeat(characterCombat, enemyStats, Number(enemy.quantity ?? 1)),
         };
       }),
     })),
@@ -221,13 +286,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const encounter = await Encounter.where({ id:enemyInstanceId, roomId:Number(room.id) }).first();
       if (!encounter || String(encounter.status) !== "ACTIVE") throw new Error("ENEMY_NOT_ACTIVE");
 
-      const stats = await (tx.orm.public as any).CharacterStat.where({ characterId }).first();
-      const characterPower = stats
-        ? ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"]
-          .reduce((sum,key) => sum + Number(stats[key] ?? 0), 0)
-        : 0;
+      const combat = await getEffectiveCombatStats(tx, characterId);
+      const characterPower = combat ? Object.values(combat.effectiveStats).reduce((sum:number,value:any)=>sum+Number(value),0) : 0;
+      const enemyStats = (encounter.generatedStats ?? {}) as any;
       const opponentPower = Number(encounter.targetPower ?? 0) * Math.max(1, Number(encounter.quantity ?? 1));
-      if (characterPower <= opponentPower) throw new Error("NOT_STRONGER");
+      if (!canAutoDefeat(combat, enemyStats, Number(encounter.quantity ?? 1))) throw new Error("NOT_STRONG_ENOUGH");
 
       const resources = await tx.orm.public.CharacterResource.where({ characterId }).first();
       if (!resources) throw new Error("RESOURCE_NOT_FOUND");
@@ -257,6 +320,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         karma:1,
         characterPower,
         opponentPower,
+        physicalAttack:combat?.derived.physicalAttack ?? 0,
+        magicAttack:combat?.derived.magicAttack ?? 0,
         roomCleared:activeEnemies.length === 0,
       };
     }).catch((error) => ({ error:error instanceof Error ? error.message : "UNKNOWN" }));
@@ -266,7 +331,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         NOT_IN_MAZE:"El personaje no está dentro de este laberinto.",
         ROOM_NOT_FOUND:"Habitación no encontrada.",
         ENEMY_NOT_ACTIVE:"Ese enemigo ya fue derrotado.",
-        NOT_STRONGER:"El personaje no es más fuerte que el oponente.",
+        NOT_STRONG_ENOUGH:"El ataque físico o mágico del personaje no supera la defensa correspondiente del oponente.",
         RESOURCE_NOT_FOUND:"El personaje no tiene recursos.",
       };
       return NextResponse.json({ error:messages[result.error] ?? "No se pudo derrotar al enemigo." }, { status:400 });
@@ -278,7 +343,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       entityType:"MAZE_ROOM_ENEMY",
       entityId:enemyInstanceId,
       characterId,
-      details:{ mazeId, money:result.money, karma:result.karma, characterPower:result.characterPower, opponentPower:result.opponentPower, roomCleared:result.roomCleared },
+      details:{ mazeId, money:result.money, karma:result.karma, characterPower:result.characterPower, opponentPower:result.opponentPower, physicalAttack:result.physicalAttack, magicAttack:result.magicAttack, roomCleared:result.roomCleared },
     });
     return NextResponse.json(result);
   }

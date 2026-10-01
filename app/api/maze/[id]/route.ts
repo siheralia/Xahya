@@ -361,7 +361,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const activeEnemies = await Encounter.where({ roomId:Number(room.id), status:"ACTIVE" }).all();
       if (activeEnemies.length === 0) {
         await tx.orm.public.MazeRoom.where({ id:Number(room.id) }).update({ status:"CLEARED" });
-        if (String(room.roomType) === "BOSS") {
+        if (String(room.roomType) === "BOSS" && String(maze.mazeType) === "FINITE" && Number(room.roomNumber) === Number(maze.maxRooms)) {
           await tx.orm.public.Maze.where({ id:mazeId }).update({ status:"COMPLETED" });
         }
       }
@@ -369,7 +369,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return {
         success:true,
         money:moneyReward,
-        karma:1,
+        karma:isBoss ? 10 : 5,
         characterPower,
         opponentPower,
         physicalAttack:combat?.derived.physicalAttack ?? 0,

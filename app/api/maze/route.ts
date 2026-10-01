@@ -26,7 +26,12 @@ function roomDescription(type: string) {
 }
 
 async function createRoom(tx: any, maze: any, roomNumber: number, forcedType?: string) {
-  let type = forcedType ?? pickRoomType();
+  const disabledTypes = [
+    !Boolean(maze.allowTraps) ? "TRAP" : null,
+    !Boolean(maze.allowDeath) ? "DEATH" : null,
+    !Boolean(maze.allowTreasures) ? "TREASURE" : null,
+  ].filter(Boolean) as string[];
+  let type = forcedType ?? pickRoomType(0, disabledTypes);
   if (maze.mazeType === "FINITE" && maze.maxRooms === roomNumber) type = "BOSS";
 
   let contentName: string | null = null;
@@ -120,6 +125,9 @@ export async function POST(request: Request) {
     ? String(body.generationMode)
     : "FREE_3D";
   const maxRooms = mazeType === "FINITE" ? Number(body?.maxRooms) : null;
+  const allowTraps = body?.allowTraps !== false;
+  const allowDeath = body?.allowDeath !== false;
+  const allowTreasures = body?.allowTreasures !== false;
 
   if (!name) return NextResponse.json({ error: "El laberinto necesita un nombre." }, { status: 400 });
   if (mazeType === "FINITE" && (!Number.isInteger(maxRooms) || (maxRooms as number) < 2)) return NextResponse.json({ error: "Un laberinto finito necesita al menos 2 habitaciones." }, { status: 400 });
@@ -133,7 +141,7 @@ export async function POST(request: Request) {
   let result;
   try {
     result = await db.transaction(async (tx) => {
-    const maze = await tx.orm.public.Maze.create({ name, description, mazeType, generationMode, maxRooms: safeMaxRooms, status:"ACTIVE" });
+    const maze = await tx.orm.public.Maze.create({ name, description, mazeType, generationMode, maxRooms: safeMaxRooms, allowTraps, allowDeath, allowTreasures, status:"ACTIVE" });
     const room = await createRoom(tx, maze, 1);
     for (const direction of pickRandomDirections(generationMode === "LINEAR" || generationMode === "SPIRAL_TOWER" ? 1 : 2, generationMode as any, 1)) {
       await tx.orm.public.MazeExit.create({ mazeId: maze.id, fromRoomId: room.id, direction, toRoomId: null });
@@ -150,7 +158,7 @@ export async function POST(request: Request) {
     action: "MAZE_CREATED",
     entityType: "MAZE",
     entityId: result.maze.id,
-    details: { name, mazeType, generationMode, maxRooms },
+    details: { name, mazeType, generationMode, maxRooms, allowTraps, allowDeath, allowTreasures },
   });
 
   return NextResponse.json(result, { status: 201 });

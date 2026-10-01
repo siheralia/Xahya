@@ -72,21 +72,38 @@ export function getCasinoSet(id: string | null | undefined): CasinoSet {
   return CASINO_SETS.find((set) => set.id === id) ?? CASINO_SETS[0];
 }
 
-export function getCasinoExpectedReturn(set: CasinoSet, luck = 10) {
+export function getCasinoLuckAdjustedWeights(
+  segments: readonly { multiplier: number; weight: number }[],
+  luck = 10,
+) {
   const safeLuck = Number.isFinite(luck) ? Math.max(0, luck) : 0;
-  const adjusted = set.segments.map((segment) => {
+
+  return segments.map((segment) => {
     let weight = segment.weight;
+
     if (safeLuck < 10) {
       const penalty = Math.min(0.2, (10 - safeLuck) * 0.02);
       if (segment.multiplier === -1) weight *= 1 + penalty;
       else if (segment.multiplier > 0) weight *= 1 - penalty;
     } else if (safeLuck > 20) {
+      // Suerte 30 alcanza el máximo bonus positivo actual (+8%).
       const bonus = Math.min(0.08, (safeLuck - 20) * 0.008);
       if (segment.multiplier > 0) weight *= 1 + bonus;
       else if (segment.multiplier === -1) weight *= 1 - bonus;
     }
-    return { weight: Math.max(0, weight), multiplier: segment.multiplier };
+
+    return Math.max(0, weight);
   });
-  const total = adjusted.reduce((sum, item) => sum + item.weight, 0);
-  return total ? adjusted.reduce((sum, item) => sum + item.weight * item.multiplier, 0) / total : 0;
+}
+
+export function getCasinoExpectedReturn(set: CasinoSet, luck = 10) {
+  const adjusted = getCasinoLuckAdjustedWeights(set.segments, luck);
+  const total = adjusted.reduce((sum, weight) => sum + weight, 0);
+
+  return total
+    ? adjusted.reduce(
+        (sum, weight, index) => sum + weight * set.segments[index].multiplier,
+        0,
+      ) / total
+    : 0;
 }

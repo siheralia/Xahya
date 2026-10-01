@@ -52,10 +52,15 @@ function getRouteInfo(pathname: string, characters: Character[]) {
   return { section, page, backHref, backLabel };
 }
 
-export default function NavigationShell({ children }: { children: React.ReactNode }) {
+export default function NavigationShell({
+  children,
+  canManage,
+}: {
+  children: React.ReactNode;
+  canManage: boolean;
+}) {
   const pathname = usePathname();
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [isManagement, setIsManagement] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [systemOnline, setSystemOnline] = useState(true);
   const route = useMemo(() => getRouteInfo(pathname, characters), [pathname, characters]);
@@ -64,21 +69,18 @@ export default function NavigationShell({ children }: { children: React.ReactNod
     let cancelled = false;
     Promise.all([
       fetch("/api/characters", { cache: "no-store" }),
-      fetch("/api/profile", { cache: "no-store" }),
       fetch("/api/notifications", { cache: "no-store" }),
-    ]).then(async ([charactersResponse, profileResponse, notificationsResponse]) => {
+    ]).then(async ([charactersResponse, notificationsResponse]) => {
       if (cancelled) return;
 
-      setSystemOnline(charactersResponse.ok && profileResponse.ok);
-
-      const [chars, profile, notifications] = await Promise.all([
+      setSystemOnline(charactersResponse.ok);
+      
+      const [chars, notifications] = await Promise.all([
         charactersResponse.ok ? charactersResponse.json() : Promise.resolve([]),
-        profileResponse.ok ? profileResponse.json() : Promise.resolve(null),
         notificationsResponse.ok ? notificationsResponse.json() : Promise.resolve(null),
       ]);
 
       setCharacters(Array.isArray(chars) ? chars : []);
-      setIsManagement(["GM", "ADMIN"].includes(String(profile?.role ?? "")));
       setUnreadCount(Number(notifications?.unreadCount) || 0);
     }).catch(() => {
       if (!cancelled) setSystemOnline(false);
@@ -114,7 +116,7 @@ export default function NavigationShell({ children }: { children: React.ReactNod
           )}
 
           <nav className="xahya-user-nav" aria-label="Navegación de usuario">
-            {isManagement && (
+            {canManage && (
               <Link href="/management" className={pathname.startsWith("/management") ? "xahya-nav-active" : ""}>
                 RPG System
               </Link>

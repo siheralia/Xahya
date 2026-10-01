@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 
-const SYSTEM_ACTIONS = ["ESCAPE_MAZE"] as const;
+const SYSTEM_ACTIONS = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED"] as const;
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -51,6 +51,71 @@ export async function POST(
   const action = String(systemEffect?.action ?? "");
   if (!SYSTEM_ACTIONS.includes(action as any)) {
     return NextResponse.json({ error: "Este consumible es narrativo y no tiene una acción automática del sistema." }, { status: 400 });
+  }
+
+  if (action === "DISARM_MAZE_TRAP" || action === "RELEASE_MAZE_TRAPPED") {
+    const Position = (db.orm.public as any).MazeCharacterPosition;
+    const position = await Position.where({ characterId }).first();
+    if (!position) return NextResponse.json({ error: "No estás dentro de un laberinto." }, { status: 400 });
+
+    const room = await db.orm.public.MazeRoom.where({
+      id: Number(position.roomId),
+      mazeId: Number(position.mazeId),
+    }).first();
+    if (!room) return NextResponse.json({ error: "No se encontró tu habitación actual." }, { status: 404 });
+    if (String(room.roomType) !== "TRAP") {
+      return NextResponse.json({ error: "Este objeto solo puede usarse dentro de una habitación de trampa." }, { status: 400 });
+    }
+
+    const trapped = String(position.status ?? "ACTIVE") === "TRAPPED";
+    if (!trapped) return NextResponse.json({ error: "Tu personaje no está atrapado por esta trampa." }, { status: 400 });
+
+    await db.transaction(async (tx) => {
+      const TxPosition = (tx.orm.public as any).MazeCharacterPosition;
+      const TxCharacterItem = (tx.orm.public as any).CharacterItem;
+
+      if (action === "DISARM_MAZE_TRAP") {
+        await tx.orm.public.MazeRoom.where({ id: Number(room.id) }).update({
+          trapActive: false,
+          status: "CLEARED",
+        });
+      }
+
+      await TxPosition.where({ id: Number(position.id) }).update({
+        status: "ACTIVE",
+        lockReason: null,
+      });
+
+      if (quantity === 1) {
+        await TxCharacterItem.where({ id: characterItemId }).delete();
+      } else {
+        await TxCharacterItem.where({ id: characterItemId }).update({ quantity: quantity - 1 });
+      }
+    });
+
+    await recordAuditEvent({
+      actorUserId: user.id,
+      action: "ITEM_USE_SYSTEM",
+      entityType: "ITEM",
+      entityId: Number(item.id),
+      characterId,
+      details: {
+        characterItemId,
+        itemName: item.name,
+        action,
+        mazeId: Number(position.mazeId),
+        roomId: Number(room.id),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      action,
+      consumed: 1,
+      mazeId: Number(position.mazeId),
+      roomId: Number(room.id),
+      trapDisabled: action === "DISARM_MAZE_TRAP",
+    });
   }
 
   if (action === "ESCAPE_MAZE") {

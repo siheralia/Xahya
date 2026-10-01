@@ -163,13 +163,12 @@ export async function GET(
       const value = Number(effect.value ?? 0);
       if (type === "RESOURCE_BONUS" && target === "HP") derivedStats.maxHp += value;
       if (type === "RESOURCE_BONUS" && target === "MANA") derivedStats.maxMana += value;
-      if (type === "STAT_BONUS" && derivedStatCode[target] === target) {
+      if (type === "STAT_BONUS" || type === "STAT_MULTIPLIER") {
         const key = Object.keys(derivedStatCode).find((candidate) => derivedStatCode[candidate] === target);
-        if (key) (derivedStats as any)[key] += value;
-      }
-      if (type === "STAT_MULTIPLIER" && derivedStatCode[target] === target) {
-        const key = Object.keys(derivedStatCode).find((candidate) => derivedStatCode[candidate] === target);
-        if (key) (derivedStats as any)[key] *= 1 + value / 100;
+        if (key) {
+          if (type === "STAT_BONUS") (derivedStats as any)[key] += value;
+          else (derivedStats as any)[key] *= 1 + value / 100;
+        }
       }
     }
   }

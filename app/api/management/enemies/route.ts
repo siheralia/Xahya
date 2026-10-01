@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getEnemyImageUrl } from "@/lib/enemy-image";
+import { getDefaultEnemyImageUrl, getEnemyImagePaths, getEnemyImageUrl } from "@/lib/enemy-image";
 
 async function getManager() {
   const { userId: clerkId } = await auth();
@@ -17,10 +17,9 @@ export async function GET() {
   try {
     const Enemy = (db.orm.public as any).Enemy;
     const enemies = await Enemy.all();
-    const Setting = (db.orm.public as any).AppSetting;
-    const setting = await Setting.where({ key: "enemy_default_image_path" }).first();
-    const defaultImageUrl = await getEnemyImageUrl(setting?.value ? String(setting.value) : null);
-    const withImages = await Promise.all(enemies.map(async (enemy:any) => ({ ...enemy, imageUrl: await getEnemyImageUrl(enemy.imagePath ?? null) })));
+    const paths = await getEnemyImagePaths(enemies.map((enemy:any)=>Number(enemy.id)));
+    const defaultImageUrl = await getDefaultEnemyImageUrl();
+    const withImages = await Promise.all(enemies.map(async (enemy:any) => ({ ...enemy, imageUrl: await getEnemyImageUrl(paths.get(Number(enemy.id))) })));
     return NextResponse.json({ enemies: withImages, defaultImageUrl });
   } catch (error) {
     console.error("ENEMY_LIST_ERROR", error);
@@ -51,7 +50,6 @@ export async function POST(request: Request) {
       encounterWeight,
       isBoss: Boolean(body?.isBoss) || rank === "BOSS",
       active: true,
-      imagePath: null,
     });
     return NextResponse.json(enemy, { status: 201 });
   } catch (error) {

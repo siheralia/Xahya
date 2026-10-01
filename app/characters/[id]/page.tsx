@@ -13,6 +13,7 @@ type Character = {
   id: number;
   name: string;
   flair: string | null;
+  avatarUrl: string | null;
   age: number | null;
   gender: string | null;
   height: number | null;
@@ -224,6 +225,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [transferItem, setTransferItem] = useState("");
   const [transferQuantity, setTransferQuantity] = useState(1);
   const [transferBusy, setTransferBusy] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   useEffect(() => {
     if (!character) return;
@@ -240,6 +242,55 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     if (!character) return;
     setCharacterFlair(character.flair ?? "");
   }, [character?.id]);
+
+  async function compressAvatar(file: File) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Usa JPG, PNG o WebP.");
+    if (file.size > 10 * 1024 * 1024) throw new Error("La imagen original no puede superar 10 MB.");
+    const bitmap = await createImageBitmap(file);
+    const maxSize = 512;
+    const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("No se pudo preparar la imagen.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error("No se pudo comprimir la imagen.")), "image/webp", 0.82));
+    return new File([blob], "avatar.webp", { type: "image/webp" });
+  }
+
+  async function uploadAvatar(file: File) {
+    if (!character || avatarBusy) return;
+    setAvatarBusy(true); setError(""); setSuccess("");
+    try {
+      const compressed = await compressAvatar(file);
+      const formData = new FormData();
+      formData.append("file", compressed);
+      const response = await fetch("/api/characters/" + character.id + "/avatar", { method: "POST", body: formData });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo subir la imagen.");
+      setCharacter((current) => current ? { ...current, avatarUrl: data.avatarUrl ?? null } : current);
+      setSuccess("Avatar actualizado.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo subir la imagen.");
+    } finally { setAvatarBusy(false); }
+  }
+
+  async function removeAvatar() {
+    if (!character || avatarBusy || !character.avatarUrl) return;
+    if (!window.confirm("¿Eliminar el avatar del personaje?")) return;
+    setAvatarBusy(true); setError(""); setSuccess("");
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/avatar", { method: "DELETE" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo eliminar la imagen.");
+      setCharacter((current) => current ? { ...current, avatarUrl: null } : current);
+      setSuccess("Avatar eliminado.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar la imagen.");
+    } finally { setAvatarBusy(false); }
+  }
 
   async function transfer() {
     if (!character || !transferTarget || (transferMoney <= 0 && !transferItem)) return;
@@ -927,6 +978,25 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           <button type="button" onClick={exportProfileCard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Exportar imagen</button>
         </div>
         {character.canSeeCharacterId && <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>}
+
+        <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <div className="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950">
+              {character.avatarUrl ? <img src={character.avatarUrl} alt={"Avatar de " + character.name} className="h-full w-full object-cover" /> : <CharacterSilhouette className="h-24 w-24 text-zinc-700" />}
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold">Avatar del personaje</h2>
+              <p className="mt-1 text-sm text-zinc-500">JPG, PNG o WebP. Se redimensiona a 512 px y se comprime automáticamente.</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <label className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-zinc-200">
+                  {avatarBusy ? "Procesando..." : character.avatarUrl ? "Cambiar imagen" : "Subir imagen"}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={avatarBusy} onChange={(e) => { const file = e.target.files?.[0]; e.currentTarget.value = ""; if (file) void uploadAvatar(file); }} />
+                </label>
+                {character.avatarUrl && <button type="button" onClick={removeAvatar} disabled={avatarBusy} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-50">Eliminar</button>}
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section className="mt-10 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
           <div className="flex items-baseline justify-between gap-4">

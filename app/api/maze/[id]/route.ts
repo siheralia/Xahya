@@ -150,6 +150,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const position = Number.isInteger(characterId) && characterId > 0
     ? await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first()
     : null;
+  const characterStats = Number.isInteger(characterId) && characterId > 0
+    ? await (db.orm.public as any).CharacterStat.where({ characterId }).first()
+    : null;
+  const characterPower = characterStats
+    ? ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"]
+      .reduce((sum,key) => sum + Number(characterStats[key] ?? 0), 0)
+    : 0;
   const positions = await (db.orm.public as any).MazeCharacterPosition.where({ mazeId }).all();
   const characters = await db.orm.public.Character.all();
   const occupants = positions.map((entry:any) => {
@@ -171,10 +178,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     rooms: rooms.map((room:any) => ({
       ...room,
       treasureRewards: undefined,
-      enemies: enemies.filter((enemy:any) => Number(enemy.roomId) === Number(room.id)).map((enemy:any) => ({
-        ...enemy,
-        enemy: definitions.find((definition:any) => Number(definition.id) === Number(enemy.enemyId)) ?? null,
-      })),
+      enemies: enemies.filter((enemy:any) => Number(enemy.roomId) === Number(room.id)).map((enemy:any) => {
+        const definition = definitions.find((entry:any) => Number(entry.id) === Number(enemy.enemyId)) ?? null;
+        const opponentPower = Number(enemy.targetPower ?? 0) * Math.max(1, Number(enemy.quantity ?? 1));
+        return {
+          ...enemy,
+          enemy: definition,
+          characterPower,
+          opponentPower,
+          canAutoDefeat: String(enemy.status) === "ACTIVE" && characterPower > opponentPower,
+        };
+      }),
     })),
     exits,
     occupants,
@@ -186,6 +200,89 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const user = await getUser();
   if (!user) return NextResponse.json({ error:"Unauthorized" }, { status:401 });
   const body = await request.json().catch(() => null);
+
+  if (body?.action === "defeatEnemy") {
+    const mazeId = Number((await params).id);
+    const characterId = Number(body?.characterId);
+    const enemyInstanceId = Number(body?.enemyId);
+    const character = await db.orm.public.Character.where({ id:characterId }).first();
+    const maze = await db.orm.public.Maze.where({ id:mazeId }).first();
+    if (!character || !maze) return NextResponse.json({ error:"Personaje o laberinto no encontrado." }, { status:404 });
+    const privileged = ["GM","ADMIN"].includes(String(user.role));
+    if (!privileged && Number(character.userId) !== Number(user.id)) return NextResponse.json({ error:"Forbidden" }, { status:403 });
+
+    const result = await db.transaction(async (tx) => {
+      const Position = (tx.orm.public as any).MazeCharacterPosition;
+      const Encounter = (tx.orm.public as any).MazeRoomEnemy;
+      const position = await Position.where({ mazeId, characterId }).first();
+      if (!position) throw new Error("NOT_IN_MAZE");
+      const room = await tx.orm.public.MazeRoom.where({ id:Number(position.roomId), mazeId }).first();
+      if (!room) throw new Error("ROOM_NOT_FOUND");
+      const encounter = await Encounter.where({ id:enemyInstanceId, roomId:Number(room.id) }).first();
+      if (!encounter || String(encounter.status) !== "ACTIVE") throw new Error("ENEMY_NOT_ACTIVE");
+
+      const stats = await (tx.orm.public as any).CharacterStat.where({ characterId }).first();
+      const characterPower = stats
+        ? ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"]
+          .reduce((sum,key) => sum + Number(stats[key] ?? 0), 0)
+        : 0;
+      const opponentPower = Number(encounter.targetPower ?? 0) * Math.max(1, Number(encounter.quantity ?? 1));
+      if (characterPower <= opponentPower) throw new Error("NOT_STRONGER");
+
+      const resources = await tx.orm.public.CharacterResource.where({ characterId }).first();
+      if (!resources) throw new Error("RESOURCE_NOT_FOUND");
+
+      const luck = Math.max(0, Number(stats?.luck ?? 0));
+      const baseTreasure = (Math.floor(Math.random() * 901) + 100) * 10;
+      const treasureValue = Math.round(baseTreasure * (1 + Math.min(1, luck / 100)));
+      const moneyReward = Math.floor(treasureValue / 5);
+
+      await Encounter.where({ id:Number(encounter.id) }).update({ status:"DEFEATED" });
+      await tx.orm.public.CharacterResource.where({ id:Number(resources.id) }).update({
+        money:Number(resources.money) + moneyReward,
+        karma:Number(resources.karma) + 1,
+      });
+
+      const activeEnemies = await Encounter.where({ roomId:Number(room.id), status:"ACTIVE" }).all();
+      if (activeEnemies.length === 0) {
+        await tx.orm.public.MazeRoom.where({ id:Number(room.id) }).update({ status:"CLEARED" });
+        if (String(room.roomType) === "BOSS") {
+          await tx.orm.public.Maze.where({ id:mazeId }).update({ status:"COMPLETED" });
+        }
+      }
+
+      return {
+        success:true,
+        money:moneyReward,
+        karma:1,
+        characterPower,
+        opponentPower,
+        roomCleared:activeEnemies.length === 0,
+      };
+    }).catch((error) => ({ error:error instanceof Error ? error.message : "UNKNOWN" }));
+
+    if ("error" in result) {
+      const messages:Record<string,string> = {
+        NOT_IN_MAZE:"El personaje no está dentro de este laberinto.",
+        ROOM_NOT_FOUND:"Habitación no encontrada.",
+        ENEMY_NOT_ACTIVE:"Ese enemigo ya fue derrotado.",
+        NOT_STRONGER:"El personaje no es más fuerte que el oponente.",
+        RESOURCE_NOT_FOUND:"El personaje no tiene recursos.",
+      };
+      return NextResponse.json({ error:messages[result.error] ?? "No se pudo derrotar al enemigo." }, { status:400 });
+    }
+
+    await recordAuditEvent({
+      actorUserId:user.id,
+      action:"MAZE_ENEMY_AUTO_DEFEATED",
+      entityType:"MAZE_ROOM_ENEMY",
+      entityId:enemyInstanceId,
+      characterId,
+      details:{ mazeId, money:result.money, karma:result.karma, characterPower:result.characterPower, opponentPower:result.opponentPower, roomCleared:result.roomCleared },
+    });
+    return NextResponse.json(result);
+  }
+
   if (body?.action === "deleteMaze" || body?.action === "resetMaze") {
     if (String(user.role) !== "ADMIN") return NextResponse.json({ error:"Solo ADMIN puede borrar o resetear laberintos." }, { status:403 });
     const mazeId = Number((await params).id);

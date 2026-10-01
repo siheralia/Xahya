@@ -109,19 +109,22 @@ export async function PATCH(
     perk: perkDefinitions.find((perk:any) => Number(perk.id) === Number(entry.perkId)) ?? null,
   }));
   const slotCapacity = getPerkSlotCapacity(perkEntries, slot);
-  const occupiedCount = equippedItems.filter(
+  const occupyingItems = equippedItems.filter(
     (candidate:any) =>
       Number(candidate.id) !== characterItemId &&
       Boolean(candidate.equipped) &&
       String(candidate.equippedSlot) === slot,
-  ).length;
+  );
 
-  if (occupiedCount >= slotCapacity) {
-    return NextResponse.json({ error: slotCapacity > 1 ? `Ese slot ya alcanzó su capacidad de ${slotCapacity} objetos.` : "Ese slot ya está ocupado." }, { status: 409 });
-  }
-
-  if (slotCapacity === 1 && occupiedCount > 0) {
-    return NextResponse.json({ error: "Ese slot ya está ocupado." }, { status: 409 });
+  // A single-capacity slot replaces its current item automatically.
+  // Multi-capacity slots keep their existing occupants.
+  if (slotCapacity === 1 && occupyingItems.length > 0) {
+    for (const occupyingItem of occupyingItems) {
+      await CharacterItem.where({ id: Number(occupyingItem.id) }).update({
+        equipped: false,
+        equippedSlot: null,
+      });
+    }
   }
 
   // A quantity represents a stack of physical copies. Only one physical copy

@@ -248,17 +248,40 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     : null;
   const positions = await (db.orm.public as any).MazeCharacterPosition.where({ mazeId }).all();
   const characters = await db.orm.public.Character.all();
-  const occupants = positions.map((entry:any) => {
+  const occupants = await Promise.all(positions.map(async (entry:any) => {
     const character = characters.find((candidate:any) => Number(candidate.id) === Number(entry.characterId));
-    return character ? {
+    if (!character) return null;
+    let avatarUrl: string | null = null;
+    const avatarPath = (character as any).avatarPath ? String((character as any).avatarPath) : null;
+    if (avatarPath && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const signedResponse = await fetch(
+        process.env.SUPABASE_URL + "/storage/v1/object/sign/character-avatars/" + avatarPath,
+        {
+          method:"POST",
+          headers:{
+            Authorization:"Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY,
+            apikey:process.env.SUPABASE_SERVICE_ROLE_KEY,
+            "Content-Type":"application/json",
+          },
+          body:JSON.stringify({ expiresIn:3600 }),
+          cache:"no-store",
+        },
+      );
+      if (signedResponse.ok) {
+        const signed = await signedResponse.json();
+        avatarUrl = signed.signedURL ? process.env.SUPABASE_URL + "/storage/v1" + signed.signedURL : null;
+      }
+    }
+    return {
       id: Number(character.id),
       name: String(character.name),
       flair: character.flair ?? null,
+      avatarUrl,
       roomId: Number(entry.roomId),
-        status: String(entry.status ?? "ACTIVE"),
-        lockReason: entry.lockReason ?? null,
-      } : null;
-  }).filter(Boolean);
+      status: String(entry.status ?? "ACTIVE"),
+      lockReason: entry.lockReason ?? null,
+    };
+  })).then((entries:any[]) => entries.filter(Boolean));
   return NextResponse.json({
     maze,
     position: position ? Number(position.roomId) : null,

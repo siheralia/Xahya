@@ -140,6 +140,9 @@ model Maze {
   mazeType        String   @default("INFINITE")
   generationMode  String   @default("FREE_3D")
   maxRooms    Int?
+  allowTraps  Boolean  @default(true)
+  allowDeath  Boolean  @default(true)
+  allowTreasures Boolean @default(true)
   status      String    @default("ACTIVE")
   createdAt   DateTime  @default(now())
   updatedAt   temporal.updatedAt()

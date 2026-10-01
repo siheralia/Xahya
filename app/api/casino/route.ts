@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { getCasinoSet } from "@/lib/casino";
+import { getCasinoSet, type CasinoSet } from "@/lib/casino";
 
 // RULE NOTE: 0 charges the wager once (-bet). -100% charges the wager twice (-2 × bet).
 // Positive results only add their profit; they do not refund the wager separately. Negative money is allowed and represents debt to the casino.
@@ -23,7 +23,7 @@ function getLuckAdjustedWeights(segments: readonly { multiplier: number; weight:
   });
 }
 
-async function getActiveCasinoSet() {
+async function getActiveCasinoSet(): Promise<CasinoSet> {
   const logs = await db.orm.public.AuditLog
     .where({ action: "CASINO_CONFIG" })
     .all();
@@ -37,7 +37,8 @@ async function getActiveCasinoSet() {
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
 
-  if (latest?.details?.set?.id) return latest.details.set;
+  const savedSet = latest?.details?.set;
+  if (savedSet?.id && Array.isArray(savedSet.segments)) return savedSet as CasinoSet;
   return getCasinoSet(latest?.details?.setId);
 }
 

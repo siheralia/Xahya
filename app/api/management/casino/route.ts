@@ -21,12 +21,18 @@ function parseDetails(log: { details?: unknown }) {
 
 async function getSavedSets(): Promise<CasinoSet[]> {
   const logs = await db.orm.public.AuditLog.where({ action: "CASINO_SET" }).all();
+  const deletedLogs = await db.orm.public.AuditLog.where({ action: "CASINO_SET_DELETE" }).all();
+  const deletedIds = new Set(
+    deletedLogs
+      .map((log) => parseDetails(log)?.setId)
+      .filter((id): id is string => typeof id === "string"),
+  );
   const latestById = new Map<string, { createdAt: string; set: CasinoSet }>();
 
   for (const log of logs) {
     const details = parseDetails(log);
     const set = details?.set as CasinoSet | undefined;
-    if (!set?.id || !Array.isArray(set.segments)) continue;
+    if (!set?.id || !Array.isArray(set.segments) || deletedIds.has(set.id)) continue;
     const createdAt = String(log.createdAt);
     const previous = latestById.get(set.id);
     if (!previous || createdAt > previous.createdAt) {
@@ -160,7 +166,7 @@ export async function POST(request: Request) {
   if (action === "delete") {
     const setId = String(body?.setId ?? "").trim();
     if (CASINO_SETS.some((set) => set.id === setId)) {
-      return NextResponse.json({ error: "Los sets predeterminados no se eliminan; puedes restaurarlos." }, { status: 400 });
+      return NextResponse.json({ error: "Los sets predeterminados no se eliminan." }, { status: 400 });
     }
 
     const sets = await getAllSets();

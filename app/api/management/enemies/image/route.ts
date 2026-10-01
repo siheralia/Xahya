@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { deleteEnemyImage, getEnemyImageUrl, uploadEnemyImage } from "@/lib/enemy-image";
+import { deleteEnemyImage, getEnemyImageUrl, getDefaultEnemyImageUrl, setEnemyImagePath, uploadEnemyImage } from "@/lib/enemy-image";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -32,13 +32,10 @@ export async function POST(request: Request) {
       const enemy = await (db.orm.public as any).Enemy.where({ id: enemyId }).first();
       if (!enemy) return NextResponse.json({ error: "Enemigo no encontrado." }, { status: 404 });
       await uploadEnemyImage(path, file);
-      await (db.orm.public as any).Enemy.where({ id: enemyId }).update({ imagePath: path });
+      await setEnemyImagePath(enemyId,path);
     } else {
       await uploadEnemyImage(path, file);
-      const Setting = (db.orm.public as any).AppSetting;
-      const existing = await Setting.where({ key: "enemy_default_image_path" }).first();
-      if (existing) await Setting.where({ id: Number(existing.id) }).update({ value: path, updatedAt: new Date() });
-      else await Setting.create({ key: "enemy_default_image_path", value: path });
+      // La imagen genérica siempre usa la ruta fija default.webp.
     }
     return NextResponse.json({ imageUrl: await getEnemyImageUrl(path), path });
   } catch (error) {
@@ -54,16 +51,15 @@ export async function DELETE(request: Request) {
   const isDefault = Boolean(body?.default);
   try {
     if (isDefault) {
-      const Setting = (db.orm.public as any).AppSetting;
-      const setting = await Setting.where({ key: "enemy_default_image_path" }).first();
-      await deleteEnemyImage(setting?.value ? String(setting.value) : "default.webp");
-      if (setting) await Setting.where({ id: Number(setting.id) }).update({ value: null, updatedAt: new Date() });
+      await deleteEnemyImage("default.webp");
     } else {
       const Enemy = (db.orm.public as any).Enemy;
       const enemy = await Enemy.where({ id: enemyId }).first();
       if (!enemy) return NextResponse.json({ error: "Enemigo no encontrado." }, { status: 404 });
-      await deleteEnemyImage(enemy.imagePath);
-      await Enemy.where({ id: enemyId }).update({ imagePath: null });
+      const { getEnemyImagePaths } = await import("@/lib/enemy-image");
+      const paths = await getEnemyImagePaths([enemyId]);
+      await deleteEnemyImage(paths.get(enemyId));
+      await setEnemyImagePath(enemyId,null);
     }
     return NextResponse.json({ ok: true });
   } catch (error) {

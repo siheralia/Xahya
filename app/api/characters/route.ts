@@ -11,14 +11,15 @@ async function getCurrentUser() {
   return users.find((candidate) => candidate.clerkId === clerkId) ?? null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const allCharacters = await db.orm.public.Character.all();
-  const visibleCharacters = ["GM","ADMIN"].includes(String(user.role))
-    ? allCharacters
-    : allCharacters.filter((character) => Number(character.userId) === Number(user.id));
+  const ownOnly = new URL(request.url).searchParams.get("mine") === "true";
+  const visibleCharacters = ownOnly || !["GM","ADMIN"].includes(String(user.role))
+    ? allCharacters.filter((character) => Number(character.userId) === Number(user.id))
+    : allCharacters;
   const stats = await db.orm.public.CharacterStat.all();
   const resources = await db.orm.public.CharacterResource.all();
 

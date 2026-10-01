@@ -50,7 +50,7 @@ export default function ItemsManagementPage() {
   const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
   const [error,setError]=useState(""); const [success,setSuccess]=useState("");
-  const [search,setSearch]=useState(""); const [filterType,setFilterType]=useState("ALL"); const [filterSubtype,setFilterSubtype]=useState("ALL"); const [filterSlot,setFilterSlot]=useState("ALL"); const [filterAcquisition,setFilterAcquisition]=useState("ALL");
+  const [search,setSearch]=useState(""); const [filterType,setFilterType]=useState("ALL"); const [filterSubtype,setFilterSubtype]=useState("ALL"); const [filterSlot,setFilterSlot]=useState("ALL"); const [filterAcquisition,setFilterAcquisition]=useState("ALL"); const [filterStat,setFilterStat]=useState("ALL"); const [filterMinValue,setFilterMinValue]=useState("");
 
   async function load(){
     setLoading(true); setError("");
@@ -68,8 +68,11 @@ export default function ItemsManagementPage() {
     const matchesType = filterType === "ALL" || item.itemType === filterType;
     const matchesSubtype = filterSubtype === "ALL" || String(item.itemSubtype ?? "") === filterSubtype;
     const matchesSlot = filterSlot === "ALL" || (Array.isArray(item.allowedSlots) && item.allowedSlots.includes(filterSlot));
+    const matchesStat = filterStat === "ALL" || item.effects.some(effect => String(effect.stat ?? "") === filterStat || (filterStat === "ATTACK_TOTAL" && effect.type === "attack_multiplier_all"));
+    const minValue = filterMinValue === "" ? null : Number(filterMinValue);
+    const matchesMinValue = minValue === null || filterStat === "ALL" || item.effects.some(effect => String(effect.stat ?? "") === filterStat && Number(effect.value) >= minValue);
     const matchesAcquisition = filterAcquisition === "ALL" || item.acquisitionType === filterAcquisition;
-    return matchesSearch && matchesType && matchesSubtype && matchesSlot && matchesAcquisition;
+    return matchesSearch && matchesType && matchesSubtype && matchesSlot && matchesAcquisition && matchesStat && matchesMinValue;
   });
 
   function edit(item: Item){
@@ -120,9 +123,11 @@ export default function ItemsManagementPage() {
             <select value={filterType} onChange={e=>setFilterType(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Todos los tipos</option>{itemTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
             <select value={filterAcquisition} onChange={e=>setFilterAcquisition(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Toda obtención</option>{acquisitionTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
             <select value={filterSubtype} onChange={e=>setFilterSubtype(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Todos los tipos específicos</option>{subtypeOptions.map(value=><option key={value} value={value}>{value}</option>)}</select>
+            <select value={filterStat} onChange={e=>setFilterStat(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Todas las estadísticas</option>{EFFECT_TARGETS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
+            <input type="number" value={filterMinValue} onChange={e=>setFilterMinValue(e.target.value)} placeholder="Valor mínimo" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"/>
             <select value={filterSlot} onChange={e=>setFilterSlot(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm sm:col-span-2"><option value="ALL">Todos los slots</option>{equipmentSlots.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
           </div>
-          <div className="flex items-center justify-between text-xs text-zinc-500"><span>{filteredItems.length} de {items.length} objetos</span><button type="button" onClick={()=>{setSearch("");setFilterType("ALL");setFilterSubtype("ALL");setFilterSlot("ALL");setFilterAcquisition("ALL");}} className="text-zinc-300">Limpiar filtros</button></div>
+          <div className="flex items-center justify-between text-xs text-zinc-500"><span>{filteredItems.length} de {items.length} objetos</span><button type="button" onClick={()=>{setSearch("");setFilterType("ALL");setFilterSubtype("ALL");setFilterSlot("ALL");setFilterAcquisition("ALL");setFilterStat("ALL");setFilterMinValue("");}} className="text-zinc-300">Limpiar filtros</button></div>
           <div className="space-y-2">{filteredItems.map(item=><button key={item.id} onClick={()=>edit(item)} className={"w-full rounded-xl border p-4 text-left transition "+(selected===item.id?"border-amber-400/50 bg-amber-950/20":"border-zinc-800 hover:bg-zinc-900")}>
           <div className="font-medium">{item.name}</div><div className="mt-1 text-xs text-zinc-500">{itemTypes.find(x=>x[0]===item.itemType)?.[1]??item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""} · {acquisitionTypes.find(x=>x[0]===item.acquisitionType)?.[1]??item.acquisitionType}</div>
         </button>)}</div></div>

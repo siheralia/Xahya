@@ -2,10 +2,27 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { getCasinoSet, CASINO_SETS } from "@/lib/casino";
+import { getCasinoSet } from "@/lib/casino";
 
 // RULE NOTE: 0 charges the wager once (-bet). -100% charges the wager twice (-2 × bet).
 // Positive results only add their profit; they do not refund the wager separately. Negative money is allowed and represents debt to the casino.
+function getLuckAdjustedWeights(segments: readonly { multiplier: number; weight: number }[], luck: number) {
+  const safeLuck = Number.isFinite(luck) ? Math.max(0, luck) : 0;
+  return segments.map((segment) => {
+    let weight = segment.weight;
+    if (safeLuck < 10) {
+      const penalty = Math.min(0.2, (10 - safeLuck) * 0.02);
+      if (segment.multiplier === -1) weight *= 1 + penalty;
+      else if (segment.multiplier > 0) weight *= 1 - penalty;
+    } else if (safeLuck > 20) {
+      const bonus = Math.min(0.08, (safeLuck - 20) * 0.008);
+      if (segment.multiplier > 0) weight *= 1 + bonus;
+      else if (segment.multiplier === -1) weight *= 1 - bonus;
+    }
+    return Math.max(0, weight);
+  });
+}
+
 async function getActiveCasinoSet() {
   const logs = await db.orm.public.AuditLog
     .where({ action: "CASINO_CONFIG" })
@@ -148,7 +165,7 @@ export async function POST(request: Request) {
       const luck = Number(stats?.luck ?? 0);
       const activeSet = await getActiveCasinoSet();
       const segments = activeSet.segments;
-      const adjustedWeights = getLuckAdjustedWeights(luck);
+      const adjustedWeights = getLuckAdjustedWeights(segments, luck);
       const adjustedTotalWeight = adjustedWeights.reduce((sum, weight) => sum + weight, 0);
       const results = [];
 

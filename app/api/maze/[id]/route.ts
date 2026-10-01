@@ -446,6 +446,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const result = await db.transaction(async (tx) => {
       await (tx.orm.public as any).MazeCharacterPosition.where({ mazeId }).delete();
+      const mazeRooms = await tx.orm.public.MazeRoom.where({ mazeId }).all();
+      const roomIds = mazeRooms.map((room:any) => Number(room.id));
+      if (roomIds.length > 0) {
+        const encounters = await (tx.orm.public as any).MazeRoomEnemy.all();
+        for (const encounter of encounters.filter((entry:any) => roomIds.includes(Number(entry.roomId)))) {
+          await (tx.orm.public as any).MazeRoomEnemy.where({ id:Number(encounter.id) }).delete();
+        }
+      }
+      await (tx.orm.public as any).MazeExit.where({ mazeId }).delete();
+      await tx.orm.public.MazeRoom.where({ mazeId }).delete();
       await (tx.orm.public as any).MazeExit.where({ mazeId }).delete();
       await tx.orm.public.MazeRoom.where({ mazeId }).delete();
       await tx.orm.public.Maze.where({ id:mazeId }).update({

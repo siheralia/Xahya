@@ -249,6 +249,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const enemies = await (db.orm.public as any).MazeRoomEnemy.all();
   const definitions = await (db.orm.public as any).Enemy.all();
   const characterId = Number(new URL(_request.url).searchParams.get("characterId"));
+  if (Number.isInteger(characterId) && characterId > 0) {
+    const character = await db.orm.public.Character.where({ id: characterId }).first();
+    const privileged = ["GM","ADMIN"].includes(String(user.role));
+    if (!character || (!privileged && Number(character.userId) !== Number(user.id))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
   const position = Number.isInteger(characterId) && characterId > 0
     ? await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first()
     : null;

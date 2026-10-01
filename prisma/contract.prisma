@@ -99,6 +99,7 @@ model Item {
   name           String
   description    String?
   itemType       String    @default("OTHER")
+  itemSubtype    String?
   acquisitionType String   @default("PURCHASABLE")
   price          Int       @default(0)
   effects        Json

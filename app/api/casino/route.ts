@@ -2,50 +2,25 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { getCasinoSet, CASINO_SETS } from "@/lib/casino";
 
 // RULE NOTE: 0 charges the wager once (-bet). -100% charges the wager twice (-2 × bet).
 // Positive results only add their profit; they do not refund the wager separately. Negative money is allowed and represents debt to the casino.
-const segments = [
-  { label: "0", weight: 100, multiplier: -1 },
-  { label: "+10%", weight: 80, multiplier: 0.1 },
-  { label: "0", weight: 100, multiplier: -1 },
-  { label: "+50%", weight: 60, multiplier: 0.5 },
-  { label: "0", weight: 100, multiplier: -1 },
-  { label: "+100%", weight: 40, multiplier: 1 },
-  { label: "0", weight: 20, multiplier: -1 },
-  { label: "+150%", weight: 30, multiplier: 1.5 },
-  { label: "+200%", weight: 20, multiplier: 2 },
-  { label: "+500%", weight: 10, multiplier: 5 },
-  { label: "-100%", weight: 1, multiplier: -2 },
-  { label: "+1000%", weight: 5, multiplier: 10 },
-] as const;
-
-const totalWeight = segments.reduce((sum, segment) => sum + segment.weight, 0);
-
-function getLuckAdjustedWeights(luck: number) {
-  const safeLuck = Number.isFinite(luck) ? Math.max(0, luck) : 0;
-
-  return segments.map((segment) => {
-    let weight = segment.weight;
-
-    if (safeLuck < 10) {
-      const penalty = Math.min(0.2, (10 - safeLuck) * 0.02);
-      if (segment.multiplier === -1) {
-        weight *= 1 + penalty;
-      } else if (segment.multiplier > 0) {
-        weight *= 1 - penalty;
+async function getActiveCasinoSet() {
+  const logs = await db.orm.public.AuditLog
+    .where({ action: "CASINO_CONFIG" })
+    .all();
+  const latest = logs
+    .map((log) => {
+      try {
+        return { createdAt: String(log.createdAt), details: typeof log.details === "string" ? JSON.parse(log.details) : (log.details ?? {}) };
+      } catch {
+        return { createdAt: String(log.createdAt), details: {} };
       }
-    } else if (safeLuck > 20) {
-      const bonus = Math.min(0.08, (safeLuck - 20) * 0.008);
-      if (segment.multiplier > 0) {
-        weight *= 1 + bonus;
-      } else if (segment.multiplier === -1) {
-        weight *= 1 - bonus;
-      }
-    }
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
 
-    return Math.max(0, weight);
-  });
+  return getCasinoSet(latest?.details?.setId);
 }
 
 async function getCurrentUser() {
@@ -65,6 +40,8 @@ export async function GET(request: Request) {
 
   const characters = await db.orm.public.Character.all();
   const resources = await db.orm.public.CharacterResource.all();
+
+  const activeSet = await getActiveCasinoSet();
 
   const owned = characters
     .filter((character) => Number(character.userId) === Number(user.id))
@@ -120,7 +97,8 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     characters: owned,
-    segments: segments.map(({ label, weight }) => ({ label, weight })),
+    activeSet: { id: activeSet.id, name: activeSet.name },
+    segments: activeSet.segments.map(({ label, weight, color }) => ({ label, weight, color })),
     history,
   });
 }
@@ -168,6 +146,8 @@ export async function POST(request: Request) {
 
       const stats = await tx.orm.public.CharacterStat.where({ characterId }).first();
       const luck = Number(stats?.luck ?? 0);
+      const activeSet = await getActiveCasinoSet();
+      const segments = activeSet.segments;
       const adjustedWeights = getLuckAdjustedWeights(luck);
       const adjustedTotalWeight = adjustedWeights.reduce((sum, weight) => sum + weight, 0);
       const results = [];

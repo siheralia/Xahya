@@ -24,6 +24,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() || null : null;
   const itemType = String(body.itemType ?? item.itemType);
+  const itemSubtype = typeof body.itemSubtype === "string" ? body.itemSubtype.trim() || null : (item.itemSubtype ?? null);
   const acquisitionType = String(body.acquisitionType ?? item.acquisitionType);
   const price = Number(body.price ?? item.price);
   const effects = Array.isArray(body.effects) ? body.effects : item.effects;
@@ -39,7 +40,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     }
   }
-  const updated = await Item.where({ id }).update({ name, description, itemType, acquisitionType, price, effects, allowedSlots });
+  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, acquisitionType, price, effects, allowedSlots });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_UPDATE", entityType: "ITEM", entityId: id, details: { before: item, after: updated } });
   return NextResponse.json({ item: updated });
 }

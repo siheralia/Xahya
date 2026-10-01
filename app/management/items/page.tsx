@@ -47,7 +47,7 @@ const noEffects = (effects: Effect[]) => !Array.isArray(effects) || effects.leng
 export default function ItemsManagementPage() {
   const [items,setItems]=useState<Item[]>([]);
   const [selected,setSelected]=useState<number|null>(null);
-  const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()],allowedSlots:defaultSlots});
+  const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
   const [error,setError]=useState(""); const [success,setSuccess]=useState("");
   const [search,setSearch]=useState(""); const [filterType,setFilterType]=useState("ALL"); const [filterSubtype,setFilterSubtype]=useState("ALL"); const [filterSlot,setFilterSlot]=useState("ALL"); const [filterAcquisition,setFilterAcquisition]=useState("ALL");

@@ -61,7 +61,7 @@ async function getEffectiveCombatStats(tx: any, characterId: number) {
 
   const effectiveStats = Object.fromEntries(STAT_KEYS.map((key) => {
     const base = Number(stats[key] ?? 0);
-    const flat = activeModifiers.filter((m:any) => String(m.stat) === key)
+    const flat = activeModifiers.filter((m:any) => String(m.stat) === key && String(m.source) !== "KARMA_BOOST")
       .reduce((sum:number,m:any) => sum + Number(m.amount),0);
     const karma = activeModifiers.filter((m:any) => String(m.stat) === key && String(m.source) === "KARMA_BOOST")
       .reduce((sum:number,m:any) => sum + Number(m.amount),0);

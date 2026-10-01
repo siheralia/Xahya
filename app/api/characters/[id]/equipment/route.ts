@@ -124,10 +124,31 @@ export async function PATCH(
     return NextResponse.json({ error: "Ese slot ya está ocupado." }, { status: 409 });
   }
 
-  const updated = await CharacterItem.where({ id: characterItemId }).update({
-    equipped: true,
-    equippedSlot: slot,
-  });
+  // A quantity represents a stack of physical copies. Only one physical copy
+  // can occupy one equipment slot, so split one copy out of the stack when needed.
+  let equippedId = characterItemId;
+  let updated: any;
+
+  if (Number(owned.quantity) > 1) {
+    await CharacterItem.where({ id: characterItemId }).update({
+      quantity: Number(owned.quantity) - 1,
+    });
+
+    updated = await CharacterItem.create({
+      characterId,
+      itemId: Number(owned.itemId),
+      quantity: 1,
+      equipped: true,
+      equippedSlot: slot,
+      flair: owned.flair ?? null,
+    });
+    equippedId = Number(updated.id);
+  } else {
+    updated = await CharacterItem.where({ id: characterItemId }).update({
+      equipped: true,
+      equippedSlot: slot,
+    });
+  }
 
   await recordAuditEvent({
     actorUserId: access.user.id,
@@ -135,7 +156,7 @@ export async function PATCH(
     entityType: "ITEM",
     entityId: Number(item.id),
     characterId,
-    details: { characterItemId, itemName: item.name, slot },
+    details: { characterItemId: equippedId, itemName: item.name, slot },
   });
 
   return NextResponse.json({ item: updated });

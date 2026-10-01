@@ -10,7 +10,7 @@ export async function GET() {
   return NextResponse.json({ items: items.map((item: any) => ({
     id: Number(item.id), name: String(item.name),
     description: item.description == null ? null : String(item.description),
-    itemType: String(item.itemType), acquisitionType: String(item.acquisitionType), price: Number(item.price),
+    itemType: String(item.itemType), itemSubtype: item.itemSubtype == null ? null : String(item.itemSubtype), acquisitionType: String(item.acquisitionType), price: Number(item.price),
     effects: Array.isArray(item.effects) ? item.effects : [],
   })) });
 }

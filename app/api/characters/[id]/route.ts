@@ -196,7 +196,22 @@ export async function GET(
   const currentMaze = mazePosition && Maze ? await Maze.where({ id: Number(mazePosition.mazeId) }).first() : null;
   const mazeRoom = mazePosition ? await (db.orm.public as any).MazeRoom.where({ id: Number(mazePosition.roomId) }).first() : null;
 
-  const normalizedCharacter = { ...character, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
+  let avatarUrl: string | null = null;
+  const avatarPath = (character as any).avatarPath ? String((character as any).avatarPath) : null;
+  if (avatarPath && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const signedResponse = await fetch(process.env.SUPABASE_URL + "/storage/v1/object/sign/character-avatars/" + avatarPath, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY, apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresIn: 3600 }),
+      cache: "no-store",
+    });
+    if (signedResponse.ok) {
+      const signed = await signedResponse.json();
+      avatarUrl = signed.signedURL ? process.env.SUPABASE_URL + "/storage/v1" + signed.signedURL : null;
+    }
+  }
+
+  const normalizedCharacter = { ...character, avatarUrl, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
 
   return NextResponse.json({
     ...normalizedCharacter,

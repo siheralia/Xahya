@@ -24,6 +24,7 @@ export default function MazePage(){
   const [selectedEnemy,setSelectedEnemy]=useState<any>(null);
   const [selectedOccupant,setSelectedOccupant]=useState<Occupant|null>(null);
   const [copied,setCopied]=useState(false);
+  const [trapBusy,setTrapBusy]=useState<number|null>(null);
 
   useEffect(()=>{Promise.all([fetch("/api/characters?mine=true"),fetch("/api/maze")]).then(async([a,b])=>{const [charText,mazeText]=await Promise.all([a.text(),b.text()]);const chars=charText?JSON.parse(charText):[];const ms=mazeText?JSON.parse(mazeText):[];if(!a.ok)throw new Error(chars?.error??"No se pudieron cargar los personajes.");if(!b.ok)throw new Error(ms?.error??"No se pudieron cargar los laberintos.");setCharacters(Array.isArray(chars)?chars:[]);setMazes(Array.isArray(ms)?ms:[]);}).catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar la exploración."));},[]);
   useEffect(()=>{if(!mazeId||!characterId)return; loadMaze();},[mazeId,characterId]);
@@ -43,6 +44,15 @@ export default function MazePage(){
     setBusy(true);setError("");
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({characterId:Number(characterId),direction})});
     const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar.");else await loadMaze();setBusy(false);
+  }
+  async function useTrapConsumable(characterItemId:number, action:"DISARM_MAZE_TRAP"|"RELEASE_MAZE_TRAPPED"){
+    if(!mazeId||!characterId||trapBusy!==null)return;
+    setTrapBusy(characterItemId);setError("");
+    const r=await fetch("/api/characters/"+characterId+"/items/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({characterItemId})});
+    const d=await r.json().catch(()=>null);
+    if(!r.ok)setError(d?.error??"No se pudo usar el consumible.");
+    else await loadMaze();
+    setTrapBusy(null);
   }
   async function leave(){
     if(!mazeId||!characterId)return;
@@ -140,7 +150,20 @@ export default function MazePage(){
   : room.contentName&&<p className="mt-3 font-semibold">{room.contentName}</p>}
 {room.roomType!=="TREASURE"&&room.contentDescription&&<p className="mt-2 text-sm text-zinc-400">{room.contentDescription}</p>}
 {room.roomType==="DEATH"&&<div className="mt-4 rounded-lg border border-red-900/70 bg-red-950/30 p-3 text-sm text-red-300">☠️ Esta habitación bloquea al explorador hasta que un GM lo libere.</div>}
-{room.roomType==="TRAP"&&<div className="mt-4 rounded-lg border border-amber-900/70 bg-amber-950/20 p-3 text-sm text-amber-300">{room.trapActive===false?"✓ Trampa desactivada.":"⚠️ La trampa está activa."}</div>}{room.enemies?.length>0&&<div className="mt-4 space-y-2">{room.enemies.map((enemy:any)=>
+{room.roomType==="TRAP"&&<div className="mt-4 rounded-lg border border-amber-900/70 bg-amber-950/20 p-3 text-sm text-amber-300">
+  {room.trapActive===false?"✓ Trampa desactivada.":"⚠️ La trampa está activa."}
+  {maze.positionStatus==="TRAPPED"&&Array.isArray(maze.trapActions)&&maze.trapActions.length>0&&(
+    <div className="mt-4 space-y-2">
+      <p className="text-xs text-zinc-400">Tienes consumibles para resolver la trampa:</p>
+      {maze.trapActions.map((entry:any)=>(
+        <button key={entry.characterItemId+"-"+entry.action"} onClick={()=>useTrapConsumable(Number(entry.characterItemId),entry.action)} disabled={trapBusy!==null||busy} className="w-full rounded-lg border border-amber-700/70 bg-zinc-950 px-4 py-3 text-left text-sm text-amber-200 disabled:opacity-50">
+          {trapBusy===Number(entry.characterItemId)?"Usando...":entry.action==="DISARM_MAZE_TRAP"?"🛠️ Desactivar trampa":"🔓 Liberarme de la trampa"} <span className="text-xs text-zinc-500">({entry.name} ×{entry.quantity})</span>
+        </button>
+      ))}
+    </div>
+  )}
+  {maze.positionStatus==="TRAPPED"&&(!Array.isArray(maze.trapActions)||maze.trapActions.length===0)&&<p className="mt-3 text-xs text-zinc-500">Un GM debe liberarte o desactivar la trampa.</p>}
+</div>}{room.enemies?.length>0&&<div className="mt-4 space-y-2">{room.enemies.map((enemy:any)=>
 <button key={enemy.id} onClick={()=>setSelectedEnemy(enemy)} className="block text-left text-sm text-zinc-300 underline decoration-zinc-700 underline-offset-4 hover:text-white">
 {enemy.enemy?.name??"Enemigo"} {String(enemy.status)==="DEFEATED"?"(Derrotado)":String(enemy.status)==="ACTIVE"?"(Activo)":`(${enemy.status})`}
 </button>)}</div>}{occupants.length>0&&<div className="mt-5 flex flex-wrap gap-2">{occupants.map((occupant:Occupant)=>

@@ -12,5 +12,6 @@ export async function GET() {
     description: item.description == null ? null : String(item.description),
     itemType: String(item.itemType), itemSubtype: item.itemSubtype == null ? null : String(item.itemSubtype), acquisitionType: String(item.acquisitionType), price: Number(item.price),
     effects: Array.isArray(item.effects) ? item.effects : [],
+    allowedSlots: Array.isArray(item.allowedSlots) ? item.allowedSlots : [],
   })) });
 }

@@ -423,6 +423,15 @@ export default function ManagementPage() {
 
             {isAdmin && (
               <Link
+                href="/management/casino"
+                className="rounded-lg border border-amber-500/30 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-950/30"
+              >
+                Casino
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link
                 href="/management/items"
                 className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
               >

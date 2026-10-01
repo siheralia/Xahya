@@ -145,7 +145,12 @@ function hasActiveEnemies(room: any, enemies: any[]) {
 }
 
 async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = false, reservedDirection?: string, luck = 0) {
-  let roomType = forceBoss ? "BOSS" : pickRoomType(luck);
+  const disabledTypes = [
+    !Boolean(maze.allowTraps) ? "TRAP" : null,
+    !Boolean(maze.allowDeath) ? "DEATH" : null,
+    !Boolean(maze.allowTreasures) ? "TREASURE" : null,
+  ].filter(Boolean) as string[];
+  let roomType = forceBoss ? "BOSS" : pickRoomType(luck, disabledTypes);
   if (maze.mazeType === "FINITE" && Number(maze.maxRooms) === roomNumber) roomType = "BOSS";
 
   let contentName: string | null = null;

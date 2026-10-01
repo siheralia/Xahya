@@ -313,12 +313,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const luck = Math.max(0, Number(combat?.effectiveStats?.luck ?? 0));
       const baseTreasure = (Math.floor(Math.random() * 901) + 100) * 10;
       const treasureValue = Math.round(baseTreasure * (1 + Math.min(1, luck / 100)));
-      const moneyReward = Math.floor(treasureValue / 5);
+      const moneyReward = Math.floor(treasureValue / 5);\n      const isBoss = String(room.roomType) === "BOSS";
 
       await Encounter.where({ id:Number(encounter.id) }).update({ status:"DEFEATED" });
       await tx.orm.public.CharacterResource.where({ id:Number(resources.id) }).update({
         money:Number(resources.money) + moneyReward,
-        karma:Number(resources.karma) + 1,
+        karma:Number(resources.karma) + (isBoss ? 10 : 5),
       });
 
       const activeEnemies = await Encounter.where({ roomId:Number(room.id), status:"ACTIVE" }).all();

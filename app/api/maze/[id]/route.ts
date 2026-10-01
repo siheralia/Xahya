@@ -455,12 +455,38 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             await (tx.orm.public as any).MazeRoomEnemy.where({ id:Number(encounter.id) }).delete();
           }
         }
+        // Conservamos la habitación 1 en lugar de borrarla y volver a crearla.
+        // Así evitamos conflictos con la restricción única (mazeId, roomNumber)
+        // si el ORM mantiene la fila durante la transacción.
         await (tx.orm.public as any).MazeExit.where({ mazeId }).delete();
-        await tx.orm.public.MazeRoom.where({ mazeId }).delete();
+
+        const rootRoom = await tx.orm.public.MazeRoom.where({ mazeId, roomNumber:1 }).first();
+        const otherRooms = (await tx.orm.public.MazeRoom.where({ mazeId }).all())
+          .filter((room:any) => Number(room.roomNumber) !== 1);
+
+        for (const room of otherRooms) {
+          await tx.orm.public.MazeRoom.where({ id:Number(room.id) }).delete();
+        }
+
         await tx.orm.public.Maze.where({ id:mazeId }).update({ status:"ACTIVE" });
 
-        // Usamos el registro original para conservar todas las opciones del laberinto.
-        const room = await generateRoom(tx, maze, 1);
+        let room:any;
+        if (rootRoom) {
+          await tx.orm.public.MazeRoom.where({ id:Number(rootRoom.id) }).update({
+            roomType:"SAFE",
+            status:"OPEN",
+            description:roomDescription("SAFE"),
+            contentName:null,
+            contentDescription:null,
+            treasureClaimed:false,
+            treasureRewards:{},
+            trapActive:false,
+          });
+          room = await tx.orm.public.MazeRoom.where({ id:Number(rootRoom.id) }).first();
+        } else {
+          room = await generateRoom(tx, maze, 1);
+        }
+
         return { room };
       });
 

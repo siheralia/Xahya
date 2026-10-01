@@ -786,8 +786,46 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.scale(scale, scale);
-    ctx.fillStyle = "#09090b";
-    ctx.fillRect(0, 0, width, height);
+
+    if (character.avatarUrl) {
+      const avatarImage = new Image();
+      avatarImage.crossOrigin = "anonymous";
+      avatarImage.src = character.avatarUrl;
+      await new Promise<void>((resolve) => {
+        avatarImage.onload = () => resolve();
+        avatarImage.onerror = () => resolve();
+      });
+      if (avatarImage.complete && avatarImage.naturalWidth > 0) {
+        const imageRatio = avatarImage.naturalWidth / avatarImage.naturalHeight;
+        const canvasRatio = width / height;
+        let drawWidth = width;
+        let drawHeight = height;
+        let drawX = 0;
+        let drawY = 0;
+        if (imageRatio > canvasRatio) {
+          drawWidth = height * imageRatio;
+          drawX = (width - drawWidth) / 2;
+        } else {
+          drawHeight = width / imageRatio;
+          drawY = (height - drawHeight) / 2;
+        }
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(0, 0, width, height, 22);
+        ctx.clip();
+        ctx.drawImage(avatarImage, drawX, drawY, drawWidth, drawHeight);
+        ctx.fillStyle = "rgba(30, 64, 175, 0.55)";
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = "#09090b";
+        ctx.fillRect(0, 0, width, height);
+      }
+    } else {
+      ctx.fillStyle = "#09090b";
+      ctx.fillRect(0, 0, width, height);
+    }
+
     ctx.strokeStyle = "#27272a";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -807,7 +845,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     const centerY = 380;
     const radius = 245;
     const effectiveStats = character.effectiveStats ?? character.stats;
-    if (character.age !== null && character.gender !== null) {
+    if (!character.avatarUrl && character.age !== null && character.gender !== null) {
       const stage = character.age < 13 ? "niño" : character.age < 18 ? "adolescente" : "adulto";
       const svg = getCharacterSilhouetteSvg({
         gender: String(character.gender).trim().toLowerCase() as "masculino" | "femenino" | "indefinido",
@@ -1255,7 +1293,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               </div>
             </div>
             <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 pb-12">
-              {character.age !== null && character.gender !== null && (
+              {character.avatarUrl ? (
+                <>
+                  <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url(" + character.avatarUrl + ")" }} />
+                  <div className="pointer-events-none absolute inset-0 z-[1] bg-blue-900/55" />
+                </>
+              ) : character.age !== null && character.gender !== null ? (
                 <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
                   <CharacterSilhouette
                     age={character.age}
@@ -1263,7 +1306,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     className="h-[125%] w-auto text-zinc-400"
                   />
                 </div>
-              )}
+              ) : null}
               <div className="relative z-10">
                 <div className="flex items-baseline justify-between gap-4"><p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Perfil</p><h3 className="text-lg font-semibold text-right">Distribución de estadísticas</h3></div>
                 <div className="mt-3"><StatsRadar baseValues={baseRadarValues!} values={radarValues} /></div>

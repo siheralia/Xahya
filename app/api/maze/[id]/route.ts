@@ -88,9 +88,22 @@ async function getEffectiveCombatStats(tx: any, characterId: number) {
   return { effectiveStats, derived };
 }
 
+function normalizeEnemyStats(enemyStats:any) {
+  return {
+    strength:Number(enemyStats?.strength ?? enemyStats?.STR ?? 0),
+    agility:Number(enemyStats?.agility ?? enemyStats?.AGI ?? 0),
+    constitution:Number(enemyStats?.constitution ?? enemyStats?.CON ?? 0),
+    intelligence:Number(enemyStats?.intelligence ?? enemyStats?.INT ?? 0),
+    wisdom:Number(enemyStats?.wisdom ?? enemyStats?.WIS ?? 0),
+    charisma:Number(enemyStats?.charisma ?? enemyStats?.CHA ?? 0),
+    spirit:Number(enemyStats?.spirit ?? enemyStats?.SPI ?? 0),
+    luck:Number(enemyStats?.luck ?? enemyStats?.LCK ?? 0),
+  };
+}
+
 function canAutoDefeat(combat:any, enemyStats:any, quantity:number) {
   if (!combat || !enemyStats) return false;
-  const enemyDerived = calculateDerivedStats(enemyStats);
+  const enemyDerived = calculateDerivedStats(normalizeEnemyStats(enemyStats));
   const physicalDamageCheck = Number(combat.derived.physicalAttack) > Number(enemyDerived.physicalDefense);
   const magicDamageCheck = Number(combat.derived.magicAttack) > Number(enemyDerived.magicDefense);
   return quantity > 0 && (physicalDamageCheck || magicDamageCheck);
@@ -258,7 +271,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         const definition = definitions.find((entry:any) => Number(entry.id) === Number(enemy.enemyId)) ?? null;
         const opponentPower = Number(enemy.targetPower ?? 0) * Math.max(1, Number(enemy.quantity ?? 1));
         const enemyStats = (enemy.generatedStats ?? {}) as any;
-        const enemyDerived = calculateDerivedStats(enemyStats);
+        const enemyDerived = calculateDerivedStats(normalizeEnemyStats(enemyStats));
         return {
           ...enemy,
           enemy: definition,

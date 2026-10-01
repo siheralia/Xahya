@@ -37,6 +37,7 @@ async function getActiveCasinoSet() {
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
 
+  if (latest?.details?.set?.id) return latest.details.set;
   return getCasinoSet(latest?.details?.setId);
 }
 

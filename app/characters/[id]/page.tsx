@@ -982,7 +982,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
             <div className="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950">
-              {character.avatarUrl ? <img src={character.avatarUrl} alt={"Avatar de " + character.name} className="h-full w-full object-cover" /> : <CharacterSilhouette className="h-24 w-24 text-zinc-700" />}
+              {character.avatarUrl ? <img src={character.avatarUrl} alt={"Avatar de " + character.name} className="h-full w-full object-cover" /> : <CharacterSilhouette age={character.age ?? 18} gender={(character.gender as "masculino" | "femenino" | "indefinido") ?? "indefinido"} className="h-24 w-24 text-zinc-700" />}
             </div>
             <div>
               <h2 className="text-xl font-semibold">Avatar del personaje</h2>

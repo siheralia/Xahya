@@ -34,6 +34,10 @@ model Character {
   knownCharacters CharacterRelationship[] @relation("CharacterKnows")
   knownByCharacters CharacterRelationship[] @relation("CharacterKnownBy")
   mazePositions MazeCharacterPosition[]
+  businessesOwned Business[] @relation("BusinessOwner")
+  positionsPaid BusinessPosition[] @relation("PositionPayer")
+  employmentContracts EmploymentContract[] @relation("EmploymentCharacter")
+  economyPaymentsReceived EconomyPaymentLog[] @relation("EconomyRecipient")
 }
 
 model CharacterStat {

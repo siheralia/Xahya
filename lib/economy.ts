@@ -175,7 +175,7 @@ export async function processEconomyPayments(now = new Date()) {
         amount: Number(position.salary),
         period: periodKey(now, frequency, true),
         description: `Salario: ${position.title}`,
-        businessId: Number(position.businessId),
+        businessId: position.businessId ? Number(position.businessId) : null,
         payerCharacterId: String(position.payerType) === "CHARACTER" && position.payerCharacterId ? Number(position.payerCharacterId) : null,
       });
       if (paid) payments++;

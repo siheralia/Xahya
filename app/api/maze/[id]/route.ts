@@ -112,6 +112,28 @@ function normalizeEnemyStats(enemyStats:any) {
   };
 }
 
+function normalizedLoot(enemy:any) {
+  const raw = Array.isArray(enemy?.loot) ? enemy.loot : [];
+  return raw.flatMap((entry:any) => {
+    if (!entry || typeof entry !== "object") return [];
+    const type = String(entry.type ?? entry.kind ?? "").toLowerCase();
+    const amount = Number(entry.amount ?? entry.quantity ?? entry.value ?? 0);
+    if (["money","coins","gold"].includes(type) && amount > 0) return [{ type:"money", amount }];
+    if (type === "karma" && amount > 0) return [{ type:"karma", amount }];
+    if (["item","equipment","consumable"].includes(type)) {
+      const itemId = Number(entry.itemId ?? entry.item_id ?? entry.id);
+      const quantity = Number(entry.quantity ?? entry.amount ?? 1);
+      if (Number.isInteger(itemId) && itemId > 0 && quantity > 0) return [{ type:"item", itemId, quantity }];
+    }
+    return [];
+  });
+}
+
+function splitAmount(total:number, count:number, index:number) {
+  const base = Math.floor(total / count);
+  return base + (index < total % count ? 1 : 0);
+}
+
 function canAutoDefeat(combat:any, enemyStats:any, quantity:number) {
   if (!combat || !enemyStats) return false;
   const enemyDerived = calculateDerivedStats(normalizeEnemyStats(enemyStats));
@@ -431,18 +453,70 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await Encounter.where({ id:Number(encounter.id) }).update({ status:"DEFEATED" });
 
       const activeEnemies = await Encounter.where({ roomId:Number(room.id), status:"ACTIVE" }).all();
+      const participants = await Position.where({ mazeId, roomId:Number(room.id) }).all();
+      const definitions = await (tx.orm.public as any).Enemy.all();
+      const defeatedDefinition = definitions.find((enemy:any) => Number(enemy.id) === Number(encounter.enemyId));
+      const totals = { money:0, karma:0, items:new Map<number,number>() };
+
+      for (const loot of normalizedLoot(defeatedDefinition)) {
+        const multiplier = Math.max(1, Number(encounter.quantity) || 1);
+        if (loot.type === "money") totals.money += loot.amount * multiplier;
+        else if (loot.type === "karma") totals.karma += loot.amount * multiplier;
+        else totals.items.set(loot.itemId, (totals.items.get(loot.itemId) ?? 0) + loot.quantity * multiplier);
+      }
+
+      const CharacterResource = (tx.orm.public as any).CharacterResource;
+      const CharacterItem = (tx.orm.public as any).CharacterItem;
+      const characters = await tx.orm.public.Character.all();
+      const rewards:any[] = [];
+
+      for (let index=0; index<participants.length; index++) {
+        const participantId = Number(participants[index].characterId);
+        const participant = characters.find((candidate:any) => Number(candidate.id) === participantId);
+        if (!participant) continue;
+        const money = splitAmount(totals.money, participants.length, index);
+        const karma = splitAmount(totals.karma, participants.length, index);
+        if (money > 0 || karma > 0) {
+          const resources = await CharacterResource.where({ characterId:participantId }).first();
+          if (resources) await CharacterResource.where({ id:Number(resources.id) }).update({
+            money:Number(resources.money ?? 0) + money,
+            karma:Number(resources.karma ?? 0) + karma,
+          });
+          else await CharacterResource.create({ characterId:participantId, money, karma });
+        }
+
+        const items:any[] = [];
+        for (const [itemId,total] of totals.items.entries()) {
+          const quantity = splitAmount(total, participants.length, index);
+          if (quantity <= 0) continue;
+          const existing = CharacterItem ? await CharacterItem.where({ characterId:participantId, itemId }).first() : null;
+          if (existing) await CharacterItem.where({ id:Number(existing.id) }).update({ quantity:Number(existing.quantity ?? 0) + quantity });
+          else if (CharacterItem) await CharacterItem.create({ characterId:participantId, itemId, quantity, equipped:false, equippedSlot:null });
+          items.push({ itemId, quantity });
+        }
+        rewards.push({ characterId:participantId, name:String(participant.name), money, karma, items });
+      }
+
+      const roomCleared = activeEnemies.length === 0;
+      if (roomCleared) {
+        await tx.orm.public.MazeRoom.where({ id:Number(room.id) }).update({ status:"CLEARED" });
+        if (String(room.roomType)==="BOSS") {
+          await tx.orm.public.Maze.where({ id:mazeId }).update({ status:"COMPLETED" });
+        }
+      }
 
       return {
         success:true,
-        money:0,
-        karma:0,
+        money:rewards.find((reward:any) => Number(reward.characterId) === characterId)?.money ?? 0,
+        karma:rewards.find((reward:any) => Number(reward.characterId) === characterId)?.karma ?? 0,
+        rewards,
         characterPower,
         opponentPower,
         physicalAttack:combat?.derived.physicalAttack ?? 0,
         magicAttack:combat?.derived.magicAttack ?? 0,
-        roomCleared:false,
+        roomCleared,
         enemiesRemaining:activeEnemies.length,
-        rewardsPendingConfirmation:true,
+        rewardsPendingConfirmation:false,
       };
     }).catch((error) => ({ error:error instanceof Error ? error.message : "UNKNOWN" }));
 
@@ -452,7 +526,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         ROOM_NOT_FOUND:"Habitación no encontrada.",
         ENEMY_NOT_ACTIVE:"Ese enemigo ya fue derrotado.",
         NOT_STRONG_ENOUGH:"El ataque físico o mágico del personaje no supera la defensa correspondiente del oponente.",
-        RESOURCE_NOT_FOUND:"El personaje no tiene recursos.",
       };
       return NextResponse.json({ error:messages[result.error] ?? "No se pudo derrotar al enemigo." }, { status:400 });
     }
@@ -463,7 +536,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       entityType:"MAZE_ROOM_ENEMY",
       entityId:enemyInstanceId,
       characterId,
-      details:{ mazeId, money:result.money, karma:result.karma, characterPower:result.characterPower, opponentPower:result.opponentPower, physicalAttack:result.physicalAttack, magicAttack:result.magicAttack, roomCleared:result.roomCleared },
+      details:{ mazeId, money:result.money, karma:result.karma, rewards:result.rewards, characterPower:result.characterPower, opponentPower:result.opponentPower, physicalAttack:result.physicalAttack, magicAttack:result.magicAttack, roomCleared:result.roomCleared },
     });
     return NextResponse.json(result);
   }

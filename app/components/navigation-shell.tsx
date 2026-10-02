@@ -125,6 +125,10 @@ export default function NavigationShell({
               Mi perfil
             </Link>
             <span aria-hidden="true" className="mx-2 text-zinc-600">|</span>
+            <Link href="/businesses" className={pathname.startsWith("/businesses") ? "xahya-nav-active" : ""}>
+              Mis negocios
+            </Link>
+            <span aria-hidden="true" className="mx-2 text-zinc-600">|</span>
             <Link href="/help" className={pathname === "/help" ? "xahya-nav-active" : ""}>
               Ayuda
             </Link>

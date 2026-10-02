@@ -19,6 +19,7 @@ const days = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "
 
 export default function BusinessesManagementPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [systemPositions, setSystemPositions] = useState<Position[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,6 +36,7 @@ export default function BusinessesManagementPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error ?? "No se pudieron cargar los negocios.");
       setBusinesses(data.businesses ?? []);
+      setSystemPositions(data.systemPositions ?? []);
       setCharacters(data.characters ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar los negocios.");
@@ -102,13 +104,14 @@ export default function BusinessesManagementPage() {
         <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <h2 className="text-xl font-semibold">Contratar personaje</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <label><span className="text-sm text-zinc-400">Puesto</span><select value={hire.positionId} onChange={e=>setHire({...hire,positionId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="">Selecciona puesto</option>{businesses.flatMap(b=>b.positions.map(p=><option key={p.id} value={p.id}>{b.name} · {p.title}</option>))}</select></label>
+            <label><span className="text-sm text-zinc-400">Puesto</span><select value={hire.positionId} onChange={e=>setHire({...hire,positionId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="">Selecciona puesto</option>{systemPositions.map(p=><option key={p.id} value={p.id}>Sistema · {p.title}</option>)}{businesses.flatMap(b=>b.positions.map(p=><option key={p.id} value={p.id}>{b.name} · {p.title}</option>))}</select></label>
             <label><span className="text-sm text-zinc-400">Personaje</span><select value={hire.characterId} onChange={e=>setHire({...hire,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="">Selecciona personaje</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
           </div>
           <button disabled={saving} onClick={async()=>{if(await post({action:"hire",positionId:Number(hire.positionId),characterId:Number(hire.characterId)},"Personaje contratado.")) setHire({positionId:"",characterId:""});}} className="mt-5 rounded-lg bg-emerald-400 px-5 py-3 font-semibold text-zinc-950 disabled:opacity-40">Contratar</button>
         </section>
 
         <section className="mt-8 space-y-4">
+          {systemPositions.length > 0 && <article className="rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-6"><h2 className="text-2xl font-bold">Trabajos del sistema</h2><div className="mt-5 grid gap-3 md:grid-cols-2">{systemPositions.map(p=><div key={p.id} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"><p className="font-semibold">{p.title}</p><p className="mt-1 text-xs text-zinc-500">{p.startTime}–{p.endTime} · ◈ {Number(p.salary).toLocaleString("es-MX")} {p.salaryFrequency === "WEEKLY" ? "semanal" : "diario"} · paga sistema</p>{p.contracts.map(c=><div key={c.id} className="mt-3 flex items-center justify-between rounded-lg bg-zinc-900 px-3 py-2 text-sm"><span>{c.character?.name ?? "Personaje"}</span><button disabled={saving} onClick={()=>post({action:"fire",contractId:c.id},"Contrato terminado.")} className="text-red-300">Terminar</button></div>)}{p.contracts.length===0&&<p className="mt-3 text-xs text-zinc-600">Vacante</p>}</div>)}</div></article>}
           {loading ? <p className="text-zinc-500">Cargando...</p> : businesses.map(b=><article key={b.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
             <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-2xl font-bold">{b.name}</h2><p className="mt-1 text-zinc-500">{b.description || "Sin descripción."}</p></div><div className="text-right text-sm text-zinc-400">Dueño: <span className="text-white">{b.ownerCharacter?.name ?? "—"}</span><br/>Ganancia: <span className="text-amber-300">◈ {Number(b.passiveIncome).toLocaleString("es-MX")}</span> {b.passiveFrequency === "WEEKLY" ? "semanal" : "diaria"}</div></div>
             <div className="mt-5 grid gap-3 md:grid-cols-2">{b.positions.map(p=><div key={p.id} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"><p className="font-semibold">{p.title}</p><p className="mt-1 text-xs text-zinc-500">{p.startTime}–{p.endTime} · ◈ {Number(p.salary).toLocaleString("es-MX")} {p.salaryFrequency === "WEEKLY" ? "semanal" : "diario"} · paga {p.payerType === "CHARACTER" ? p.payerCharacter?.name ?? "personaje" : "sistema"}</p>{p.contracts.map(c=><div key={c.id} className="mt-3 flex items-center justify-between rounded-lg bg-zinc-900 px-3 py-2 text-sm"><span>{c.character?.name ?? "Personaje"}</span><button disabled={saving} onClick={()=>post({action:"fire",contractId:c.id},"Contrato terminado.")} className="text-red-300 hover:text-red-200">Terminar</button></div>)}{p.contracts.length===0&&<p className="mt-3 text-xs text-zinc-600">Vacante</p>}</div>)}</div>

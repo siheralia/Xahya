@@ -177,7 +177,11 @@ export async function processEconomyPayments(now = new Date()) {
         period: periodKey(now, frequency, true),
         description: `Salario: ${position.title}`,
         businessId: position.businessId ? Number(position.businessId) : null,
-        payerCharacterId: String(position.payerType) === "CHARACTER" && position.payerCharacterId ? Number(position.payerCharacterId) : null,
+        payerCharacterId: position.businessId
+          ? (Number((businesses.find((item: any) => Number(item.id) === Number(position.businessId)) as any)?.passiveIncome ?? 0) > 0
+              ? null
+              : Number((businesses.find((item: any) => Number(item.id) === Number(position.businessId)) as any)?.ownerCharacterId ?? 0))
+          : (String(position.payerType) === "CHARACTER" && position.payerCharacterId ? Number(position.payerCharacterId) : null),
       });
       if (paid) payments++;
     }

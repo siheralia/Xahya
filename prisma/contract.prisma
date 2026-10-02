@@ -303,6 +303,78 @@ model CharacterPerk {
 }
 
 
+
+model Business {
+  id                    Int       @id @default(autoincrement())
+  name                  String
+  description           String?
+  ownerCharacterId      Int
+  ownerCharacter        Character @relation("BusinessOwner", fields:[ownerCharacterId], references:[id], onDelete:Restrict)
+  passiveIncome         Int       @default(0)
+  passiveFrequency      String    @default("WEEKLY")
+  passiveDayOfWeek      Int       @default(0)
+  passiveTime            String    @default("18:00")
+  balance               Int       @default(0)
+  active                 Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now())
+  positions             BusinessPosition[]
+  paymentLogs           EconomyPaymentLog[]
+  @@index([ownerCharacterId])
+}
+
+model BusinessPosition {
+  id               Int       @id @default(autoincrement())
+  businessId       Int
+  business         Business @relation(fields:[businessId], references:[id], onDelete:Cascade)
+  title            String
+  description      String?
+  startTime        String
+  endTime          String
+  salary           Int       @default(0)
+  salaryFrequency  String    @default("DAILY")
+  payerType        String    @default("BUSINESS")
+  payerCharacterId Int?
+  payerCharacter   Character? @relation("PositionPayer", fields:[payerCharacterId], references:[id], onDelete:SetNull)
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  contracts        EmploymentContract[]
+  @@index([businessId])
+  @@index([payerCharacterId])
+}
+
+model EmploymentContract {
+  id          Int       @id @default(autoincrement())
+  characterId Int
+  character   Character @relation("EmploymentCharacter", fields:[characterId], references:[id], onDelete:Cascade)
+  positionId  Int
+  position    BusinessPosition @relation(fields:[positionId], references:[id], onDelete:Cascade)
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  @@index([characterId, active])
+  @@index([positionId, active])
+}
+
+model EconomyPaymentLog {
+  id                   BigInt    @id @default(autoincrement())
+  paymentType          String
+  sourceType           String
+  sourceId             Int
+  recipientCharacterId Int
+  recipientCharacter   Character @relation("EconomyRecipient", fields:[recipientCharacterId], references:[id], onDelete:Cascade)
+  businessId           Int?
+  business             Business? @relation(fields:[businessId], references:[id], onDelete:SetNull)
+  amount               Int
+  periodKey            String
+  description          String
+  createdAt            DateTime  @default(now())
+  @@unique([paymentType, sourceId, recipientCharacterId, periodKey])
+  @@index([recipientCharacterId, createdAt])
+  @@index([businessId, createdAt])
+}
+
 model RuleSection {
   id        Int      @id @default(autoincrement())
   title     String

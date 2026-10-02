@@ -110,6 +110,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     return {alreadyCleared:false,rewards:distributions};
   });
 
+  if(result.incomplete) return NextResponse.json({error:`Aún quedan ${result.remaining} enemigo(s) activos.`},{status:400});
   if(result.alreadyCleared) return NextResponse.json({ok:true,alreadyCleared:true,rewards:[]});
 
   await recordAuditEvent({

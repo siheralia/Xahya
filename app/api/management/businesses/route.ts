@@ -14,7 +14,7 @@ async function getAdmin() {
 const frequencies = ["DAILY", "WEEKLY"];
 
 function validTime(value: unknown) {
-  return typeof value === "string" && /^\\d{2}:\\d{2}$/.test(value) &&
+  return typeof value === "string" && /^\d{2}:\d{2}$/.test(value) &&
     Number(value.slice(0, 2)) <= 23 && Number(value.slice(3, 5)) <= 59;
 }
 
@@ -89,7 +89,8 @@ export async function POST(request: Request) {
   }
 
   if (action === "createPosition") {
-    const rawBusinessId = body?.businessId === "" || body?.businessId == null ? null : Number(body.businessId);\n    const businessId = Number.isInteger(rawBusinessId) && rawBusinessId > 0 ? rawBusinessId : null;
+    const rawBusinessId = body?.businessId === "" || body?.businessId == null ? null : Number(body.businessId);
+    const businessId = Number.isInteger(rawBusinessId) && rawBusinessId > 0 ? rawBusinessId : null;
     const title = String(body?.title ?? "").trim();
     const startTime = String(body?.startTime ?? "");
     const endTime = String(body?.endTime ?? "");

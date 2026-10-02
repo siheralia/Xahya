@@ -27,3 +27,8 @@ create table if not exists public."mazeTheme" (
 
 alter table public."enemy" add column if not exists "capturability" integer not null default 0;
 alter table public."enemy" add constraint "enemy_capturability_nonnegative" check ("capturability" >= 0);
+
+insert into public."theme" ("name","slug","description","active") values
+  ('General','GENERAL','Enemigos comunes de los laberintos sin temática.',true),
+  ('Todas','TODAS','Enemigos que pueden aparecer en cualquier laberinto.',true)
+on conflict ("slug") do nothing;

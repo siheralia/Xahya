@@ -1155,6 +1155,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     params
       .then(({ id }) => fetch(`/api/characters/${id}`))
+      .then(async (response) => {
+        if (!response.ok) throw new Error("No se pudo cargar el personaje.");
+        return response.json() as Promise<Character>;
+      })
       .then((data) => {
         setCharacter(data);
         return data;

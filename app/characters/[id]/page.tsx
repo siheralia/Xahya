@@ -173,7 +173,7 @@ function colorfulness(r: number, g: number, b: number) {
   return (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
 }
 
-async function paletteFromSource(source: string | File): Promise<ThemePalette> {
+async function paletteFromSource(source: string | File, flair: string | null = null): Promise<ThemePalette> {
   const image = new Image();
   image.crossOrigin = "anonymous";
   const url = typeof source === "string" ? source : URL.createObjectURL(source);
@@ -189,38 +189,27 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
   canvas.height = size;
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("No se pudo analizar el avatar.");
-  context.drawImage(image, 0, 0, size, size);
+
+  // Solo analizamos el 60% central para eliminar marcos, bordes y fondos de la orilla.
+  const crop = 0.2;
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  context.drawImage(
+    image,
+    sourceWidth * crop,
+    sourceHeight * crop,
+    sourceWidth * (1 - crop * 2),
+    sourceHeight * (1 - crop * 2),
+    0,
+    0,
+    size,
+    size,
+  );
   if (typeof source !== "string") URL.revokeObjectURL(url);
 
   const pixels = context.getImageData(0, 0, size, size).data;
-  const rgbAt = (x: number, y: number) => {
-    const index = (y * size + x) * 4;
-    return [pixels[index], pixels[index + 1], pixels[index + 2]] as const;
-  };
-
-  // El fondo suele ocupar las esquinas. Lo detectamos aparte para que no domine
-  // la identidad cromática del personaje.
-  const cornerBuckets = new Map<string, number>();
-  for (const [x, y] of [
-    [0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1],
-  ] as const) {
-    for (let dy = 0; dy < 10; dy += 2) {
-      for (let dx = 0; dx < 10; dx += 2) {
-        const positions = [
-          [x === 0 ? dx : x - dx, y === 0 ? dy : y - dy],
-        ] as const;
-        for (const [px, py] of positions) {
-          const [r, g, b] = rgbAt(px, py);
-          const hex = rgbToHex(Math.round(r / 24) * 24, Math.round(g / 24) * 24, Math.round(b / 24) * 24);
-          cornerBuckets.set(hex, (cornerBuckets.get(hex) ?? 0) + 1);
-        }
-      }
-    }
-  }
-  const backgroundHex = [...cornerBuckets.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "#09090b";
 
   const buckets = new Map<string, { count: number; colorfulness: number; hex: string }>();
-
   for (let i = 0; i < pixels.length; i += 16) {
     const alpha = pixels[i + 3];
     if (alpha < 180) continue;
@@ -228,8 +217,6 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
     const g = pixels[i + 1];
     const b = pixels[i + 2];
     const hsl = rgbToHsl(r, g, b);
-    const pixelHex = rgbToHex(r, g, b);
-    if (colorDistance(pixelHex, backgroundHex) < 55) continue;
     if (isLikelySkinTone(r, g, b, hsl)) continue;
 
     const qr = Math.round(r / 24) * 24;
@@ -242,7 +229,7 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
     buckets.set(hex, current);
   }
 
-  const colors = [...buckets.values()]
+  const imageColors = [...buckets.values()]
     .map((entry) => ({ ...entry, colorfulness: entry.colorfulness / entry.count }))
     .filter((entry) => entry.colorfulness >= 0.12)
     .sort((a, b) =>
@@ -250,11 +237,40 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
       (a.colorfulness ** 1.3 * Math.log2(a.count + 1))
     );
 
-  if (!colors.length) return DEFAULT_THEME;
+  // Extraemos también los colores visibles del flair. Los emojis se renderizan
+  // en un canvas pequeño y sus píxeles saturados reciben un peso fuerte.
+  const flairColors: { hex: string; weight: number }[] = [];
+  if (flair?.trim()) {
+    const flairCanvas = document.createElement("canvas");
+    flairCanvas.width = 128;
+    flairCanvas.height = 64;
+    const flairContext = flairCanvas.getContext("2d", { willReadFrequently: true });
+    if (flairContext) {
+      flairContext.clearRect(0, 0, 128, 64);
+      flairContext.font = "42px sans-serif";
+      flairContext.textAlign = "center";
+      flairContext.textBaseline = "middle";
+      flairContext.fillText(flair.trim(), 64, 32);
 
-  // Para la capa visual no usamos tonos derivados/pastel del avatar.
-  // La identidad se traduce a una paleta corta de colores saturados y reconocibles.
-  // Son los cinco colores de referencia que usaremos para Primary/Secondary.
+      const flairPixels = flairContext.getImageData(0, 0, 128, 64).data;
+      const flairBuckets = new Map<string, number>();
+      for (let i = 0; i < flairPixels.length; i += 16) {
+        const alpha = flairPixels[i + 3];
+        if (alpha < 120) continue;
+        const r = flairPixels[i];
+        const g = flairPixels[i + 1];
+        const b = flairPixels[i + 2];
+        if (colorfulness(r, g, b) < 0.16) continue;
+        const hex = rgbToHex(Math.round(r / 16) * 16, Math.round(g / 16) * 16, Math.round(b / 16) * 16);
+        flairBuckets.set(hex, (flairBuckets.get(hex) ?? 0) + 1);
+      }
+      for (const [hex, count] of flairBuckets.entries()) {
+        flairColors.push({ hex, weight: count * 8 });
+      }
+    }
+  }
+
+  // Colores estándar saturados para la identidad visual.
   const standardColors = [
     "#00c853", // verde
     "#ff1744", // rojo
@@ -268,8 +284,20 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
       .map((standard) => ({ standard, distance: colorDistance(source, standard) }))
       .sort((a, b) => a.distance - b.distance)[0].standard;
 
-  const primary = nearestStandard(colors[0].hex);
-  const secondarySource = colors.find((entry) => colorDistance(entry.hex, colors[0].hex) > 55)?.hex ?? colors[1]?.hex ?? colors[0].hex;
+  const weightedColors = [
+    ...imageColors.map((entry) => ({ hex: entry.hex, weight: entry.colorfulness * Math.log2(entry.count + 1) })),
+    ...flairColors,
+  ].sort((a, b) => b.weight - a.weight);
+
+  if (!weightedColors.length) return DEFAULT_THEME;
+
+  // El Primary nace del color más característico del centro de la imagen,
+  // reforzado fuertemente por los colores del flair cuando existe.
+  const primarySource = weightedColors[0].hex;
+  const primary = nearestStandard(primarySource);
+  const secondarySource = weightedColors.find((entry) =>
+    colorDistance(entry.hex, primarySource) > 55
+  )?.hex ?? weightedColors[1]?.hex ?? primarySource;
   let secondary = nearestStandard(secondarySource);
 
   // Evita que ambos terminen en el mismo color estándar.
@@ -472,7 +500,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     setAvatarBusy(true); setError(""); setSuccess("");
     try {
       const compressed = await compressAvatar(file);
-      const palette = await paletteFromSource(compressed);
+      const palette = await paletteFromSource(compressed, character.flair);
       const formData = new FormData();
       formData.append("file", compressed);
       const response = await fetch("/api/characters/" + character.id + "/avatar", { method: "POST", body: formData });
@@ -1573,7 +1601,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               {character.avatarUrl ? (
                 <>
                   <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url(" + character.avatarUrl + ")" }} />
-                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "linear-gradient(135deg, " + themePalette.primary + "e6 0%, " + themePalette.primary + "b8 52%, " + themePalette.secondary + "d9 100%)" }} />
+                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ backgroundColor: themePalette.primary + "d9" }} />
                 </>
               ) : character.age !== null && character.gender !== null ? (
                 <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">

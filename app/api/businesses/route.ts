@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { Temporal } from "@js-temporal/polyfill";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
     const characterEmployment = (await Contract.where({ characterId }).all()).find((contract: any) => contract.active);
     if (characterEmployment) return NextResponse.json({ error: "Ese personaje ya tiene un empleo activo." }, { status: 400 });
 
-    const contract = await Contract.create({ positionId, characterId, startDate: new Date(), endDate: null, active: true });
+    const contract = await Contract.create({ positionId, characterId, startDate: Temporal.Instant.fromEpochMilliseconds(Date.now()), endDate: null, active: true });
     return NextResponse.json({ contract }, { status: 201 });
   }
 
@@ -100,6 +101,6 @@ export async function POST(request: Request) {
   if (!contract) return NextResponse.json({ error: "Contrato no encontrado." }, { status: 404 });
   const position = await Position.where({ id: Number(contract.positionId) }).first();
   if (!position || Number(position.businessId) !== businessId) return NextResponse.json({ error: "Ese contrato no pertenece a este negocio." }, { status: 403 });
-  await Contract.where({ id: contractId }).update({ active: false, endDate: new Date() });
+  await Contract.where({ id: contractId }).update({ active: false, endDate: Temporal.Instant.fromEpochMilliseconds(Date.now()) });
   return NextResponse.json({ success: true });
 }

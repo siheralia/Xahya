@@ -13,6 +13,7 @@ type ThemePalette = {
   primary: string;
   secondary: string;
   accent: string;
+  overlayPrimary: string;
   background: string;
   surface: string;
   border: string;
@@ -24,6 +25,7 @@ const DEFAULT_THEME: ThemePalette = {
   primary: "#22d3ee",
   secondary: "#8b5cf6",
   accent: "#f59e0b",
+  overlayPrimary: "#22d3ee",
   background: "#09090b",
   surface: "#18181b",
   border: "#3f3f46",
@@ -270,7 +272,8 @@ async function paletteFromSource(source: string | File, flair: string | null = n
     }
   }
 
-  // Colores estándar saturados para la identidad visual.
+  // Los colores estándar SOLO se usan para elegir el color del overlay.
+  // La paleta conserva los colores reales extraídos del avatar y del flair.
   const standardColors = [
     "#00c853", // verde
     "#ff1744", // rojo
@@ -291,37 +294,40 @@ async function paletteFromSource(source: string | File, flair: string | null = n
 
   if (!weightedColors.length) return DEFAULT_THEME;
 
-  // El Primary nace del color más característico del centro de la imagen,
-  // reforzado fuertemente por los colores del flair cuando existe.
+  // Primary/secondary/accent son colores reales de la paleta, NO colores estándar.
   const primarySource = weightedColors[0].hex;
-  const primary = nearestStandard(primarySource);
   const secondarySource = weightedColors.find((entry) =>
     colorDistance(entry.hex, primarySource) > 55
   )?.hex ?? weightedColors[1]?.hex ?? primarySource;
-  let secondary = nearestStandard(secondarySource);
+  const accentSource = weightedColors.find((entry) =>
+    entry.hex !== primarySource &&
+    entry.hex !== secondarySource &&
+    colorDistance(entry.hex, primarySource) > 35
+  )?.hex ?? secondarySource;
 
-  // Evita que ambos terminen en el mismo color estándar.
-  if (secondary === primary) {
-    secondary = standardColors
-      .filter((standard) => standard !== primary)
-      .map((standard) => ({ standard, distance: colorDistance(secondarySource, standard) }))
-      .sort((a, b) => a.distance - b.distance)[0].standard;
-  }
+  // Únicamente el overlay se traduce al estándar más cercano.
+  const overlayPrimary = nearestStandard(primarySource);
 
-  const accentSource = colors.find((entry) =>
-    nearestStandard(entry.hex) !== primary && nearestStandard(entry.hex) !== secondary
-  )?.hex;
-  const accent = accentSource ? nearestStandard(accentSource) : secondary;
-
-  const background = mixHex(primary, "#09090b", 0.82);
-  const surface = mixHex(primary, "#18181b", 0.72);
-  const border = mixHex(primary, "#3f3f46", 0.45);
-  const primaryRgb = hexToRgb(primary);
+  const background = mixHex(primarySource, "#09090b", 0.82);
+  const surface = mixHex(primarySource, "#18181b", 0.72);
+  const border = mixHex(primarySource, "#3f3f46", 0.45);
+  const primaryRgb = hexToRgb(primarySource);
   const foreground = rgbToHsl(primaryRgb.r, primaryRgb.g, primaryRgb.b).l > 0.58 ? "#18181b" : "#ffffff";
-  const muted = mixHex(primary, "#a1a1aa", 0.45);
+  const muted = mixHex(primarySource, "#a1a1aa", 0.45);
 
-  return { primary, secondary, accent, background, surface, border, foreground, muted };
+  return {
+    primary: primarySource,
+    secondary: secondarySource,
+    accent: accentSource,
+    overlayPrimary,
+    background,
+    surface,
+    border,
+    foreground,
+    muted,
+  };
 }
+
 function StatsRadar({ baseValues, values, palette }: { baseValues: RadarValues; values: RadarValues; palette: ThemePalette }) {
   const center = 150;
   const radius = 105;
@@ -1601,7 +1607,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               {character.avatarUrl ? (
                 <>
                   <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url(" + character.avatarUrl + ")" }} />
-                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ backgroundColor: themePalette.primary + "d9" }} />
+                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ backgroundColor: themePalette.overlayPrimary + "d9" }} />
                 </>
               ) : character.age !== null && character.gender !== null ? (
                 <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">

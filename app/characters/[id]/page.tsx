@@ -213,7 +213,8 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
   const background = mixHex(primary, "#09090b", 0.82);
   const surface = mixHex(primary, "#18181b", 0.72);
   const border = mixHex(primary, "#3f3f46", 0.45);
-  const primaryRgb = hexToRgb(primary);\n  const foreground = rgbToHsl(primaryRgb.r, primaryRgb.g, primaryRgb.b).l > 0.58 ? "#18181b" : "#ffffff";
+  const primaryRgb = hexToRgb(primary);
+  const foreground = rgbToHsl(primaryRgb.r, primaryRgb.g, primaryRgb.b).l > 0.58 ? "#18181b" : "#ffffff";
   const muted = mixHex(primary, "#a1a1aa", 0.45);
 
   return { primary, secondary, accent, background, surface, border, foreground, muted };

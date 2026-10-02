@@ -43,8 +43,12 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
 
   const result = await db.transaction(async (tx) => {
     const Enemy=(tx.orm.public as any).MazeRoomEnemy;
-    const active=await Enemy.where({roomId,status:"ACTIVE"}).all();
-    if(active.length===0) return {alreadyCleared:true,rewards:[]};
+    const encounters=await Enemy.where({roomId}).all();
+    if(encounters.length===0) return {alreadyCleared:true,rewards:[]};
+    const active=encounters.filter((row:any)=>String(row.status)==="ACTIVE");
+    const defeated=encounters.filter((row:any)=>String(row.status)==="DEFEATED");
+    if(active.length>0) return {incomplete:true,remaining:active.length,rewards:[]};
+    if(defeated.length===0) return {alreadyCleared:true,rewards:[]};
 
     const positions=await (tx.orm.public as any).MazeCharacterPosition.where({roomId}).all();
     const participants=positions.filter((position:any)=>String(position.status ?? "ACTIVE")==="ACTIVE");
@@ -57,7 +61,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
 
     if(participants.length>0) {
       const totals={money:0,karma:0,items:new Map<number,number>()};
-      for(const encounter of active) {
+      for(const encounter of defeated) {
         const definition=definitions.find((enemy:any)=>Number(enemy.id)===Number(encounter.enemyId));
         const multiplier=Math.max(1,Number(encounter.quantity)||1);
         for(const loot of normalizedLoot(definition)) {
@@ -99,7 +103,6 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
       }
     }
 
-    for(const row of active) await Enemy.where({id:Number(row.id)}).update({status:"DEFEATED"});
     await tx.orm.public.MazeRoom.where({id:roomId}).update({status:"CLEARED"});
     if(String(room.roomType)==="BOSS") {
       await tx.orm.public.Maze.where({id:Number(room.mazeId)}).update({status:"COMPLETED"});

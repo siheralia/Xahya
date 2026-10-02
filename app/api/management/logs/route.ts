@@ -30,6 +30,8 @@ export async function GET(request: Request) {
 
   const allLogs = await db.orm.public.AuditLog.all();
   const characters = await db.orm.public.Character.all();
+  const businesses = await db.orm.public.Business.all();
+  const positions = await db.orm.public.BusinessPosition.all();
 
   const now = Date.now();
   const rangeMs: Record<string, number> = {
@@ -46,10 +48,19 @@ export async function GET(request: Request) {
     .map((log) => {
       const actor = users.find((user) => Number(user.id) === Number(log.actorUserId));
       const character = characters.find((item) => Number(item.id) === Number(log.characterId ?? log.entityId));
-      let details: unknown = null;
+      let details: Record<string, unknown> | null = null;
       if (log.details) {
-        try { details = JSON.parse(String(log.details)); } catch { details = String(log.details); }
+        try {
+          const parsed = JSON.parse(String(log.details));
+          details = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : { value: parsed };
+        } catch { details = { raw: String(log.details) }; }
       }
+      const positionId = details?.positionId == null ? null : Number(details.positionId);
+      const businessId = details?.businessId == null ? null : Number(details.businessId);
+      const position = positionId == null ? null : positions.find((item) => Number(item.id) === positionId);
+      const business = businessId == null ? null : businesses.find((item) => Number(item.id) === businessId);
+      const resolvedBusiness = business ?? (position?.businessId != null ? businesses.find((item) => Number(item.id) === Number(position.businessId)) : null);
+
       return {
         id: Number(log.id),
         action: String(log.action),
@@ -59,6 +70,17 @@ export async function GET(request: Request) {
         actor: actor ? { id: Number(actor.id), name: actor.name ?? "Sin nombre", role: String(actor.role) } : null,
         targetUserId: log.targetUserId == null ? null : Number(log.targetUserId),
         characterName: character?.name ?? null,
+        businessName: resolvedBusiness?.name ?? null,
+        position: position ? {
+          id: Number(position.id),
+          title: String(position.title),
+          startTime: String(position.startTime),
+          endTime: String(position.endTime),
+          salary: Number(position.salary),
+          salaryFrequency: String(position.salaryFrequency),
+          payerType: String(position.payerType),
+          payerCharacterId: position.payerCharacterId == null ? null : Number(position.payerCharacterId),
+        } : null,
         details,
         createdAt: log.createdAt,
       };

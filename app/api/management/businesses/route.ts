@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 

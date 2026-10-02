@@ -32,6 +32,8 @@ export async function GET(request: Request) {
   const characters = await db.orm.public.Character.all();
   const businesses = await db.orm.public.Business.all();
   const positions = await db.orm.public.BusinessPosition.all();
+  const businesses = await db.orm.public.Business.all();
+  const positions = await db.orm.public.BusinessPosition.all();
 
   const now = Date.now();
   const rangeMs: Record<string, number> = {
@@ -55,6 +57,12 @@ export async function GET(request: Request) {
           details = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : { value: parsed };
         } catch { details = { raw: String(log.details) }; }
       }
+      const positionId = details?.positionId == null ? null : Number(details.positionId);
+      const businessId = details?.businessId == null ? null : Number(details.businessId);
+      const position = positionId == null ? null : positions.find((item) => Number(item.id) === positionId);
+      const business = businessId == null ? null : businesses.find((item) => Number(item.id) === businessId);
+      const resolvedBusiness = business ?? (position?.businessId != null ? businesses.find((item) => Number(item.id) === Number(position.businessId)) : null);
+
       const positionId = details?.positionId == null ? null : Number(details.positionId);
       const businessId = details?.businessId == null ? null : Number(details.businessId);
       const position = positionId == null ? null : positions.find((item) => Number(item.id) === positionId);

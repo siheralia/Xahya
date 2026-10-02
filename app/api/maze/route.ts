@@ -2,13 +2,23 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { pickRandomDirections, pickRoomType, pickWeighted } from "@/lib/maze";
+import { pickRandomDirections, pickRoomType, pickWeighted, enemyMatchesMazeThemes } from "@/lib/maze";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
   const users = await db.orm.public.User.all();
   return users.find((user) => user.clerkId === clerkId) ?? null;
+}
+
+
+async function getMazeThemeSlugs(tx:any, mazeId:number) {
+  const MazeTheme=(tx.orm.public as any).MazeTheme;
+  const Theme=(tx.orm.public as any).Theme;
+  if(!MazeTheme||!Theme) return [];
+  const links=await MazeTheme.where({mazeId}).all();
+  const themes=await Theme.all();
+  return links.map((link:any)=>themes.find((theme:any)=>Number(theme.id)===Number(link.themeId))?.slug).filter(Boolean);
 }
 
 function roomDescription(type: string) {
@@ -55,9 +65,15 @@ async function createRoom(tx: any, maze: any, roomNumber: number, forcedType?: s
   if (type === "ENEMY" || type === "MOBILE_ENEMY" || type === "BOSS") {
     const Enemy = (tx.orm.public as any).Enemy;
     const enemies = Enemy ? await Enemy.where({ active: true }).all() : [];
-    const candidates = type === "BOSS"
+    const mazeThemes = await getMazeThemeSlugs(tx, Number(maze.id));
+    const EnemyTheme = (tx.orm.public as any).EnemyTheme;
+    const Theme = (tx.orm.public as any).Theme;
+    const links = EnemyTheme ? await EnemyTheme.all() : [];
+    const themes = Theme ? await Theme.all() : [];
+    const candidates = (type === "BOSS"
       ? enemies.filter((enemy: any) => Boolean(enemy.isBoss) || String(enemy.rank) === "BOSS")
-      : enemies.filter((enemy: any) => !Boolean(enemy.isBoss));
+      : enemies.filter((enemy: any) => !Boolean(enemy.isBoss)))
+      .filter((enemy:any) => enemyMatchesMazeThemes(mazeThemes, links.filter((link:any)=>Number(link.enemyId)===Number(enemy.id)).map((link:any)=>themes.find((theme:any)=>Number(theme.id)===Number(link.themeId))?.slug)));
     const enemy: any = pickWeighted<any>(candidates as any[]);
     if (enemy) {
       contentName = enemy.name;
@@ -132,6 +148,7 @@ export async function POST(request: Request) {
   const allowTraps = body?.allowTraps !== false;
   const allowDeath = body?.allowDeath !== false;
   const allowTreasures = body?.allowTreasures !== false;
+  const themeIds = Array.isArray(body?.themeIds) ? [...new Set(body.themeIds.map((id:any)=>Number(id)).filter((id:number)=>Number.isInteger(id)&&id>0))] : [];
 
   if (!name) return NextResponse.json({ error: "El laberinto necesita un nombre." }, { status: 400 });
   if (mazeType === "FINITE" && (!Number.isInteger(maxRooms) || (maxRooms as number) < 2)) return NextResponse.json({ error: "Un laberinto finito necesita al menos 2 habitaciones." }, { status: 400 });
@@ -146,6 +163,12 @@ export async function POST(request: Request) {
   try {
     result = await db.transaction(async (tx) => {
     const maze = await tx.orm.public.Maze.create({ name, description, mazeType, generationMode, maxRooms: safeMaxRooms, allowTraps, allowDeath, allowTreasures, status:"ACTIVE" });
+    const MazeTheme=(tx.orm.public as any).MazeTheme;
+    const Theme=(tx.orm.public as any).Theme;
+    if(MazeTheme&&Theme&&themeIds.length){
+      const themes=await Theme.all();
+      for(const themeId of themeIds) if(themes.some((theme:any)=>Number(theme.id)===themeId&&Boolean(theme.active))) await MazeTheme.create({mazeId:maze.id,themeId});
+    }
     const room = await createRoom(tx, maze, 1);
     for (const direction of pickRandomDirections(generationMode === "LINEAR" || generationMode === "SPIRAL_TOWER" ? 1 : 2, generationMode as any, 1)) {
       await tx.orm.public.MazeExit.create({ mazeId: maze.id, fromRoomId: room.id, direction, toRoomId: null });
@@ -162,7 +185,7 @@ export async function POST(request: Request) {
     action: "MAZE_CREATED",
     entityType: "MAZE",
     entityId: result.maze.id,
-    details: { name, mazeType, generationMode, maxRooms, allowTraps, allowDeath, allowTreasures },
+    details: { name, mazeType, generationMode, maxRooms, allowTraps, allowDeath, allowTreasures, themeIds },
   });
 
   return NextResponse.json(result, { status: 201 });

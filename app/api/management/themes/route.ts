@@ -20,7 +20,9 @@ export async function GET() {
   if (!user) return NextResponse.json({error:"Forbidden"},{status:403});
   const Theme = (db.orm.public as any).Theme;
   const themes = await Theme.all();
-  return NextResponse.json(themes.sort((a:any,b:any)=>String(a.name).localeCompare(String(b.name))));
+  const {url,key}=process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY?{url:process.env.SUPABASE_URL,key:process.env.SUPABASE_SERVICE_ROLE_KEY}:{url:null,key:null};
+  const enriched=await Promise.all(themes.map(async (theme:any)=>{if(!theme.imagePath||!url||!key)return theme;const response=await fetch(url+"/storage/v1/object/sign/maze-themes/"+theme.imagePath,{method:"POST",headers:{Authorization:"Bearer "+key,apikey:key,"Content-Type":"application/json"},body:JSON.stringify({expiresIn:3600}),cache:"no-store"});if(!response.ok)return theme;const data=await response.json();return {...theme,imageUrl:data.signedURL?url+"/storage/v1"+data.signedURL:null};}));
+  return NextResponse.json(enriched.sort((a:any,b:any)=>String(a.name).localeCompare(String(b.name))));
 }
 
 export async function POST(request:Request) {

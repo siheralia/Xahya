@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   }
 
   if (action === "createPosition") {
-    const businessId = Number(body?.businessId);
+    const rawBusinessId = body?.businessId === "" || body?.businessId == null ? null : Number(body.businessId);\n    const businessId = Number.isInteger(rawBusinessId) && rawBusinessId > 0 ? rawBusinessId : null;
     const title = String(body?.title ?? "").trim();
     const startTime = String(body?.startTime ?? "");
     const endTime = String(body?.endTime ?? "");
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     const payerType = String(body?.payerType ?? "SYSTEM");
     const payerCharacterId = payerType === "CHARACTER" ? Number(body?.payerCharacterId) : null;
 
-    if (!Number.isInteger(businessId) || !title || !validTime(startTime) || !validTime(endTime) || salary < 0 || !frequencies.includes(salaryFrequency)) {
+    if (!title || !validTime(startTime) || !validTime(endTime) || salary < 0 || !frequencies.includes(salaryFrequency)) {
       return NextResponse.json({ error: "Datos del puesto inválidos." }, { status: 400 });
     }
     if (!["SYSTEM", "CHARACTER"].includes(payerType)) return NextResponse.json({ error: "Pagador inválido." }, { status: 400 });

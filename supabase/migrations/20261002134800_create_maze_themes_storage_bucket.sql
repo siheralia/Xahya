@@ -1,0 +1,1 @@
+insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types) values ('maze-themes','maze-themes',false,8388608,array['image/webp','image/jpeg','image/png','image/gif','image/avif']) on conflict (id) do update set file_size_limit=8388608;

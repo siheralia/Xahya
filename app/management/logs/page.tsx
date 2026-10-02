@@ -13,12 +13,12 @@ type Log = {
   targetUserId: number | null;
   characterName: string | null;
   businessName: string | null;
-  position: { id: number; title: string; startTime: string; endTime: string; salary: number; salaryFrequency: string; payerType: string; payerCharacterId: number | null } | null;
+  position: { id: number; title: string; startTime: string; endTime: string; salary: number; salaryFrequency: string; payerType: string; payerCharacterId: number | null; payerCharacterName: string | null } | null;
   details: Record<string, unknown> | null;
   createdAt: string;
 };
 
-const eventTypes = ["Todos","Personaje","Estadísticas","Recursos","Level Up","Karma","Sistema"];
+const eventTypes = ["Todos","Personaje","Estadísticas","Recursos","Level Up","Karma","Negocios","Sistema"];
 const ranges = [
   ["today","Hoy"],
   ["7d","Últimos 7 días"],

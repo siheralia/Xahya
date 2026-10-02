@@ -9,11 +9,34 @@ type EquipmentItem = {
   item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; value: number; description?: string; action?: string }[] } | null;
 };
 
+type ThemePalette = {
+  primary: string;
+  secondary: string;
+  accent: string;
+  background: string;
+  surface: string;
+  border: string;
+  foreground: string;
+  muted: string;
+};
+
+const DEFAULT_THEME: ThemePalette = {
+  primary: "#22d3ee",
+  secondary: "#8b5cf6",
+  accent: "#f59e0b",
+  background: "#09090b",
+  surface: "#18181b",
+  border: "#3f3f46",
+  foreground: "#ffffff",
+  muted: "#a1a1aa",
+};
+
 type Character = {
   id: number;
   name: string;
   flair: string | null;
   avatarUrl: string | null;
+  themePalette: ThemePalette | null;
   age: number | null;
   gender: string | null;
   height: number | null;
@@ -89,7 +112,114 @@ const radarStats = [
 
 type RadarValues = Record<(typeof radarStats)[number]["key"], number>;
 
-function StatsRadar({ baseValues, values }: { baseValues: RadarValues; values: RadarValues }) {
+
+
+function hexToRgb(hex: string) {
+  const value = hex.replace("#", "");
+  return {
+    r: Number.parseInt(value.slice(0, 2), 16),
+    g: Number.parseInt(value.slice(2, 4), 16),
+    b: Number.parseInt(value.slice(4, 6), 16),
+  };
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+  return "#" + [r, g, b].map((value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0")).join("");
+}
+
+function mixHex(a: string, b: string, amount: number) {
+  const first = hexToRgb(a);
+  const second = hexToRgb(b);
+  return rgbToHex(
+    first.r + (second.r - first.r) * amount,
+    first.g + (second.g - first.g) * amount,
+    first.b + (second.b - first.b) * amount,
+  );
+}
+
+function colorDistance(a: string, b: string) {
+  const first = hexToRgb(a);
+  const second = hexToRgb(b);
+  return Math.sqrt((first.r - second.r) ** 2 + (first.g - second.g) ** 2 + (first.b - second.b) ** 2);
+}
+
+function rgbToHsl(r: number, g: number, b: number) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lightness = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l: lightness };
+  const delta = max - min;
+  const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+  let hue = 0;
+  if (max === r) hue = (g - b) / delta + (g < b ? 6 : 0);
+  else if (max === g) hue = (b - r) / delta + 2;
+  else hue = (r - g) / delta + 4;
+  return { h: hue / 6, s: saturation, l: lightness };
+}
+
+async function paletteFromSource(source: string | File): Promise<ThemePalette> {
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  const url = typeof source === "string" ? source : URL.createObjectURL(source);
+  image.src = url;
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("No se pudo analizar el avatar."));
+  });
+
+  const size = 72;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("No se pudo analizar el avatar.");
+  context.drawImage(image, 0, 0, size, size);
+  if (typeof source !== "string") URL.revokeObjectURL(url);
+
+  const pixels = context.getImageData(0, 0, size, size).data;
+  const buckets = new Map<string, { count: number; saturation: number; hex: string }>();
+
+  for (let i = 0; i < pixels.length; i += 16) {
+    const alpha = pixels[i + 3];
+    if (alpha < 180) continue;
+    const r = pixels[i];
+    const g = pixels[i + 1];
+    const b = pixels[i + 2];
+    const hsl = rgbToHsl(r, g, b);
+    if (Math.max(r, g, b) < 18 || Math.min(r, g, b) > 245) continue;
+    const qr = Math.round(r / 24) * 24;
+    const qg = Math.round(g / 24) * 24;
+    const qb = Math.round(b / 24) * 24;
+    const hex = rgbToHex(qr, qg, qb);
+    const current = buckets.get(hex) ?? { count: 0, saturation: 0, hex };
+    current.count += 1;
+    current.saturation += hsl.s;
+    buckets.set(hex, current);
+  }
+
+  const colors = [...buckets.values()]
+    .map((entry) => ({ ...entry, saturation: entry.saturation / entry.count }))
+    .sort((a, b) => b.count - a.count);
+
+  if (!colors.length) return DEFAULT_THEME;
+
+  const primary = colors[0].hex;
+  const secondary = colors.find((entry) => colorDistance(entry.hex, primary) > 75)?.hex ?? mixHex(primary, "#ffffff", 0.25);
+  const accent = [...colors]
+    .sort((a, b) => (b.saturation * Math.log2(b.count + 1)) - (a.saturation * Math.log2(a.count + 1)))
+    .find((entry) => colorDistance(entry.hex, primary) > 45)?.hex ?? secondary;
+
+  const background = mixHex(primary, "#09090b", 0.82);
+  const surface = mixHex(primary, "#18181b", 0.72);
+  const border = mixHex(primary, "#3f3f46", 0.45);
+  const foreground = rgbToHsl(...Object.values(hexToRgb(primary)) as [number, number, number]).l > 0.58 ? "#18181b" : "#ffffff";
+  const muted = mixHex(primary, "#a1a1aa", 0.45);
+
+  return { primary, secondary, accent, background, surface, border, foreground, muted };
+}
+
+function StatsRadar({ baseValues, values, palette }: { baseValues: RadarValues; values: RadarValues; palette: ThemePalette }) {
   const center = 150;
   const radius = 105;
   const maxValue = Math.max(20, ...Object.values(values));
@@ -130,7 +260,7 @@ function StatsRadar({ baseValues, values }: { baseValues: RadarValues; values: R
               return (center + Math.cos(angle) * r) + "," + (center + Math.sin(angle) * r);
             }).join(" ")}
             fill="none"
-            stroke="rgb(63 63 70)"
+            stroke={palette.border}
             strokeOpacity={0.55}
             strokeWidth="1"
           />
@@ -144,29 +274,29 @@ function StatsRadar({ baseValues, values }: { baseValues: RadarValues; values: R
           return (
             <g key={stat.key}>
               <line x1={center} y1={center} x2={x2} y2={y2} stroke="rgb(63 63 70)" strokeWidth="1" />
-              <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="rgb(161 161 170)" fontSize="11">
+              <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill={palette.muted} fontSize="11">
                 {stat.short}
               </text>
             </g>
           );
         })}
 
-        <polygon points={polygonPoints(basePoints)} fill="rgb(34 211 238)" fillOpacity="0.16" stroke="rgb(34 211 238)" strokeWidth="2" />
+        <polygon points={polygonPoints(basePoints)} fill={palette.primary} fillOpacity="0.16" stroke={palette.primary} strokeWidth="2" />
 
         {hasBoost && (
-          <polygon points={boostPath} fill="rgb(248 113 113)" fillOpacity="0.38" fillRule="evenodd" stroke="rgb(248 113 113)" strokeOpacity="0.75" strokeWidth="1.5" />
+          <polygon points={boostPath} fill={palette.accent} fillOpacity="0.38" fillRule="evenodd" stroke={palette.accent} strokeOpacity="0.75" strokeWidth="1.5" />
         )}
 
         {hasBoost && radarStats.map((stat, index) => {
           if (values[stat.key] <= baseValues[stat.key]) return null;
           const base = basePoints[index];
           const boosted = effectivePoints[index];
-          return <line key={"boost-" + stat.key} x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke="rgb(248 113 113)" strokeWidth="4" strokeLinecap="round" />;
+          return <line key={"boost-" + stat.key} x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke={palette.accent} strokeWidth="4" strokeLinecap="round" />;
         })}
       </svg>
 
       {hasBoost && (
-        <div className="mt-2 flex items-center justify-center gap-4 text-xs text-zinc-500">
+        <div className="mt-2 flex items-center justify-center gap-4 text-xs" style={{ color: palette.muted }}>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-cyan-400/70" />Base</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-400" />Boost</span>
         </div>
@@ -227,6 +357,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [transferBusy, setTransferBusy] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [perkRecoveryBusy, setPerkRecoveryBusy] = useState(false);
+  const themePalette = character?.themePalette ?? DEFAULT_THEME;
 
   useEffect(() => {
     if (!character) return;
@@ -266,13 +397,26 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     setAvatarBusy(true); setError(""); setSuccess("");
     try {
       const compressed = await compressAvatar(file);
+      const palette = await paletteFromSource(compressed);
       const formData = new FormData();
       formData.append("file", compressed);
       const response = await fetch("/api/characters/" + character.id + "/avatar", { method: "POST", body: formData });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "No se pudo subir la imagen.");
-      setCharacter((current) => current ? { ...current, avatarUrl: data.avatarUrl ?? null } : current);
-      setSuccess("Avatar actualizado.");
+      let savedPalette = palette;
+      if (data.avatarUrl) {
+        const themeResponse = await fetch("/api/characters/" + character.id + "/theme", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ palette }),
+        });
+        if (themeResponse.ok) {
+          const themeData = await themeResponse.json();
+          savedPalette = themeData.themePalette ?? palette;
+        }
+      }
+      setCharacter((current) => current ? { ...current, avatarUrl: data.avatarUrl ?? null, themePalette: savedPalette } : current);
+      setSuccess("Avatar y tema visual actualizados.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo subir la imagen.");
     } finally { setAvatarBusy(false); }
@@ -286,7 +430,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       const response = await fetch("/api/characters/" + character.id + "/avatar", { method: "DELETE" });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "No se pudo eliminar la imagen.");
-      setCharacter((current) => current ? { ...current, avatarUrl: null } : current);
+      setCharacter((current) => current ? { ...current, avatarUrl: null, themePalette: null } : current);
       setSuccess("Avatar eliminado.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo eliminar la imagen.");
@@ -841,7 +985,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         ctx.roundRect(0, 0, width, height, 22);
         ctx.clip();
         ctx.drawImage(avatarImage, drawX, drawY, drawWidth, drawHeight);
-        ctx.fillStyle = "rgba(30, 64, 175, 0.55)";
+        ctx.fillStyle = themePalette.primary + "8c";
         ctx.fillRect(0, 0, width, height);
         ctx.restore();
       } else {
@@ -853,16 +997,16 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       ctx.fillRect(0, 0, width, height);
     }
 
-    ctx.strokeStyle = "#27272a";
+    ctx.strokeStyle = themePalette.border;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(1, 1, width - 2, height - 2, 22);
     ctx.stroke();
-    ctx.fillStyle = "#52525b";
+    ctx.fillStyle = themePalette.muted;
     ctx.font = "600 12px Arial, sans-serif";
     ctx.letterSpacing = "3px";
     ctx.fillText("PERFIL", 28, 38);
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = themePalette.foreground;
     ctx.font = "600 22px Arial, sans-serif";
     ctx.textAlign = "right";
     ctx.fillText("Distribución de estadísticas", width - 28, 38);
@@ -1010,11 +1154,26 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     params
       .then(({ id }) => fetch(`/api/characters/${id}`))
-      .then((response) => {
-        if (!response.ok) throw new Error();
-        return response.json();
+      .then((data) => {
+        setCharacter(data);
+        return data;
       })
-      .then(setCharacter)
+      .then((data) => {
+        if (!data?.avatarUrl || data?.themePalette) return;
+        return paletteFromSource(data.avatarUrl)
+          .then(async (palette) => {
+            const themeResponse = await fetch("/api/characters/" + data.id + "/theme", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ palette }),
+            });
+            if (themeResponse.ok) {
+              const themeData = await themeResponse.json();
+              setCharacter((current) => current ? { ...current, themePalette: themeData.themePalette ?? palette } : current);
+            }
+          })
+          .catch(() => undefined);
+      })
       .catch(() => setError("No se pudo cargar el personaje."))
       .finally(() => setLoading(false));
   }, [params]);
@@ -1033,10 +1192,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
+    <main className="xahya-character-theme min-h-screen text-white" style={{ backgroundColor: themePalette.background, color: themePalette.foreground, "--theme-primary": themePalette.primary, "--theme-secondary": themePalette.secondary, "--theme-accent": themePalette.accent, "--theme-surface": themePalette.surface, "--theme-border": themePalette.border } as React.CSSProperties}>
       <div className="mx-auto max-w-6xl px-6 py-6">
         <div className="mt-6 flex flex-wrap items-center gap-4">
-          <h1 className="w-full text-4xl font-bold">{character.name} {character.flair && <span className="text-2xl font-normal text-zinc-400">⟨{character.flair}⟩</span>}</h1>
+          <h1 className="w-full text-4xl font-bold" style={{ color: themePalette.foreground, textShadow: "0 0 28px " + themePalette.primary + "55" }}>{character.name} {character.flair && <span className="text-2xl font-normal" style={{ color: themePalette.primary }}>⟨{character.flair}⟩</span>}</h1>
           {character.canLevelUp && <Link href={"/characters/" + character.id + "/levelup"} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300">Level Up</Link>}
           {character.canManageCharacter && <Link href={"/management?characterId=" + character.id} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Gestionar personaje</Link>}
           <button type="button" onClick={copyFichaToClipboard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">{copied === "ficha" ? "✓ Ficha copiada" : "Copiar ficha"}</button>
@@ -1044,9 +1203,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         </div>
         {character.canSeeCharacterId && <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>}
 
-        <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+        <section className="theme-card mt-6 rounded-2xl border bg-zinc-900/40 p-6" style={{ borderColor: themePalette.border, backgroundColor: themePalette.surface + "aa" }}>
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <div className="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950">
+            <div className="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 bg-zinc-950" style={{ borderColor: themePalette.primary, boxShadow: "0 0 32px " + themePalette.primary + "33" }}>
               {character.avatarUrl ? <img src={character.avatarUrl} alt={"Avatar de " + character.name} className="h-full w-full object-cover" /> : <CharacterSilhouette age={character.age ?? 18} gender={(character.gender as "masculino" | "femenino" | "indefinido") ?? "indefinido"} className="h-24 w-24 text-zinc-700" />}
             </div>
             <div>
@@ -1119,7 +1278,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           </section>
         )}
 
-        <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+        <section className="theme-card mt-10 rounded-2xl border bg-zinc-900/40 p-6" style={{ borderColor: themePalette.border, backgroundColor: themePalette.surface + "aa" }}>
           <h2 className="text-xl font-semibold">Flair</h2>
           <p className="mt-1 text-sm text-zinc-500">Emoji del personaje <span className="text-zinc-600">(máx. 2)</span></p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -1319,7 +1478,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         )}
 
         {character.stats && radarValues && (
-          <section className="mt-10 grid gap-6 lg:grid-cols-[1fr_0.85fr] lg:items-center">
+          <section className="theme-card mt-10 grid gap-6 rounded-2xl border p-5 lg:grid-cols-[1fr_0.85fr] lg:items-center" style={{ borderColor: themePalette.border, backgroundColor: themePalette.surface + "66" }}>
             <div>
               <h2 className="text-xl font-semibold">Estadísticas base</h2>
               <div className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -1335,7 +1494,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               {character.avatarUrl ? (
                 <>
                   <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url(" + character.avatarUrl + ")" }} />
-                  <div className="pointer-events-none absolute inset-0 z-[1] bg-blue-900/55" />
+                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "linear-gradient(135deg, " + themePalette.primary + "99, " + themePalette.secondary + "55 55%, " + themePalette.background + "cc)" }} />
                 </>
               ) : character.age !== null && character.gender !== null ? (
                 <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
@@ -1346,9 +1505,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   />
                 </div>
               ) : null}
-              <div className="relative z-10">
+              <div className="relative z-10" style={{ color: themePalette.foreground }}>
                 <div className="flex items-baseline justify-between gap-4"><p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-600">Perfil</p><h3 className="text-lg font-semibold text-right">Distribución de estadísticas</h3></div>
-                <div className="mt-3"><StatsRadar baseValues={baseRadarValues!} values={radarValues} /></div>
+                <div className="mt-3"><StatsRadar baseValues={baseRadarValues!} values={radarValues} palette={themePalette} /></div>
               </div>
               <div className="absolute bottom-3 left-5 right-5 z-20 flex items-center justify-between gap-4">
                 <p className="text-xl font-semibold italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" style={{ fontFamily: '"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive' }}>{character.name}</p>

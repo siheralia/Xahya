@@ -210,6 +210,7 @@ model Theme {
   name        String      @unique
   slug        String      @unique
   description String?
+  imagePath   String?
   active      Boolean     @default(true)
   createdAt   DateTime    @default(now())
   enemyThemes EnemyTheme[]

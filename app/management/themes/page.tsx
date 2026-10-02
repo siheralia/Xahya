@@ -2,6 +2,7 @@
 
 import {useEffect,useState} from "react";
 import Link from "next/link";
+import ManagementModal from "../_components/ManagementModal";
 
 type Theme={id:number;name:string;slug:string;description:string|null;active:boolean;imagePath?:string|null;imageUrl?:string|null};
 
@@ -11,6 +12,8 @@ export default function ThemeManagement(){
   const [description,setDescription]=useState("");
   const [error,setError]=useState("");
   const [busy,setBusy]=useState(false);
+  const [editingId,setEditingId]=useState<number|null>(null);
+  const [modalOpen,setModalOpen]=useState(false);
 
   async function load(){
     const r=await fetch("/api/management/themes",{cache:"no-store"});
@@ -20,14 +23,23 @@ export default function ThemeManagement(){
   }
   useEffect(()=>{load().catch(e=>setError(e instanceof Error?e.message:"No se pudieron cargar las temáticas."));},[]);
 
-  async function create(){
+  function openNew(){
+    setEditingId(null);setName("");setDescription("");setError("");setModalOpen(true);
+  }
+
+  function edit(theme:Theme){
+    setEditingId(theme.id);setName(theme.name);setDescription(theme.description??"");setError("");setModalOpen(true);
+  }
+
+  async function save(){
     setBusy(true);setError("");
     try{
-      const r=await fetch("/api/management/themes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,description})});
+      const url=editingId?"/api/management/themes/"+editingId:"/api/management/themes";
+      const r=await fetch(url,{method:editingId?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,description})});
       const d=await r.json();
-      if(!r.ok) throw new Error(d?.error??"No se pudo crear la temática.");
-      setName("");setDescription("");await load();
-    }catch(e){setError(e instanceof Error?e.message:"No se pudo crear la temática.");}
+      if(!r.ok) throw new Error(d?.error??"No se pudo guardar la temática.");
+      setName("");setDescription("");setEditingId(null);setModalOpen(false);await load();
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar la temática.");}
     finally{setBusy(false);}
   }
 
@@ -51,7 +63,17 @@ export default function ThemeManagement(){
   return <main className="min-h-screen bg-zinc-950 text-white"><div className="mx-auto max-w-5xl px-6 py-8">
     <div className="flex justify-between gap-4"><div><h1 className="text-4xl font-bold">Temáticas</h1><p className="mt-2 text-zinc-500">Define los ambientes que pueden limitar los enemigos de los laberintos.</p></div><Link href="/management" className="rounded-lg border border-zinc-700 px-4 py-2">← Gestión</Link></div>
     {error&&<p className="mt-5 rounded-lg border border-red-900/60 bg-red-950/30 p-3 text-red-300">{error}</p>}
-    <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6"><h2 className="text-xl font-semibold">Nueva temática</h2><div className="mt-4 grid gap-4 md:grid-cols-2"><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre, ej. No muertos" className="rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3"/><textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Descripción opcional" className="rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 md:col-span-2"/></div><button onClick={create} disabled={busy||!name.trim()} className="mt-4 rounded-lg bg-white px-5 py-3 font-medium text-black disabled:opacity-40">{busy?"Procesando...":"Crear temática"}</button></section>
-    <section className="mt-8 grid gap-3">{themes.map(t=><div key={t.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4"><div className="flex items-center justify-between gap-3"><div><span className="font-semibold">{t.name}</span><span className="ml-2 rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] text-zinc-500">{t.slug}</span></div>{!["GENERAL","TODAS"].includes(t.slug)&&<button onClick={()=>remove(t)} className="rounded-lg border border-red-900/60 px-3 py-1.5 text-xs text-red-300">Eliminar</button>}</div>{t.description&&<p className="mt-2 text-sm text-zinc-500">{t.description}</p>}<div className="mt-3 flex items-center gap-3">{t.imageUrl&&<img src={t.imageUrl} alt={"Fondo de "+t.name} className="h-16 w-28 rounded-lg object-cover opacity-70"/>}<label className="cursor-pointer rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-900">Subir fondo<input type="file" accept="image/*" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)uploadImage(t,f);e.currentTarget.value=""}}/></label></div>{t.slug==="GENERAL"&&<p className="mt-2 text-xs text-zinc-600">Solo laberintos sin temática.</p>}{t.slug==="TODAS"&&<p className="mt-2 text-xs text-zinc-600">Puede aparecer en cualquier laberinto.</p>}</div>)}</section>
+    <div className="mt-8 flex justify-end"><button onClick={openNew} className="rounded-lg bg-white px-5 py-3 font-medium text-black">Nueva temática</button></div>
+    <ManagementModal open={modalOpen} title={editingId?"Editar temática":"Nueva temática"} onClose={()=>setModalOpen(false)} maxWidth="max-w-2xl">
+      <div className="grid gap-4">
+        <label className="text-sm text-zinc-300">Nombre<input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej. No muertos" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3"/></label>
+        <label className="text-sm text-zinc-300">Descripción<textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Descripción opcional" rows={4} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3"/></label>
+        <div className="flex justify-end gap-3">
+          <button type="button" onClick={()=>setModalOpen(false)} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300">Cancelar</button>
+          <button onClick={save} disabled={busy||!name.trim()} className="rounded-lg bg-white px-5 py-2 font-medium text-black disabled:opacity-40">{busy?"Guardando...":editingId?"Guardar cambios":"Crear temática"}</button>
+        </div>
+      </div>
+    </ManagementModal>
+    <section className="mt-8 grid gap-3">{themes.map(t=><div key={t.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4"><div className="flex items-center justify-between gap-3"><div><span className="font-semibold">{t.name}</span><span className="ml-2 rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] text-zinc-500">{t.slug}</span></div>{!["GENERAL","TODAS"].includes(t.slug)&&<><button onClick={()=>edit(t)} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300">Editar</button><button onClick={()=>remove(t)} className="rounded-lg border border-red-900/60 px-3 py-1.5 text-xs text-red-300">Eliminar</button></>}</div>{t.description&&<p className="mt-2 text-sm text-zinc-500">{t.description}</p>}<div className="mt-3 flex items-center gap-3">{t.imageUrl&&<img src={t.imageUrl} alt={"Fondo de "+t.name} className="h-16 w-28 rounded-lg object-cover opacity-70"/>}<label className="cursor-pointer rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-900">Subir fondo<input type="file" accept="image/*" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)uploadImage(t,f);e.currentTarget.value=""}}/></label></div>{t.slug==="GENERAL"&&<p className="mt-2 text-xs text-zinc-600">Solo laberintos sin temática.</p>}{t.slug==="TODAS"&&<p className="mt-2 text-xs text-zinc-600">Puede aparecer en cualquier laberinto.</p>}</div>)}</section>
   </div></main>;
 }

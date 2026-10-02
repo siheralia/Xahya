@@ -113,7 +113,8 @@ async function payCharacter({
     });
     return true;
   } catch (error) {
-    if (String((error as Error)?.message ?? "").includes("unique") || String((error as Error)?.code ?? "") === "P2002") return false;
+    const dbError = error as { message?: unknown; code?: unknown };
+    if (String(dbError.message ?? "").includes("unique") || String(dbError.code ?? "") === "P2002") return false;
     return false;
   }
 }

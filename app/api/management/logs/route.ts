@@ -88,6 +88,7 @@ export async function GET(request: Request) {
           salaryFrequency: String(position.salaryFrequency),
           payerType: String(position.payerType),
           payerCharacterId: position.payerCharacterId == null ? null : Number(position.payerCharacterId),
+          payerCharacterName: position.payerCharacterId == null ? null : (characters.find((item) => Number(item.id) === Number(position.payerCharacterId))?.name ?? null),
         } : null,
         details,
         createdAt: log.createdAt,

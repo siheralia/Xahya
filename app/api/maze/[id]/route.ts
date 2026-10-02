@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted, depthMultiplier, pickEnemyFocus, pickEnemyBehavior, scaleEnemyStats } from "@/lib/maze";
+import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted, depthMultiplier, pickEnemyFocus, pickEnemyBehavior, scaleEnemyStats, enemyMatchesMazeThemes } from "@/lib/maze";
 import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
 import { getDefaultEnemyImageUrl, getEnemyImagePaths, getEnemyImageUrl } from "@/lib/enemy-image";
 
@@ -27,6 +27,16 @@ function roomDescription(type: string) {
 }
 
 
+
+
+async function getMazeThemeSlugs(tx:any, mazeId:number) {
+  const MazeTheme=(tx.orm.public as any).MazeTheme;
+  const Theme=(tx.orm.public as any).Theme;
+  if(!MazeTheme||!Theme) return [];
+  const links=await MazeTheme.where({mazeId}).all();
+  const themes=await Theme.all();
+  return links.map((link:any)=>themes.find((theme:any)=>Number(theme.id)===Number(link.themeId))?.slug).filter(Boolean);
+}
 
 async function getCharacterLuck(tx: any, characterId: number) {
   const stat = await (tx.orm.public as any).CharacterStat.where({ characterId }).first();
@@ -177,9 +187,15 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
   let selectedEnemy: any = null;
   if (roomType === "ENEMY" || roomType === "MOBILE_ENEMY" || roomType === "BOSS") {
     const allEnemies = Enemy ? await Enemy.where({ active:true }).all() : [];
-    const candidates = roomType === "BOSS"
+    const mazeThemes = await getMazeThemeSlugs(tx, Number(maze.id));
+    const EnemyTheme=(tx.orm.public as any).EnemyTheme;
+    const Theme=(tx.orm.public as any).Theme;
+    const links=EnemyTheme?await EnemyTheme.all():[];
+    const themes=Theme?await Theme.all():[];
+    const candidates = (roomType === "BOSS"
       ? allEnemies.filter((enemy:any) => Boolean(enemy.isBoss) || String(enemy.rank) === "BOSS")
-      : allEnemies.filter((enemy:any) => !Boolean(enemy.isBoss));
+      : allEnemies.filter((enemy:any) => !Boolean(enemy.isBoss)))
+      .filter((enemy:any)=>enemyMatchesMazeThemes(mazeThemes,links.filter((link:any)=>Number(link.enemyId)===Number(enemy.id)).map((link:any)=>themes.find((theme:any)=>Number(theme.id)===Number(link.themeId))?.slug)));
     selectedEnemy = pickWeighted<any>(candidates as any[]);
     if (selectedEnemy) {
       contentName = selectedEnemy.name;
@@ -229,8 +245,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   // Compatibilidad con laberintos creados antes de las opciones de contenido:
   // null conserva el comportamiento histórico (todo permitido).
+  const MazeTheme=(db.orm.public as any).MazeTheme;
+  const Theme=(db.orm.public as any).Theme;
+  const themeLinks=MazeTheme?await MazeTheme.where({mazeId}).all():[];
+  const themeRows=Theme?await Theme.all():[];
+  const mazeThemes=themeLinks.map((link:any)=>themeRows.find((theme:any)=>Number(theme.id)===Number(link.themeId))).filter(Boolean);
+
   const normalizedMaze = {
     ...maze,
+    themeIds:mazeThemes.map((theme:any)=>Number(theme.id)),
+    themes:mazeThemes,
     allowTraps: maze.allowTraps == null ? true : Boolean(maze.allowTraps),
     allowDeath: maze.allowDeath == null ? true : Boolean(maze.allowDeath),
     allowTreasures: maze.allowTreasures == null ? true : Boolean(maze.allowTreasures),
@@ -590,9 +614,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const active = await TxMazeRoomEnemy.where({ roomId:room.id, status:"ACTIVE" }).all();
         if (active.length > 0) continue;
         const allEnemies = await Enemy.where({ active:true }).all();
-        const candidates = String(room.roomType) === "BOSS"
+        const mazeThemes = await getMazeThemeSlugs(tx, Number(maze.id));
+        const EnemyTheme=(tx.orm.public as any).EnemyTheme;
+        const Theme=(tx.orm.public as any).Theme;
+        const links=EnemyTheme?await EnemyTheme.all():[];
+        const themes=Theme?await Theme.all():[];
+        const candidates = (String(room.roomType) === "BOSS"
           ? allEnemies.filter((enemy:any) => Boolean(enemy.isBoss) || String(enemy.rank) === "BOSS")
-          : allEnemies.filter((enemy:any) => !Boolean(enemy.isBoss));
+          : allEnemies.filter((enemy:any) => !Boolean(enemy.isBoss)))
+          .filter((enemy:any)=>enemyMatchesMazeThemes(mazeThemes,links.filter((link:any)=>Number(link.enemyId)===Number(enemy.id)).map((link:any)=>themes.find((theme:any)=>Number(theme.id)===Number(link.themeId))?.slug)));
         const enemy:any = pickWeighted<any>(candidates as any[]);
         if (!enemy) continue;
         const encounter = await MazeRoomEnemy.create({ roomId:room.id, enemyId:enemy.id, quantity:String(room.roomType)==="BOSS"?1:Math.floor(Math.random()*3)+1, status:"ACTIVE", isMobile:String(room.roomType)==="MOBILE_ENEMY", generatedStats:{}, focus:null, behavior:null, targetPower:null, depthMultiplier:null });

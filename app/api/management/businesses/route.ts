@@ -110,10 +110,15 @@ export async function POST(request: Request) {
       if (!payer) return NextResponse.json({ error: "El personaje pagador no existe." }, { status: 404 });
     }
 
-    const Business = (db.orm.public as any).Business;
     const Position = (db.orm.public as any).BusinessPosition;
-    const business = await Business.where({ id: businessId }).first();
-    if (!business) return NextResponse.json({ error: "Negocio no encontrado." }, { status: 404 });
+    if (!businessId && payerType !== "SYSTEM") {
+      return NextResponse.json({ error: "Un trabajo independiente solo puede ser pagado por el sistema." }, { status: 400 });
+    }
+    if (businessId) {
+      const Business = (db.orm.public as any).Business;
+      const business = await Business.where({ id: businessId }).first();
+      if (!business) return NextResponse.json({ error: "Negocio no encontrado." }, { status: 404 });
+    }
 
     const position = await Position.create({
       businessId,

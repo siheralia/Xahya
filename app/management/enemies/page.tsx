@@ -4,7 +4,9 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 
 type Theme={id:number;name:string;slug:string;description:string|null;active:boolean};
-type Loot={type:"money"|"karma"|"item";amount:number;itemId?:number;quantity?:number};
+type Loot =
+ | {type:"money"|"karma";amount:number;min?:number;max?:number}
+ | {type:"item";itemId?:number;quantity?:number};
 type Enemy={
  id:number;name:string;description:string|null;rank:string;stats:any;abilities:any;loot:any;
  encounterWeight:number;capturability:number;isBoss:boolean;active:boolean;imageUrl?:string|null;
@@ -32,7 +34,10 @@ function normalizeLoot(value:any):Loot[]{
  return value.map((entry:any)=>{
    const type=["money","karma","item"].includes(String(entry?.type))?String(entry.type):"money";
    if(type==="item")return {type:"item",itemId:Number(entry?.itemId??0),quantity:Math.max(1,Number(entry?.quantity??entry?.amount??1))};
-   return {type:type as "money"|"karma",amount:Math.max(0,Number(entry?.amount??entry?.quantity??entry?.value??0))};
+   const amount=Math.max(0,Number(entry?.amount??entry?.quantity??entry?.value??0));
+   const min=entry?.min==null?undefined:Math.max(0,Number(entry.min));
+   const max=entry?.max==null?undefined:Math.max(0,Number(entry.max));
+   return {type:type as "money"|"karma",amount,min,max};
  });
 }
 
@@ -99,7 +104,7 @@ export default function EnemyManagement(){
        capturability:form.capturability,isBoss:form.boss,active:form.active,themeIds:form.themeIds,
        loot:form.loot.map(l=>l.type==="item"
          ? {type:"item",itemId:Number(l.itemId),quantity:Math.max(1,Number(l.quantity)||1)}
-         : {type:l.type,amount:Math.max(0,Number(l.amount)||0)}),
+         : {type:l.type,amount:Math.max(0,Number(l.amount)||0),...(l.type==="money"&&l.min!=null?{min:Math.max(0,Number(l.min))}:{}),...(l.type==="money"&&l.max!=null?{max:Math.max(0,Number(l.max))}:{})}),
        stats:form.stats,abilities:form.abilities
      };
      const url=selected?"/api/management/enemies/"+selected:"/api/management/enemies";
@@ -171,7 +176,7 @@ export default function EnemyManagement(){
            {form.loot.map((loot,i)=><div key={i} className="rounded-xl border border-zinc-800 p-4"><div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
              <select value={loot.type} onChange={e=>updateLoot(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{Object.entries(lootLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
              {loot.type==="item"?<select value={loot.itemId??0} onChange={e=>updateLoot(i,"itemId",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value={0}>Selecciona objeto</option>{items.map(item=><option key={item.id} value={item.id}>{item.name}{item.itemSubtype?" · "+item.itemSubtype:""}</option>)}</select>:<input type="number" min={0} value={loot.amount} onChange={e=>updateLoot(i,"amount",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Cantidad"/>}
-             {loot.type==="item"?<input type="number" min={1} value={loot.quantity??1} onChange={e=>updateLoot(i,"quantity",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Cantidad"/>:<span className="rounded-lg border border-zinc-800 px-3 py-2 text-xs text-zinc-600">por enemigo</span>}
+             {loot.type==="item"?<input type="number" min={1} value={loot.quantity??1} onChange={e=>updateLoot(i,"quantity",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Cantidad"/>:<div className="grid grid-cols-2 gap-2"><input type="number" min={0} value={loot.min??""} onChange={e=>updateLoot(i,"min",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Mínimo"/><input type="number" min={0} value={loot.max??""} onChange={e=>updateLoot(i,"max",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Máximo"/></div>}
            </div><button type="button" onClick={()=>setForm(f=>({...f,loot:f.loot.filter((_,j)=>j!==i)}))} className="mt-2 text-sm text-red-300">Quitar recompensa</button></div>)}</div>
          </div>
 

@@ -149,6 +149,7 @@ model Maze {
   updatedAt   temporal.updatedAt()
   rooms       MazeRoom[]
   positions   MazeCharacterPosition[]
+  themes      MazeTheme[]
 }
 
 model MazeRoom {
@@ -198,8 +199,37 @@ model Enemy {
   isBoss          Boolean   @default(false)
   active          Boolean   @default(true)
   imagePath       String?
+  capturability   Int       @default(0)
   createdAt       DateTime  @default(now())
   instances       MazeRoomEnemy[]
+  themes          EnemyTheme[]
+}
+
+model Theme {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  slug        String      @unique
+  description String?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  enemyThemes EnemyTheme[]
+  mazeThemes  MazeTheme[]
+}
+
+model EnemyTheme {
+  enemyId Int
+  enemy   Enemy @relation(fields:[enemyId], references:[id], onDelete:Cascade)
+  themeId Int
+  theme   Theme @relation(fields:[themeId], references:[id], onDelete:Cascade)
+  @@id([enemyId, themeId])
+}
+
+model MazeTheme {
+  mazeId Int
+  maze   Maze @relation(fields:[mazeId], references:[id], onDelete:Cascade)
+  themeId Int
+  theme   Theme @relation(fields:[themeId], references:[id], onDelete:Cascade)
+  @@id([mazeId, themeId])
 }
 
 model AppSetting {

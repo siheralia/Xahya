@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { CharacterSilhouette, getCharacterSilhouetteSvg } from "@/components/CharacterSilhouette";
 
 type EquipmentItem = {
@@ -213,7 +213,7 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
   const background = mixHex(primary, "#09090b", 0.82);
   const surface = mixHex(primary, "#18181b", 0.72);
   const border = mixHex(primary, "#3f3f46", 0.45);
-  const foreground = rgbToHsl(...Object.values(hexToRgb(primary)) as [number, number, number]).l > 0.58 ? "#18181b" : "#ffffff";
+  const primaryRgb = hexToRgb(primary);\n  const foreground = rgbToHsl(primaryRgb.r, primaryRgb.g, primaryRgb.b).l > 0.58 ? "#18181b" : "#ffffff";
   const muted = mixHex(primary, "#a1a1aa", 0.45);
 
   return { primary, secondary, accent, background, surface, border, foreground, muted };
@@ -1192,7 +1192,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <main className="xahya-character-theme min-h-screen text-white" style={{ backgroundColor: themePalette.background, color: themePalette.foreground, "--theme-primary": themePalette.primary, "--theme-secondary": themePalette.secondary, "--theme-accent": themePalette.accent, "--theme-surface": themePalette.surface, "--theme-border": themePalette.border } as React.CSSProperties}>
+    <main className="xahya-character-theme min-h-screen text-white" style={{ backgroundColor: themePalette.background, color: themePalette.foreground, "--theme-primary": themePalette.primary, "--theme-secondary": themePalette.secondary, "--theme-accent": themePalette.accent, "--theme-surface": themePalette.surface, "--theme-border": themePalette.border } as CSSProperties}>
       <div className="mx-auto max-w-6xl px-6 py-6">
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <h1 className="w-full text-4xl font-bold" style={{ color: themePalette.foreground, textShadow: "0 0 28px " + themePalette.primary + "55" }}>{character.name} {character.flair && <span className="text-2xl font-normal" style={{ color: themePalette.primary }}>⟨{character.flair}⟩</span>}</h1>

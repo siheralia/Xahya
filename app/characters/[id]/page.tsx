@@ -159,8 +159,7 @@ function rgbToHsl(r: number, g: number, b: number) {
 }
 
 function isLikelySkinTone(r: number, g: number, b: number, hsl: { h: number; s: number; l: number }) {
-  // Detecta la gama cálida típica de piel sin eliminar rojos/naranjas intensos de ropa,
-  // cabello, magia o accesorios. El umbral es deliberadamente conservador.
+  // Excluye tonos de piel sin eliminar rojos intensos de cabello, ropa, magia o accesorios.
   const hueDegrees = hsl.h * 360;
   const warmHue = hueDegrees >= 8 && hueDegrees <= 55;
   const skinSaturation = hsl.s >= 0.12 && hsl.s <= 0.72;
@@ -168,6 +167,10 @@ function isLikelySkinTone(r: number, g: number, b: number, hsl: { h: number; s: 
   const redDominance = r >= g * 0.82 && g >= b * 0.72;
   const notStrongOrange = !(r > 180 && g < r * 0.72);
   return warmHue && skinSaturation && skinLightness && redDominance && notStrongOrange;
+}
+
+function colorfulness(r: number, g: number, b: number) {
+  return (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
 }
 
 async function paletteFromSource(source: string | File): Promise<ThemePalette> {
@@ -190,7 +193,33 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
   if (typeof source !== "string") URL.revokeObjectURL(url);
 
   const pixels = context.getImageData(0, 0, size, size).data;
-  const buckets = new Map<string, { count: number; saturation: number; hex: string }>();
+  const rgbAt = (x: number, y: number) => {
+    const index = (y * size + x) * 4;
+    return [pixels[index], pixels[index + 1], pixels[index + 2]] as const;
+  };
+
+  // El fondo suele ocupar las esquinas. Lo detectamos aparte para que no domine
+  // la identidad cromática del personaje.
+  const cornerBuckets = new Map<string, number>();
+  for (const [x, y] of [
+    [0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1],
+  ] as const) {
+    for (let dy = 0; dy < 10; dy += 2) {
+      for (let dx = 0; dx < 10; dx += 2) {
+        const positions = [
+          [x === 0 ? dx : x - dx, y === 0 ? dy : y - dy],
+        ] as const;
+        for (const [px, py] of positions) {
+          const [r, g, b] = rgbAt(px, py);
+          const hex = rgbToHex(Math.round(r / 24) * 24, Math.round(g / 24) * 24, Math.round(b / 24) * 24);
+          cornerBuckets.set(hex, (cornerBuckets.get(hex) ?? 0) + 1);
+        }
+      }
+    }
+  }
+  const backgroundHex = [...cornerBuckets.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "#09090b";
+
+  const buckets = new Map<string, { count: number; colorfulness: number; hex: string }>();
 
   for (let i = 0; i < pixels.length; i += 16) {
     const alpha = pixels[i + 3];
@@ -199,29 +228,50 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
     const g = pixels[i + 1];
     const b = pixels[i + 2];
     const hsl = rgbToHsl(r, g, b);
-    if (Math.max(r, g, b) < 18 || Math.min(r, g, b) > 245) continue;
+    const pixelHex = rgbToHex(r, g, b);
+    if (colorDistance(pixelHex, backgroundHex) < 55) continue;
     if (isLikelySkinTone(r, g, b, hsl)) continue;
+
     const qr = Math.round(r / 24) * 24;
     const qg = Math.round(g / 24) * 24;
     const qb = Math.round(b / 24) * 24;
     const hex = rgbToHex(qr, qg, qb);
-    const current = buckets.get(hex) ?? { count: 0, saturation: 0, hex };
+    const current = buckets.get(hex) ?? { count: 0, colorfulness: 0, hex };
     current.count += 1;
-    current.saturation += hsl.s;
+    current.colorfulness += colorfulness(r, g, b);
     buckets.set(hex, current);
   }
 
   const colors = [...buckets.values()]
-    .map((entry) => ({ ...entry, saturation: entry.saturation / entry.count }))
-    .sort((a, b) => b.count - a.count);
+    .map((entry) => ({ ...entry, colorfulness: entry.colorfulness / entry.count }))
+    .filter((entry) => entry.colorfulness >= 0.12)
+    .sort((a, b) =>
+      (b.colorfulness ** 1.3 * Math.log2(b.count + 1)) -
+      (a.colorfulness ** 1.3 * Math.log2(a.count + 1))
+    );
 
   if (!colors.length) return DEFAULT_THEME;
 
-  const primary = colors[0].hex;
-  const secondary = colors.find((entry) => colorDistance(entry.hex, primary) > 75)?.hex ?? mixHex(primary, "#ffffff", 0.25);
-  const accent = [...colors]
-    .sort((a, b) => (b.saturation * Math.log2(b.count + 1)) - (a.saturation * Math.log2(a.count + 1)))
-    .find((entry) => colorDistance(entry.hex, primary) > 45)?.hex ?? secondary;
+  const hueOf = (hex: string) => {
+    const { r, g, b } = hexToRgb(hex);
+    return rgbToHsl(r, g, b).h * 360;
+  };
+
+  // Cuando existe un color frío característico (como el celeste de la magia de Guha),
+  // lo usamos como Primary porque funciona mejor como capa visual sobre el avatar.
+  // Los colores cálidos característicos, como su rojo, permanecen en la paleta.
+  const coolCandidates = colors.filter((entry) => {
+    const hue = hueOf(entry.hex);
+    return hue >= 150 && hue <= 260;
+  });
+  const primary = (coolCandidates[0] ?? colors[0]).hex;
+
+  const secondary = colors.find((entry) => colorDistance(entry.hex, primary) > 75)?.hex
+    ?? mixHex(primary, "#ffffff", 0.25);
+
+  const accent = colors.find((entry) =>
+    colorDistance(entry.hex, primary) > 45 && colorDistance(entry.hex, secondary) > 45
+  )?.hex ?? secondary;
 
   const background = mixHex(primary, "#09090b", 0.82);
   const surface = mixHex(primary, "#18181b", 0.72);
@@ -232,7 +282,6 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
 
   return { primary, secondary, accent, background, surface, border, foreground, muted };
 }
-
 function StatsRadar({ baseValues, values, palette }: { baseValues: RadarValues; values: RadarValues; palette: ThemePalette }) {
   const center = 150;
   const radius = 105;
@@ -298,20 +347,20 @@ function StatsRadar({ baseValues, values, palette }: { baseValues: RadarValues; 
         <polygon points={polygonPoints(basePoints)} fill={palette.primary} fillOpacity="0.16" stroke={palette.primary} strokeWidth="2" />
 
         {hasBoost && (
-          <polygon points={boostPath} fill={palette.accent} fillOpacity="0.38" fillRule="evenodd" stroke={palette.accent} strokeOpacity="0.75" strokeWidth="1.5" />
+          <polygon points={boostPath} fill="#ef4444" fillOpacity="0.38" fillRule="evenodd" stroke="#ef4444" strokeOpacity="0.75" strokeWidth="1.5" />
         )}
 
         {hasBoost && radarStats.map((stat, index) => {
           if (values[stat.key] <= baseValues[stat.key]) return null;
           const base = basePoints[index];
           const boosted = effectivePoints[index];
-          return <line key={"boost-" + stat.key} x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke={palette.accent} strokeWidth="4" strokeLinecap="round" />;
+          return <line key={"boost-" + stat.key} x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />;
         })}
       </svg>
 
       {hasBoost && (
         <div className="mt-2 flex items-center justify-center gap-4 text-xs" style={{ color: palette.muted }}>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-cyan-400/70" />Base</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: palette.primary }} />Base</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-400" />Boost</span>
         </div>
       )}
@@ -1512,7 +1561,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               {character.avatarUrl ? (
                 <>
                   <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url(" + character.avatarUrl + ")" }} />
-                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "linear-gradient(135deg, " + themePalette.primary + "99, " + themePalette.secondary + "55 55%, " + themePalette.background + "cc)" }} />
+                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ backgroundColor: themePalette.primary, opacity: 0.42 }} />
                 </>
               ) : character.age !== null && character.gender !== null ? (
                 <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">

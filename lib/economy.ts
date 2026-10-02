@@ -153,7 +153,11 @@ export async function processEconomyPayments(now = new Date()) {
   }
 
   for (const position of positions) {
-    if (!position.active || !dueDaily(String(position.startTime), String(position.endTime), now)) continue;
+    const salaryFrequency = String(position.salaryFrequency ?? "DAILY");
+    const local = localParts(now);
+    const shiftEnded = dueDaily(String(position.startTime), String(position.endTime), now);
+    const weeklyDayMatches = local.weekday === Number(position.salaryDayOfWeek ?? 0);
+    if (!position.active || !shiftEnded || (salaryFrequency === "WEEKLY" && !weeklyDayMatches)) continue;
     const positionContracts = contracts.filter((contract: any) =>
       Number(contract.positionId) === Number(position.id) &&
       contract.active &&
@@ -162,7 +166,7 @@ export async function processEconomyPayments(now = new Date()) {
     );
 
     for (const contract of positionContracts) {
-      const frequency = String(position.salaryFrequency ?? "DAILY");
+      const frequency = salaryFrequency;
       const paid = await payCharacter({
         paymentType: "SALARY",
         sourceType: "POSITION",

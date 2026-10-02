@@ -158,6 +158,18 @@ function rgbToHsl(r: number, g: number, b: number) {
   return { h: hue / 6, s: saturation, l: lightness };
 }
 
+function isLikelySkinTone(r: number, g: number, b: number, hsl: { h: number; s: number; l: number }) {
+  // Detecta la gama cálida típica de piel sin eliminar rojos/naranjas intensos de ropa,
+  // cabello, magia o accesorios. El umbral es deliberadamente conservador.
+  const hueDegrees = hsl.h * 360;
+  const warmHue = hueDegrees >= 8 && hueDegrees <= 55;
+  const skinSaturation = hsl.s >= 0.12 && hsl.s <= 0.72;
+  const skinLightness = hsl.l >= 0.18 && hsl.l <= 0.88;
+  const redDominance = r >= g * 0.82 && g >= b * 0.72;
+  const notStrongOrange = !(r > 180 && g < r * 0.72);
+  return warmHue && skinSaturation && skinLightness && redDominance && notStrongOrange;
+}
+
 async function paletteFromSource(source: string | File): Promise<ThemePalette> {
   const image = new Image();
   image.crossOrigin = "anonymous";
@@ -188,6 +200,7 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
     const b = pixels[i + 2];
     const hsl = rgbToHsl(r, g, b);
     if (Math.max(r, g, b) < 18 || Math.min(r, g, b) > 245) continue;
+    if (isLikelySkinTone(r, g, b, hsl)) continue;
     const qr = Math.round(r / 24) * 24;
     const qg = Math.round(g / 24) * 24;
     const qb = Math.round(b / 24) * 24;

@@ -311,10 +311,10 @@ export default function ManagementPage() {
     }
   }
 
-  async function applyChanges() {
+  async function applyChanges(): Promise<boolean> {
     if (!characterId) {
       setError("Selecciona un personaje.");
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -345,8 +345,10 @@ export default function ManagementPage() {
       setMoney(0);
       setLevelUpPoints(0);
       setSuccess("Cambios aplicados correctamente.");
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron aplicar los cambios.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -792,7 +794,7 @@ export default function ManagementPage() {
             <button type="button" onClick={() => setStatsModalOpen(false)} disabled={saving} className="rounded-lg border border-zinc-700 px-5 py-3 text-zinc-300 hover:bg-zinc-900 disabled:opacity-40">
               Cancelar
             </button>
-            <button type="button" onClick={async () => { await applyChanges(); if (!saving) setStatsModalOpen(false); }} disabled={saving || !characterId} className="rounded-lg bg-white px-5 py-3 font-medium text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40">
+            <button type="button" onClick={async () => { if (await applyChanges()) setStatsModalOpen(false); }} disabled={saving || !characterId} className="rounded-lg bg-white px-5 py-3 font-medium text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40">
               {saving ? "Aplicando..." : "Aplicar cambios"}
             </button>
           </div>

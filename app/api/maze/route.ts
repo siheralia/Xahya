@@ -173,7 +173,7 @@ export async function POST(request: Request) {
     const Theme=(tx.orm.public as any).Theme;
     if(MazeTheme&&Theme&&themeIds.length){
       const themes=await Theme.all();
-      for(const themeId of themeIds) if(themes.some((theme:any)=>Number(theme.id)===themeId&&Boolean(theme.active))) await MazeTheme.create({mazeId:maze.id,themeId});
+      for(const themeId of themeIds) if(themes.some((theme:any)=>Number(theme.id)===themeId&&Boolean(theme.active)&&!["GENERAL","TODAS"].includes(String(theme.slug)))) await MazeTheme.create({mazeId:maze.id,themeId});
     }
     const room = await createRoom(tx, maze, 1);
     for (const direction of pickRandomDirections(generationMode === "LINEAR" || generationMode === "SPIRAL_TOWER" ? 1 : 2, generationMode as any, 1)) {

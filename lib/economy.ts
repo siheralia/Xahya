@@ -171,7 +171,7 @@ export async function processEconomyPayments(now = new Date()) {
           businessId: Number(business.id),
           amount: Number(business.passiveIncome),
           periodKey: incomePeriod,
-          description: \`Ingreso pasivo de \${business.name} → caja del negocio\`,
+          description: `Ingreso pasivo de ${business.name} → caja del negocio`,
         });
       });
     }
@@ -261,8 +261,8 @@ export async function processEconomyPayments(now = new Date()) {
             amount: salary,
             periodKey: period,
             description: business
-              ? \`Salario: \${position.title} (\${business.name})\`
-              : \`Salario: \${position.title}\`,
+              ? `Salario: ${position.title} (${business.name})`
+              : `Salario: ${position.title}`,
           });
         });
         payments++;
@@ -313,7 +313,7 @@ export async function processEconomyPayments(now = new Date()) {
             businessId: Number(business.id),
             amount: 0,
             periodKey: profitPeriod,
-            description: \`Cierre de ganancias de \${business.name}: sin excedente\`,
+            description: `Cierre de ganancias de ${business.name}: sin excedente`,
           });
           return;
         }
@@ -334,7 +334,7 @@ export async function processEconomyPayments(now = new Date()) {
           businessId: Number(business.id),
           amount: profit,
           periodKey: profitPeriod,
-          description: \`Ganancia neta de \${business.name} después de salarios\`,
+          description: `Ganancia neta de ${business.name} después de salarios`,
         });
       });
       payments++;

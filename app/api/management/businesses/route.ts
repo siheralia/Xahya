@@ -31,6 +31,15 @@ export async function GET() {
     Business.all(), Position.all(), Contract.all(), Character.all(),
   ]);
 
+  const systemPositions = positions.filter((position: any) => position.businessId == null).map((position: any) => ({
+    ...position,
+    payerCharacter: characters.find((character: any) => Number(character.id) === Number(position.payerCharacterId)) ?? null,
+    contracts: contracts.filter((contract: any) => Number(contract.positionId) === Number(position.id) && contract.active).map((contract: any) => ({
+      ...contract,
+      character: characters.find((character: any) => Number(character.id) === Number(contract.characterId)) ?? null,
+    })),
+  }));
+
   return NextResponse.json({
     businesses: businesses.map((business: any) => ({
       ...business,
@@ -44,6 +53,7 @@ export async function GET() {
         })),
       })),
     })),
+    systemPositions,
     characters: characters.map((character: any) => ({ id: Number(character.id), name: String(character.name), flair: character.flair ?? null })),
   });
 }

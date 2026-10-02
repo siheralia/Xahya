@@ -53,6 +53,7 @@ export async function GET() {
         businessDescription: business.description ?? null,
         positionId: Number(position.id),
         positionTitle: String(position.title),
+        positionDescription: position.description ?? null,
         startTime: String(position.startTime),
         endTime: String(position.endTime),
         character: {

@@ -2,6 +2,7 @@
 
 import {useEffect,useState} from "react";
 import Link from "next/link";
+import ManagementModal from "../_components/ManagementModal";
 
 type Theme={id:number;name:string;slug:string;description:string|null;active:boolean};
 type Loot =
@@ -51,6 +52,7 @@ export default function EnemyManagement(){
  const [form,setForm]=useState(emptyForm());
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState(""),[success,setSuccess]=useState("");
  const [defaultImage,setDefaultImage]=useState<string|null>(null);
+ const [modalOpen,setModalOpen]=useState(false);
 
  async function load(){
    setLoading(true);setError("");
@@ -81,11 +83,11 @@ export default function EnemyManagement(){
      stats:enemy.stats??{},abilities:Array.isArray(enemy.abilities)?enemy.abilities:[]
    });
    setSuccess("");setError("");
-   window.scrollTo({top:0,behavior:"smooth"});
+   setModalOpen(true);
  }
  function newEnemy(){
    setSelected(null);setForm(emptyForm());setSuccess("");setError("");
-   window.scrollTo({top:0,behavior:"smooth"});
+   setModalOpen(true);
  }
  function updateLoot(index:number,key:string,value:string){
    setForm(f=>({...f,loot:f.loot.map((loot,i)=>{
@@ -116,6 +118,7 @@ export default function EnemyManagement(){
      if(saved?.id){
        const fresh=(await (await fetch("/api/management/enemies",{cache:"no-store"})).json()).enemies?.find((e:Enemy)=>Number(e.id)===Number(saved.id));
        if(fresh)edit(fresh);
+     else setModalOpen(false);
      }
    }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");}
    finally{setSaving(false);}
@@ -157,6 +160,7 @@ export default function EnemyManagement(){
        <div className="mt-4 rounded-lg border border-zinc-800 p-3"><p className="text-sm font-medium">Imagen genérica</p><p className="mt-1 text-xs text-zinc-500">Se usa cuando un enemigo no tiene imagen propia.</p><label className="mt-2 inline-block cursor-pointer rounded-lg border border-zinc-700 px-3 py-2 text-xs">Subir/cambiar<input type="file" accept="image/*" className="hidden" disabled={saving} onChange={ev=>{const f=ev.target.files?.[0];if(f)upload(f);ev.currentTarget.value="";}}/></label>{defaultImage&&<img src={defaultImage} alt="" className="mt-3 h-14 w-14 rounded-lg object-cover"/>}</div>
      </section>
 
+     <ManagementModal open={modalOpen} title={selected?"Editar enemigo":"Nuevo enemigo"} onClose={()=>setModalOpen(false)} maxWidth="max-w-4xl">
      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
        <h2 className="text-xl font-semibold">{selected?"Editar enemigo":"Crear enemigo"}</h2>
        <div className="mt-5 grid gap-4">
@@ -185,6 +189,6 @@ export default function EnemyManagement(){
          <button onClick={save} disabled={saving||!form.name.trim()} className="rounded-lg bg-white px-5 py-3 font-medium text-black disabled:opacity-40">{saving?"Guardando...":selected?"Guardar cambios":"Crear enemigo"}</button>
        </div>
      </section>
-   </div>
+     </ManagementModal>   </div>
  </div></main>;
 }

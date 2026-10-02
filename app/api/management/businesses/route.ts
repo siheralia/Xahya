@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { Temporal } from "temporal-polyfill";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 
@@ -255,7 +256,7 @@ export async function POST(request: Request) {
     if (sameCharacter) return NextResponse.json({ error: "Ese personaje ya tiene un empleo activo." }, { status: 400 });
 
     try {
-      const contract = await Contract.create({ positionId, characterId, startDate: new Date(), endDate: null, active: true });
+      const contract = await Contract.create({ positionId, characterId, startDate: Temporal.Instant.fromEpochMilliseconds(Date.now()), endDate: null, active: true });
       await recordAuditEvent({ actorUserId: admin.id, action: "EMPLOYMENT_CREATE", entityType: "EMPLOYMENT_CONTRACT", entityId: Number(contract.id), characterId, details: { positionId, businessId: position.businessId ? Number(position.businessId) : null } });
       return NextResponse.json({ contract }, { status: 201 });
     } catch (error) {
@@ -270,7 +271,7 @@ export async function POST(request: Request) {
     const Contract = (db.orm.public as any).EmploymentContract;
     const contract = await Contract.where({ id: contractId }).first();
     if (!contract) return NextResponse.json({ error: "Contrato no encontrado." }, { status: 404 });
-    await Contract.where({ id: contractId }).update({ active: false, endDate: new Date() });
+    await Contract.where({ id: contractId }).update({ active: false, endDate: Temporal.Instant.fromEpochMilliseconds(Date.now()) });
     await recordAuditEvent({ actorUserId: admin.id, action: "EMPLOYMENT_END", entityType: "EMPLOYMENT_CONTRACT", entityId: contractId, characterId: Number(contract.characterId), details: {} });
     return NextResponse.json({ success: true });
   }

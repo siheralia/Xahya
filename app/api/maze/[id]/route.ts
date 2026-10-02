@@ -251,10 +251,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const themeRows=Theme?await Theme.all():[];
   const mazeThemes=themeLinks.map((link:any)=>themeRows.find((theme:any)=>Number(theme.id)===Number(link.themeId))).filter(Boolean);
 
+  const themeImages=await Promise.all(mazeThemes.map(async(theme:any)=>{if(!theme.imagePath||!process.env.SUPABASE_URL||!process.env.SUPABASE_SERVICE_ROLE_KEY)return theme;const response=await fetch(process.env.SUPABASE_URL+"/storage/v1/object/sign/maze-themes/"+theme.imagePath,{method:"POST",headers:{Authorization:"Bearer "+process.env.SUPABASE_SERVICE_ROLE_KEY,apikey:process.env.SUPABASE_SERVICE_ROLE_KEY,"Content-Type":"application/json"},body:JSON.stringify({expiresIn:3600}),cache:"no-store"});if(!response.ok)return theme;const data=await response.json();return {...theme,imageUrl:data.signedURL?process.env.SUPABASE_URL+"/storage/v1"+data.signedURL:null};}));
+
   const normalizedMaze = {
     ...maze,
-    themeIds:mazeThemes.map((theme:any)=>Number(theme.id)),
-    themes:mazeThemes,
+    themeIds:themeImages.map((theme:any)=>Number(theme.id)),
+    themes:themeImages,
     allowTraps: maze.allowTraps == null ? true : Boolean(maze.allowTraps),
     allowDeath: maze.allowDeath == null ? true : Boolean(maze.allowDeath),
     allowTreasures: maze.allowTreasures == null ? true : Boolean(maze.allowTreasures),

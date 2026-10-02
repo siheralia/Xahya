@@ -44,11 +44,11 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   const result = await db.transaction(async (tx) => {
     const Enemy=(tx.orm.public as any).MazeRoomEnemy;
     const encounters=await Enemy.where({roomId}).all();
-    if(encounters.length===0) return {alreadyCleared:true,rewards:[]};
+    if(encounters.length===0) return {alreadyCleared:true,incomplete:false,remaining:0,rewards:[]};
     const active=encounters.filter((row:any)=>String(row.status)==="ACTIVE");
     const defeated=encounters.filter((row:any)=>String(row.status)==="DEFEATED");
-    if(active.length>0) return {incomplete:true,remaining:active.length,rewards:[]};
-    if(defeated.length===0) return {alreadyCleared:true,rewards:[]};
+    if(active.length>0) return {alreadyCleared:false,incomplete:true,remaining:active.length,rewards:[]};
+    if(defeated.length===0) return {alreadyCleared:true,incomplete:false,remaining:0,rewards:[]};
 
     const positions=await (tx.orm.public as any).MazeCharacterPosition.where({roomId}).all();
     const participants=positions;
@@ -107,7 +107,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     if(String(room.roomType)==="BOSS") {
       await tx.orm.public.Maze.where({id:Number(room.mazeId)}).update({status:"COMPLETED"});
     }
-    return {alreadyCleared:false,rewards:distributions};
+    return {alreadyCleared:false,incomplete:false,remaining:0,rewards:distributions};
   });
 
   if(result.incomplete) return NextResponse.json({error:`Aún quedan ${result.remaining} enemigo(s) activos.`},{status:400});

@@ -227,7 +227,7 @@ export async function GET(
     }
   }
 
-  const normalizedCharacter = { ...character, avatarUrl, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
+  const normalizedCharacter = { ...character, avatarUrl, themePalette: (character as any).themePalette ?? null, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
 
   return NextResponse.json({
     ...normalizedCharacter,

@@ -60,7 +60,7 @@ export default function EnemyManagement(){
      setEnemies(ed.enemies??[]);
      setDefaultImage(ed.defaultImageUrl??null);
      setThemes(tr.ok&&Array.isArray(td)?td.filter((t:Theme)=>t.active):[]);
-     setItems(ir.ok?id.items??[]:[]);
+     setItems(ir.ok?(id.items??[]):[]);
    }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar el catálogo.");}
    finally{setLoading(false);}
  }

@@ -104,16 +104,12 @@ export default function PerksManagementPage(){
     {error&&<div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
     {success&&<div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
 
-    <section className="mt-8">
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-<div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6"><h2 className="text-xl font-semibold">Otorgar perk</h2>
+    <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6"><h2 className="text-xl font-semibold">Otorgar perk</h2>
         <div className="mt-4 grid gap-3">
           <select value={characterId} onChange={e=>setCharacterId(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"><option value="">Personaje</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name} — {c.ownerName}</option>)}</select>
           <select value={perkId} onChange={e=>setPerkId(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"><option value="">Perk</option>{perks.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
           <button onClick={grant} className="rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-4 py-3 font-semibold text-cyan-300">Otorgar</button>
         </div>
-      </div>
-      </div>
     </section>
     <ManagementModal open={modalOpen} title={editingId?"Editar perk":"Nuevo perk"} onClose={()=>setModalOpen(false)} maxWidth="max-w-3xl">
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">

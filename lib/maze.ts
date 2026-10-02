@@ -76,6 +76,20 @@ export function pickRoomType(luck = 0, disabledTypes: string[] = []) {
   return "ENEMY";
 }
 
+
+export function normalizeThemeSlugs(value:any): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((theme:any) => String(theme).trim().toUpperCase()).filter(Boolean);
+}
+
+export function enemyMatchesMazeThemes(mazeThemes:any, enemyThemes:any): boolean {
+  const maze = normalizeThemeSlugs(mazeThemes);
+  const enemy = normalizeThemeSlugs(enemyThemes);
+  if (enemy.includes("TODAS")) return true;
+  if (maze.length === 0) return enemy.length === 0 || enemy.includes("GENERAL");
+  return maze.some((theme) => enemy.includes(theme));
+}
+
 export function pickWeighted<T extends { encounterWeight: number }>(items: T[]) {
   if (items.length === 0) return null;
   const total = items.reduce((sum, item) => sum + Math.max(1, Number(item.encounterWeight)), 0);

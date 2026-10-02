@@ -17,9 +17,18 @@ export async function GET() {
   try {
     const Enemy = (db.orm.public as any).Enemy;
     const enemies = await Enemy.all();
+    const EnemyTheme = (db.orm.public as any).EnemyTheme;
+    const Theme = (db.orm.public as any).Theme;
+    const links = EnemyTheme ? await EnemyTheme.all() : [];
+    const themes = Theme ? await Theme.all() : [];
     const paths = await getEnemyImagePaths(enemies.map((enemy:any)=>Number(enemy.id)));
     const defaultImageUrl = await getDefaultEnemyImageUrl();
-    const withImages = await Promise.all(enemies.map(async (enemy:any) => ({ ...enemy, imageUrl: await getEnemyImageUrl(paths.get(Number(enemy.id))) })));
+    const withImages = await Promise.all(enemies.map(async (enemy:any) => ({
+      ...enemy,
+      themeIds: links.filter((link:any)=>Number(link.enemyId)===Number(enemy.id)).map((link:any)=>Number(link.themeId)),
+      themes: links.filter((link:any)=>Number(link.enemyId)===Number(enemy.id)).map((link:any)=>themes.find((theme:any)=>Number(theme.id)===Number(link.themeId))).filter(Boolean),
+      imageUrl: await getEnemyImageUrl(paths.get(Number(enemy.id)))
+    })));
     return NextResponse.json({ enemies: withImages, defaultImageUrl });
   } catch (error) {
     console.error("ENEMY_LIST_ERROR", error);
@@ -37,6 +46,7 @@ export async function POST(request: Request) {
 
   const rank = ["NORMAL", "ELITE", "BOSS"].includes(String(body?.rank)) ? String(body.rank) : "NORMAL";
   const encounterWeight = Math.max(1, Number(body?.encounterWeight) || 1);
+  const capturability = Math.max(0, Math.floor(Number(body?.capturability) || 0));
   const Enemy = (db.orm.public as any).Enemy;
 
   try {
@@ -50,7 +60,15 @@ export async function POST(request: Request) {
       encounterWeight,
       isBoss: Boolean(body?.isBoss) || rank === "BOSS",
       active: true,
+      capturability,
     });
+    const themeIds = Array.isArray(body?.themeIds) ? [...new Set(body.themeIds.map((id:any)=>Number(id)).filter((id:number)=>Number.isInteger(id)&&id>0))] : [];
+    const Theme = (db.orm.public as any).Theme;
+    const EnemyTheme = (db.orm.public as any).EnemyTheme;
+    if (Theme && EnemyTheme && themeIds.length) {
+      const themes = await Theme.all();
+      for (const themeId of themeIds) if (themes.some((theme:any)=>Number(theme.id)===themeId && Boolean(theme.active))) await EnemyTheme.create({enemyId:enemy.id,themeId});
+    }
     return NextResponse.json(enemy, { status: 201 });
   } catch (error) {
     console.error("ENEMY_CREATE_ERROR", error);

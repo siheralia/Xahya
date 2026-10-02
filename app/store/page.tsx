@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 
 type Item = { id: number; name: string; description: string | null; itemType: string; itemSubtype: string | null; acquisitionType: string; price: number; effects: { type: string; stat?: string; value: number; description?: string }[]; allowedSlots?: string[] };
 type OwnedItem = { id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null; flair: string | null; item: Item | null };
-type Character = { id: number; name: string; money?: number };\ntype ActiveStaff = { businessId: number; businessName: string; businessDescription: string | null; positionId: number; positionTitle: string; startTime: string; endTime: string; character: { id: number; name: string; flair: string | null; avatarUrl: string | null; themePalette: { primary: string; secondary: string; accent: string; overlayPrimary: string; background: string; surface: string; border: string; foreground: string; muted: string } | null } };
+type Character = { id: number; name: string; money?: number };
+type ActiveStaff = { businessId: number; businessName: string; businessDescription: string | null; positionId: number; positionTitle: string; startTime: string; endTime: string; character: { id: number; name: string; flair: string | null; avatarUrl: string | null; themePalette: { primary: string; secondary: string; accent: string; overlayPrimary: string; background: string; surface: string; border: string; foreground: string; muted: string } | null } };
 
 const typeLabels: Record<string, string> = { WEAPON: "Arma", ARMOR: "Armadura", ACCESSORY: "Accesorio", CONSUMABLE: "Consumible", MATERIAL: "Material", OTHER: "Otro" };
 const effectLabels: Record<string, string> = { attack_multiplier_all: "Ataque total", damage_reduction_all: "Reducción de daño recibido" };
@@ -27,7 +28,8 @@ export default function StorePage() {
   const [selectedSubtype, setSelectedSubtype] = useState("ALL");
   const [selectedSlot, setSelectedSlot] = useState("ALL");
   const [selectedStat, setSelectedStat] = useState("ALL");
-  const [minStatValue, setMinStatValue] = useState("");\n  const [activeStaff, setActiveStaff] = useState<ActiveStaff[]>([]);
+  const [minStatValue, setMinStatValue] = useState("");
+  const [activeStaff, setActiveStaff] = useState<ActiveStaff[]>([]);
 
   async function loadOwnedItems(characterId: number) {
     if (!characterId) { setOwnedItems([]); return; }
@@ -43,15 +45,18 @@ export default function StorePage() {
     try {
       const [itemsResponse, charactersResponse, staffResponse] = await Promise.all([
         fetch("/api/store", { cache: "no-store" }),
-        fetch("/api/characters?mine=true", { cache: "no-store" }),\n        fetch("/api/store/active-staff", { cache: "no-store" }),
+        fetch("/api/characters?mine=true", { cache: "no-store" }),
+        fetch("/api/store/active-staff", { cache: "no-store" }),
       ]);
       const itemsData = await itemsResponse.json().catch(() => null);
-      const charactersData = await charactersResponse.json().catch(() => null);\n      const staffData = await staffResponse.json().catch(() => null);
+      const charactersData = await charactersResponse.json().catch(() => null);
+      const staffData = await staffResponse.json().catch(() => null);
       if (!itemsResponse.ok) throw new Error(itemsData?.error ?? "No se pudo cargar la tienda.");
       if (!charactersResponse.ok) throw new Error(charactersData?.error ?? "No se pudieron cargar tus personajes.");
       const next = Array.isArray(charactersData) ? charactersData : [];
       setItems(Array.isArray(itemsData?.items) ? itemsData.items : []);
-      setCharacters(next);\n      setActiveStaff(Array.isArray(staffData?.activeStaff) ? staffData.activeStaff : []);
+      setCharacters(next);
+      setActiveStaff(Array.isArray(staffData?.activeStaff) ? staffData.activeStaff : []);
       const nextCharacterId = selectedCharacter || (next.length ? String(next[0].id) : "");
       if (!selectedCharacter && next.length) setSelectedCharacter(nextCharacterId);
       await loadOwnedItems(Number(nextCharacterId));
@@ -123,7 +128,17 @@ export default function StorePage() {
 
   if (loading) return <main className="min-h-screen bg-zinc-950 p-12 text-white"><p className="text-zinc-500">Cargando tienda...</p></main>;
 
-  const currentStaff = activeStaff.find((entry) => entry.positionTitle.toLowerCase().includes("encarg")) ?? activeStaff[0] ?? null;\n  const theme = currentStaff?.character.themePalette ?? null;\n\n  return <main className="min-h-screen text-white transition-colors" style={theme ? { backgroundColor: theme.background, color: theme.foreground } : { backgroundColor: "#09090b" }}><div className="mx-auto max-w-6xl px-6 py-6">\n    {currentStaff && <section className="relative mb-8 overflow-hidden rounded-3xl border shadow-2xl" style={{ borderColor: theme?.border ?? "#3f3f46", backgroundColor: theme?.surface ?? "#18181b" }}>\n      {currentStaff.character.avatarUrl && <div className="absolute inset-0"><img src={currentStaff.character.avatarUrl} alt="" className="h-full w-full object-cover opacity-35" /><div className="absolute inset-0" style={{ backgroundColor: theme?.overlayPrimary ?? theme?.primary ?? "#22d3ee", opacity: 0.28 }} /><div className="absolute inset-0 bg-black/35" /></div>}\n      <div className="relative flex min-h-[220px] items-end gap-5 p-6">\n        {currentStaff.character.avatarUrl && <img src={currentStaff.character.avatarUrl} alt={currentStaff.character.name} className="h-36 w-28 rounded-2xl border-2 object-cover shadow-xl" style={{ borderColor: theme?.primary ?? "#22d3ee" }} />}\n        <div><p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: theme?.accent ?? "#f59e0b" }}>En servicio ahora</p><h2 className="mt-2 text-3xl font-bold">{currentStaff.businessName}</h2><p className="mt-1 text-lg">{currentStaff.positionTitle} · {currentStaff.character.name} {currentStaff.character.flair ?? ""}</p><p className="mt-2 text-sm opacity-70">Turno {currentStaff.startTime}–{currentStaff.endTime}</p></div>\n      </div>\n    </section>}
+  const currentStaff = activeStaff.find((entry) => entry.positionTitle.toLowerCase().includes("encarg")) ?? activeStaff[0] ?? null;
+  const theme = currentStaff?.character.themePalette ?? null;
+
+  return <main className="min-h-screen text-white transition-colors" style={theme ? { backgroundColor: theme.background, color: theme.foreground } : { backgroundColor: "#09090b" }}><div className="mx-auto max-w-6xl px-6 py-6">
+    {currentStaff && <section className="relative mb-8 overflow-hidden rounded-3xl border shadow-2xl" style={{ borderColor: theme?.border ?? "#3f3f46", backgroundColor: theme?.surface ?? "#18181b" }}>
+      {currentStaff.character.avatarUrl && <div className="absolute inset-0"><img src={currentStaff.character.avatarUrl} alt="" className="h-full w-full object-cover opacity-35" /><div className="absolute inset-0" style={{ backgroundColor: theme?.overlayPrimary ?? theme?.primary ?? "#22d3ee", opacity: 0.28 }} /><div className="absolute inset-0 bg-black/35" /></div>}
+      <div className="relative flex min-h-[220px] items-end gap-5 p-6">
+        {currentStaff.character.avatarUrl && <img src={currentStaff.character.avatarUrl} alt={currentStaff.character.name} className="h-36 w-28 rounded-2xl border-2 object-cover shadow-xl" style={{ borderColor: theme?.primary ?? "#22d3ee" }} />}
+        <div><p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: theme?.accent ?? "#f59e0b" }}>En servicio ahora</p><h2 className="mt-2 text-3xl font-bold">{currentStaff.businessName}</h2><p className="mt-1 text-lg">{currentStaff.positionTitle} · {currentStaff.character.name} {currentStaff.character.flair ?? ""}</p><p className="mt-2 text-sm opacity-70">Turno {currentStaff.startTime}–{currentStaff.endTime}</p></div>
+      </div>
+    </section>}
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div><h1 className="text-4xl font-bold">Tienda</h1><p className="mt-2 text-zinc-500">Compra y vende objetos con el dinero de tu personaje.</p></div>
       <div className="min-w-[260px]"><label className="text-sm text-zinc-500">Personaje</label><select value={selectedCharacter} onChange={(event) => setSelectedCharacter(event.target.value)} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white">{characters.length === 0 ? <option value="">Sin personajes</option> : characters.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></div>

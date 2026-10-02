@@ -73,8 +73,11 @@ export async function GET() {
     });
   }
 
-  // System positions (businessId = null) belong to the system store.
-  for (const position of positions.filter((entry: any) => entry.businessId == null)) {
+  // Only the system store's "Encargado de tienda" positions appear in the store.
+  for (const position of positions.filter((entry: any) =>
+    entry.businessId == null &&
+    String(entry.title ?? "").trim().toLocaleLowerCase("es-MX") === "encargado de tienda"
+  )) {
     await addActiveStaff(position, null);
   }
 

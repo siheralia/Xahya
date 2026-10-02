@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import ManagementModal from "./_components/ManagementModal";
 
 type Character = {
   id: number;
@@ -76,6 +77,7 @@ export default function ManagementPage() {
   const [grantQuantity, setGrantQuantity] = useState(1);
   const [grantFlair, setGrantFlair] = useState("");
   const [grantSaving, setGrantSaving] = useState(false);
+  const [statsModalOpen, setStatsModalOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/management/characters")
@@ -722,75 +724,81 @@ export default function ManagementPage() {
           </section>
         )}
 
-        {isAdmin && (
-        <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-          <h2 className="text-xl font-semibold">Estadísticas base</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Escribe cuánto quieres sumar o restar.
-          </p>
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {statNames.map((stat) => (
-              <label key={stat} className="block">
-                <span className="text-sm text-zinc-400">{statLabels[stat]}</span>
-                <input
-                  type="number"
-                  value={stats[stat]}
-                  onChange={(event) => updateStat(stat, event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-                />
-              </label>
-            ))}
-          </div>
-        </section>
+        {characterId && (
+          <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Modificar estadísticas y recursos</h2>
+                <p className="mt-1 text-sm text-zinc-500">Abre el editor sin llenar la página de formularios.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStatsModalOpen(true)}
+                className="rounded-lg bg-white px-5 py-3 font-medium text-black transition hover:bg-zinc-200"
+              >
+                ⚙️ Modificar
+              </button>
+            </div>
+          </section>
         )}
 
-        <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-          <h2 className="text-xl font-semibold">Recursos</h2>
+        <ManagementModal
+          open={statsModalOpen}
+          title="Modificar estadísticas y recursos"
+          onClose={() => {
+            if (!saving) setStatsModalOpen(false);
+          }}
+          maxWidth="max-w-3xl"
+        >
+          {isAdmin && (
+            <section>
+              <h3 className="text-lg font-semibold">Estadísticas base</h3>
+              <p className="mt-1 text-sm text-zinc-500">Escribe cuánto quieres sumar o restar.</p>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {statNames.map((stat) => (
+                  <label key={stat} className="block">
+                    <span className="text-sm text-zinc-400">{statLabels[stat]}</span>
+                    <input
+                      type="number"
+                      value={stats[stat]}
+                      onChange={(event) => updateStat(stat, event.target.value)}
+                      className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+                    />
+                  </label>
+                ))}
+              </div>
+            </section>
+          )}
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-sm text-zinc-400">Karma</span>
-              <input
-                type="number"
-                value={karma}
-                onChange={(event) => setKarma(Math.trunc(Number(event.target.value) || 0))}
-                className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-              />
-            </label>
+          <section className={isAdmin ? "mt-8 border-t border-zinc-800 pt-6" : ""}>
+            <h3 className="text-lg font-semibold">Recursos</h3>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm text-zinc-400">Karma</span>
+                <input type="number" value={karma} onChange={(event) => setKarma(Math.trunc(Number(event.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500" />
+              </label>
+              <label className="block">
+                <span className="text-sm text-zinc-400">Dinero</span>
+                <input type="number" value={money} onChange={(event) => setMoney(Math.trunc(Number(event.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500" />
+              </label>
+              <label className="block">
+                <span className="text-sm text-zinc-400">Puntos de Level Up</span>
+                <input type="number" value={levelUpPoints} onChange={(event) => setLevelUpPoints(Math.trunc(Number(event.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500" />
+              </label>
+            </div>
+          </section>
 
-            <label className="block">
-              <span className="text-sm text-zinc-400">Dinero</span>
-              <input
-                type="number"
-                value={money}
-                onChange={(event) => setMoney(Math.trunc(Number(event.target.value) || 0))}
-                className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm text-zinc-400">Puntos de Level Up</span>
-              <input
-                type="number"
-                value={levelUpPoints}
-                onChange={(event) => setLevelUpPoints(Math.trunc(Number(event.target.value) || 0))}
-                className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-              />
-            </label>
+          <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => setStatsModalOpen(false)} disabled={saving} className="rounded-lg border border-zinc-700 px-5 py-3 text-zinc-300 hover:bg-zinc-900 disabled:opacity-40">
+              Cancelar
+            </button>
+            <button type="button" onClick={async () => { await applyChanges(); if (!saving) setStatsModalOpen(false); }} disabled={saving || !characterId} className="rounded-lg bg-white px-5 py-3 font-medium text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40">
+              {saving ? "Aplicando..." : "Aplicar cambios"}
+            </button>
           </div>
-        </section>
+        </ManagementModal>
 
         <div className="mt-6">
-          <button
-            type="button"
-            onClick={applyChanges}
-            disabled={saving || !characterId}
-            className="mt-6 w-full rounded-lg bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {saving ? "Aplicando..." : "Aplicar cambios"}
-          </button>
-
           {isAdmin && characterId && (
             <button
               type="button"

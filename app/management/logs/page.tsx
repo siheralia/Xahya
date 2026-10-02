@@ -12,7 +12,9 @@ type Log = {
   actor: { id: number; name: string; role: string } | null;
   targetUserId: number | null;
   characterName: string | null;
-  details: unknown;
+  businessName: string | null;
+  position: { id: number; title: string; startTime: string; endTime: string; salary: number; salaryFrequency: string; payerType: string; payerCharacterId: number | null } | null;
+  details: Record<string, unknown> | null;
   createdAt: string;
 };
 
@@ -32,14 +34,35 @@ const actionLabels: Record<string,string> = {
   KARMA_BOOST:"Aplicó boost de Karma", USER_ROLE_CHANGE:"Cambió rol",
   USER_DELETE:"Eliminó usuario",
   CASINO_ROULETTE:"Jugó ruleta", CASINO_BLACKJACK:"Jugó Blackjack", CASINO_DICE:"Jugó dados",
+  EMPLOYMENT_CREATE:"Contrató personaje", EMPLOYMENT_END:"Terminó contrato",
+  BUSINESS_CREATE:"Creó negocio", BUSINESS_UPDATE:"Modificó negocio",
+  BUSINESS_POSITION_CREATE:"Creó puesto", BUSINESS_POSITION_UPDATE:"Modificó puesto",
 };
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("es-MX",{dateStyle:"medium",timeStyle:"short"}).format(new Date(value));
 }
+function money(value: number) {
+  return new Intl.NumberFormat("es-MX").format(value);
+}
+
 function detailText(log: Log) {
-  if (!log.details || typeof log.details !== "object") return "";
-  const d = log.details as Record<string, unknown>;
+  const d = log.details;
+  if (!d) return "";
+  if (log.action === "EMPLOYMENT_CREATE" && log.position) {
+    const salary = `${money(log.position.salary)} / ${log.position.salaryFrequency === "WEEKLY" ? "semana" : "día"}`;
+    const payer = log.position.payerType === "CHARACTER" ? "personaje" : "negocio/sistema";
+    return `Puesto: ${log.position.title} · Turno: ${log.position.startTime}–${log.position.endTime} · Salario: ${salary} · Pagador: ${payer}`;
+  }
+  if (log.action === "EMPLOYMENT_END" && log.position) return `Puesto: ${log.position.title} · Turno: ${log.position.startTime}–${log.position.endTime}`;
+  if (log.action.startsWith("BUSINESS_")) {
+    const parts = [];
+    if (d.name !== undefined) parts.push(`Nombre: ${String(d.name)}`);
+    if (d.ownerCharacterId !== undefined) parts.push(`Propietario ID: ${String(d.ownerCharacterId)}`);
+    if (d.positionId !== undefined) parts.push(`Puesto #${String(d.positionId)}`);
+    if (d.salary !== undefined) parts.push(`Salario: ${money(Number(d.salary))}`);
+    return parts.join(" · ");
+  }
   if (d.before !== undefined && d.after !== undefined && typeof d.before !== "object") return `${String(d.before)} → ${String(d.after)}`;
   if (d.amount !== undefined) return `Cantidad: ${String(d.amount)}`;
   if (d.bet !== undefined) return `Apuesta: ${String(d.bet)}`;
@@ -126,8 +149,9 @@ export default function ManagementLogsPage() {
                     <p className="mt-1 text-sm text-zinc-400">
                       {log.actor?.name ?? "Sistema"} <span className="text-zinc-700">·</span> {log.actor?.role ?? "SYSTEM"}
                       {log.characterName ? <><span className="text-zinc-700"> · </span><span className="text-zinc-300">{log.characterName}</span></> : null}
+                      {log.businessName ? <><span className="text-zinc-700"> · </span><span className="text-zinc-300">{log.businessName}</span></> : null}
                     </p>
-                    {detailText(log) ? <p className="mt-2 text-xs text-zinc-500">{detailText(log)}</p> : null}
+                    {detailText(log) ? <p className="mt-2 text-xs leading-5 text-zinc-500">{detailText(log)}</p> : null}
                   </div>
                   <time className="shrink-0 text-xs text-zinc-600">{formatDate(log.createdAt)}</time>
                 </div>

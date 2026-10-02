@@ -26,7 +26,7 @@ function localParts(date = new Date()) {
 }
 
 function minutes(time: string) {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(String(time));
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/.exec(String(time).trim());
   if (!match) return null;
   const hour = Number(match[1]);
   const minute = Number(match[2]);

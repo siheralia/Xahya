@@ -1,0 +1,1 @@
+alter table public."theme" add column if not exists "imagePath" text;

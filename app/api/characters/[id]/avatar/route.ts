@@ -49,7 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
     if (!upload.ok) return NextResponse.json({ error: "No se pudo guardar la imagen en Storage." }, { status: 502 });
 
-    await db.orm.public.Character.where({ id: characterId }).update({ avatarPath: path } as any);
+    await db.orm.public.Character.where({ id: characterId }).update({ avatarPath: path, themePalette: null } as any);
     const signed = await fetch(url + "/storage/v1/object/sign/" + BUCKET + "/" + path, {
       method: "POST", headers: { Authorization: "Bearer " + key, apikey: key, "Content-Type": "application/json" },
       body: JSON.stringify({ expiresIn: 3600 }), cache: "no-store",
@@ -80,7 +80,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       });
       if (!remove.ok) return NextResponse.json({ error: "No se pudo eliminar la imagen del almacenamiento." }, { status: 502 });
     }
-    await db.orm.public.Character.where({ id: characterId }).update({ avatarPath: null } as any);
+    await db.orm.public.Character.where({ id: characterId }).update({ avatarPath: null, themePalette: null } as any);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo eliminar el avatar." }, { status: 500 });

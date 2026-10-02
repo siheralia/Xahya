@@ -40,6 +40,9 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   await request.json().catch(()=>null);
   const room=await db.orm.public.MazeRoom.where({id:roomId}).first();
   if(!room) return NextResponse.json({error:"Habitación no encontrada."},{status:404});
+  // Las derrotas automáticas ya entregaron el loot al atacante y dejan la
+  // habitación CLEARED; Gestión no debe volver a repartir esa recompensa.
+  if(String(room.status)==="CLEARED") return NextResponse.json({ok:true,alreadyCleared:true,rewards:[]});
 
   const result = await db.transaction(async (tx) => {
     const Enemy=(tx.orm.public as any).MazeRoomEnemy;

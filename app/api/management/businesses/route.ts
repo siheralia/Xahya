@@ -100,7 +100,7 @@ export async function POST(request: Request) {
 
   if (action === "createPosition") {
     const rawBusinessId = body?.businessId === "" || body?.businessId == null ? null : Number(body.businessId);
-    const businessId = Number.isInteger(rawBusinessId) && rawBusinessId > 0 ? rawBusinessId : null;
+    const businessId = rawBusinessId !== null && Number.isInteger(rawBusinessId) && rawBusinessId > 0 ? rawBusinessId : null;
     const title = String(body?.title ?? "").trim();
     const startTime = String(body?.startTime ?? "");
     const endTime = String(body?.endTime ?? "");

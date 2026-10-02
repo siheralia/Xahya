@@ -337,6 +337,7 @@ model BusinessPosition {
   endTime          String
   salary           Int       @default(0)
   salaryFrequency  String    @default("DAILY")
+  salaryDayOfWeek  Int       @default(0)
   payerType        String    @default("BUSINESS")
   payerCharacterId Int?
   payerCharacter   Character? @relation("PositionPayer", fields:[payerCharacterId], references:[id], onDelete:SetNull)

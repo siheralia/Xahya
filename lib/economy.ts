@@ -123,6 +123,7 @@ export async function processEconomyPayments(now = new Date()) {
   const Business = (db.orm.public as any).Business;
   const Position = (db.orm.public as any).BusinessPosition;
   const Contract = (db.orm.public as any).EmploymentContract;
+  const Log = (db.orm.public as any).EconomyPaymentLog;
 
   const businesses = await Business.all();
   const positions = await Position.all();
@@ -130,35 +131,66 @@ export async function processEconomyPayments(now = new Date()) {
 
   let payments = 0;
 
+  // 1. El ingreso pasivo entra primero a la caja del negocio.
   for (const business of businesses) {
-    if (!business.active) continue;
+    if (!business.active || Number(business.passiveIncome) <= 0) continue;
+
     const frequency = String(business.passiveFrequency ?? "WEEKLY");
     const p = localParts(now);
     const due = frequency === "DAILY"
       ? dueDaily("00:00", String(business.passiveTime ?? "18:00"), now)
-      : p.weekday === Number(business.passiveDayOfWeek ?? 0) && dueDaily("00:00", String(business.passiveTime ?? "18:00"), now);
+      : p.weekday === Number(business.passiveDayOfWeek ?? 0) &&
+        dueDaily("00:00", String(business.passiveTime ?? "18:00"), now);
 
-    if (due && Number(business.passiveIncome) > 0) {
-      const paid = await payCharacter({
-        paymentType: "BUSINESS_PROFIT",
-        sourceType: "BUSINESS",
-        sourceId: Number(business.id),
-        recipientCharacterId: Number(business.ownerCharacterId),
-        amount: Number(business.passiveIncome),
-        period: periodKey(now, frequency),
-        description: `Ganancia pasiva de ${business.name}`,
-        businessId: Number(business.id),
+    if (!due) continue;
+
+    const incomePeriod = periodKey(now, frequency);
+    const alreadyCredited = await Log.where({
+      paymentType: "BUSINESS_INCOME",
+      sourceId: Number(business.id),
+      recipientCharacterId: Number(business.ownerCharacterId),
+      periodKey: incomePeriod,
+    }).first();
+
+    if (!alreadyCredited) {
+      await db.transaction(async (tx) => {
+        const BusinessTx = (tx.orm.public as any).Business;
+        const LogTx = (tx.orm.public as any).EconomyPaymentLog;
+        const current = await BusinessTx.where({ id: Number(business.id) }).first();
+        if (!current) throw new Error("BUSINESS_MISSING");
+
+        await BusinessTx.where({ id: Number(business.id) }).update({
+          balance: Number(current.balance ?? 0) + Number(business.passiveIncome),
+        });
+
+        await LogTx.create({
+          paymentType: "BUSINESS_INCOME",
+          sourceType: "BUSINESS",
+          sourceId: Number(business.id),
+          recipientCharacterId: Number(business.ownerCharacterId),
+          businessId: Number(business.id),
+          amount: Number(business.passiveIncome),
+          periodKey: incomePeriod,
+          description: \`Ingreso pasivo de \${business.name} → caja del negocio\`,
+        });
       });
-      if (paid) payments++;
     }
   }
 
+  // 2. Al terminar un turno, el salario sale primero de la caja del negocio.
+  // Si no alcanza, el dueño cubre únicamente la diferencia.
   for (const position of positions) {
     const salaryFrequency = String(position.salaryFrequency ?? "DAILY");
     const local = localParts(now);
     const shiftEnded = dueDaily(String(position.startTime), String(position.endTime), now);
     const weeklyDayMatches = local.weekday === Number(position.salaryDayOfWeek ?? 0);
+
     if (!position.active || !shiftEnded || (salaryFrequency === "WEEKLY" && !weeklyDayMatches)) continue;
+
+    const business = position.businessId
+      ? businesses.find((item: any) => Number(item.id) === Number(position.businessId))
+      : null;
+
     const positionContracts = contracts.filter((contract: any) =>
       Number(contract.positionId) === Number(position.id) &&
       contract.active &&
@@ -167,23 +199,147 @@ export async function processEconomyPayments(now = new Date()) {
     );
 
     for (const contract of positionContracts) {
-      const frequency = salaryFrequency;
-      const paid = await payCharacter({
+      const salary = Number(position.salary);
+      if (salary <= 0) continue;
+
+      const period = periodKey(now, salaryFrequency, true);
+      const existing = await Log.where({
         paymentType: "SALARY",
-        sourceType: "POSITION",
         sourceId: Number(position.id),
         recipientCharacterId: Number(contract.characterId),
-        amount: Number(position.salary),
-        period: periodKey(now, frequency, true),
-        description: `Salario: ${position.title}`,
-        businessId: position.businessId ? Number(position.businessId) : null,
-        payerCharacterId: position.businessId
-          ? (Number((businesses.find((item: any) => Number(item.id) === Number(position.businessId)) as any)?.passiveIncome ?? 0) > 0
-              ? null
-              : Number((businesses.find((item: any) => Number(item.id) === Number(position.businessId)) as any)?.ownerCharacterId ?? 0))
-          : (String(position.payerType) === "CHARACTER" && position.payerCharacterId ? Number(position.payerCharacterId) : null),
+        periodKey: period,
+      }).first();
+      if (existing) continue;
+
+      try {
+        await db.transaction(async (tx) => {
+          const BusinessTx = (tx.orm.public as any).Business;
+          const ResourceTx = (tx.orm.public as any).CharacterResource;
+          const LogTx = (tx.orm.public as any).EconomyPaymentLog;
+
+          let businessPaid = 0;
+          if (business) {
+            const currentBusiness = await BusinessTx.where({ id: Number(business.id) }).first();
+            businessPaid = Math.min(Number(currentBusiness?.balance ?? 0), salary);
+            if (businessPaid > 0) {
+              await BusinessTx.where({ id: Number(business.id) }).update({
+                balance: Number(currentBusiness.balance ?? 0) - businessPaid,
+              });
+            }
+          }
+
+          const remaining = salary - businessPaid;
+          if (remaining > 0) {
+            const payerId = business
+              ? Number(business.ownerCharacterId)
+              : (String(position.payerType) === "CHARACTER" && position.payerCharacterId
+                  ? Number(position.payerCharacterId)
+                  : null);
+            if (!payerId) throw new Error("PAYER_MISSING");
+
+            const payer = await ResourceTx.where({ characterId: payerId }).first();
+            if (!payer || Number(payer.money) < remaining) throw new Error("PAYER_FUNDS_INSUFFICIENT");
+
+            await ResourceTx.where({ characterId: payerId }).update({
+              money: Number(payer.money) - remaining,
+            });
+          }
+
+          const employee = await ResourceTx.where({ characterId: Number(contract.characterId) }).first();
+          if (!employee) throw new Error("RECIPIENT_RESOURCE_MISSING");
+
+          await ResourceTx.where({ characterId: Number(contract.characterId) }).update({
+            money: Number(employee.money) + salary,
+          });
+
+          await LogTx.create({
+            paymentType: "SALARY",
+            sourceType: "POSITION",
+            sourceId: Number(position.id),
+            recipientCharacterId: Number(contract.characterId),
+            businessId: position.businessId ? Number(position.businessId) : null,
+            amount: salary,
+            periodKey: period,
+            description: business
+              ? \`Salario: \${position.title} (\${business.name})\`
+              : \`Salario: \${position.title}\`,
+          });
+        });
+        payments++;
+      } catch {
+        // Se reintentará cuando haya fondos suficientes.
+      }
+    }
+  }
+
+  // 3. En el cierre del periodo, el dueño recibe únicamente el excedente
+  // que quedó en la caja después de los salarios.
+  for (const business of businesses) {
+    if (!business.active || Number(business.passiveIncome) <= 0) continue;
+
+    const frequency = String(business.passiveFrequency ?? "WEEKLY");
+    const p = localParts(now);
+    const due = frequency === "DAILY"
+      ? dueDaily("00:00", String(business.passiveTime ?? "18:00"), now)
+      : p.weekday === Number(business.passiveDayOfWeek ?? 0) &&
+        dueDaily("00:00", String(business.passiveTime ?? "18:00"), now);
+
+    if (!due) continue;
+
+    const profitPeriod = periodKey(now, frequency);
+    const existingProfit = await Log.where({
+      paymentType: "BUSINESS_PROFIT",
+      sourceId: Number(business.id),
+      recipientCharacterId: Number(business.ownerCharacterId),
+      periodKey: profitPeriod,
+    }).first();
+    if (existingProfit) continue;
+
+    try {
+      await db.transaction(async (tx) => {
+        const BusinessTx = (tx.orm.public as any).Business;
+        const ResourceTx = (tx.orm.public as any).CharacterResource;
+        const LogTx = (tx.orm.public as any).EconomyPaymentLog;
+
+        const currentBusiness = await BusinessTx.where({ id: Number(business.id) }).first();
+        const profit = Number(currentBusiness?.balance ?? 0);
+
+        if (profit <= 0) {
+          await LogTx.create({
+            paymentType: "BUSINESS_PROFIT",
+            sourceType: "BUSINESS",
+            sourceId: Number(business.id),
+            recipientCharacterId: Number(business.ownerCharacterId),
+            businessId: Number(business.id),
+            amount: 0,
+            periodKey: profitPeriod,
+            description: \`Cierre de ganancias de \${business.name}: sin excedente\`,
+          });
+          return;
+        }
+
+        const owner = await ResourceTx.where({ characterId: Number(business.ownerCharacterId) }).first();
+        if (!owner) throw new Error("OWNER_RESOURCE_MISSING");
+
+        await BusinessTx.where({ id: Number(business.id) }).update({ balance: 0 });
+        await ResourceTx.where({ characterId: Number(business.ownerCharacterId) }).update({
+          money: Number(owner.money) + profit,
+        });
+
+        await LogTx.create({
+          paymentType: "BUSINESS_PROFIT",
+          sourceType: "BUSINESS",
+          sourceId: Number(business.id),
+          recipientCharacterId: Number(business.ownerCharacterId),
+          businessId: Number(business.id),
+          amount: profit,
+          periodKey: profitPeriod,
+          description: \`Ganancia neta de \${business.name} después de salarios\`,
+        });
       });
-      if (paid) payments++;
+      payments++;
+    } catch {
+      // Se reintentará en la siguiente ejecución si el cierre no pudo completarse.
     }
   }
 

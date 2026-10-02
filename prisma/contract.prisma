@@ -19,6 +19,7 @@ model Character {
   name      String
   flair     String?
   avatarPath String?
+  themePalette Json?
   userId    Int
   user      User                @relation(fields:[userId], references:[id])
   age       Int?

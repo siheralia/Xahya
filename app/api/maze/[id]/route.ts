@@ -118,7 +118,14 @@ function normalizedLoot(enemy:any) {
     if (!entry || typeof entry !== "object") return [];
     const type = String(entry.type ?? entry.kind ?? "").toLowerCase();
     const amount = Number(entry.amount ?? entry.quantity ?? entry.value ?? 0);
-    if (["money","coins","gold"].includes(type) && amount > 0) {\n      const min = Number(entry.min ?? entry.minimum ?? amount);\n      const max = Number(entry.max ?? entry.maximum ?? amount);\n      const low = Math.min(min, max, amount);\n      const high = Math.max(min, max, amount);\n      const rolledAmount = high > low ? Math.floor(Math.random() * (high - low + 1)) + low : amount;\n      return [{ type:"money", amount:rolledAmount }];\n    }
+    if (["money","coins","gold"].includes(type) && amount > 0) {
+      const min = Number(entry.min ?? entry.minimum ?? amount);
+      const max = Number(entry.max ?? entry.maximum ?? amount);
+      const low = Math.min(min, max, amount);
+      const high = Math.max(min, max, amount);
+      const rolledAmount = high > low ? Math.floor(Math.random() * (high - low + 1)) + low : amount;
+      return [{ type:"money", amount:rolledAmount }];
+    }
     if (type === "karma" && amount > 0) return [{ type:"karma", amount }];
     if (["item","equipment","consumable"].includes(type)) {
       const itemId = Number(entry.itemId ?? entry.item_id ?? entry.id);

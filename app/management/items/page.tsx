@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ManagementModal from "../_components/ManagementModal";
 
 type Effect = { type: string; stat: string; action?: string; value: number; description: string };
 type Item = {
@@ -50,6 +51,7 @@ export default function ItemsManagementPage() {
   const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
   const [error,setError]=useState(""); const [success,setSuccess]=useState("");
+  const [modalOpen,setModalOpen]=useState(false);
   const [search,setSearch]=useState(""); const [filterType,setFilterType]=useState("ALL"); const [filterSubtype,setFilterSubtype]=useState("ALL"); const [filterSlot,setFilterSlot]=useState("ALL"); const [filterAcquisition,setFilterAcquisition]=useState("ALL"); const [filterStat,setFilterStat]=useState("ALL"); const [filterMinValue,setFilterMinValue]=useState("");
 
   async function load(){
@@ -79,8 +81,9 @@ export default function ItemsManagementPage() {
     setSelected(item.id);
     setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:["stat_bonus","system_action"].includes(String(effect.type))?String(effect.type):"stat_multiplier",stat:EFFECT_TARGETS.some(x=>x[0]===String(effect.stat))?String(effect.stat):String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":"OTHER",action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
     setSuccess(""); setError("");
+    setModalOpen(true);
   }
-  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");}
+  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setModalOpen(true);}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
@@ -96,7 +99,7 @@ export default function ItemsManagementPage() {
       const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});
       const d=await r.json(); if(!r.ok) throw new Error(d.error);
       setSuccess(selected?"Objeto actualizado correctamente.":"Objeto creado correctamente.");
-      await load(); if(!selected&&d.item) setSelected(d.item.id); if(d.item) edit(d.item);
+      await load(); if(!selected&&d.item) setSelected(d.item.id); if(d.item) edit(d.item); else setModalOpen(false);
     }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar el objeto.");}finally{setSaving(false);}
   }
   async function remove(){
@@ -132,7 +135,8 @@ export default function ItemsManagementPage() {
           <div className="font-medium">{item.name}</div><div className="mt-1 text-xs text-zinc-500">{itemTypes.find(x=>x[0]===item.itemType)?.[1]??item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""} · {acquisitionTypes.find(x=>x[0]===item.acquisitionType)?.[1]??item.acquisitionType}</div>
         </button>)}</div></div>
       </section>
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <ManagementModal open={modalOpen} title={selected?"Editar objeto":"Nuevo objeto"} onClose={()=>setModalOpen(false)} maxWidth="max-w-4xl">
+<section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 className="text-xl font-semibold">{selected?"Editar objeto":"Fabricar objeto"}</h2>
         <div className="mt-5 grid gap-4">
           <label>Nombre<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
@@ -174,6 +178,7 @@ export default function ItemsManagementPage() {
           <div className="flex flex-wrap gap-3"><button onClick={save} disabled={saving} className="rounded-lg bg-white px-5 py-3 font-medium text-black">{saving?"Guardando...":selected?"Guardar cambios":"Fabricar objeto"}</button>{selected&&<button onClick={remove} className="rounded-lg border border-red-900/70 px-5 py-3 text-red-300">Eliminar</button>}</div>
         </div>
       </section>
+      </ManagementModal>
     </div>
   </div></main>;
 }

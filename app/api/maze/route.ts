@@ -123,8 +123,14 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const mazes = await db.orm.public.Maze.all();
   const rooms = await db.orm.public.MazeRoom.all();
+  const MazeTheme=(db.orm.public as any).MazeTheme;
+  const Theme=(db.orm.public as any).Theme;
+  const themeLinks=MazeTheme?await MazeTheme.all():[];
+  const themes=Theme?await Theme.all():[];
   return NextResponse.json(mazes.map((maze: any) => ({
     ...maze,
+    themeIds:themeLinks.filter((link:any)=>Number(link.mazeId)===Number(maze.id)).map((link:any)=>Number(link.themeId)),
+    themes:themeLinks.filter((link:any)=>Number(link.mazeId)===Number(maze.id)).map((link:any)=>themes.find((theme:any)=>Number(theme.id)===Number(link.themeId))).filter(Boolean),
     // Los laberintos antiguos con null conservan el comportamiento original.
     allowTraps: maze.allowTraps == null ? true : Boolean(maze.allowTraps),
     allowDeath: maze.allowDeath == null ? true : Boolean(maze.allowDeath),

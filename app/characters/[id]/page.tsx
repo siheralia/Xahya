@@ -1607,7 +1607,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               {character.avatarUrl ? (
                 <>
                   <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url(" + character.avatarUrl + ")" }} />
-                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ backgroundColor: themePalette.overlayPrimary + "d9" }} />
+                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ backgroundColor: themePalette.overlayPrimary + "99" }} />
                 </>
               ) : character.age !== null && character.gender !== null ? (
                 <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
@@ -1619,7 +1619,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 </div>
               ) : null}
               <div className="relative z-10" style={{ color: themePalette.foreground }}>
-                <div className="flex items-center justify-start gap-2" aria-label="Xahya"><span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-base">🌸</span><span className="text-lg font-semibold tracking-tight">Xahya</span></div>
+                <div className="flex items-center justify-start gap-2" aria-label="Xahya">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10 p-1">
+                    <img src="/sakura-petal.svg" alt="" className="h-full w-full object-contain" />
+                  </span>
+                  <span className="text-lg font-semibold tracking-tight">Xahya</span>
+                </div>
                 <div className="mt-3"><StatsRadar baseValues={baseRadarValues!} values={radarValues} palette={themePalette} /></div>
               </div>
               <div className="absolute bottom-3 left-5 right-5 z-20 flex items-center justify-between gap-4">

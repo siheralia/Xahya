@@ -91,6 +91,12 @@ export default function ProfilePage() {
           </button>
         </section>
 
+        <section className="mt-8 rounded-2xl border border-emerald-900/40 bg-emerald-950/10 p-6">
+          <h2 className="text-2xl font-bold">Mis negocios</h2>
+          <p className="mt-2 text-sm text-zinc-500">Si alguno de tus personajes es dueño de un negocio, aquí puedes administrar sus empleados y turnos.</p>
+          <a href="/businesses" className="mt-4 inline-flex rounded-lg bg-emerald-400 px-5 py-3 font-semibold text-zinc-950 hover:bg-emerald-300">Administrar mis negocios →</a>
+        </section>
+
         <section className="mt-8">
           <div className="mb-4">
             <h2 className="text-2xl font-bold">Mis personajes</h2>

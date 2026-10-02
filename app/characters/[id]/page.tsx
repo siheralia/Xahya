@@ -129,6 +129,11 @@ function rgbToHex(r: number, g: number, b: number) {
   return "#" + [r, g, b].map((value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0")).join("");
 }
 
+function hexToRgba(hex: string, alpha: number) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
+}
+
 function mixHex(a: string, b: string, amount: number) {
   const first = hexToRgb(a);
   const second = hexToRgb(b);
@@ -1607,7 +1612,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               {character.avatarUrl ? (
                 <>
                   <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url(" + character.avatarUrl + ")" }} />
-                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ backgroundColor: themePalette.overlayPrimary + "99" }} />
+                  <div
+                    className="pointer-events-none absolute inset-0 z-[1]"
+                    style={{ backgroundColor: hexToRgba(themePalette.overlayPrimary || themePalette.primary, 0.6) }}
+                  />
                 </>
               ) : character.age !== null && character.gender !== null ? (
                 <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">

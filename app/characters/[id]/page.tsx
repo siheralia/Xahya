@@ -252,26 +252,38 @@ async function paletteFromSource(source: string | File): Promise<ThemePalette> {
 
   if (!colors.length) return DEFAULT_THEME;
 
-  const hueOf = (hex: string) => {
-    const { r, g, b } = hexToRgb(hex);
-    return rgbToHsl(r, g, b).h * 360;
-  };
+  // Para la capa visual no usamos tonos derivados/pastel del avatar.
+  // La identidad se traduce a una paleta corta de colores saturados y reconocibles.
+  // Son los cinco colores de referencia que usaremos para Primary/Secondary.
+  const standardColors = [
+    "#00c853", // verde
+    "#ff1744", // rojo
+    "#006eff", // azul
+    "#7c00ff", // morado
+    "#ff6d00", // naranja
+  ];
 
-  // Cuando existe un color frío característico (como el celeste de la magia de Guha),
-  // lo usamos como Primary porque funciona mejor como capa visual sobre el avatar.
-  // Los colores cálidos característicos, como su rojo, permanecen en la paleta.
-  const coolCandidates = colors.filter((entry) => {
-    const hue = hueOf(entry.hex);
-    return hue >= 150 && hue <= 260;
-  });
-  const primary = (coolCandidates[0] ?? colors[0]).hex;
+  const nearestStandard = (source: string) =>
+    standardColors
+      .map((standard) => ({ standard, distance: colorDistance(source, standard) }))
+      .sort((a, b) => a.distance - b.distance)[0].standard;
 
-  const secondary = colors.find((entry) => colorDistance(entry.hex, primary) > 75)?.hex
-    ?? mixHex(primary, "#ffffff", 0.25);
+  const primary = nearestStandard(colors[0].hex);
+  const secondarySource = colors.find((entry) => colorDistance(entry.hex, colors[0].hex) > 55)?.hex ?? colors[1]?.hex ?? colors[0].hex;
+  let secondary = nearestStandard(secondarySource);
 
-  const accent = colors.find((entry) =>
-    colorDistance(entry.hex, primary) > 45 && colorDistance(entry.hex, secondary) > 45
-  )?.hex ?? secondary;
+  // Evita que ambos terminen en el mismo color estándar.
+  if (secondary === primary) {
+    secondary = standardColors
+      .filter((standard) => standard !== primary)
+      .map((standard) => ({ standard, distance: colorDistance(secondarySource, standard) }))
+      .sort((a, b) => a.distance - b.distance)[0].standard;
+  }
+
+  const accentSource = colors.find((entry) =>
+    nearestStandard(entry.hex) !== primary && nearestStandard(entry.hex) !== secondary
+  )?.hex;
+  const accent = accentSource ? nearestStandard(accentSource) : secondary;
 
   const background = mixHex(primary, "#09090b", 0.82);
   const surface = mixHex(primary, "#18181b", 0.72);
@@ -1561,7 +1573,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               {character.avatarUrl ? (
                 <>
                   <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url(" + character.avatarUrl + ")" }} />
-                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "linear-gradient(135deg, " + themePalette.primary + "99, " + themePalette.secondary + "88)" }} />
+                  <div className="pointer-events-none absolute inset-0 z-[1]" style={{ background: "linear-gradient(135deg, " + themePalette.primary + "cc, " + themePalette.secondary + "bb)" }} />
                 </>
               ) : character.age !== null && character.gender !== null ? (
                 <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">

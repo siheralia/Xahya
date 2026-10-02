@@ -118,7 +118,7 @@ function normalizedLoot(enemy:any) {
     if (!entry || typeof entry !== "object") return [];
     const type = String(entry.type ?? entry.kind ?? "").toLowerCase();
     const amount = Number(entry.amount ?? entry.quantity ?? entry.value ?? 0);
-    if (["money","coins","gold"].includes(type) && amount > 0) return [{ type:"money", amount }];
+    if (["money","coins","gold"].includes(type) && amount > 0) {\n      const min = Number(entry.min ?? entry.minimum ?? amount);\n      const max = Number(entry.max ?? entry.maximum ?? amount);\n      const low = Math.min(min, max, amount);\n      const high = Math.max(min, max, amount);\n      const rolledAmount = high > low ? Math.floor(Math.random() * (high - low + 1)) + low : amount;\n      return [{ type:"money", amount:rolledAmount }];\n    }
     if (type === "karma" && amount > 0) return [{ type:"karma", amount }];
     if (["item","equipment","consumable"].includes(type)) {
       const itemId = Number(entry.itemId ?? entry.item_id ?? entry.id);
@@ -453,51 +453,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await Encounter.where({ id:Number(encounter.id) }).update({ status:"DEFEATED" });
 
       const activeEnemies = await Encounter.where({ roomId:Number(room.id), status:"ACTIVE" }).all();
-      const participants = await Position.where({ mazeId, roomId:Number(room.id) }).all();
-      const definitions = await (tx.orm.public as any).Enemy.all();
-      const defeatedDefinition = definitions.find((enemy:any) => Number(enemy.id) === Number(encounter.enemyId));
-      const totals = { money:0, karma:0, items:new Map<number,number>() };
-
-      for (const loot of normalizedLoot(defeatedDefinition)) {
-        const multiplier = Math.max(1, Number(encounter.quantity) || 1);
-        if (loot.type === "money") totals.money += loot.amount * multiplier;
-        else if (loot.type === "karma") totals.karma += loot.amount * multiplier;
-        else totals.items.set(loot.itemId, (totals.items.get(loot.itemId) ?? 0) + loot.quantity * multiplier);
-      }
-
-      const CharacterResource = (tx.orm.public as any).CharacterResource;
-      const CharacterItem = (tx.orm.public as any).CharacterItem;
-      const characters = await tx.orm.public.Character.all();
-      const rewards:any[] = [];
-
-      for (let index=0; index<participants.length; index++) {
-        const participantId = Number(participants[index].characterId);
-        const participant = characters.find((candidate:any) => Number(candidate.id) === participantId);
-        if (!participant) continue;
-        const money = splitAmount(totals.money, participants.length, index);
-        const karma = splitAmount(totals.karma, participants.length, index);
-        if (money > 0 || karma > 0) {
-          const resources = await CharacterResource.where({ characterId:participantId }).first();
-          if (resources) await CharacterResource.where({ id:Number(resources.id) }).update({
-            money:Number(resources.money ?? 0) + money,
-            karma:Number(resources.karma ?? 0) + karma,
-          });
-          else await CharacterResource.create({ characterId:participantId, money, karma });
-        }
-
-        const items:any[] = [];
-        for (const [itemId,total] of totals.items.entries()) {
-          const quantity = splitAmount(total, participants.length, index);
-          if (quantity <= 0) continue;
-          const existing = CharacterItem ? await CharacterItem.where({ characterId:participantId, itemId }).first() : null;
-          if (existing) await CharacterItem.where({ id:Number(existing.id) }).update({ quantity:Number(existing.quantity ?? 0) + quantity });
-          else if (CharacterItem) await CharacterItem.create({ characterId:participantId, itemId, quantity, equipped:false, equippedSlot:null });
-          items.push({ itemId, quantity });
-        }
-        rewards.push({ characterId:participantId, name:String(participant.name), money, karma, items });
-      }
-
-      const roomCleared = activeEnemies.length === 0;
+      // La derrota automática entrega el loot únicamente al personaje que la ejecutó.\n      // El reparto entre participantes solo ocurre mediante la confirmación de Gestión.\n      const definitions = await (tx.orm.public as any).Enemy.all();\n      const defeatedDefinition = definitions.find((enemy:any) => Number(enemy.id) === Number(encounter.enemyId));\n      const totals = { money:0, karma:0, items:new Map<number,number>() };\n\n      for (const loot of normalizedLoot(defeatedDefinition)) {\n        const multiplier = Math.max(1, Number(encounter.quantity) || 1);\n        if (loot.type === "money") totals.money += loot.amount * multiplier;\n        else if (loot.type === "karma") totals.karma += loot.amount * multiplier;\n        else totals.items.set(loot.itemId, (totals.items.get(loot.itemId) ?? 0) + loot.quantity * multiplier);\n      }\n\n      const CharacterResource = (tx.orm.public as any).CharacterResource;\n      const CharacterItem = (tx.orm.public as any).CharacterItem;\n      const money = totals.money;\n      const karma = totals.karma;\n      if (money > 0 || karma > 0) {\n        const resources = await CharacterResource.where({ characterId }).first();\n        if (resources) await CharacterResource.where({ id:Number(resources.id) }).update({\n          money:Number(resources.money ?? 0) + money,\n          karma:Number(resources.karma ?? 0) + karma,\n        });\n        else await CharacterResource.create({ characterId, money, karma });\n      }\n\n      const items:any[] = [];\n      for (const [itemId,total] of totals.items.entries()) {\n        if (total <= 0) continue;\n        const existing = CharacterItem ? await CharacterItem.where({ characterId, itemId }).first() : null;\n        if (existing) await CharacterItem.where({ id:Number(existing.id) }).update({ quantity:Number(existing.quantity ?? 0) + total });\n        else if (CharacterItem) await CharacterItem.create({ characterId, itemId, quantity:total, equipped:false, equippedSlot:null });\n        items.push({ itemId, quantity:total });\n      }\n      const rewards:any[] = [{ characterId, name:String(character.name), money, karma, items }];\n\n      const roomCleared = activeEnemies.length === 0;
       if (roomCleared) {
         await tx.orm.public.MazeRoom.where({ id:Number(room.id) }).update({ status:"CLEARED" });
         if (String(room.roomType)==="BOSS") {

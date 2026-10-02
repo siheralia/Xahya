@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import ManagementModal from "../_components/ManagementModal";
 
 type Perk={id:number;name:string;description:string|null;probability:number;effects:any[];stackable:boolean;maxStacks:number|null;active:boolean;assignedCount:number};
 type Character={id:number;name:string;ownerName:string};
@@ -31,6 +32,7 @@ export default function PerksManagementPage(){
   const [maxStacks,setMaxStacks]=useState("");
   const [error,setError]=useState("");
   const [success,setSuccess]=useState("");
+  const [modalOpen,setModalOpen]=useState(false);
 
   async function load(){
     const [p,c]=await Promise.all([fetch("/api/management/perks"),fetch("/api/management/characters")]);
@@ -43,6 +45,7 @@ export default function PerksManagementPage(){
 
   function clearForm(){
     setEditingId(null);setName("");setDescription("");setProbability("10");setEffectRows([]);setEffects("");setStackable(true);setMaxStacks("");
+    setModalOpen(false);
   }
 
   function edit(perk:Perk){
@@ -54,7 +57,7 @@ export default function PerksManagementPage(){
     setStackable(perk.stackable);
     setMaxStacks(perk.maxStacks==null?"":String(perk.maxStacks));
     setError("");setSuccess("");
-    window.scrollTo({top:0,behavior:"smooth"});
+    setModalOpen(true);
   }
 
   async function savePerk(){
@@ -97,11 +100,22 @@ export default function PerksManagementPage(){
   }
 
   return <main className="min-h-screen bg-zinc-950 text-white"><div className="mx-auto max-w-6xl px-6 py-8">
-    <div className="flex flex-wrap items-center justify-between gap-4"><div><Link href="/management" className="text-sm text-zinc-500">← Gestión</Link><h1 className="mt-3 text-4xl font-bold">Gestión de Perks</h1><p className="mt-2 text-zinc-500">Probabilidades, acumulación, edición y entrega manual.</p></div></div>
+    <div className="flex flex-wrap items-center justify-between gap-4"><div><Link href="/management" className="text-sm text-zinc-500">← Gestión</Link><h1 className="mt-3 text-4xl font-bold">Gestión de Perks</h1><p className="mt-2 text-zinc-500">Probabilidades, acumulación, edición y entrega manual.</p></div><button onClick={()=>{clearForm();setModalOpen(true);}} className="rounded-lg bg-white px-5 py-3 font-medium text-black">Nuevo perk</button></div>
     {error&&<div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
     {success&&<div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
 
-    <section className="mt-8 grid gap-6 lg:grid-cols-2">
+    <section className="mt-8">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+<div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6"><h2 className="text-xl font-semibold">Otorgar perk</h2>
+        <div className="mt-4 grid gap-3">
+          <select value={characterId} onChange={e=>setCharacterId(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"><option value="">Personaje</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name} — {c.ownerName}</option>)}</select>
+          <select value={perkId} onChange={e=>setPerkId(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"><option value="">Perk</option>{perks.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          <button onClick={grant} className="rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-4 py-3 font-semibold text-cyan-300">Otorgar</button>
+        </div>
+      </div>
+      </div>
+    </section>
+    <ManagementModal open={modalOpen} title={editingId?"Editar perk":"Nuevo perk"} onClose={()=>setModalOpen(false)} maxWidth="max-w-3xl">
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
         <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">{editingId?"Editar perk":"Crear perk"}</h2>{editingId&&<p className="mt-1 text-xs text-cyan-300">Editando #{editingId}</p>}</div>{editingId&&<button onClick={clearForm} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300">Cancelar</button>}</div>
         <div className="mt-4 grid gap-3">
@@ -118,14 +132,8 @@ export default function PerksManagementPage(){
         </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6"><h2 className="text-xl font-semibold">Otorgar perk</h2>
-        <div className="mt-4 grid gap-3">
-          <select value={characterId} onChange={e=>setCharacterId(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"><option value="">Personaje</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name} — {c.ownerName}</option>)}</select>
-          <select value={perkId} onChange={e=>setPerkId(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"><option value="">Perk</option>{perks.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
-          <button onClick={grant} className="rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-4 py-3 font-semibold text-cyan-300">Otorgar</button>
-        </div>
-      </div>
-    </section>
+
+    </ManagementModal>
 
     <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6"><h2 className="text-xl font-semibold">Catálogo</h2><div className="mt-4 space-y-3">{perks.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><div className="min-w-0"><div className="font-semibold">{p.name} <span className="ml-2 text-xs text-zinc-500">{p.probability}%</span></div><p className="mt-1 text-sm text-zinc-500">{p.description??"Sin descripción."}</p><p className="mt-1 text-xs text-zinc-600">{p.stackable?"Acumulable":"No acumulable"} · {p.assignedCount} otorgados</p></div><div className="flex flex-wrap items-center gap-2"><label className="text-xs text-zinc-500">Prob.<input type="number" min="0" step="0.1" defaultValue={p.probability} onBlur={e=>updateProbability(p,e.target.value)} className="ml-1 w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm text-white"/></label><button onClick={()=>edit(p)} className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm text-cyan-300">Editar</button><button onClick={()=>toggle(p)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">{p.active?"Desactivar":"Activar"}</button></div></div>)}</div></section>
   </div></main>;

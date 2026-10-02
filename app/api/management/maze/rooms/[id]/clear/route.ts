@@ -51,7 +51,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     if(defeated.length===0) return {alreadyCleared:true,rewards:[]};
 
     const positions=await (tx.orm.public as any).MazeCharacterPosition.where({roomId}).all();
-    const participants=positions.filter((position:any)=>String(position.status ?? "ACTIVE")==="ACTIVE");
+    const participants=positions;
     const characters=await tx.orm.public.Character.all();
     const CharacterResource=(tx.orm.public as any).CharacterResource;
     const CharacterItem=(tx.orm.public as any).CharacterItem;

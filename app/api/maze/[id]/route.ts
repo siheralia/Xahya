@@ -428,38 +428,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const opponentPower = Number(encounter.targetPower ?? 0) * Math.max(1, Number(encounter.quantity ?? 1));
       if (!canAutoDefeat(combat, enemyStats, Number(encounter.quantity ?? 1))) throw new Error("NOT_STRONG_ENOUGH");
 
-      const resources = await tx.orm.public.CharacterResource.where({ characterId }).first();
-      if (!resources) throw new Error("RESOURCE_NOT_FOUND");
-
-      const luck = Math.max(0, Number(combat?.effectiveStats?.luck ?? 0));
-      const baseTreasure = (Math.floor(Math.random() * 901) + 100) * 10;
-      const treasureValue = Math.round(baseTreasure * (1 + Math.min(1, luck / 100)));
-      const isBoss = String(room.roomType) === "BOSS";
-      const moneyReward = Math.floor(treasureValue / 5) * (isBoss ? 2 : 1);
-
       await Encounter.where({ id:Number(encounter.id) }).update({ status:"DEFEATED" });
-      await tx.orm.public.CharacterResource.where({ id:Number(resources.id) }).update({
-        money:Number(resources.money) + moneyReward,
-        karma:Number(resources.karma) + (isBoss ? 10 : 5),
-      });
 
       const activeEnemies = await Encounter.where({ roomId:Number(room.id), status:"ACTIVE" }).all();
-      if (activeEnemies.length === 0) {
-        await tx.orm.public.MazeRoom.where({ id:Number(room.id) }).update({ status:"CLEARED" });
-        if (String(room.roomType) === "BOSS" && String(maze.mazeType) === "FINITE" && Number(room.roomNumber) === Number(maze.maxRooms)) {
-          await tx.orm.public.Maze.where({ id:mazeId }).update({ status:"COMPLETED" });
-        }
-      }
 
       return {
         success:true,
-        money:moneyReward,
-        karma:isBoss ? 10 : 5,
+        money:0,
+        karma:0,
         characterPower,
         opponentPower,
         physicalAttack:combat?.derived.physicalAttack ?? 0,
         magicAttack:combat?.derived.magicAttack ?? 0,
-        roomCleared:activeEnemies.length === 0,
+        roomCleared:false,
+        enemiesRemaining:activeEnemies.length,
+        rewardsPendingConfirmation:true,
       };
     }).catch((error) => ({ error:error instanceof Error ? error.message : "UNKNOWN" }));
 

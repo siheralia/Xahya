@@ -5,11 +5,13 @@ import ManagementModal from "../management/_components/ManagementModal";
 
 type Character = { id: number; name: string; flair: string | null };
 type PropertyItem = { id:number; name:string; description:string|null; imageUrl:string|null };
+type Product = { id:number; itemId:number; purchasePrice:number; salePrice:number; stock:number; item:{id:number;name:string;imagePath:string|null}|null };
+type SubscriptionPlan = { id:number; name:string; price:number; intervalValue:number; intervalUnit:string };
 type Contract = { id: number; character: Character | null };
 type Product = { id:number; itemId:number; purchasePrice:number; salePrice:number; stock:number; item:{id:number;name:string;description:string|null;itemType:string;imagePath:string|null}|null };
 type SubscriptionPlan = { id:number; name:string; description:string|null; price:number; intervalValue:number; intervalUnit:string };
 type Position = { id: number; title: string; description: string | null; startTime: string; endTime: string; salary: number; salaryFrequency: string; salaryDayOfWeek: number; payerType: string; payerCharacterId: number | null; contracts: Contract[] };
-type Business = { id: number; name: string; ownerCharacter: Character | null; passiveIncome: number; passiveFrequency: string; balance: number; positions: Position[] };
+type Business = { id: number; name: string; ownerCharacter: Character | null; passiveIncome: number; passiveFrequency: string; balance: number; securityInvestment: number; growthInvestment: number; products: Product[]; subscriptionPlans: SubscriptionPlan[]; positions: Position[] };
 
 const emptyPosition = { businessId: "", title: "Encargado de tienda", description: "", startTime: "14:00", endTime: "15:00", salary: 500, salaryFrequency: "DAILY", salaryDayOfWeek: 0, payerType: "SYSTEM", payerCharacterId: "" };
 
@@ -24,6 +26,9 @@ export default function BusinessesPage() {
   const [position, setPosition] = useState({ ...emptyPosition });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [investmentForms, setInvestmentForms] = useState<Record<number,{type:string;sourceType:string;amount:number}>>({});
+  const [propertyForms, setPropertyForms] = useState<Record<number,{itemId:string;quantity:number;purchasePrice:number;salePrice:number}>>({});
+  const [planForms, setPlanForms] = useState<Record<number,{name:string;price:number;intervalValue:number;intervalUnit:string}>>({});
 
   async function load() {
     try {
@@ -76,6 +81,13 @@ export default function BusinessesPage() {
   }
 
   const selected = businesses.find((business) => String(business.id) === hire.businessId);
+  function invForm(id:number){return investmentForms[id]??{type:"SECURITY",sourceType:"BUSINESS",amount:0};}
+  function propForm(id:number){return propertyForms[id]??{itemId:"",quantity:1,purchasePrice:0,salePrice:0};}
+  function planForm(id:number){return planForms[id]??{name:"",price:0,intervalValue:1,intervalUnit:"MONTH"};}
+  async function invest(businessId:number){const f=invForm(businessId);await submit("invest",{businessId,...f,amount:Number(f.amount)});}
+  async function stockProperty(businessId:number){const f=propForm(businessId);await submit("stockProperty",{businessId,itemId:Number(f.itemId),quantity:Number(f.quantity),purchasePrice:Number(f.purchasePrice),salePrice:Number(f.salePrice)});}
+  async function createPlan(businessId:number){const f=planForm(businessId);await submit("createPlan",{businessId,...f,price:Number(f.price),intervalValue:Number(f.intervalValue)});}
+
   const vacancies = selected?.positions.filter((p) => p.contracts.length === 0) ?? [];
 
   return (
@@ -101,6 +113,16 @@ export default function BusinessesPage() {
                   </div>
                 </div>
 
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">Seguridad</p><p className="mt-1 text-xl font-bold text-blue-300">◈ {Number(business.securityInvestment??0).toLocaleString("es-MX")}</p><p className="mt-1 text-xs text-zinc-600">Inversión acumulada</p></div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">Crecimiento</p><p className="mt-1 text-xl font-bold text-emerald-300">◈ {Number(business.growthInvestment??0).toLocaleString("es-MX")}</p><p className="mt-1 text-xs text-zinc-600">+◈ {Math.floor(Number(business.growthInvestment??0)*0.1).toLocaleString("es-MX")} por semana</p></div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">Propiedades</p><p className="mt-1 text-xl font-bold">× {business.products?.reduce((n,p)=>n+Number(p.stock),0)??0}</p><p className="mt-1 text-xs text-zinc-600">En inventario para reventa</p></div>
+                </div>
+                <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                  <div className="rounded-xl border border-zinc-800 p-4"><h3 className="font-semibold">Invertir</h3><div className="mt-3 grid gap-2"><select value={invForm(business.id).type} onChange={e=>setInvestmentForms(v=>({...v,[business.id]:{...invForm(business.id),type:e.target.value}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"><option value="SECURITY">Seguridad</option><option value="GROWTH">Crecimiento</option></select><select value={invForm(business.id).sourceType} onChange={e=>setInvestmentForms(v=>({...v,[business.id]:{...invForm(business.id),sourceType:e.target.value}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"><option value="BUSINESS">Caja del negocio</option><option value="OWNER">Dinero del dueño</option></select><input type="number" min={1} placeholder="Cantidad" value={invForm(business.id).amount||""} onChange={e=>setInvestmentForms(v=>({...v,[business.id]:{...invForm(business.id),amount:Number(e.target.value)||0}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"/><button onClick={()=>invest(business.id)} disabled={saving||invForm(business.id).amount<=0} className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black disabled:opacity-40">Invertir</button></div></div>
+                  <div className="rounded-xl border border-zinc-800 p-4"><h3 className="font-semibold">Comprar propiedades</h3><div className="mt-3 grid gap-2"><select value={propForm(business.id).itemId} onChange={e=>setPropertyForms(v=>({...v,[business.id]:{...propForm(business.id),itemId:e.target.value}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"><option value="">Propiedad</option>{propertyItems.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select><div className="grid grid-cols-3 gap-2"><input type="number" min={1} value={propForm(business.id).quantity} onChange={e=>setPropertyForms(v=>({...v,[business.id]:{...propForm(business.id),quantity:Number(e.target.value)||1}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm" placeholder="Cantidad"/><input type="number" min={0} value={propForm(business.id).purchasePrice} onChange={e=>setPropertyForms(v=>({...v,[business.id]:{...propForm(business.id),purchasePrice:Number(e.target.value)||0}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm" placeholder="Compra"/><input type="number" min={0} value={propForm(business.id).salePrice} onChange={e=>setPropertyForms(v=>({...v,[business.id]:{...propForm(business.id),salePrice:Number(e.target.value)||0}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm" placeholder="Venta"/></div><button onClick={()=>stockProperty(business.id)} disabled={saving||!propForm(business.id).itemId} className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black disabled:opacity-40">Comprar inventario</button></div></div>
+                  <div className="rounded-xl border border-zinc-800 p-4"><h3 className="font-semibold">Nueva suscripción</h3><div className="mt-3 grid gap-2"><input value={planForm(business.id).name} onChange={e=>setPlanForms(v=>({...v,[business.id]:{...planForm(business.id),name:e.target.value}}))} placeholder="Nombre del plan" className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"/><div className="grid grid-cols-3 gap-2"><input type="number" min={0} value={planForm(business.id).price} onChange={e=>setPlanForms(v=>({...v,[business.id]:{...planForm(business.id),price:Number(e.target.value)||0}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm" placeholder="Precio"/><input type="number" min={1} value={planForm(business.id).intervalValue} onChange={e=>setPlanForms(v=>({...v,[business.id]:{...planForm(business.id),intervalValue:Number(e.target.value)||1}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm" placeholder="Cada"/><select value={planForm(business.id).intervalUnit} onChange={e=>setPlanForms(v=>({...v,[business.id]:{...planForm(business.id),intervalUnit:e.target.value}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm"><option value="DAY">día</option><option value="WEEK">semana</option><option value="MONTH">mes</option></select></div><button onClick={()=>createPlan(business.id)} disabled={saving||!planForm(business.id).name.trim()} className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black disabled:opacity-40">Crear plan</button></div></div>
+                </div>
                 <div className="mt-5 grid gap-3">
                   {business.positions.map((item) => {
                     const contract = item.contracts[0];

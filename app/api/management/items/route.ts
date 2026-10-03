@@ -6,7 +6,7 @@ import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 
 const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","OTHER"] as const;
 const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","SYSTEM","OTHER"] as const;
-const EFFECT_TYPES = ["stat_multiplier","stat_bonus","system_action"] as const;
+const EFFECT_TYPES = ["stat_multiplier","stat_bonus","system_action","ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus"] as const;
 const EFFECT_STATS = ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK","PHYS_ATK","MAGIC_ATK","DEF","MAG_DEF","STEALTH","ATTACK_TOTAL","DAMAGE_REDUCTION_ALL"] as const;
 
 async function getAdmin() {
@@ -38,7 +38,7 @@ function validate(body: any) {
     if (effect.type === "system_action") {
       if (itemType !== "CONSUMABLE" || !systemActions.includes(String(effect.action))) return "Acción del sistema inválida.";
     } else {
-      if (!["stat_multiplier","stat_bonus"].includes(effect.type) || typeof effect.stat !== "string" || !effect.stat.trim()) return "Efecto de objeto inválido.";
+      if (!EFFECT_TYPES.includes(effect.type) && effect.type !== "system_action" || typeof effect.stat !== "string" || !effect.stat.trim()) return "Efecto de objeto inválido.";
     }
     if (!Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return "Valor de efecto inválido.";
   }

@@ -5,8 +5,17 @@ import { recordAuditEvent } from "@/lib/audit";
 import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 import { EFFECT_TYPES } from "@/lib/effects/catalog";
 
-const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","OTHER"] as const;
+const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","PROPERTY","OTHER"] as const;
 const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","SYSTEM","OTHER"] as const;
+const ITEM_TYPES_WITHOUT_STORE = new Set(["PROPERTY"]);
+
+async function getItemImageUrl(path: unknown) {
+  if (!path || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  const response = await fetch(process.env.SUPABASE_URL + "/storage/v1/object/sign/item-images/" + String(path), { method: "POST", headers: { Authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY, apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 3600 }), cache: "no-store" });
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => null);
+  return data?.signedURL ? process.env.SUPABASE_URL + "/storage/v1" + data.signedURL : null;
+}
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -29,6 +38,7 @@ function validate(body: any) {
   if (!name || name.length > 100) return "El nombre debe tener entre 1 y 100 caracteres.";
   if (!ITEM_TYPES.includes(itemType as any)) return "Tipo de objeto inválido.";
   if (!ACQUISITION_TYPES.includes(acquisitionType as any)) return "Tipo de obtención inválido.";
+  if (ITEM_TYPES_WITHOUT_STORE.has(itemType) && acquisitionType === "PURCHASABLE") return "Las propiedades no se venden en la tienda general.";
   if (!Number.isInteger(price) || price < 0) return "El precio debe ser un entero no negativo.";
   if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return "Slots de equipo inválidos.";
   for (const effect of effects) {

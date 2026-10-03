@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 type Promotion = { id: number; name: string; adjustmentType: "PERCENT" | "FIXED"; adjustmentValue: number };
 type Item = {
@@ -171,13 +171,13 @@ export default function StorePage() {
     }
   }
 
-  if (loading) return <main className="min-h-screen bg-zinc-950 p-12 text-white"><p className="text-zinc-500">Cargando tienda...</p></main>;
+  if (loading) return <main className="min-h-screen bg-zinc-950 p-12 text-white"><p className="text-[color:var(--store-muted)]">Cargando tienda...</p></main>;
 
   const currentStaff = activeStaff.find((entry) => entry.positionTitle.toLowerCase() === "encargado de tienda") ?? activeStaff[0] ?? null;
   const theme = currentStaff?.character.themePalette ?? null;
 
   return (
-    <main className="min-h-screen text-white transition-colors" style={theme ? { backgroundColor: theme.background, color: theme.foreground } : { backgroundColor: "#09090b" }}>
+    <main className="min-h-screen text-white transition-colors" style={theme ? { backgroundColor: theme.background, color: theme.foreground, "--store-muted": theme.muted } as CSSProperties : { backgroundColor: "#09090b", "--store-muted": "#a1a1aa" } as CSSProperties}>
       <div className="mx-auto max-w-6xl px-6 py-6">
         {currentStaff && (
           <section className="relative mb-8 overflow-hidden rounded-3xl border shadow-2xl" style={{ borderColor: theme?.border ?? "#3f3f46", backgroundColor: theme?.surface ?? "#18181b" }}>
@@ -195,8 +195,8 @@ export default function StorePage() {
         )}
 
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div><h1 className="text-4xl font-bold">Tienda</h1><p className="mt-2 text-zinc-500">Compra y vende objetos con el dinero de tu personaje.</p></div>
-          <div className="min-w-[260px]"><label className="text-sm text-zinc-500">Personaje</label><select value={selectedCharacter} onChange={(event) => setSelectedCharacter(event.target.value)} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white">{characters.length === 0 ? <option value="">Sin personajes</option> : characters.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></div>
+          <div><h1 className="text-4xl font-bold">Tienda</h1><p className="mt-2 text-[color:var(--store-muted)]">Compra y vende objetos con el dinero de tu personaje.</p></div>
+          <div className="min-w-[260px]"><label className="text-sm text-[color:var(--store-muted)]">Personaje</label><select value={selectedCharacter} onChange={(event) => setSelectedCharacter(event.target.value)} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white">{characters.length === 0 ? <option value="">Sin personajes</option> : characters.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></div>
         </div>
 
         <div className="mt-6 rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-3 text-sm">Dinero disponible: <span className="font-semibold text-amber-300">◈ {money.toLocaleString("es-MX")}</span></div>
@@ -213,12 +213,12 @@ export default function StorePage() {
               <select value={selectedSlot} onChange={e=>setSelectedSlot(e.target.value)} className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white"><option value="ALL">Todos los slots</option>{["MAIN_HAND","OFF_HAND","HEAD","BODY","ARMS","FEET","BACK","ACCESSORY_1","ACCESSORY_2"].map(v=><option key={v} value={v}>{v}</option>)}</select>
               <select value={selectedStat} onChange={e=>setSelectedStat(e.target.value)} className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white"><option value="ALL">Todas las stats</option>{Object.entries(statLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}</select>
               <input type="number" value={minStatValue} onChange={e=>setMinStatValue(e.target.value)} placeholder="Mínimo" className="w-24 rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white" />
-              <button type="button" onClick={()=>{setSearch("");setSelectedCategory("ALL");setSelectedSubtype("ALL");setSelectedSlot("ALL");setSelectedStat("ALL");setMinStatValue("");}} className="rounded-xl border border-zinc-700 px-3 py-2.5 text-sm text-zinc-400">Limpiar</button>
+              <button type="button" onClick={()=>{setSearch("");setSelectedCategory("ALL");setSelectedSubtype("ALL");setSelectedSlot("ALL");setSelectedStat("ALL");setMinStatValue("");}} className="rounded-xl border border-zinc-700 px-3 py-2.5 text-sm text-[color:var(--store-muted)]">Limpiar</button>
             </div>
           </div>
 
           {filteredItems.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8 text-center"><p className="text-zinc-500">No hay objetos disponibles para comprar.</p></div>
+            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8 text-center"><p className="text-[color:var(--store-muted)]">No hay objetos disponibles para comprar.</p></div>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredItems.map((item) => {
@@ -228,15 +228,15 @@ export default function StorePage() {
                 return (
                   <article key={item.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
                     <div className="flex items-start justify-between gap-3">
-                      <div><p className="text-lg font-semibold">{item.name}</p><p className="mt-1 text-xs text-zinc-500">{typeLabels[item.itemType] ?? item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""}</p></div>
+                      <div><p className="text-lg font-semibold">{item.name}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{typeLabels[item.itemType] ?? item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""}</p></div>
                       <div className="text-right">
-                        {discounted && <p className="text-xs text-zinc-500 line-through">◈ {item.basePrice.toLocaleString("es-MX")}</p>}
+                        {discounted && <p className="text-xs text-[color:var(--store-muted)] line-through">◈ {item.basePrice.toLocaleString("es-MX")}</p>}
                         <span className={"text-sm font-semibold " + (discounted ? "text-emerald-300" : "text-amber-300")}>◈ {item.price.toLocaleString("es-MX")}</span>
                       </div>
                     </div>
                     {item.appliedPromotions.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{item.appliedPromotions.map((promotion) => <span key={promotion.id} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-300">{promotion.name}</span>)}</div>}
-                    {item.description && <p className="mt-4 text-sm text-zinc-400">{item.description}</p>}
-                    {item.effects.length > 0 && <div className="mt-4 space-y-1">{item.effects.map((effect, index) => <p key={index} className="text-xs text-zinc-500">{effect.description || effectLabels[effect.type] || effect.type}: {effect.type.includes("multiplier") ? "×" + effect.value / 100 : effect.value}</p>)}</div>}
+                    {item.description && <p className="mt-4 text-sm text-[color:var(--store-muted)]">{item.description}</p>}
+                    {item.effects.length > 0 && <div className="mt-4 space-y-1">{item.effects.map((effect, index) => <p key={index} className="text-xs text-[color:var(--store-muted)]">{effect.description || effectLabels[effect.type] || effect.type}: {effect.type.includes("multiplier") ? "×" + effect.value / 100 : effect.value}</p>)}</div>}
                     <div className="mt-5 flex gap-2">
                       <input type="number" min={1} max={99} value={quantity} onChange={(event) => setQuantities((current) => ({ ...current, [item.id]: Math.max(1, Math.min(99, Number(event.target.value) || 1)) }))} className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-center" />
                       <button type="button" onClick={() => buy(item)} disabled={buying !== null || selling !== null || !selectedCharacter || total > money} className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40">{buying === item.id ? "Comprando..." : "Comprar · ◈ " + total.toLocaleString("es-MX")}</button>
@@ -250,9 +250,9 @@ export default function StorePage() {
 
         <section className="mt-10">
           <h2 className="text-2xl font-bold">Vender</h2>
-          <p className="mt-1 text-sm text-zinc-500">Los objetos comprables se venden por la mitad de su precio base. Las promociones de compra no modifican el valor de reventa.</p>
+          <p className="mt-1 text-sm text-[color:var(--store-muted)]">Los objetos comprables se venden por la mitad de su precio base. Las promociones de compra no modifican el valor de reventa.</p>
           {ownedItems.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8 text-center"><p className="text-zinc-500">Este personaje no tiene objetos para vender.</p></div>
+            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8 text-center"><p className="text-[color:var(--store-muted)]">Este personaje no tiene objetos para vender.</p></div>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {ownedItems.map((entry) => {
@@ -262,8 +262,8 @@ export default function StorePage() {
                 const sellQuantity = Math.max(1, Math.min(entry.quantity, Number(sellQuantities[entry.id] ?? 1)));
                 return (
                   <article key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-                    <div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold">{item?.name ?? "Objeto"}</p><p className="mt-1 text-xs text-zinc-500">{entry.equipped ? "Equipado" : "En inventario"}{entry.flair ? " · " + entry.flair : ""}</p></div><span className="text-sm font-semibold text-emerald-300">◈ {saleValue.toLocaleString("es-MX")} c/u</span></div>
-                    <p className="mt-3 text-xs text-zinc-500">Cantidad disponible: {entry.quantity}</p>
+                    <div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold">{item?.name ?? "Objeto"}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{entry.equipped ? "Equipado" : "En inventario"}{entry.flair ? " · " + entry.flair : ""}</p></div><span className="text-sm font-semibold text-emerald-300">◈ {saleValue.toLocaleString("es-MX")} c/u</span></div>
+                    <p className="mt-3 text-xs text-[color:var(--store-muted)]">Cantidad disponible: {entry.quantity}</p>
                     <div className="mt-3 flex gap-2">
                       <input type="number" min={1} max={entry.quantity} value={sellQuantity} onChange={(event) => setSellQuantities((current) => ({ ...current, [entry.id]: Math.max(1, Math.min(entry.quantity, Number(event.target.value) || 1)) }))} className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-center" />
                       <button type="button" onClick={() => sell(entry)} disabled={selling !== null || buying !== null} className="flex-1 rounded-lg border border-emerald-900/70 px-3 py-2 text-sm text-emerald-300 disabled:opacity-40">{selling === entry.id ? "Vendiendo..." : "Vender · ◈ " + (saleValue * sellQuantity).toLocaleString("es-MX")}</button>

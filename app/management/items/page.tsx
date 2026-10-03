@@ -135,7 +135,7 @@ export default function ItemsManagementPage() {
           </div>
           <div className="flex items-center justify-between text-xs text-zinc-500"><span>{filteredItems.length} de {items.length} objetos</span><button type="button" onClick={()=>{setSearch("");setFilterType("ALL");setFilterSubtype("ALL");setFilterSlot("ALL");setFilterAcquisition("ALL");setFilterStat("ALL");setFilterMinValue("");}} className="text-zinc-300">Limpiar filtros</button></div>
           <div className="space-y-2">{filteredItems.map(item=><button key={item.id} onClick={()=>edit(item)} className={"w-full rounded-xl border p-4 text-left transition "+(selected===item.id?"border-amber-400/50 bg-amber-950/20":"border-zinc-800 hover:bg-zinc-900")}>
-          <div className="font-medium">{item.name}</div><div className="mt-1 text-xs text-zinc-500">{itemTypes.find(x=>x[0]===item.itemType)?.[1]??item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""} · {acquisitionTypes.find(x=>x[0]===item.acquisitionType)?.[1]??item.acquisitionType}</div>
+          <div className="flex items-center gap-3">{item.imageUrl&&<img src={item.imageUrl} alt="" className="h-12 w-16 rounded-lg object-cover"/>}<div><div className="font-medium">{item.name}</div><div className="mt-1 text-xs text-zinc-500">{itemTypes.find(x=>x[0]===item.itemType)?.[1]??item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""} · {acquisitionTypes.find(x=>x[0]===item.acquisitionType)?.[1]??item.acquisitionType}</div></div></div>
         </button>)}</div></div>
       </section>
       <ManagementModal open={modalOpen} title={selected?"Editar objeto":"Nuevo objeto"} onClose={()=>setModalOpen(false)} maxWidth="max-w-4xl">

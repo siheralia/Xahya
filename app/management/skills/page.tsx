@@ -11,7 +11,7 @@ type Skill = {
 };
 
 const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"]];
-const effectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["NARRATIVE","Narrativo"]];
+const effectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["NARRATIVE","Narrativo"],["IGNORE_PHYS_DEF_MULTIPLIER","Ignorar defensa física ×"],["IGNORE_PHYS_DEF_BONUS","Ignorar defensa física +"],["IGNORE_MAGIC_DEF_MULTIPLIER","Ignorar defensa mágica ×"],["IGNORE_MAGIC_DEF_BONUS","Ignorar defensa mágica +"],["IGNORE_ALL_DEF_MULTIPLIER","Ignorar defensas ×"],["IGNORE_ALL_DEF_BONUS","Ignorar defensas +"],["FINAL_DAMAGE_MULTIPLIER","Daño final ocasionado ×"],["FINAL_DAMAGE_BONUS","Daño final ocasionado +"]];
 const targets = [
   ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
   ["HP","HP"],["MANA","Mana"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],

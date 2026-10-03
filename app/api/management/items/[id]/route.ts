@@ -36,7 +36,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!effect || typeof effect !== "object" || typeof effect.type !== "string" || !effect.type.trim() || !Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     if (effect.type === "system_action") {
       if (itemType !== "CONSUMABLE" || !systemActions.includes(String(effect.action))) return NextResponse.json({ error: "Acción del sistema inválida para este objeto." }, { status: 400 });
-    } else if (!["stat_multiplier","stat_bonus"].includes(effect.type) || typeof effect.stat !== "string" || !effect.stat.trim()) {
+    } else if (!EFFECT_TYPES.includes(effect.type) && effect.type !== "system_action" || typeof effect.stat !== "string" || !effect.stat.trim()) {
       return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     }
   }

@@ -25,6 +25,9 @@ function validTime(value: unknown) {
 }
 
 const frequencies = ["DAILY", "WEEKLY"];
+const investmentTypes = ["SECURITY", "GROWTH"];
+const investmentSources = ["BUSINESS", "OWNER"];
+const subscriptionUnits = ["DAY", "WEEK", "MONTH"];
 
 export async function GET() {
   const user = await getUser();
@@ -35,7 +38,11 @@ export async function GET() {
   const Position = (db.orm.public as any).BusinessPosition;
   const Contract = (db.orm.public as any).EmploymentContract;
   const Relationship = (db.orm.public as any).CharacterRelationship;
-  const [characters, businesses, positions, contracts, relationships] = await Promise.all([Character.all(), Business.all(), Position.all(), Contract.all(), Relationship.all()]);
+  const Product = (db.orm.public as any).BusinessProduct;
+  const Plan = (db.orm.public as any).BusinessSubscriptionPlan;
+  const Investment = (db.orm.public as any).BusinessInvestment;
+  const Item = (db.orm.public as any).Item;
+  const [characters, businesses, positions, contracts, relationships, products, plans, investments, items] = await Promise.all([Character.all(), Business.all(), Position.all(), Contract.all(), Relationship.all(), Product.all(), Plan.all(), Investment.all(), Item.all()]);
   const owned = characters.filter((character: any) => Number(character.userId) === Number(user.id));
   const ownedIds = new Set(owned.map((character: any) => Number(character.id)));
   const ownedBusinesses = businesses.filter((business: any) => ownedIds.has(Number(business.ownerCharacterId)));
@@ -47,6 +54,10 @@ export async function GET() {
       ownerCharacterId: Number(business.ownerCharacterId),
       ownerCharacter: owned.find((character: any) => Number(character.id) === Number(business.ownerCharacterId)) ?? null,
       passiveIncome: Number(business.passiveIncome ?? 0), passiveFrequency: String(business.passiveFrequency ?? "WEEKLY"), balance: Number(business.balance ?? 0),
+      securityInvestment: Number(business.securityInvestment ?? 0), growthInvestment: Number(business.growthInvestment ?? 0),
+      products: products.filter((p:any)=>Number(p.businessId)===Number(business.id)&&p.active).map((p:any)=>({id:Number(p.id),itemId:Number(p.itemId),purchasePrice:Number(p.purchasePrice),salePrice:Number(p.salePrice),stock:Number(p.stock),item:(()=>{const item=items.find((i:any)=>Number(i.id)===Number(p.itemId)); return item?{id:Number(item.id),name:String(item.name),description:item.description??null,itemType:String(item.itemType),imagePath:item.imagePath??null}:null;})()})),
+      subscriptionPlans: plans.filter((p:any)=>Number(p.businessId)===Number(business.id)&&p.active).map((p:any)=>({id:Number(p.id),name:String(p.name),description:p.description??null,price:Number(p.price),intervalValue:Number(p.intervalValue),intervalUnit:String(p.intervalUnit)})),
+      investments: investments.filter((i:any)=>Number(i.businessId)===Number(business.id)).map((i:any)=>({id:Number(i.id),type:String(i.type),sourceType:String(i.sourceType),sourceCharacterId:i.sourceCharacterId==null?null:Number(i.sourceCharacterId),amount:Number(i.amount),createdAt:String(i.createdAt)})),
       positions: positions.filter((p: any) => Number(p.businessId) === Number(business.id) && p.active).map((p: any) => ({
         id: Number(p.id), title: String(p.title), description: p.description ?? null, startTime: String(p.startTime), endTime: String(p.endTime),
         salary: Number(p.salary), salaryFrequency: String(p.salaryFrequency), salaryDayOfWeek: Number(p.salaryDayOfWeek ?? 0),
@@ -68,6 +79,74 @@ export async function POST(request: Request) {
   const Contract = (db.orm.public as any).EmploymentContract;
   const Character = db.orm.public.Character;
   const Relationship = (db.orm.public as any).CharacterRelationship;
+
+  if (["invest","stockProperty","createPlan","updatePlan"].includes(action)) {
+    const businessId = Number(body?.businessId);
+    const owned = await getOwnedBusiness(user, businessId);
+    if (owned.error) return owned.error;
+    const business = owned.business;
+    const Investment = (db.orm.public as any).BusinessInvestment;
+    const Product = (db.orm.public as any).BusinessProduct;
+    const Plan = (db.orm.public as any).BusinessSubscriptionPlan;
+    const Resource = db.orm.public.CharacterResource;
+    if (action === "invest") {
+      const type = String(body?.type ?? "");
+      const sourceType = String(body?.sourceType ?? "BUSINESS");
+      const amount = Math.trunc(Number(body?.amount ?? 0));
+      if (!investmentTypes.includes(type) || !investmentSources.includes(sourceType) || amount <= 0) return NextResponse.json({ error: "Inversión inválida." }, { status: 400 });
+      if (sourceType === "BUSINESS") {
+        const current = await Business.where({ id: businessId }).first();
+        if (Number(current?.balance ?? 0) < amount) return NextResponse.json({ error: "El negocio no tiene suficiente dinero en caja." }, { status: 400 });
+        const field = type === "SECURITY" ? "securityInvestment" : "growthInvestment";
+        await db.transaction(async (tx) => {
+          const B = (tx.orm.public as any).Business; const I = (tx.orm.public as any).BusinessInvestment;
+          const currentB = await B.where({ id: businessId }).first();
+          await B.where({ id: businessId }).update({ balance: Number(currentB.balance) - amount, [field]: Number(currentB[field] ?? 0) + amount });
+          await I.create({ businessId, type, sourceType, sourceCharacterId: null, amount });
+        });
+      } else {
+        const ownerResource = await Resource.where({ characterId: Number(owned.owner.id) }).first();
+        if (!ownerResource || Number(ownerResource.money) < amount) return NextResponse.json({ error: "El dueño no tiene suficiente dinero." }, { status: 400 });
+        const field = type === "SECURITY" ? "securityInvestment" : "growthInvestment";
+        await db.transaction(async (tx) => {
+          const R = tx.orm.public.CharacterResource; const B = (tx.orm.public as any).Business; const I = (tx.orm.public as any).BusinessInvestment;
+          const ownerR = await R.where({ characterId: Number(owned.owner.id) }).first(); const currentB = await B.where({ id: businessId }).first();
+          await R.where({ id: ownerR.id }).update({ money: Number(ownerR.money) - amount });
+          await B.where({ id: businessId }).update({ [field]: Number(currentB[field] ?? 0) + amount });
+          await I.create({ businessId, type, sourceType, sourceCharacterId: Number(owned.owner.id), amount });
+        });
+      }
+      return NextResponse.json({ success: true });
+    }
+    if (action === "stockProperty") {
+      const itemId = Number(body?.itemId); const quantity = Math.trunc(Number(body?.quantity ?? 0)); const purchasePrice = Math.trunc(Number(body?.purchasePrice ?? 0)); const salePrice = Math.trunc(Number(body?.salePrice ?? 0));
+      if (!Number.isInteger(itemId) || quantity <= 0 || purchasePrice < 0 || salePrice < 0 || salePrice < purchasePrice) return NextResponse.json({ error: "Datos de propiedad inválidos." }, { status: 400 });
+      const Item = (db.orm.public as any).Item; const item = await Item.where({ id: itemId }).first();
+      if (!item || String(item.itemType) !== "PROPERTY") return NextResponse.json({ error: "Solo puedes vender objetos de tipo Propiedad." }, { status: 400 });
+      const total = purchasePrice * quantity;
+      const current = await Business.where({ id: businessId }).first();
+      if (Number(current.balance ?? 0) < total) return NextResponse.json({ error: "El negocio no tiene suficiente dinero para comprar ese inventario." }, { status: 400 });
+      await db.transaction(async (tx) => {
+        const B=(tx.orm.public as any).Business; const P=(tx.orm.public as any).BusinessProduct; const currentB=await B.where({id:businessId}).first();
+        const existing=await P.where({businessId,itemId}).first();
+        await B.where({id:businessId}).update({balance:Number(currentB.balance)-total});
+        if(existing) await P.where({id:existing.id}).update({purchasePrice,salePrice,stock:Number(existing.stock)+quantity,active:true});
+        else await P.create({businessId,itemId,purchasePrice,salePrice,stock:quantity,active:true});
+      });
+      return NextResponse.json({ success: true });
+    }
+    const name = String(body?.name ?? "").trim(); const description = typeof body?.description === "string" ? body.description.trim() || null : null;
+    const price = Math.trunc(Number(body?.price ?? 0)); const intervalValue = Math.trunc(Number(body?.intervalValue ?? 1)); const intervalUnit = String(body?.intervalUnit ?? "MONTH");
+    if (!name || name.length > 100 || price < 0 || intervalValue <= 0 || !subscriptionUnits.includes(intervalUnit)) return NextResponse.json({ error: "Plan de suscripción inválido." }, { status: 400 });
+    if (action === "createPlan") {
+      const plan = await Plan.create({ businessId, name, description, price, intervalValue, intervalUnit, active: true });
+      return NextResponse.json({ plan }, { status: 201 });
+    }
+    const planId = Number(body?.planId); const plan = await Plan.where({ id: planId }).first();
+    if (!plan || Number(plan.businessId) !== businessId) return NextResponse.json({ error: "Plan no encontrado." }, { status: 404 });
+    const updated = await Plan.where({ id: planId }).update({ name, description, price, intervalValue, intervalUnit });
+    return NextResponse.json({ plan: updated });
+  }
 
   if (action === "createPosition" || action === "updatePosition") {
     const businessId = Number(body?.businessId);

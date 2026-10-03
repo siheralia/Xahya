@@ -135,6 +135,7 @@ export async function GET() {
     allowTraps: maze.allowTraps == null ? true : Boolean(maze.allowTraps),
     allowDeath: maze.allowDeath == null ? true : Boolean(maze.allowDeath),
     allowTreasures: maze.allowTreasures == null ? true : Boolean(maze.allowTreasures),
+    resettable: maze.resettable == null ? false : Boolean(maze.resettable),
     roomCount: rooms.filter((room: any) => Number(room.mazeId) === Number(maze.id)).length,
   })));
 }
@@ -154,6 +155,7 @@ export async function POST(request: Request) {
   const allowTraps = body?.allowTraps !== false;
   const allowDeath = body?.allowDeath !== false;
   const allowTreasures = body?.allowTreasures !== false;
+  const resettable = body?.resettable === true;
   const themeIds = Array.isArray(body?.themeIds) ? [...new Set(body.themeIds.map((id:any)=>Number(id)).filter((id:number)=>Number.isInteger(id)&&id>0))] : [];
 
   if (!name) return NextResponse.json({ error: "El laberinto necesita un nombre." }, { status: 400 });
@@ -168,7 +170,7 @@ export async function POST(request: Request) {
   let result;
   try {
     result = await db.transaction(async (tx) => {
-    const maze = await tx.orm.public.Maze.create({ name, description, mazeType, generationMode, maxRooms: safeMaxRooms, allowTraps, allowDeath, allowTreasures, status:"ACTIVE" });
+    const maze = await tx.orm.public.Maze.create({ name, description, mazeType, generationMode, maxRooms: safeMaxRooms, allowTraps, allowDeath, allowTreasures, resettable, status:"ACTIVE" });
     const MazeTheme=(tx.orm.public as any).MazeTheme;
     const Theme=(tx.orm.public as any).Theme;
     if(MazeTheme&&Theme&&themeIds.length){
@@ -191,7 +193,7 @@ export async function POST(request: Request) {
     action: "MAZE_CREATED",
     entityType: "MAZE",
     entityId: result.maze.id,
-    details: { name, mazeType, generationMode, maxRooms, allowTraps, allowDeath, allowTreasures, themeIds },
+    details: { name, mazeType, generationMode, maxRooms, allowTraps, allowDeath, allowTreasures, resettable, themeIds },
   });
 
   return NextResponse.json(result, { status: 201 });

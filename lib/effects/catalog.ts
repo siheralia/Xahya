@@ -5,7 +5,7 @@ export const EFFECT_CATALOG = [
   { type: "RESOURCE_BONUS", label: "Recurso +", mode: "bonus", targets: ["HP","MANA"] },
   { type: "COMBAT_MULTIPLIER", label: "Combate ×", mode: "multiplier", targets: ["PHYS_ATK","MAGIC_ATK","ATTACK_TOTAL"] },
   { type: "EQUIPMENT_SLOT_CAP", label: "Límite de equipo +", mode: "bonus", targets: [] },
-  { type: "NARRATIVE", label: "Narrativo", mode: "text", targets: [] },
+  { type: "NARRATIVE", label: "Narrativo", mode: "text", targets: ["OTHER"] },
   { type: "IGNORE_PHYS_DEF_MULTIPLIER", label: "Ignorar defensa física ×", mode: "multiplier", targets: [] },
   { type: "IGNORE_PHYS_DEF_BONUS", label: "Ignorar defensa física +", mode: "bonus", targets: [] },
   { type: "IGNORE_MAGIC_DEF_MULTIPLIER", label: "Ignorar defensa mágica ×", mode: "multiplier", targets: [] },

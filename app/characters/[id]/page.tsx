@@ -1310,7 +1310,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <main className="xahya-character-theme min-h-screen text-white" style={{ backgroundColor: themePalette.background, color: themePalette.foreground, "--theme-primary": themePalette.primary, "--theme-secondary": themePalette.secondary, "--theme-accent": themePalette.accent, "--theme-surface": themePalette.surface, "--theme-border": themePalette.border } as CSSProperties}>
+    <main className="xahya-character-theme min-h-screen text-white" style={{ backgroundColor: themePalette.background, color: "#ffffff", "--theme-primary": themePalette.primary, "--theme-secondary": themePalette.secondary, "--theme-accent": themePalette.accent, "--theme-surface": themePalette.surface, "--theme-border": themePalette.border } as CSSProperties}>
       <div className="mx-auto max-w-6xl px-6 py-6">
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <h1 className="w-full text-4xl font-bold" style={{ color: themePalette.foreground, textShadow: "0 0 28px " + themePalette.primary + "55" }}>{character.name} {character.flair && <span className="text-2xl font-normal" style={{ color: themePalette.primary }}>⟨{character.flair}⟩</span>}</h1>

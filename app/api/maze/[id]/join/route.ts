@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { registerMazeEncounterRelationships } from "@/lib/maze";
 
 async function getUser(){const {userId:clerkId}=await auth();if(!clerkId)return null;const users=await db.orm.public.User.all();return users.find((u)=>u.clerkId===clerkId)??null;}
 
@@ -20,6 +21,11 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   }
   const root=await db.orm.public.MazeRoom.where({mazeId,roomNumber:1}).first();
   if(!root)return NextResponse.json({error:"El laberinto no tiene habitación inicial."},{status:500});
-  const position=await Position.create({mazeId,characterId,roomId:root.id,previousRoomId:null});
+  const position=await db.transaction(async (tx) => {
+    const TxPosition=(tx.orm.public as any).MazeCharacterPosition;
+    const created=await TxPosition.create({mazeId,characterId,roomId:root.id,previousRoomId:null});
+    await registerMazeEncounterRelationships(tx, Number(root.id), characterId);
+    return created;
+  });
   return NextResponse.json({roomId:Number(position.roomId)},{status:201});
 }

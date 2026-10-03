@@ -22,6 +22,7 @@ model Character {
   themePalette Json?
   userId    Int
   user      User                @relation(fields:[userId], references:[id])
+  skillCreationCredits Int     @default(0)
   age       Int?
   gender    String?
   height    Int?
@@ -29,6 +30,7 @@ model Character {
   resources CharacterResource?
   modifiers CharacterModifier[]
   perks CharacterPerk[]
+  skills Skill[]
   createdAt DateTime            @default(now())
   auditLogs AuditLog[]
   knownCharacters CharacterRelationship[] @relation("CharacterKnows")

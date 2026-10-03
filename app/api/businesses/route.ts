@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ business: updated });
   }
 
-  if (["invest","stockProperty","createPlan","updatePlan"].includes(action)) {
+  if (["invest","stockProperty","createPlan","updatePlan","deletePlan"].includes(action)) {
     const businessId = Number(body?.businessId);
     const owned = await getOwnedBusiness(user, businessId);
     if (owned.error) return owned.error;
@@ -157,6 +157,14 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ success: true });
     }
+    const planId = Number(body?.planId);
+    if (action === "deletePlan") {
+      if (!Number.isInteger(planId) || planId <= 0) return NextResponse.json({ error: "Plan inválido." }, { status: 400 });
+      const plan = await Plan.where({ id: planId }).first();
+      if (!plan || Number(plan.businessId) !== businessId) return NextResponse.json({ error: "Plan no encontrado." }, { status: 404 });
+      await Plan.where({ id: planId }).update({ active: false });
+      return NextResponse.json({ success: true });
+    }
     const name = String(body?.name ?? "").trim(); const description = typeof body?.description === "string" ? body.description.trim() || null : null;
     const price = Math.trunc(Number(body?.price ?? 0)); const intervalValue = Math.trunc(Number(body?.intervalValue ?? 1)); const intervalUnit = String(body?.intervalUnit ?? "MONTH");
     if (!name || name.length > 100 || price < 0 || intervalValue <= 0 || !subscriptionUnits.includes(intervalUnit)) return NextResponse.json({ error: "Plan de suscripción inválido." }, { status: 400 });
@@ -164,7 +172,7 @@ export async function POST(request: Request) {
       const plan = await Plan.create({ businessId, name, description, price, intervalValue, intervalUnit, active: true });
       return NextResponse.json({ plan }, { status: 201 });
     }
-    const planId = Number(body?.planId); const plan = await Plan.where({ id: planId }).first();
+    const plan = await Plan.where({ id: planId }).first();
     if (!plan || Number(plan.businessId) !== businessId) return NextResponse.json({ error: "Plan no encontrado." }, { status: 404 });
     const updated = await Plan.where({ id: planId }).update({ name, description, price, intervalValue, intervalUnit });
     return NextResponse.json({ plan: updated });

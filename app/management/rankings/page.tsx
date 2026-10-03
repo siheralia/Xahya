@@ -12,7 +12,7 @@ type Row = {
 const rankings = [
   ["Dinero", "money", "💰"],
   ["Puntos totales", "pointsTotal", "✦"],
-  ["Karma", "karma", "☯"],
+  ["Karma", "karma", "🪷"],
   ["Dinero ganado en casino", "casinoWon", "🎰"],
   ["Dinero gastado en casino", "casinoSpent", "💸"],
   ["Dinero ganado en exploración", "mazeMoney", "🗺️"],

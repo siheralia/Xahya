@@ -56,6 +56,7 @@ export default function StorePage() {
       const next = Array.isArray(charactersData) ? charactersData : [];
       setItems(Array.isArray(itemsData?.items) ? itemsData.items : []);
       setCharacters(next);
+      if (!staffResponse.ok) throw new Error(staffData?.error ?? "No se pudo cargar el personal de la tienda.");
       setActiveStaff(Array.isArray(staffData?.activeStaff) ? staffData.activeStaff : []);
       const nextCharacterId = selectedCharacter || (next.length ? String(next[0].id) : "");
       if (!selectedCharacter && next.length) setSelectedCharacter(nextCharacterId);
@@ -128,7 +129,7 @@ export default function StorePage() {
 
   if (loading) return <main className="min-h-screen bg-zinc-950 p-12 text-white"><p className="text-zinc-500">Cargando tienda...</p></main>;
 
-  const currentStaff = activeStaff.find((entry) => entry.positionTitle.toLowerCase().includes("encarg")) ?? activeStaff[0] ?? null;
+  const currentStaff = activeStaff.find((entry) => entry.positionTitle.toLowerCase() === "encargado de tienda") ?? activeStaff[0] ?? null;
   const theme = currentStaff?.character.themePalette ?? null;
 
   return <main className="min-h-screen text-white transition-colors" style={theme ? { backgroundColor: theme.background, color: theme.foreground } : { backgroundColor: "#09090b" }}><div className="mx-auto max-w-6xl px-6 py-6">

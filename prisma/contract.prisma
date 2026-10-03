@@ -359,6 +359,7 @@ model Business {
   products              BusinessProduct[]
   subscriptionPlans     BusinessSubscriptionPlan[]
   investments           BusinessInvestment[]
+  propertySales         CharacterProperty[]
   @@index([ownerCharacterId])
 }
 

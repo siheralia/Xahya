@@ -180,6 +180,7 @@ model Maze {
   allowTraps  Boolean  @default(true)
   allowDeath  Boolean  @default(true)
   allowTreasures Boolean @default(true)
+  resettable  Boolean @default(false)
   status      String    @default("ACTIVE")
   createdAt   DateTime  @default(now())
   updatedAt   temporal.updatedAt()

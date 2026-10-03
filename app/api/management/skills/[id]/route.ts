@@ -26,32 +26,79 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const cost = Number(body.cost ?? skill.cost);
   const category = String(body.category ?? skill.category);
   const effect = Array.isArray(body.effect) ? body.effect : (Array.isArray(skill.effect) ? skill.effect : []);
-  if (!name || name.length > 120 || !description || !Number.isInteger(cost) || cost < 0) return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
+  if (!name || name.length > 120 || !description || !Number.isInteger(cost) || cost < 0) {
+    return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
+  }
 
   const approve = body.approve === true;
   const reject = body.reject === true;
   let updated: any;
+  let refundedCredit = false;
+  let skillCreationCredits: number | null = null;
+
   try {
-    await Skill.where({ id }).update({
-    name,
-    cost,
-    description,
-    duration: typeof body.duration === "string" ? body.duration.trim() || null : (skill.duration ?? null),
-    category,
-    areaOfEffect: typeof body.areaOfEffect === "string" ? body.areaOfEffect.trim() || null : (skill.areaOfEffect ?? null),
-    speed: typeof body.speed === "string" ? body.speed.trim() || null : (skill.speed ?? null),
-    cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : (skill.cooldown ?? null),
-    effect,
-    condition: typeof body.condition === "string" ? body.condition.trim() || null : (skill.condition ?? null),
-    status: approve ? "APPROVED" : reject ? "REJECTED" : String(skill.status),
-    approvedAt: approve ? Temporal.Instant.fromEpochMilliseconds(Date.now()) : reject ? null : (skill.approvedAt ?? null),
-    updatedAt: Temporal.Instant.fromEpochMilliseconds(Date.now()),
+    const result = await db.transaction(async (tx) => {
+      const TxSkill = (tx.orm.public as any).Skill;
+      const TxCharacter = tx.orm.public.Character as any;
+
+      const freshSkill = await TxSkill.where({ id }).first();
+      if (!freshSkill) throw new Error("SKILL_NOT_FOUND");
+
+      // El reembolso ocurre solo al entrar por primera vez en REJECTED.
+      // Así un doble clic o un segundo rechazo no duplica el Cristal.
+      const shouldRefund = reject && String(freshSkill.status) !== "REJECTED";
+
+      await TxSkill.where({ id }).update({
+        name,
+        cost,
+        description,
+        duration: typeof body.duration === "string" ? body.duration.trim() || null : (freshSkill.duration ?? null),
+        category,
+        areaOfEffect: typeof body.areaOfEffect === "string" ? body.areaOfEffect.trim() || null : (freshSkill.areaOfEffect ?? null),
+        speed: typeof body.speed === "string" ? body.speed.trim() || null : (freshSkill.speed ?? null),
+        cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : (freshSkill.cooldown ?? null),
+        effect,
+        condition: typeof body.condition === "string" ? body.condition.trim() || null : (freshSkill.condition ?? null),
+        status: approve ? "APPROVED" : reject ? "REJECTED" : String(freshSkill.status),
+        approvedAt: approve
+          ? Temporal.Instant.fromEpochMilliseconds(Date.now())
+          : reject
+            ? null
+            : (freshSkill.approvedAt ?? null),
+        updatedAt: Temporal.Instant.fromEpochMilliseconds(Date.now()),
+      });
+
+      if (shouldRefund) {
+        const character = await TxCharacter.where({ id: Number(freshSkill.characterId) }).first();
+        if (!character) throw new Error("CHARACTER_NOT_FOUND");
+
+        const credits = Number(character.skillCreationCredits ?? 0);
+        skillCreationCredits = credits + 1;
+        refundedCredit = true;
+
+        await TxCharacter.where({ id: Number(freshSkill.characterId) }).update({
+          skillCreationCredits: credits + 1,
+        });
+      }
+
+      const refreshed = await TxSkill.where({ id }).first();
+      if (!refreshed) throw new Error("SKILL_UPDATE_NOT_FOUND");
+
+      return refreshed;
     });
-    updated = await Skill.where({ id }).first();
-    if (!updated) return NextResponse.json({ error: "La habilidad se actualizó pero no pudo recuperarse." }, { status: 500 });
+
+    updated = result;
   } catch (error) {
     console.error("[management/skills] PATCH failed", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo actualizar la habilidad." }, { status: 500 });
+    if (error instanceof Error && error.message === "SKILL_NOT_FOUND") {
+      return NextResponse.json({ error: "Habilidad no encontrada." }, { status: 404 });
+    }
+    if (error instanceof Error && error.message === "CHARACTER_NOT_FOUND") {
+      return NextResponse.json({ error: "No se encontró el personaje de la habilidad." }, { status: 500 });
+    }
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : "No se pudo actualizar la habilidad.",
+    }, { status: 500 });
   }
 
   await recordAuditEvent({
@@ -60,7 +107,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     entityType: "SKILL",
     entityId: id,
     characterId: Number(updated.characterId),
-    details: { before: skill, after: updated },
+    details: {
+      before: skill,
+      after: updated,
+      refundedSkillCrystal: refundedCredit,
+      skillCreationCredits,
+    },
   });
-  return NextResponse.json({ skill: updated });
+
+  return NextResponse.json({
+    skill: updated,
+    refundedSkillCrystal: refundedCredit,
+    ...(skillCreationCredits !== null ? { skillCreationCredits } : {}),
+  });
 }

@@ -29,13 +29,12 @@ const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_
 const EFFECT_TARGETS = [
   ["STR", "Fuerza (STR)"], ["AGI", "Agilidad (AGI)"], ["CON", "Constitución (CON)"],
   ["INT", "Inteligencia (INT)"], ["WIS", "Sabiduría (WIS)"], ["CHA", "Carisma (CHA)"],
-  ["SPI", "Espíritu (SPI)"], ["LCK", "Suerte (LCK)"],
-  ["HP", "Vida (HP)"], ["MANA", "Maná"], ["PHYS_ATK", "Ataque físico"],
-  ["MAGIC_ATK", "Ataque mágico"], ["DEF", "Defensa física"], ["MAG_DEF", "Defensa mágica"],
-  ["PRECISION", "Precisión"], ["CRITICAL", "Crítico"], ["DISCOVERY", "Hallazgo"],
-  ["MIRACLE", "Milagro"], ["INTIMIDATION", "Intimidación"], ["CONQUEST", "Conquista"],
-  ["RACE", "Carrera"], ["DODGE", "Evasión"], ["STEALTH", "Sigilo"], ["DETECTION", "Detección"],
-  ["ATTACK_TOTAL", "Ataque total"], ["DAMAGE_REDUCTION_ALL", "Reducción de daño total"],
+  ["SPI", "Espíritu (SPI)"], ["LCK", "Suerte (LCK)"], ["HP", "Vida (HP)"], ["MANA", "Maná"],
+  ["PHYS_ATK", "Ataque físico"], ["MAGIC_ATK", "Ataque mágico"], ["DEF", "Defensa física"],
+  ["MAG_DEF", "Defensa mágica"], ["PRECISION", "Precisión"], ["CRITICAL", "Crítico"], ["DISCOVERY", "Hallazgo"],
+  ["MIRACLE", "Milagro"], ["INTIMIDATION", "Intimidación"], ["CONQUEST", "Conquista"], ["RACE", "Carrera"],
+  ["DODGE", "Evasión"], ["STEALTH", "Sigilo"], ["DETECTION", "Detección"], ["ATTACK_TOTAL", "Ataque total"],
+  ["DAMAGE_REDUCTION_ALL", "Reducción de daño total"], ["OTHER", "Otro"],
 ] as const;
 
 const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", action: "ESCAPE_MAZE", value: 100, description: "" });
@@ -84,7 +83,7 @@ export default function ItemsManagementPage() {
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
-      if(key==="type") return value==="system_action" ? {...e,type:value,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1} : {...e,type:value,stat:e.stat==="SYSTEM_ACTION"?"STR":e.stat};
+      if(key==="type") return value==="system_action" ? {...e,type:value,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1} : value==="narrative" ? {...e,type:value,stat:"OTHER",value:1} : {...e,type:value,stat:e.stat==="SYSTEM_ACTION"||e.stat==="OTHER"?"STR":e.stat};
       if(key==="stat") return {...e,stat:value};
       return {...e,[key]:key==="value"?Number(value):value};
     })}));
@@ -96,7 +95,7 @@ export default function ItemsManagementPage() {
       const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});
       const d=await r.json(); if(!r.ok) throw new Error(d.error);
       setSuccess(selected?"Objeto actualizado correctamente.":"Objeto creado correctamente.");
-      await load(); if(!selected&&d.item) setSelected(d.item.id); if(d.item) edit(d.item); else setModalOpen(false);
+      await load(); if(d.item) setSelected(d.item.id); setModalOpen(false);
     }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar el objeto.");}finally{setSaving(false);}
   }
   async function remove(){
@@ -155,6 +154,8 @@ export default function ItemsManagementPage() {
                 <select value={effect.action ?? "ESCAPE_MAZE"} onChange={e=>updateEffect(i,"action",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
                   {SYSTEM_ACTIONS.map(([value,label])=><option key={value} value={value}>{label}</option>)}
                 </select>
+              ) : effect.type === "narrative" ? (
+                <select value="OTHER" disabled className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-400"><option value="OTHER">Otro</option></select>
               ) : effect.stat === "OTHER" ? (
                 <input value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Objetivo personalizado"/>
               ) : (

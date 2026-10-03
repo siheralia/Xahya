@@ -9,14 +9,13 @@ type Contract = { id: number; character: Character | null };
 type Product = { id:number; itemId:number; purchasePrice:number; salePrice:number; stock:number; item:{id:number;name:string;description:string|null;itemType:string;imagePath:string|null}|null };
 type SubscriptionPlan = { id:number; name:string; description:string|null; price:number; intervalValue:number; intervalUnit:string };
 type Position = { id: number; title: string; description: string | null; startTime: string; endTime: string; salary: number; salaryFrequency: string; salaryDayOfWeek: number; payerType: string; payerCharacterId: number | null; contracts: Contract[] };
-type Business = { id: number; name: string; ownerCharacter: Character | null; passiveIncome: number; passiveFrequency: string; balance: number; securityInvestment: number; growthInvestment: number; weeklyExpenses: number; products: Product[]; propertyItems: PropertyItem[]; subscriptionPlans: SubscriptionPlan[]; positions: Position[] };
+type Business = { id: number; name: string; ownerCharacter: Character | null; passiveIncome: number; passiveFrequency: string; balance: number; securityInvestment: number; growthInvestment: number; weeklyExpenses: number; products: Product[]; propertyItems: PropertyItem[]; subscriptionPlans: SubscriptionPlan[]; positions: Position[]; candidates: Character[] };
 
 const emptyPosition = { businessId: "", title: "Encargado de tienda", description: "", startTime: "14:00", endTime: "15:00", salary: 500, salaryFrequency: "DAILY", salaryDayOfWeek: 0, payerType: "SYSTEM", payerCharacterId: "" };
 
 export default function BusinessesPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [propertyItems, setPropertyItems] = useState<PropertyItem[]>([]);
-  const [candidates, setCandidates] = useState<Character[]>([]);
   const [hire, setHire] = useState({ businessId: "", positionId: "", characterId: "" });
   const [open, setOpen] = useState(false);
   const [positionOpen, setPositionOpen] = useState(false);
@@ -36,7 +35,6 @@ export default function BusinessesPage() {
       if (!response.ok) throw new Error(data?.error ?? "No se pudieron cargar tus negocios.");
       setBusinesses(data.businesses ?? []);
       setPropertyItems(data.propertyItems ?? []);
-      setCandidates(data.candidates ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar tus negocios.");
     }
@@ -162,7 +160,7 @@ export default function BusinessesPage() {
               <label className="text-sm text-zinc-300">Frecuencia<select value={position.salaryFrequency} onChange={(e) => setPosition({ ...position, salaryFrequency: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3"><option value="DAILY">Diario</option><option value="WEEKLY">Semanal</option></select></label>
               {position.salaryFrequency === "WEEKLY" && <label className="text-sm text-zinc-300">Día de pago<select value={position.salaryDayOfWeek} onChange={(e) => setPosition({ ...position, salaryDayOfWeek: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3">{["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"].map((d, i) => <option key={i} value={i}>{d}</option>)}</select></label>}
               <label className="text-sm text-zinc-300">Quién paga<select value={position.payerType} onChange={(e) => setPosition({ ...position, payerType: e.target.value, payerCharacterId: "" })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3"><option value="SYSTEM">Sistema</option><option value="CHARACTER">Personaje</option></select></label>
-              {position.payerType === "CHARACTER" && <label className="text-sm text-zinc-300">Personaje pagador<select value={position.payerCharacterId} onChange={(e) => setPosition({ ...position, payerCharacterId: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3"><option value="">Selecciona personaje</option>{[...candidates, ...businesses.map(b => b.ownerCharacter).filter((c): c is Character => !!c)].filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
+              {position.payerType === "CHARACTER" && <label className="text-sm text-zinc-300">Personaje pagador<select value={position.payerCharacterId} onChange={(e) => setPosition({ ...position, payerCharacterId: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3"><option value="">Selecciona personaje</option>{[...(businesses.find((b) => String(b.id) === position.businessId)?.candidates ?? []), ...businesses.map(b => b.ownerCharacter).filter((c): c is Character => !!c)].filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
             </div>
             <div className="flex justify-end gap-3"><button onClick={() => setPositionOpen(false)} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300">Cancelar</button><button onClick={() => submit(positionId ? "updatePosition" : "createPosition", { ...(positionId ? { positionId } : {}), ...position, businessId: Number(position.businessId), salary: Number(position.salary), salaryDayOfWeek: Number(position.salaryDayOfWeek), payerCharacterId: position.payerCharacterId ? Number(position.payerCharacterId) : null })} disabled={saving || !position.businessId || !position.title.trim()} className="rounded-lg bg-white px-5 py-2 font-semibold text-black disabled:opacity-40">{saving ? "Guardando..." : positionId ? "Guardar cambios" : "Crear puesto"}</button></div>
           </div>

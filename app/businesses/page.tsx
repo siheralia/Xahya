@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import ManagementModal from "../management/_components/ManagementModal";
 
 type Character = { id: number; name: string; flair: string | null };
-type PropertyItem = { id:number; name:string; description:string|null; imageUrl:string|null };
+type PropertyItem = { id:number; name:string; description:string|null; propertyBusinessId:number|null; imageUrl:string|null };
 type Contract = { id: number; character: Character | null };
 type Product = { id:number; itemId:number; purchasePrice:number; salePrice:number; stock:number; item:{id:number;name:string;description:string|null;itemType:string;imagePath:string|null}|null };
 type SubscriptionPlan = { id:number; name:string; description:string|null; price:number; intervalValue:number; intervalUnit:string };
 type Position = { id: number; title: string; description: string | null; startTime: string; endTime: string; salary: number; salaryFrequency: string; salaryDayOfWeek: number; payerType: string; payerCharacterId: number | null; contracts: Contract[] };
-type Business = { id: number; name: string; ownerCharacter: Character | null; passiveIncome: number; passiveFrequency: string; balance: number; securityInvestment: number; growthInvestment: number; products: Product[]; subscriptionPlans: SubscriptionPlan[]; positions: Position[] };
+type Business = { id: number; name: string; ownerCharacter: Character | null; passiveIncome: number; passiveFrequency: string; balance: number; securityInvestment: number; growthInvestment: number; products: Product[]; propertyItems: PropertyItem[]; subscriptionPlans: SubscriptionPlan[]; positions: Position[] };
 
 const emptyPosition = { businessId: "", title: "Encargado de tienda", description: "", startTime: "14:00", endTime: "15:00", salary: 500, salaryFrequency: "DAILY", salaryDayOfWeek: 0, payerType: "SYSTEM", payerCharacterId: "" };
 

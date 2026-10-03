@@ -11,6 +11,7 @@ function isOpen(start: string, end: string, nowMinutes: number) {
 }
 
 export async function GET() {
+  try {
   const p = localParts();
   const nowMinutes = p.hour * 60 + p.minute;
   const Business = (db.orm.public as any).Business;
@@ -90,4 +91,11 @@ export async function GET() {
   }
 
   return NextResponse.json({ timeZone: TIME_ZONE, localTime: `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`, activeStaff });
+  } catch (error) {
+    console.error("STORE_ACTIVE_STAFF_ERROR", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "No se pudo cargar el personal activo." },
+      { status: 500 }
+    );
+  }
 }

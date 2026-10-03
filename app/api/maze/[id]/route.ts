@@ -300,16 +300,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     });
   }
 
-  const rooms = await db.orm.public.MazeRoom.where({ mazeId }).all();
-  const exits = await (db.orm.public as any).MazeExit.where({ mazeId }).all();
-  const currentExits = position
-    ? await (db.orm.public as any).MazeExit.where({ mazeId, fromRoomId:Number(position.roomId) }).all()
-    : [];
-  const enemies = await (db.orm.public as any).MazeRoomEnemy.all();
-  const definitions = await (db.orm.public as any).Enemy.all();
-  const imagePaths = await getEnemyImagePaths(definitions.map((enemy:any)=>Number(enemy.id)));
-  const defaultEnemyImageUrl = await getDefaultEnemyImageUrl();
-  const definitionsWithImages = await Promise.all(definitions.map(async (enemy:any) => ({ ...enemy, imageUrl: await getEnemyImageUrl(imagePaths.get(Number(enemy.id))) })));
   const characterId = Number(new URL(_request.url).searchParams.get("characterId"));
   if (Number.isInteger(characterId) && characterId > 0) {
     const character = await db.orm.public.Character.where({ id: characterId }).first();
@@ -321,6 +311,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const position = Number.isInteger(characterId) && characterId > 0
     ? await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first()
     : null;
+
+  const rooms = await db.orm.public.MazeRoom.where({ mazeId }).all();
+  const exits = await (db.orm.public as any).MazeExit.where({ mazeId }).all();
+  const currentExits = position
+    ? await (db.orm.public as any).MazeExit.where({ mazeId, fromRoomId:Number(position.roomId) }).all()
+    : [];
+  const enemies = await (db.orm.public as any).MazeRoomEnemy.all();
+  const definitions = await (db.orm.public as any).Enemy.all();
+  const imagePaths = await getEnemyImagePaths(definitions.map((enemy:any)=>Number(enemy.id)));
+  const defaultEnemyImageUrl = await getDefaultEnemyImageUrl();
+  const definitionsWithImages = await Promise.all(definitions.map(async (enemy:any) => ({ ...enemy, imageUrl: await getEnemyImageUrl(imagePaths.get(Number(enemy.id))) })));
 
   let trapActions: Array<{ characterItemId:number; name:string; quantity:number; action:string }> = [];
   if (position) {

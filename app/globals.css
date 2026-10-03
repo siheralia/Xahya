@@ -43,7 +43,7 @@ body {
 .xahya-back { display: block; width: fit-content; margin-top: 5px; color: #71717a; font-size: .78rem; text-decoration: none; }
 .xahya-back:hover { color: white; }
 .xahya-user-nav { display: flex; align-items: center; gap: 12px; margin-top: 9px; }
-.xahya-user-nav a { color: #a1a1aa; font-size: .82rem; text-decoration: none; }
+.xahya-user-nav a { color: #a1a1aa; font-size: .74rem; font-style: italic; text-decoration: none; }
 .xahya-user-nav a:hover, .xahya-user-nav .xahya-nav-active { color: white; }
 .xahya-user-nav a:first-child { border-right: 1px solid #27272a; padding-right: 12px; }
 .xahya-characters { margin-top: 7px; }

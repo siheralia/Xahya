@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { CharacterSilhouette, getCharacterSilhouetteSvg } from "@/components/CharacterSilhouette";
 
+type PropertyItem = { id:number; itemId:number; businessId:number|null; purchasePrice:number; item:{ id:number; name:string; description:string|null; imageUrl:string|null }|null };
 type EquipmentItem = {
   id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null; flair: string | null;
   item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; value: number; description?: string; action?: string }[] } | null;
@@ -88,6 +89,7 @@ type Character = {
   perkEffects?: { type: string; target?: string; value?: number; perkName?: string }[];
   combatEffects: { type: "attack_multiplier_all" | "damage_reduction_all"; value: number; source: string; expiresAt: string | null }[];
   equipment: EquipmentItem[];
+  properties: PropertyItem[];
   canSeeCharacterId: boolean;
   isAdmin: boolean;
   canManageCharacter: boolean;
@@ -1793,6 +1795,17 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <p className="mt-5 text-sm text-zinc-500">No tienes objetos equipados.</p>
           )}
         </section>
+
+        {character.properties?.length > 0 && <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+          <h2 className="text-xl font-semibold">Propiedades</h2>
+          <p className="mt-1 text-sm text-[color:var(--theme-muted)]">Bienes adquiridos por este personaje.</p>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {character.properties.map((property) => <article key={property.id} className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/50">
+              {property.item?.imageUrl && <img src={property.item.imageUrl} alt={property.item.name} className="h-40 w-full object-cover" />}
+              <div className="p-4"><p className="font-semibold">{property.item?.name ?? "Propiedad"}</p>{property.item?.description && <p className="mt-2 text-sm text-zinc-500">{property.item.description}</p>}<p className="mt-3 text-xs text-zinc-600">Adquirida por ◈ {property.purchasePrice.toLocaleString("es-MX")}</p></div>
+            </article>)}
+          </div>
+        </section>}
 
         <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <div className="flex items-baseline justify-between gap-4">

@@ -25,7 +25,7 @@ const equipmentSlots = [
 const EFFECT_TYPES = [
   ["stat_multiplier", "Estadística ×"],
   ["stat_bonus", "Estadística +"],
-  ["system_action", "Acción del sistema"],
+  ["system_action", "Acción del sistema"],["ignore_phys_def_multiplier", "Ignorar defensa física ×"],["ignore_phys_def_bonus", "Ignorar defensa física +"],["ignore_magic_def_multiplier", "Ignorar defensa mágica ×"],["ignore_magic_def_bonus", "Ignorar defensa mágica +"],["ignore_all_def_multiplier", "Ignorar defensas ×"],["ignore_all_def_bonus", "Ignorar defensas +"],["final_damage_multiplier", "Daño final ocasionado ×"],["final_damage_bonus", "Daño final ocasionado +"],
 ] as const;
 const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_TRAP", "Romper una trampa y liberarte"], ["RELEASE_MAZE_TRAPPED", "Liberarte de una trampa"], ["CREATE_SKILL", "Permitir crear una habilidad"]] as const;
 

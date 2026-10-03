@@ -395,7 +395,7 @@ function StatsRadar({ baseValues, values, palette }: { baseValues: RadarValues; 
           );
         })}
 
-        <polygon points={polygonPoints(basePoints)} fill={palette.primary} fillOpacity="0.16" stroke={palette.primary} strokeWidth="2" />
+        <polygon points={polygonPoints(basePoints)} fill={palette.primary} fillOpacity="0.32" stroke={palette.primary} strokeWidth="2" />
 
         {hasBoost && (
           <polygon points={boostPath} fill="#ef4444" fillOpacity="0.38" fillRule="evenodd" stroke="#ef4444" strokeOpacity="0.75" strokeWidth="1.5" />

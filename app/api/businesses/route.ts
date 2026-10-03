@@ -46,7 +46,6 @@ export async function GET() {
   const owned = characters.filter((character: any) => Number(character.userId) === Number(user.id));
   const ownedIds = new Set(owned.map((character: any) => Number(character.id)));
   const ownedBusinesses = businesses.filter((business: any) => ownedIds.has(Number(business.ownerCharacterId)));
-  const knownByOwner = new Set(relationships.filter((row: any) => ownedIds.has(Number(row.characterId))).map((row: any) => Number(row.knownCharacterId)));
 
   async function signedItemImage(path: unknown) {
     if (!path || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
@@ -56,6 +55,22 @@ export async function GET() {
     return data?.signedURL ? process.env.SUPABASE_URL+"/storage/v1"+data.signedURL : null;
   }
   const propertyItems = await Promise.all(items.filter((item:any)=>String(item.itemType)==="PROPERTY").map(async (item:any)=>({id:Number(item.id),name:String(item.name),description:item.description??null,propertyBusinessId:item.propertyBusinessId==null?null:Number(item.propertyBusinessId),imageUrl:await signedItemImage(item.imagePath)})));
+  const candidatesByBusiness = new Map<number, { id: number; name: string; flair: string | null }[]>();
+  for (const business of ownedBusinesses) {
+    const ownerId = Number(business.ownerCharacterId);
+    const knownIds = new Set(
+      relationships
+        .filter((row: any) => Number(row.characterId) === ownerId)
+        .map((row: any) => Number(row.knownCharacterId))
+    );
+    candidatesByBusiness.set(
+      Number(business.id),
+      characters
+        .filter((c: any) => knownIds.has(Number(c.id)) && Number(c.id) !== ownerId)
+        .map((c: any) => ({ id: Number(c.id), name: String(c.name), flair: c.flair ?? null }))
+    );
+  }
+
   return NextResponse.json({
     propertyItems,
     businesses: ownedBusinesses.map((business: any) => ({
@@ -74,8 +89,9 @@ export async function GET() {
         payerType: String(p.payerType ?? "SYSTEM"), payerCharacterId: p.payerCharacterId == null ? null : Number(p.payerCharacterId),
         contracts: contracts.filter((c: any) => Number(c.positionId) === Number(p.id) && c.active).map((c: any) => ({ id: Number(c.id), character: characters.find((ch: any) => Number(ch.id) === Number(c.characterId)) ?? null })),
       })),
+    }),
+      candidates: candidatesByBusiness.get(Number(business.id)) ?? [],
     })),
-    candidates: characters.filter((c: any) => knownByOwner.has(Number(c.id)) && !ownedIds.has(Number(c.id))).map((c: any) => ({ id: Number(c.id), name: String(c.name), flair: c.flair ?? null })),
   });
 }
 

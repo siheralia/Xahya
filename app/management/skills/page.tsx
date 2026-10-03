@@ -78,8 +78,9 @@ export default function SkillsManagementPage(){
       try { d=raw?JSON.parse(raw):{}; } catch { d={}; }
       if(!r.ok) throw new Error(d.error||`Error HTTP ${r.status}`);
       setSuccess(approve?"Habilidad aprobada.":reject?"Habilidad rechazada.":"Cambios guardados sin aprobar.");
+      setModal(false);
+      setSelected(null);
       await load();
-      if(d.skill) edit(d.skill);
     }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");}
     finally{setBusy(false);}
   }

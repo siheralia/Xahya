@@ -1342,7 +1342,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
         <section className="mt-10 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
           <div className="flex items-baseline justify-between gap-4">
-            <div><h2 className="text-xl font-semibold">Estado de rol</h2><p className="mt-1 text-sm text-zinc-500">HP, Mana y efectos temporales. Nada de esta sección se guarda en la ficha.</p></div>
+            <div><h2 className="text-xl font-semibold">Estado de rol</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">HP, Mana y efectos temporales. Nada de esta sección se guarda en la ficha.</p></div>
             <button type="button" onClick={() => setTemporaryEffects([])} disabled={!temporaryEffects.length} className="text-xs text-zinc-500 hover:text-white disabled:opacity-30">Limpiar efectos</button>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -1446,9 +1446,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
             <h2 className="text-xl font-semibold">Datos básicos</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div><p className="text-sm text-zinc-500">Edad</p><p className="mt-1 text-lg font-semibold">{character.age ?? "—"}{character.age !== null ? " años" : ""}</p></div>
-              <div><p className="text-sm text-zinc-500">Género</p><p className="mt-1 text-lg font-semibold">{character.gender ? genderOptions.find((option) => option.value === character.gender)?.label ?? character.gender : "—"}</p></div>
-              <div><p className="text-sm text-zinc-500">Altura</p><p className="mt-1 text-lg font-semibold">{character.height !== null ? character.height + " cm" : "—"}</p></div>
+              <div><p className="text-sm text-[color:var(--theme-muted)]">Edad</p><p className="mt-1 text-lg font-semibold">{character.age ?? "—"}{character.age !== null ? " años" : ""}</p></div>
+              <div><p className="text-sm text-[color:var(--theme-muted)]">Género</p><p className="mt-1 text-lg font-semibold">{character.gender ? genderOptions.find((option) => option.value === character.gender)?.label ?? character.gender : "—"}</p></div>
+              <div><p className="text-sm text-[color:var(--theme-muted)]">Altura</p><p className="mt-1 text-lg font-semibold">{character.height !== null ? character.height + " cm" : "—"}</p></div>
             </div>
           </section>
         )}
@@ -1456,7 +1456,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
         <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <div className="flex items-baseline justify-between gap-4">
-            <div><h2 className="text-xl font-semibold">Equipamiento</h2><p className="mt-1 text-sm text-zinc-500">Objetos activos y sus ranuras.</p></div>
+            <div><h2 className="text-xl font-semibold">Equipamiento</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">Objetos activos y sus ranuras.</p></div>
             <span className="text-xs text-zinc-600">{character.equipment.filter((entry) => entry.equipped).length} equipados</span>
           </div>
           <section className="mt-10 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6">
@@ -1495,7 +1495,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 <div key={entry.id} className="rounded-xl border border-emerald-400/15 bg-zinc-950/50 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold">{entry.item?.name ?? "Objeto"}</p>
+                      <p className="font-semibold" style={{ color: themePalette.foreground }}>{entry.item?.name ?? "Objeto"}</p>
                       <p className="mt-1 text-xs text-zinc-500">{equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot ?? "Ranura"}</p>
                     </div>
                     <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>
@@ -1527,7 +1527,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
         <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <div className="flex items-baseline justify-between gap-4">
-            <div><h2 className="text-xl font-semibold">Inventario</h2><p className="mt-1 text-sm text-zinc-500">Todos los objetos que posee el personaje.</p></div>
+            <div><h2 className="text-xl font-semibold">Inventario</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">Todos los objetos que posee el personaje.</p></div>
             <span className="text-xs text-zinc-600">{character.equipment.length} {character.equipment.length === 1 ? "objeto" : "objetos"}</span>
           </div>
           {character.equipment.length === 0 ? (
@@ -1541,7 +1541,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-semibold">{entry.item?.name ?? "Objeto"}</p>
-                        <p className="mt-1 text-xs text-zinc-500">Cantidad: {entry.quantity}</p>
+                        <p className="mt-1 text-xs" style={{ color: themePalette.muted }}>Cantidad: {entry.quantity}</p>
                       </div>
                       {entry.equipped && <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>}
                     </div>

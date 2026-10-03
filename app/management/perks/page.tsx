@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import ManagementModal from "../_components/ManagementModal";
+import { EFFECT_CATALOG } from "@/lib/effects/catalog";
 
 type Perk={id:number;name:string;description:string|null;probability:number;effects:any[];stackable:boolean;maxStacks:number|null;active:boolean;assignedCount:number};
 type Character={id:number;name:string;ownerName:string};
@@ -19,15 +20,8 @@ export default function PerksManagementPage(){
   type EffectType="STAT_BONUS"|"STAT_MULTIPLIER"|"RESOURCE_BONUS"|"COMBAT_MULTIPLIER"|"EQUIPMENT_SLOT_CAP"|"IGNORE_PHYS_DEF_MULTIPLIER"|"IGNORE_PHYS_DEF_BONUS"|"IGNORE_MAGIC_DEF_MULTIPLIER"|"IGNORE_MAGIC_DEF_BONUS"|"IGNORE_ALL_DEF_MULTIPLIER"|"IGNORE_ALL_DEF_BONUS"|"FINAL_DAMAGE_MULTIPLIER"|"FINAL_DAMAGE_BONUS";
   type Effect={type:EffectType;target:string;value:number};
   const [effectRows,setEffectRows]=useState<Effect[]>([]);
-  const EFFECT_TYPES:[EffectType,string][]=[["STAT_BONUS","Bono de estadística"],["STAT_MULTIPLIER","Multiplicador de estadística"],["RESOURCE_BONUS","Bono de recurso"],["COMBAT_MULTIPLIER","Efecto de combate"],["EQUIPMENT_SLOT_CAP","Capacidad de equipamiento"],["IGNORE_PHYS_DEF_MULTIPLIER","Ignorar defensa física ×"],["IGNORE_PHYS_DEF_BONUS","Ignorar defensa física +"],["IGNORE_MAGIC_DEF_MULTIPLIER","Ignorar defensa mágica ×"],["IGNORE_MAGIC_DEF_BONUS","Ignorar defensa mágica +"],["IGNORE_ALL_DEF_MULTIPLIER","Ignorar defensas ×"],["IGNORE_ALL_DEF_BONUS","Ignorar defensas +"],["FINAL_DAMAGE_MULTIPLIER","Daño final ocasionado ×"],["FINAL_DAMAGE_BONUS","Daño final ocasionado +"]];
-  const TARGETS:Record<EffectType,[string,string][]> = {
-    STAT_BONUS:[["STR","Fuerza (STR)"],["AGI","Agilidad (AGI)"],["CON","Constitución (CON)"],["INT","Inteligencia (INT)"],["WIS","Sabiduría (WIS)"],["CHA","Carisma (CHA)"],["SPI","Espíritu (SPI)"],["LCK","Suerte (LCK)"],["HP","Vida máxima (HP)"],["MANA","Maná máximo"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"]],
-    STAT_MULTIPLIER:[["STR","Fuerza (STR)"],["AGI","Agilidad (AGI)"],["CON","Constitución (CON)"],["INT","Inteligencia (INT)"],["WIS","Sabiduría (WIS)"],["CHA","Carisma (CHA)"],["SPI","Espíritu (SPI)"],["LCK","Suerte (LCK)"],["HP","Vida máxima (HP)"],["MANA","Maná máximo"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"]],
-    RESOURCE_BONUS:[["HP","Vida máxima (HP)"],["MANA","Maná máximo"],["KARMA","Karma"],["MONEY","Dinero"],["LEVEL_UP_POINTS","Puntos de Level Up"]],
-    COMBAT_MULTIPLIER:[["ATTACK_TOTAL","Ataque total"],["DAMAGE_REDUCTION_ALL","Reducción de daño total"]],
-    IGNORE_PHYS_DEF_MULTIPLIER:[["DEF","Defensa física"]],IGNORE_PHYS_DEF_BONUS:[["DEF","Defensa física"]],IGNORE_MAGIC_DEF_MULTIPLIER:[["MAG_DEF","Defensa mágica"]],IGNORE_MAGIC_DEF_BONUS:[["MAG_DEF","Defensa mágica"]],IGNORE_ALL_DEF_MULTIPLIER:[["DEF","Defensas"]],IGNORE_ALL_DEF_BONUS:[["DEF","Defensas"]],FINAL_DAMAGE_MULTIPLIER:[["ATTACK_TOTAL","Daño final ocasionado"]],FINAL_DAMAGE_BONUS:[["ATTACK_TOTAL","Daño final ocasionado"]],
-    EQUIPMENT_SLOT_CAP:[["MAIN_HAND","Mano principal"],["OFF_HAND","Mano secundaria"],["HEAD","Cabeza"],["BODY","Cuerpo"],["FEET","Pies"],["ARMS","Brazos"],["BACK","Espalda"],["ACCESSORY_1","Accesorio 1"],["ACCESSORY_2","Accesorio 2"]],
-  };
+  const EFFECT_TYPES = EFFECT_CATALOG.map(effect => [effect.type,effect.label] as [EffectType,string]);
+  const TARGETS:Record<EffectType,[string,string][]> = Object.fromEntries(EFFECT_CATALOG.map(effect => [effect.type, effect.targets.map(target => [target,target])]));
   const [effects,setEffects]=useState("");
   const [stackable,setStackable]=useState(true);
   const [maxStacks,setMaxStacks]=useState("");

@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 
@@ -43,8 +44,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     effect,
     condition: typeof body.condition === "string" ? body.condition.trim() || null : (skill.condition ?? null),
     status: approve ? "APPROVED" : reject ? "REJECTED" : String(skill.status),
-    approvedAt: approve ? new Date() : reject ? null : (skill.approvedAt ?? null),
-    updatedAt: new Date(),
+    approvedAt: approve ? Temporal.Instant.fromEpochMilliseconds(Date.now()) : reject ? null : (skill.approvedAt ?? null),
+    updatedAt: Temporal.Instant.fromEpochMilliseconds(Date.now()),
     });
     updated = await Skill.where({ id }).first();
     if (!updated) return NextResponse.json({ error: "La habilidad se actualizó pero no pudo recuperarse." }, { status: 500 });

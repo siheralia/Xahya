@@ -7,7 +7,7 @@ import { EFFECT_CATALOG } from "@/lib/effects/catalog";
 type Effect = { type: string; stat: string; action?: string; value: number; description: string };
 type Item = {
   id: number; name: string; description: string | null; itemType: string; itemSubtype: string | null;
-  acquisitionType: string; price: number; effects: Effect[]; allowedSlots: string[]; imagePath?: string | null; imageUrl?: string | null;
+  acquisitionType: string; price: number; propertyBusinessId?: number | null; effects: Effect[]; allowedSlots: string[]; imagePath?: string | null; imageUrl?: string | null;
 };
 
 const itemTypes = [
@@ -43,8 +43,9 @@ const noEffects = (effects: Effect[]) => !Array.isArray(effects) || effects.leng
 
 export default function ItemsManagementPage() {
   const [items,setItems]=useState<Item[]>([]);
+  const [businesses,setBusinesses]=useState<{id:number;name:string}[]>([]);
   const [selected,setSelected]=useState<number|null>(null);
-  const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()],allowedSlots:defaultSlots});
+  const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
   const [error,setError]=useState(""); const [success,setSuccess]=useState("");
   const [modalOpen,setModalOpen]=useState(false); const [imageFile,setImageFile]=useState<File|null>(null); const [imagePreview,setImagePreview]=useState<string|null>(null);
@@ -52,7 +53,7 @@ export default function ItemsManagementPage() {
 
   async function load(){
     setLoading(true); setError("");
-    try { const r=await fetch("/api/management/items"); const d=await r.json(); if(!r.ok) throw new Error(d.error); setItems(d.items??[]); }
+    try { const [itemsResponse,businessesResponse]=await Promise.all([fetch("/api/management/items"),fetch("/api/management/businesses")]); const d=await itemsResponse.json(); const bd=await businessesResponse.json(); if(!itemsResponse.ok) throw new Error(d.error); if(!businessesResponse.ok) throw new Error(bd.error); setItems(d.items??[]); setBusinesses((bd.businesses??[]).map((b:any)=>({id:Number(b.id),name:String(b.name)}))); }
     catch(e){setError(e instanceof Error?e.message:"No se pudieron cargar los objetos.");}
     finally{setLoading(false);}
   }
@@ -75,11 +76,11 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:["stat_bonus","system_action","ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus"].includes(String(effect.type))?String(effect.type):"stat_multiplier",stat:EFFECT_TARGETS.some(x=>x[0]===String(effect.stat))?String(effect.stat):String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":"OTHER",action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",acquisitionType:item.acquisitionType,price:Number(item.price),propertyBusinessId:item.propertyBusinessId==null?"":String(item.propertyBusinessId),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:["stat_bonus","system_action","ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus"].includes(String(effect.type))?String(effect.type):"stat_multiplier",stat:EFFECT_TARGETS.some(x=>x[0]===String(effect.stat))?String(effect.stat):String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":"OTHER",action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
     setSuccess(""); setError(""); setImageFile(null); setImagePreview(item.imageUrl ?? null);
     setModalOpen(true);
   }
-  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
+  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
@@ -92,7 +93,7 @@ export default function ItemsManagementPage() {
     setSaving(true);setError("");setSuccess("");
     try{
       const url=selected?"/api/management/items/"+selected:"/api/management/items";
-      const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});
+      const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,propertyBusinessId:form.itemType==="PROPERTY"&&form.propertyBusinessId?Number(form.propertyBusinessId):null})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error);
       const savedId=Number(d?.item?.id ?? selected);
       if(imageFile && savedId){
@@ -156,6 +157,7 @@ export default function ItemsManagementPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <label>Tipo de categoría<select value={form.itemType} onChange={e=>setForm({...form,itemType:e.target.value,acquisitionType:e.target.value==="PROPERTY"?"OTHER":form.acquisitionType})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{itemTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
+            <label>Negocio exclusivo (solo para propiedades)<select value={form.propertyBusinessId} disabled={form.itemType!=="PROPERTY"} onChange={e=>setForm({...form,propertyBusinessId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="">Ninguno — propiedad vendible por cualquier negocio</option>{businesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>{form.itemType==="PROPERTY"&&<p className="mt-1 text-xs text-zinc-500">Si eliges un negocio, esta propiedad solo podrá ser comprada por ese negocio para revenderla.</p>}</label>
             <label>Tipo específico<input list="item-subtype-options" value={form.itemSubtype} onChange={e=>setForm({...form,itemSubtype:e.target.value})} placeholder="Ej. Espada, Lanza..." className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/><datalist id="item-subtype-options">{["Espada","Lanza","Daga","Arco","Ballesta","Bastón","Vara","Hacha","Martillo","Escudo","Casco","Armadura","Botas","Guantes","Anillo","Collar","Consumible","Material","Otro"].map(value=><option key={value} value={value}/>)}</datalist></label>
             <label>Obtención<select value={form.acquisitionType} onChange={e=>setForm({...form,acquisitionType:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{acquisitionTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
             <label>Precio<input type="number" min={0} value={form.price} onChange={e=>setForm({...form,price:Number(e.target.value)||0})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>

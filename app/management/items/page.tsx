@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
+import { EFFECT_CATALOG } from "@/lib/effects/catalog";
 
 type Effect = { type: string; stat: string; action?: string; value: number; description: string };
 type Item = {
@@ -22,11 +23,7 @@ const equipmentSlots = [
   ["FEET","Pies"],["ARMS","Brazos"],["BACK","Espalda"],["ACCESSORY_1","Accesorio 1"],["ACCESSORY_2","Accesorio 2"],
 ];
 
-const EFFECT_TYPES = [
-  ["stat_multiplier", "Estadística ×"],
-  ["stat_bonus", "Estadística +"],
-  ["system_action", "Acción del sistema"],["ignore_phys_def_multiplier", "Ignorar defensa física ×"],["ignore_phys_def_bonus", "Ignorar defensa física +"],["ignore_magic_def_multiplier", "Ignorar defensa mágica ×"],["ignore_magic_def_bonus", "Ignorar defensa mágica +"],["ignore_all_def_multiplier", "Ignorar defensas ×"],["ignore_all_def_bonus", "Ignorar defensas +"],["final_damage_multiplier", "Daño final ocasionado ×"],["final_damage_bonus", "Daño final ocasionado +"],
-] as const;
+const EFFECT_TYPES = [...EFFECT_CATALOG.map(effect => [effect.type.toLowerCase(), effect.label] as const), ["system_action","Acción del sistema"]] as const;
 const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_TRAP", "Romper una trampa y liberarte"], ["RELEASE_MAZE_TRAPPED", "Liberarte de una trampa"], ["CREATE_SKILL", "Permitir crear una habilidad"]] as const;
 
 const EFFECT_TARGETS = [

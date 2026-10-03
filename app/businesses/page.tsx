@@ -5,8 +5,6 @@ import ManagementModal from "../management/_components/ManagementModal";
 
 type Character = { id: number; name: string; flair: string | null };
 type PropertyItem = { id:number; name:string; description:string|null; imageUrl:string|null };
-type Product = { id:number; itemId:number; purchasePrice:number; salePrice:number; stock:number; item:{id:number;name:string;imagePath:string|null}|null };
-type SubscriptionPlan = { id:number; name:string; price:number; intervalValue:number; intervalUnit:string };
 type Contract = { id: number; character: Character | null };
 type Product = { id:number; itemId:number; purchasePrice:number; salePrice:number; stock:number; item:{id:number;name:string;description:string|null;itemType:string;imagePath:string|null}|null };
 type SubscriptionPlan = { id:number; name:string; description:string|null; price:number; intervalValue:number; intervalUnit:string };

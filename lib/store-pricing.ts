@@ -130,26 +130,59 @@ export function calculateStorePrice(item: any, promotions: StorePromotion[], dat
   return { basePrice, price, appliedPromotions };
 }
 
+function normalizePromotion(value: unknown): StorePromotion | null {
+  if (!value || typeof value !== "object") return null;
+  const promotion = value as Record<string, unknown>;
+  const id = Number(promotion.id);
+  if (!Number.isInteger(id) || id <= 0) return null;
+
+  const adjustmentType: StorePromotion["adjustmentType"] =
+    promotion.adjustmentType === "FIXED" ? "FIXED" : "PERCENT";
+
+  const rawCondition = promotion.condition;
+  const conditionObject = rawCondition && typeof rawCondition === "object"
+    ? rawCondition as Record<string, unknown>
+    : {};
+
+  const rawDays = Array.isArray(conditionObject.daysOfWeek) ? conditionObject.daysOfWeek : [];
+  const daysOfWeek: number[] = rawDays
+    .map((day: unknown) => Number(day))
+    .filter((day: number) => Number.isInteger(day) && day >= 0 && day <= 6);
+
+  return {
+    id,
+    name: String(promotion.name ?? "Regla sin nombre"),
+    description: promotion.description == null ? null : String(promotion.description),
+    active: Boolean(promotion.active),
+    adjustmentType,
+    adjustmentValue: Number(promotion.adjustmentValue ?? 0),
+    priority: Number(promotion.priority ?? 0),
+    condition: {
+      itemId: Number.isInteger(Number(conditionObject.itemId)) && Number(conditionObject.itemId) > 0 ? Number(conditionObject.itemId) : null,
+      itemType: conditionObject.itemType ? String(conditionObject.itemType) : null,
+      itemSubtype: conditionObject.itemSubtype ? String(conditionObject.itemSubtype) : null,
+      slot: conditionObject.slot ? String(conditionObject.slot) : null,
+      stat: conditionObject.stat ? String(conditionObject.stat) : null,
+      daysOfWeek: Array.from(new Set<number>(daysOfWeek)),
+      startDate: conditionObject.startDate ? String(conditionObject.startDate) : null,
+      endDate: conditionObject.endDate ? String(conditionObject.endDate) : null,
+      startTime: conditionObject.startTime ? String(conditionObject.startTime) : null,
+      endTime: conditionObject.endTime ? String(conditionObject.endTime) : null,
+    },
+    createdAt: promotion.createdAt == null ? undefined : String(promotion.createdAt),
+    updatedAt: promotion.updatedAt == null ? undefined : String(promotion.updatedAt),
+  };
+}
+
 export async function loadStorePromotions(): Promise<StorePromotion[]> {
   const AppSetting = (db.orm.public as any).AppSetting;
   const setting = await AppSetting.where({ key: STORE_PROMOTIONS_KEY }).first();
   if (!setting?.value) return [];
 
   try {
-    const parsed = JSON.parse(String(setting.value));
+    const parsed: unknown = JSON.parse(String(setting.value));
     if (!Array.isArray(parsed)) return [];
-    return parsed.map((promotion: any) => ({
-      id: Number(promotion.id),
-      name: String(promotion.name ?? "Regla sin nombre"),
-      description: promotion.description == null ? null : String(promotion.description),
-      active: Boolean(promotion.active),
-      adjustmentType: promotion.adjustmentType === "FIXED" ? "FIXED" : "PERCENT",
-      adjustmentValue: Number(promotion.adjustmentValue ?? 0),
-      priority: Number(promotion.priority ?? 0),
-      condition: promotion.condition && typeof promotion.condition === "object" ? promotion.condition : {},
-      createdAt: promotion.createdAt == null ? undefined : String(promotion.createdAt),
-      updatedAt: promotion.updatedAt == null ? undefined : String(promotion.updatedAt),
-    })).filter((promotion: StorePromotion) => Number.isInteger(promotion.id) && promotion.id > 0);
+    return parsed.map(normalizePromotion).filter((promotion): promotion is StorePromotion => promotion !== null);
   } catch {
     return [];
   }

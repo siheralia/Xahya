@@ -39,7 +39,9 @@ model Character {
   businessesOwned Business[] @relation("BusinessOwner")
   positionsPaid BusinessPosition[] @relation("PositionPayer")
   employmentContracts EmploymentContract[] @relation("EmploymentCharacter")
-  economyPaymentsReceived EconomyPaymentLog[] @relation("EconomyRecipient")
+  economyPaymentsReceived EconomyPaymentLog[]
+  properties CharacterProperty[]
+  subscriptions BusinessSubscription[] @relation("EconomyRecipient")
 }
 
 model Skill {
@@ -133,8 +135,11 @@ model Item {
   price          Int       @default(0)
   effects        Json
   allowedSlots   Json      @default("[]")
+  imagePath      String?
   createdAt      DateTime  @default(now())
   characterItems CharacterItem[]
+  properties    CharacterProperty[]
+  businessProducts BusinessProduct[]
 }
 
 model CharacterItem {
@@ -343,11 +348,16 @@ model Business {
   passiveDayOfWeek      Int       @default(0)
   passiveTime            String    @default("18:00")
   balance               Int       @default(0)
+  securityInvestment    Int       @default(0)
+  growthInvestment      Int       @default(0)
   active                 Boolean   @default(true)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @default(now())
   positions             BusinessPosition[]
   paymentLogs           EconomyPaymentLog[]
+  products              BusinessProduct[]
+  subscriptionPlans     BusinessSubscriptionPlan[]
+  investments           BusinessInvestment[]
   @@index([ownerCharacterId])
 }
 
@@ -415,3 +425,76 @@ model RuleSection {
   @@map("ruleSection")
   @@index([position, id])
 }
+
+
+model BusinessProduct {
+  id            Int       @id @default(autoincrement())
+  businessId    Int
+  business      Business  @relation(fields:[businessId], references:[id], onDelete:Cascade)
+  itemId        Int
+  item          Item      @relation(fields:[itemId], references:[id], onDelete:Restrict)
+  purchasePrice Int       @default(0)
+  salePrice     Int       @default(0)
+  stock         Int       @default(0)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  @@unique([businessId, itemId])
+  @@index([businessId, active])
+}
+
+model CharacterProperty {
+  id            Int       @id @default(autoincrement())
+  characterId   Int
+  character     Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
+  itemId        Int
+  item          Item      @relation(fields:[itemId], references:[id], onDelete:Restrict)
+  businessId    Int?
+  business     Business? @relation(fields:[businessId], references:[id], onDelete:SetNull)
+  purchasePrice Int       @default(0)
+  createdAt     DateTime  @default(now())
+  @@index([characterId])
+  @@index([itemId])
+}
+
+model BusinessSubscriptionPlan {
+  id            Int       @id @default(autoincrement())
+  businessId    Int
+  business      Business  @relation(fields:[businessId], references:[id], onDelete:Cascade)
+  name          String
+  description   String?
+  price         Int       @default(0)
+  intervalValue Int       @default(1)
+  intervalUnit  String    @default("MONTH")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  subscriptions BusinessSubscription[]
+  @@index([businessId, active])
+}
+
+model BusinessSubscription {
+  id           Int       @id @default(autoincrement())
+  planId       Int
+  plan         BusinessSubscriptionPlan @relation(fields:[planId], references:[id], onDelete:Cascade)
+  characterId  Int
+  character    Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
+  active       Boolean   @default(true)
+  nextChargeAt DateTime
+  lastChargedAt DateTime?
+  createdAt    DateTime  @default(now())
+  @@index([characterId, active])
+  @@index([nextChargeAt, active])
+}
+
+model BusinessInvestment {
+  id                Int       @id @default(autoincrement())
+  businessId        Int
+  business           Business @relation(fields:[businessId], references:[id], onDelete:Cascade)
+  type              String
+  sourceType        String
+  sourceCharacterId Int?
+  sourceCharacter   Character? @relation(fields:[sourceCharacterId], references:[id], onDelete:SetNull)
+  amount            Int
+  createdAt         DateTime  @default(now())
+  @@index([businessId, type])
+}
+

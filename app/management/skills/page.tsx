@@ -73,7 +73,10 @@ export default function SkillsManagementPage(){
       const url=selected?"/api/management/skills/"+selected:"/api/management/skills";
       const body={...form,characterId:Number(form.characterId),approve,reject};
       const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-      const d=await r.json(); if(!r.ok) throw new Error(d.error);
+      const raw=await r.text();
+      let d:any={};
+      try { d=raw?JSON.parse(raw):{}; } catch { d={}; }
+      if(!r.ok) throw new Error(d.error||`Error HTTP ${r.status}`);
       setSuccess(approve?"Habilidad aprobada.":reject?"Habilidad rechazada.":"Cambios guardados sin aprobar.");
       await load();
       if(d.skill) edit(d.skill);

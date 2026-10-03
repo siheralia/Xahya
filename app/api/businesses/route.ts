@@ -55,7 +55,7 @@ export async function GET() {
     const data=await response.json().catch(()=>null);
     return data?.signedURL ? process.env.SUPABASE_URL+"/storage/v1"+data.signedURL : null;
   }
-  const propertyItems = await Promise.all(items.filter((item:any)=>String(item.itemType)==="PROPERTY").map(async (item:any)=>({id:Number(item.id),name:String(item.name),description:item.description??null,imageUrl:await signedItemImage(item.imagePath)})));
+  const propertyItems = await Promise.all(items.filter((item:any)=>String(item.itemType)==="PROPERTY").map(async (item:any)=>({id:Number(item.id),name:String(item.name),description:item.description??null,propertyBusinessId:item.propertyBusinessId==null?null:Number(item.propertyBusinessId),imageUrl:await signedItemImage(item.imagePath)})));
   return NextResponse.json({
     propertyItems,
     businesses: ownedBusinesses.map((business: any) => ({
@@ -66,6 +66,7 @@ export async function GET() {
       securityInvestment: Number(business.securityInvestment ?? 0), growthInvestment: Number(business.growthInvestment ?? 0),
       products: products.filter((p:any)=>Number(p.businessId)===Number(business.id)&&p.active).map((p:any)=>({id:Number(p.id),itemId:Number(p.itemId),purchasePrice:Number(p.purchasePrice),salePrice:Number(p.salePrice),stock:Number(p.stock),item:(()=>{const item=items.find((i:any)=>Number(i.id)===Number(p.itemId)); return item?{id:Number(item.id),name:String(item.name),description:item.description??null,itemType:String(item.itemType),imagePath:item.imagePath??null}:null;})()})),
       subscriptionPlans: plans.filter((p:any)=>Number(p.businessId)===Number(business.id)&&p.active).map((p:any)=>({id:Number(p.id),name:String(p.name),description:p.description??null,price:Number(p.price),intervalValue:Number(p.intervalValue),intervalUnit:String(p.intervalUnit)})),
+      propertyItems: propertyItems.filter((item:any)=>item.propertyBusinessId===null || item.propertyBusinessId===Number(business.id)),
       investments: investments.filter((i:any)=>Number(i.businessId)===Number(business.id)).map((i:any)=>({id:Number(i.id),type:String(i.type),sourceType:String(i.sourceType),sourceCharacterId:i.sourceCharacterId==null?null:Number(i.sourceCharacterId),amount:Number(i.amount),createdAt:String(i.createdAt)})),
       positions: positions.filter((p: any) => Number(p.businessId) === Number(business.id) && p.active).map((p: any) => ({
         id: Number(p.id), title: String(p.title), description: p.description ?? null, startTime: String(p.startTime), endTime: String(p.endTime),
@@ -133,6 +134,7 @@ export async function POST(request: Request) {
       if (!Number.isInteger(itemId) || quantity <= 0 || purchasePrice < 0 || salePrice < 0 || salePrice < purchasePrice) return NextResponse.json({ error: "Datos de propiedad inválidos." }, { status: 400 });
       const Item = (db.orm.public as any).Item; const item = await Item.where({ id: itemId }).first();
       if (!item || String(item.itemType) !== "PROPERTY") return NextResponse.json({ error: "Solo puedes vender objetos de tipo Propiedad." }, { status: 400 });
+      if (item.propertyBusinessId != null && Number(item.propertyBusinessId) !== businessId) return NextResponse.json({ error: "Esta propiedad está reservada para otro negocio." }, { status: 403 });
       const total = purchasePrice * quantity;
       const current = await Business.where({ id: businessId }).first();
       if (Number(current.balance ?? 0) < total) return NextResponse.json({ error: "El negocio no tiene suficiente dinero para comprar ese inventario." }, { status: 400 });

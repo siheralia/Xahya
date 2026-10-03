@@ -12,14 +12,13 @@ async function getAdmin() {
 }
 
 function normalizeCondition(value: any): StorePromotionCondition {
-  const days = Array.isArray(value?.daysOfWeek)
-    ? Array.from(new Set(value.daysOfWeek.map(Number).filter((day: number) => Number.isInteger(day) && day >= 0 && day <= 6)))
-    : [];
-  const cleanTime = (raw: any) => {
+  const rawDays: number[] = Array.isArray(value?.daysOfWeek) ? value.daysOfWeek.map((day: unknown) => Number(day)) : [];
+  const days: number[] = Array.from(new Set<number>(rawDays.filter((day: number) => Number.isInteger(day) && day >= 0 && day <= 6)));
+  const cleanTime = (raw: unknown) => {
     const value = String(raw ?? "");
     return /^\d{2}:\d{2}$/.test(value) ? value : null;
   };
-  const cleanDate = (raw: any) => {
+  const cleanDate = (raw: unknown) => {
     const value = String(raw ?? "");
     return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
   };
@@ -40,7 +39,7 @@ function normalizeCondition(value: any): StorePromotionCondition {
 function validate(body: any) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   if (!name || name.length > 100) return "El nombre debe tener entre 1 y 100 caracteres.";
-  if (!["PERCENT", "FIXED"].includes(String(body?.adjustmentType))) return "Tipo de ajuste inválido.";
+  if (![ "PERCENT", "FIXED" ].includes(String(body?.adjustmentType))) return "Tipo de ajuste inválido.";
 
   const adjustmentValue = Number(body?.adjustmentValue);
   if (!Number.isFinite(adjustmentValue)) return "El ajuste debe ser un número.";
@@ -78,12 +77,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (index < 0) return NextResponse.json({ error: "Regla no encontrada." }, { status: 404 });
 
   const current = promotions[index];
+  const adjustmentType: StorePromotion["adjustmentType"] = body.adjustmentType === "FIXED" ? "FIXED" : "PERCENT";
   const updated: StorePromotion = {
     ...current,
     name: body.name.trim(),
     description: typeof body.description === "string" ? body.description.trim() || null : null,
     active: body.active !== false,
-    adjustmentType: body.adjustmentType,
+    adjustmentType,
     adjustmentValue: Number(body.adjustmentValue),
     priority: Number.isInteger(Number(body.priority)) ? Number(body.priority) : 0,
     condition: normalizeCondition(body.condition),

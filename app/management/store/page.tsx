@@ -208,7 +208,7 @@ export default function StoreManagementPage() {
   }
 
   async function remove(promotion: Promotion) {
-    if (!confirm("¿Eliminar la regla "" + promotion.name + ""?")) return;
+    if (!confirm("¿Eliminar la regla \"" + promotion.name + "\"?")) return;
     setError("");
     setSuccess("");
     try {

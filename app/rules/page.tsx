@@ -72,7 +72,7 @@ export default function RulesPage() {
                   <span className="w-6 text-sm font-bold text-zinc-500">#{index + 1}</span>
                   <span className="text-lg">{entry.flair ?? "✦"}</span>
                   <span className="min-w-0 flex-1 truncate font-medium">{entry.name}</span>
-                  <span className="shrink-0 font-semibold text-amber-200">{entry.karma.toLocaleString("en-US")} ☯</span>
+                  <span className="shrink-0 font-semibold text-amber-200">{entry.karma.toLocaleString("en-US")} 🪷</span>
                 </div>
               ))}
             </div>

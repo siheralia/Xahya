@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { EQUIPMENT_SLOTS } from "@/lib/equipment";
+import { EFFECT_TYPES } from "@/lib/effects/catalog";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -36,7 +37,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!effect || typeof effect !== "object" || typeof effect.type !== "string" || !effect.type.trim() || !Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     if (effect.type === "system_action") {
       if (itemType !== "CONSUMABLE" || !systemActions.includes(String(effect.action))) return NextResponse.json({ error: "Acción del sistema inválida para este objeto." }, { status: 400 });
-    } else if (!EFFECT_TYPES.includes(effect.type) && effect.type !== "system_action" || typeof effect.stat !== "string" || !effect.stat.trim()) {
+    } else if ((!EFFECT_TYPES.includes(String(effect.type).toUpperCase() as (typeof EFFECT_TYPES)[number]) && effect.type !== "system_action") || (EFFECT_TYPES.includes(String(effect.type).toUpperCase() as (typeof EFFECT_TYPES)[number]) && typeof effect.stat !== "string" && !String(effect.type).includes("DEF_") && !String(effect.type).includes("FINAL_DAMAGE"))) {
       return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     }
   }

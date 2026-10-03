@@ -12,16 +12,15 @@ async function getAdmin() {
 }
 
 function normalizeCondition(value: any): StorePromotionCondition {
-  const days = Array.isArray(value?.daysOfWeek)
-    ? Array.from(new Set(value.daysOfWeek.map(Number).filter((day: number) => Number.isInteger(day) && day >= 0 && day <= 6)))
-    : [];
+  const rawDays: number[] = Array.isArray(value?.daysOfWeek) ? value.daysOfWeek.map((day: unknown) => Number(day)) : [];
+  const days: number[] = Array.from(new Set<number>(rawDays.filter((day: number) => Number.isInteger(day) && day >= 0 && day <= 6)));
 
-  const cleanTime = (raw: any) => {
+  const cleanTime = (raw: unknown) => {
     const value = String(raw ?? "");
     return /^\d{2}:\d{2}$/.test(value) ? value : null;
   };
 
-  const cleanDate = (raw: any) => {
+  const cleanDate = (raw: unknown) => {
     const value = String(raw ?? "");
     return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
   };
@@ -49,21 +48,12 @@ function validatePromotion(body: any) {
 
   const adjustmentValue = Number(body?.adjustmentValue);
   if (!Number.isFinite(adjustmentValue)) return "El ajuste debe ser un número.";
-  if (adjustmentType === "PERCENT" && (adjustmentValue < -100 || adjustmentValue > 1000)) {
-    return "El porcentaje debe estar entre -100% y +1000%.";
-  }
-  if (adjustmentType === "FIXED" && !Number.isInteger(adjustmentValue)) {
-    return "El ajuste fijo debe ser un número entero.";
-  }
+  if (adjustmentType === "PERCENT" && (adjustmentValue < -100 || adjustmentValue > 1000)) return "El porcentaje debe estar entre -100% y +1000%.";
+  if (adjustmentType === "FIXED" && !Number.isInteger(adjustmentValue)) return "El ajuste fijo debe ser un número entero.";
 
   const condition = normalizeCondition(body?.condition);
-  if (condition.startDate && condition.endDate && condition.startDate > condition.endDate) {
-    return "La fecha inicial no puede ser posterior a la fecha final.";
-  }
-  if ((condition.startTime && !condition.endTime) || (!condition.startTime && condition.endTime)) {
-    return "Debes indicar la hora inicial y final.";
-  }
-
+  if (condition.startDate && condition.endDate && condition.startDate > condition.endDate) return "La fecha inicial no puede ser posterior a la fecha final.";
+  if ((condition.startTime && !condition.endTime) || (!condition.startTime && condition.endTime)) return "Debes indicar la hora inicial y final.";
   return null;
 }
 
@@ -71,11 +61,8 @@ async function savePromotions(promotions: StorePromotion[]) {
   const AppSetting = (db.orm.public as any).AppSetting;
   const value = JSON.stringify(promotions);
   const setting = await AppSetting.where({ key: STORE_PROMOTIONS_KEY }).first();
-  if (setting) {
-    await AppSetting.where({ id: Number(setting.id) }).update({ value });
-  } else {
-    await AppSetting.create({ key: STORE_PROMOTIONS_KEY, value });
-  }
+  if (setting) await AppSetting.where({ id: Number(setting.id) }).update({ value });
+  else await AppSetting.create({ key: STORE_PROMOTIONS_KEY, value });
 }
 
 export async function GET() {
@@ -114,12 +101,13 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const nextId = promotions.reduce((max, promotion) => Math.max(max, Number(promotion.id) || 0), 0) + 1;
 
+  const adjustmentType: StorePromotion["adjustmentType"] = body.adjustmentType === "FIXED" ? "FIXED" : "PERCENT";
   const promotion: StorePromotion = {
     id: nextId,
     name: body.name.trim(),
     description: typeof body.description === "string" ? body.description.trim() || null : null,
     active: body.active !== false,
-    adjustmentType: body.adjustmentType,
+    adjustmentType,
     adjustmentValue: Number(body.adjustmentValue),
     priority: Number.isInteger(Number(body.priority)) ? Number(body.priority) : 0,
     condition: normalizeCondition(body.condition),

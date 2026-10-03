@@ -188,7 +188,7 @@ export default function StorePage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: theme?.accent ?? "#f59e0b" }}>En servicio ahora</p>
                 <h2 className="mt-2 text-3xl font-bold">{currentStaff.character.name} {currentStaff.character.flair ?? ""}</h2>
                 <p className="mt-2 text-sm opacity-70">Turno {currentStaff.startTime}–{currentStaff.endTime}</p>
-                {currentStaff.positionDescription && <div className="relative z-10 -ml-6 mt-4 max-w-xl rounded-3xl border px-4 py-3 text-sm shadow-lg" style={{ borderColor: theme?.primary ?? "#22d3ee", backgroundColor: theme?.background ?? "#09090b", color: theme?.foreground ?? "#fff" }}><span>{currentStaff.positionDescription}</span></div>}
+                {currentStaff.positionDescription && <div className="relative z-10 -ml-6 mt-4 max-w-xl rounded-3xl border px-4 py-3 text-sm shadow-lg" style={{ borderColor: theme?.primary ?? "#22d3ee", backgroundColor: theme?.background ?? "#09090b", color: theme?.foreground ?? "#fff" }}><span style={{ color: theme?.foreground ?? "#ffffff" }}>{currentStaff.positionDescription}</span></div>}
               </div>
             </div>
           </section>
@@ -228,7 +228,7 @@ export default function StorePage() {
                 return (
                   <article key={item.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
                     <div className="flex items-start justify-between gap-3">
-                      <div><p className="text-lg font-semibold">{item.name}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{typeLabels[item.itemType] ?? item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""}</p></div>
+                      <div><p className="text-lg font-semibold" style={{ color: theme?.foreground ?? "#ffffff" }}>{item.name}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{typeLabels[item.itemType] ?? item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""}</p></div>
                       <div className="text-right">
                         {discounted && <p className="text-xs text-[color:var(--store-muted)] line-through">◈ {item.basePrice.toLocaleString("es-MX")}</p>}
                         <span className={"text-sm font-semibold " + (discounted ? "text-emerald-300" : "text-amber-300")}>◈ {item.price.toLocaleString("es-MX")}</span>
@@ -262,8 +262,8 @@ export default function StorePage() {
                 const sellQuantity = Math.max(1, Math.min(entry.quantity, Number(sellQuantities[entry.id] ?? 1)));
                 return (
                   <article key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-                    <div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold">{item?.name ?? "Objeto"}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{entry.equipped ? "Equipado" : "En inventario"}{entry.flair ? " · " + entry.flair : ""}</p></div><span className="text-sm font-semibold text-emerald-300">◈ {saleValue.toLocaleString("es-MX")} c/u</span></div>
-                    <p className="mt-3 text-xs text-[color:var(--store-muted)]">Cantidad disponible: {entry.quantity}</p>
+                    <div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold" style={{ color: theme?.foreground ?? "#ffffff" }}>{item?.name ?? "Objeto"}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{entry.equipped ? "Equipado" : "En inventario"}{entry.flair ? " · " + entry.flair : ""}</p></div><span className="text-sm font-semibold text-emerald-300">◈ {saleValue.toLocaleString("es-MX")} c/u</span></div>
+                    <p className="mt-3 text-xs text-[color:var(--store-muted)]">Cantidad disponible: <span style={{ color: theme?.foreground ?? "#ffffff" }}>{entry.quantity}</span></p>
                     <div className="mt-3 flex gap-2">
                       <input type="number" min={1} max={entry.quantity} value={sellQuantity} onChange={(event) => setSellQuantities((current) => ({ ...current, [entry.id]: Math.max(1, Math.min(entry.quantity, Number(event.target.value) || 1)) }))} className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-center" />
                       <button type="button" onClick={() => sell(entry)} disabled={selling !== null || buying !== null} className="flex-1 rounded-lg border border-emerald-900/70 px-3 py-2 text-sm text-emerald-300 disabled:opacity-40">{selling === entry.id ? "Vendiendo..." : "Vender · ◈ " + (saleValue * sellQuantity).toLocaleString("es-MX")}</button>

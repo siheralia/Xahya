@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   const Item = (db.orm.public as any).Item;
   const item = await Item.where({ id: itemId }).first();
-  if (!item || String(item.acquisitionType) !== "PURCHASABLE") return NextResponse.json({ error: "Este objeto no está disponible en la tienda." }, { status: 400 });
+  if (!item || String(item.acquisitionType) !== "PURCHASABLE" || String(item.itemType) === "PROPERTY") return NextResponse.json({ error: "Este objeto no está disponible en la tienda general." }, { status: 400 });
 
   const promotions = await loadStorePromotions();
   const pricing = calculateStorePrice(item, promotions);

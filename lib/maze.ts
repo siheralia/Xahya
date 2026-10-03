@@ -21,6 +21,35 @@ export const OPPOSITE_DIRECTION: Record<MazeDirection, MazeDirection> = {
   UP:"DOWN", DOWN:"UP",
 };
 
+export async function registerMazeEncounterRelationships(tx: any, roomId: number, characterId: number) {
+  const Position = (tx.orm.public as any).MazeCharacterPosition;
+  const Relationship = (tx.orm.public as any).CharacterRelationship;
+  if (!Position || !Relationship) return 0;
+
+  const positions = await Position.where({ roomId }).all();
+  const otherCharacterIds = positions
+    .map((position:any) => Number(position.characterId))
+    .filter((id:number) => Number.isInteger(id) && id > 0 && id !== Number(characterId));
+
+  let created = 0;
+  for (const otherCharacterId of otherCharacterIds) {
+    const directions = [
+      { characterId: Number(characterId), knownCharacterId: otherCharacterId },
+      { characterId: otherCharacterId, knownCharacterId: Number(characterId) },
+    ];
+
+    for (const relation of directions) {
+      const existing = await Relationship.where(relation).first();
+      if (!existing) {
+        await Relationship.create(relation);
+        created++;
+      }
+    }
+  }
+
+  return created;
+}
+
 export const ROOM_WEIGHTS = [
   { type:"ENEMY", weight:30 },
   { type:"TRAP", weight:20 },

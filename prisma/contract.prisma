@@ -346,6 +346,7 @@ model Business {
   ownerCharacterId      Int
   ownerCharacter        Character @relation("BusinessOwner", fields:[ownerCharacterId], references:[id], onDelete:Restrict)
   passiveIncome         Int       @default(0)
+  weeklyExpenses        Int       @default(0)
   passiveFrequency      String    @default("WEEKLY")
   passiveDayOfWeek      Int       @default(0)
   passiveTime            String    @default("18:00")

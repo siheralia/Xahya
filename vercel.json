@@ -9,7 +9,7 @@
     },
     {
       "path": "/api/cron/maze-enemies",
-      "schedule": "0 */5 * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/maze-reset",

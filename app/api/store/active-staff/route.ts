@@ -21,7 +21,7 @@ export async function GET() {
   const contracts = await Contract.all();
   const characters = await db.orm.public.Character.all();
 
-  const activeStaff = [];
+  const activeStaff: any[] = [];
 
   async function addActiveStaff(position: any, business: any | null) {
     if (!position.active) return;

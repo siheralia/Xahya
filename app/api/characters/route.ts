@@ -55,6 +55,20 @@ export async function POST(request: Request) {
     });
     await tx.orm.public.CharacterResource.create({ characterId: character.id, karma: 1, money: 1000 });
 
+    const Item = (tx.orm.public as any).Item;
+    const CharacterItem = (tx.orm.public as any).CharacterItem;
+    const skillCrystal = Item ? await Item.where({ name: "Cristal de habilidad" }).first() : null;
+    if (skillCrystal && CharacterItem) {
+      await CharacterItem.create({
+        characterId: character.id,
+        itemId: Number(skillCrystal.id),
+        quantity: 3,
+        equipped: false,
+        equippedSlot: null,
+        flair: null,
+      });
+    }
+
     const perkResult = await awardCreationPerks(tx, Number(character.id));
     const awardedPerks = perkResult.awardedPerks;
     return { character, awardedPerks };

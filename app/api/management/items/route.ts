@@ -74,6 +74,7 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error }, { status: 400 });
   const Item = (db.orm.public as any).Item;
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : [];
+  const propertyBusinessId = body.propertyBusinessId === "" || body.propertyBusinessId == null ? null : Number(body.propertyBusinessId);
   const item = await Item.create({
     name: body.name.trim(),
     description: typeof body.description === "string" ? body.description.trim() || null : null,

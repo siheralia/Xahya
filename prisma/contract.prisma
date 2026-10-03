@@ -141,6 +141,7 @@ model Item {
   characterItems CharacterItem[]
   properties    CharacterProperty[]
   businessProducts BusinessProduct[]
+  propertyBusinessId Int?
 }
 
 model CharacterItem {

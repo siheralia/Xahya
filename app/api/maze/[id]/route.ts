@@ -398,6 +398,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return NextResponse.json({
     maze: normalizedMaze,
     position: position ? Number(position.roomId) : null,
+    previousRoomId: position?.previousRoomId == null ? null : Number(position.previousRoomId),
     positionStatus: position ? String(position.status ?? "ACTIVE") : null,
     positionLockReason: position?.lockReason ?? null,
     rooms: rooms.map((room:any) => ({

@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY"] as const;
-const EFFECT_TYPES = ["DAMAGE_MULTIPLIER", "STAT_MULTIPLIER", "STAT_BONUS", "NARRATIVE"] as const;
+const EFFECT_TYPES = ["DAMAGE_MULTIPLIER", "STAT_MULTIPLIER", "STAT_BONUS", "NARRATIVE", "IGNORE_PHYS_DEF_MULTIPLIER", "IGNORE_PHYS_DEF_BONUS", "IGNORE_MAGIC_DEF_MULTIPLIER", "IGNORE_MAGIC_DEF_BONUS", "IGNORE_ALL_DEF_MULTIPLIER", "IGNORE_ALL_DEF_BONUS", "FINAL_DAMAGE_MULTIPLIER", "FINAL_DAMAGE_BONUS"] as const;
 const STAT_TARGETS = [
   "STR","AGI","CON","INT","WIS","CHA","SPI","LCK",
   "HP","MANA","PHYS_ATK","MAGIC_ATK","DEF","MAG_DEF",
@@ -39,7 +39,7 @@ function validate(body: any) {
       if (!String(row.description ?? "").trim()) return "Los efectos narrativos necesitan una descripción.";
       continue;
     }
-    if (!STAT_TARGETS.includes(target as any)) return "Objetivo de efecto inválido.";
+    const isCombatEffect = ["IGNORE_PHYS_DEF_MULTIPLIER","IGNORE_PHYS_DEF_BONUS","IGNORE_MAGIC_DEF_MULTIPLIER","IGNORE_MAGIC_DEF_BONUS","IGNORE_ALL_DEF_MULTIPLIER","IGNORE_ALL_DEF_BONUS","FINAL_DAMAGE_MULTIPLIER","FINAL_DAMAGE_BONUS"].includes(type);\n    if (!isCombatEffect && !STAT_TARGETS.includes(target as any)) return "Objetivo de efecto inválido.";
     const value = Number(row.value);
     if (!Number.isFinite(value) || value <= 0) return "Valor de efecto inválido.";
     if (type === "DAMAGE_MULTIPLIER" && !["PHYS_ATK","MAGIC_ATK","ATTACK_TOTAL"].includes(target)) {

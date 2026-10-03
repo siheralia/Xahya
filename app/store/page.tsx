@@ -39,6 +39,15 @@ type ActiveStaff = {
 const typeLabels: Record<string, string> = { WEAPON: "Arma", ARMOR: "Armadura", ACCESSORY: "Accesorio", CONSUMABLE: "Consumible", MATERIAL: "Material", OTHER: "Otro" };
 const effectLabels: Record<string, string> = { attack_multiplier_all: "Ataque total", damage_reduction_all: "Reducción de daño recibido" };
 const statLabels: Record<string, string> = { STR:"Fuerza", AGI:"Agilidad", CON:"Constitución", INT:"Inteligencia", WIS:"Sabiduría", CHA:"Carisma", SPI:"Espíritu", LCK:"Suerte", PHYS_ATK:"Ataque físico", MAGIC_ATK:"Ataque mágico", DEF:"Defensa física", MAG_DEF:"Defensa mágica", ATTACK_TOTAL:"Ataque total", DAMAGE_REDUCTION_ALL:"Reducción de daño" };
+function getReadableTextColor(background: string | undefined) {
+  const hex = String(background ?? "#09090b").replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return "#ffffff";
+  const channels = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const linear = channels.map((value) => value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4));
+  const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  return luminance > 0.45 ? "#18181b" : "#ffffff";
+}
+
 
 export default function StorePage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -175,9 +184,12 @@ export default function StorePage() {
 
   const currentStaff = activeStaff.find((entry) => entry.positionTitle.toLowerCase() === "encargado de tienda") ?? activeStaff[0] ?? null;
   const theme = currentStaff?.character.themePalette ?? null;
+  const readableText = getReadableTextColor(theme?.background);
+  const readableMuted = `color-mix(in srgb, ${readableText} 72%, transparent)`;
+  const readableSubtle = `color-mix(in srgb, ${readableText} 58%, transparent)`;
 
   return (
-    <main className="min-h-screen text-white transition-colors" style={theme ? { backgroundColor: theme.background, color: theme.foreground, "--store-muted": `color-mix(in srgb, ${theme.foreground} 68%, transparent)` } as CSSProperties : { backgroundColor: "#09090b", "--store-muted": "rgba(255,255,255,.68)" } as CSSProperties}>
+    <main className="min-h-screen text-white transition-colors" style={theme ? { backgroundColor: theme.background, color: readableText, "--store-muted": readableMuted } as CSSProperties : { backgroundColor: "#09090b", "--store-muted": "rgba(255,255,255,.68)" } as CSSProperties}>
       <div className="mx-auto max-w-6xl px-6 py-6">
         {currentStaff && (
           <section className="relative mb-8 overflow-hidden rounded-3xl border shadow-2xl" style={{ borderColor: theme?.border ?? "#3f3f46", backgroundColor: theme?.surface ?? "#18181b" }}>
@@ -188,7 +200,7 @@ export default function StorePage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: theme?.accent ?? "#f59e0b" }}>En servicio ahora</p>
                 <h2 className="mt-2 text-3xl font-bold">{currentStaff.character.name} {currentStaff.character.flair ?? ""}</h2>
                 <p className="mt-2 text-sm opacity-70">Turno {currentStaff.startTime}–{currentStaff.endTime}</p>
-                {currentStaff.positionDescription && <div className="relative z-10 -ml-6 mt-4 max-w-xl rounded-3xl border px-4 py-3 text-sm shadow-lg" style={{ borderColor: theme?.primary ?? "#22d3ee", backgroundColor: theme?.background ?? "#09090b", color: theme?.foreground ?? "#fff" }}><span style={{ color: theme?.foreground ?? "#ffffff" }}>{currentStaff.positionDescription}</span></div>}
+                {currentStaff.positionDescription && <div className="relative z-10 -ml-6 mt-4 max-w-xl rounded-3xl border px-4 py-3 text-sm shadow-lg" style={{ borderColor: theme?.primary ?? "#22d3ee", backgroundColor: theme?.background ?? "#09090b", color: readableText }}><span style={{ color: readableText }}>{currentStaff.positionDescription}</span></div>}
               </div>
             </div>
           </section>
@@ -218,7 +230,7 @@ export default function StorePage() {
           </div>
 
           {filteredItems.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8 text-center"><p className="text-[color:var(--store-muted)]">No hay objetos disponibles para comprar.</p></div>
+            <div className="mt-4 rounded-2xl border p-8 text-center" style={{ borderColor: theme?.border ?? "#3f3f46", backgroundColor: theme?.surface ?? "#18181b" }}><p className="text-[color:var(--store-muted)]">No hay objetos disponibles para comprar.</p></div>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredItems.map((item) => {
@@ -226,7 +238,7 @@ export default function StorePage() {
                 const total = item.price * quantity;
                 const discounted = item.price !== item.basePrice;
                 return (
-                  <article key={item.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+                  <article key={item.id} className="rounded-2xl border p-5" style={{ borderColor: theme?.border ?? "#3f3f46", backgroundColor: theme?.surface ?? "#18181b" }}>
                     <div className="flex items-start justify-between gap-3">
                       <div><p className="text-lg font-semibold" style={{ color: theme?.foreground ?? "#ffffff" }}>{item.name}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{typeLabels[item.itemType] ?? item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""}</p></div>
                       <div className="text-right">
@@ -235,8 +247,8 @@ export default function StorePage() {
                       </div>
                     </div>
                     {item.appliedPromotions.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{item.appliedPromotions.map((promotion) => <span key={promotion.id} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-300">{promotion.name}</span>)}</div>}
-                    {item.description && <p className="mt-4 text-sm text-[color:var(--store-muted)]">{item.description}</p>}
-                    {item.effects.length > 0 && <div className="mt-4 space-y-1">{item.effects.map((effect, index) => <p key={index} className="text-xs text-[color:var(--store-muted)]">{effect.description || effectLabels[effect.type] || effect.type}: {effect.type.includes("multiplier") ? "×" + effect.value / 100 : effect.value}</p>)}</div>}
+                    {item.description && <p className="mt-4 text-sm" style={{ color: readableSubtle }}>{item.description}</p>}
+                    {item.effects.length > 0 && <div className="mt-4 space-y-1" style={{ color: readableSubtle }}>{item.effects.map((effect, index) => <p key={index} className="text-xs" style={{ color: readableSubtle }}>{effect.description || effectLabels[effect.type] || effect.type}: {effect.type.includes("multiplier") ? "×" + effect.value / 100 : effect.value}</p>)}</div>}
                     <div className="mt-5 flex gap-2">
                       <input type="number" min={1} max={99} value={quantity} onChange={(event) => setQuantities((current) => ({ ...current, [item.id]: Math.max(1, Math.min(99, Number(event.target.value) || 1)) }))} className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-center" />
                       <button type="button" onClick={() => buy(item)} disabled={buying !== null || selling !== null || !selectedCharacter || total > money} className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40">{buying === item.id ? "Comprando..." : "Comprar · ◈ " + total.toLocaleString("es-MX")}</button>
@@ -263,7 +275,7 @@ export default function StorePage() {
                 return (
                   <article key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
                     <div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold" style={{ color: theme?.foreground ?? "#ffffff" }}>{item?.name ?? "Objeto"}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{entry.equipped ? "Equipado" : "En inventario"}{entry.flair ? " · " + entry.flair : ""}</p></div><span className="text-sm font-semibold text-emerald-300">◈ {saleValue.toLocaleString("es-MX")} c/u</span></div>
-                    <p className="mt-3 text-xs text-[color:var(--store-muted)]">Cantidad disponible: <span style={{ color: theme?.foreground ?? "#ffffff" }}>{entry.quantity}</span></p>
+                    <p className="mt-3 text-xs" style={{ color: readableSubtle }}>Cantidad disponible: <span style={{ color: theme?.foreground ?? "#ffffff" }}>{entry.quantity}</span></p>
                     <div className="mt-3 flex gap-2">
                       <input type="number" min={1} max={entry.quantity} value={sellQuantity} onChange={(event) => setSellQuantities((current) => ({ ...current, [entry.id]: Math.max(1, Math.min(entry.quantity, Number(event.target.value) || 1)) }))} className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-center" />
                       <button type="button" onClick={() => sell(entry)} disabled={selling !== null || buying !== null} className="flex-1 rounded-lg border border-emerald-900/70 px-3 py-2 text-sm text-emerald-300 disabled:opacity-40">{selling === entry.id ? "Vendiendo..." : "Vender · ◈ " + (saleValue * sellQuantity).toLocaleString("es-MX")}</button>

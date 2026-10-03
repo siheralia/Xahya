@@ -124,6 +124,8 @@ export async function processEconomyPayments(now = new Date()) {
   const Position = (db.orm.public as any).BusinessPosition;
   const Contract = (db.orm.public as any).EmploymentContract;
   const Log = (db.orm.public as any).EconomyPaymentLog;
+  const Subscription = (db.orm.public as any).BusinessSubscription;
+  const Plan = (db.orm.public as any).BusinessSubscriptionPlan;
 
   const businesses = await Business.all();
   const positions = await Position.all();
@@ -159,8 +161,10 @@ export async function processEconomyPayments(now = new Date()) {
         const current = await BusinessTx.where({ id: Number(business.id) }).first();
         if (!current) throw new Error("BUSINESS_MISSING");
 
+        const growthBonus = frequency === "WEEKLY" ? Math.floor(Number(business.growthInvestment ?? 0) * 0.10) : 0;
+        const incomeAmount = Number(business.passiveIncome) + growthBonus;
         await BusinessTx.where({ id: Number(business.id) }).update({
-          balance: Number(current.balance ?? 0) + Number(business.passiveIncome),
+          balance: Number(current.balance ?? 0) + incomeAmount,
         });
 
         await LogTx.create({
@@ -169,15 +173,54 @@ export async function processEconomyPayments(now = new Date()) {
           sourceId: Number(business.id),
           recipientCharacterId: Number(business.ownerCharacterId),
           businessId: Number(business.id),
-          amount: Number(business.passiveIncome),
+          amount: incomeAmount,
           periodKey: incomePeriod,
-          description: `Ingreso pasivo de ${business.name} → caja del negocio`,
+          description: growthBonus > 0 ? `Ingreso semanal de ${business.name} + crecimiento (${growthBonus}) → caja del negocio` : `Ingreso pasivo de ${business.name} → caja del negocio`,
         });
       });
     }
   }
 
-  // 2. Al terminar un turno, el salario sale primero de la caja del negocio.
+  // 2. Las suscripciones cobran al cliente y depositan el pago en la caja del negocio.
+  const subscriptions = await Subscription.all();
+  const plans = await Plan.all();
+  for (const subscription of subscriptions) {
+    if (!subscription.active) continue;
+    const dueAt = new Date(String(subscription.nextChargeAt));
+    if (Number.isNaN(dueAt.getTime()) || dueAt.getTime() > now.getTime()) continue;
+    const plan = plans.find((p:any) => Number(p.id) === Number(subscription.planId));
+    if (!plan || !plan.active) continue;
+    const business = businesses.find((b:any) => Number(b.id) === Number(plan.businessId));
+    if (!business || !business.active) continue;
+    const price = Number(plan.price);
+    try {
+      await db.transaction(async (tx) => {
+        const ResourceTx = tx.orm.public.CharacterResource;
+        const BusinessTx = (tx.orm.public as any).Business;
+        const SubscriptionTx = (tx.orm.public as any).BusinessSubscription;
+        const resource = await ResourceTx.where({ characterId: Number(subscription.characterId) }).first();
+        if (!resource || Number(resource.money) < price) throw new Error("SUBSCRIPTION_FUNDS_INSUFFICIENT");
+        const currentBusiness = await BusinessTx.where({ id: Number(business.id) }).first();
+        await ResourceTx.where({ id: resource.id }).update({ money: Number(resource.money) - price });
+        await BusinessTx.where({ id: currentBusiness.id }).update({ balance: Number(currentBusiness.balance ?? 0) + price });
+        const next = new Date(dueAt);
+        if (String(plan.intervalUnit) === "DAY") next.setUTCDate(next.getUTCDate() + Number(plan.intervalValue));
+        else if (String(plan.intervalUnit) === "WEEK") next.setUTCDate(next.getUTCDate() + Number(plan.intervalValue) * 7);
+        else next.setUTCMonth(next.getUTCMonth() + Number(plan.intervalValue));
+        await SubscriptionTx.where({ id: Number(subscription.id) }).update({
+          lastChargedAt: Temporal.Instant.fromEpochMilliseconds(now.getTime()),
+          nextChargeAt: Temporal.Instant.fromEpochMilliseconds(next.getTime()),
+        });
+      });
+      payments++;
+    } catch (error) {
+      if (error instanceof Error && error.message === "SUBSCRIPTION_FUNDS_INSUFFICIENT") {
+        await Subscription.where({ id: Number(subscription.id) }).update({ active: false });
+      }
+    }
+  }
+
+  // 3. Al terminar un turno, el salario sale primero de la caja del negocio.
   // Si no alcanza, el dueño cubre únicamente la diferencia.
   for (const position of positions) {
     const salaryFrequency = String(position.salaryFrequency ?? "DAILY");
@@ -272,7 +315,7 @@ export async function processEconomyPayments(now = new Date()) {
     }
   }
 
-  // 3. En el cierre del periodo, el dueño recibe únicamente el excedente
+  // 4. En el cierre del periodo, el dueño recibe únicamente el excedente
   // que quedó en la caja después de los salarios.
   for (const business of businesses) {
     if (!business.active || Number(business.passiveIncome) <= 0) continue;

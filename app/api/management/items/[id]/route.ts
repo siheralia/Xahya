@@ -32,9 +32,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const price = Number(body.price ?? item.price);
   const effects = Array.isArray(body.effects) ? body.effects : item.effects;
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : (Array.isArray(item.allowedSlots) ? item.allowedSlots : []);
+  const propertyBusinessId = body.propertyBusinessId === "" || body.propertyBusinessId == null ? null : Number(body.propertyBusinessId);
   const systemActions = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL"];
   if (!name || name.length > 100 || !ITEM_TYPES.includes(itemType as any) || !Number.isInteger(price) || price < 0) return NextResponse.json({ error: "Datos del objeto inválidos." }, { status: 400 });
   if (itemType === "PROPERTY" && acquisitionType === "PURCHASABLE") return NextResponse.json({ error: "Las propiedades no se venden en la tienda general." }, { status: 400 });
+  if (propertyBusinessId !== null && (!Number.isInteger(propertyBusinessId) || propertyBusinessId <= 0)) return NextResponse.json({ error: "Negocio exclusivo inválido." }, { status: 400 });
+  if (itemType !== "PROPERTY" && propertyBusinessId !== null) return NextResponse.json({ error: "Solo las propiedades pueden estar vinculadas a un negocio." }, { status: 400 });
+  if (propertyBusinessId !== null) {
+    const Business = (db.orm.public as any).Business;
+    const business = await Business.where({ id: propertyBusinessId }).first();
+    if (!business) return NextResponse.json({ error: "El negocio exclusivo no existe." }, { status: 404 });
+  }
   if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return NextResponse.json({ error: "Slots de equipo inválidos." }, { status: 400 });
   for (const effect of effects) {
     if (!effect || typeof effect !== "object" || typeof effect.type !== "string" || !effect.type.trim() || !Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
@@ -44,7 +52,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     }
   }
-  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, acquisitionType, price, effects, allowedSlots });
+  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, acquisitionType, price, effects, allowedSlots, propertyBusinessId: itemType === "PROPERTY" ? propertyBusinessId : null });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_UPDATE", entityType: "ITEM", entityId: id, details: { before: item, after: updated } });
   return NextResponse.json({ item: updated });
 }

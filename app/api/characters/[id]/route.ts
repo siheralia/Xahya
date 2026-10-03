@@ -238,6 +238,27 @@ export async function GET(
     }
   }
 
+  const CharacterProperty = (db.orm.public as any).CharacterProperty;
+  const properties = CharacterProperty ? await CharacterProperty.where({ characterId }).all() : [];
+  const propertiesWithImages = await Promise.all(properties.map(async (property: any) => {
+    const item = itemDefinitions.find((candidate: any) => Number(candidate.id) === Number(property.itemId));
+    let imageUrl: string | null = null;
+    const imagePath = item?.imagePath ? String(item.imagePath) : null;
+    if (imagePath && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const signedResponse = await fetch(process.env.SUPABASE_URL + "/storage/v1/object/sign/item-images/" + imagePath, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY, apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ expiresIn: 3600 }),
+        cache: "no-store",
+      });
+      if (signedResponse.ok) {
+        const signed = await signedResponse.json();
+        imageUrl = signed.signedURL ? process.env.SUPABASE_URL + "/storage/v1" + signed.signedURL : null;
+      }
+    }
+    return { id: Number(property.id), itemId: Number(property.itemId), businessId: property.businessId == null ? null : Number(property.businessId), purchasePrice: Number(property.purchasePrice), item: item ? { ...item, imageUrl } : null };
+  }));
+
   const normalizedCharacter = { ...character, avatarUrl, themePalette: (character as any).themePalette ?? null, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
 
   return NextResponse.json({
@@ -249,6 +270,7 @@ export async function GET(
     perkEffects,
     combatEffects,
     equipment,
+    properties: propertiesWithImages,
     effectiveStats,
     statBreakdown,
     derivedStats,

@@ -294,7 +294,7 @@ export async function processEconomyPayments(now = new Date()) {
           }
 
           const remaining = salary - businessPaid;
-          if (remaining > 0) {
+          if (remaining > 0 && String(position.payerType) !== "SYSTEM") {
             const payerId = business
               ? Number(business.ownerCharacterId)
               : (String(position.payerType) === "CHARACTER" && position.payerCharacterId

@@ -821,12 +821,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       skills.length
         ? skills.flatMap((skill) => {
             const categoryLabels: Record<string, string> = { OFFENSIVE: "Ofensiva", PASSIVE: "Pasiva", SUPPORT: "Soporte", UTILITY: "Utilidad" };
-            const targetLabels: Record<string, string> = Object.fromEntries(skillTargets.map(([value, label]) => [value, label]));
-            const effectLines = skill.effect.map((effect) => {
-              const target = effect.target ? (targetLabels[effect.target] ?? effect.target) : "";
-              const value = effect.value !== undefined ? " " + (effect.type === "DAMAGE_MULTIPLIER" || effect.type === "STAT_MULTIPLIER" ? "×" + formatNumber(Number(effect.value) / 100) : (Number(effect.value) >= 0 ? "+" : "") + formatNumber(Number(effect.value))) : "";
-              return "  ↳ " + (effect.description || effect.type) + (target ? " → " + target : "") + value;
-            });
             return [
               "• *" + skill.name + "* — " + (categoryLabels[skill.category] ?? skill.category) + " | Coste: " + formatNumber(skill.cost),
               ...(skill.description ? ["  " + skill.description] : []),
@@ -835,7 +829,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               ...(skill.speed ? ["  Velocidad: " + skill.speed] : []),
               ...(skill.cooldown ? ["  Cooldown: " + skill.cooldown] : []),
               ...(skill.condition ? ["  Condición: " + skill.condition] : []),
-              ...effectLines,
             ];
           }).join("\n")
         : "• Ninguna",

@@ -5,6 +5,8 @@ import ManagementModal from "../management/_components/ManagementModal";
 
 type Character = { id: number; name: string; flair: string | null };
 type Contract = { id: number; character: Character | null };
+type Product = { id:number; itemId:number; purchasePrice:number; salePrice:number; stock:number; item:{id:number;name:string;description:string|null;itemType:string;imagePath:string|null}|null };
+type SubscriptionPlan = { id:number; name:string; description:string|null; price:number; intervalValue:number; intervalUnit:string };
 type Position = { id: number; title: string; description: string | null; startTime: string; endTime: string; salary: number; salaryFrequency: string; salaryDayOfWeek: number; payerType: string; payerCharacterId: number | null; contracts: Contract[] };
 type Business = { id: number; name: string; ownerCharacter: Character | null; passiveIncome: number; passiveFrequency: string; balance: number; positions: Position[] };
 

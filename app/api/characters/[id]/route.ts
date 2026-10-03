@@ -188,9 +188,19 @@ export async function GET(
       });
     });
 
+  const newItemCombatTypes = ["ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus"];
+  const perkCombatEffects = perkEffects.flatMap((effect:any) => {
+    const type = String(effect.type ?? "");
+    if (type === "COMBAT_MULTIPLIER" && String(effect.target) === "ATTACK_TOTAL") return [{ type: "attack_multiplier_all", value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
+    if (type === "COMBAT_MULTIPLIER" && String(effect.target) === "DAMAGE_REDUCTION_ALL") return [{ type: "damage_reduction_all", value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
+    if (newItemCombatTypes.includes(type)) return [{ type, value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
+    return [];
+  });
+
   const combatEffects = [
     ...getCombatEffects(modifiers),
     ...itemEffects,
+    ...perkCombatEffects,
   ];
 
   const equipment = ownedItems.map((owned: any) => {

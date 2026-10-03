@@ -6,6 +6,14 @@
     {
       "path": "/api/cron/economy",
       "schedule": "55 1 * * 6"
+    },
+    {
+      "path": "/api/cron/maze-enemies",
+      "schedule": "0 */5 * * *"
+    },
+    {
+      "path": "/api/cron/maze-reset",
+      "schedule": "0 12 * * 1"
     }
   ]
 }

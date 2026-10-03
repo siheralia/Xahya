@@ -80,10 +80,12 @@ export default function MazePage(){
   const room=maze?.rooms?.find((r:Room)=>Number(r.id)===Number(position)) as Room|undefined;
   const exits=(maze?.exits??[]).filter((e:Exit)=>Number(e.fromRoomId)===Number(position));
   const roomById=new Map<number,Room>((maze?.rooms??[]).map((entry:Room)=>[Number(entry.id),entry]));
-  // La salida que conecta con la habitación anterior es la puerta por la que acabas de entrar.
-  const incomingExit=(maze?.exits??[]).find((e:Exit)=>e.toRoomId!=null&&Number(e.toRoomId)===Number(position));
-  const returnExitId=incomingExit?.fromRoomId!=null
-    ? exits.find((e:Exit)=>Number(e.toRoomId)===Number(incomingExit.fromRoomId))?.id
+  // La entrada es exclusivamente la salida que lleva a la habitación de la que acabas de venir.
+  // No buscamos cualquier conexión que apunte a la habitación actual: en un laberinto
+  // compartido puede haber varias, y eso hacía que se marcara una salida equivocada.
+  const previousRoomId=maze?.previousRoomId==null?null:Number(maze.previousRoomId);
+  const returnExitId=previousRoomId!=null
+    ? exits.find((e:Exit)=>Number(e.toRoomId)===previousRoomId)?.id
     : undefined;
   const occupants=(maze?.occupants??[]).filter((entry:Occupant)=>Number(entry.roomId)===Number(position));
   const statLabels:Record<string,string>={STR:"Fuerza",AGI:"Agilidad",CON:"Constitución",INT:"Inteligencia",WIS:"Sabiduría",CHA:"Carisma",SPI:"Espíritu",LCK:"Suerte"};

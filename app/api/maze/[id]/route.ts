@@ -302,6 +302,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const rooms = await db.orm.public.MazeRoom.where({ mazeId }).all();
   const exits = await (db.orm.public as any).MazeExit.where({ mazeId }).all();
+  const currentExits = position
+    ? await (db.orm.public as any).MazeExit.where({ mazeId, fromRoomId:Number(position.roomId) }).all()
+    : [];
   const enemies = await (db.orm.public as any).MazeRoomEnemy.all();
   const definitions = await (db.orm.public as any).Enemy.all();
   const imagePaths = await getEnemyImagePaths(definitions.map((enemy:any)=>Number(enemy.id)));
@@ -421,6 +424,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       }),
     })),
     exits,
+    currentExits,
     occupants,
     trapActions,
     directionLabels:DIRECTION_LABELS,

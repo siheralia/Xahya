@@ -19,4 +19,4 @@ export const EFFECT_CATALOG = [
 export type SkillEffectType = typeof EFFECT_CATALOG[number]["type"];
 export const EFFECT_TYPES = EFFECT_CATALOG.map(e => e.type) as readonly SkillEffectType[];
 export const EFFECT_LABELS = Object.fromEntries(EFFECT_CATALOG.map(e => [e.type, e.label])) as Record<SkillEffectType, string>;
-export const EFFECT_TARGETS = Object.fromEntries(EFFECT_CATALOG.map(e => [e.type, e.targets])) as Record<SkillEffectType, readonly string[]>;
+export const EFFECT_TARGETS = Object.fromEntries(EFFECT_CATALOG.map(e => [e.type, e.targets])) as unknown as Record<SkillEffectType, readonly string[]>;

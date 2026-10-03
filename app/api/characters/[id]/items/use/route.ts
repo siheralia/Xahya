@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 
-const SYSTEM_ACTIONS = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED"] as const;
+const SYSTEM_ACTIONS = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL"] as const;
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -115,6 +115,37 @@ export async function POST(
       mazeId: Number(position.mazeId),
       roomId: Number(room.id),
       trapDisabled: action === "DISARM_MAZE_TRAP",
+    });
+  }
+
+  if (action === "CREATE_SKILL") {
+    await db.transaction(async (tx) => {
+      const TxCharacter = tx.orm.public.Character as any;
+      const TxCharacterItem = (tx.orm.public as any).CharacterItem;
+      const freshCharacter = await TxCharacter.where({ id: characterId }).first();
+      const credits = Number(freshCharacter?.skillCreationCredits ?? 0);
+      await TxCharacter.where({ id: characterId }).update({ skillCreationCredits: credits + 1 });
+      if (quantity === 1) {
+        await TxCharacterItem.where({ id: characterItemId }).delete();
+      } else {
+        await TxCharacterItem.where({ id: characterItemId }).update({ quantity: quantity - 1 });
+      }
+    });
+
+    await recordAuditEvent({
+      actorUserId: user.id,
+      action: "ITEM_USE_SYSTEM",
+      entityType: "ITEM",
+      entityId: Number(item.id),
+      characterId,
+      details: { characterItemId, itemName: item.name, action },
+    });
+
+    return NextResponse.json({
+      success: true,
+      action,
+      consumed: 1,
+      skillCreationCredits: Number((character as any).skillCreationCredits ?? 0) + 1,
     });
   }
 

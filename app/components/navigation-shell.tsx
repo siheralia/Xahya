@@ -12,6 +12,7 @@ const sectionMap: Record<string, { label: string; color: string }> = {
   profile: { label: "Perfil", color: "text-violet-300/70" },
   management: { label: "Management", color: "text-rose-300/70" },
   store: { label: "Tienda", color: "text-emerald-300/70" },
+  businesses: { label: "Negocios", color: "text-emerald-300/70" },
   maze: { label: "Laberinto", color: "text-fuchsia-300/70" },
   notifications: { label: "Buzón", color: "text-yellow-300/70" },
   rules: { label: "Reglas", color: "text-rose-300/70" },
@@ -125,8 +126,8 @@ export default function NavigationShell({
               Mi perfil
             </Link>
             <span aria-hidden="true" className="mx-2 text-zinc-600">|</span>
-            <Link href="/businesses" className={pathname.startsWith("/businesses") ? "xahya-nav-active" : ""}>
-              Mis negocios
+            <Link href="/businesses/catalog" className={pathname.startsWith("/businesses") ? "xahya-nav-active" : ""}>
+              Negocios
             </Link>
             <span aria-hidden="true" className="mx-2 text-zinc-600">|</span>
             <Link href="/help" className={pathname === "/help" ? "xahya-nav-active" : ""}>

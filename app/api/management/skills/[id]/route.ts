@@ -29,7 +29,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const approve = body.approve === true;
   const reject = body.reject === true;
-  const updated = await Skill.where({ id }).update({
+  let updated: any;
+  try {
+    await Skill.where({ id }).update({
     name,
     cost,
     description,
@@ -43,7 +45,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     status: approve ? "APPROVED" : reject ? "REJECTED" : String(skill.status),
     approvedAt: approve ? new Date() : reject ? null : (skill.approvedAt ?? null),
     updatedAt: new Date(),
-  });
+    });
+    updated = await Skill.where({ id }).first();
+    if (!updated) return NextResponse.json({ error: "La habilidad se actualizó pero no pudo recuperarse." }, { status: 500 });
+  } catch (error) {
+    console.error("[management/skills] PATCH failed", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo actualizar la habilidad." }, { status: 500 });
+  }
 
   await recordAuditEvent({
     actorUserId: admin.id,

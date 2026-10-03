@@ -26,12 +26,18 @@ export async function GET() {
 
   async function addActiveStaff(position: any, business: any | null) {
     if (!position.active) return;
-    if (!isOpen(String(position.startTime), String(position.endTime), nowMinutes)) return;
+    const startTime = String(position.startTime);
+    const endTime = String(position.endTime);
+    if (!isOpen(startTime, endTime, nowMinutes)) return;
 
     const contract = contracts.find((entry: any) => {
       if (Number(entry.positionId) !== Number(position.id) || !entry.active) return false;
-      const startDate = entry.startDate ? new Date(entry.startDate).getTime() : Number.NEGATIVE_INFINITY;
-      const endDate = entry.endDate ? new Date(entry.endDate).getTime() : Number.POSITIVE_INFINITY;
+
+      // Employment dates are Temporal.Instant values in the ORM. Never pass
+      // them to Date/relational operators because that triggers Temporal's
+      // "Do not use built-in arithmetic operators..." error.
+      const startDate = entry.startDate?.epochMilliseconds ?? Number.NEGATIVE_INFINITY;
+      const endDate = entry.endDate?.epochMilliseconds ?? Number.POSITIVE_INFINITY;
       const now = Date.now();
       return startDate <= now && now < endDate;
     });
@@ -62,8 +68,8 @@ export async function GET() {
       positionId: Number(position.id),
       positionTitle: String(position.title),
       positionDescription: position.description ?? null,
-      startTime: String(position.startTime),
-      endTime: String(position.endTime),
+      startTime,
+      endTime,
       character: {
         id: Number(character.id),
         name: String(character.name),

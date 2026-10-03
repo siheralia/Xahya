@@ -90,6 +90,16 @@ export async function POST(request: Request) {
   const Character = db.orm.public.Character;
   const Relationship = (db.orm.public as any).CharacterRelationship;
 
+  if (action === "updateCashPlan") {
+    const businessId = Number(body?.businessId);
+    const owned = await getOwnedBusiness(user, businessId);
+    if (owned.error) return owned.error;
+    const weeklyExpenses = Math.trunc(Number(body?.weeklyExpenses ?? 0));
+    if (!Number.isFinite(weeklyExpenses) || weeklyExpenses < 0) return NextResponse.json({ error: "Gasto semanal inválido." }, { status: 400 });
+    const updated = await Business.where({ id: businessId }).update({ weeklyExpenses });
+    return NextResponse.json({ business: updated });
+  }
+
   if (["invest","stockProperty","createPlan","updatePlan"].includes(action)) {
     const businessId = Number(body?.businessId);
     const owned = await getOwnedBusiness(user, businessId);

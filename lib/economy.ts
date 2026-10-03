@@ -44,6 +44,14 @@ function periodKey(date: Date, frequency: string, endOfShift = false) {
   return endOfShift ? day + "-shift" : day;
 }
 
+function toDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (value && typeof value === "object" && "epochMilliseconds" in value) {
+    return new Date(Number((value as { epochMilliseconds: number }).epochMilliseconds));
+  }
+  return new Date(String(value));
+}
+
 function weekNumber(date: Date) {
   const p = localParts(date);
   const jan4 = new Date(Date.UTC(p.year, 0, 4));
@@ -208,7 +216,7 @@ export async function processEconomyPayments(now = new Date()) {
   const plans = await Plan.all();
   for (const subscription of subscriptions) {
     if (!subscription.active) continue;
-    const dueAt = new Date(String(subscription.nextChargeAt));
+    const dueAt = toDate(subscription.nextChargeAt);
     if (Number.isNaN(dueAt.getTime()) || dueAt.getTime() > now.getTime()) continue;
     const plan = plans.find((p:any) => Number(p.id) === Number(subscription.planId));
     if (!plan || !plan.active) continue;
@@ -259,8 +267,8 @@ export async function processEconomyPayments(now = new Date()) {
     const positionContracts = contracts.filter((contract: any) =>
       Number(contract.positionId) === Number(position.id) &&
       contract.active &&
-      new Date(contract.startDate).getTime() <= now.getTime() &&
-      (!contract.endDate || new Date(contract.endDate).getTime() >= now.getTime())
+      toDate(contract.startDate).getTime() <= now.getTime() &&
+      (!contract.endDate || toDate(contract.endDate).getTime() >= now.getTime())
     );
 
     for (const contract of positionContracts) {

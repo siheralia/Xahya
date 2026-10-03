@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ManagementModal from "../management/_components/ManagementModal";
 
 type Character = { id: number; name: string; flair: string | null };
+type PropertyItem = { id:number; name:string; description:string|null; imageUrl:string|null };
 type Contract = { id: number; character: Character | null };
 type Product = { id:number; itemId:number; purchasePrice:number; salePrice:number; stock:number; item:{id:number;name:string;description:string|null;itemType:string;imagePath:string|null}|null };
 type SubscriptionPlan = { id:number; name:string; description:string|null; price:number; intervalValue:number; intervalUnit:string };
@@ -14,6 +15,7 @@ const emptyPosition = { businessId: "", title: "Encargado de tienda", descriptio
 
 export default function BusinessesPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [propertyItems, setPropertyItems] = useState<PropertyItem[]>([]);
   const [candidates, setCandidates] = useState<Character[]>([]);
   const [hire, setHire] = useState({ businessId: "", positionId: "", characterId: "" });
   const [open, setOpen] = useState(false);
@@ -29,6 +31,7 @@ export default function BusinessesPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error ?? "No se pudieron cargar tus negocios.");
       setBusinesses(data.businesses ?? []);
+      setPropertyItems(data.propertyItems ?? []);
       setCandidates(data.candidates ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar tus negocios.");

@@ -62,10 +62,7 @@ export async function GET(request: NextRequest) {
         await Room.where({ id: Number(currentRoom.id) }).update({ status: "OPEN" });
       }
 
-      await Room.where({ id: Number(destination.id) }).update({
-        status: "BLOCKED",
-        roomType: "MOBILE_ENEMY",
-      });
+      await Room.where({ id: Number(destination.id) }).update({ status: "BLOCKED" });
 
       moved.push({
         encounterId: Number(encounter.id),

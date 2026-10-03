@@ -1652,9 +1652,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       </div>
                     )}
                     {entry.flair && <p className="mt-3 text-xs italic text-violet-300">✦ {entry.flair}</p>}
-                    {entry.item?.itemType === "CONSUMABLE" && Array.isArray(entry.item.effects) && entry.item.effects.some((effect: any) => effect?.type === "system_action" && ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED"].includes(effect?.action)) && (
+                    {entry.item?.itemType === "CONSUMABLE" && Array.isArray(entry.item.effects) && entry.item.effects.some((effect: any) => effect?.type === "system_action" && ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL"].includes(effect?.action)) && (
                       <button type="button" onClick={() => useConsumable(entry.id, entry.item?.name ?? "Consumible")} disabled={itemUsing !== null} className="mt-3 w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-zinc-950 disabled:opacity-50">
-                        {itemUsing === entry.id ? "Usando..." : "Usar"}
+                        {itemUsing === entry.id ? "Usando..." : entry.item?.effects?.some((effect: any) => effect?.action === "CREATE_SKILL") ? "Crear habilidad" : "Usar"}
                       </button>
                     )}
                     {character.isAdmin && (

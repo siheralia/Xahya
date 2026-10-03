@@ -120,6 +120,7 @@ export async function POST(request: Request) {
         await db.transaction(async (tx) => {
           const R = tx.orm.public.CharacterResource; const B = (tx.orm.public as any).Business; const I = (tx.orm.public as any).BusinessInvestment;
           const ownerR = await R.where({ characterId: Number(owned.owner.id) }).first(); const currentB = await B.where({ id: businessId }).first();
+          if (!ownerR || !currentB) throw new Error("No se encontraron los recursos del dueño o el negocio.");
           await R.where({ id: ownerR.id }).update({ money: Number(ownerR.money) - amount });
           await B.where({ id: businessId }).update({ [field]: Number(currentB[field] ?? 0) + amount });
           await I.create({ businessId, type, sourceType, sourceCharacterId: Number(owned.owner.id), amount });

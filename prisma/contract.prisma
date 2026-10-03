@@ -40,6 +40,28 @@ model Character {
   economyPaymentsReceived EconomyPaymentLog[] @relation("EconomyRecipient")
 }
 
+model Skill {
+  id          Int       @id @default(autoincrement())
+  characterId Int
+  character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
+  name        String
+  cost        Int       @default(0)
+  description String?
+  duration    String?
+  category    String    @default("UTILITY")
+  areaOfEffect String?
+  speed       String?
+  cooldown    String?
+  effect      Json      @default("[]")
+  condition   String?
+  status      String    @default("PENDING")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  approvedAt  DateTime?
+  @@index([characterId])
+  @@index([status])
+}
+
 model CharacterStat {
   id           Int       @id @default(autoincrement())
   characterId  Int

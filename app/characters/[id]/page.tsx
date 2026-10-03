@@ -1589,6 +1589,141 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           ) : <p className="mt-5 text-sm text-zinc-500">No tiene perks.</p>}
         </section>
 
+        <section className="mt-10 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold">Habilidades</h2>
+              <p className="mt-1 text-sm" style={{ color: themePalette.muted }}>Abre el menú para consultar tus habilidades sin ocupar espacio permanente en la ficha.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {skillCreationCredits > 0 && (
+                <button type="button" onClick={openSkillCreator} className="rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-zinc-950">
+                  Crear habilidad · {skillCreationCredits}
+                </button>
+              )}
+              <button type="button" onClick={() => setSkillsOpen((value) => !value)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200">
+                {skillsOpen ? "Cerrar menú" : "Abrir menú"}
+              </button>
+            </div>
+          </div>
+
+          {skillsOpen && (
+            <div className="mt-5 space-y-4">
+              {skills.length === 0 && pendingSkills.length === 0 && (
+                <p className="text-sm text-zinc-500">Todavía no tienes habilidades aprobadas.</p>
+              )}
+
+              {skills.map((skill) => (
+                <div key={skill.id} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold" style={{ color: themePalette.foreground }}>{skill.name}</h3>
+                      <p className="mt-1 text-xs" style={{ color: themePalette.muted }}>
+                        {skillCategories.find((category) => category[0] === skill.category)?.[1] ?? skill.category}
+                        {" · "}Coste {skill.cost}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-emerald-400/25 px-2 py-1 text-xs text-emerald-300">Aprobada</span>
+                  </div>
+                  <p className="mt-3 text-sm text-zinc-300 whitespace-pre-wrap">{skill.description}</p>
+                  <div className="mt-3 grid gap-2 text-xs text-zinc-500 sm:grid-cols-2 lg:grid-cols-4">
+                    {skill.duration && <span>⏳ Duración: {skill.duration}</span>}
+                    {skill.areaOfEffect && <span>◎ Área: {skill.areaOfEffect}</span>}
+                    {skill.speed && <span>⚡ Velocidad: {skill.speed}</span>}
+                    {skill.cooldown && <span>↻ Cooldown: {skill.cooldown}</span>}
+                  </div>
+                  {skill.condition && <p className="mt-3 text-xs text-amber-300">Condición: {skill.condition}</p>}
+                  {skill.effect?.length > 0 && (
+                    <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Efecto</p>
+                      <div className="mt-2 space-y-1.5 text-sm">
+                        {skill.effect.map((effect, index) => {
+                          if (effect.type === "NARRATIVE") return <p key={index} className="text-zinc-300">• {effect.description}</p>;
+                          const targetLabel = skillTargets.find((target) => target[0] === effect.target)?.[1] ?? effect.target ?? "Objetivo";
+                          if (effect.type === "DAMAGE_MULTIPLIER") {
+                            const targetValue = effect.target === "MAGIC_ATK"
+                              ? (character.derivedStats?.magicAttack ?? 0) * allAttackMultiplier
+                              : effect.target === "PHYS_ATK"
+                                ? (character.derivedStats?.physicalAttack ?? 0) * allAttackMultiplier
+                                : null;
+                            const shown = targetValue !== null ? " = " + formatNumber(targetValue * Number(effect.value ?? 0) / 100) : "";
+                            return <p key={index} className="text-rose-300">• Daño: {targetLabel} ×{formatNumber(Number(effect.value ?? 0) / 100)}{shown}</p>;
+                          }
+                          if (effect.type === "STAT_MULTIPLIER") return <p key={index} className="text-cyan-300">• {targetLabel} ×{formatNumber(Number(effect.value ?? 1))}</p>;
+                          return <p key={index} className="text-cyan-300">• {targetLabel} {Number(effect.value ?? 0) >= 0 ? "+" : ""}{formatNumber(Number(effect.value ?? 0))}</p>;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {pendingSkills.length > 0 && (
+                <div className="rounded-xl border border-amber-400/20 bg-amber-950/10 p-4">
+                  <p className="font-semibold text-amber-300">Solicitudes pendientes</p>
+                  <div className="mt-3 space-y-2">
+                    {pendingSkills.map((skill) => (
+                      <div key={skill.id} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-medium">{skill.name}</span>
+                          <span className="text-xs text-amber-300">{skill.status === "REJECTED" ? "Rechazada" : "Pendiente"}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-zinc-500">{skill.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {skillModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4">
+            <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-cyan-400/30 bg-zinc-950 p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold">Crear habilidad</h2>
+                  <p className="mt-1 text-sm text-zinc-500">Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise.</p>
+                </div>
+                <button type="button" onClick={() => setSkillModalOpen(false)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">Cerrar</button>
+              </div>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <label className="text-sm text-zinc-400">Nombre<input value={skillForm.name} onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Coste<input type="number" min="0" value={skillForm.cost} onChange={(e) => setSkillForm({ ...skillForm, cost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Categoría<select value={skillForm.category} onChange={(e) => setSkillForm({ ...skillForm, category: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">{skillCategories.map((category) => <option key={category[0]} value={category[0]}>{category[1]}</option>)}</select></label>
+                <label className="text-sm text-zinc-400">Duración<input value={skillForm.duration} onChange={(e) => setSkillForm({ ...skillForm, duration: e.target.value })} placeholder="Ej. 3 turnos / Instantánea" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Área de efecto<input value={skillForm.areaOfEffect} onChange={(e) => setSkillForm({ ...skillForm, areaOfEffect: e.target.value })} placeholder="Ej. Objetivo único / 5 m" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Velocidad<input value={skillForm.speed} onChange={(e) => setSkillForm({ ...skillForm, speed: e.target.value })} placeholder="Ej. Instantánea / 1 turno" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Cooldown<input value={skillForm.cooldown} onChange={(e) => setSkillForm({ ...skillForm, cooldown: e.target.value })} placeholder="Ej. 2 turnos" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                {skillForm.category === "PASSIVE" && <label className="text-sm text-zinc-400">Condición<input value={skillForm.condition} onChange={(e) => setSkillForm({ ...skillForm, condition: e.target.value })} placeholder="Ej. Mientras tenga más de 50% de HP" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>}
+              </div>
+              <label className="mt-4 block text-sm text-zinc-400">Descripción<textarea rows={4} value={skillForm.description} onChange={(e) => setSkillForm({ ...skillForm, description: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+
+              <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+                <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">Efecto</h3><p className="text-xs text-zinc-500">Ej. ofensiva: Ataque mágico ×2. Soporte: Fuerza ×1.5.</p></div><button type="button" onClick={addSkillEffect} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">+ Añadir</button></div>
+                <div className="mt-4 space-y-3">
+                  {skillForm.effect.map((effect, index) => {
+                    const narrative = effect.type === "NARRATIVE";
+                    return <div key={index} className="grid gap-2 sm:grid-cols-[170px_1fr_100px_auto]">
+                      <select value={effect.type} onChange={(e) => updateSkillEffect(index, "type", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{skillEffectTypes.map((type) => <option key={type[0]} value={type[0]}>{type[1]}</option>)}</select>
+                      {narrative
+                        ? <input value={effect.description ?? ""} onChange={(e) => updateSkillEffect(index, "description", e.target.value)} placeholder="Qué ocurre en rol" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" />
+                        : <select value={effect.target ?? "MAGIC_ATK"} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{skillTargets.map((target) => <option key={target[0]} value={target[0]}>{target[1]}</option>)}</select>}
+                      {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "200 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
+                      <button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
+                    </div>;
+                  })}
+                  {!skillForm.effect.length && <p className="text-sm text-zinc-600">Sin efectos estructurados.</p>}
+                </div>
+              </div>
+              <button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || skillCreationCredits <= 0} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">
+                {skillSaving ? "Enviando..." : "Enviar para aprobación"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {character.equipment.some((entry) => entry.equipped) ? (
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {character.equipment.filter((entry) => entry.equipped).map((entry) => (

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
+import { EFFECT_CATALOG, EFFECT_TARGETS } from "@/lib/effects/catalog";
 
 type Effect = { type: string; target?: string; value?: number; description?: string };
 type Skill = {
@@ -11,14 +12,7 @@ type Skill = {
 };
 
 const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"]];
-const effectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["NARRATIVE","Narrativo"],["IGNORE_PHYS_DEF_MULTIPLIER","Ignorar defensa física ×"],["IGNORE_PHYS_DEF_BONUS","Ignorar defensa física +"],["IGNORE_MAGIC_DEF_MULTIPLIER","Ignorar defensa mágica ×"],["IGNORE_MAGIC_DEF_BONUS","Ignorar defensa mágica +"],["IGNORE_ALL_DEF_MULTIPLIER","Ignorar defensas ×"],["IGNORE_ALL_DEF_BONUS","Ignorar defensas +"],["FINAL_DAMAGE_MULTIPLIER","Daño final ocasionado ×"],["FINAL_DAMAGE_BONUS","Daño final ocasionado +"]];
-const targets = [
-  ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
-  ["HP","HP"],["MANA","Mana"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],
-  ["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],
-  ["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],
-];
-const combatEffectTypes=["IGNORE_PHYS_DEF_MULTIPLIER","IGNORE_PHYS_DEF_BONUS","IGNORE_MAGIC_DEF_MULTIPLIER","IGNORE_MAGIC_DEF_BONUS","IGNORE_ALL_DEF_MULTIPLIER","IGNORE_ALL_DEF_BONUS","FINAL_DAMAGE_MULTIPLIER","FINAL_DAMAGE_BONUS"];\nconst blankEffect=():Effect=>({type:"STAT_BONUS",target:"STR",value:10,description:""});
+const effectTypes=EFFECT_CATALOG.map(e=>[e.type,e.label] as const);\nconst blankEffect=():Effect=>({type:"STAT_BONUS",target:"STR",value:10,description:""});
 const blankForm=()=>({characterId:"",name:"",cost:0,description:"",duration:"",category:"UTILITY",areaOfEffect:"",speed:"",cooldown:"",condition:"",effect:[] as Effect[]});
 
 export default function SkillsManagementPage(){
@@ -132,7 +126,7 @@ export default function SkillsManagementPage(){
             const narrative=effect.type==="NARRATIVE";
             return <div key={i} className="grid gap-2 sm:grid-cols-[170px_1fr_110px_auto]">
               <select value={effect.type??"STAT_BONUS"} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{effectTypes.map(t=><option key={t[0]} value={t[0]}>{t[1]}</option>)}</select>
-              {!narrative?(combat?<div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-2 py-2 text-sm text-zinc-400">Sin objetivo adicional</div>:<select value={effect.target??"STR"} onChange={e=>updateEffect(i,"target",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{targets.map(t=><option key={t[0]} value={t[0]}>{t[1]}</option>)}</select>):<input value={effect.description??""} onChange={e=>updateEffect(i,"description",e.target.value)} placeholder="Descripción del efecto" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm"/>}
+              {!narrative?(combat?<div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-2 py-2 text-sm text-zinc-400">Sin objetivo adicional</div>:<select value={effect.target??"STR"} onChange={e=>updateEffect(i,"target",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{(EFFECT_TARGETS[effect.type as keyof typeof EFFECT_TARGETS]??[]).map(t=><option key={t} value={t}>{t}</option>)}</select>):<input value={effect.description??""} onChange={e=>updateEffect(i,"description",e.target.value)} placeholder="Descripción del efecto" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm"/>}
               {!narrative?<input type="number" step="0.01" value={effect.value??0} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" placeholder="Valor"/>:<span/>}
               <button type="button" onClick={()=>setForm(f=>({...f,effect:f.effect.filter((_,idx)=>idx!==i)}))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
             </div>;

@@ -78,7 +78,7 @@ export default function MazePage(){
     setBusy(false);
   }
   const room=maze?.rooms?.find((r:Room)=>Number(r.id)===Number(position)) as Room|undefined;
-  const exits=(maze?.exits??[]).filter((e:Exit)=>Number(e.fromRoomId)===Number(position));
+  const exits=(maze?.currentExits??maze?.exits??[]).filter((e:Exit)=>Number(e.fromRoomId)===Number(position));
   const roomById=new Map<number,Room>((maze?.rooms??[]).map((entry:Room)=>[Number(entry.id),entry]));
   // La entrada es exclusivamente la salida que lleva a la habitación de la que acabas de venir.
   // No buscamos cualquier conexión que apunte a la habitación actual: en un laberinto

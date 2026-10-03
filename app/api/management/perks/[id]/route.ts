@@ -26,7 +26,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!Number.isFinite(probability) || probability < 0) return NextResponse.json({ error: "Probabilidad inválida." }, { status: 400 });
     data.probability = probability;
   }
-  if (Array.isArray(body?.effects)) data.effects = body.effects;
+  if (Array.isArray(body?.effects)) {
+    const validCombatTypes = ["IGNORE_PHYS_DEF_MULTIPLIER","IGNORE_PHYS_DEF_BONUS","IGNORE_MAGIC_DEF_MULTIPLIER","IGNORE_MAGIC_DEF_BONUS","IGNORE_ALL_DEF_MULTIPLIER","IGNORE_ALL_DEF_BONUS","FINAL_DAMAGE_MULTIPLIER","FINAL_DAMAGE_BONUS"];
+    if (body.effects.some((e:any) => !e || typeof e.type !== "string" || (!["STAT_BONUS","STAT_MULTIPLIER","RESOURCE_BONUS","COMBAT_MULTIPLIER","EQUIPMENT_SLOT_CAP"].includes(e.type) && !validCombatTypes.includes(e.type)) || !Number.isFinite(Number(e.value)))) return NextResponse.json({ error: "Efecto de perk inválido." }, { status: 400 });
+    data.effects = body.effects;
+  }
   if (typeof body?.stackable === "boolean") data.stackable = body.stackable;
   if (body?.maxStacks !== undefined) data.maxStacks = body.maxStacks == null || body.maxStacks === "" ? null : Math.max(1, Math.trunc(Number(body.maxStacks)));
   if (typeof body?.active === "boolean") data.active = body.active;

@@ -42,6 +42,7 @@ model Character {
   economyPaymentsReceived EconomyPaymentLog[]
   properties CharacterProperty[]
   subscriptions BusinessSubscription[]
+  investmentsAsSource BusinessInvestment[]
 }
 
 model Skill {

@@ -41,7 +41,7 @@ model Character {
   employmentContracts EmploymentContract[] @relation("EmploymentCharacter")
   economyPaymentsReceived EconomyPaymentLog[]
   properties CharacterProperty[]
-  subscriptions BusinessSubscription[] @relation("EconomyRecipient")
+  subscriptions BusinessSubscription[]
 }
 
 model Skill {

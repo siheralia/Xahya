@@ -183,6 +183,7 @@ export async function GET(
         const stat = String(effect.stat ?? "");
         if (type === "stat_multiplier" && stat === "ATTACK_TOTAL") return [{ type: "attack_multiplier_all", value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
         if (type === "stat_bonus" && stat === "DAMAGE_REDUCTION_ALL") return [{ type: "damage_reduction_all", value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
+        if (["ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus"].includes(type)) return [{ type, value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
         if (type === "attack_multiplier_all" || type === "damage_reduction_all") return [{ type, value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
         return [];
       });

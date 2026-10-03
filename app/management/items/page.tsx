@@ -7,12 +7,12 @@ import { EFFECT_CATALOG } from "@/lib/effects/catalog";
 type Effect = { type: string; stat: string; action?: string; value: number; description: string };
 type Item = {
   id: number; name: string; description: string | null; itemType: string; itemSubtype: string | null;
-  acquisitionType: string; price: number; effects: Effect[]; allowedSlots: string[];
+  acquisitionType: string; price: number; effects: Effect[]; allowedSlots: string[]; imagePath?: string | null; imageUrl?: string | null;
 };
 
 const itemTypes = [
   ["WEAPON","Arma"],["ARMOR","Armadura"],["ACCESSORY","Accesorio"],
-  ["CONSUMABLE","Consumible"],["MATERIAL","Material"],["OTHER","Otro"],
+  ["CONSUMABLE","Consumible"],["MATERIAL","Material"],["PROPERTY","Propiedad"],["OTHER","Otro"],
 ];
 const acquisitionTypes = [
   ["PURCHASABLE","Comprable"],["CRAFTED","Fabricado"],["ABILITY_GENERATED","Generado por habilidad"],
@@ -47,7 +47,7 @@ export default function ItemsManagementPage() {
   const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
   const [error,setError]=useState(""); const [success,setSuccess]=useState("");
-  const [modalOpen,setModalOpen]=useState(false);
+  const [modalOpen,setModalOpen]=useState(false); const [imageFile,setImageFile]=useState<File|null>(null); const [imagePreview,setImagePreview]=useState<string|null>(null);
   const [search,setSearch]=useState(""); const [filterType,setFilterType]=useState("ALL"); const [filterSubtype,setFilterSubtype]=useState("ALL"); const [filterSlot,setFilterSlot]=useState("ALL"); const [filterAcquisition,setFilterAcquisition]=useState("ALL"); const [filterStat,setFilterStat]=useState("ALL"); const [filterMinValue,setFilterMinValue]=useState("");
 
   async function load(){
@@ -76,10 +76,10 @@ export default function ItemsManagementPage() {
   function edit(item: Item){
     setSelected(item.id);
     setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",acquisitionType:item.acquisitionType,price:Number(item.price),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:["stat_bonus","system_action","ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus"].includes(String(effect.type))?String(effect.type):"stat_multiplier",stat:EFFECT_TARGETS.some(x=>x[0]===String(effect.stat))?String(effect.stat):String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":"OTHER",action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
-    setSuccess(""); setError("");
+    setSuccess(""); setError(""); setImageFile(null); setImagePreview(item.imageUrl ?? null);
     setModalOpen(true);
   }
-  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setModalOpen(true);}
+  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
@@ -94,8 +94,15 @@ export default function ItemsManagementPage() {
       const url=selected?"/api/management/items/"+selected:"/api/management/items";
       const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});
       const d=await r.json(); if(!r.ok) throw new Error(d.error);
+      const savedId=Number(d?.item?.id ?? selected);
+      if(imageFile && savedId){
+        const fd=new FormData(); fd.set("itemId",String(savedId)); fd.set("file",imageFile);
+        const imageResponse=await fetch("/api/management/items/image",{method:"POST",body:fd});
+        const imageData=await imageResponse.json().catch(()=>null);
+        if(!imageResponse.ok) throw new Error(imageData?.error ?? "El objeto se guardó, pero no se pudo subir la imagen.");
+      }
       setSuccess(selected?"Objeto actualizado correctamente.":"Objeto creado correctamente.");
-      await load(); if(d.item) setSelected(d.item.id); setModalOpen(false);
+      await load(); if(savedId) setSelected(savedId); setModalOpen(false); setImageFile(null);
     }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar el objeto.");}finally{setSaving(false);}
   }
   async function remove(){
@@ -137,13 +144,23 @@ export default function ItemsManagementPage() {
         <div className="mt-5 grid gap-4">
           <label>Nombre<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           <label>Descripción<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={3} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
+          <div className="rounded-xl border border-zinc-800 p-4">
+            <div className="flex flex-wrap items-center gap-4">
+              {imagePreview ? <img src={imagePreview} alt={form.name || "Propiedad"} className="h-32 w-48 rounded-xl border border-zinc-700 object-cover" /> : <div className="flex h-32 w-48 items-center justify-center rounded-xl border border-dashed border-zinc-700 text-sm text-zinc-600">Sin imagen</div>}
+              <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
+                {form.itemType === "PROPERTY" ? "Subir imagen de propiedad" : "Subir imagen"}
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={e=>{const f=e.target.files?.[0] ?? null; setImageFile(f); if(f) setImagePreview(URL.createObjectURL(f)); e.currentTarget.value="";}} />
+              </label>
+            </div>
+            <p className="mt-2 text-xs text-zinc-600">Máximo 5 MB. Las propiedades pueden tener una imagen propia.</p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <label>Tipo de categoría<select value={form.itemType} onChange={e=>setForm({...form,itemType:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{itemTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
             <label>Tipo específico<input list="item-subtype-options" value={form.itemSubtype} onChange={e=>setForm({...form,itemSubtype:e.target.value})} placeholder="Ej. Espada, Lanza..." className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/><datalist id="item-subtype-options">{["Espada","Lanza","Daga","Arco","Ballesta","Bastón","Vara","Hacha","Martillo","Escudo","Casco","Armadura","Botas","Guantes","Anillo","Collar","Consumible","Material","Otro"].map(value=><option key={value} value={value}/>)}</datalist></label>
             <label>Obtención<select value={form.acquisitionType} onChange={e=>setForm({...form,acquisitionType:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{acquisitionTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
             <label>Precio<input type="number" min={0} value={form.price} onChange={e=>setForm({...form,price:Number(e.target.value)||0})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           </div>
-          <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">{form.allowedSlots.length ? "El objeto solo podrá equiparse en los slots seleccionados." : "Este objeto no se equipa."}</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>
+          {form.itemType !== "PROPERTY" && <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">{form.allowedSlots.length ? "El objeto solo podrá equiparse en los slots seleccionados." : "Este objeto no se equipa."}</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>}
           <div><div className="flex items-center justify-between"><h3 className="font-medium">Efectos</h3><div className="flex items-center gap-3">{noEffects(form.effects)&&<span className="text-sm text-zinc-500">Sin efectos</span>}<button type="button" onClick={()=>setForm(f=>({...f,effects:[...f.effects,emptyEffect()]}))} className="text-sm text-zinc-300">+ Añadir efecto</button></div></div>
           <div className="mt-3 space-y-3">{form.effects.map((effect,i)=><div key={i} className="rounded-xl border border-zinc-800 p-4">
             <div className="grid gap-3 sm:grid-cols-3">

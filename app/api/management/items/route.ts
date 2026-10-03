@@ -26,7 +26,7 @@ function validate(body: any) {
   const price = Number(body.price ?? 0);
   const effects = Array.isArray(body.effects) ? body.effects : [];
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : [];
-  const systemActions = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED"];
+  const systemActions = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL"];
   if (!name || name.length > 100) return "El nombre debe tener entre 1 y 100 caracteres.";
   if (!ITEM_TYPES.includes(itemType as any)) return "Tipo de objeto inválido.";
   if (!ACQUISITION_TYPES.includes(acquisitionType as any)) return "Tipo de obtención inválido.";

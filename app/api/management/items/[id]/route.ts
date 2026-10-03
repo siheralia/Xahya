@@ -5,6 +5,8 @@ import { recordAuditEvent } from "@/lib/audit";
 import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 import { EFFECT_TYPES } from "@/lib/effects/catalog";
 
+const ITEM_TYPES = ["WEAPON", "ARMOR", "ACCESSORY", "CONSUMABLE", "MATERIAL", "PROPERTY", "OTHER"] as const;
+
 async function getAdmin() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;

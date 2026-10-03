@@ -821,6 +821,23 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       skills.length
         ? skills.flatMap((skill) => {
             const categoryLabels: Record<string, string> = { OFFENSIVE: "Ofensiva", PASSIVE: "Pasiva", SUPPORT: "Soporte", UTILITY: "Utilidad" };
+            const targetLabels: Record<string, string> = Object.fromEntries(skillTargets.map(([value, label]) => [value, label]));
+            const effectLines = skill.effect.map((effect) => {
+              const target = effect.target ? (targetLabels[effect.target] ?? effect.target) : "";
+              if (effect.type === "NARRATIVE") {
+                return effect.description ? "  " + effect.description : "";
+              }
+              if (effect.type === "DAMAGE_MULTIPLIER") {
+                return "  Daño: " + target + " ×" + formatNumber(Number(effect.value ?? 100) / 100);
+              }
+              if (effect.type === "STAT_MULTIPLIER") {
+                return "  " + target + " ×" + formatNumber(Number(effect.value ?? 100) / 100);
+              }
+              if (effect.type === "STAT_BONUS") {
+                return "  " + target + " " + (Number(effect.value ?? 0) >= 0 ? "+" : "") + formatNumber(Number(effect.value ?? 0));
+              }
+              return "";
+            }).filter(Boolean);
             return [
               "• *" + skill.name + "* — " + (categoryLabels[skill.category] ?? skill.category) + " | Coste: " + formatNumber(skill.cost),
               ...(skill.description ? ["  " + skill.description] : []),
@@ -829,6 +846,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               ...(skill.speed ? ["  Velocidad: " + skill.speed] : []),
               ...(skill.cooldown ? ["  Cooldown: " + skill.cooldown] : []),
               ...(skill.condition ? ["  Condición: " + skill.condition] : []),
+              ...effectLines,
             ];
           }).join("\n")
         : "• Ninguna",

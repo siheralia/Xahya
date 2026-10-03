@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted, depthMultiplier, pickEnemyFocus, pickEnemyBehavior, scaleEnemyStats, enemyMatchesMazeThemes } from "@/lib/maze";
+import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted, depthMultiplier, pickEnemyFocus, pickEnemyBehavior, scaleEnemyStats, enemyMatchesMazeThemes, registerMazeEncounterRelationships } from "@/lib/maze";
 import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
 import { getDefaultEnemyImageUrl, getEnemyImagePaths, getEnemyImageUrl } from "@/lib/enemy-image";
 
@@ -775,6 +775,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         status:destinationLock ? "TRAPPED" : "ACTIVE",
         lockReason:destinationLock ? "TRAP" : null,
       });
+      // Encontrar a otro personaje en la misma habitación hace que ambos se conozcan.
+      await registerMazeEncounterRelationships(tx, Number(destination.id), characterId);
       const encounters = TxMazeRoomEnemy ? await TxMazeRoomEnemy.where({ roomId:destination.id, status:"ACTIVE" }).all() : [];
       if (encounters.length > 0) {
         const definitions = await (tx.orm.public as any).Enemy.all();
@@ -819,6 +821,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       status:destinationStatus,
       lockReason:destinationLockReason,
     });
+
+    // Encontrar a otro personaje en la misma habitación hace que ambos se conozcan.
+    await registerMazeEncounterRelationships(tx, Number(destination.id), characterId);
 
     const destinationEncounters = TxMazeRoomEnemy ? await TxMazeRoomEnemy.where({ roomId:destination.id, status:"ACTIVE" }).all() : [];
     if (destinationEncounters.length > 0) {

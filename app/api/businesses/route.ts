@@ -62,7 +62,7 @@ export async function GET() {
       id: Number(business.id), name: String(business.name), description: business.description ?? null,
       ownerCharacterId: Number(business.ownerCharacterId),
       ownerCharacter: owned.find((character: any) => Number(character.id) === Number(business.ownerCharacterId)) ?? null,
-      passiveIncome: Number(business.passiveIncome ?? 0), passiveFrequency: String(business.passiveFrequency ?? "WEEKLY"), balance: Number(business.balance ?? 0),
+      passiveIncome: Number(business.passiveIncome ?? 0), weeklyExpenses: Number(business.weeklyExpenses ?? 0), passiveFrequency: String(business.passiveFrequency ?? "WEEKLY"), balance: Number(business.balance ?? 0),
       securityInvestment: Number(business.securityInvestment ?? 0), growthInvestment: Number(business.growthInvestment ?? 0),
       products: products.filter((p:any)=>Number(p.businessId)===Number(business.id)&&p.active).map((p:any)=>({id:Number(p.id),itemId:Number(p.itemId),purchasePrice:Number(p.purchasePrice),salePrice:Number(p.salePrice),stock:Number(p.stock),item:(()=>{const item=items.find((i:any)=>Number(i.id)===Number(p.itemId)); return item?{id:Number(item.id),name:String(item.name),description:item.description??null,itemType:String(item.itemType),imagePath:item.imagePath??null}:null;})()})),
       subscriptionPlans: plans.filter((p:any)=>Number(p.businessId)===Number(business.id)&&p.active).map((p:any)=>({id:Number(p.id),name:String(p.name),description:p.description??null,price:Number(p.price),intervalValue:Number(p.intervalValue),intervalUnit:String(p.intervalUnit)})),

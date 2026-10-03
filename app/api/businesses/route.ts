@@ -48,7 +48,16 @@ export async function GET() {
   const ownedBusinesses = businesses.filter((business: any) => ownedIds.has(Number(business.ownerCharacterId)));
   const knownByOwner = new Set(relationships.filter((row: any) => ownedIds.has(Number(row.characterId))).map((row: any) => Number(row.knownCharacterId)));
 
+  async function signedItemImage(path: unknown) {
+    if (!path || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+    const response = await fetch(process.env.SUPABASE_URL + "/storage/v1/object/sign/item-images/" + String(path), { method:"POST", headers:{Authorization:"Bearer "+process.env.SUPABASE_SERVICE_ROLE_KEY,apikey:process.env.SUPABASE_SERVICE_ROLE_KEY,"Content-Type":"application/json"}, body:JSON.stringify({expiresIn:3600}), cache:"no-store" });
+    if (!response.ok) return null;
+    const data=await response.json().catch(()=>null);
+    return data?.signedURL ? process.env.SUPABASE_URL+"/storage/v1"+data.signedURL : null;
+  }
+  const propertyItems = await Promise.all(items.filter((item:any)=>String(item.itemType)==="PROPERTY").map(async (item:any)=>({id:Number(item.id),name:String(item.name),description:item.description??null,imageUrl:await signedItemImage(item.imagePath)})));
   return NextResponse.json({
+    propertyItems,
     businesses: ownedBusinesses.map((business: any) => ({
       id: Number(business.id), name: String(business.name), description: business.description ?? null,
       ownerCharacterId: Number(business.ownerCharacterId),

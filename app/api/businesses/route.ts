@@ -89,7 +89,6 @@ export async function GET() {
         payerType: String(p.payerType ?? "SYSTEM"), payerCharacterId: p.payerCharacterId == null ? null : Number(p.payerCharacterId),
         contracts: contracts.filter((c: any) => Number(c.positionId) === Number(p.id) && c.active).map((c: any) => ({ id: Number(c.id), character: characters.find((ch: any) => Number(ch.id) === Number(c.characterId)) ?? null })),
       })),
-    }),
       candidates: candidatesByBusiness.get(Number(business.id)) ?? [],
     })),
   });

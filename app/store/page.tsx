@@ -177,7 +177,7 @@ export default function StorePage() {
   const theme = currentStaff?.character.themePalette ?? null;
 
   return (
-    <main className="min-h-screen text-white transition-colors" style={theme ? { backgroundColor: theme.background, color: theme.foreground, "--store-muted": theme.muted } as CSSProperties : { backgroundColor: "#09090b", "--store-muted": "#a1a1aa" } as CSSProperties}>
+    <main className="min-h-screen text-white transition-colors" style={theme ? { backgroundColor: theme.background, color: theme.foreground, "--store-muted": `color-mix(in srgb, ${theme.foreground} 68%, transparent)` } as CSSProperties : { backgroundColor: "#09090b", "--store-muted": "rgba(255,255,255,.68)" } as CSSProperties}>
       <div className="mx-auto max-w-6xl px-6 py-6">
         {currentStaff && (
           <section className="relative mb-8 overflow-hidden rounded-3xl border shadow-2xl" style={{ borderColor: theme?.border ?? "#3f3f46", backgroundColor: theme?.surface ?? "#18181b" }}>

@@ -9,6 +9,22 @@ type EquipmentItem = {
   item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; value: number; description?: string; action?: string }[] } | null;
 };
 
+type SkillEffect = { type: "DAMAGE_MULTIPLIER" | "STAT_MULTIPLIER" | "STAT_BONUS" | "NARRATIVE"; target?: string; value?: number; description?: string };
+type Skill = {
+  id: number; characterId: number; name: string; cost: number; description: string | null; duration: string | null;
+  category: string; areaOfEffect: string | null; speed: string | null; cooldown: string | null; effect: SkillEffect[];
+  condition: string | null; status: string; approvedAt: string | null;
+};
+
+const skillCategories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"]] as const;
+const skillEffectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["NARRATIVE","Narrativo"]] as const;
+const skillTargets = [
+  ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
+  ["HP","HP"],["MANA","Mana"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],
+  ["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],
+  ["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],
+] as const;
+
 type ThemePalette = {
   primary: string;
   secondary: string;
@@ -471,7 +487,35 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [transferBusy, setTransferBusy] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [perkRecoveryBusy, setPerkRecoveryBusy] = useState(false);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [pendingSkills, setPendingSkills] = useState<Skill[]>([]);
+  const [skillCreationCredits, setSkillCreationCredits] = useState(0);
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [skillModalOpen, setSkillModalOpen] = useState(false);
+  const [skillSaving, setSkillSaving] = useState(false);
+  const [skillForm, setSkillForm] = useState({
+    name: "", cost: 0, description: "", duration: "", category: "OFFENSIVE",
+    areaOfEffect: "", speed: "", cooldown: "", condition: "",
+    effect: [] as SkillEffect[],
+  });
   const themePalette = character?.themePalette ?? DEFAULT_THEME;
+
+  useEffect(() => {
+    if (!character) return;
+    fetch("/api/characters/" + character.id + "/skills", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json();
+        setSkills(data.skills ?? []);
+        setPendingSkills(data.pendingSkills ?? []);
+        setSkillCreationCredits(Number(data.skillCreationCredits ?? 0));
+      })
+      .catch(() => {
+        setSkills([]);
+        setPendingSkills([]);
+        setSkillCreationCredits(0);
+      });
+  }, [character?.id]);
 
   useEffect(() => {
     if (!character) return;
@@ -951,12 +995,68 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       const refreshed = await fetch("/api/characters/" + character.id, { cache: "no-store" });
       if (!refreshed.ok) throw new Error("El consumible se usó, pero no se pudo actualizar el inventario.");
       setCharacter(await refreshed.json());
-      setSuccess(data.action === "ESCAPE_MAZE" ? "Consumible usado. Has regresado a la habitación inicial del laberinto." : "Consumible usado.");
+      if (data.action === "CREATE_SKILL") {
+        setSkillCreationCredits(Number(data.skillCreationCredits ?? skillCreationCredits + 1));
+        setSkillModalOpen(true);
+        setSkillsOpen(true);
+        setSuccess("Cristal consumido. Ahora puedes crear una habilidad y enviarla a aprobación.");
+      } else {
+        setSuccess(data.action === "ESCAPE_MAZE" ? "Consumible usado. Has regresado a la habitación inicial del laberinto." : "Consumible usado.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo usar el consumible.");
     } finally {
       setItemUsing(null);
     }
+  }
+
+  function addSkillEffect() {
+    setSkillForm((current) => ({ ...current, effect: [...current.effect, { type: "STAT_BONUS", target: "STR", value: 10, description: "" }] }));
+  }
+
+  function updateSkillEffect(index: number, key: keyof SkillEffect, value: string) {
+    setSkillForm((current) => ({
+      ...current,
+      effect: current.effect.map((effect, effectIndex) => effectIndex === index
+        ? { ...effect, [key]: key === "value" ? Number(value) : value }
+        : effect),
+    }));
+  }
+
+  async function submitSkill() {
+    if (!character || skillSaving || skillCreationCredits <= 0) return;
+    setSkillSaving(true); setError(""); setSuccess("");
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(skillForm),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo enviar la habilidad.");
+      setSkillCreationCredits((value) => Math.max(0, value - 1));
+      setPendingSkills((current) => [data.skill, ...current]);
+      setSkillModalOpen(false);
+      setSkillForm({ name: "", cost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
+      setSuccess("Habilidad enviada. Quedó pendiente de aprobación administrativa.");
+      const refreshed = await fetch("/api/characters/" + character.id + "/skills", { cache: "no-store" });
+      if (refreshed.ok) {
+        const skillData = await refreshed.json();
+        setSkills(skillData.skills ?? []);
+        setPendingSkills(skillData.pendingSkills ?? []);
+        setSkillCreationCredits(Number(skillData.skillCreationCredits ?? 0));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo enviar la habilidad.");
+    } finally {
+      setSkillSaving(false);
+    }
+  }
+
+  function openSkillCreator() {
+    if (skillCreationCredits <= 0) return;
+    setSkillForm({ name: "", cost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
+    setSkillModalOpen(true);
   }
 
   async function changeEquipment(characterItemId: number, equipped: boolean, slot?: string) {

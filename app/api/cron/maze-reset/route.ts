@@ -42,6 +42,20 @@ export async function GET(request: NextRequest) {
       }
 
       let root = rootRoom;
+      if (!root) {
+        root = await Room.create({
+          mazeId: Number(maze.id),
+          roomNumber: 1,
+          roomType: "SAFE",
+          status: "OPEN",
+          description: "El ambiente es extrañamente tranquilo. Por primera vez no parece haber peligro.",
+          contentName: null,
+          contentDescription: null,
+          treasureClaimed: false,
+          treasureRewards: {},
+          trapActive: false,
+        });
+      }
       if (root) {
         await Room.where({ id: Number(root.id) }).update({
           roomType: "SAFE",

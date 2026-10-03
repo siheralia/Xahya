@@ -44,8 +44,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const freshSkill = await TxSkill.where({ id }).first();
       if (!freshSkill) throw new Error("SKILL_NOT_FOUND");
 
-      // El reembolso ocurre solo al entrar por primera vez en REJECTED.
-      // Así un doble clic o un segundo rechazo no duplica el Cristal.
       const shouldRefund = reject && String(freshSkill.status) !== "REJECTED";
 
       await TxSkill.where({ id }).update({
@@ -101,19 +99,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }, { status: 500 });
   }
 
-  await recordAuditEvent({
-    actorUserId: admin.id,
-    action: approve ? "SKILL_APPROVE" : reject ? "SKILL_REJECT" : "SKILL_UPDATE",
-    entityType: "SKILL",
-    entityId: id,
-    characterId: Number(updated.characterId),
-    details: {
-      before: skill,
-      after: updated,
-      refundedSkillCrystal: refundedCredit,
-      skillCreationCredits,
-    },
-  });
+  // La auditoría no debe convertir una operación ya realizada en un error
+  // para el usuario. Si falla, la aprobación/rechazo ya quedó guardada.
+  try {
+    await recordAuditEvent({
+      actorUserId: admin.id,
+      action: approve ? "SKILL_APPROVE" : reject ? "SKILL_REJECT" : "SKILL_UPDATE",
+      entityType: "SKILL",
+      entityId: id,
+      characterId: Number(updated.characterId),
+      details: {
+        before: skill,
+        after: updated,
+        refundedSkillCrystal: refundedCredit,
+        skillCreationCredits,
+      },
+    });
+  } catch (auditError) {
+    console.error("[management/skills] audit failed after successful update", auditError);
+  }
 
   return NextResponse.json({
     skill: updated,

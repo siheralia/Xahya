@@ -37,13 +37,39 @@ export async function GET() {
   const Product = (db.orm.public as any).BusinessProduct;
   const Plan = (db.orm.public as any).BusinessSubscriptionPlan;
   const Item = (db.orm.public as any).Item;
+  const Subscription = (db.orm.public as any).BusinessSubscription;
+  const Character = db.orm.public.Character;
 
-  const [businesses, products, plans, items] = await Promise.all([
+  const [businesses, products, plans, items, characters, subscriptions] = await Promise.all([
     Business.all(),
     Product.all(),
     Plan.all(),
     Item.all(),
+    Character.all(),
+    Subscription.all(),
   ]);
+
+  const myCharacters = characters.filter((c: any) => Number(c.userId) === Number(current.id));
+  const myCharacterIds = new Set(myCharacters.map((c: any) => Number(c.id)));
+  const myActiveSubscriptions = subscriptions
+    .filter((s: any) => s.active && myCharacterIds.has(Number(s.characterId)))
+    .map((s: any) => {
+      const plan = plans.find((p: any) => Number(p.id) === Number(s.planId));
+      const business = plan ? businesses.find((b: any) => Number(b.id) === Number(plan.businessId)) : null;
+      const character = myCharacters.find((c: any) => Number(c.id) === Number(s.characterId));
+      return {
+        id: Number(s.id),
+        characterId: Number(s.characterId),
+        characterName: character?.name ?? "Personaje",
+        planId: Number(s.planId),
+        planName: plan?.name ?? "Suscripción",
+        businessName: business?.name ?? "Negocio",
+        price: plan ? Number(plan.price) : 0,
+        intervalValue: plan ? Number(plan.intervalValue) : 0,
+        intervalUnit: plan ? String(plan.intervalUnit) : "",
+        nextChargeAt: s.nextChargeAt == null ? null : String(s.nextChargeAt),
+      };
+    });
 
   const activeBusinesses = businesses.filter((b: any) => b.active);
 
@@ -112,5 +138,5 @@ export async function GET() {
     }),
   );
 
-  return NextResponse.json({ businesses: catalogBusinesses });
+  return NextResponse.json({ businesses: catalogBusinesses, subscriptions: myActiveSubscriptions });
 }

@@ -85,7 +85,8 @@ export default function BusinessesPage() {
   function planForm(id:number){return planForms[id]??{name:"",description:"",price:0,intervalValue:1,intervalUnit:"MONTH"};}
   async function invest(businessId:number){const f=invForm(businessId);await submit("invest",{businessId,...f,amount:Number(f.amount)});}
   async function stockProperty(businessId:number){const f=propForm(businessId);await submit("stockProperty",{businessId,itemId:Number(f.itemId),quantity:Number(f.quantity),purchasePrice:Number(f.purchasePrice),salePrice:Number(f.salePrice)});}
-  async function savePlan(businessId:number, planId?:number){const f=planForm(businessId);await submit(planId?"updatePlan":"createPlan",{businessId,...f,...(planId?{planId}:{}),price:Number(f.price),intervalValue:Number(f.intervalValue)});setPlanEditing(v=>({...v,[businessId]:null}));}\n  async function deletePlan(businessId:number, planId:number){if(!window.confirm("¿Eliminar este plan de suscripción? Dejará de aparecer en el catálogo."))return;await submit("deletePlan",{businessId,planId});}
+  async function savePlan(businessId:number, planId?:number){const f=planForm(businessId);await submit(planId?"updatePlan":"createPlan",{businessId,...f,...(planId?{planId}:{}),price:Number(f.price),intervalValue:Number(f.intervalValue)});setPlanEditing(v=>({...v,[businessId]:null}));}
+  async function deletePlan(businessId:number, planId:number){if(!window.confirm("¿Eliminar este plan de suscripción? Dejará de aparecer en el catálogo."))return;await submit("deletePlan",{businessId,planId});}
   async function updateCashPlan(businessId:number, weeklyExpenses:number){await submit("updateCashPlan",{businessId,weeklyExpenses:Number(weeklyExpenses)});}
 
   const vacancies = selected?.positions.filter((p) => p.contracts.length === 0) ?? [];

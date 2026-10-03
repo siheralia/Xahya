@@ -14,7 +14,7 @@ export async function GET() {
   ]);
 
   return NextResponse.json({
-    items: items.map((item: any) => {
+    items: items.filter((item: any) => String(item.itemType) !== "PROPERTY").map((item: any) => {
       const pricing = calculateStorePrice(item, promotions);
       return {
         id: Number(item.id),

@@ -420,12 +420,14 @@ model EconomyPaymentLog {
 }
 
 model RuleSection {
-  id        Int      @id @default(autoincrement())
-  title     String
-  content   String
-  position  Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  title          String
+  content        String
+  position       Int      @default(0)
+  backgroundPath String?
+  bannerPath     String?
+  createdAt      DateTime @default(now())
+  updatedAt     DateTime @default(now())
 
   @@map("ruleSection")
   @@index([position, id])

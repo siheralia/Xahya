@@ -190,28 +190,7 @@ export async function processEconomyPayments(now = new Date()) {
     }
   }
 
-  // 2. El gasto semanal planificado se aplica aunque la caja no alcance.
-  // Puede dejar la caja negativa; al cierre del periodo el déficit lo cubre el dueño.
-  for (const business of businesses) {
-    if (!business.active || Number(business.weeklyExpenses ?? 0) <= 0) continue;
-    const p = localParts(now);
-    const expenseDue = p.weekday === Number(business.passiveDayOfWeek ?? 0) &&
-      dueDaily("00:00", String(business.passiveTime ?? "18:00"), now);
-    if (!expenseDue) continue;
-    const expensePeriod = periodKey(now, "WEEKLY");
-    const alreadyApplied = await Log.where({ paymentType: "BUSINESS_EXPENSE", sourceId: Number(business.id), recipientCharacterId: Number(business.ownerCharacterId), periodKey: expensePeriod }).first();
-    if (alreadyApplied) continue;
-    await db.transaction(async (tx) => {
-      const BusinessTx = (tx.orm.public as any).Business;
-      const LogTx = (tx.orm.public as any).EconomyPaymentLog;
-      const current = await BusinessTx.where({ id: Number(business.id) }).first();
-      if (!current) throw new Error("BUSINESS_MISSING");
-      const expense = Math.trunc(Number(business.weeklyExpenses ?? 0));
-      await BusinessTx.where({ id: Number(business.id) }).update({ balance: Number(current.balance ?? 0) - expense });
-      await LogTx.create({ paymentType: "BUSINESS_EXPENSE", sourceType: "BUSINESS", sourceId: Number(business.id), recipientCharacterId: Number(business.ownerCharacterId), businessId: Number(business.id), amount: expense, periodKey: expensePeriod, description: "Gasto semanal de " + business.name + " aplicado a caja" });
-    });
-  }
-  // 3. Las suscripciones cobran al cliente y depositan el pago en la caja del negocio.
+  // 2. Las suscripciones cobran al cliente y depositan el pago en la caja del negocio.
   const subscriptions = await Subscription.all();
   const plans = await Plan.all();
   for (const subscription of subscriptions) {
@@ -250,7 +229,7 @@ export async function processEconomyPayments(now = new Date()) {
     }
   }
 
-  // 4. Al terminar un turno, el salario sale primero de la caja del negocio.
+  // 3. Al terminar un turno, el salario sale primero de la caja del negocio.
   // Si no alcanza, el dueño cubre únicamente la diferencia.
   for (const position of positions) {
     const salaryFrequency = String(position.salaryFrequency ?? "DAILY");
@@ -302,7 +281,7 @@ export async function processEconomyPayments(now = new Date()) {
           }
 
           const remaining = salary - businessPaid;
-          if (remaining > 0 && String(position.payerType) !== "SYSTEM") {
+          if (remaining > 0) {
             const payerId = business
               ? Number(business.ownerCharacterId)
               : (String(position.payerType) === "CHARACTER" && position.payerCharacterId
@@ -345,7 +324,7 @@ export async function processEconomyPayments(now = new Date()) {
     }
   }
 
-  // 5. En el cierre del periodo, el dueño recibe únicamente el excedente
+  // 4. En el cierre del periodo, el dueño recibe únicamente el excedente
   // que quedó en la caja después de los salarios.
   for (const business of businesses) {
     if (!business.active || Number(business.passiveIncome) <= 0) continue;

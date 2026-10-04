@@ -70,6 +70,11 @@ function dueDaily(startTime: string, endTime: string, date = new Date()) {
   return p.hour * 60 + p.minute >= end;
 }
 
+function localDayStamp(date: Date) {
+  const p = localParts(date);
+  return Date.UTC(p.year, p.month - 1, p.day);
+}
+
 async function payCharacter({
   paymentType,
   sourceType,

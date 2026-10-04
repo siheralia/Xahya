@@ -25,6 +25,7 @@ export default function BusinessesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [investmentForms, setInvestmentForms] = useState<Record<number,{type:string;sourceType:string;amount:number}>>({});
+  const [recurringInvestmentForms, setRecurringInvestmentForms] = useState<Record<number,{type:string;amount:number}>>({});
   const [propertyForms, setPropertyForms] = useState<Record<number,{itemId:string;quantity:number;purchasePrice:number;salePrice:number}>>({});
   const [planForms, setPlanForms] = useState<Record<number,{name:string;description:string;price:number;intervalValue:number;intervalUnit:string}>>({});
   const [planEditing, setPlanEditing] = useState<Record<number,number|null>>({});

@@ -39,7 +39,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No tienes suficientes copias de este objeto." }, { status: 400 });
   }
 
-  const storeValue = Number(item.price) > 0
+  const isPurchasable = String(item.acquisitionType) === "PURCHASABLE";
+  const storeValue = isPurchasable && Number(item.price) > 0
     ? Math.max(1, Math.floor(Number(item.price) / 2))
     : 1;
   const total = storeValue * quantity;

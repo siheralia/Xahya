@@ -120,13 +120,14 @@ export async function POST(request: Request) {
       const amount = Math.trunc(Number(body?.amount ?? 0));
       if (!investmentTypes.includes(type) || !investmentSources.includes(sourceType) || amount <= 0) return NextResponse.json({ error: "Inversión inválida." }, { status: 400 });
       if (sourceType === "BUSINESS") {
-        const current = await Business.where({ id: businessId }).first();
-        if (Number(current?.balance ?? 0) < amount) return NextResponse.json({ error: "El negocio no tiene suficiente dinero en caja." }, { status: 400 });
+        // La inversión financiada por el negocio es una reinversión programada:
+        // se configura ahora y se cobra desde los ingresos del siguiente ciclo.
         const field = type === "SECURITY" ? "securityInvestment" : "growthInvestment";
         await db.transaction(async (tx) => {
           const B = (tx.orm.public as any).Business; const I = (tx.orm.public as any).BusinessInvestment;
           const currentB = await B.where({ id: businessId }).first();
-          await B.where({ id: businessId }).update({ balance: Number(currentB.balance) - amount, [field]: Number(currentB[field] ?? 0) + amount });
+          if (!currentB) throw new Error("BUSINESS_MISSING");
+          await B.where({ id: businessId }).update({ [field]: Number(currentB[field] ?? 0) + amount });
           await I.create({ businessId, type, sourceType, sourceCharacterId: null, amount });
         });
       } else {

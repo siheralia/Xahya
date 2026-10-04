@@ -78,6 +78,8 @@ export async function POST(request: Request) {
     title: "pg/text@1",
     content: "pg/text@1",
     position: "pg/int4@1",
+    backgroundPath: "pg/text@1",
+    bannerPath: "pg/text@1",
     createdAt: "pg/text@1",
     updatedAt: "pg/text@1",
   }).build();

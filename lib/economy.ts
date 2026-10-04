@@ -324,6 +324,23 @@ export async function processEconomyPayments(now = new Date()) {
       }).first();
       if (existing) continue;
 
+      let paymentAmount = salary;
+      if (salaryFrequency === "DAILY") {
+        const previousPayments = await Log.where({
+          paymentType: "SALARY",
+          sourceId: Number(position.id),
+          recipientCharacterId: Number(contract.characterId),
+        }).all();
+        const previous = previousPayments
+          .filter((item: any) => String(item.periodKey ?? "").endsWith("-shift"))
+          .sort((a: any, b: any) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime())[0];
+
+        const firstDay = localDayStamp(toDate(contract.startDate));
+        const lastPaidDay = previous ? localDayStamp(toDate(previous.createdAt)) : firstDay - 86400000;
+        const pendingDays = Math.max(1, Math.floor((localDayStamp(now) - lastPaidDay) / 86400000));
+        paymentAmount = salary * pendingDays;
+      }
+
       try {
         await db.transaction(async (tx) => {
           const BusinessTx = (tx.orm.public as any).Business;
@@ -333,7 +350,7 @@ export async function processEconomyPayments(now = new Date()) {
           let businessPaid = 0;
           if (business) {
             const currentBusiness = await BusinessTx.where({ id: Number(business.id) }).first();
-            businessPaid = Math.max(0, Math.min(Number(currentBusiness?.balance ?? 0), salary));
+            businessPaid = Math.max(0, Math.min(Number(currentBusiness?.balance ?? 0), paymentAmount));
             if (businessPaid > 0) {
               await BusinessTx.where({ id: Number(business.id) }).update({
                 balance: Number(currentBusiness.balance ?? 0) - businessPaid,
@@ -341,7 +358,7 @@ export async function processEconomyPayments(now = new Date()) {
             }
           }
 
-          const remaining = salary - businessPaid;
+          const remaining = paymentAmount - businessPaid;
           if (remaining > 0) {
             const payerId = business
               ? Number(business.ownerCharacterId)
@@ -362,7 +379,7 @@ export async function processEconomyPayments(now = new Date()) {
           if (!employee) throw new Error("RECIPIENT_RESOURCE_MISSING");
 
           await ResourceTx.where({ characterId: Number(contract.characterId) }).update({
-            money: Number(employee.money) + salary,
+            money: Number(employee.money) + paymentAmount,
           });
 
           await LogTx.create({
@@ -371,7 +388,7 @@ export async function processEconomyPayments(now = new Date()) {
             sourceId: Number(position.id),
             recipientCharacterId: Number(contract.characterId),
             businessId: position.businessId ? Number(position.businessId) : null,
-            amount: salary,
+            amount: paymentAmount,
             periodKey: period,
             description: business
               ? `Salario: ${position.title} (${business.name})`

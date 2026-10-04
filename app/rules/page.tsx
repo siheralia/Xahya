@@ -97,7 +97,23 @@ export default function RulesPage() {
               const isOpen = openRuleId === rule.id;
               return (
                 <article key={rule.id} className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 transition-all duration-300">
-                  {rule.backgroundUrl && <div className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat" style={{backgroundImage: `linear-gradient(to bottom, rgba(0, 90, 180, 0.35) 0%, rgba(0, 70, 150, 0.5) 35%, rgba(10, 20, 35, 0.78) 68%, #09090b 100%), url("${rule.backgroundUrl}")`}} />}
+                  {rule.backgroundUrl && (
+                    <>
+                      <img
+                        src={rule.backgroundUrl}
+                        alt=""
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-x-0 top-0 h-auto w-full"
+                      />
+                      <div
+                        className="pointer-events-none absolute inset-0"
+                        style={{
+                          background:
+                            "linear-gradient(to bottom, rgba(0, 90, 180, 0.18) 0%, rgba(0, 70, 150, 0.38) 28%, rgba(10, 20, 35, 0.78) 58%, #09090b 88%, #09090b 100%)",
+                        }}
+                      />
+                    </>
+                  )}
                   <button type="button" onClick={() => setOpenRuleId(isOpen ? null : rule.id)} aria-expanded={isOpen} className="relative block w-full text-left">
                     {rule.bannerUrl && <div className={`relative h-40 bg-cover bg-center ${!isOpen ? "border-b border-zinc-700/80" : ""}`} style={{backgroundImage: `url("${rule.bannerUrl}")`}} />}
                     {!isOpen && <div className={`px-6 py-4 ${!rule.bannerUrl ? "border-b border-zinc-700/80" : ""}`}><h2 className="text-2xl font-semibold">{rule.title}</h2></div>}

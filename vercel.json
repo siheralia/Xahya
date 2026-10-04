@@ -5,7 +5,7 @@
   "crons": [
     {
       "path": "/api/cron/economy",
-      "schedule": "55 1 * * 6"
+      "schedule": "55 1 * * *"
     },
     {
       "path": "/api/cron/maze-enemies",

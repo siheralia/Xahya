@@ -5,6 +5,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted, depthMultiplier, pickEnemyFocus, pickEnemyBehavior, scaleEnemyStats, enemyMatchesMazeThemes, registerMazeEncounterRelationships } from "@/lib/maze";
 import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
 import { getDefaultEnemyImageUrl, getEnemyImagePaths, getEnemyImageUrl } from "@/lib/enemy-image";
+import { moveMobileEnemies } from "@/lib/maze-mobile";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -776,6 +777,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!requestedExit) throw new Error("EXIT_NOT_FOUND");
 
     if (activeEnemies.length > 0 && Number(requestedExit.toRoomId) !== Number(position?.previousRoomId ?? -1)) throw new Error("ROOM_BLOCKED");
+
+    // Cada movimiento de un personaje hace avanzar una vez a los enemigos móviles existentes.
+    // Se ejecuta antes de resolver el destino para que un enemigo recién generado no se mueva inmediatamente.
+    await moveMobileEnemies(tx, Number(maze.id));
     if (requestedExit.toRoomId != null) {
       const destination = await TxRoom.where({ id:Number(requestedExit.toRoomId) }).first();
       if (!destination) throw new Error("DESTINATION_NOT_FOUND");

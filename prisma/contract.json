@@ -4090,6 +4090,20 @@
           },
           "RuleSection": {
             "fields": {
+              "backgroundPath": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "bannerPath": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "content": {
                 "nullable": false,
                 "type": {
@@ -4136,6 +4150,12 @@
             "relations": {},
             "storage": {
               "fields": {
+                "backgroundPath": {
+                  "column": "backgroundPath"
+                },
+                "bannerPath": {
+                  "column": "bannerPath"
+                },
                 "content": {
                   "column": "content"
                 },

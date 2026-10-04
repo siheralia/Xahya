@@ -285,7 +285,7 @@ export async function processEconomyPayments(now = new Date()) {
     }
   }
 
-  // 4. Al terminar un turno, el salario sale primero de la caja del negocio.
+  // 4. Al terminar un turno (con recuperación de periodos pendientes), el salario sale primero de la caja del negocio.
   // Si no alcanza, el dueño cubre únicamente la diferencia.
   for (const position of positions) {
     const salaryFrequency = String(position.salaryFrequency ?? "DAILY");

@@ -68,6 +68,36 @@ function readableAction(action: string) {
   return action.toLowerCase().split("_").map((part) => part ? part.charAt(0).toUpperCase() + part.slice(1) : "").join(" ");
 }
 
+function formatChangedValue(value: unknown) {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "boolean") return value ? "Sí" : "No";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+const skillFieldLabels: Record<string,string> = {
+  name: "Nombre", description: "Descripción", cost: "Costo", manaCost: "Costo de maná",
+  staminaCost: "Costo de stamina", cooldown: "Enfriamiento", effect: "Efecto",
+  effects: "Efectos", damage: "Daño", target: "Objetivo", type: "Tipo",
+  characterId: "Personaje", active: "Activo",
+};
+
+function skillChangesText(before: unknown, after: unknown) {
+  if (!before || !after || typeof before !== "object" || typeof after !== "object") return "";
+  const b = before as Record<string, unknown>;
+  const a = after as Record<string, unknown>;
+  const ignored = new Set(["id", "createdAt", "updatedAt"]);
+  const changes: string[] = [];
+  for (const key of new Set([...Object.keys(b), ...Object.keys(a)])) {
+    if (ignored.has(key)) continue;
+    const beforeValue = b[key];
+    const afterValue = a[key];
+    if (JSON.stringify(beforeValue) === JSON.stringify(afterValue)) continue;
+    changes.push(`${skillFieldLabels[key] ?? key}: ${formatChangedValue(beforeValue)} → ${formatChangedValue(afterValue)}`);
+  }
+  return changes.join(" · ");
+}
+
 function detailText(log: Log) {
   const d = log.details;
   if (!d) return "";
@@ -94,7 +124,8 @@ function detailText(log: Log) {
   }
   if (log.action === "SKILL_APPROVE" || log.action === "SKILL_REJECT" || log.action === "SKILL_UPDATE") {
     const name = d.name ?? (d.after && typeof d.after === "object" ? (d.after as Record<string, unknown>).name : undefined) ?? (d.before && typeof d.before === "object" ? (d.before as Record<string, unknown>).name : undefined);
-    return name !== undefined ? `Habilidad: ${String(name)}` : "";
+    const changes = skillChangesText(d.before, d.after);
+    return [name !== undefined ? `Habilidad: ${String(name)}` : "", changes].filter(Boolean).join(" · ");
   }
   if (log.action === "PERK_GRANTED") {
     return d.perkName !== undefined ? `Perk: ${String(d.perkName)}` : "";

@@ -40,12 +40,14 @@ export async function PATCH(
     UPDATE "ruleSection"
     SET "title" = ${title}, "content" = ${content}, "updatedAt" = now()
     WHERE "id" = ${id}
-    RETURNING "id", "title", "content", "position", "createdAt"::text AS "createdAt", "updatedAt"::text AS "updatedAt"
+    RETURNING "id", "title", "content", "position", "backgroundPath", "bannerPath", "createdAt"::text AS "createdAt", "updatedAt"::text AS "updatedAt"
   `.returnsRow({
     id: "pg/int4@1",
     title: "pg/text@1",
     content: "pg/text@1",
     position: "pg/int4@1",
+    backgroundPath: "pg/text@1",
+    bannerPath: "pg/text@1",
     createdAt: "pg/text@1",
     updatedAt: "pg/text@1",
   }).build();

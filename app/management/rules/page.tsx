@@ -9,6 +9,8 @@ type Rule = {
   title: string;
   content: string;
   position: number;
+  backgroundUrl: string | null;
+  bannerUrl: string | null;
 };
 
 export default function RulesManagementPage() {
@@ -20,6 +22,7 @@ export default function RulesManagementPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState<string | null>(null);
   const [success, setSuccess] = useState("");
 
   async function load() {
@@ -86,6 +89,63 @@ export default function RulesManagementPage() {
       setError(err instanceof Error ? err.message : "No se pudieron guardar las reglas.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadImage(ruleId: number, kind: "background" | "banner", file: File | undefined) {
+    if (!file) return;
+    setUploading(kind + "-" + ruleId);
+    setError("");
+    setSuccess("");
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      form.set("ruleId", String(ruleId));
+      form.set("kind", kind);
+      const response = await fetch("/api/management/rules/image", { method: "POST", body: form });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo subir la imagen.");
+      setSuccess(kind === "banner" ? "Banner actualizado." : "Fondo actualizado.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo subir la imagen.");
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  async function removeImage(ruleId: number, kind: "background" | "banner") {
+    setUploading(kind + "-" + ruleId);
+    try {
+      const response = await fetch("/api/management/rules/image?ruleId=" + ruleId + "&kind=" + kind, { method: "DELETE" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo quitar la imagen.");
+      setSuccess(kind === "banner" ? "Banner quitado." : "Fondo quitado.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo quitar la imagen.");
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  async function moveRule(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= rules.length) return;
+    const ids = rules.map((rule) => rule.id);
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    try {
+      const response = await fetch("/api/rules/reorder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo cambiar el orden.");
+      setSuccess("Orden actualizado.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar el orden.");
     }
   }
 
@@ -178,7 +238,7 @@ export default function RulesManagementPage() {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-xl font-semibold">Secciones existentes</h2>
+          <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">Secciones existentes</h2><span className="text-xs text-zinc-600">Usa ↑ y ↓ para cambiar el orden</span></div>
           {loading ? (
             <p className="mt-4 text-sm text-zinc-500">Cargando...</p>
           ) : rules.length === 0 ? (
@@ -188,15 +248,15 @@ export default function RulesManagementPage() {
           ) : (
             <div className="mt-4 grid gap-4">
               {rules.map((rule) => (
-                <article key={rule.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+                <article key={rule.id} className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
-                    <h3 className="text-lg font-semibold">{rule.title}</h3>
+                    <div><div className="mb-1 text-xs text-zinc-600">Posición {index + 1}</div><h3 className="text-lg font-semibold">{rule.title}</h3></div>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => editRule(rule)} className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800">Editar</button>
+                      <button type="button" onClick={() => moveRule(index, -1)} disabled={index === 0} className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 disabled:opacity-30">↑</button><button type="button" onClick={() => moveRule(index, 1)} disabled={index === rules.length - 1} className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 disabled:opacity-30">↓</button><button type="button" onClick={() => editRule(rule)} className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800">Editar</button>
                       <button type="button" onClick={() => removeRule(rule.id)} className="rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 hover:bg-red-950/40">Eliminar</button>
                     </div>
                   </div>
-                  <div className="mt-3"><WhatsAppMarkup text={rule.content} /></div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-sm font-medium text-zinc-300">Banner</p><p className="mt-1 text-xs text-zinc-600">Aparece como encabezado.</p><label className="mt-3 inline-block cursor-pointer rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300">{uploading === "banner-" + rule.id ? "Subiendo..." : "Subir imagen"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" disabled={uploading !== null} onChange={(e) => { void uploadImage(rule.id, "banner", e.target.files?.[0]); e.currentTarget.value = ""; }} /></label>{rule.bannerUrl && <button type="button" onClick={() => void removeImage(rule.id, "banner")} className="ml-2 rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300">Quitar</button>}</div><div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-sm font-medium text-zinc-300">Fondo</p><p className="mt-1 text-xs text-zinc-600">Se muestra detrás del contenido.</p><label className="mt-3 inline-block cursor-pointer rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300">{uploading === "background-" + rule.id ? "Subiendo..." : "Subir imagen"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" disabled={uploading !== null} onChange={(e) => { void uploadImage(rule.id, "background", e.target.files?.[0]); e.currentTarget.value = ""; }} /></label>{rule.backgroundUrl && <button type="button" onClick={() => void removeImage(rule.id, "background")} className="ml-2 rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300">Quitar</button>}</div></div><div className="relative mt-4 overflow-hidden rounded-xl border border-zinc-800">{rule.backgroundUrl && <div className="absolute inset-0 bg-cover bg-center opacity-20" style={{backgroundImage: `url("${rule.backgroundUrl}")`}} />}<div className="relative p-4"><WhatsAppMarkup text={rule.content} /></div></div>
                 </article>
               ))}
             </div>

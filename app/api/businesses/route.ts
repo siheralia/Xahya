@@ -105,7 +105,7 @@ export async function POST(request: Request) {
   const Character = db.orm.public.Character;
   const Relationship = (db.orm.public as any).CharacterRelationship;
 
-  if (["invest","stockProperty","createPlan","updatePlan","deletePlan"].includes(action)) {
+  if (["oneTimeInvest","scheduleInvestment","cancelInvestment","invest","stockProperty","createPlan","updatePlan","deletePlan"].includes(action)) {
     const businessId = Number(body?.businessId);
     const owned = await getOwnedBusiness(user, businessId);
     if (owned.error) return owned.error;

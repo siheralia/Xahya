@@ -38,6 +38,11 @@ type ActiveStaff = {
 
 const typeLabels: Record<string, string> = { WEAPON: "Arma", ARMOR: "Armadura", ACCESSORY: "Accesorio", CONSUMABLE: "Consumible", MATERIAL: "Material", OTHER: "Otro" };
 const effectLabels: Record<string, string> = { attack_multiplier_all: "Ataque total", damage_reduction_all: "Reducción de daño recibido" };
+const subtypeLabels: Record<string, string> = {
+  SABRE: "Sable", SWORD: "Espada", BOW: "Arco", DAGGER: "Daga", SPEAR: "Lanza",
+  STAFF: "Bastón", AXE: "Hacha", HAMMER: "Martillo", SHIELD: "Escudo",
+  GREAT_SWORD: "Mandoble", GREAT_AXE: "Gran hacha", CROSSBOW: "Ballesta",
+};
 const statLabels: Record<string, string> = { STR:"Fuerza", AGI:"Agilidad", CON:"Constitución", INT:"Inteligencia", WIS:"Sabiduría", CHA:"Carisma", SPI:"Espíritu", LCK:"Suerte", PHYS_ATK:"Ataque físico", MAGIC_ATK:"Ataque mágico", DEF:"Defensa física", MAG_DEF:"Defensa mágica", ATTACK_TOTAL:"Ataque total", DAMAGE_REDUCTION_ALL:"Reducción de daño" };
 function getReadableTextColor(background: string | undefined) {
   const hex = String(background ?? "#09090b").replace("#", "");
@@ -67,6 +72,8 @@ export default function StorePage() {
   const [selectedSlot, setSelectedSlot] = useState("ALL");
   const [selectedStat, setSelectedStat] = useState("ALL");
   const [minStatValue, setMinStatValue] = useState("");
+  const [sortPrice, setSortPrice] = useState<"NONE" | "ASC" | "DESC">("NONE");
+  const [onlyAffordable, setOnlyAffordable] = useState(false);
   const [activeStaff, setActiveStaff] = useState<ActiveStaff[]>([]);
 
   async function loadOwnedItems(characterId: number) {
@@ -128,7 +135,14 @@ export default function StorePage() {
     const matchesStat = selectedStat === "ALL" || item.effects.some(effect => String(effect.stat ?? "") === selectedStat);
     const min = minStatValue === "" ? null : Number(minStatValue);
     const matchesMin = min === null || selectedStat === "ALL" || item.effects.some(effect => String(effect.stat ?? "") === selectedStat && Number(effect.value) >= min);
-    return matchesSearch && matchesCategory && matchesSubtype && matchesSlot && matchesStat && matchesMin;
+    const quantity = Math.max(1, Math.min(99, Number(quantities[item.id] ?? 1)));
+    const total = item.price * quantity;
+    const matchesAffordable = !onlyAffordable || total <= money;
+    return matchesSearch && matchesCategory && matchesSubtype && matchesSlot && matchesStat && matchesMin && matchesAffordable;
+  }).sort((a, b) => {
+    if (sortPrice === "ASC") return a.price - b.price;
+    if (sortPrice === "DESC") return b.price - a.price;
+    return 0;
   });
 
   async function buy(item: Item) {
@@ -221,11 +235,13 @@ export default function StorePage() {
             <div className="flex flex-wrap gap-2">
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar objeto..." className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white" />
               <select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)} className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white"><option value="ALL">Todas las categorías</option>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-              <select value={selectedSubtype} onChange={e=>setSelectedSubtype(e.target.value)} className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white"><option value="ALL">Todos los tipos</option>{subtypeOptions.map(v=><option key={v} value={v}>{v}</option>)}</select>
+              <select value={selectedSubtype} onChange={e=>setSelectedSubtype(e.target.value)} className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white"><option value="ALL">Todos los tipos</option>{subtypeOptions.map(v=><option key={v} value={v}>{subtypeLabels[v] ?? v}</option>)}</select>
+              <select value={sortPrice} onChange={e=>setSortPrice(e.target.value as "NONE" | "ASC" | "DESC")} className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white"><option value="NONE">Precio: sin ordenar</option><option value="ASC">Precio: menor a mayor</option><option value="DESC">Precio: mayor a menor</option></select>
+              <label className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-3 py-2.5 text-sm text-white"><input type="checkbox" checked={onlyAffordable} onChange={e=>setOnlyAffordable(e.target.checked)} /> Solo puedo comprar</label>
               <select value={selectedSlot} onChange={e=>setSelectedSlot(e.target.value)} className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white"><option value="ALL">Todos los slots</option>{["MAIN_HAND","OFF_HAND","HEAD","BODY","ARMS","FEET","BACK","ACCESSORY_1","ACCESSORY_2"].map(v=><option key={v} value={v}>{v}</option>)}</select>
               <select value={selectedStat} onChange={e=>setSelectedStat(e.target.value)} className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white"><option value="ALL">Todas las stats</option>{Object.entries(statLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}</select>
               <input type="number" value={minStatValue} onChange={e=>setMinStatValue(e.target.value)} placeholder="Mínimo" className="w-24 rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white" />
-              <button type="button" onClick={()=>{setSearch("");setSelectedCategory("ALL");setSelectedSubtype("ALL");setSelectedSlot("ALL");setSelectedStat("ALL");setMinStatValue("");}} className="rounded-xl border border-zinc-700 px-3 py-2.5 text-sm text-[color:var(--store-muted)]">Limpiar</button>
+              <button type="button" onClick={()=>{setSearch("");setSelectedCategory("ALL");setSelectedSubtype("ALL");setSelectedSlot("ALL");setSelectedStat("ALL");setMinStatValue("");setSortPrice("NONE");setOnlyAffordable(false);}} className="rounded-xl border border-zinc-700 px-3 py-2.5 text-sm text-[color:var(--store-muted)]">Limpiar</button>
             </div>
           </div>
 
@@ -240,7 +256,7 @@ export default function StorePage() {
                 return (
                   <article key={item.id} className="rounded-2xl border p-5" style={{ borderColor: theme?.border ?? "#3f3f46", backgroundColor: theme?.surface ?? "#18181b" }}>
                     <div className="flex items-start justify-between gap-3">
-                      <div><p className="text-lg font-semibold" style={{ color: theme?.foreground ?? "#ffffff" }}>{item.name}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{typeLabels[item.itemType] ?? item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""}</p></div>
+                      <div><p className="text-lg font-semibold" style={{ color: theme?.foreground ?? "#ffffff" }}>{item.name}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{typeLabels[item.itemType] ?? item.itemType}{item.itemSubtype ? " · " + (subtypeLabels[item.itemSubtype] ?? item.itemSubtype) : ""}</p></div>
                       <div className="text-right">
                         {discounted && <p className="text-xs text-[color:var(--store-muted)] line-through">◈ {item.basePrice.toLocaleString("es-MX")}</p>}
                         <span className={"text-sm font-semibold " + (discounted ? "text-emerald-300" : "text-amber-300")}>◈ {item.price.toLocaleString("es-MX")}</span>
@@ -269,7 +285,9 @@ export default function StorePage() {
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {ownedItems.map((entry) => {
                 const item = entry.item;
-                const saleValue = item && item.basePrice > 0 ? Math.max(1, Math.floor(item.basePrice / 2)) : 1;
+                const saleValue = item && String(item.acquisitionType) === "PURCHASABLE" && Number(item.price) > 0
+                  ? Math.max(1, Math.floor(Number(item.price) / 2))
+                  : 1;
                 const total = saleValue * entry.quantity;
                 const sellQuantity = Math.max(1, Math.min(entry.quantity, Number(sellQuantities[entry.id] ?? 1)));
                 return (

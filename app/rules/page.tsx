@@ -93,7 +93,16 @@ export default function RulesPage() {
         ) : (
           <div className="mt-8 grid gap-5">
             {rules.map((rule) => (
-              <article key={rule.id} className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">{rule.backgroundUrl && <div className="absolute inset-0 bg-cover bg-center opacity-25" style={{backgroundImage: `url("${rule.backgroundUrl}")`}} />}<div className="relative">
+              <article key={rule.id} className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
+                {rule.backgroundUrl && (
+                  <div
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    style={{
+                      backgroundImage: `linear-gradient(to bottom, rgba(0, 90, 180, 0.35) 0%, rgba(0, 70, 150, 0.5) 35%, rgba(10, 20, 35, 0.78) 68%, #09090b 100%), url("${rule.backgroundUrl}")`,
+                    }}
+                  />
+                )}
+                <div className="relative">
                 {rule.bannerUrl && <div className="mb-5 -mx-6 -mt-6 h-40 bg-cover bg-center" style={{backgroundImage: `url("${rule.bannerUrl}")`}} />}
                 <h2 className="text-2xl font-semibold">{rule.title}</h2>
                 <div className="mt-5">

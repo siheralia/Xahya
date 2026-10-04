@@ -130,10 +130,6 @@ export default function NavigationShell({
               Negocios
             </Link>
             <span aria-hidden="true" className="mx-2 text-zinc-600">|</span>
-            <Link href="/help" className={pathname === "/help" ? "xahya-nav-active" : ""}>
-              Ayuda
-            </Link>
-            <span aria-hidden="true" className="mx-2 text-zinc-600">|</span>
             <Link href="/store" className={pathname.startsWith("/store") ? "xahya-nav-active" : ""}>
               Tienda
             </Link>
@@ -178,6 +174,15 @@ export default function NavigationShell({
         className="xahya-rules"
       >
         📖
+      </Link>
+
+      <Link
+        href="/help"
+        aria-label="Ayuda"
+        title="Ayuda"
+        className="xahya-help"
+      >
+        ❔
       </Link>
 
       <Link

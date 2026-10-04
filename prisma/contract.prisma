@@ -500,7 +500,10 @@ model BusinessInvestment {
   sourceCharacterId Int?
   sourceCharacter   Character? @relation(fields:[sourceCharacterId], references:[id], onDelete:SetNull)
   amount            Int
+  frequency         String    @default("ONCE")
+  active            Boolean   @default(true)
   createdAt         DateTime  @default(now())
   @@index([businessId, type])
+  @@index([businessId, active, frequency])
 }
 

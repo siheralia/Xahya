@@ -98,21 +98,25 @@ export default function RulesPage() {
               return (
                 <article key={rule.id} className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 transition-all duration-300">
                   {rule.backgroundUrl && (
-                    <>
-                      <img
-                        src={rule.backgroundUrl}
-                        alt=""
-                        aria-hidden="true"
-                        className={`pointer-events-none absolute inset-x-0 ${rule.bannerUrl ? "top-40" : "top-0"} h-auto w-full`}
-                      />
-                      <div
-                        className={`pointer-events-none absolute inset-x-0 bottom-0 ${rule.bannerUrl ? "top-40" : "top-0"}`}
-                        style={{
-                          background:
-                            "linear-gradient(to bottom, rgba(0, 90, 180, 0.18) 0%, rgba(0, 70, 150, 0.38) 28%, rgba(10, 20, 35, 0.78) 58%, #09090b 88%, #09090b 100%)",
-                        }}
-                      />
-                    </>
+                    <div
+                      className={`pointer-events-none absolute inset-x-0 ${rule.bannerUrl ? "top-40" : "top-0"}`}
+                    >
+                      <div className="relative w-full">
+                        <img
+                          src={rule.backgroundUrl}
+                          alt=""
+                          aria-hidden="true"
+                          className="block h-auto w-full"
+                        />
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            background:
+                              "linear-gradient(to bottom, rgba(0, 90, 180, 0.18) 0%, rgba(0, 70, 150, 0.38) 28%, rgba(10, 20, 35, 0.78) 58%, #09090b 88%, #09090b 100%)",
+                          }}
+                        />
+                      </div>
+                    </div>
                   )}
                   <button type="button" onClick={() => setOpenRuleId(isOpen ? null : rule.id)} aria-expanded={isOpen} className="relative block w-full text-left">
                     {rule.bannerUrl && <div className={`relative h-40 bg-cover bg-center ${!isOpen ? "border-b border-zinc-700/80" : ""}`} style={{backgroundImage: `url("${rule.bannerUrl}")`}} />}

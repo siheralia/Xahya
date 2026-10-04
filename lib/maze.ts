@@ -188,7 +188,7 @@ export function scaleEnemyStats(
     STAT_KEYS.map((key) => [key, Math.max(0, Number(template[key] ?? 0))]),
   ) as EnemyStats;
   const baseTotal = STAT_KEYS.reduce((sum,key) => sum + base[key], 0);
-  const targetPower = Math.max(1, Math.round(groupPower * 1.6 * depthMultiplier(roomNumber)));
+  const targetPower = Math.max(1, Math.round(groupPower * 2.3 * depthMultiplier(roomNumber)));
   const focusWeights = FOCUS_WEIGHTS[focus];
   const blended: EnemyStats = Object.fromEntries(
     STAT_KEYS.map((key) => [key, baseTotal > 0 ? base[key] * .6 + baseTotal * focusWeights[key] * .4 : baseTotal * focusWeights[key]]),

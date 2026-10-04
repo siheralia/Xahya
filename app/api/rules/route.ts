@@ -7,6 +7,8 @@ type RuleRow = {
   title: string;
   content: string;
   position: number;
+  backgroundPath: string | null;
+  bannerPath: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -21,7 +23,7 @@ async function getManager() {
 
 export async function GET() {
   const query = db.raw.sql`
-    SELECT "id", "title", "content", "position", "createdAt"::text AS "createdAt", "updatedAt"::text AS "updatedAt"
+    SELECT "id", "title", "content", "position", "backgroundPath", "bannerPath", "createdAt"::text AS "createdAt", "updatedAt"::text AS "updatedAt"
     FROM "ruleSection"
     ORDER BY "position" ASC, "id" ASC
   `.returnsRow({
@@ -29,11 +31,20 @@ export async function GET() {
     title: "pg/text@1",
     content: "pg/text@1",
     position: "pg/int4@1",
+    backgroundPath: "pg/text@1",
+    bannerPath: "pg/text@1",
     createdAt: "pg/text@1",
     updatedAt: "pg/text@1",
   }).build();
 
-  const rules = await db.runtime().query(query) as RuleRow[];
+  const rows = await db.runtime().query(query) as RuleRow[];
+  async function imageUrl(path: string | null) {
+    if (!path || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+    const response = await fetch(process.env.SUPABASE_URL + "/storage/v1/object/sign/rule-images/" + path, { method: "POST", headers: { Authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY, apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 3600 }), cache: "no-store" });
+    const data = await response.json().catch(() => null);
+    return response.ok && data?.signedURL ? process.env.SUPABASE_URL + "/storage/v1" + data.signedURL : null;
+  }
+  const rules = await Promise.all(rows.map(async (rule) => ({ ...rule, backgroundUrl: await imageUrl(rule.backgroundPath), bannerUrl: await imageUrl(rule.bannerPath) })));
   return NextResponse.json({ rules });
 }
 
@@ -61,7 +72,7 @@ export async function POST(request: Request) {
   const query = db.raw.sql`
     INSERT INTO "ruleSection" ("title", "content", "position")
     VALUES (${title}, ${content}, ${position})
-    RETURNING "id", "title", "content", "position", "createdAt"::text AS "createdAt", "updatedAt"::text AS "updatedAt"
+    RETURNING "id", "title", "content", "position", "backgroundPath", "bannerPath", "createdAt"::text AS "createdAt", "updatedAt"::text AS "updatedAt"
   `.returnsRow({
     id: "pg/int4@1",
     title: "pg/text@1",

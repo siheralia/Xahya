@@ -135,6 +135,7 @@ export async function processEconomyPayments(now = new Date()) {
   const Log = (db.orm.public as any).EconomyPaymentLog;
   const Subscription = (db.orm.public as any).BusinessSubscription;
   const Plan = (db.orm.public as any).BusinessSubscriptionPlan;
+  const Investment = (db.orm.public as any).BusinessInvestment;
 
   const businesses = await Business.all();
   const positions = await Position.all();
@@ -229,10 +230,8 @@ export async function processEconomyPayments(now = new Date()) {
     }
   }
 
-  // 3. Las reinversiones financiadas por el negocio se cobran después de que
-  // entra el ingreso del periodo y antes de pagar salarios.
-  // Se permite que la caja quede negativa: el cierre del periodo hará que
-  // el dueño cubra el déficit, igual que con las demás obligaciones.
+  // 3. Las reinversiones recurrentes financiadas por el negocio se cobran
+  // después de que entra el ingreso del periodo y antes de pagar salarios.
   for (const business of businesses) {
     if (!business.active || Number(business.passiveIncome) <= 0) continue;
 
@@ -245,18 +244,19 @@ export async function processEconomyPayments(now = new Date()) {
     if (!due) continue;
 
     const investmentPeriod = periodKey(now, "WEEKLY");
-    const investments = [
-      { type: "SECURITY", amount: Number(business.securityInvestment ?? 0) },
-      { type: "GROWTH", amount: Number(business.growthInvestment ?? 0) },
-    ].filter((investment) => investment.amount > 0);
+    const scheduled = (await Investment.all()).filter((investment: any) =>
+      Number(investment.businessId) === Number(business.id) &&
+      String(investment.frequency ?? "ONCE") === "WEEKLY" &&
+      Boolean(investment.active) &&
+      Number(investment.amount) > 0
+    );
 
-    for (const investment of investments) {
+    for (const investment of scheduled) {
       const existing = await Log.where({
         paymentType: "BUSINESS_INVESTMENT",
-        sourceId: Number(business.id),
+        sourceId: Number(investment.id),
         recipientCharacterId: Number(business.ownerCharacterId),
         periodKey: investmentPeriod,
-        description: investment.type,
       }).first();
       if (existing) continue;
 
@@ -267,18 +267,18 @@ export async function processEconomyPayments(now = new Date()) {
         if (!currentBusiness) throw new Error("BUSINESS_MISSING");
 
         await BusinessTx.where({ id: Number(business.id) }).update({
-          balance: Number(currentBusiness.balance ?? 0) - investment.amount,
+          balance: Number(currentBusiness.balance ?? 0) - Number(investment.amount),
         });
 
         await LogTx.create({
           paymentType: "BUSINESS_INVESTMENT",
           sourceType: "BUSINESS",
-          sourceId: Number(business.id),
+          sourceId: Number(investment.id),
           recipientCharacterId: Number(business.ownerCharacterId),
           businessId: Number(business.id),
-          amount: investment.amount,
+          amount: Number(investment.amount),
           periodKey: investmentPeriod,
-          description: investment.type,
+          description: String(investment.type),
         });
       });
       payments++;

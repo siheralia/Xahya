@@ -56,7 +56,7 @@ export async function GET(request: Request) {
           details = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : { value: parsed };
         } catch { details = { raw: String(log.details) }; }
       }
-      const positionId = details?.positionId == null ? null : Number(details.positionId);
+      const positionId = details?.positionId != null ? Number(details.positionId) : (["BUSINESS_POSITION_CREATE","BUSINESS_POSITION_UPDATE","EMPLOYMENT_CREATE","EMPLOYMENT_END"].includes(String(log.action)) ? (log.entityId == null ? null : Number(log.entityId)) : null);
       const businessId = details?.businessId == null ? null : Number(details.businessId);
       const position = positionId == null ? null : positions.find((item) => Number(item.id) === positionId);
       const business = businessId == null ? null : businesses.find((item) => Number(item.id) === businessId);

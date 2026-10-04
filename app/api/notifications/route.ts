@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 const RELEVANT_ACTIONS = new Set([
   "GLOBAL_REWARD",
   "RESOURCE_GRANT",
-  "LEVEL_UP",
   "KARMA_BOOST",
   "STAT_UPDATE",
   "CHARACTER_RENAME",

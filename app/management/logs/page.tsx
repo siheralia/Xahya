@@ -18,7 +18,7 @@ type Log = {
   createdAt: string;
 };
 
-const eventTypes = ["Todos","Personaje","Estadísticas","Recursos","Level Up","Karma","Negocios","Sistema"];
+const eventTypes = ["Todos","Personajes","Estadísticas","Recursos","Level Up","Karma","Negocios","Casino","Objetos","Habilidades","Laberintos","Perks","Equipo","Sistema","Otros"];
 const ranges = [
   ["today","Hoy"],
   ["7d","Últimos 7 días"],
@@ -37,6 +37,14 @@ const actionLabels: Record<string,string> = {
   EMPLOYMENT_CREATE:"Contrató personaje", EMPLOYMENT_END:"Terminó contrato",
   BUSINESS_CREATE:"Creó negocio", BUSINESS_UPDATE:"Modificó negocio",
   BUSINESS_POSITION_CREATE:"Creó puesto", BUSINESS_POSITION_UPDATE:"Modificó puesto",
+  ITEM_CREATE:"Creó objeto", ITEM_UPDATE:"Modificó objeto", ITEM_PURCHASE:"Compró objeto",
+  ITEM_SELL:"Vendió objeto", ITEM_GRANT:"Entregó objeto", ITEM_EQUIP:"Equipó objeto",
+  ITEM_UNEQUIP:"Desequipó objeto", ITEM_USE_SYSTEM:"Usó objeto", ITEM_FLAIR_UPDATE:"Modificó flair de objeto",
+  ITEM_ADMIN_DELETE:"Eliminó objeto",
+  SKILL_CREATE:"Creó habilidad", SKILL_UPDATE:"Modificó habilidad", SKILL_APPROVE:"Aprobó habilidad", SKILL_REJECT:"Rechazó habilidad",
+  PERK_GRANTED:"Otorgó perk",
+  CASINO_SET_UPDATE:"Modificó configuración del casino",
+  MAZE_TREASURE_CLAIM:"Reclamó tesoro", MAZE_ENTER:"Entró al laberinto", MAZE_MOVE:"Avanzó en el laberinto",
 };
 
 function formatDate(value: string) {
@@ -44,6 +52,20 @@ function formatDate(value: string) {
 }
 function money(value: number) {
   return new Intl.NumberFormat("es-MX").format(value);
+}
+
+const statLabels: Record<string,string> = {
+  strength:"Fuerza", agility:"Agilidad", constitution:"Constitución", intelligence:"Inteligencia",
+  wisdom:"Sabiduría", charisma:"Carisma", spirit:"Espíritu", luck:"Suerte",
+};
+
+function actorClass(role: string | undefined) {
+  return role === "ADMIN" ? "text-red-400" : role === "GM" ? "text-yellow-400" : role === "PLAYER" ? "text-blue-400" : "text-zinc-400";
+}
+
+function readableAction(action: string) {
+  if (actionLabels[action]) return actionLabels[action];
+  return action.toLowerCase().split("_").map((part) => part ? part.charAt(0).toUpperCase() + part.slice(1) : "").join(" ");
 }
 
 function detailText(log: Log) {
@@ -55,6 +77,39 @@ function detailText(log: Log) {
     return `Puesto: ${log.position.title} · Turno: ${log.position.startTime}–${log.position.endTime} · Salario: ${salary} · Pagador: ${payer}`;
   }
   if (log.action === "EMPLOYMENT_END" && log.position) return `Puesto: ${log.position.title} · Turno: ${log.position.startTime}–${log.position.endTime}`;
+  if (log.action === "CASINO_BLACKJACK" || log.action === "CASINO_ROULETTE" || log.action === "CASINO_DICE") {
+    const outcome = String(d.outcome ?? "");
+    const result = outcome === "win" || outcome === "blackjack" ? "Ganó" : outcome === "lose" ? "Perdió" : outcome === "tie" ? "Empató" : "";
+    const parts = result ? [result] : [];
+    if (d.bet !== undefined) parts.push(`Apuesta: ${money(Number(d.bet))}`);
+    if (d.payout !== undefined) {
+      const payout = Number(d.payout);
+      parts.push(`${payout >= 0 ? "Ganancia" : "Pérdida"}: ${payout >= 0 ? "+" : ""}${money(payout)}`);
+    }
+    return parts.join(" · ");
+  }
+  if (log.action === "ITEM_CREATE" || log.action === "ITEM_UPDATE") {
+    const name = d.name ?? (d.after && typeof d.after === "object" ? (d.after as Record<string, unknown>).name : undefined);
+    return name !== undefined ? `Objeto: ${String(name)}` : "";
+  }
+  if (log.action === "SKILL_APPROVE" || log.action === "SKILL_REJECT" || log.action === "SKILL_UPDATE") {
+    const name = d.name ?? (d.after && typeof d.after === "object" ? (d.after as Record<string, unknown>).name : undefined) ?? (d.before && typeof d.before === "object" ? (d.before as Record<string, unknown>).name : undefined);
+    return name !== undefined ? `Habilidad: ${String(name)}` : "";
+  }
+  if (log.action === "PERK_GRANTED") {
+    return d.perkName !== undefined ? `Perk: ${String(d.perkName)}` : "";
+  }
+  if (log.action === "RESOURCE_GRANT" || log.action === "GLOBAL_REWARD") {
+    const parts: string[] = [];
+    for (const [label, value] of [["Karma",d.karma],["Dinero",d.money],["Level Up",d.levelUpPoints]] as [string,unknown][]) {
+      if (value !== undefined && Number(value) !== 0) parts.push(`${label}: ${Number(value) > 0 ? "+" : ""}${money(Number(value))}`);
+    }
+    if (d.stats && typeof d.stats === "object") for (const [stat,value] of Object.entries(d.stats as Record<string,unknown>)) if (Number(value) !== 0) parts.push(`${statLabels[stat] ?? stat}: ${Number(value) > 0 ? "+" : ""}${money(Number(value))}`);
+    if (d.allCharacters === true) parts.push(`Personajes afectados: ${String(d.updatedCharacters ?? 0)}`);
+    return parts.join(" · ");
+  }
+  if (log.action === "KARMA_BOOST") return `Estadística: ${statLabels[String(d.stat)] ?? String(d.stat)} · Boost: +${String(d.amount ?? 20)} · Karma gastado: ${String(d.karmaSpent ?? 20)}`;
+  if (log.action === "BUSINESS_POSITION_CREATE" || log.action === "BUSINESS_POSITION_UPDATE") return d.title !== undefined ? `Puesto: ${String(d.title)}` : "";
   if (log.action.startsWith("BUSINESS_")) {
     const parts = [];
     if (d.name !== undefined) parts.push(`Nombre: ${String(d.name)}`);
@@ -145,9 +200,9 @@ export default function ManagementLogsPage() {
               {logs.map(log=><article key={log.id} className="px-6 py-5 transition hover:bg-zinc-900/70">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-medium text-zinc-200">{actionLabels[log.action] ?? log.action}</p>
+                    <p className="font-medium text-zinc-200">{readableAction(log.action)}</p>
                     <p className="mt-1 text-sm text-zinc-400">
-                      {log.actor?.name ?? "Sistema"} <span className="text-zinc-700">·</span> {log.actor?.role ?? "SYSTEM"}
+                      <span className={actorClass(log.actor?.role)}>{log.actor?.name ?? "Sistema"}</span>
                       {log.characterName ? <><span className="text-zinc-700"> · </span><span className="text-zinc-300">{log.characterName}</span></> : null}
                       {log.businessName ? <><span className="text-zinc-700"> · </span><span className="text-zinc-300">{log.businessName}</span></> : null}
                     </p>

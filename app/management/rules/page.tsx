@@ -247,7 +247,7 @@ export default function RulesManagementPage() {
             </div>
           ) : (
             <div className="mt-4 grid gap-4">
-              {rules.map((rule) => (
+              {rules.map((rule, index) => (
                 <article key={rule.id} className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div><div className="mb-1 text-xs text-zinc-600">Posición {index + 1}</div><h3 className="text-lg font-semibold">{rule.title}</h3></div>

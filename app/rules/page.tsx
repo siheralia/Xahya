@@ -7,6 +7,9 @@ type Rule = {
   id: number;
   title: string;
   content: string;
+  position: number;
+  backgroundUrl: string | null;
+  bannerUrl: string | null;
 };
 
 type KarmaRank = {
@@ -90,12 +93,13 @@ export default function RulesPage() {
         ) : (
           <div className="mt-8 grid gap-5">
             {rules.map((rule) => (
-              <article key={rule.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+              <article key={rule.id} className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">{rule.backgroundUrl && <div className="absolute inset-0 bg-cover bg-center opacity-25" style={{backgroundImage: `url("${rule.backgroundUrl}")`}} />}<div className="relative">
+                {rule.bannerUrl && <div className="mb-5 -mx-6 -mt-6 h-40 bg-cover bg-center" style={{backgroundImage: `url("${rule.bannerUrl}")`}} />}
                 <h2 className="text-2xl font-semibold">{rule.title}</h2>
                 <div className="mt-5">
                   <WhatsAppMarkup text={rule.content} />
                 </div>
-              </article>
+              </div></article>
             ))}
           </div>
         )}

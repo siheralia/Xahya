@@ -82,7 +82,7 @@ body {
 }
 .xahya-rules:hover { background: rgba(39,39,42,.95); border-color: rgba(244,63,94,.55); }
 .xahya-help {
-  position: fixed; right: 64px; bottom: 18px; z-index: 50;
+  position: fixed; right: 150px; bottom: 18px; z-index: 50;
   display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: 1px solid rgba(161,161,170,.28);
   border-radius: 999px; background: rgba(9,9,11,.92); color: #d4d4d8;

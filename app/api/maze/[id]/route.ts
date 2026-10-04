@@ -505,7 +505,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const roomCleared = activeEnemies.length === 0;
       if (roomCleared) {
         await tx.orm.public.MazeRoom.where({ id:Number(room.id) }).update({ status:"CLEARED" });
-        if (String(room.roomType)==="BOSS") {
+        // Un jefe puede aparecer antes del piso final. Solo el jefe de la última
+        // habitación de un laberinto FINITE puede completar el laberinto.
+        const isFinalBoss = String(room.roomType) === "BOSS"
+          && String(maze.mazeType) === "FINITE"
+          && Number(maze.maxRooms) === Number(room.roomNumber);
+        if (isFinalBoss) {
           await tx.orm.public.Maze.where({ id:mazeId }).update({ status:"COMPLETED" });
         }
       }

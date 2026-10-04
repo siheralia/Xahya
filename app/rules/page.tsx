@@ -103,10 +103,10 @@ export default function RulesPage() {
                         src={rule.backgroundUrl}
                         alt=""
                         aria-hidden="true"
-                        className="pointer-events-none absolute inset-x-0 top-0 h-auto w-full"
+                        className={`pointer-events-none absolute inset-x-0 ${rule.bannerUrl ? "top-40" : "top-0"} h-auto w-full`}
                       />
                       <div
-                        className="pointer-events-none absolute inset-0"
+                        className={`pointer-events-none absolute inset-x-0 bottom-0 ${rule.bannerUrl ? "top-40" : "top-0"}`}
                         style={{
                           background:
                             "linear-gradient(to bottom, rgba(0, 90, 180, 0.18) 0%, rgba(0, 70, 150, 0.38) 28%, rgba(10, 20, 35, 0.78) 58%, #09090b 88%, #09090b 100%)",

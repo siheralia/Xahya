@@ -229,7 +229,63 @@ export async function processEconomyPayments(now = new Date()) {
     }
   }
 
-  // 3. Al terminar un turno, el salario sale primero de la caja del negocio.
+  // 3. Las reinversiones financiadas por el negocio se cobran después de que
+  // entra el ingreso del periodo y antes de pagar salarios.
+  // Se permite que la caja quede negativa: el cierre del periodo hará que
+  // el dueño cubra el déficit, igual que con las demás obligaciones.
+  for (const business of businesses) {
+    if (!business.active || Number(business.passiveIncome) <= 0) continue;
+
+    const frequency = String(business.passiveFrequency ?? "WEEKLY");
+    if (frequency !== "WEEKLY") continue;
+
+    const p = localParts(now);
+    const due = p.weekday === Number(business.passiveDayOfWeek ?? 0) &&
+      dueDaily("00:00", String(business.passiveTime ?? "18:00"), now);
+    if (!due) continue;
+
+    const investmentPeriod = periodKey(now, "WEEKLY");
+    const investments = [
+      { type: "SECURITY", amount: Number(business.securityInvestment ?? 0) },
+      { type: "GROWTH", amount: Number(business.growthInvestment ?? 0) },
+    ].filter((investment) => investment.amount > 0);
+
+    for (const investment of investments) {
+      const existing = await Log.where({
+        paymentType: "BUSINESS_INVESTMENT",
+        sourceId: Number(business.id),
+        recipientCharacterId: Number(business.ownerCharacterId),
+        periodKey: investmentPeriod,
+        description: investment.type,
+      }).first();
+      if (existing) continue;
+
+      await db.transaction(async (tx) => {
+        const BusinessTx = (tx.orm.public as any).Business;
+        const LogTx = (tx.orm.public as any).EconomyPaymentLog;
+        const currentBusiness = await BusinessTx.where({ id: Number(business.id) }).first();
+        if (!currentBusiness) throw new Error("BUSINESS_MISSING");
+
+        await BusinessTx.where({ id: Number(business.id) }).update({
+          balance: Number(currentBusiness.balance ?? 0) - investment.amount,
+        });
+
+        await LogTx.create({
+          paymentType: "BUSINESS_INVESTMENT",
+          sourceType: "BUSINESS",
+          sourceId: Number(business.id),
+          recipientCharacterId: Number(business.ownerCharacterId),
+          businessId: Number(business.id),
+          amount: investment.amount,
+          periodKey: investmentPeriod,
+          description: investment.type,
+        });
+      });
+      payments++;
+    }
+  }
+
+  // 4. Al terminar un turno, el salario sale primero de la caja del negocio.
   // Si no alcanza, el dueño cubre únicamente la diferencia.
   for (const position of positions) {
     const salaryFrequency = String(position.salaryFrequency ?? "DAILY");
@@ -324,7 +380,7 @@ export async function processEconomyPayments(now = new Date()) {
     }
   }
 
-  // 4. En el cierre del periodo, el dueño recibe únicamente el excedente
+  // 5. En el cierre del periodo, el dueño recibe únicamente el excedente
   // que quedó en la caja después de los salarios.
   for (const business of businesses) {
     if (!business.active || Number(business.passiveIncome) <= 0) continue;

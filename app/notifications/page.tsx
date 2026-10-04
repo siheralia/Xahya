@@ -33,6 +33,26 @@ function description(event: Event) {
     }
     return parts.length ? `Se aplicó globalmente: ${parts.join(", ")}.` : "Se aplicó una entrega global.";
   }
+  if (event.action === "RESOURCE_GRANT") {
+    const parts: string[] = [];
+    const money = Number(d.money ?? 0);
+    const karma = Number(d.karma ?? 0);
+    const levelUpPoints = Number(d.levelUpPoints ?? 0);
+    const statLabels: Record<string, string> = {
+      strength: "Fuerza", agility: "Agilidad", constitution: "Constitución",
+      intelligence: "Inteligencia", wisdom: "Sabiduría", charisma: "Carisma",
+      spirit: "Espíritu", luck: "Suerte",
+    };
+    if (money) parts.push(`${money > 0 ? "+" : ""}${money.toLocaleString("es-MX")} dinero`);
+    if (karma) parts.push(`${karma > 0 ? "+" : ""}${karma} karma 🪷`);
+    if (levelUpPoints) parts.push(`${levelUpPoints > 0 ? "+" : ""}${levelUpPoints} puntos de Level Up`);
+    const stats = d.stats && typeof d.stats === "object" ? d.stats as Record<string, unknown> : {};
+    for (const [stat, label] of Object.entries(statLabels)) {
+      const value = Number(stats[stat] ?? 0);
+      if (value) parts.push(`${value > 0 ? "+" : ""}${value} ${label}`);
+    }
+    return parts.length ? `Recibiste: ${parts.join(", ")}.` : "Recibiste recursos.";
+  }
   if (d.amount !== undefined) return `Cantidad: ${String(d.amount)}`;
   if (d.before !== undefined && d.after !== undefined) return `${String(d.before)} → ${String(d.after)}`;
   return labels[event.action] ?? "Hubo una novedad en tu personaje.";

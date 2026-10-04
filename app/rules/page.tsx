@@ -24,7 +24,8 @@ export default function RulesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [karmaRanking, setKarmaRanking] = useState<KarmaRank[]>([]);
-  const [karmaLoading, setKarmaLoading] = useState(true);\n  const [openRuleId, setOpenRuleId] = useState<number | null>(null);
+  const [karmaLoading, setKarmaLoading] = useState(true);
+  const [openRuleId, setOpenRuleId] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/rules", { cache: "no-store" })

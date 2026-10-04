@@ -2,15 +2,22 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-const TYPE_ACTIONS: Record<string, string[]> = {
-  Personaje: ["CHARACTER_CREATED", "CHARACTER_RENAME", "CHARACTER_DELETE", "CHARACTER_TRANSFER"],
-  Estadísticas: ["STAT_UPDATE"],
-  Recursos: ["RESOURCE_GRANT", "GLOBAL_REWARD"],
-  "Level Up": ["LEVEL_UP"],
-  Karma: ["KARMA_BOOST"],
-  Negocios: ["BUSINESS_CREATE", "BUSINESS_UPDATE", "BUSINESS_POSITION_CREATE", "BUSINESS_POSITION_UPDATE", "EMPLOYMENT_CREATE", "EMPLOYMENT_END"],
-  Sistema: ["USER_ROLE_CHANGE", "USER_DELETE"],
-};
+function eventCategory(action: string) {
+  if (action.startsWith("CHARACTER_")) return "Personajes";
+  if (action === "STAT_UPDATE") return "Estadísticas";
+  if (action === "RESOURCE_GRANT" || action === "GLOBAL_REWARD") return "Recursos";
+  if (action === "LEVEL_UP") return "Level Up";
+  if (action === "KARMA_BOOST") return "Karma";
+  if (action.startsWith("BUSINESS_") || action.startsWith("EMPLOYMENT_")) return "Negocios";
+  if (action.startsWith("CASINO_")) return "Casino";
+  if (action.startsWith("ITEM_")) return "Objetos";
+  if (action.startsWith("SKILL_")) return "Habilidades";
+  if (action.startsWith("MAZE_")) || action.startsWith("ESCAPE_MAZE") || action.includes("MAZE")) return "Laberintos";
+  if (action.startsWith("PERK_")) return "Perks";
+  if (action.startsWith("EQUIP") || action.includes("EQUIP_")) return "Equipo";
+  if (action.startsWith("USER_")) return "Sistema";
+  return "Otros";
+}
 
 export async function GET(request: Request) {
   const { userId: clerkId } = await auth();
@@ -41,10 +48,10 @@ export async function GET(request: Request) {
     "30d": 30 * 24 * 60 * 60 * 1000,
   };
   const cutoff = rangeMs[range] ? now - rangeMs[range] : null;
-  const allowedActions = TYPE_ACTIONS[type];
+  const allowedActions = type === "Todos" ? null : type;
 
   const filtered = allLogs
-    .filter((log) => !allowedActions || allowedActions.includes(String(log.action)))
+     .filter((log) => !allowedActions || eventCategory(String(log.action)) === allowedActions)
     .filter((log) => !cutoff || new Date(String(log.createdAt)).getTime() >= cutoff)
     .map((log) => {
       const actor = users.find((user) => Number(user.id) === Number(log.actorUserId));

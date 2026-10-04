@@ -114,35 +114,64 @@ export async function POST(request: Request) {
     const Product = (db.orm.public as any).BusinessProduct;
     const Plan = (db.orm.public as any).BusinessSubscriptionPlan;
     const Resource = db.orm.public.CharacterResource;
-    if (action === "invest") {
-      const type = String(body?.type ?? "");
-      const sourceType = String(body?.sourceType ?? "BUSINESS");
-      const amount = Math.trunc(Number(body?.amount ?? 0));
-      if (!investmentTypes.includes(type) || !investmentSources.includes(sourceType) || amount <= 0) return NextResponse.json({ error: "Inversión inválida." }, { status: 400 });
-      if (sourceType === "BUSINESS") {
-        // La inversión financiada por el negocio es una reinversión programada:
-        // se configura ahora y se cobra desde los ingresos del siguiente ciclo.
-        const field = type === "SECURITY" ? "securityInvestment" : "growthInvestment";
-        await db.transaction(async (tx) => {
-          const B = (tx.orm.public as any).Business; const I = (tx.orm.public as any).BusinessInvestment;
-          const currentB = await B.where({ id: businessId }).first();
-          if (!currentB) throw new Error("BUSINESS_MISSING");
-          await B.where({ id: businessId }).update({ [field]: Number(currentB[field] ?? 0) + amount });
-          await I.create({ businessId, type, sourceType, sourceCharacterId: null, amount });
-        });
-      } else {
-        const ownerResource = await Resource.where({ characterId: Number(owned.owner.id) }).first();
-        if (!ownerResource || Number(ownerResource.money) < amount) return NextResponse.json({ error: "El dueño no tiene suficiente dinero." }, { status: 400 });
-        const field = type === "SECURITY" ? "securityInvestment" : "growthInvestment";
-        await db.transaction(async (tx) => {
-          const R = tx.orm.public.CharacterResource; const B = (tx.orm.public as any).Business; const I = (tx.orm.public as any).BusinessInvestment;
-          const ownerR = await R.where({ characterId: Number(owned.owner.id) }).first(); const currentB = await B.where({ id: businessId }).first();
-          if (!ownerR || !currentB) throw new Error("No se encontraron los recursos del dueño o el negocio.");
-          await R.where({ id: ownerR.id }).update({ money: Number(ownerR.money) - amount });
-          await B.where({ id: businessId }).update({ [field]: Number(currentB[field] ?? 0) + amount });
-          await I.create({ businessId, type, sourceType, sourceCharacterId: Number(owned.owner.id), amount });
-        });
+    if (action === "oneTimeInvest" || action === "scheduleInvestment" || action === "cancelInvestment") {
+      const Investment = (db.orm.public as any).BusinessInvestment;
+      const Resource = db.orm.public.CharacterResource;
+
+      if (action === "cancelInvestment") {
+        const investmentId = Number(body?.investmentId);
+        const investment = await Investment.where({ id: investmentId }).first();
+        if (!investment || Number(investment.businessId) !== businessId || String(investment.frequency) !== "WEEKLY") {
+          return NextResponse.json({ error: "Reinversión no encontrada." }, { status: 404 });
+        }
+        await Investment.where({ id: investmentId }).update({ active: false });
+        return NextResponse.json({ success: true });
       }
+
+      const type = String(body?.type ?? "");
+      const amount = Math.trunc(Number(body?.amount ?? 0));
+      if (!investmentTypes.includes(type) || amount <= 0) {
+        return NextResponse.json({ error: "Inversión inválida." }, { status: 400 });
+      }
+
+      if (action === "scheduleInvestment") {
+        const investment = await Investment.create({
+          businessId,
+          type,
+          sourceType: "BUSINESS",
+          sourceCharacterId: null,
+          amount,
+          frequency: "WEEKLY",
+          active: true,
+        });
+        return NextResponse.json({ success: true, investment });
+      }
+
+      const ownerResource = await Resource.where({ characterId: Number(owned.owner.id) }).first();
+      if (!ownerResource || Number(ownerResource.money) < amount) {
+        return NextResponse.json({ error: "El dueño no tiene suficiente dinero." }, { status: 400 });
+      }
+
+      const field = type === "SECURITY" ? "securityInvestment" : "growthInvestment";
+      await db.transaction(async (tx) => {
+        const R = tx.orm.public.CharacterResource;
+        const B = (tx.orm.public as any).Business;
+        const I = (tx.orm.public as any).BusinessInvestment;
+        const ownerR = await R.where({ characterId: Number(owned.owner.id) }).first();
+        const currentB = await B.where({ id: businessId }).first();
+        if (!ownerR || !currentB) throw new Error("No se encontraron los recursos del dueño o el negocio.");
+        await R.where({ id: ownerR.id }).update({ money: Number(ownerR.money) - amount });
+        await B.where({ id: businessId }).update({ [field]: Number(currentB[field] ?? 0) + amount });
+        await I.create({
+          businessId,
+          type,
+          sourceType: "OWNER",
+          sourceCharacterId: Number(owned.owner.id),
+          amount,
+          frequency: "ONCE",
+          active: false,
+        });
+      });
       return NextResponse.json({ success: true });
     }
     if (action === "stockProperty") {

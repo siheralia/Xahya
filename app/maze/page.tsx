@@ -234,34 +234,6 @@ export default function MazePage(){
               </div></div>
             <div className="mt-3 rounded-2xl border border-zinc-800 bg-zinc-950/65 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold text-zinc-200">📍 Entorno</p><p className="mt-1 text-sm leading-5 text-zinc-400">{room.description}</p></div><button onClick={copy} disabled={!copyText} className="shrink-0 rounded-lg border border-zinc-700 px-2.5 py-1.5 text-[11px] text-zinc-400">{copied?"✓ Copiado":"Copiar"}</button></div>{(room.contentDescription||room.roomType==="DEATH")&&<p className="mt-2 text-xs text-zinc-500">{room.roomType==="DEATH"?"☠️ Esta habitación bloquea al explorador hasta que un GM lo libere.":room.contentDescription}</p>}</div>
             <div className="mt-3 hidden grid gap-2 sm:grid-cols-2">{exits.map((e:Exit)=>{const destination=e.toRoomId?roomById.get(Number(e.toRoomId)):null;const isDeath=destination?.roomType==="DEATH",isTrap=destination?.roomType==="TRAP"&&destination.trapActive!==false,isEntryExit=Number(e.id)===Number(returnExitId);return <button key={e.id} onClick={()=>move(e.direction)} disabled={busy||maze.positionStatus!=="ACTIVE"||(!e.toRoomId&&room.status==="BLOCKED")} className={"rounded-xl border px-3 py-2.5 text-sm transition hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-40 "+(isEntryExit?"border-cyan-400/60 bg-cyan-400/5 text-cyan-200":isDeath?"border-red-900/70 bg-red-950/20 text-red-200":isTrap?"border-amber-900/70 bg-amber-950/20 text-amber-200":"border-zinc-800 bg-zinc-950/70 text-zinc-300")}>{isDeath?"💀 ":isTrap?"⚠️ ":isEntryExit?"↩️ ":""}{maze.directionLabels?.[e.direction]??e.direction}{isEntryExit?" · Entrada":""}</button>})}</div>
-            {hasActiveRoomEnemies && (
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <div className="rounded-xl border border-cyan-900/60 bg-cyan-950/20 p-3">
-                  <p className="text-sm font-semibold text-cyan-200">🥷 Sigilo</p>
-                  <p className="mt-1 text-[11px] text-zinc-500">Compara tu Sigilo con la Detección enemiga.</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {exits.map((e: Exit) => (
-                      <button key={"s" + e.id} onClick={() => moveStealth(e.direction)} disabled={busy} className="rounded-lg border border-cyan-800 px-2.5 py-1.5 text-xs text-cyan-200 disabled:opacity-40">
-                        🥷 {maze.directionLabels?.[e.direction] ?? e.direction}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {maze?.mazeCapabilities?.invisibility && maze.positionStatus === "ACTIVE" && (
-                  <div className="rounded-xl border border-violet-900/60 bg-violet-950/20 p-3">
-                    <p className="text-sm font-semibold text-violet-200">🫥 Invisibilidad</p>
-                    <p className="mt-1 text-[11px] text-zinc-500">Atraviesa al enemigo sin derrotarlo.</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {exits.map((e: Exit) => (
-                        <button key={"i" + e.id} onClick={() => moveInvisible(e.direction)} disabled={busy} className="rounded-lg border border-violet-800 px-2.5 py-1.5 text-xs text-violet-200 disabled:opacity-40">
-                          🫥 {maze.directionLabels?.[e.direction] ?? e.direction}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
             {room.roomType === "TRAP" && (
               <div className="mt-3 rounded-xl border border-amber-900/70 bg-amber-950/20 p-3 text-sm text-amber-200">
                 {room.trapActive === false ? "✓ Trampa desactivada." : "⚠️ La trampa está activa."}
@@ -326,7 +298,7 @@ export default function MazePage(){
               )}
             </div>
 
-            {(maze?.mazeCapabilities?.invisibility || hasActiveRoomEnemies) && (
+            {true && (
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 {maze?.mazeCapabilities?.invisibility && (
                   <button onClick={()=>setInvisibilityActive(v=>!v)} aria-pressed={invisibilityActive}
@@ -336,7 +308,7 @@ export default function MazePage(){
                     🫥 Invisibilidad {invisibilityActive?"ON":"OFF"}
                   </button>
                 )}
-                {hasActiveRoomEnemies && (
+                {true && (
                   <button onClick={()=>setStealthActive(v=>!v)} aria-pressed={stealthActive}
                     className={"h-9 rounded-lg border text-[11px] font-semibold transition-colors "+(stealthActive
                       ?"border-cyan-400 bg-cyan-500/20 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.2)]"

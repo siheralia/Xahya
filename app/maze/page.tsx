@@ -27,6 +27,7 @@ export default function MazePage(){
   const [copied,setCopied]=useState(false);
   const [trapBusy,setTrapBusy]=useState<number|null>(null);
   const [panel,setPanel]=useState<"none"|"inventory"|"stats"|"map"|"skills">("none");
+  const [hudOpen,setHudOpen]=useState(false);
   const [movingDirection,setMovingDirection]=useState<string|null>(null);
   const [characterData,setCharacterData]=useState<any>(null);
   const [invisibilityActive,setInvisibilityActive]=useState(false);
@@ -273,17 +274,17 @@ export default function MazePage(){
           </div>
 
           <div className="sticky bottom-2 z-30 flex justify-center">
-            <div className={panel==="none"
+            <div className={!hudOpen
               ? "w-fit"
               : "w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur"}>
               <button
                 type="button"
-                onClick={()=>setPanel(panel==="none" ? "stats" : "none")}
-                aria-label={panel==="none" ? "Abrir panel del personaje" : "Cerrar panel del personaje"}
+                onClick={()=>setHudOpen(v=>!v)}
+                aria-label={hudOpen ? "Cerrar panel del personaje" : "Abrir panel del personaje"}
                 className={panel==="none"
                   ? "flex min-h-10 items-center gap-3 border border-zinc-700 bg-zinc-900/95 px-4 py-2 text-sm shadow-xl backdrop-blur [clip-path:polygon(10%_0,90%_0,100%_100%,0_100%)]"
                   : "mb-2 flex w-full items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-xs text-zinc-500 hover:text-white"}>
-                {panel==="none" ? <>
+                {!hudOpen ? <>
                   <span className="flex items-center gap-1.5">
                     <span className="inline-block h-3.5 w-3.5 rotate-45 rounded-[2px] bg-yellow-300 shadow-[0_0_7px_rgba(253,224,71,0.35)]" />
                     <span className="font-semibold text-zinc-100">{characterData?.money??characterData?.resources?.money??"—"}</span>
@@ -301,7 +302,7 @@ export default function MazePage(){
                 </> : <>⌃ Ocultar</>}
               </button>
 
-              {panel!=="none"&&<>
+              {hudOpen&&<>
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-12 min-w-[4.5rem] shrink-0 items-center justify-center overflow-visible rounded-xl border border-violet-500/30 bg-violet-950/20 px-2 text-xl leading-normal whitespace-nowrap">
                     {characters.find(c=>Number(c.id)===Number(characterId))?.flair

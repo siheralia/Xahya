@@ -26,7 +26,6 @@ export default function MazePage(){
   const [selectedOccupant,setSelectedOccupant]=useState<Occupant|null>(null);
   const [copied,setCopied]=useState(false);
   const [trapBusy,setTrapBusy]=useState<number|null>(null);
-  const [topMenuOpen,setTopMenuOpen]=useState(false);
   const [panel,setPanel]=useState<"none"|"inventory"|"stats"|"map"|"skills">("none");
   const [movingDirection,setMovingDirection]=useState<string|null>(null);
   const [characterData,setCharacterData]=useState<any>(null);
@@ -50,7 +49,6 @@ export default function MazePage(){
     setBusy(false);
   }
   async function moveInvisible(direction:string){
-    setTopMenuOpen(false);
     setBusy(true);setError("");
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"exploreInvisible",characterId:Number(characterId),direction})});
     const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo explorar invisible.");else await loadMaze();setBusy(false);
@@ -171,20 +169,13 @@ export default function MazePage(){
     <div className="mx-auto flex min-h-screen w-full flex-col px-3 py-3 sm:px-5 sm:py-4">
       <header className="relative z-40 flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 shadow-xl backdrop-blur sm:px-4">
         <div className="flex min-w-0 items-center gap-3">
-          <button onClick={()=>setTopMenuOpen(v=>!v)} aria-label="Abrir menú" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-zinc-700 bg-zinc-950 text-lg hover:border-zinc-500">☰</button>
           <div className="min-w-0"><div className="flex items-center gap-2"><span className="font-bold tracking-wide">Xahya</span><span className="h-2 w-2 rounded-full bg-emerald-400"/></div><p className="truncate text-xs text-zinc-500">{maze?.maze?.name??"Laberinto"} {room?("· Habitación #"+room.roomNumber):""}</p></div>
         </div>
         <div className="flex items-center gap-2">
           <select value={characterId} onChange={e=>setCharacterId(e.target.value)} className="hidden max-w-[180px] rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm sm:block"><option value="">Personaje</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
           <select value={mazeId} onChange={e=>setMazeId(e.target.value)} className="hidden max-w-[210px] rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm md:block"><option value="">Laberinto</option>{mazes.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>
         </div>
-        {topMenuOpen&&<div className="absolute left-3 top-[calc(100%+8px)] w-64 rounded-2xl border border-zinc-700 bg-zinc-950/95 p-2 shadow-2xl backdrop-blur sm:left-4">
-          <button onClick={()=>{setPanel("stats");setTopMenuOpen(false)}} className="w-full rounded-xl px-3 py-2.5 text-left text-sm hover:bg-zinc-900">🧙 Estado del personaje</button>
-          <button onClick={()=>{setPanel("inventory");setTopMenuOpen(false)}} className="w-full rounded-xl px-3 py-2.5 text-left text-sm hover:bg-zinc-900">🎒 Inventario y equipo</button>
-          <button onClick={()=>{setPanel("skills");setTopMenuOpen(false)}} className="w-full rounded-xl px-3 py-2.5 text-left text-sm hover:bg-zinc-900">✨ Habilidades</button>
-          <button onClick={()=>{setPanel("map");setTopMenuOpen(false)}} className="w-full rounded-xl px-3 py-2.5 text-left text-sm hover:bg-zinc-900">🗺️ Mapa ampliado</button>
-          <Link href="/" className="block rounded-xl px-3 py-2.5 text-sm hover:bg-zinc-900">⌂ Inicio</Link>
-        </div>}
+
       </header>
       {error&&<div className="mt-3 rounded-xl border border-red-900/60 bg-red-950/30 p-3 text-sm text-red-300">{error}</div>}
       {!maze&&<section className="mt-3 grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 sm:grid-cols-2">
@@ -281,78 +272,106 @@ export default function MazePage(){
             </div>
           </div>
 
-          <div className="sticky bottom-3 rounded-2xl border border-zinc-800 bg-zinc-900/95 p-3 shadow-xl backdrop-blur">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-12 min-w-[4.5rem] shrink-0 items-center justify-center overflow-visible rounded-xl border border-violet-500/30 bg-violet-950/20 px-2 text-xl leading-normal whitespace-nowrap">
-                {characters.find(c=>Number(c.id)===Number(characterId))?.flair
-                  ?"⟨"+characters.find(c=>Number(c.id)===Number(characterId))?.flair+"⟩"
-                  :"🧙"}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate font-semibold">{characters.find(c=>Number(c.id)===Number(characterId))?.name??"Personaje"}</p>
-                <p className="text-xs text-zinc-500">Explorador</p>
-              </div>
-            </div>
+          <div className="sticky bottom-2 z-30 flex justify-center">
+            <div className={panel==="none"
+              ? "w-fit"
+              : "w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur"}>
+              <button
+                type="button"
+                onClick={()=>setPanel(panel==="none" ? "stats" : "none")}
+                aria-label={panel==="none" ? "Abrir panel del personaje" : "Cerrar panel del personaje"}
+                className={panel==="none"
+                  ? "flex min-h-10 items-center gap-3 border border-zinc-700 bg-zinc-900/95 px-4 py-2 text-sm shadow-xl backdrop-blur [clip-path:polygon(10%_0,90%_0,100%_100%,0_100%)]"
+                  : "mb-2 flex w-full items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-xs text-zinc-500 hover:text-white"}>
+                {panel==="none" ? <>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-3.5 w-3.5 rotate-45 rounded-[2px] bg-yellow-300 shadow-[0_0_7px_rgba(253,224,71,0.35)]" />
+                    <span className="font-semibold text-zinc-100">{characterData?.money??characterData?.resources?.money??"—"}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-base leading-none">🪷</span>
+                    <span className="font-semibold text-zinc-100">{characterData?.karma??characterData?.resources?.karma??"—"}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-base leading-none">📍</span>
+                    <span className="font-semibold text-zinc-100">{room?.roomNumber??"—"}</span>
+                  </span>
+                  {invisibilityActive&&<span className="text-base leading-none" title="Invisibilidad activa">🫥</span>}
+                  {stealthActive&&<span className="text-base leading-none" title="Sigilo activo">🥷</span>}
+                </> : <>⌃ Ocultar</>}
+              </button>
 
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <div className="rounded-lg bg-zinc-950/80 p-2">
-                <p className="text-[10px] text-zinc-600">❤️ HP</p>
-                <p className="mt-1 font-semibold">{characterData?.resources?.currentHp??characterData?.resources?.hp??characterData?.derivedStats?.maxHp??"—"} / {characterData?.derivedStats?.maxHp??"—"}</p>
-              </div>
-              <div className="rounded-lg bg-zinc-950/80 p-2">
-                <p className="text-[10px] text-zinc-600">🔷 Mana</p>
-                <p className="mt-1 font-semibold">{characterData?.resources?.currentMana??characterData?.resources?.mana??characterData?.derivedStats?.maxMana??"—"} / {characterData?.derivedStats?.maxMana??"—"}</p>
-              </div>
-            </div>
+              {panel!=="none"&&<>
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-12 min-w-[4.5rem] shrink-0 items-center justify-center overflow-visible rounded-xl border border-violet-500/30 bg-violet-950/20 px-2 text-xl leading-normal whitespace-nowrap">
+                    {characters.find(c=>Number(c.id)===Number(characterId))?.flair
+                      ?"⟨"+characters.find(c=>Number(c.id)===Number(characterId))?.flair+"⟩"
+                      :"🧙"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{characters.find(c=>Number(c.id)===Number(characterId))?.name??"Personaje"}</p>
+                    <p className="text-xs text-zinc-500">Explorador · Sala #{room?.roomNumber??"—"}</p>
+                  </div>
+                </div>
 
-            <div className="mt-2 grid grid-cols-4 gap-1.5">
-              {["⚔️","🪄","🛡️","✨"].map((icon,i)=>
-                <button key={i} onClick={()=>setPanel("skills")} className="relative grid h-10 place-items-center rounded-lg border border-zinc-800 bg-zinc-950 text-sm hover:border-zinc-600">
-                  {icon}
-                  <span className="absolute bottom-0.5 right-1 text-[9px] text-zinc-600">—</span>
-                </button>
-              )}
-            </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-zinc-950/80 p-2">
+                    <p className="text-[10px] text-zinc-600">❤️ HP</p>
+                    <p className="mt-1 font-semibold">{characterData?.resources?.currentHp??characterData?.resources?.hp??characterData?.derivedStats?.maxHp??"—"} / {characterData?.derivedStats?.maxHp??"—"}</p>
+                  </div>
+                  <div className="rounded-lg bg-zinc-950/80 p-2">
+                    <p className="text-[10px] text-zinc-600">🔷 Mana</p>
+                    <p className="mt-1 font-semibold">{characterData?.resources?.currentMana??characterData?.resources?.mana??characterData?.derivedStats?.maxMana??"—"} / {characterData?.derivedStats?.maxMana??"—"}</p>
+                  </div>
+                </div>
 
-            {true && (
-              <div className="mt-2 grid grid-cols-2 gap-1.5">
-                {maze?.mazeCapabilities?.invisibility && (
-                  <button onClick={()=>setInvisibilityActive(v=>!v)} aria-pressed={invisibilityActive}
-                    className={"h-9 rounded-lg border text-[11px] font-semibold transition-all "+(invisibilityActive
-                      ?"border-violet-300 bg-violet-500/35 text-violet-50 shadow-[0_0_12px_rgba(167,139,250,0.35)]"
-                      :"border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-violet-800 hover:text-violet-300")}>
-                    🫥 Invisibilidad {invisibilityActive?"ON":"OFF"}
-                  </button>
-                )}
-                {true && (
+                <div className="mt-2 grid grid-cols-4 gap-1.5">
+                  {["⚔️","🪄","🛡️","✨"].map((icon,i)=>
+                    <button key={i} onClick={()=>setPanel("skills")} className="relative grid h-10 place-items-center rounded-lg border border-zinc-800 bg-zinc-950 text-sm hover:border-zinc-600">
+                      {icon}
+                      <span className="absolute bottom-0.5 right-1 text-[9px] text-zinc-600">—</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                  {maze?.mazeCapabilities?.invisibility&&(
+                    <button onClick={()=>setInvisibilityActive(v=>!v)} aria-pressed={invisibilityActive}
+                      className={"h-9 rounded-lg border text-[11px] font-semibold transition-all "+(invisibilityActive
+                        ?"border-violet-300 bg-violet-500/35 text-violet-50 shadow-[0_0_12px_rgba(167,139,250,0.35)]"
+                        :"border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-violet-800 hover:text-violet-300")}>
+                      🫥 Invisibilidad {invisibilityActive?"ON":"OFF"}
+                    </button>
+                  )}
                   <button onClick={()=>setStealthActive(v=>!v)} aria-pressed={stealthActive}
                     className={"h-9 rounded-lg border text-[11px] font-semibold transition-all "+(stealthActive
                       ?"border-cyan-300 bg-cyan-500/35 text-cyan-50 shadow-[0_0_12px_rgba(34,211,238,0.35)]"
                       :"border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-cyan-800 hover:text-cyan-300")}>
                     🥷 Sigilo {stealthActive?"ON":"OFF"}
                   </button>
-                )}
-              </div>
-            )}
+                </div>
 
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <button onClick={()=>setPanel("stats")} className="rounded-lg border border-zinc-800 px-2 py-2 text-xs text-zinc-400 hover:text-white">📊 Stats</button>
-              <button onClick={()=>setPanel("inventory")} className="rounded-lg border border-zinc-800 px-2 py-2 text-xs text-zinc-400 hover:text-white">🎒 Inventario</button>
-            </div>
-          </div>
+                <div className="mt-2 grid grid-cols-3 gap-1.5">
+                  <button onClick={()=>setPanel("stats")} className={"rounded-lg border px-2 py-2 text-xs "+(panel==="stats"?"border-violet-500/50 bg-violet-950/30 text-violet-200":"border-zinc-800 text-zinc-400 hover:text-white")}>📊 Stats</button>
+                  <button onClick={()=>setPanel("inventory")} className={"rounded-lg border px-2 py-2 text-xs "+(panel==="inventory"?"border-violet-500/50 bg-violet-950/30 text-violet-200":"border-zinc-800 text-zinc-400 hover:text-white")}>🎒 Inventario</button>
+                  <button onClick={()=>setPanel("skills")} className={"rounded-lg border px-2 py-2 text-xs "+(panel==="skills"?"border-violet-500/50 bg-violet-950/30 text-violet-200":"border-zinc-800 text-zinc-400 hover:text-white")}>✨ Habilidades</button>
+                </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-2 text-center">
-              <p className="text-[10px] text-zinc-600">🪙 Dinero</p>
-              <p className="font-semibold">{characterData?.money??characterData?.resources?.money??"—"}</p>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-2 text-center">
-              <p className="text-[10px] text-zinc-600">🪷 Karma</p>
-              <p className="font-semibold">{characterData?.karma??characterData?.resources?.karma??"—"}</p>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-2 text-center">
-              <p className="text-[10px] text-zinc-600">📍 Salas</p>
-              <p className="font-semibold">{maze.rooms?.length??0}</p>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-center">
+                    <p className="text-[10px] text-zinc-600">🪙</p>
+                    <p className="font-semibold">{characterData?.money??characterData?.resources?.money??"—"}</p>
+                  </div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-center">
+                    <p className="text-[10px] text-zinc-600">🪷</p>
+                    <p className="font-semibold">{characterData?.karma??characterData?.resources?.karma??"—"}</p>
+                  </div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-center">
+                    <p className="text-[10px] text-zinc-600">📍</p>
+                    <p className="font-semibold">{room?.roomNumber??"—"}</p>
+                  </div>
+                </div>
+              </>}
             </div>
           </div>
 

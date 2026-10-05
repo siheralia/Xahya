@@ -182,22 +182,22 @@ export default function MazePage(){
         <label className="text-xs text-zinc-500">Personaje<select value={characterId} onChange={e=>setCharacterId(e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm"><option value="">Selecciona</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label className="text-xs text-zinc-500">Laberinto<select value={mazeId} onChange={e=>setMazeId(e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm"><option value="">Selecciona</option>{mazes.map(m=><option key={m.id} value={m.id}>{m.name} — {m.mazeType==="FINITE"?m.roomCount+"/"+m.maxRooms:"∞"}</option>)}</select></label>
       </section>}
-      {maze&&<div className="mt-3 grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_310px]">
-        <section className="relative flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/35">
+      {maze&&<div className="mx-auto mt-3 grid w-full max-w-[1080px] min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,720px)_280px] lg:justify-center">
+        <section className="relative mx-auto flex min-h-[520px] w-full min-w-0 max-w-[720px] flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/35">
           <div className="absolute inset-0">{maze.maze.themes?.filter((t:Theme)=>t.imageUrl).map((t:Theme)=><img key={t.id} src={t.imageUrl??""} alt="" className="absolute inset-0 h-full w-full object-cover opacity-10" />)}<div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.06),transparent_55%)]"/></div>
           <div className="relative flex items-center justify-between border-b border-zinc-800/80 bg-zinc-950/45 px-4 py-3"><div><p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">Momento actual</p><h1 className="text-lg font-semibold">{room?typeLabels[room.roomType]:"Exploración"}</h1></div>{room&&<span className={maze.positionStatus==="DEAD_LOCKED"?"text-red-300":maze.positionStatus==="TRAPPED"?"text-amber-300":room.status==="BLOCKED"?"text-red-300":"text-emerald-300"}>{maze.positionStatus==="DEAD_LOCKED"?"💀 Bloqueado":maze.positionStatus==="TRAPPED"?"⚠️ Atrapado":room.status==="BLOCKED"?"⚔️ Bloqueada":"● Activo"}</span>}</div>
-          {!position?<div className="relative flex flex-1 items-center justify-center p-6"><div className="max-w-md text-center"><div className="text-6xl">🗺️</div><h2 className="mt-4 text-2xl font-bold">Listo para explorar</h2><p className="mt-2 text-sm text-zinc-500">Selecciona tu personaje y entra al laberinto para comenzar.</p><button onClick={join} disabled={busy||!characterId} className="mt-5 rounded-xl bg-white px-5 py-3 font-semibold text-black disabled:opacity-40">Entrar al laberinto</button></div></div>:room&&<div className="relative flex min-h-0 flex-1 flex-col p-3 sm:p-5">
-            <div className="w-full">
-              <div className="mx-auto w-full max-w-[340px] rounded-2xl border border-zinc-800/80 bg-zinc-950/35 p-2">
+          {!position?<div className="relative flex flex-1 items-center justify-center p-6"><div className="max-w-md text-center"><div className="text-6xl">🗺️</div><h2 className="mt-4 text-2xl font-bold">Listo para explorar</h2><p className="mt-2 text-sm text-zinc-500">Selecciona tu personaje y entra al laberinto para comenzar.</p><button onClick={join} disabled={busy||!characterId} className="mt-5 rounded-xl bg-white px-5 py-3 font-semibold text-black disabled:opacity-40">Entrar al laberinto</button></div></div>:room&&<div className="relative flex min-h-0 flex-1 flex-col items-center p-3 sm:p-5">
+            <div className="w-full max-w-[360px]">
+              <div className="mx-auto w-full max-w-[300px] rounded-2xl border border-zinc-800/80 bg-zinc-950/35 p-2">
                 <div className="grid w-full grid-cols-4 grid-rows-5 gap-1 sm:gap-1.5">
                   {([
-                    ["UP","🔺🔷"],["N_UP","⬆️🔺"],["N","⬆️🔷"],["N_DOWN","⬆️🔻"],
+                    ["UP","🔺"],["N_UP","⬆️🔺"],["N","⬆️"],["N_DOWN","⬆️🔻"],
                     ["O_UP","⬅️🔺"],[null,""],[null,""],["E_UP","🔺➡️"],
-                    ["O","⬅️🔷"],[null,""],[null,""],["E","🔷➡️"],
+                    ["O","⬅️"],[null,""],[null,""],["E","➡️"],
                     ["O_DOWN","⬅️🔻"],[null,""],[null,""],["E_DOWN","🔻➡️"],
-                    ["S_UP","⬇️🔺"],["S","⬇️🔷"],["S_DOWN","⬇️🔻"],["DOWN","🔻🔷"],
+                    ["S_UP","⬇️🔺"],["S","⬇️"],["S_DOWN","⬇️🔻"],["DOWN","🔻"],
                   ] as Array<[string|null,string]>).map(([direction,icon],index)=>{
-                    if(!direction) return <div key={"gap-"+index} className="h-2 min-w-0 sm:h-2.5" aria-hidden="true"/>;
+                    if(!direction) return <div key={"gap-"+index} className="h-3 min-w-0 rounded-md bg-zinc-800/20 sm:h-3.5" aria-hidden="true"/>;
                     const exit=exits.find((e:Exit)=>e.direction===direction);
                     const destination=exit?.toRoomId?roomById.get(Number(exit.toRoomId)):null;
                     const isReturn=Boolean(exit&&Number(exit.id)===Number(returnExitId));
@@ -214,9 +214,9 @@ export default function MazePage(){
                       title={available?(blocked?"Salida bloqueada":(maze.directionLabels?.[direction]??direction)):"Sin salida"}
                       className={[
                         "min-w-0 w-full place-items-center rounded-lg border transition-colors",
-                        available?"h-10 sm:h-11 text-sm sm:text-base":"h-2 sm:h-2.5 text-[0px] border-transparent bg-transparent opacity-0",
-                        available&&!blocked?"grid border-zinc-700 bg-zinc-900/80 hover:border-zinc-500 hover:bg-zinc-800":
-                          available&&blocked?"grid border-zinc-800 bg-zinc-950/60 opacity-40 cursor-not-allowed":""
+                        available?"h-10 w-full sm:h-11 text-sm sm:text-base":"h-3 w-full text-[0px] border-zinc-800/40 bg-zinc-900/25 opacity-100",
+                        available&&!blocked?(isReturn?"grid border-blue-500 bg-blue-950/30 text-blue-100 shadow-[0_0_0_1px_rgba(59,130,246,0.2)] hover:border-blue-400":"grid border-zinc-700 bg-zinc-900/80 hover:border-zinc-500 hover:bg-zinc-800"):
+                          available&&blocked?"grid border-zinc-700 bg-zinc-950/70 opacity-45 cursor-not-allowed":""
                       ].join(" ")}
                     >{icon}</button>;
                   })}

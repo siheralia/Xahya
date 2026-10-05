@@ -251,7 +251,7 @@ export default function MazePage(){
                 )}
               </div>
             )}
-          </div></div>}
+          </div>}
         </section>
         <aside className="flex min-h-0 flex-col gap-3">
           <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50"><div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2.5"><div><p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600">Navegación</p><h2 className="font-semibold">🗺️ Mapa</h2></div><button onClick={()=>setPanel("map")} className="rounded-lg border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 hover:text-white">Expandir</button></div><div className="p-2"><MazeMap rooms={maze.rooms??[]} exits={maze.exits??[]} currentRoomId={position} directionLabels={maze.directionLabels}/></div></div>

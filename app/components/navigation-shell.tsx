@@ -87,15 +87,10 @@ export default function NavigationShell({
       if (!cancelled) setSystemOnline(false);
     });
 
-    return () => { cancelled = true; };
-  }, []);
-
-  const showPageBreadcrumb = route.page !== route.section.label;
-
-  return (
+    return (
     <>
       <header className="xahya-nav">
-        <div className="xahya-nav-left">
+        <div className="xahya-nav-top">
           <div className="xahya-brand-row">
             <Link href="/" className="xahya-brand" aria-label="Ir al inicio de Xahya">
               <img src="/sakura-petal.svg" alt="" className="xahya-logo" />
@@ -110,55 +105,65 @@ export default function NavigationShell({
             </span>
           </div>
 
-          {route.backHref && (
-            <Link href={route.backHref} className="xahya-back">
-              ← {route.backLabel}
-            </Link>
-          )}
-
-          <nav className="xahya-user-nav" aria-label="Navegación de usuario">
-            {canManage && (
-              <Link href="/management" className={pathname.startsWith("/management") ? "xahya-nav-active" : ""}>
-                RPG System
-              </Link>
+          <div className="xahya-nav-right">
+            <span className={`xahya-section ${route.section.color}`}>{route.section.label}</span>
+            {showPageBreadcrumb && (
+              <span className="xahya-breadcrumb">{route.page}</span>
             )}
-            <Link href="/profile" className={pathname === "/profile" ? "xahya-nav-active" : ""}>
-              Mi perfil
-            </Link>
-            <span aria-hidden="true" className="mx-2 text-zinc-600">|</span>
-            <Link href="/businesses/catalog" className={pathname.startsWith("/businesses") ? "xahya-nav-active" : ""}>
-              Negocios
-            </Link>
-            <span aria-hidden="true" className="mx-2 text-zinc-600">|</span>
-            <Link href="/store" className={pathname.startsWith("/store") ? "xahya-nav-active" : ""}>
-              Tienda
-            </Link>
-            <span aria-hidden="true" className="mx-2 text-zinc-600">|</span>
-            <Link href="/maze" className={pathname.startsWith("/maze") ? "xahya-nav-active" : ""}>
-              Laberinto
+          </div>
+        </div>
+
+        <div className="xahya-nav-bottom">
+          <details className="xahya-menu">
+            <summary aria-label="Abrir menú de navegación">☰</summary>
+            <nav className="xahya-menu-panel" aria-label="Navegación principal">
+              <Link href="/profile" className={pathname === "/profile" ? "xahya-nav-active" : ""}>
+                Mi perfil
+              </Link>
+              <Link href="/businesses/catalog" className={pathname.startsWith("/businesses") ? "xahya-nav-active" : ""}>
+                Negocios
+              </Link>
+              <Link href="/store" className={pathname.startsWith("/store") ? "xahya-nav-active" : ""}>
+                Tienda
+              </Link>
+              <Link href="/maze" className={pathname.startsWith("/maze") ? "xahya-nav-active" : ""}>
+                Laberinto
+              </Link>
+              {canManage && (
+                <Link href="/management" className={pathname.startsWith("/management") ? "xahya-nav-active" : ""}>
+                  Gestión
+                </Link>
+              )}
+            </nav>
+          </details>
+
+          <nav className="xahya-utility-nav" aria-label="Ayuda y comunicación">
+            <Link href="/help">❔ <span>Ayuda</span></Link>
+            <Link href="/rules">📖 <span>Reglas</span></Link>
+            <Link
+              href="/notifications"
+              aria-label={unreadCount ? `Buzón: ${unreadCount} notificaciones sin leer` : "Buzón"}
+            >
+              🔔 <span>Buzón</span>
+              {unreadCount > 0 ? (
+                <span className="xahya-inbox-count">{unreadCount > 99 ? "99+" : unreadCount}</span>
+              ) : null}
             </Link>
           </nav>
-
-          {characters.length > 0 && (
-            <details className="xahya-characters">
-              <summary>Tus personajes</summary>
-              <div className="xahya-character-list">
-                {characters.map((character) => (
-                  <Link key={character.id} href={`/characters/${character.id}`}>
-                    {character.name}
-                  </Link>
-                ))}
-              </div>
-            </details>
-          )}
         </div>
 
-        <div className="xahya-nav-right">
-          <span className={`xahya-section ${route.section.color}`}>{route.section.label}</span>
-          {showPageBreadcrumb && (
-            <span className="xahya-breadcrumb">{route.page}</span>
-          )}
-        </div>
+        {characters.length > 0 && (
+          <details className="xahya-characters">
+            <summary>Tus personajes</summary>
+            <div className="xahya-character-list">
+              {characters.map((character) => (
+                <Link key={character.id} href={`/characters/${character.id}`}>
+                  {character.name}
+                </Link>
+              ))}
+            </div>
+          </details>
+        )}
       </header>
 
       <div className="xahya-page-content">{children}</div>

@@ -134,6 +134,9 @@ export default function NavigationShell({
               <Link href="/maze" className={pathname.startsWith("/maze") ? "xahya-nav-active" : ""}>
                 Laberinto
               </Link>
+              <Link href="/casino" className={pathname.startsWith("/casino") ? "xahya-nav-active" : ""}>
+                Casino
+              </Link>
               {canManage && (
                 <Link href="/management" className={pathname.startsWith("/management") ? "xahya-nav-active" : ""}>
                   Gestión
@@ -173,38 +176,6 @@ export default function NavigationShell({
 
       <div className="xahya-page-content">{children}</div>
 
-      <Link href="/casino" className="xahya-casino">
-        🎰 <span>Casino</span>
-      </Link>
-
-      <Link
-        href="/rules"
-        aria-label="Reglas"
-        title="Reglas"
-        className="xahya-rules"
-      >
-        📖
-      </Link>
-
-      <Link
-        href="/help"
-        aria-label="Ayuda"
-        title="Ayuda"
-        className="xahya-help"
-      >
-        ❔
-      </Link>
-
-      <Link
-        href="/notifications"
-        aria-label={unreadCount ? `Buzón: ${unreadCount} notificaciones sin leer` : "Buzón"}
-        className="xahya-inbox"
-      >
-        🔔 <span>Buzón</span>
-        {unreadCount > 0 ? (
-          <span className="xahya-inbox-count">{unreadCount > 99 ? "99+" : unreadCount}</span>
-        ) : null}
-      </Link>
     </>
   );
 }

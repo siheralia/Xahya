@@ -168,16 +168,6 @@ export default function MazePage(){
 
   return <main className="min-h-screen bg-zinc-950 text-white">
     <div className="mx-auto flex min-h-screen w-full flex-col px-3 py-3 sm:px-5 sm:py-4">
-      <header className="relative z-40 flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 shadow-xl backdrop-blur sm:px-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="min-w-0"><div className="flex items-center gap-2"><span className="font-bold tracking-wide">Xahya</span><span className="h-2 w-2 rounded-full bg-emerald-400"/></div><p className="truncate text-xs text-zinc-500">{maze?.maze?.name??"Laberinto"} {room?("· Habitación #"+room.roomNumber):""}</p></div>
-        </div>
-        <div className="flex items-center gap-2">
-          <select value={characterId} onChange={e=>setCharacterId(e.target.value)} className="hidden max-w-[180px] rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm sm:block"><option value="">Personaje</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-          <select value={mazeId} onChange={e=>setMazeId(e.target.value)} className="hidden max-w-[210px] rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm md:block"><option value="">Laberinto</option>{mazes.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>
-        </div>
-
-      </header>
       {error&&<div className="mt-3 rounded-xl border border-red-900/60 bg-red-950/30 p-3 text-sm text-red-300">{error}</div>}
       {!maze&&<section className="mt-3 grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 sm:grid-cols-2">
         <label className="text-xs text-zinc-500">Personaje<select value={characterId} onChange={e=>setCharacterId(e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm"><option value="">Selecciona</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
@@ -273,10 +263,11 @@ export default function MazePage(){
             </div>
           </div>
 
-          <div className="sticky bottom-2 z-30 flex justify-center">
-            <div className={!hudOpen
+
+          <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center pointer-events-none">
+            <div className={"pointer-events-auto "+(!hudOpen
               ? "w-fit"
-              : "w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur"}>
+              : "w-full max-w-md rounded-t-2xl border border-zinc-700 border-b-0 bg-zinc-900/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur"})
               <button
                 type="button"
                 onClick={()=>setHudOpen(v=>!v)}
@@ -286,7 +277,7 @@ export default function MazePage(){
                   : "mb-2 flex w-full items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-xs text-zinc-500 hover:text-white"}>
                 {!hudOpen ? <>
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-3.5 w-3.5 rotate-45 rounded-[2px] bg-yellow-300 shadow-[0_0_7px_rgba(253,224,71,0.35)]" />
+                    <span className="text-base font-bold leading-none text-yellow-300">◈</span>
                     <span className="font-semibold text-zinc-100">{characterData?.money??characterData?.resources?.money??"—"}</span>
                   </span>
                   <span className="flex items-center gap-1.5">
@@ -375,7 +366,6 @@ export default function MazePage(){
               </>}
             </div>
           </div>
-
           {room?.roomNumber===1&&
             <button onClick={leave} disabled={busy||maze.positionStatus!=="ACTIVE"} className="rounded-xl border border-red-900/70 px-3 py-2.5 text-sm text-red-300 disabled:opacity-40">
               Salir del laberinto

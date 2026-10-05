@@ -24,11 +24,13 @@ function validate(body: any) {
   const description = typeof body.description === "string" ? body.description.trim() : "";
   const category = String(body.category ?? "UTILITY");
   const cost = Number(body.cost ?? 0);
+  const maintenanceCost = Number(body.maintenanceCost ?? 0);
   const effect = Array.isArray(body.effect) ? body.effect : [];
   if (!name || name.length > 120) return "El nombre debe tener entre 1 y 120 caracteres.";
   if (!description || description.length > 5000) return "La descripción es obligatoria y no puede superar 5000 caracteres.";
   if (!CATEGORIES.includes(category as any)) return "Categoría de habilidad inválida.";
   if (!Number.isInteger(cost) || cost < 0) return "El coste debe ser un entero no negativo.";
+  if (!Number.isInteger(maintenanceCost) || maintenanceCost < 0) return "El costo de mantenimiento por turno debe ser un entero no negativo.";
   if (category === "PASSIVE" && !String(body.condition ?? "").trim()) return "Las habilidades pasivas deben indicar una condición.";
   if (effect.length > 20) return "Una habilidad no puede tener más de 20 efectos.";
   for (const row of effect) {
@@ -118,6 +120,7 @@ export async function POST(
       characterId,
       name: body.name.trim(),
       cost: Number(body.cost),
+      maintenanceCost: Number(body.maintenanceCost ?? 0),
       description: body.description.trim(),
       duration: typeof body.duration === "string" ? body.duration.trim() || null : null,
       category: String(body.category),

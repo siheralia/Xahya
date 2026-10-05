@@ -12,7 +12,7 @@ type Skill = {
 };
 
 const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"]];
-const effectTypes=EFFECT_CATALOG.map(e=>[e.type,e.label] as const);
+const effectTypes=[...EFFECT_CATALOG.filter(e=>e.type!=="MAZE_UTILITY").map(e=>[e.type,e.label] as const),["MAZE_UTILITY_INVISIBILITY","Invisibilidad"]] as const;
 const blankEffect=():Effect=>({type:"STAT_BONUS",target:"STR",value:10,description:""});
 const blankForm=()=>({characterId:"",name:"",cost:0,description:"",duration:"",category:"UTILITY",areaOfEffect:"",speed:"",cooldown:"",condition:"",effect:[] as Effect[]});
 
@@ -59,7 +59,11 @@ export default function SkillsManagementPage(){
   }
   function addEffect(){setForm(f=>({...f,effect:[...f.effect,blankEffect()]}));}
   function updateEffect(i:number,key:string,value:string){
-    setForm(f=>({...f,effect:f.effect.map((e,idx)=>idx===i?{...e,[key]:key==="value"?Number(value):value}:e)}));
+    setForm(f=>({...f,effect:f.effect.map((e,idx)=>{
+      if(idx!==i) return e;
+      if(key==="type" && value==="MAZE_UTILITY_INVISIBILITY") return {...e,type:"MAZE_UTILITY",target:"INVISIBILITY",value:1};
+      return {...e,[key]:key==="value"?Number(value):value};
+    })}));
   }
   async function save(approve=false,reject=false){
     if(!form.characterId){setError("Selecciona el personaje.");return;}
@@ -127,7 +131,7 @@ export default function SkillsManagementPage(){
             const narrative=effect.type==="NARRATIVE";
             const targets=EFFECT_TARGETS[effect.type as keyof typeof EFFECT_TARGETS]??[];
             return <div key={i} className="grid gap-2 sm:grid-cols-[170px_1fr_110px_auto]">
-              <select value={effect.type??"STAT_BONUS"} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{effectTypes.map(t=><option key={t[0]} value={t[0]}>{t[1]}</option>)}</select>
+              <select value={effect.type==="MAZE_UTILITY"&&effect.target==="INVISIBILITY"?"MAZE_UTILITY_INVISIBILITY":(effect.type??"STAT_BONUS")} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{effectTypes.map(t=><option key={t[0]} value={t[0]}>{t[1]}</option>)}</select>
               {!narrative?(targets.length?<select value={effect.target??targets[0]} onChange={e=>updateEffect(i,"target",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{targets.map(t=><option key={t} value={t}>{t}</option>)}</select>:<div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-2 py-2 text-sm text-zinc-400">Sin objetivo adicional</div>):<input value={effect.description??""} onChange={e=>updateEffect(i,"description",e.target.value)} placeholder="Descripción del efecto" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm"/>}
               {!narrative?<input type="number" step="0.01" value={effect.value??0} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" placeholder="Valor"/>:<span/>}
               <button type="button" onClick={()=>setForm(f=>({...f,effect:f.effect.filter((_,idx)=>idx!==i)}))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>

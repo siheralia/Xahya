@@ -214,11 +214,11 @@ export default function MazePage(){
                       title={available?(blocked?"Salida bloqueada":(maze.directionLabels?.[direction]??direction)):"Sin salida"}
                       className={[
                         "min-w-0 w-full place-items-center rounded-lg border transition-colors",
-                        available?"h-10 w-full sm:h-11 text-sm sm:text-base":"h-3 w-full text-[0px] border-zinc-800/40 bg-zinc-900/25 opacity-100",
+                        available?"h-10 w-full sm:h-11 text-sm sm:text-base":"h-10 w-full text-[0px] border-zinc-900/80 bg-zinc-950/70 opacity-100",
                         available&&!blocked?(isReturn?"grid border-blue-500 bg-blue-950/30 text-blue-100 shadow-[0_0_0_1px_rgba(59,130,246,0.2)] hover:border-blue-400":"grid border-zinc-700 bg-zinc-900/80 hover:border-zinc-500 hover:bg-zinc-800"):
-                          available&&blocked?"grid border-zinc-700 bg-zinc-950/70 opacity-45 cursor-not-allowed":""
+                          available&&blocked?"grid border-zinc-700 bg-zinc-950/70 opacity-45 cursor-not-allowed":"grid border-zinc-900/80 bg-zinc-950/70 opacity-100"
                       ].join(" ")}
-                    >{icon}</button>;
+                    >{available?icon:"·"}</button>;
                   })}
                 </div></div>
               <div className="mt-2 flex flex-wrap justify-center gap-1.5">

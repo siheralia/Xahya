@@ -28,41 +28,76 @@ body {
 .xahya-page-content { min-height: calc(100vh - 96px); }
 .xahya-nav {
   position: relative; z-index: 40; min-height: 96px;
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 2rem; padding: 18px 28px 14px;
+  display: flex; flex-direction: column; gap: 0; padding: 14px 28px 12px;
   border-bottom: 1px solid rgba(39,39,42,.7);
   background: rgba(9,9,11,.94); backdrop-filter: blur(14px);
 }
-.xahya-nav-left { min-width: 0; }
+.xahya-nav-top, .xahya-nav-bottom {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+}
+.xahya-nav-top { min-height: 34px; }
+.xahya-nav-bottom { margin-top: 8px; justify-content: flex-start; gap: 14px; }
 .xahya-brand-row { display: flex; align-items: center; gap: 7px; }
 .xahya-brand {
   display: inline-flex; align-items: center; gap: 9px; color: white;
   font-size: 1.2rem; font-weight: 700; letter-spacing: -.02em; text-decoration: none;
 }
 .xahya-logo { width: 28px; height: 28px; color: #f4a7bd; }
-.xahya-back { display: block; width: fit-content; margin-top: 5px; color: #71717a; font-size: .78rem; text-decoration: none; }
-.xahya-back:hover { color: white; }
-.xahya-user-nav { display: flex; align-items: center; gap: 12px; margin-top: 9px; }
-.xahya-user-nav a { color: #a1a1aa; font-size: .74rem; font-style: italic; text-decoration: none; }
-.xahya-user-nav a:hover, .xahya-user-nav .xahya-nav-active { color: white; }
-.xahya-user-nav a:first-child { border-right: 1px solid #27272a; padding-right: 12px; }
+.xahya-nav-right { flex: 0 0 auto; text-align: right; }
+.xahya-section {
+  display: block; font-size: .68rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .3em;
+}
+.xahya-breadcrumb { display: block; margin-top: 5px; color: #e4e4e7; font-size: 1rem; font-weight: 700; }
+.xahya-system-status {
+  display: inline-block; font-size: 1.15rem; line-height: 1; transform: translateY(-1px);
+}
+.xahya-system-status.online { color: #34d399; }
+.xahya-system-status.offline { color: #f87171; }
+
+.xahya-menu { position: relative; }
+.xahya-menu summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 34px; border: 1px solid rgba(161,161,170,.28);
+  border-radius: 9px; background: rgba(9,9,11,.72); color: #e4e4e7;
+  font-size: 1.15rem;
+}
+.xahya-menu summary::-webkit-details-marker { display: none; }
+.xahya-menu summary:hover { background: rgba(39,39,42,.95); border-color: rgba(161,161,170,.55); }
+.xahya-menu-panel {
+  position: absolute; left: 0; top: calc(100% + 7px); z-index: 60;
+  display: flex; flex-direction: column; min-width: 180px; padding: 6px;
+  border: 1px solid rgba(63,63,70,.9); border-radius: 12px;
+  background: rgba(9,9,11,.98); box-shadow: 0 12px 35px rgba(0,0,0,.4);
+  backdrop-filter: blur(14px);
+}
+.xahya-menu-panel a {
+  display: block; padding: 9px 11px; border-radius: 7px;
+  color: #a1a1aa; font-size: .8rem; text-decoration: none;
+}
+.xahya-menu-panel a:hover, .xahya-menu-panel .xahya-nav-active {
+  background: rgba(39,39,42,.9); color: white;
+}
+
+.xahya-utility-nav { display: flex; align-items: center; gap: 16px; }
+.xahya-utility-nav a {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: #a1a1aa; font-size: .74rem; text-decoration: none;
+}
+.xahya-utility-nav a:hover { color: white; }
+
+.xahya-inbox-count {
+  min-width: 18px; border-radius: 999px; background: #fde047;
+  padding: 1px 5px; text-align: center; color: #18181b; font-size: .62rem; font-weight: 800;
+}
 .xahya-characters { margin-top: 7px; }
 .xahya-characters summary { cursor: pointer; color: #71717a; font-size: .74rem; user-select: none; }
 .xahya-characters summary:hover { color: #d4d4d8; }
 .xahya-character-list { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; max-width: 430px; }
 .xahya-character-list a { color: #52525b; font-size: .72rem; text-decoration: none; }
 .xahya-character-list a:hover { color: #67e8f9; }
-.xahya-nav-right { flex: 0 0 auto; text-align: right; padding-top: 2px; }
-.xahya-section {
-  display: block; font-size: .68rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .3em;
-}
-.xahya-system-status {
-  display: inline-block; font-size: 1.15rem; line-height: 1; transform: translateY(-1px);
-}
-.xahya-system-status.online { color: #34d399; }
-.xahya-system-status.offline { color: #f87171; }
-.xahya-breadcrumb { display: block; margin-top: 5px; color: #e4e4e7; font-size: 1rem; font-weight: 700; }
+
 .xahya-casino {
   position: fixed; left: 18px; bottom: 18px; z-index: 50;
   display: inline-flex; align-items: center; gap: 7px;

@@ -5,7 +5,6 @@ import { recordAuditEvent } from "@/lib/audit";
 import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted, depthMultiplier, pickEnemyFocus, pickEnemyBehavior, scaleEnemyStats, enemyMatchesMazeThemes, registerMazeEncounterRelationships } from "@/lib/maze";
 import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
 import { getDefaultEnemyImageUrl, getEnemyImagePaths, getEnemyImageUrl } from "@/lib/enemy-image";
-import { moveMobileEnemies } from "@/lib/maze-mobile";
 import { getCharacterMazeCapabilities } from "@/lib/maze-capabilities";
 
 async function getUser() {
@@ -736,14 +735,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   if (!Object.prototype.hasOwnProperty.call(DIRECTION_LABELS, direction)) return NextResponse.json({ error:"Dirección inválida." }, { status:400 });
-  if (exploreInvisible) {
-    const capabilities = await getCharacterMazeCapabilities(db, characterId);
-    if (!capabilities.invisibility) return NextResponse.json({ error:"Este personaje no tiene una fuente de invisibilidad activa." }, { status:403 });
-  }
-  if (exploreStealth) {
-    const stealthCombat = await getEffectiveCombatStats(db, characterId);
-    if (!stealthCombat) return NextResponse.json({ error:"No se pudieron calcular las estadísticas de sigilo." }, { status:400 });
-  }
   if (String(maze.status) === "COMPLETED") return NextResponse.json({ error:"Este laberinto ya está completado." }, { status:400 });
 
   const existingPosition = await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first();
@@ -792,8 +783,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!requestedExit) throw new Error("EXIT_NOT_FOUND");
 
     if (activeEnemies.length > 0 && Number(requestedExit.toRoomId) !== Number(position?.previousRoomId ?? -1) && !exploreInvisible && !exploreStealth) throw new Error("ROOM_BLOCKED");
-    if ((exploreInvisible || exploreStealth) && activeEnemies.length === 0) throw new Error("NO_ENEMY_TO_BYPASS");
-    if (exploreStealth && activeEnemies.length > 0) {
+    // Sigilo/invisibilidad solo se comprueban cuando realmente hay enemigos activos.
+    if (activeEnemies.length > 0 && exploreInvisible) {
+      const capabilities = await getCharacterMazeCapabilities(tx, characterId);
+      if (!capabilities.invisibility) throw new Error("INVISIBILITY_UNAVAILABLE");
+    }
+    if (activeEnemies.length > 0 && exploreStealth) {
       const stealthCombat = await getEffectiveCombatStats(tx, characterId);
       const characterStealth = Number(stealthCombat?.derived?.stealth ?? 0);
       const detectedBy = activeEnemies.find((encounter:any) => {
@@ -804,9 +799,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (detectedBy) throw new Error("STEALTH_DETECTED");
     }
 
-    // Cada movimiento de un personaje hace avanzar una vez a los enemigos móviles existentes.
-    // Se ejecuta antes de resolver el destino para que un enemigo recién generado no se mueva inmediatamente.
-    await moveMobileEnemies(tx, Number(maze.id));
     if (requestedExit.toRoomId != null) {
       const destination = await TxRoom.where({ id:Number(requestedExit.toRoomId) }).first();
       if (!destination) throw new Error("DESTINATION_NOT_FOUND");
@@ -890,6 +882,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       EXIT_NOT_FOUND:"No existe esa salida desde la habitación actual.",
       ROOM_BLOCKED:"Hay enemigos activos. Solo puedes regresar por una salida ya descubierta.",
       NO_ENEMY_TO_BYPASS:"No hay un enemigo que necesites evitar en esta habitación.",
+      INVISIBILITY_UNAVAILABLE:"Este personaje no tiene una fuente de invisibilidad activa.",
+      STEALTH_UNAVAILABLE:"No se pudieron calcular las estadísticas de sigilo.",
       STEALTH_DETECTED:"👁️ Un enemigo te detectó. Tu sigilo no fue suficiente para atravesar la habitación.",
       DESTINATION_NOT_FOUND:"La habitación de destino no existe.",
       MAZE_LIMIT:"Este laberinto ya alcanzó su límite de habitaciones.",

@@ -796,7 +796,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (exploreStealth && activeEnemies.length > 0) {
       const stealthCombat = await getEffectiveCombatStats(tx, characterId);
       const characterStealth = Number(stealthCombat?.derived?.stealth ?? 0);
-      const definitions = await (tx.orm.public as any).Enemy.all();
       const detectedBy = activeEnemies.find((encounter:any) => {
         const enemyStats = normalizeEnemyStats(encounter.generatedStats ?? {});
         const enemyDetection = Number(calculateDerivedStats(enemyStats).detection);

@@ -374,14 +374,21 @@ export async function processEconomyPayments(now = new Date()) {
               : (String(position.payerType) === "CHARACTER" && position.payerCharacterId
                   ? Number(position.payerCharacterId)
                   : null);
-            if (!payerId) throw new Error("PAYER_MISSING");
 
-            const payer = await ResourceTx.where({ characterId: payerId }).first();
-            if (!payer || Number(payer.money) < remaining) throw new Error("PAYER_FUNDS_INSUFFICIENT");
+            // SYSTEM significa que el salario lo paga el sistema: no se descuenta
+            // dinero a ningún personaje. Solo CHARACTER requiere fondos del pagador.
+            if (!business && String(position.payerType) === "SYSTEM") {
+              // Sin pagador: el sistema cubre la diferencia.
+            } else {
+              if (!payerId) throw new Error("PAYER_MISSING");
 
-            await ResourceTx.where({ characterId: payerId }).update({
-              money: Number(payer.money) - remaining,
-            });
+              const payer = await ResourceTx.where({ characterId: payerId }).first();
+              if (!payer || Number(payer.money) < remaining) throw new Error("PAYER_FUNDS_INSUFFICIENT");
+
+              await ResourceTx.where({ characterId: payerId }).update({
+                money: Number(payer.money) - remaining,
+              });
+            }
           }
 
           const employee = await ResourceTx.where({ characterId: Number(contract.characterId) }).first();

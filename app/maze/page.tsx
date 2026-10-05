@@ -36,6 +36,7 @@ export default function MazePage(){
   useEffect(()=>{Promise.all([fetch("/api/characters?mine=true"),fetch("/api/maze")]).then(async([a,b])=>{const [charText,mazeText]=await Promise.all([a.text(),b.text()]);const chars=charText?JSON.parse(charText):[];const ms=mazeText?JSON.parse(mazeText):[];if(!a.ok)throw new Error(chars?.error??"No se pudieron cargar los personajes.");if(!b.ok)throw new Error(ms?.error??"No se pudieron cargar los laberintos.");setCharacters(Array.isArray(chars)?chars:[]);setMazes(Array.isArray(ms)?ms:[]);}).catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar la exploración."));},[]);
   useEffect(()=>{if(!mazeId||!characterId)return; loadMaze();},[mazeId,characterId]);
   useEffect(()=>{if(!characterId){setCharacterData(null);return;} fetch("/api/characters/"+characterId,{cache:"no-store"}).then(async r=>{const d=await r.json();if(r.ok)setCharacterData(d);}).catch(()=>{});},[characterId]);
+  useEffect(()=>{if(!maze?.mazeCapabilities?.invisibility)setInvisibilityActive(false);},[maze?.mazeCapabilities?.invisibility]);
 
   async function loadMaze(){
     const r=await fetch("/api/maze/"+mazeId+"?characterId="+characterId,{cache:"no-store"});const d=await r.json();

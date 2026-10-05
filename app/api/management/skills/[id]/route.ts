@@ -24,9 +24,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const name = typeof body.name === "string" ? body.name.trim() : String(skill.name);
   const description = typeof body.description === "string" ? body.description.trim() : String(skill.description ?? "");
   const cost = Number(body.cost ?? skill.cost);
+  const maintenanceCost = Number(body.maintenanceCost ?? skill.maintenanceCost ?? 0);
   const category = String(body.category ?? skill.category);
   const effect = Array.isArray(body.effect) ? body.effect : (Array.isArray(skill.effect) ? skill.effect : []);
-  if (!name || name.length > 120 || !description || !Number.isInteger(cost) || cost < 0) {
+  if (!name || name.length > 120 || !description || !Number.isInteger(cost) || cost < 0 || !Number.isInteger(maintenanceCost) || maintenanceCost < 0) {
     return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
   }
 
@@ -49,6 +50,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       await TxSkill.where({ id }).update({
         name,
         cost,
+        maintenanceCost,
         description,
         duration: typeof body.duration === "string" ? body.duration.trim() || null : (freshSkill.duration ?? null),
         category,

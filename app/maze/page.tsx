@@ -44,16 +44,19 @@ export default function MazePage(){
     setBusy(false);
   }
   async function moveInvisible(direction:string){
+    setTopMenuOpen(false);
     setBusy(true);setError("");
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"exploreInvisible",characterId:Number(characterId),direction})});
     const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo explorar invisible.");else await loadMaze();setBusy(false);
   }
   async function moveStealth(direction:string){
+    setTopMenuOpen(false);
     setBusy(true);setError("");
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"exploreStealth",characterId:Number(characterId),direction})});
     const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar sigilosamente.");else await loadMaze();setBusy(false);
   }
   async function move(direction:string){
+    setTopMenuOpen(false);
     setBusy(true);setError("");
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({characterId:Number(characterId),direction})});
     const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar.");else await loadMaze();setBusy(false);
@@ -156,7 +159,7 @@ export default function MazePage(){
   }
 
   return <main className="min-h-screen bg-zinc-950 text-white">
-    <div className="mx-auto flex min-h-screen max-w-[1500px] flex-col px-3 py-3 sm:px-5 sm:py-4">
+    <div className="mx-auto flex min-h-screen w-full flex-col px-3 py-3 sm:px-5 sm:py-4">
       <header className="relative z-40 flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 shadow-xl backdrop-blur sm:px-4">
         <div className="flex min-w-0 items-center gap-3">
           <button onClick={()=>setTopMenuOpen(v=>!v)} aria-label="Abrir menú" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-zinc-700 bg-zinc-950 text-lg hover:border-zinc-500">☰</button>
@@ -183,26 +186,41 @@ export default function MazePage(){
         <section className="relative flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/35">
           <div className="absolute inset-0">{maze.maze.themes?.filter((t:Theme)=>t.imageUrl).map((t:Theme)=><img key={t.id} src={t.imageUrl??""} alt="" className="absolute inset-0 h-full w-full object-cover opacity-10" />)}<div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.06),transparent_55%)]"/></div>
           <div className="relative flex items-center justify-between border-b border-zinc-800/80 bg-zinc-950/45 px-4 py-3"><div><p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">Momento actual</p><h1 className="text-lg font-semibold">{room?typeLabels[room.roomType]:"Exploración"}</h1></div>{room&&<span className={maze.positionStatus==="DEAD_LOCKED"?"text-red-300":maze.positionStatus==="TRAPPED"?"text-amber-300":room.status==="BLOCKED"?"text-red-300":"text-emerald-300"}>{maze.positionStatus==="DEAD_LOCKED"?"💀 Bloqueado":maze.positionStatus==="TRAPPED"?"⚠️ Atrapado":room.status==="BLOCKED"?"⚔️ Bloqueada":"● Activo"}</span>}</div>
-          {!position?<div className="relative flex flex-1 items-center justify-center p-6"><div className="max-w-md text-center"><div className="text-6xl">🗺️</div><h2 className="mt-4 text-2xl font-bold">Listo para explorar</h2><p className="mt-2 text-sm text-zinc-500">Selecciona tu personaje y entra al laberinto para comenzar.</p><button onClick={join} disabled={busy||!characterId} className="mt-5 rounded-xl bg-white px-5 py-3 font-semibold text-black disabled:opacity-40">Entrar al laberinto</button></div></div>:room&&<div className="relative flex min-h-0 flex-1 flex-col p-3 pb-48 sm:p-5 sm:pb-48">
+          {!position?<div className="relative flex flex-1 items-center justify-center p-6"><div className="max-w-md text-center"><div className="text-6xl">🗺️</div><h2 className="mt-4 text-2xl font-bold">Listo para explorar</h2><p className="mt-2 text-sm text-zinc-500">Selecciona tu personaje y entra al laberinto para comenzar.</p><button onClick={join} disabled={busy||!characterId} className="mt-5 rounded-xl bg-white px-5 py-3 font-semibold text-black disabled:opacity-40">Entrar al laberinto</button></div></div>:room&&<div className="relative flex min-h-0 flex-1 flex-col p-3 sm:p-5">
             <div className="w-full">
               <div className="mx-auto w-full max-w-[340px] rounded-2xl border border-zinc-800/80 bg-zinc-950/35 p-2">
-                <div className="grid w-full grid-cols-4 grid-rows-5 items-center gap-1.5 sm:gap-2">
-<button onClick={()=>{const x=exits.find((e:Exit)=>e.direction==="UP");if(x)move(x.direction)}} disabled={busy||!exits.find((e:Exit)=>e.direction==="UP")||maze.positionStatus!=="ACTIVE"} className="grid h-10 w-full min-w-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900/70">🔺</button>
-<button onClick={()=>{const x=exits.find((e:Exit)=>e.direction==="N_UP");if(x)move(x.direction)}} disabled={busy||!exits.find((e:Exit)=>e.direction==="N_UP")||maze.positionStatus!=="ACTIVE"} className="grid h-10 w-full min-w-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900/70 text-xs">⬆️🔺</button>
-<button onClick={()=>{const x=exits.find((e:Exit)=>e.direction==="N_DOWN");if(x)move(x.direction)}} disabled={busy||!exits.find((e:Exit)=>e.direction==="N_DOWN")||maze.positionStatus!=="ACTIVE"} className="grid h-10 w-full min-w-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900/70 text-xs">⬆️🔻</button>
-<div/>
-<button onClick={()=>{const x=exits.find((e:Exit)=>e.direction==="O_UP");if(x)move(x.direction)}} disabled={busy||!exits.find((e:Exit)=>e.direction==="O_UP")||maze.positionStatus!=="ACTIVE"} className="grid h-10 w-full min-w-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900/70 text-xs">⬅️🔺</button>
-<div className="h-10 w-full"/><div className="h-10 w-full"/>
-<button onClick={()=>{const x=exits.find((e:Exit)=>e.direction==="E_UP");if(x)move(x.direction)}} disabled={busy||!exits.find((e:Exit)=>e.direction==="E_UP")||maze.positionStatus!=="ACTIVE"} className="grid h-10 w-full min-w-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900/70 text-xs">🔺➡️</button>
-<button onClick={()=>{const x=exits.find((e:Exit)=>e.direction==="O");if(x)move(x.direction)}} disabled={busy||!exits.find((e:Exit)=>e.direction==="O")||maze.positionStatus!=="ACTIVE"} className="grid h-9 w-12 place-items-center rounded-lg border border-zinc-800 bg-zinc-900/70">⬅️</button>
-<div className="col-span-2 row-span-2 flex min-w-0 items-center justify-center overflow-hidden text-3xl sm:text-4xl">{characters.find(c=>Number(c.id)===Number(characterId))?.flair?characters.find(c=>Number(c.id)===Number(characterId))?.flair:"🧙"}</div>
-<button onClick={()=>{const x=exits.find((e:Exit)=>e.direction==="E");if(x)move(x.direction)}} disabled={busy||!exits.find((e:Exit)=>e.direction==="E")||maze.positionStatus!=="ACTIVE"} className="grid h-9 w-12 place-items-center rounded-lg border border-zinc-800 bg-zinc-900/70">➡️</button>
-<button onClick={()=>{const x=exits.find((e:Exit)=>e.direction==="O_DOWN");if(x)move(x.direction)}} disabled={busy||!exits.find((e:Exit)=>e.direction==="O_DOWN")||maze.positionStatus!=="ACTIVE"} className="grid h-10 w-full min-w-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900/70 text-xs">⬅️🔻</button>
-<div className="h-10 w-full"/><div className="h-10 w-full"/>
-<button onClick={()=>{const x=exits.find((e:Exit)=>e.direction==="E_DOWN");if(x)move(x.direction)}} disabled={busy||!exits.find((e:Exit)=>e.direction==="E_DOWN")||maze.positionStatus!=="ACTIVE"} className="grid h-10 w-full min-w-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900/70 text-xs">🔻➡️</button>
-<button onClick={()=>{const x=exits.find((e:Exit)=>e.direction==="DOWN");if(x)move(x.direction)}} disabled={busy||!exits.find((e:Exit)=>e.direction==="DOWN")||maze.positionStatus!=="ACTIVE"} className="grid h-10 w-full min-w-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900/70 text-xs">⬇️🔺</button>
-<div className="h-10 w-full"/><div className="h-10 w-full"/><div className="h-10 w-full"/>
-</div></div>
+                <div className="grid w-full grid-cols-4 grid-rows-5 gap-1 sm:gap-1.5">
+                  {([
+                    ["UP","🔺🔷"],["N_UP","⬆️🔺"],["N","⬆️🔷"],["N_DOWN","⬆️🔻"],
+                    ["O_UP","⬅️🔺"],[null,""],[null,""],["E_UP","🔺➡️"],
+                    ["O","⬅️🔷"],[null,""],[null,""],["E","🔷➡️"],
+                    ["O_DOWN","⬅️🔻"],[null,""],[null,""],["E_DOWN","🔻➡️"],
+                    ["S_UP","⬇️🔺"],["S","⬇️🔷"],["S_DOWN","⬇️🔻"],["DOWN","🔻🔷"],
+                  ] as Array<[string|null,string]>).map(([direction,icon],index)=>{
+                    if(!direction) return <div key={"gap-"+index} className="h-2 min-w-0 sm:h-2.5" aria-hidden="true"/>;
+                    const exit=exits.find((e:Exit)=>e.direction===direction);
+                    const destination=exit?.toRoomId?roomById.get(Number(exit.toRoomId)):null;
+                    const isReturn=Boolean(exit&&Number(exit.id)===Number(returnExitId));
+                    const blocked=Boolean(exit)&&(
+                      maze.positionStatus!=="ACTIVE" ||
+                      (hasActiveRoomEnemies&&!isReturn) ||
+                      destination?.status==="BLOCKED"
+                    );
+                    const available=Boolean(exit);
+                    return <button key={direction}
+                      onClick={()=>exit&&!blocked&&move(direction)}
+                      disabled={!available||blocked||busy}
+                      aria-label={maze.directionLabels?.[direction]??direction}
+                      title={available?(blocked?"Salida bloqueada":(maze.directionLabels?.[direction]??direction)):"Sin salida"}
+                      className={[
+                        "min-w-0 w-full place-items-center rounded-lg border transition-colors",
+                        available?"h-10 sm:h-11 text-sm sm:text-base":"h-2 sm:h-2.5 text-[0px] border-transparent bg-transparent opacity-0",
+                        available&&!blocked?"grid border-zinc-700 bg-zinc-900/80 hover:border-zinc-500 hover:bg-zinc-800":
+                          available&&blocked?"grid border-zinc-800 bg-zinc-950/60 opacity-40 cursor-not-allowed":""
+                      ].join(" ")}
+                    >{icon}</button>;
+                  })}
+                </div></div>
               <div className="mt-2 flex flex-wrap justify-center gap-1.5">
               {room.enemies?.filter((e:any)=>String(e.status)==="ACTIVE").map((enemy:any)=><button key={enemy.id} onClick={()=>setSelectedEnemy(enemy)} className="inline-flex items-center gap-1.5 rounded-full border border-red-900/70 bg-red-950/30 px-2.5 py-1.5 text-[11px] text-red-200 hover:border-red-700">{enemy.enemy?.imageUrl?<img src={enemy.enemy.imageUrl} alt="" className="h-5 w-5 rounded-full object-cover"/>:"👹"} {enemy.enemy?.name??"Enemigo"} {enemy.quantity>1?"×"+enemy.quantity:""}</button>)}
               {room.roomType==="TREASURE"&&!room.treasureClaimed&&<button onClick={claim} disabled={busy} className="rounded-full border border-amber-700/70 bg-amber-950/30 px-2.5 py-1.5 text-[11px] text-amber-200">💰 Tesoro</button>}{room.contentName&&<span className="rounded-full border border-zinc-700 bg-zinc-900/70 px-2.5 py-1.5 text-[11px] text-zinc-300">✦ {room.contentName}</span>}
@@ -256,7 +274,7 @@ export default function MazePage(){
         </section>
         <aside className="flex min-h-0 flex-col gap-3">
           <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50"><div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2.5"><div><p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600">Navegación</p><h2 className="font-semibold">🗺️ Mapa</h2></div><button onClick={()=>setPanel("map")} className="rounded-lg border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 hover:text-white">Expandir</button></div><div className="p-2"><MazeMap rooms={maze.rooms??[]} exits={maze.exits??[]} currentRoomId={position} directionLabels={maze.directionLabels}/></div></div>
-          <div className="sticky bottom-3 rounded-2xl border border-zinc-800 bg-zinc-900/95 p-3 shadow-xl backdrop-blur"><div className="flex items-center gap-3"><div className="grid h-12 w-12 place-items-center rounded-xl border border-violet-500/30 bg-violet-950/20 text-xl">{characters.find(c=>Number(c.id)===Number(characterId))?.flair?"⟨"+characters.find(c=>Number(c.id)===Number(characterId))?.flair+"⟩":"🧙"}</div><div className="min-w-0"><p className="truncate font-semibold">{characters.find(c=>Number(c.id)===Number(characterId))?.name??"Personaje"}</p><p className="text-xs text-zinc-500">Explorador</p></div></div>
+          <div className="sticky bottom-3 rounded-2xl border border-zinc-800 bg-zinc-900/95 p-3 shadow-xl backdrop-blur"><div className="flex items-center gap-3 min-w-0"><div className="flex h-12 min-w-[4.5rem] shrink-0 items-center justify-center rounded-xl border border-violet-500/30 bg-violet-950/20 px-2 text-xl leading-normal whitespace-nowrap overflow-visible">{characters.find(c=>Number(c.id)===Number(characterId))?.flair?"⟨"+characters.find(c=>Number(c.id)===Number(characterId))?.flair+"⟩":"🧙"}</div><div className="min-w-0"><p className="truncate font-semibold">{characters.find(c=>Number(c.id)===Number(characterId))?.name??"Personaje"}</p><p className="text-xs text-zinc-500">Explorador</p></div></div>
             <div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-lg bg-zinc-950/80 p-2"><p className="text-[10px] text-zinc-600">❤️ HP</p><p className="mt-1 font-semibold">—</p></div><div className="rounded-lg bg-zinc-950/80 p-2"><p className="text-[10px] text-zinc-600">🔷 Mana</p><p className="mt-1 font-semibold">—</p></div></div>
             <div className="mt-2 grid grid-cols-4 gap-1.5">{["⚔️","🪄","🛡️","✨"].map((icon,i)=><button key={i} onClick={()=>setPanel("skills")} className="relative grid h-10 place-items-center rounded-lg border border-zinc-800 bg-zinc-950 text-sm hover:border-zinc-600">{icon}<span className="absolute bottom-0.5 right-1 text-[9px] text-zinc-600">—</span></button>)}</div>
             <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={()=>setPanel("stats")} className="rounded-lg border border-zinc-800 px-2 py-2 text-xs text-zinc-400 hover:text-white">📊 Stats</button><button onClick={()=>setPanel("inventory")} className="rounded-lg border border-zinc-800 px-2 py-2 text-xs text-zinc-400 hover:text-white">🎒 Inventario</button></div>

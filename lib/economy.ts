@@ -298,7 +298,10 @@ export async function processEconomyPayments(now = new Date()) {
     const shiftEnded = dueDaily(String(position.startTime), String(position.endTime), now);
     const weeklyDayMatches = local.weekday === Number(position.salaryDayOfWeek ?? 0);
 
-    if (!position.active || !shiftEnded || (salaryFrequency === "WEEKLY" && !weeklyDayMatches)) continue;
+    // Los salarios diarios se procesan todos los días y recuperan días pendientes.
+    // El día actual solo se incluye si el turno ya terminó; los días anteriores
+    // siempre quedan elegibles aunque el cron haya estado caído.
+    if (!position.active || (salaryFrequency === "WEEKLY" && (!weeklyDayMatches || !shiftEnded))) continue;
 
     const business = position.businessId
       ? businesses.find((item: any) => Number(item.id) === Number(position.businessId))
@@ -337,7 +340,13 @@ export async function processEconomyPayments(now = new Date()) {
 
         const firstDay = localDayStamp(toDate(contract.startDate));
         const lastPaidDay = previous ? localDayStamp(toDate(previous.createdAt)) : firstDay - 86400000;
-        const pendingDays = Math.max(1, Math.floor((localDayStamp(now) - lastPaidDay) / 86400000));
+        const today = localDayStamp(now);
+        const lastCompletedDay = shiftEnded ? today : today - 86400000;
+        const pendingDays = Math.max(
+          0,
+          Math.floor((lastCompletedDay - lastPaidDay) / 86400000)
+        );
+        if (pendingDays <= 0) continue;
         paymentAmount = salary * pendingDays;
       }
 

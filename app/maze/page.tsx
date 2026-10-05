@@ -65,7 +65,8 @@ export default function MazePage(){
     setTopMenuOpen(false);
     setMovingDirection(direction);
     setBusy(true);setError("");
-    const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({characterId:Number(characterId),direction,exploreInvisible:invisibilityActive,exploreStealth:stealthActive})});
+    const action=invisibilityActive?"exploreInvisible":stealthActive?"exploreStealth":undefined;
+    const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,characterId:Number(characterId),direction})});
     const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar.");else await loadMaze();setBusy(false);setMovingDirection(null);
   }
   async function useTrapConsumable(characterItemId:number, action:"DISARM_MAZE_TRAP"|"RELEASE_MAZE_TRAPPED"){

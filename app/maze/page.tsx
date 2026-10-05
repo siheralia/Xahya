@@ -187,8 +187,8 @@ export default function MazePage(){
           <div className="absolute inset-0">{maze.maze.themes?.filter((t:Theme)=>t.imageUrl).map((t:Theme)=><img key={t.id} src={t.imageUrl??""} alt="" className="absolute inset-0 h-full w-full object-cover opacity-10" />)}<div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.06),transparent_55%)]"/></div>
           <div className="relative flex items-center justify-between border-b border-zinc-800/80 bg-zinc-950/45 px-4 py-3"><div><p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">Momento actual</p><h1 className="text-lg font-semibold">{room?typeLabels[room.roomType]:"Exploración"}</h1></div>{room&&<span className={maze.positionStatus==="DEAD_LOCKED"?"text-red-300":maze.positionStatus==="TRAPPED"?"text-amber-300":room.status==="BLOCKED"?"text-red-300":"text-emerald-300"}>{maze.positionStatus==="DEAD_LOCKED"?"💀 Bloqueado":maze.positionStatus==="TRAPPED"?"⚠️ Atrapado":room.status==="BLOCKED"?"⚔️ Bloqueada":"● Activo"}</span>}</div>
           {!position?<div className="relative flex flex-1 items-center justify-center p-6"><div className="max-w-md text-center"><div className="text-6xl">🗺️</div><h2 className="mt-4 text-2xl font-bold">Listo para explorar</h2><p className="mt-2 text-sm text-zinc-500">Selecciona tu personaje y entra al laberinto para comenzar.</p><button onClick={join} disabled={busy||!characterId} className="mt-5 rounded-xl bg-white px-5 py-3 font-semibold text-black disabled:opacity-40">Entrar al laberinto</button></div></div>:room&&<div className="relative flex min-h-0 flex-1 flex-col items-center p-3 sm:p-5">
-            <div className="w-full max-w-[360px]">
-              <div className="mx-auto w-full max-w-[300px] rounded-2xl border border-zinc-800/80 bg-zinc-950/35 p-2">
+            <div className="w-64 max-w-full">
+              <div className="w-full rounded-2xl border border-zinc-800/80 bg-zinc-950/35 p-2">
                 <div className="grid w-full grid-cols-4 grid-rows-5 gap-1 sm:gap-1.5">
                   {([
                     ["UP","🔺"],["N_UP","⬆️🔺"],["N","⬆️"],["N_DOWN","⬆️🔻"],

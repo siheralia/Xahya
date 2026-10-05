@@ -55,13 +55,13 @@ export default function MazePage(){
     const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo explorar invisible.");else await loadMaze();setBusy(false);
   }
   async function moveStealth(direction:string){
-    setTopMenuOpen(false);
+
     setBusy(true);setError("");
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"exploreStealth",characterId:Number(characterId),direction})});
     const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar sigilosamente.");else await loadMaze();setBusy(false);
   }
   async function move(direction:string){
-    setTopMenuOpen(false);
+
     setMovingDirection(direction);
     setBusy(true);setError("");
     const action=invisibilityActive?"exploreInvisible":stealthActive?"exploreStealth":undefined;

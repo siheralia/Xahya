@@ -351,7 +351,7 @@ export default function MazePage(){
 
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-center">
-                    <p className="text-[10px] text-zinc-600">🪙</p>
+                    <p className="text-[10px] text-zinc-600">◈</p>
                     <p className="font-semibold">{characterData?.money??characterData?.resources?.money??"—"}</p>
                   </div>
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-center">

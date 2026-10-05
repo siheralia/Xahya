@@ -121,7 +121,16 @@ export default function NavigationShell({
         <div className="xahya-nav-bottom">
           <details className="xahya-menu">
             <summary aria-label="Abrir menú de navegación">☰</summary>
-            <nav className="xahya-menu-panel" aria-label="Navegación principal">
+            <nav
+              className="xahya-menu-panel"
+              aria-label="Navegación principal"
+              onClick={(event) => {
+                const target = event.target;
+                if (target instanceof Element && target.closest("a")) {
+                  target.closest("details")?.removeAttribute("open");
+                }
+              }}
+            >
               <Link href="/profile" className={pathname === "/profile" ? "xahya-nav-active" : ""}>
                 Mi perfil
               </Link>

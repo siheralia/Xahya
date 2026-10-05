@@ -34,7 +34,7 @@ const EFFECT_TARGETS = [
   ["MAG_DEF", "Defensa mágica"], ["PRECISION", "Precisión"], ["CRITICAL", "Crítico"], ["DISCOVERY", "Hallazgo"],
   ["MIRACLE", "Milagro"], ["INTIMIDATION", "Intimidación"], ["CONQUEST", "Conquista"], ["RACE", "Carrera"],
   ["DODGE", "Evasión"], ["STEALTH", "Sigilo"], ["DETECTION", "Detección"], ["ATTACK_TOTAL", "Ataque total"],
-  ["DAMAGE_REDUCTION_ALL", "Reducción de daño total"], ["OTHER", "Otro"],
+  ["DAMAGE_REDUCTION_ALL", "Reducción de daño total"], ["INVISIBILITY", "Invisibilidad"], ["OTHER", "Otro"],
 ] as const;
 
 const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", action: "ESCAPE_MAZE", value: 100, description: "" });
@@ -84,7 +84,7 @@ export default function ItemsManagementPage() {
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
-      if(key==="type") return value==="system_action" ? {...e,type:value,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1} : value==="narrative" ? {...e,type:value,stat:"OTHER",value:1} : {...e,type:value,stat:e.stat==="SYSTEM_ACTION"||e.stat==="OTHER"?"STR":e.stat};
+      if(key==="type") return value==="system_action" ? {...e,type:value,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1} : value==="narrative" ? {...e,type:value,stat:"OTHER",value:1} : value==="maze_utility" ? {...e,type:value,stat:"INVISIBILITY",value:1} : {...e,type:value,stat:e.stat==="SYSTEM_ACTION"||e.stat==="OTHER"||e.stat==="INVISIBILITY"?"STR":e.stat};
       if(key==="stat") return {...e,stat:value};
       return {...e,[key]:key==="value"?Number(value):value};
     })}));

@@ -6,6 +6,7 @@ import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomTyp
 import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
 import { getDefaultEnemyImageUrl, getEnemyImagePaths, getEnemyImageUrl } from "@/lib/enemy-image";
 import { moveMobileEnemies } from "@/lib/maze-mobile";
+import { getCharacterMazeCapabilities } from "@/lib/maze-capabilities";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -364,6 +365,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const characterCombat = Number.isInteger(characterId) && characterId > 0
     ? await getEffectiveCombatStats(db, characterId)
     : null;
+  const mazeCapabilities = Number.isInteger(characterId) && characterId > 0
+    ? await getCharacterMazeCapabilities(db, characterId)
+    : { invisibility:false };
   const positions = await (db.orm.public as any).MazeCharacterPosition.where({ mazeId }).all();
   const characters = await db.orm.public.Character.all();
   const occupants = await Promise.all(positions.map(async (entry:any) => {
@@ -429,6 +433,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     currentExits,
     occupants,
     trapActions,
+    mazeCapabilities,
     directionLabels:DIRECTION_LABELS,
   });
 }
@@ -707,6 +712,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const mazeId = Number((await params).id);
   const characterId = Number(body?.characterId);
   const direction = String(body?.direction ?? "");
+  const exploreInvisible = body?.action === "exploreInvisible";
 
   const Character = db.orm.public.Character;
   const character = await Character.where({ id:characterId }).first();
@@ -729,6 +735,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   if (!Object.prototype.hasOwnProperty.call(DIRECTION_LABELS, direction)) return NextResponse.json({ error:"Dirección inválida." }, { status:400 });
+  if (exploreInvisible) {
+    const capabilities = await getCharacterMazeCapabilities(db, characterId);
+    if (!capabilities.invisibility) return NextResponse.json({ error:"Este personaje no tiene una fuente de invisibilidad activa." }, { status:403 });
+  }
   if (String(maze.status) === "COMPLETED") return NextResponse.json({ error:"Este laberinto ya está completado." }, { status:400 });
 
   const existingPosition = await (db.orm.public as any).MazeCharacterPosition.where({ mazeId, characterId }).first();
@@ -776,7 +786,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const requestedExit = await TxExit.where({ fromRoomId:currentRoom.id, direction }).first();
     if (!requestedExit) throw new Error("EXIT_NOT_FOUND");
 
-    if (activeEnemies.length > 0 && Number(requestedExit.toRoomId) !== Number(position?.previousRoomId ?? -1)) throw new Error("ROOM_BLOCKED");
+    if (activeEnemies.length > 0 && Number(requestedExit.toRoomId) !== Number(position?.previousRoomId ?? -1) && !exploreInvisible) throw new Error("ROOM_BLOCKED");
+    if (exploreInvisible && activeEnemies.length === 0) throw new Error("NO_ENEMY_TO_BYPASS");
 
     // Cada movimiento de un personaje hace avanzar una vez a los enemigos móviles existentes.
     // Se ejecuta antes de resolver el destino para que un enemigo recién generado no se mueva inmediatamente.
@@ -863,6 +874,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       ROOT_NOT_FOUND:"El laberinto no tiene habitación inicial.",
       EXIT_NOT_FOUND:"No existe esa salida desde la habitación actual.",
       ROOM_BLOCKED:"Hay enemigos activos. Solo puedes regresar por una salida ya descubierta.",
+      NO_ENEMY_TO_BYPASS:"No hay un enemigo que necesites evitar en esta habitación.",
       DESTINATION_NOT_FOUND:"La habitación de destino no existe.",
       MAZE_LIMIT:"Este laberinto ya alcanzó su límite de habitaciones.",
     };

@@ -713,6 +713,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const characterId = Number(body?.characterId);
   const direction = String(body?.direction ?? "");
   const exploreInvisible = body?.action === "exploreInvisible";
+  const exploreStealth = body?.action === "exploreStealth";
 
   const Character = db.orm.public.Character;
   const character = await Character.where({ id:characterId }).first();
@@ -738,6 +739,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (exploreInvisible) {
     const capabilities = await getCharacterMazeCapabilities(db, characterId);
     if (!capabilities.invisibility) return NextResponse.json({ error:"Este personaje no tiene una fuente de invisibilidad activa." }, { status:403 });
+  }
+  if (exploreStealth) {
+    const stealthCombat = await getEffectiveCombatStats(db, characterId);
+    if (!stealthCombat) return NextResponse.json({ error:"No se pudieron calcular las estadísticas de sigilo." }, { status:400 });
   }
   if (String(maze.status) === "COMPLETED") return NextResponse.json({ error:"Este laberinto ya está completado." }, { status:400 });
 
@@ -787,7 +792,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!requestedExit) throw new Error("EXIT_NOT_FOUND");
 
     if (activeEnemies.length > 0 && Number(requestedExit.toRoomId) !== Number(position?.previousRoomId ?? -1) && !exploreInvisible) throw new Error("ROOM_BLOCKED");
-    if (exploreInvisible && activeEnemies.length === 0) throw new Error("NO_ENEMY_TO_BYPASS");
+    if ((exploreInvisible || exploreStealth) && activeEnemies.length === 0) throw new Error("NO_ENEMY_TO_BYPASS");
+    if (exploreStealth && activeEnemies.length > 0) {
+      const stealthCombat = await getEffectiveCombatStats(tx, characterId);
+      const characterStealth = Number(stealthCombat?.derived?.stealth ?? 0);
+      const detectedBy = activeEnemies.find((encounter:any) => {
+        const enemyStats = normalizeEnemyStats(encounter.generatedStats ?? {});
+        const enemyDetection = Number(calculateDerivedStats(enemyStats).detection);
+        return enemyDetection >= characterStealth;
+      });
+      if (detectedBy) throw new Error("STEALTH_DETECTED");
+    }
 
     // Cada movimiento de un personaje hace avanzar una vez a los enemigos móviles existentes.
     // Se ejecuta antes de resolver el destino para que un enemigo recién generado no se mueva inmediatamente.
@@ -875,6 +890,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       EXIT_NOT_FOUND:"No existe esa salida desde la habitación actual.",
       ROOM_BLOCKED:"Hay enemigos activos. Solo puedes regresar por una salida ya descubierta.",
       NO_ENEMY_TO_BYPASS:"No hay un enemigo que necesites evitar en esta habitación.",
+      STEALTH_DETECTED:"👁️ Un enemigo te detectó. Tu sigilo no fue suficiente para atravesar la habitación.",
       DESTINATION_NOT_FOUND:"La habitación de destino no existe.",
       MAZE_LIMIT:"Este laberinto ya alcanzó su límite de habitaciones.",
     };

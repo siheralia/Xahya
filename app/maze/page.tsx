@@ -30,6 +30,8 @@ export default function MazePage(){
   const [panel,setPanel]=useState<"none"|"inventory"|"stats"|"map"|"skills">("none");
   const [movingDirection,setMovingDirection]=useState<string|null>(null);
   const [characterData,setCharacterData]=useState<any>(null);
+  const [invisibilityActive,setInvisibilityActive]=useState(false);
+  const [stealthActive,setStealthActive]=useState(false);
 
   useEffect(()=>{Promise.all([fetch("/api/characters?mine=true"),fetch("/api/maze")]).then(async([a,b])=>{const [charText,mazeText]=await Promise.all([a.text(),b.text()]);const chars=charText?JSON.parse(charText):[];const ms=mazeText?JSON.parse(mazeText):[];if(!a.ok)throw new Error(chars?.error??"No se pudieron cargar los personajes.");if(!b.ok)throw new Error(ms?.error??"No se pudieron cargar los laberintos.");setCharacters(Array.isArray(chars)?chars:[]);setMazes(Array.isArray(ms)?ms:[]);}).catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar la exploración."));},[]);
   useEffect(()=>{if(!mazeId||!characterId)return; loadMaze();},[mazeId,characterId]);
@@ -62,7 +64,7 @@ export default function MazePage(){
     setTopMenuOpen(false);
     setMovingDirection(direction);
     setBusy(true);setError("");
-    const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({characterId:Number(characterId),direction})});
+    const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({characterId:Number(characterId),direction,exploreInvisible:invisibilityActive,exploreStealth:stealthActive})});
     const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar.");else await loadMaze();setBusy(false);setMovingDirection(null);
   }
   async function useTrapConsumable(characterItemId:number, action:"DISARM_MAZE_TRAP"|"RELEASE_MAZE_TRAPPED"){
@@ -209,7 +211,7 @@ export default function MazePage(){
                     const blocked=Boolean(exit)&&(
                       maze.positionStatus!=="ACTIVE" ||
                       (hasActiveRoomEnemies&&!isReturn) ||
-                      destination?.status==="BLOCKED"
+                      (destination?.status==="BLOCKED"&&!isReturn)
                     );
                     const available=Boolean(exit);
                     return <button key={direction}
@@ -323,6 +325,27 @@ export default function MazePage(){
                 </button>
               )}
             </div>
+
+            {(maze?.mazeCapabilities?.invisibility || hasActiveRoomEnemies) && (
+              <div className="mt-2 grid grid-cols-2 gap-1.5">
+                {maze?.mazeCapabilities?.invisibility && (
+                  <button onClick={()=>setInvisibilityActive(v=>!v)} aria-pressed={invisibilityActive}
+                    className={"h-9 rounded-lg border text-[11px] font-semibold transition-colors "+(invisibilityActive
+                      ?"border-violet-400 bg-violet-500/20 text-violet-100 shadow-[0_0_0_1px_rgba(167,139,250,0.2)]"
+                      :"border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-violet-800 hover:text-violet-300")}>
+                    🫥 Invisibilidad {invisibilityActive?"ON":"OFF"}
+                  </button>
+                )}
+                {hasActiveRoomEnemies && (
+                  <button onClick={()=>setStealthActive(v=>!v)} aria-pressed={stealthActive}
+                    className={"h-9 rounded-lg border text-[11px] font-semibold transition-colors "+(stealthActive
+                      ?"border-cyan-400 bg-cyan-500/20 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.2)]"
+                      :"border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-cyan-800 hover:text-cyan-300")}>
+                    🥷 Sigilo {stealthActive?"ON":"OFF"}
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button onClick={()=>setPanel("stats")} className="rounded-lg border border-zinc-800 px-2 py-2 text-xs text-zinc-400 hover:text-white">📊 Stats</button>

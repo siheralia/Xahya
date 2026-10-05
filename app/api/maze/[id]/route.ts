@@ -791,7 +791,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const requestedExit = await TxExit.where({ fromRoomId:currentRoom.id, direction }).first();
     if (!requestedExit) throw new Error("EXIT_NOT_FOUND");
 
-    if (activeEnemies.length > 0 && Number(requestedExit.toRoomId) !== Number(position?.previousRoomId ?? -1) && !exploreInvisible) throw new Error("ROOM_BLOCKED");
+    if (activeEnemies.length > 0 && Number(requestedExit.toRoomId) !== Number(position?.previousRoomId ?? -1) && !exploreInvisible && !exploreStealth) throw new Error("ROOM_BLOCKED");
     if ((exploreInvisible || exploreStealth) && activeEnemies.length === 0) throw new Error("NO_ENEMY_TO_BYPASS");
     if (exploreStealth && activeEnemies.length > 0) {
       const stealthCombat = await getEffectiveCombatStats(tx, characterId);

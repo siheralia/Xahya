@@ -28,6 +28,7 @@ export default function MazePage(){
   const [trapBusy,setTrapBusy]=useState<number|null>(null);
   const [topMenuOpen,setTopMenuOpen]=useState(false);
   const [panel,setPanel]=useState<"none"|"inventory"|"stats"|"map"|"skills">("none");
+  const [movingDirection,setMovingDirection]=useState<string|null>(null);
 
   useEffect(()=>{Promise.all([fetch("/api/characters?mine=true"),fetch("/api/maze")]).then(async([a,b])=>{const [charText,mazeText]=await Promise.all([a.text(),b.text()]);const chars=charText?JSON.parse(charText):[];const ms=mazeText?JSON.parse(mazeText):[];if(!a.ok)throw new Error(chars?.error??"No se pudieron cargar los personajes.");if(!b.ok)throw new Error(ms?.error??"No se pudieron cargar los laberintos.");setCharacters(Array.isArray(chars)?chars:[]);setMazes(Array.isArray(ms)?ms:[]);}).catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar la exploración."));},[]);
   useEffect(()=>{if(!mazeId||!characterId)return; loadMaze();},[mazeId,characterId]);
@@ -57,9 +58,10 @@ export default function MazePage(){
   }
   async function move(direction:string){
     setTopMenuOpen(false);
+    setMovingDirection(direction);
     setBusy(true);setError("");
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({characterId:Number(characterId),direction})});
-    const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar.");else await loadMaze();setBusy(false);
+    const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar.");else await loadMaze();setBusy(false);setMovingDirection(null);
   }
   async function useTrapConsumable(characterItemId:number, action:"DISARM_MAZE_TRAP"|"RELEASE_MAZE_TRAPPED"){
     if(!mazeId||!characterId||trapBusy!==null)return;
@@ -182,7 +184,7 @@ export default function MazePage(){
         <label className="text-xs text-zinc-500">Personaje<select value={characterId} onChange={e=>setCharacterId(e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm"><option value="">Selecciona</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label className="text-xs text-zinc-500">Laberinto<select value={mazeId} onChange={e=>setMazeId(e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm"><option value="">Selecciona</option>{mazes.map(m=><option key={m.id} value={m.id}>{m.name} — {m.mazeType==="FINITE"?m.roomCount+"/"+m.maxRooms:"∞"}</option>)}</select></label>
       </section>}
-      {maze&&<div className="mx-auto mt-3 grid w-fit min-h-0 flex-1 grid-cols-[256px] gap-3 lg:grid-cols-[256px_256px] lg:justify-center">
+      {maze&&<div className="mx-auto mt-3 grid w-fit min-h-0 flex-1 grid-cols-[288px] gap-3 lg:grid-cols-[288px_288px] lg:justify-center">
         <section className="relative mx-auto flex min-h-[520px] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/35">
           <div className="absolute inset-0">{maze.maze.themes?.filter((t:Theme)=>t.imageUrl).map((t:Theme)=><img key={t.id} src={t.imageUrl??""} alt="" className="absolute inset-0 h-full w-full object-cover opacity-10" />)}<div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.06),transparent_55%)]"/></div>
           <div className="relative flex items-center justify-between border-b border-zinc-800/80 bg-zinc-950/45 px-4 py-3"><div><p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">Momento actual</p><h1 className="text-lg font-semibold">{room?typeLabels[room.roomType]:"Exploración"}</h1></div>{room&&<span className={maze.positionStatus==="DEAD_LOCKED"?"text-red-300":maze.positionStatus==="TRAPPED"?"text-amber-300":room.status==="BLOCKED"?"text-red-300":"text-emerald-300"}>{maze.positionStatus==="DEAD_LOCKED"?"💀 Bloqueado":maze.positionStatus==="TRAPPED"?"⚠️ Atrapado":room.status==="BLOCKED"?"⚔️ Bloqueada":"● Activo"}</span>}</div>
@@ -214,11 +216,11 @@ export default function MazePage(){
                       title={available?(blocked?"Salida bloqueada":(maze.directionLabels?.[direction]??direction)):"Sin salida"}
                       className={[
                         "min-w-0 w-full place-items-center rounded-lg border transition-colors",
-                        available?"h-10 w-full sm:h-11 text-sm sm:text-base":"h-10 w-full text-[0px] border-zinc-900/80 bg-zinc-950/70 opacity-100",
-                        available&&!blocked?(isReturn?"grid border-blue-500 bg-blue-950/30 text-blue-100 shadow-[0_0_0_1px_rgba(59,130,246,0.2)] hover:border-blue-400":"grid border-zinc-700 bg-zinc-900/80 hover:border-zinc-500 hover:bg-zinc-800"):
+                        available?"h-11 w-full sm:h-12 text-sm sm:text-base":"h-11 w-full text-[0px] border-zinc-900/80 bg-zinc-950/70 opacity-100",
+                        available&&!blocked?(isReturn?"grid border-blue-500 bg-blue-950/30 text-blue-100 shadow-[0_0_0_1px_rgba(59,130,246,0.2)] hover:border-blue-400 active:scale-95 active:bg-blue-900/50":"grid border-zinc-700 bg-zinc-900/80 hover:border-zinc-500 hover:bg-zinc-800 active:scale-95 active:bg-zinc-800"):
                           available&&blocked?"grid border-zinc-700 bg-zinc-950/70 opacity-45 cursor-not-allowed":"grid border-zinc-900/80 bg-zinc-950/70 opacity-100"
                       ].join(" ")}
-                    >{available?icon:"·"}</button>;
+                    >{available?(movingDirection===direction&&busy?"⏳":icon):"·"}</button>;
                   })}
                 </div></div>
               <div className="mt-2 flex flex-wrap justify-center gap-1.5">

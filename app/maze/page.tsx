@@ -277,14 +277,78 @@ export default function MazePage(){
           </div>}
         </section>
         <aside className="flex min-h-0 w-full flex-col gap-3">
-          <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50"><div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2.5"><div><p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600">Navegación</p><h2 className="font-semibold">🗺️ Mapa</h2></div><button onClick={()=>setPanel("map")} className="rounded-lg border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 hover:text-white">Expandir</button></div><div className="p-2"><MazeMap rooms={maze.rooms??[]} exits={maze.exits??[]} currentRoomId={position} directionLabels={maze.directionLabels}/></div></div>
-          <div className="sticky bottom-3 rounded-2xl border border-zinc-800 bg-zinc-900/95 p-3 shadow-xl backdrop-blur"><div className="flex items-center gap-3 min-w-0"><div className="flex h-12 min-w-[4.5rem] shrink-0 items-center justify-center rounded-xl border border-violet-500/30 bg-violet-950/20 px-2 text-xl leading-normal whitespace-nowrap overflow-visible">{characters.find(c=>Number(c.id)===Number(characterId))?.flair?"⟨"+characters.find(c=>Number(c.id)===Number(characterId))?.flair+"⟩":"🧙"}</div><div className="min-w-0"><p className="truncate font-semibold">{characters.find(c=>Number(c.id)===Number(characterId))?.name??"Personaje"}</p><p className="text-xs text-zinc-500">Explorador</p></div></div>
-            <div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-lg bg-zinc-950/80 p-2"><p className="text-[10px] text-zinc-600">❤️ HP</p><p className="mt-1 font-semibold">{characterData?.resources?.currentHp??characterData?.resources?.hp??characterData?.derivedStats?.maxHp??"—"} / {characterData?.derivedStats?.maxHp??"—"}</p></div><div className="rounded-lg bg-zinc-950/80 p-2"><p className="text-[10px] text-zinc-600">🔷 Mana</p><p className="mt-1 font-semibold">{characterData?.resources?.currentMana??characterData?.resources?.mana??characterData?.derivedStats?.maxMana??"—"} / {characterData?.derivedStats?.maxMana??"—"}</div></div>
-            <div className="mt-2 grid grid-cols-4 gap-1.5">{["⚔️","🪄","🛡️","✨"].map((icon,i)=><button key={i} onClick={()=>setPanel("skills")} className="relative grid h-10 place-items-center rounded-lg border border-zinc-800 bg-zinc-950 text-sm hover:border-zinc-600">{icon}<span className="absolute bottom-0.5 right-1 text-[9px] text-zinc-600">—</span></button>)}</div>
-            <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={()=>setPanel("stats")} className="rounded-lg border border-zinc-800 px-2 py-2 text-xs text-zinc-400 hover:text-white">📊 Stats</button><button onClick={()=>setPanel("inventory")} className="rounded-lg border border-zinc-800 px-2 py-2 text-xs text-zinc-400 hover:text-white">🎒 Inventario</button></div>
+          <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2.5">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600">Navegación</p>
+                <h2 className="font-semibold">🗺️ Mapa</h2>
+              </div>
+              <button onClick={()=>setPanel("map")} className="rounded-lg border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 hover:text-white">Expandir</button>
+            </div>
+            <div className="p-2">
+              <MazeMap rooms={maze.rooms??[]} exits={maze.exits??[]} currentRoomId={position} directionLabels={maze.directionLabels}/>
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-2"><div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-2 text-center"><p className="text-[10px] text-zinc-600">🪙 Dinero</p><p className="font-semibold">{characterData?.money??characterData?.resources?.money??"—"}</p></div><div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-2 text-center"><p className="text-[10px] text-zinc-600">🪷 Karma</p><p className="font-semibold">{characterData?.karma??characterData?.resources?.karma??"—"}</p></div><div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-2 text-center"><p className="text-[10px] text-zinc-600">📍 Salas</p><p className="font-semibold">{maze.rooms?.length??0}</p></div></div>
-          {room?.roomNumber===1&&<button onClick={leave} disabled={busy||maze.positionStatus!=="ACTIVE"} className="rounded-xl border border-red-900/70 px-3 py-2.5 text-sm text-red-300 disabled:opacity-40">Salir del laberinto</button>}
+
+          <div className="sticky bottom-3 rounded-2xl border border-zinc-800 bg-zinc-900/95 p-3 shadow-xl backdrop-blur">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-12 min-w-[4.5rem] shrink-0 items-center justify-center overflow-visible rounded-xl border border-violet-500/30 bg-violet-950/20 px-2 text-xl leading-normal whitespace-nowrap">
+                {characters.find(c=>Number(c.id)===Number(characterId))?.flair
+                  ?"⟨"+characters.find(c=>Number(c.id)===Number(characterId))?.flair+"⟩"
+                  :"🧙"}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{characters.find(c=>Number(c.id)===Number(characterId))?.name??"Personaje"}</p>
+                <p className="text-xs text-zinc-500">Explorador</p>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-lg bg-zinc-950/80 p-2">
+                <p className="text-[10px] text-zinc-600">❤️ HP</p>
+                <p className="mt-1 font-semibold">{characterData?.resources?.currentHp??characterData?.resources?.hp??characterData?.derivedStats?.maxHp??"—"} / {characterData?.derivedStats?.maxHp??"—"}</p>
+              </div>
+              <div className="rounded-lg bg-zinc-950/80 p-2">
+                <p className="text-[10px] text-zinc-600">🔷 Mana</p>
+                <p className="mt-1 font-semibold">{characterData?.resources?.currentMana??characterData?.resources?.mana??characterData?.derivedStats?.maxMana??"—"} / {characterData?.derivedStats?.maxMana??"—"}</p>
+              </div>
+            </div>
+
+            <div className="mt-2 grid grid-cols-4 gap-1.5">
+              {["⚔️","🪄","🛡️","✨"].map((icon,i)=>
+                <button key={i} onClick={()=>setPanel("skills")} className="relative grid h-10 place-items-center rounded-lg border border-zinc-800 bg-zinc-950 text-sm hover:border-zinc-600">
+                  {icon}
+                  <span className="absolute bottom-0.5 right-1 text-[9px] text-zinc-600">—</span>
+                </button>
+              )}
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button onClick={()=>setPanel("stats")} className="rounded-lg border border-zinc-800 px-2 py-2 text-xs text-zinc-400 hover:text-white">📊 Stats</button>
+              <button onClick={()=>setPanel("inventory")} className="rounded-lg border border-zinc-800 px-2 py-2 text-xs text-zinc-400 hover:text-white">🎒 Inventario</button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-2 text-center">
+              <p className="text-[10px] text-zinc-600">🪙 Dinero</p>
+              <p className="font-semibold">{characterData?.money??characterData?.resources?.money??"—"}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-2 text-center">
+              <p className="text-[10px] text-zinc-600">🪷 Karma</p>
+              <p className="font-semibold">{characterData?.karma??characterData?.resources?.karma??"—"}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-2 text-center">
+              <p className="text-[10px] text-zinc-600">📍 Salas</p>
+              <p className="font-semibold">{maze.rooms?.length??0}</p>
+            </div>
+          </div>
+
+          {room?.roomNumber===1&&
+            <button onClick={leave} disabled={busy||maze.positionStatus!=="ACTIVE"} className="rounded-xl border border-red-900/70 px-3 py-2.5 text-sm text-red-300 disabled:opacity-40">
+              Salir del laberinto
+            </button>
+          }
         </aside>
       </div>}
       {panel!=="none"&&<div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-2 sm:items-center sm:p-4" onClick={()=>setPanel("none")}><div className="w-full max-w-2xl rounded-2xl border border-zinc-700 bg-zinc-950 p-4 shadow-2xl sm:p-5" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between"><div><p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600">Panel</p><h2 className="text-xl font-bold">{panel==="inventory"?"🎒 Inventario y equipo":panel==="stats"?"📊 Estado y estadísticas":panel==="skills"?"✨ Habilidades":"🗺️ Mapa ampliado"}</h2></div><button onClick={()=>setPanel("none")} className="rounded-lg border border-zinc-700 px-3 py-1 text-zinc-400">×</button></div>{panel==="map"?<div className="mt-4 max-h-[70vh] overflow-auto rounded-xl border border-zinc-800 p-2"><MazeMap rooms={maze?.rooms??[]} exits={maze?.exits??[]} currentRoomId={position} directionLabels={maze?.directionLabels}/></div>:panel==="skills"?<div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">{["⚔️","🪄","🛡️","✨"].map((icon,i)=><div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4"><div className="text-2xl">{icon}</div><p className="mt-3 text-xs text-zinc-500">Ranura {i+1}</p><p className="mt-1 font-semibold">Sin datos</p></div>)}</div>:panel==="inventory"?<div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 text-sm text-zinc-400">El inventario y equipo siguen disponibles desde la ficha del personaje. Este panel queda reservado para la versión compacta del HUD.</div>:<div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">{Object.entries(statLabels).map(([key,label])=><div key={key} className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3"><p className="text-xs text-zinc-600">{key}</p><p className="mt-1 font-medium">{label}</p><p className="mt-2 text-xl font-bold">{characterData?.effectiveStats?.[key]??characterData?.stats?.[key]??"—"}</p></div>)}{Object.entries({maxHp:"HP",maxMana:"Mana",physicalAttack:"Ataque físico",magicAttack:"Ataque mágico",physicalDefense:"Defensa física",magicDefense:"Defensa mágica",precision:"Precisión",critical:"Crítico",discovery:"Hallazgo",miracle:"Milagrosos",stealth:"Sigilo",detection:"Detección"}).map(([key,label])=><div key={key} className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3"><p className="text-xs text-zinc-600">{label}</p><p className="mt-2 text-xl font-bold">{characterData?.derivedStats?.[key]??"—"}</p></div>)}</div>}</div></div>}

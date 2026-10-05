@@ -211,7 +211,7 @@ export default function MazePage(){
                     const isReturn=Boolean(exit&&Number(exit.id)===Number(returnExitId));
                     const blocked=Boolean(exit)&&(
                       maze.positionStatus!=="ACTIVE" ||
-                      (hasActiveRoomEnemies&&!isReturn) ||
+                      ((!invisibilityActive&&!stealthActive)&&hasActiveRoomEnemies&&!isReturn) ||
                       (destination?.status==="BLOCKED"&&!isReturn)
                     );
                     const available=Boolean(exit);
@@ -226,7 +226,7 @@ export default function MazePage(){
                         available&&!blocked?(isReturn?"grid border-blue-500 bg-blue-950/30 text-blue-100 shadow-[0_0_0_1px_rgba(59,130,246,0.2)] hover:border-blue-400 active:scale-95 active:bg-blue-900/50":"grid border-zinc-700 bg-zinc-900/80 hover:border-zinc-500 hover:bg-zinc-800 active:scale-95 active:bg-zinc-800"):
                           available&&blocked?"grid border-zinc-700 bg-zinc-950/70 opacity-45 cursor-not-allowed":"grid border-zinc-900/80 bg-zinc-950/70 opacity-100"
                       ].join(" ")}
-                    >{available?(movingDirection===direction&&busy?"⏳":icon):"·"}</button>;
+                    >{available?(movingDirection===direction&&busy?"⏳":icon):"·"}{available&&!destination?" ◆":""}</button>;
                   })}
                 </div></div>
               <div className="mt-2 flex flex-wrap justify-center gap-1.5">
@@ -303,16 +303,16 @@ export default function MazePage(){
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 {maze?.mazeCapabilities?.invisibility && (
                   <button onClick={()=>setInvisibilityActive(v=>!v)} aria-pressed={invisibilityActive}
-                    className={"h-9 rounded-lg border text-[11px] font-semibold transition-colors "+(invisibilityActive
-                      ?"border-violet-400 bg-violet-500/20 text-violet-100 shadow-[0_0_0_1px_rgba(167,139,250,0.2)]"
+                    className={"h-9 rounded-lg border text-[11px] font-semibold transition-all "+(invisibilityActive
+                      ?"border-violet-300 bg-violet-500/35 text-violet-50 shadow-[0_0_12px_rgba(167,139,250,0.35)]"
                       :"border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-violet-800 hover:text-violet-300")}>
                     🫥 Invisibilidad {invisibilityActive?"ON":"OFF"}
                   </button>
                 )}
                 {true && (
                   <button onClick={()=>setStealthActive(v=>!v)} aria-pressed={stealthActive}
-                    className={"h-9 rounded-lg border text-[11px] font-semibold transition-colors "+(stealthActive
-                      ?"border-cyan-400 bg-cyan-500/20 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.2)]"
+                    className={"h-9 rounded-lg border text-[11px] font-semibold transition-all "+(stealthActive
+                      ?"border-cyan-300 bg-cyan-500/35 text-cyan-50 shadow-[0_0_12px_rgba(34,211,238,0.35)]"
                       :"border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-cyan-800 hover:text-cyan-300")}>
                     🥷 Sigilo {stealthActive?"ON":"OFF"}
                   </button>

@@ -51,6 +51,7 @@ model Skill {
   character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
   name        String
   cost        Int       @default(0)
+  maintenanceCost Int       @default(0)
   description String?
   duration    String?
   category    String    @default("UTILITY")

@@ -36,7 +36,7 @@ body {
   display: flex; align-items: center; justify-content: space-between; width: 100%;
 }
 .xahya-nav-top { min-height: 34px; }
-.xahya-nav-bottom { margin-top: 8px; justify-content: flex-start; gap: 14px; }
+.xahya-nav-bottom { margin-top: 8px; justify-content: space-between; gap: 14px; }
 .xahya-brand-row { display: flex; align-items: center; gap: 7px; }
 .xahya-brand {
   display: inline-flex; align-items: center; gap: 9px; color: white;

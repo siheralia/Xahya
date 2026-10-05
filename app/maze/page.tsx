@@ -267,7 +267,7 @@ export default function MazePage(){
           <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center pointer-events-none">
             <div className={"pointer-events-auto "+(!hudOpen
               ? "w-fit"
-              : "w-full max-w-md rounded-t-2xl border border-zinc-700 border-b-0 bg-zinc-900/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur"})
+              : "w-full max-w-md rounded-t-2xl border border-zinc-700 border-b-0 bg-zinc-900/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur max-h-[85dvh] overflow-y-auto"})>
               <button
                 type="button"
                 onClick={()=>setHudOpen(v=>!v)}

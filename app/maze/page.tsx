@@ -64,6 +64,8 @@ export default function MazePage(){
 
     setMovingDirection(direction);
     setBusy(true);setError("");
+    // La API decide si sigilo/invisibilidad son relevantes según el cuarto.
+    // No bloquean trampas liberadas ni cuartos que no contienen enemigos.
     const action=invisibilityActive?"exploreInvisible":stealthActive?"exploreStealth":undefined;
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,characterId:Number(characterId),direction})});
     const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar.");else await loadMaze();setBusy(false);setMovingDirection(null);

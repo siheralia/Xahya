@@ -222,8 +222,8 @@ export default function MazePage(){
                             {!activeEnemies.length&&!defeatedEnemies.length&&!occupants.length&&room.roomType!=="TREASURE"&&!room.contentName&&<div className="py-4 text-center text-[11px] text-zinc-600">No hay nada que inspeccionar aquí.</div>}
                           </div>
                         </div>
-                      </div>;
-                    };
+                      </div>
+                    }
                     const exit=exits.find((e:Exit)=>e.direction===direction);
                     const destination=exit?.toRoomId?roomById.get(Number(exit.toRoomId)):null;
                     const isReturn=Boolean(exit&&Number(exit.id)===Number(returnExitId));

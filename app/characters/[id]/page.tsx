@@ -12,7 +12,7 @@ type EquipmentItem = {
 
 type SkillEffect = { type: "DAMAGE_MULTIPLIER" | "STAT_MULTIPLIER" | "STAT_BONUS" | "NARRATIVE"; target?: string; value?: number; description?: string };
 type Skill = {
-  id: number; characterId: number; name: string; cost: number; description: string | null; duration: string | null;
+  id: number; characterId: number; name: string; cost: number; maintenanceCost: number; description: string | null; duration: string | null;
   category: string; areaOfEffect: string | null; speed: string | null; cooldown: string | null; effect: SkillEffect[];
   condition: string | null; status: string; approvedAt: string | null;
 };
@@ -496,7 +496,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [skillModalOpen, setSkillModalOpen] = useState(false);
   const [skillSaving, setSkillSaving] = useState(false);
   const [skillForm, setSkillForm] = useState({
-    name: "", cost: 0, description: "", duration: "", category: "OFFENSIVE",
+    name: "", cost: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE",
     areaOfEffect: "", speed: "", cooldown: "", condition: "",
     effect: [] as SkillEffect[],
   });
@@ -841,7 +841,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               return "";
             }).filter(Boolean);
             return [
-              "• *" + skill.name + "* — " + (categoryLabels[skill.category] ?? skill.category) + " | Coste: " + formatNumber(skill.cost),
+              "• *" + skill.name + "* — " + (categoryLabels[skill.category] ?? skill.category) + " | Coste: " + formatNumber(skill.cost) + (Number(skill.maintenanceCost ?? 0) > 0 ? " | Mantenimiento/turno: " + formatNumber(Number(skill.maintenanceCost)) : ""),
               ...(skill.description ? ["  " + skill.description] : []),
               ...(skill.duration ? ["  Duración: " + skill.duration] : []),
               ...(skill.areaOfEffect ? ["  Área: " + skill.areaOfEffect] : []),
@@ -1073,7 +1073,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       setSkillCreationCredits((value) => Math.max(0, value - 1));
       setPendingSkills((current) => [data.skill, ...current]);
       setSkillModalOpen(false);
-      setSkillForm({ name: "", cost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
+      setSkillForm({ name: "", cost: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
       setSuccess("Habilidad enviada. Quedó pendiente de aprobación administrativa.");
       const refreshed = await fetch("/api/characters/" + character.id + "/skills", { cache: "no-store" });
       if (refreshed.ok) {
@@ -1656,7 +1656,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       <h3 className="font-semibold" style={{ color: themePalette.foreground }}>{skill.name}</h3>
                       <p className="mt-1 text-xs" style={{ color: themePalette.muted }}>
                         {skillCategories.find((category) => category[0] === skill.category)?.[1] ?? skill.category}
-                        {" · "}Coste {skill.cost}
+                        {" · "}Coste {skill.cost}{Number(skill.maintenanceCost ?? 0) > 0 ? " · Mantenimiento/turno " + skill.maintenanceCost : ""}
                       </p>
                     </div>
                     <span className="rounded-full border border-emerald-400/25 px-2 py-1 text-xs text-emerald-300">Aprobada</span>
@@ -1667,6 +1667,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     {skill.areaOfEffect && <span>◎ Área: {skill.areaOfEffect}</span>}
                     {skill.speed && <span>⚡ Velocidad: {skill.speed}</span>}
                     {skill.cooldown && <span>↻ Cooldown: {skill.cooldown}</span>}
+                    {Number(skill.maintenanceCost ?? 0) > 0 && <span>⟳ Mantenimiento/turno: {skill.maintenanceCost}</span>}
                   </div>
                   {skill.condition && <p className="mt-3 text-xs text-amber-300">Condición: {skill.condition}</p>}
                   {skill.effect?.length > 0 && (
@@ -1727,6 +1728,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <label className="text-sm text-zinc-400">Nombre<input value={skillForm.name} onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Coste<input type="number" min="0" value={skillForm.cost} onChange={(e) => setSkillForm({ ...skillForm, cost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Costo por turno (mantenimiento)<input type="number" min="0" value={skillForm.maintenanceCost} onChange={(e) => setSkillForm({ ...skillForm, maintenanceCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Categoría<select value={skillForm.category} onChange={(e) => setSkillForm({ ...skillForm, category: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">{skillCategories.map((category) => <option key={category[0]} value={category[0]}>{category[1]}</option>)}</select></label>
                 <label className="text-sm text-zinc-400">Duración<input value={skillForm.duration} onChange={(e) => setSkillForm({ ...skillForm, duration: e.target.value })} placeholder="Ej. 3 turnos / Instantánea" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Área de efecto<input value={skillForm.areaOfEffect} onChange={(e) => setSkillForm({ ...skillForm, areaOfEffect: e.target.value })} placeholder="Ej. Objetivo único / 5 m" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>

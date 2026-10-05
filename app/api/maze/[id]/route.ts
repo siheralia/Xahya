@@ -874,6 +874,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       ROOT_NOT_FOUND:"El laberinto no tiene habitación inicial.",
       EXIT_NOT_FOUND:"No existe esa salida desde la habitación actual.",
       ROOM_BLOCKED:"Hay enemigos activos. Solo puedes regresar por una salida ya descubierta.",
+      NO_ENEMY_TO_BYPASS:"No hay un enemigo que necesites evitar en esta habitación.",
       DESTINATION_NOT_FOUND:"La habitación de destino no existe.",
       MAZE_LIMIT:"Este laberinto ya alcanzó su límite de habitaciones.",
     };

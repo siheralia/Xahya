@@ -87,7 +87,12 @@ export default function NavigationShell({
       if (!cancelled) setSystemOnline(false);
     });
 
-    return (
+    return () => { cancelled = true; };
+  }, []);
+
+  const showPageBreadcrumb = route.page !== route.section.label;
+
+  return (
     <>
       <header className="xahya-nav">
         <div className="xahya-nav-top">

@@ -264,6 +264,7 @@ export default function MazePage(){
                 )}
               </div>
             )}
+          </div>
           </div>}
         </section>
         <aside className="flex min-h-0 w-full flex-col gap-3">

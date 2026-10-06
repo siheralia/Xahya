@@ -11,8 +11,9 @@ type EquipmentItem = {
 };
 
 type SkillEffect = { type: "DAMAGE_MULTIPLIER" | "STAT_MULTIPLIER" | "STAT_BONUS" | "NARRATIVE"; target?: string; value?: number; description?: string };
+type SkillState = { id:number; characterId:number; skillId:number; active:boolean; accumulations:number; totalTicks:number; lastTickAt:string|null; };
 type Skill = {
-  id: number; characterId: number; name: string; cost: number; accumulationCost: number; maintenanceCost: number; description: string | null; duration: string | null;
+  id: number; characterId: number; name: string; cost: number; accumulationCost: number; accumulationPerTick: number; maintenanceCost: number; description: string | null; duration: string | null;
   category: string; basicType: string | null; attackType: string | null; defenseType: string | null; areaOfEffect: string | null; speed: string | null; cooldown: string | null; effect: SkillEffect[];
   condition: string | null; status: string; approvedAt: string | null;
 };
@@ -492,12 +493,13 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [perkRecoveryBusy, setPerkRecoveryBusy] = useState(false);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [pendingSkills, setPendingSkills] = useState<Skill[]>([]);
+  const [skillStates, setSkillStates] = useState<SkillState[]>([]);
   const [skillCreationCredits, setSkillCreationCredits] = useState(0);
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [skillModalOpen, setSkillModalOpen] = useState(false);
   const [skillSaving, setSkillSaving] = useState(false);
   const [skillForm, setSkillForm] = useState({
-    name: "", cost: 0, accumulationCost: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE",
+    name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE",
     areaOfEffect: "", speed: "", cooldown: "", condition: "",
     effect: [] as SkillEffect[],
   });
@@ -512,13 +514,54 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setSkills(data.skills ?? []);
         setPendingSkills(data.pendingSkills ?? []);
         setSkillCreationCredits(Number(data.skillCreationCredits ?? 0));
+        setSkillStates(data.skillStates ?? []);
       })
       .catch(() => {
         setSkills([]);
         setPendingSkills([]);
         setSkillCreationCredits(0);
+        setSkillStates([]);
       });
   }, [character?.id]);
+
+  useEffect(() => {
+    if (!character || !skillStates.some((state) => state.active)) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch("/api/characters/" + character.id + "/skills/tick", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "tick" }),
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        setSkillStates(data.states ?? []);
+      } catch {
+        // The scheduled server tick remains authoritative if the page is temporarily offline.
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [character?.id, skillStates.some((state) => state.active)]);
+
+  async function toggleSkillAccumulation(skillId: number, active: boolean) {
+    if (!character) return;
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/skills/tick", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: active ? "start" : "stop", skillId }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo cambiar la acumulación.");
+      setSkillStates((current) => {
+        const next = current.filter((state) => state.skillId !== skillId);
+        return [...next, data.state];
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar la acumulación.");
+    }
+  }
 
   useEffect(() => {
     if (!character) return;
@@ -1074,7 +1117,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       setSkillCreationCredits((value) => Math.max(0, value - 1));
       setPendingSkills((current) => [data.skill, ...current]);
       setSkillModalOpen(false);
-      setSkillForm({ name: "", cost: 0, accumulationCost: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
+      setSkillForm({ name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
       setSuccess("Habilidad enviada. Quedó pendiente de aprobación administrativa.");
       const refreshed = await fetch("/api/characters/" + character.id + "/skills", { cache: "no-store" });
       if (refreshed.ok) {
@@ -1683,7 +1726,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       <h3 className="font-semibold" style={{ color: themePalette.foreground }}>{skill.name}</h3>
                       <p className="mt-1 text-xs" style={{ color: themePalette.muted }}>
                         {skillCategories.find((category) => category[0] === skill.category)?.[1] ?? skill.category}
-                        {" · "}Coste {skill.cost}{Number(skill.maintenanceCost ?? 0) > 0 ? " · Mantenimiento/turno " + skill.maintenanceCost : ""}
+                        {" · "}Coste {skill.cost}{Number(skill.maintenanceCost ?? 0) > 0 ? " · Mantenimiento/turno " + skill.maintenanceCost : ""}{Number(skill.accumulationPerTick ?? 0) > 0 ? " · +" + skill.accumulationPerTick + " acumulación/tick" : ""}
                       </p>
                     </div>
                     <span className="rounded-full border border-emerald-400/25 px-2 py-1 text-xs text-emerald-300">Aprobada</span>
@@ -1695,8 +1738,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     {skill.speed && <span>⚡ Velocidad: {skill.speed}</span>}
                     {skill.cooldown && <span>↻ Cooldown: {skill.cooldown}</span>}
                     {Number(skill.maintenanceCost ?? 0) > 0 && <span>⟳ Mantenimiento/turno: {skill.maintenanceCost}</span>}
+                    {Number(skill.accumulationPerTick ?? 0) > 0 && (() => { const state = skillStates.find((entry) => entry.skillId === skill.id); return <span>◉ Acumulaciones: {state?.accumulations ?? 0} · {skill.accumulationPerTick}/tick</span>; })()}
                   </div>
                   {skill.condition && <p className="mt-3 text-xs text-amber-300">Condición: {skill.condition}</p>}
+                  {Number(skill.accumulationPerTick ?? 0) > 0 && (() => { const state = skillStates.find((entry) => entry.skillId === skill.id); const active = Boolean(state?.active); return <button type="button" onClick={() => toggleSkillAccumulation(skill.id, !active)} className={"mt-3 rounded-lg border px-3 py-2 text-xs font-semibold " + (active ? "border-rose-400/30 text-rose-300" : "border-cyan-400/30 text-cyan-300")}>{active ? "Detener acumulación" : "Iniciar acumulación"}{state ? " · " + state.accumulations + " cargas" : ""}</button>; })()}
                   {skill.effect?.length > 0 && (
                     <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
                       <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Efecto</p>
@@ -1756,6 +1801,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 <label className="text-sm text-zinc-400">Nombre<input value={skillForm.name} onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Coste<input type="number" min="0" value={skillForm.cost} onChange={(e) => setSkillForm({ ...skillForm, cost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Costo por acumulación<input type="number" min="0" value={skillForm.accumulationCost} onChange={(e) => setSkillForm({ ...skillForm, accumulationCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Acumulaciones por tick<input type="number" min="0" value={skillForm.accumulationPerTick} onChange={(e) => setSkillForm({ ...skillForm, accumulationPerTick: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Costo por turno (mantenimiento)<input type="number" min="0" value={skillForm.maintenanceCost} onChange={(e) => setSkillForm({ ...skillForm, maintenanceCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Categoría<select value={skillForm.category} onChange={(e) => setSkillForm({ ...skillForm, category: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">{skillCategories.map((category) => <option key={category[0]} value={category[0]}>{category[1]}</option>)}</select></label>
                 <label className="text-sm text-zinc-400">Duración<input value={skillForm.duration} onChange={(e) => setSkillForm({ ...skillForm, duration: e.target.value })} placeholder="Ej. 3 turnos / Instantánea" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>

@@ -501,6 +501,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [transferBusy, setTransferBusy] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarFlairOpen, setAvatarFlairOpen] = useState(false);
+  const [combatPanelOpen, setCombatPanelOpen] = useState(false);
   const [perkRecoveryBusy, setPerkRecoveryBusy] = useState(false);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [pendingSkills, setPendingSkills] = useState<Skill[]>([]);
@@ -1687,6 +1688,139 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <div><h2 className="text-xl font-semibold">Equipamiento</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">Objetos activos y sus ranuras.</p></div>
             <span className="text-xs text-zinc-600">{character.equipment.filter((entry) => entry.equipped).length} equipados</span>
           </div>
+        {skillModalOpen && (
+          <div className="xahya-modal-overlay flex items-center justify-center bg-black/75 p-4">
+            <div className="xahya-modal-panel w-full max-w-3xl rounded-2xl border border-cyan-400/30 bg-zinc-950 p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold">Crear habilidad</h2>
+                  <p className="mt-1 text-sm text-zinc-500">Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise.</p>
+                </div>
+                <button type="button" onClick={() => setSkillModalOpen(false)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">Cerrar</button>
+              </div>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <label className="text-sm text-zinc-400">Nombre<input value={skillForm.name} onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Coste<input type="number" min="0" value={skillForm.cost} onChange={(e) => setSkillForm({ ...skillForm, cost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Costo por acumulación<input type="number" min="0" value={skillForm.accumulationCost} onChange={(e) => setSkillForm({ ...skillForm, accumulationCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Acumulaciones por tick<input type="number" min="0" value={skillForm.accumulationPerTick} onChange={(e) => setSkillForm({ ...skillForm, accumulationPerTick: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Costo por turno (mantenimiento)<input type="number" min="0" value={skillForm.maintenanceCost} onChange={(e) => setSkillForm({ ...skillForm, maintenanceCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Categoría<select value={skillForm.category} onChange={(e) => setSkillForm({ ...skillForm, category: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">{skillCategories.map((category) => <option key={category[0]} value={category[0]}>{category[1]}</option>)}</select></label>
+                <label className="text-sm text-zinc-400">Duración<input value={skillForm.duration} onChange={(e) => setSkillForm({ ...skillForm, duration: e.target.value })} placeholder="Ej. 3 turnos / Instantánea" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Área de efecto<input value={skillForm.areaOfEffect} onChange={(e) => setSkillForm({ ...skillForm, areaOfEffect: e.target.value })} placeholder="Ej. Objetivo único / 5 m" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Velocidad<input value={skillForm.speed} onChange={(e) => setSkillForm({ ...skillForm, speed: e.target.value })} placeholder="Ej. Instantánea / 1 turno" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Cooldown<input value={skillForm.cooldown} onChange={(e) => setSkillForm({ ...skillForm, cooldown: e.target.value })} placeholder="Ej. 2 turnos" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                {skillForm.category === "PASSIVE" && <label className="text-sm text-zinc-400">Condición<input value={skillForm.condition} onChange={(e) => setSkillForm({ ...skillForm, condition: e.target.value })} placeholder="Ej. Mientras tenga más de 50% de HP" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>}
+              </div>
+              <label className="mt-4 block text-sm text-zinc-400">Descripción<textarea rows={4} value={skillForm.description} onChange={(e) => setSkillForm({ ...skillForm, description: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+
+              <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+                <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">Efecto</h3><p className="text-xs text-zinc-500">Ej. ofensiva: Ataque mágico ×2. Soporte: Fuerza ×1.5.</p></div><button type="button" onClick={addSkillEffect} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">+ Añadir</button></div>
+                <div className="mt-4 space-y-3">
+                  {skillForm.effect.map((effect, index) => {
+                    const narrative = effect.type === "NARRATIVE";
+                    return <div key={index} className="grid gap-2 sm:grid-cols-[170px_1fr_100px_auto]">
+                      <select value={effect.type} onChange={(e) => updateSkillEffect(index, "type", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{skillEffectTypes.map((type) => <option key={type[0]} value={type[0]}>{type[1]}</option>)}</select>
+                      {narrative
+                        ? <input value={effect.description ?? ""} onChange={(e) => updateSkillEffect(index, "description", e.target.value)} placeholder="Qué ocurre en rol" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" />
+                        : <select value={effect.target ?? "MAGIC_ATK"} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{skillTargets.map((target) => <option key={target[0]} value={target[0]}>{target[1]}</option>)}</select>}
+                      {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "200 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
+                      <button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
+                    </div>;
+                  })}
+                  {!skillForm.effect.length && <p className="text-sm text-zinc-600">Sin efectos estructurados.</p>}
+                </div>
+              </div>
+              <button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || skillCreationCredits <= 0} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">
+                {skillSaving ? "Enviando..." : "Enviar para aprobación"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {character.equipment.some((entry) => entry.equipped) ? (
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {character.equipment.filter((entry) => entry.equipped).map((entry) => (
+                <div key={entry.id} className="rounded-xl border border-emerald-400/15 bg-zinc-950/50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold" style={{ color: themePalette.foreground }}>{entry.item?.name ?? "Objeto"}</p>
+                      <p className="mt-1 text-xs text-zinc-500">{equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot ?? "Ranura"}</p>
+                    </div>
+                    <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>
+                  </div>
+                  {entry.item?.description && <p className="mt-3 text-sm text-zinc-400">{entry.item.description}</p>}
+                  {entry.flair && <p className="mt-2 text-xs italic text-violet-300">✦ {entry.flair}</p>}
+                  {character.isAdmin && (
+                    <input
+                      key={entry.flair ?? ""}
+                      defaultValue={entry.flair ?? ""}
+                      maxLength={500}
+                      placeholder="Flair del objeto"
+                      disabled={flairSaving !== null}
+                      onBlur={(event) => {
+                        const value = event.target.value.trim();
+                        if (value !== (entry.flair ?? "")) saveFlair(entry.id, value);
+                      }}
+                      className="mt-3 w-full rounded-lg border border-violet-900/60 bg-zinc-950 px-3 py-2 text-xs text-white outline-none focus:border-violet-400"
+                    />
+                  )}
+                  <button type="button" onClick={() => changeEquipment(entry.id, false)} disabled={equipmentBusy !== null} className="mt-4 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">Desequipar</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-5 text-sm text-zinc-500">No tienes objetos equipados.</p>
+          )}
+        </section>
+
+        {character.properties?.length > 0 &&
+
+        <div className="xahya-floating-combat-tab right-0">
+          <button
+            type="button"
+            onClick={() => setCombatPanelOpen(true)}
+            aria-label="Abrir perks y combate"
+            className="flex h-12 w-12 items-center justify-center rounded-l-xl border border-r-0 text-2xl shadow-2xl backdrop-blur-md transition hover:w-14"
+            style={{
+              borderColor: themePalette.border,
+              backgroundColor: themePalette.surface + "ee",
+              color: themePalette.foreground,
+              boxShadow: "0 0 24px " + themePalette.primary + "22",
+            }}
+          >
+            ⚔️
+          </button>
+        </div>
+
+        {combatPanelOpen && (
+          <div className="xahya-modal-overlay bg-black/60 backdrop-blur-[2px]" onMouseDown={() => setCombatPanelOpen(false)}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Perks, combate básico y habilidades"
+              className="xahya-modal-panel mx-auto my-4 w-[min(96vw,1100px)] rounded-2xl border p-5 shadow-2xl sm:p-6"
+              style={{
+                borderColor: themePalette.border,
+                backgroundColor: themePalette.background,
+                color: themePalette.foreground,
+                boxShadow: "0 0 60px " + themePalette.primary + "33",
+              }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4 border-b pb-4" style={{ borderColor: themePalette.border }}>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: themePalette.muted }}>Combate</p>
+                  <h2 className="mt-1 text-2xl font-bold">Perks, combate y habilidades</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCombatPanelOpen(false)}
+                  className="rounded-lg border px-3 py-2 text-sm transition hover:bg-white/5"
+                  style={{ borderColor: themePalette.border, color: themePalette.foreground }}
+                >
+                  Cerrar
+                </button>
+              </div>
           <section className="mt-10 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div><h2 className="text-xl font-semibold">Perks</h2><p className="mt-1 text-sm text-zinc-500">Beneficios permanentes obtenidos por el personaje.</p></div>
@@ -1821,92 +1955,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           )}
         </section>
 
-        {skillModalOpen && (
-          <div className="xahya-modal-overlay flex items-center justify-center bg-black/75 p-4">
-            <div className="xahya-modal-panel w-full max-w-3xl rounded-2xl border border-cyan-400/30 bg-zinc-950 p-6 shadow-2xl">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold">Crear habilidad</h2>
-                  <p className="mt-1 text-sm text-zinc-500">Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise.</p>
-                </div>
-                <button type="button" onClick={() => setSkillModalOpen(false)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">Cerrar</button>
-              </div>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <label className="text-sm text-zinc-400">Nombre<input value={skillForm.name} onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Coste<input type="number" min="0" value={skillForm.cost} onChange={(e) => setSkillForm({ ...skillForm, cost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Costo por acumulación<input type="number" min="0" value={skillForm.accumulationCost} onChange={(e) => setSkillForm({ ...skillForm, accumulationCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Acumulaciones por tick<input type="number" min="0" value={skillForm.accumulationPerTick} onChange={(e) => setSkillForm({ ...skillForm, accumulationPerTick: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Costo por turno (mantenimiento)<input type="number" min="0" value={skillForm.maintenanceCost} onChange={(e) => setSkillForm({ ...skillForm, maintenanceCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Categoría<select value={skillForm.category} onChange={(e) => setSkillForm({ ...skillForm, category: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">{skillCategories.map((category) => <option key={category[0]} value={category[0]}>{category[1]}</option>)}</select></label>
-                <label className="text-sm text-zinc-400">Duración<input value={skillForm.duration} onChange={(e) => setSkillForm({ ...skillForm, duration: e.target.value })} placeholder="Ej. 3 turnos / Instantánea" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Área de efecto<input value={skillForm.areaOfEffect} onChange={(e) => setSkillForm({ ...skillForm, areaOfEffect: e.target.value })} placeholder="Ej. Objetivo único / 5 m" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Velocidad<input value={skillForm.speed} onChange={(e) => setSkillForm({ ...skillForm, speed: e.target.value })} placeholder="Ej. Instantánea / 1 turno" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Cooldown<input value={skillForm.cooldown} onChange={(e) => setSkillForm({ ...skillForm, cooldown: e.target.value })} placeholder="Ej. 2 turnos" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                {skillForm.category === "PASSIVE" && <label className="text-sm text-zinc-400">Condición<input value={skillForm.condition} onChange={(e) => setSkillForm({ ...skillForm, condition: e.target.value })} placeholder="Ej. Mientras tenga más de 50% de HP" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>}
-              </div>
-              <label className="mt-4 block text-sm text-zinc-400">Descripción<textarea rows={4} value={skillForm.description} onChange={(e) => setSkillForm({ ...skillForm, description: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
 
-              <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-                <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">Efecto</h3><p className="text-xs text-zinc-500">Ej. ofensiva: Ataque mágico ×2. Soporte: Fuerza ×1.5.</p></div><button type="button" onClick={addSkillEffect} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">+ Añadir</button></div>
-                <div className="mt-4 space-y-3">
-                  {skillForm.effect.map((effect, index) => {
-                    const narrative = effect.type === "NARRATIVE";
-                    return <div key={index} className="grid gap-2 sm:grid-cols-[170px_1fr_100px_auto]">
-                      <select value={effect.type} onChange={(e) => updateSkillEffect(index, "type", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{skillEffectTypes.map((type) => <option key={type[0]} value={type[0]}>{type[1]}</option>)}</select>
-                      {narrative
-                        ? <input value={effect.description ?? ""} onChange={(e) => updateSkillEffect(index, "description", e.target.value)} placeholder="Qué ocurre en rol" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" />
-                        : <select value={effect.target ?? "MAGIC_ATK"} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{skillTargets.map((target) => <option key={target[0]} value={target[0]}>{target[1]}</option>)}</select>}
-                      {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "200 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
-                      <button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
-                    </div>;
-                  })}
-                  {!skillForm.effect.length && <p className="text-sm text-zinc-600">Sin efectos estructurados.</p>}
-                </div>
-              </div>
-              <button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || skillCreationCredits <= 0} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">
-                {skillSaving ? "Enviando..." : "Enviar para aprobación"}
-              </button>
             </div>
           </div>
         )}
-
-        {character.equipment.some((entry) => entry.equipped) ? (
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {character.equipment.filter((entry) => entry.equipped).map((entry) => (
-                <div key={entry.id} className="rounded-xl border border-emerald-400/15 bg-zinc-950/50 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold" style={{ color: themePalette.foreground }}>{entry.item?.name ?? "Objeto"}</p>
-                      <p className="mt-1 text-xs text-zinc-500">{equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot ?? "Ranura"}</p>
-                    </div>
-                    <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>
-                  </div>
-                  {entry.item?.description && <p className="mt-3 text-sm text-zinc-400">{entry.item.description}</p>}
-                  {entry.flair && <p className="mt-2 text-xs italic text-violet-300">✦ {entry.flair}</p>}
-                  {character.isAdmin && (
-                    <input
-                      key={entry.flair ?? ""}
-                      defaultValue={entry.flair ?? ""}
-                      maxLength={500}
-                      placeholder="Flair del objeto"
-                      disabled={flairSaving !== null}
-                      onBlur={(event) => {
-                        const value = event.target.value.trim();
-                        if (value !== (entry.flair ?? "")) saveFlair(entry.id, value);
-                      }}
-                      className="mt-3 w-full rounded-lg border border-violet-900/60 bg-zinc-950 px-3 py-2 text-xs text-white outline-none focus:border-violet-400"
-                    />
-                  )}
-                  <button type="button" onClick={() => changeEquipment(entry.id, false)} disabled={equipmentBusy !== null} className="mt-4 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">Desequipar</button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-5 text-sm text-zinc-500">No tienes objetos equipados.</p>
-          )}
-        </section>
-
-        {character.properties?.length > 0 && <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+ <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <h2 className="text-xl font-semibold">Propiedades</h2>
           <p className="mt-1 text-sm text-[color:var(--theme-muted)]">Bienes adquiridos por este personaje.</p>
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

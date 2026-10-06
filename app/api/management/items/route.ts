@@ -7,6 +7,7 @@ import { EFFECT_TYPES } from "@/lib/effects/catalog";
 
 const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","PROPERTY","OTHER"] as const;
 const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","SYSTEM","OTHER"] as const;
+const ATTACK_TYPES = ["CUT","BLUNT","PIERCE"] as const;
 const ITEM_TYPES_WITHOUT_STORE = new Set(["PROPERTY"]);
 
 async function getItemImageUrl(path: unknown) {
@@ -31,6 +32,7 @@ function validate(body: any) {
   const itemType = String(body.itemType ?? "OTHER");
   const itemSubtype = typeof body.itemSubtype === "string" ? body.itemSubtype.trim() || null : null;
   const acquisitionType = String(body.acquisitionType ?? "PURCHASABLE");
+  const attackType = body.attackType == null || body.attackType === "" ? null : String(body.attackType);
   const price = Number(body.price ?? 0);
   const effects = Array.isArray(body.effects) ? body.effects : [];
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : [];
@@ -38,6 +40,8 @@ function validate(body: any) {
   const systemActions = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL"];
   if (!name || name.length > 100) return "El nombre debe tener entre 1 y 100 caracteres.";
   if (!ITEM_TYPES.includes(itemType as any)) return "Tipo de objeto inválido.";
+  if (attackType !== null && (!ATTACK_TYPES.includes(attackType as any) || itemType !== "WEAPON")) return "Tipo de ataque físico inválido.";
+  if (itemType === "WEAPON" && attackType === null) return "Las armas deben tener un tipo de ataque físico.";
   if (!ACQUISITION_TYPES.includes(acquisitionType as any)) return "Tipo de obtención inválido.";
   if (ITEM_TYPES_WITHOUT_STORE.has(itemType) && acquisitionType === "PURCHASABLE") return "Las propiedades no se venden en la tienda general.";
   if (!Number.isInteger(price) || price < 0) return "El precio debe ser un entero no negativo.";
@@ -75,11 +79,13 @@ export async function POST(request: Request) {
   const Item = (db.orm.public as any).Item;
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : [];
   const propertyBusinessId = body.propertyBusinessId === "" || body.propertyBusinessId == null ? null : Number(body.propertyBusinessId);
+  const attackType = body.attackType == null || body.attackType === "" ? null : String(body.attackType);
   const item = await Item.create({
     name: body.name.trim(),
     description: typeof body.description === "string" ? body.description.trim() || null : null,
     itemType: String(body.itemType),
     itemSubtype: typeof body.itemSubtype === "string" ? body.itemSubtype.trim() || null : null,
+    attackType: String(body.itemType) === "WEAPON" ? attackType : null,
     acquisitionType: String(body.acquisitionType),
     price: Number(body.price ?? 0),
     effects: body.effects,

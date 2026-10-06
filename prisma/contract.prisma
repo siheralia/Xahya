@@ -45,6 +45,7 @@ model Character {
   properties CharacterProperty[]
   subscriptions BusinessSubscription[]
   investmentsAsSource BusinessInvestment[]
+  combatSessions CombatSession[]
 }
 
 model Skill {
@@ -91,6 +92,24 @@ model CharacterSkillState {
   @@unique([characterId, skillId])
   @@index([characterId, active])
   @@index([lastTickAt])
+}
+
+model CombatSession {
+  id                   Int       @id @default(autoincrement())
+  playerCharacterId    Int
+  playerCharacter      Character @relation(fields:[playerCharacterId], references:[id], onDelete:Cascade)
+  npcName              String
+  npcStats             Json      @default("{}")
+  currentTick          Int       @default(0)
+  turn                 Int       @default(1)
+  activeActor          String    @default("PLAYER")
+  playerNextActionTick Int?
+  npcNextActionTick    Int?
+  status               String    @default("ACTIVE")
+  lastAction            Json      @default("{}")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now())
+  @@index([playerCharacterId, status])
 }
 
 model CharacterStat {

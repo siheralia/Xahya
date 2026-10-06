@@ -104,3 +104,18 @@ body {
   .xahya-breadcrumb { font-size: .82rem; }
   .xahya-character-list { max-width: 260px; }
 }
+
+/* Modal layers must render above the navigation and use only the space below it. */
+.xahya-modal-overlay {
+  position: fixed;
+  top: 104px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1100;
+  overflow-y: auto;
+}
+.xahya-modal-panel {
+  max-height: calc(100dvh - 104px - 2rem);
+  overflow-y: auto;
+}

@@ -411,7 +411,7 @@ export default function RoulettePage() {
         )}
 
           {showBatch && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowBatch(false)}>
+            <div className="xahya-modal-overlay flex items-center justify-center bg-black/70 p-4" onClick={() => setShowBatch(false)}>
               <div className="w-full max-w-lg rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
                 <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Resultados — 10 tiradas</h2><button onClick={() => setShowBatch(false)} className="text-zinc-500 hover:text-white">✕</button></div>
                 <div className="mt-4 max-h-[60vh] overflow-y-auto">

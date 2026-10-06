@@ -500,6 +500,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [transferQuantity, setTransferQuantity] = useState(1);
   const [transferBusy, setTransferBusy] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarFlairOpen, setAvatarFlairOpen] = useState(false);
   const [perkRecoveryBusy, setPerkRecoveryBusy] = useState(false);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [pendingSkills, setPendingSkills] = useState<Skill[]>([]);
@@ -1544,43 +1545,103 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         </div>
         {character.canSeeCharacterId && <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>}
 
-        <section className="theme-card mt-6 rounded-2xl border bg-zinc-900/40 p-6" style={{ borderColor: themePalette.border, backgroundColor: themePalette.surface + "aa" }}>
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <div className="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 bg-zinc-950" style={{ borderColor: themePalette.primary, boxShadow: "0 0 32px " + themePalette.primary + "33" }}>
-              {character.avatarUrl ? <img src={character.avatarUrl} alt={"Avatar de " + character.name} className="h-full w-full object-cover" /> : <CharacterSilhouette age={character.age ?? 18} gender={(character.gender as "masculino" | "femenino" | "indefinido") ?? "indefinido"} className="h-24 w-24 text-zinc-700" />}
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold">Avatar del personaje</h2>
-              <p className="mt-1 text-sm text-zinc-500">JPG, PNG o WebP. Se redimensiona a 512 px y se comprime automáticamente.</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <label className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-zinc-200">
-                  {avatarBusy ? "Procesando..." : character.avatarUrl ? "Cambiar imagen" : "Subir imagen"}
-                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={avatarBusy} onChange={(e) => { const file = e.target.files?.[0]; e.currentTarget.value = ""; if (file) void uploadAvatar(file); }} />
-                </label>
-                {character.avatarUrl && <button type="button" onClick={removeAvatar} disabled={avatarBusy} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-50">Eliminar</button>}
-              </div>
-            </div>
-          </div>
-        </section>
+        <div className="fixed right-0 top-1/2 z-50 -translate-y-1/2">
+          <button
+            type="button"
+            onClick={() => setAvatarFlairOpen(true)}
+            aria-label="Abrir avatar y flair"
+            className="flex w-[76px] flex-col items-center gap-1.5 rounded-l-2xl border border-r-0 p-2.5 shadow-2xl backdrop-blur-md transition hover:w-[84px]"
+            style={{
+              borderColor: themePalette.border,
+              backgroundColor: themePalette.surface + "ee",
+              color: themePalette.foreground,
+              boxShadow: "0 0 28px " + themePalette.primary + "22",
+            }}
+          >
+            <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border-2 bg-zinc-950" style={{ borderColor: themePalette.primary }}>
+              {character.avatarUrl
+                ? <img src={character.avatarUrl} alt={"Avatar de " + character.name} className="h-full w-full object-cover" />
+                : <CharacterSilhouette age={character.age ?? 18} gender={(character.gender as "masculino" | "femenino" | "indefinido") ?? "indefinido"} className="h-11 w-11 text-zinc-700" />}
+            </span>
+            {character.flair && <span className="text-xl leading-none" aria-hidden="true">{character.flair}</span>}
+          </button>
+        </div>
 
-        <section className="theme-card mt-10 rounded-2xl border bg-zinc-900/40 p-6" style={{ borderColor: themePalette.border, backgroundColor: themePalette.surface + "aa" }}>
-          <h2 className="text-xl font-semibold">Flair</h2>
-          <p className="mt-1 text-sm text-zinc-500">Emoji del personaje <span className="text-zinc-600">(máx. 2)</span></p>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <input
-              type="text"
-              maxLength={8}
-              value={characterFlair}
-              onChange={(event) => setCharacterFlair(event.target.value)}
-              disabled={savingFlair}
-              className="h-12 flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-2xl text-white outline-none focus:border-cyan-400"
-              placeholder="Ej. 🪞🗡️"
-            />
-            <button type="button" onClick={saveCharacterFlair} disabled={savingFlair} className="rounded-xl bg-cyan-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">
-              {savingFlair ? "Guardando..." : "Guardar flair"}
-            </button>
+        {avatarFlairOpen && (
+          <div className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-[2px]" onMouseDown={() => setAvatarFlairOpen(false)}>
+            <aside
+              role="dialog"
+              aria-modal="true"
+              aria-label="Avatar y flair"
+              className="absolute right-0 top-0 flex h-full w-[min(92vw,420px)] flex-col overflow-y-auto border-l p-6 shadow-2xl"
+              style={{
+                borderColor: themePalette.border,
+                backgroundColor: themePalette.background,
+                color: themePalette.foreground,
+                boxShadow: "0 0 60px " + themePalette.primary + "33",
+              }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: themePalette.muted }}>Personalización</p>
+                  <h2 className="mt-1 text-2xl font-bold">Avatar y flair</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAvatarFlairOpen(false)}
+                  className="rounded-lg border px-3 py-2 text-sm transition hover:bg-white/5"
+                  style={{ borderColor: themePalette.border, color: themePalette.foreground }}
+                >
+                  Cerrar
+                </button>
+              </div>
+
+              <div className="mt-6 rounded-2xl border p-4" style={{ borderColor: themePalette.border, backgroundColor: themePalette.surface + "aa" }}>
+                <div className="flex justify-center">
+                  <div className="flex h-56 w-56 items-center justify-center overflow-hidden rounded-2xl border-2 bg-zinc-950" style={{ borderColor: themePalette.primary, boxShadow: "0 0 32px " + themePalette.primary + "33" }}>
+                    {character.avatarUrl
+                      ? <img src={character.avatarUrl} alt={"Avatar de " + character.name} className="h-full w-full object-cover" />
+                      : <CharacterSilhouette age={character.age ?? 18} gender={(character.gender as "masculino" | "femenino" | "indefinido") ?? "indefinido"} className="h-40 w-40 text-zinc-700" />}
+                  </div>
+                </div>
+                <p className="mt-4 text-center text-2xl leading-none">{character.flair || "Sin flair"}</p>
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold">Avatar del personaje</h3>
+                <p className="mt-1 text-sm" style={{ color: themePalette.muted }}>JPG, PNG o WebP. Se redimensiona a 512 px y se comprime automáticamente.</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <label className="cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition hover:brightness-110" style={{ backgroundColor: themePalette.primary, color: themePalette.foreground }}>
+                    {avatarBusy ? "Procesando..." : character.avatarUrl ? "Cambiar imagen" : "Subir imagen"}
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={avatarBusy} onChange={(e) => { const file = e.target.files?.[0]; e.currentTarget.value = ""; if (file) void uploadAvatar(file); }} />
+                  </label>
+                  {character.avatarUrl && <button type="button" onClick={removeAvatar} disabled={avatarBusy} className="rounded-lg border px-4 py-2 text-sm transition hover:bg-white/5 disabled:opacity-50" style={{ borderColor: themePalette.border, color: themePalette.foreground }}>Eliminar</button>}
+                </div>
+              </div>
+
+              <div className="mt-8 border-t pt-6" style={{ borderColor: themePalette.border }}>
+                <h3 className="text-lg font-semibold">Flair</h3>
+                <p className="mt-1 text-sm" style={{ color: themePalette.muted }}>Emoji del personaje <span className="opacity-60">(máx. 2)</span></p>
+                <div className="mt-4 flex flex-col gap-3">
+                  <input
+                    type="text"
+                    maxLength={8}
+                    value={characterFlair}
+                    onChange={(event) => setCharacterFlair(event.target.value)}
+                    disabled={savingFlair}
+                    className="h-12 w-full rounded-xl border bg-zinc-950 px-4 text-2xl outline-none"
+                    style={{ borderColor: themePalette.border, color: themePalette.foreground }}
+                    placeholder="Ej. 🪞🗡️"
+                  />
+                  <button type="button" onClick={saveCharacterFlair} disabled={savingFlair} className="rounded-xl px-5 py-3 font-bold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40" style={{ backgroundColor: themePalette.primary, color: themePalette.foreground }}>
+                    {savingFlair ? "Guardando..." : "Guardar flair"}
+                  </button>
+                </div>
+              </div>
+            </aside>
           </div>
-        </section>
+        )}
 
         {character.age === null && character.gender === null && character.height === null && (
           <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">

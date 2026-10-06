@@ -32,6 +32,7 @@ model Character {
   modifiers CharacterModifier[]
   perks CharacterPerk[]
   skills Skill[]
+  skillStates CharacterSkillState[]
   createdAt DateTime            @default(now())
   auditLogs AuditLog[]
   knownCharacters CharacterRelationship[] @relation("CharacterKnows")
@@ -53,6 +54,7 @@ model Skill {
   name        String
   cost        Int       @default(0)
   accumulationCost Int   @default(0)
+  accumulationPerTick Int @default(0)
   basicType   String?
   attackType  String?
   defenseType String?
@@ -71,6 +73,24 @@ model Skill {
   approvedAt  DateTime?
   @@index([characterId])
   @@index([status])
+  skillStates CharacterSkillState[]
+}
+
+model CharacterSkillState {
+  id            Int       @id @default(autoincrement())
+  characterId   Int
+  character     Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
+  skillId       Int
+  skill         Skill     @relation(fields:[skillId], references:[id], onDelete:Cascade)
+  active        Boolean   @default(false)
+  accumulations Int       @default(0)
+  totalTicks    Int       @default(0)
+  lastTickAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now())
+  @@unique([characterId, skillId])
+  @@index([characterId, active])
+  @@index([lastTickAt])
 }
 
 model CharacterStat {

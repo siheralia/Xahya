@@ -11,7 +11,7 @@ async function getAdmin() {
   return user && String(user.role) === "ADMIN" ? user : null;
 }
 
-const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY"] as const;
+const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
 
 function validate(body: any) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -23,8 +23,9 @@ function validate(body: any) {
   if (!description || description.length > 5000) return "La descripción es obligatoria.";
   if (!CATEGORIES.includes(category as any)) return "Categoría inválida.";
   const maintenanceCost = Number(body.maintenanceCost ?? 0);
+  const accumulationCost = Number(body.accumulationCost ?? 0);
   if (!Number.isInteger(cost) || cost < 0) return "Coste inválido.";
-  if (!Number.isInteger(maintenanceCost) || maintenanceCost < 0) return "Costo de mantenimiento por turno inválido.";
+  if (!Number.isInteger(maintenanceCost) || maintenanceCost < 0 || !Number.isInteger(accumulationCost) || accumulationCost < 0) return "Costo de mantenimiento por turno inválido.";
   if (effect.length > 20) return "Demasiados efectos.";
   return null;
 }
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
     name: body.name.trim(),
     cost: Number(body.cost),
     maintenanceCost: Number(body.maintenanceCost ?? 0),
+      accumulationCost: Number(body.accumulationCost ?? 0),
     description: body.description.trim(),
     duration: typeof body.duration === "string" ? body.duration.trim() || null : null,
     category: String(body.category),

@@ -1773,8 +1773,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           )}
         </section>
 
-        {character.properties?.length > 0 &&
-
         <div className="xahya-floating-combat-tab right-0">
           <button
             type="button"
@@ -1851,6 +1849,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           ) : <p className="mt-5 text-sm text-zinc-500">No tiene perks.</p>}
         </section>
 
+        {character.properties?.length > 0 && (
         <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
   <h2 className="text-xl font-semibold">Combate básico</h2>
   <p className="mt-1 text-sm text-zinc-500">Las acciones básicas forman la base del futuro sistema de combate.</p>
@@ -1968,7 +1967,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               <div className="p-4"><p className="font-semibold">{property.item?.name ?? "Propiedad"}</p>{property.item?.description && <p className="mt-2 text-sm text-zinc-500">{property.item.description}</p>}<p className="mt-3 text-xs text-zinc-600">Adquirida por ◈ {property.purchasePrice.toLocaleString("es-MX")}</p></div>
             </article>)}
           </div>
-        </section>}
+        </section>
+        )}
 
         <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <div className="flex items-baseline justify-between gap-4">

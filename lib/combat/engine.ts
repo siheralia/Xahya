@@ -1,4 +1,5 @@
 import { calculateAttackTicks } from "./ticks";
+import type { CombatAttackType } from "./ticks";
 export type { CombatAttackType } from "./ticks";
 
 export type CombatActor = "PLAYER" | "NPC";

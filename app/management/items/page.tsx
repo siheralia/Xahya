@@ -80,7 +80,7 @@ export default function ItemsManagementPage() {
     setSuccess(""); setError(""); setImageFile(null); setImagePreview(item.imageUrl ?? null);
     setModalOpen(true);
   }
-  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
+  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",attackType:"CUT",acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;

@@ -37,15 +37,18 @@ export async function PATCH(
 
   const body = await request.json().catch(() => null);
 
-  if (Object.prototype.hasOwnProperty.call(body ?? {}, "magicAttackType") || Object.prototype.hasOwnProperty.call(body ?? {}, "blockDefenseType") || Object.prototype.hasOwnProperty.call(body ?? {}, "fieldDefenseType")) {
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "magicAttackType") || Object.prototype.hasOwnProperty.call(body ?? {}, "magicAttackDescription") || Object.prototype.hasOwnProperty.call(body ?? {}, "blockDefenseType") || Object.prototype.hasOwnProperty.call(body ?? {}, "fieldDefenseType") || Object.prototype.hasOwnProperty.call(body ?? {}, "fieldDefenseDescription")) {
     const magicAttackType = String(body?.magicAttackType ?? character.magicAttackType ?? "CUT").trim().toUpperCase();
+    const magicAttackDescription = body?.magicAttackDescription === null ? null : String(body?.magicAttackDescription ?? (character as any).magicAttackDescription ?? "").trim();
     const blockDefenseType = String(body?.blockDefenseType ?? (character as any).blockDefenseType ?? "CONCENTRATED").trim().toUpperCase();
     const fieldDefenseType = String(body?.fieldDefenseType ?? (character as any).fieldDefenseType ?? "CONCENTRATED").trim().toUpperCase();
+    const fieldDefenseDescription = body?.fieldDefenseDescription === null ? null : String(body?.fieldDefenseDescription ?? (character as any).fieldDefenseDescription ?? "").trim();
     if (!["CUT", "BLUNT", "PIERCE"].includes(magicAttackType)) return NextResponse.json({ error: "Tipo de ataque mágico inválido." }, { status: 400 });
     if (!["CONCENTRATED", "DISPERSED", "SOLID"].includes(blockDefenseType) || !["CONCENTRATED", "DISPERSED", "SOLID"].includes(fieldDefenseType)) return NextResponse.json({ error: "Tipo de defensa inválido." }, { status: 400 });
-    await db.orm.public.Character.where({ id: characterId, userId: user.id }).update({ magicAttackType, blockDefenseType, fieldDefenseType });
-    await recordAuditEvent({ actorUserId: user.id, action: "CHARACTER_COMBAT_TYPE_UPDATE", entityType: "CHARACTER", entityId: characterId, characterId, details: { magicAttackType, blockDefenseType, fieldDefenseType } });
-    return NextResponse.json({ id: characterId, magicAttackType, blockDefenseType, fieldDefenseType });
+    if ((magicAttackDescription?.length ?? 0) > 500 || (fieldDefenseDescription?.length ?? 0) > 500) return NextResponse.json({ error: "Las descripciones no pueden superar 500 caracteres." }, { status: 400 });
+    await db.orm.public.Character.where({ id: characterId, userId: user.id }).update({ magicAttackType, magicAttackDescription: magicAttackDescription || null, blockDefenseType, fieldDefenseType, fieldDefenseDescription: fieldDefenseDescription || null });
+    await recordAuditEvent({ actorUserId: user.id, action: "CHARACTER_COMBAT_TYPE_UPDATE", entityType: "CHARACTER", entityId: characterId, characterId, details: { magicAttackType, magicAttackDescription: magicAttackDescription || null, blockDefenseType, fieldDefenseType, fieldDefenseDescription: fieldDefenseDescription || null } });
+    return NextResponse.json({ id: characterId, magicAttackType, magicAttackDescription: magicAttackDescription || null, blockDefenseType, fieldDefenseType, fieldDefenseDescription: fieldDefenseDescription || null });
   }
 
   if (Object.prototype.hasOwnProperty.call(body ?? {}, "flair")) {

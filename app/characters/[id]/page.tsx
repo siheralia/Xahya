@@ -500,6 +500,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [transferQuantity, setTransferQuantity] = useState(1);
   const [transferBusy, setTransferBusy] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarLoaded, setAvatarLoaded] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [avatarFlairOpen, setAvatarFlairOpen] = useState(false);
   const [combatPanelOpen, setCombatPanelOpen] = useState(false);
   const [perkRecoveryBusy, setPerkRecoveryBusy] = useState(false);
@@ -652,6 +654,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       setError(err instanceof Error ? err.message : "No se pudo eliminar la imagen.");
     } finally { setAvatarBusy(false); }
   }
+
+  useEffect(() => {
+    setAvatarLoaded(false);
+    setAvatarLoadError(false);
+  }, [character?.avatarUrl]);
 
   const creationPerkCount = character?.perks?.filter((perk: any) => String(perk.source ?? "") === "CREATION_ROLL").length ?? 0;
 
@@ -1561,7 +1568,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           >
             <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border-2 bg-zinc-950" style={{ borderColor: themePalette.primary }}>
               {character.avatarUrl
-                ? <img src={character.avatarUrl} alt={"Avatar de " + character.name} className="h-full w-full object-cover" />
+                ? <div className="relative h-full w-full">
+                  {!avatarLoaded || avatarLoadError ? <CharacterSilhouette age={character.age ?? 18} gender={(character.gender as "masculino" | "femenino" | "indefinido") ?? "indefinido"} className="absolute inset-0 m-auto h-11 w-11 text-zinc-700" /> : null}
+                  <img key={character.avatarUrl} src={character.avatarUrl} alt={"Avatar de " + character.name} decoding="async" onLoad={() => { setAvatarLoaded(true); setAvatarLoadError(false); }} onError={() => { setAvatarLoaded(false); setAvatarLoadError(true); }} className={"h-full w-full object-cover transition-opacity duration-150 " + (avatarLoaded && !avatarLoadError ? "opacity-100" : "opacity-0")} />
+                </div>
                 : <CharacterSilhouette age={character.age ?? 18} gender={(character.gender as "masculino" | "femenino" | "indefinido") ?? "indefinido"} className="h-11 w-11 text-zinc-700" />}
             </span>
             {character.flair && <span className="text-xl leading-none" aria-hidden="true">{character.flair}</span>}
@@ -1602,7 +1612,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 <div className="flex justify-center">
                   <div className="flex h-56 w-56 items-center justify-center overflow-hidden rounded-2xl border-2 bg-zinc-950" style={{ borderColor: themePalette.primary, boxShadow: "0 0 32px " + themePalette.primary + "33" }}>
                     {character.avatarUrl
-                      ? <img src={character.avatarUrl} alt={"Avatar de " + character.name} className="h-full w-full object-cover" />
+                      ? <div className="relative h-full w-full">
+                        {!avatarLoaded || avatarLoadError ? <CharacterSilhouette age={character.age ?? 18} gender={(character.gender as "masculino" | "femenino" | "indefinido") ?? "indefinido"} className="absolute inset-0 m-auto h-40 w-40 text-zinc-700" /> : null}
+                        <img key={character.avatarUrl} src={character.avatarUrl} alt={"Avatar de " + character.name} decoding="async" onLoad={() => { setAvatarLoaded(true); setAvatarLoadError(false); }} onError={() => { setAvatarLoaded(false); setAvatarLoadError(true); }} className={"h-full w-full object-cover transition-opacity duration-150 " + (avatarLoaded && !avatarLoadError ? "opacity-100" : "opacity-0")} />
+                      </div>
                       : <CharacterSilhouette age={character.age ?? 18} gender={(character.gender as "masculino" | "femenino" | "indefinido") ?? "indefinido"} className="h-40 w-40 text-zinc-700" />}
                   </div>
                 </div>

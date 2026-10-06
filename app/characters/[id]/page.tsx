@@ -1092,7 +1092,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   function openSkillCreator() {
     if (skillCreationCredits <= 0) return;
-    setSkillForm({ name: "", cost: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
+    setSkillForm({ name: "", cost: 0, accumulationCost: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
     setSkillModalOpen(true);
   }
 

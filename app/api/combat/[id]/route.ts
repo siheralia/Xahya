@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Temporal } from "@js-temporal/polyfill";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { resolvePingPongAction, type CombatAttackType } from "@/lib/combat/engine";
@@ -62,8 +63,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     ? String(npcStats.attackType ?? "CUT").toUpperCase() as CombatAttackType
     : "CUT";
 
+  const previousTick = Number(session.currentTick ?? 0);
   const result = resolvePingPongAction({
-    currentTick: Number(session.currentTick ?? 0),
+    currentTick: previousTick,
     turn: Number(session.turn ?? 1),
     playerAgility,
     npcAgility,
@@ -72,15 +74,44 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     playerAction: String(body?.actionName ?? "Ataque"),
   });
 
-  const updated = await CombatSession.where({ id }).update({
-    currentTick: result.currentTick,
-    turn: result.turn,
-    activeActor: result.activeActor,
-    playerNextActionTick: result.playerNextActionTick,
-    npcNextActionTick: result.npcNextActionTick,
-    lastAction: result.events,
-    updatedAt: new Date(),
+  const logicalTicksElapsed = Math.max(0, result.currentTick - previousTick);
+  const now = Temporal.Now.instant();
+
+  const { updated, skillAccumulations } = await db.transaction(async (tx) => {
+    const TxSession = (tx.orm.public as any).CombatSession;
+    const State = (tx.orm.public as any).CharacterSkillState;
+    const Skill = (tx.orm.public as any).Skill;
+
+    let skillAccumulations: Array<{ skillId: number; added: number; ticks: number }> = [];
+    if (State && Skill && logicalTicksElapsed > 0) {
+      const states = await State.where({ characterId: Number(session.playerCharacterId), active: true }).all();
+      const skills = await Skill.where({ characterId: Number(session.playerCharacterId) }).all();
+      for (const state of states) {
+        const skill = skills.find((candidate: any) => Number(candidate.id) === Number(state.skillId));
+        if (!skill || String(skill.status) !== "APPROVED") continue;
+        const perTick = Math.max(0, Number(skill.accumulationPerTick ?? 0));
+        if (perTick <= 0) continue;
+        const added = logicalTicksElapsed * perTick;
+        await State.where({ id: Number(state.id) }).update({
+          accumulations: Number(state.accumulations ?? 0) + added,
+          totalTicks: Number(state.totalTicks ?? 0) + logicalTicksElapsed,
+          updatedAt: now,
+        });
+        skillAccumulations.push({ skillId: Number(state.skillId), added, ticks: logicalTicksElapsed });
+      }
+    }
+
+    const updated = await TxSession.where({ id }).update({
+      currentTick: result.currentTick,
+      turn: result.turn,
+      activeActor: result.activeActor,
+      playerNextActionTick: result.playerNextActionTick,
+      npcNextActionTick: result.npcNextActionTick,
+      lastAction: result.events,
+      updatedAt: now,
+    });
+    return { updated, skillAccumulations };
   });
 
-  return NextResponse.json({ session: updated, events: result.events });
+  return NextResponse.json({ session: updated, events: result.events, logicalTicksElapsed, skillAccumulations });
 }

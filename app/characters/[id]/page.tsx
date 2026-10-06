@@ -61,7 +61,8 @@ type Character = {
   gender: string | null;
   height: number | null;
   magicAttackType: string;
-  defenseType: string;
+  blockDefenseType: string;
+  fieldDefenseType: string;
   stats: {
     strength: number;
     agility: number;
@@ -481,7 +482,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingFlair, setSavingFlair] = useState(false);
   const [combatMagicAttackType, setCombatMagicAttackType] = useState("CUT");
-  const [combatDefenseType, setCombatDefenseType] = useState("CONCENTRATED");
+  const [combatBlockDefenseType, setCombatBlockDefenseType] = useState("CONCENTRATED");
+  const [combatFieldDefenseType, setCombatFieldDefenseType] = useState("CONCENTRATED");
   const [savingCombatTypes, setSavingCombatTypes] = useState(false);
   const [equipmentBusy, setEquipmentBusy] = useState<number | null>(null);
   const [flairSaving, setFlairSaving] = useState<number | null>(null);
@@ -1171,13 +1173,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       const response = await fetch("/api/characters/" + character.id + "/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ magicAttackType: combatMagicAttackType, defenseType: combatDefenseType }),
+        body: JSON.stringify({ magicAttackType: combatMagicAttackType, blockDefenseType: combatBlockDefenseType, fieldDefenseType: combatFieldDefenseType }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar la configuración de combate.");
-      setCharacter((current) => current ? { ...current, magicAttackType: data.magicAttackType, defenseType: data.defenseType } : current);
+      setCharacter((current) => current ? { ...current, magicAttackType: data.magicAttackType, blockDefenseType: data.blockDefenseType, fieldDefenseType: data.fieldDefenseType } : current);
       setCombatMagicAttackType(data.magicAttackType ?? combatMagicAttackType);
-      setCombatDefenseType(data.defenseType ?? combatDefenseType);
+      setCombatBlockDefenseType(data.blockDefenseType ?? combatBlockDefenseType);
+      setCombatFieldDefenseType(data.fieldDefenseType ?? combatFieldDefenseType);
       setSuccess("Configuración de combate guardada.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar la configuración de combate.");
@@ -1484,7 +1487,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setCharacter(data);
         setCharacterFlair(data.flair ?? "");
         setCombatMagicAttackType(data.magicAttackType ?? "CUT");
-        setCombatDefenseType(data.defenseType ?? "CONCENTRATED");
+        setCombatBlockDefenseType(data.blockDefenseType ?? "CONCENTRATED");
+        setCombatFieldDefenseType(data.fieldDefenseType ?? "CONCENTRATED");
         return data;
       })
       .then((data) => {
@@ -1650,7 +1654,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
     <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">⚔️ Ataque físico</p><p className="mt-1 text-lg font-semibold">Depende del arma equipada</p></div>
     <label className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">✨ Tipo de ataque mágico</p><select value={combatMagicAttackType} onChange={(e) => setCombatMagicAttackType(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="CUT">🗡️ Corte</option><option value="BLUNT">🔨 Contundente</option><option value="PIERCE">🪡 Penetración</option></select></label>
-    <label className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">🛡️ Tipo de defensa</p><select value={combatDefenseType} onChange={(e) => setCombatDefenseType(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="CONCENTRATED">🟢 Concentrada</option><option value="DISPERSED">🟡 Dispersa</option><option value="SOLID">🔴 Sólida</option></select><p className="mt-2 text-xs text-zinc-600">Se aplica tanto a Bloqueo como a Campo mágico.</p></label><div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">💨 Esquivar · 🛡️ Bloquear · 🔮 Campo</p><p className="mt-1 text-lg font-semibold">Acciones básicas</p></div>
+    <label className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">🛡️ Defensa de bloqueo físico</p><select value={combatBlockDefenseType} onChange={(e) => setCombatBlockDefenseType(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="CONCENTRATED">🟢 Concentrada</option><option value="DISPERSED">🟡 Dispersa</option><option value="SOLID">🔴 Sólida</option></select></label><label className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">🔮 Defensa de campo mágico</p><select value={combatFieldDefenseType} onChange={(e) => setCombatFieldDefenseType(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="CONCENTRATED">🟢 Concentrada</option><option value="DISPERSED">🟡 Dispersa</option><option value="SOLID">🔴 Sólida</option></select></label><div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">💨 Esquivar · 🛡️ Bloquear · 🔮 Campo</p><p className="mt-1 text-lg font-semibold">Acciones básicas</p></div>
     <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 sm:col-span-2 lg:col-span-3"><p className="text-xs text-zinc-500">Puntos de acción</p><p className="mt-1 text-2xl font-semibold">9 + CON = {9 + Number(character.effectiveStats?.constitution ?? character.stats?.constitution ?? 0)}</p><p className="mt-1 text-xs text-zinc-600">La Constitución determina cuántas acciones puede realizar el personaje por ciclo de combate.</p></div>
   </div>
   <button type="button" onClick={saveCombatTypes} disabled={savingCombatTypes} className="mt-4 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{savingCombatTypes ? "Guardando..." : "Guardar configuración de combate"}</button>

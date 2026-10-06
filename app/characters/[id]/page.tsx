@@ -2054,7 +2054,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               ))}
             </div>
           </section>
-        )}
 
         {knownCharacters.length > 0 && (
           <section className="mt-10">

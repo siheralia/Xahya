@@ -37,12 +37,14 @@ export async function PATCH(
 
   const body = await request.json().catch(() => null);
 
-  if (Object.prototype.hasOwnProperty.call(body ?? {}, "magicAttackType")) {
-    const magicAttackType = String(body?.magicAttackType ?? "").trim().toUpperCase();
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "magicAttackType") || Object.prototype.hasOwnProperty.call(body ?? {}, "defenseType")) {
+    const magicAttackType = String(body?.magicAttackType ?? character.magicAttackType ?? "CUT").trim().toUpperCase();
+    const defenseType = String(body?.defenseType ?? character.defenseType ?? "CONCENTRATED").trim().toUpperCase();
     if (!["CUT", "BLUNT", "PIERCE"].includes(magicAttackType)) return NextResponse.json({ error: "Tipo de ataque mágico inválido." }, { status: 400 });
-    await db.orm.public.Character.where({ id: characterId, userId: user.id }).update({ magicAttackType });
-    await recordAuditEvent({ actorUserId: user.id, action: "CHARACTER_MAGIC_ATTACK_TYPE_UPDATE", entityType: "CHARACTER", entityId: characterId, characterId, details: { magicAttackType } });
-    return NextResponse.json({ id: characterId, magicAttackType });
+    if (!["CONCENTRATED", "DISPERSED", "SOLID"].includes(defenseType)) return NextResponse.json({ error: "Tipo de defensa inválido." }, { status: 400 });
+    await db.orm.public.Character.where({ id: characterId, userId: user.id }).update({ magicAttackType, defenseType });
+    await recordAuditEvent({ actorUserId: user.id, action: "CHARACTER_COMBAT_TYPE_UPDATE", entityType: "CHARACTER", entityId: characterId, characterId, details: { magicAttackType, defenseType } });
+    return NextResponse.json({ id: characterId, magicAttackType, defenseType });
   }
 
   if (Object.prototype.hasOwnProperty.call(body ?? {}, "flair")) {

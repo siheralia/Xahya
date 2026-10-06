@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const State = (db.orm.public as any).CharacterSkillState;
   if (!State) return NextResponse.json({ processed: 0, error: "Skill tick state unavailable" }, { status: 500 });
   const activeStates = await State.where({ active: true }).all();
-  const characterIds = [...new Set(activeStates.map((state: any) => Number(state.characterId)))];
+  const characterIds: number[] = [...new Set(activeStates.map((state: any) => Number(state.characterId)))];
   let processed = 0;
   for (const characterId of characterIds) {
     const result = await db.transaction((tx) => advanceCharacterSkillTicks(tx, characterId));

@@ -12,10 +12,6 @@
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/cron/skill-ticks",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/cron/maze-reset",
       "schedule": "0 12 * * 1"
     }

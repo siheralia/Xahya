@@ -839,7 +839,7 @@ export default function ManagementPage() {
         </div>
 
         {globalOpen && isAdmin && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <div className="xahya-modal-overlay flex items-center justify-center bg-black/70 p-6">
             <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
               <h2 className="text-xl font-semibold">Dar recursos a todos</h2>
               <p className="mt-2 text-sm text-zinc-500">Los valores se sumarán al saldo actual de cada personaje. No modifica estadísticas base.</p>
@@ -856,7 +856,7 @@ export default function ManagementPage() {
           </div>
         )}
         {isAdmin && deleteOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <div className="xahya-modal-overlay flex items-center justify-center bg-black/70 p-6">
             <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
               <h2 className="text-xl font-semibold">¿Borrar personaje?</h2>
               <p className="mt-3 text-zinc-400">

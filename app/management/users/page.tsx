@@ -307,7 +307,7 @@ export default function ManagementUsersPage() {
         </div>
       </div>
       {transferCharacter && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+        <div className="xahya-modal-overlay flex items-center justify-center bg-black/70 p-6">
           <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
               Transferir personaje

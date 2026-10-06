@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 type Character = { id: number; name: string };
@@ -64,6 +64,26 @@ export default function NavigationShell({
   const [characters, setCharacters] = useState<Character[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [systemOnline, setSystemOnline] = useState(true);
+  const navRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const updateNavHeight = () => {
+      document.documentElement.style.setProperty("--xahya-nav-height", `${nav.getBoundingClientRect().height}px`);
+    };
+
+    updateNavHeight();
+    const observer = new ResizeObserver(updateNavHeight);
+    observer.observe(nav);
+    window.addEventListener("resize", updateNavHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateNavHeight);
+    };
+  }, []);
   const route = useMemo(() => getRouteInfo(pathname, characters), [pathname, characters]);
 
   useEffect(() => {
@@ -94,7 +114,7 @@ export default function NavigationShell({
 
   return (
     <>
-      <header className="xahya-nav">
+      <header ref={navRef} className="xahya-nav">
         <div className="xahya-nav-top">
           <div className="xahya-brand-row">
             <Link href="/" className="xahya-brand" aria-label="Ir al inicio de Xahya">

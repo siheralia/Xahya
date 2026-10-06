@@ -1849,7 +1849,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           ) : <p className="mt-5 text-sm text-zinc-500">No tiene perks.</p>}
         </section>
 
-        {character.properties?.length > 0 && (
         <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
   <h2 className="text-xl font-semibold">Combate básico</h2>
   <p className="mt-1 text-sm text-zinc-500">Las acciones básicas forman la base del futuro sistema de combate.</p>
@@ -1958,7 +1957,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             </div>
           </div>
         )}
- <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+        {character.properties?.length > 0 && (
+        <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <h2 className="text-xl font-semibold">Propiedades</h2>
           <p className="mt-1 text-sm text-[color:var(--theme-muted)]">Bienes adquiridos por este personaje.</p>
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

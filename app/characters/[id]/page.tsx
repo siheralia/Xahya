@@ -1545,7 +1545,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         </div>
         {character.canSeeCharacterId && <p className="mt-2 text-zinc-500">Personaje #{character.id}</p>}
 
-        <div className="fixed right-0 top-[calc(var(--xahya-nav-height,104px)+0.5rem)] z-50">
+        <div className="xahya-floating-below-nav right-0 mt-2">
           <button
             type="button"
             onClick={() => setAvatarFlairOpen(true)}

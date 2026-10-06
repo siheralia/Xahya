@@ -23,6 +23,7 @@ model Character {
   userId    Int
   user      User                @relation(fields:[userId], references:[id])
   skillCreationCredits Int     @default(0)
+  magicAttackType String @default("CUT")
   age       Int?
   gender    String?
   height    Int?
@@ -51,6 +52,10 @@ model Skill {
   character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
   name        String
   cost        Int       @default(0)
+  accumulationCost Int   @default(0)
+  basicType   String?
+  attackType  String?
+  defenseType String?
   maintenanceCost Int       @default(0)
   description String?
   duration    String?
@@ -133,6 +138,7 @@ model Item {
   description    String?
   itemType       String    @default("OTHER")
   itemSubtype    String?
+  attackType     String?
   acquisitionType String   @default("PURCHASABLE")
   price          Int       @default(0)
   effects        Json

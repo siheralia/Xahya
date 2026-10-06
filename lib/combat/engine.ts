@@ -1,50 +1,74 @@
-import { calculateActionTicks } from "./ticks";
+import { calculateAttackTicks, type CombatAttackType } from "./ticks";
 
-export type CombatAction = {
-  id: string;
-  characterId: number;
-  name: string;
-  agility: number;
-  speedModifier?: number;
-  remainingTicks: number;
+export type CombatActor = "PLAYER" | "NPC";
+
+export type CombatEvent = {
+  actor: CombatActor;
+  action: string;
+  attackType: CombatAttackType;
   startedAtTick: number;
-  completesAtTick: number;
-  status: "QUEUED" | "EXECUTING" | "COMPLETED";
+  completedAtTick: number;
+  durationTicks: number;
 };
 
-export function createCombatAction(input: {
-  id: string;
-  characterId: number;
-  name: string;
-  agility: number;
+export type PingPongResult = {
   currentTick: number;
-  speedModifier?: number;
-}): CombatAction {
-  const duration = calculateActionTicks(input.agility, input.speedModifier ?? 1);
+  turn: number;
+  activeActor: CombatActor;
+  playerNextActionTick: number;
+  npcNextActionTick: number;
+  events: CombatEvent[];
+};
+
+/**
+ * El combate es una línea temporal lógica. Cada petición de acción
+ * avanza el reloj hasta el siguiente evento; nunca espera en tiempo real
+ * ni depende de un cron por segundo.
+ */
+export function resolvePingPongAction(input: {
+  currentTick: number;
+  turn: number;
+  playerAgility: number;
+  npcAgility: number;
+  playerAttackType?: CombatAttackType;
+  npcAttackType?: CombatAttackType;
+  playerAction?: string;
+}): PingPongResult {
+  const playerAttackType = input.playerAttackType ?? "CUT";
+  const npcAttackType = input.npcAttackType ?? "CUT";
+  const playerDuration = calculateAttackTicks(input.playerAgility, playerAttackType);
+  const playerCompletedAt = input.currentTick + playerDuration;
+
+  const npcDuration = calculateAttackTicks(input.npcAgility, npcAttackType);
+  const npcCompletedAt = playerCompletedAt + npcDuration;
 
   return {
-    id: input.id,
-    characterId: input.characterId,
-    name: input.name,
-    agility: input.agility,
-    speedModifier: input.speedModifier ?? 1,
-    remainingTicks: duration,
-    startedAtTick: input.currentTick,
-    completesAtTick: input.currentTick + duration,
-    status: "EXECUTING",
+    currentTick: npcCompletedAt,
+    turn: input.turn + 1,
+    activeActor: "PLAYER",
+    playerNextActionTick: npcCompletedAt,
+    npcNextActionTick: npcCompletedAt + npcDuration,
+    events: [
+      {
+        actor: "PLAYER",
+        action: input.playerAction ?? "Ataque",
+        attackType: playerAttackType,
+        startedAtTick: input.currentTick,
+        completedAtTick: playerCompletedAt,
+        durationTicks: playerDuration,
+      },
+      {
+        actor: "NPC",
+        action: "Contraataque",
+        attackType: npcAttackType,
+        startedAtTick: playerCompletedAt,
+        completedAtTick: npcCompletedAt,
+        durationTicks: npcDuration,
+      },
+    ],
   };
 }
 
-export function advanceCombatAction(
-  action: CombatAction,
-  elapsedTicks: number,
-): CombatAction {
-  const elapsed = Math.max(0, Math.trunc(elapsedTicks));
-  const remainingTicks = Math.max(0, action.remainingTicks - elapsed);
-
-  return {
-    ...action,
-    remainingTicks,
-    status: remainingTicks === 0 ? "COMPLETED" : "EXECUTING",
-  };
+export function calculateNextActionTick(currentTick: number, agility: number, attackType: CombatAttackType = "CUT") {
+  return currentTick + calculateAttackTicks(agility, attackType);
 }

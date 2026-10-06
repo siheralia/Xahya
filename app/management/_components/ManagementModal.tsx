@@ -35,7 +35,7 @@ export default function ManagementModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:p-8"
+      className="xahya-modal-overlay flex items-start justify-center bg-black/70 p-4 backdrop-blur-sm sm:p-8"
       role="dialog"
       aria-modal="true"
       aria-labelledby="management-modal-title"

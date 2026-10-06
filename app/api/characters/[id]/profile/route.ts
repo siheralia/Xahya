@@ -37,7 +37,15 @@ export async function PATCH(
 
   const body = await request.json().catch(() => null);
 
-  if (Object.prototype.hasOwnProperty.call(body ?? {}, "magicAttackType")) {\n    const magicAttackType = String(body?.magicAttackType ?? "").trim().toUpperCase();\n    if (!["CUT", "BLUNT", "PIERCE"].includes(magicAttackType)) return NextResponse.json({ error: "Tipo de ataque mágico inválido." }, { status: 400 });\n    await db.orm.public.Character.where({ id: characterId, userId: user.id }).update({ magicAttackType });\n    await recordAuditEvent({ actorUserId: user.id, action: "CHARACTER_MAGIC_ATTACK_TYPE_UPDATE", entityType: "CHARACTER", entityId: characterId, characterId, details: { magicAttackType } });\n    return NextResponse.json({ id: characterId, magicAttackType });\n  }\n\n  if (Object.prototype.hasOwnProperty.call(body ?? {}, "flair")) {
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "magicAttackType")) {
+    const magicAttackType = String(body?.magicAttackType ?? "").trim().toUpperCase();
+    if (!["CUT", "BLUNT", "PIERCE"].includes(magicAttackType)) return NextResponse.json({ error: "Tipo de ataque mágico inválido." }, { status: 400 });
+    await db.orm.public.Character.where({ id: characterId, userId: user.id }).update({ magicAttackType });
+    await recordAuditEvent({ actorUserId: user.id, action: "CHARACTER_MAGIC_ATTACK_TYPE_UPDATE", entityType: "CHARACTER", entityId: characterId, characterId, details: { magicAttackType } });
+    return NextResponse.json({ id: characterId, magicAttackType });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "flair")) {
     const flair = body?.flair === null ? "" : String(body?.flair ?? "").trim();
     if (flair.length > 80) {
       return NextResponse.json({ error: "El flair no puede superar 80 caracteres." }, { status: 400 });

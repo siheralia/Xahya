@@ -1,4 +1,5 @@
-import { calculateAttackTicks, type CombatAttackType } from "./ticks";
+import { calculateAttackTicks } from "./ticks";
+export type { CombatAttackType } from "./ticks";
 
 export type CombatActor = "PLAYER" | "NPC";
 

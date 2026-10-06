@@ -2024,6 +2024,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             </div>
           )}
         </section>
+        )}
 
         {character.maze && (
           <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">

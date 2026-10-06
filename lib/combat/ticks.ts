@@ -42,3 +42,41 @@ export function calculateAttackTicks(
 export function getAttackTypeSpeedModifier(attackType: CombatAttackType): number {
   return ATTACK_TYPE_SPEED_MODIFIER[attackType];
 }
+
+export const SKILL_TICK_INTERVAL_MS = 1000;
+export const SKILL_TICKS_PER_TURN = COMBAT_TICKS_PER_TURN;
+export const MAX_SKILL_CATCHUP_TICKS = 1000;
+
+export function elapsedSkillTicks(lastTickAt: Date | string | null, now = Date.now()): number {
+  if (!lastTickAt) return 0;
+  const elapsedMs = Math.max(0, now - new Date(String(lastTickAt)).getTime());
+  return Math.min(MAX_SKILL_CATCHUP_TICKS, Math.floor(elapsedMs / SKILL_TICK_INTERVAL_MS));
+}
+
+export async function advanceCharacterSkillTicks(tx: any, characterId: number, now = new Date()) {
+  const State = (tx.orm.public as any).CharacterSkillState;
+  const Skill = (tx.orm.public as any).Skill;
+  if (!State || !Skill) return [];
+  const states = await State.where({ characterId, active: true }).all();
+  const skills = await Skill.where({ characterId }).all();
+  const results: any[] = [];
+  const nowMs = now.getTime();
+
+  for (const state of states) {
+    const skill = skills.find((candidate: any) => Number(candidate.id) === Number(state.skillId));
+    if (!skill || String(skill.status) !== "APPROVED") continue;
+    const ticks = elapsedSkillTicks(state.lastTickAt, nowMs);
+    if (ticks <= 0) continue;
+    const perTick = Math.max(0, Number(skill.accumulationPerTick ?? 0));
+    const added = ticks * perTick;
+    const lastMs = new Date(String(state.lastTickAt)).getTime() + ticks * SKILL_TICK_INTERVAL_MS;
+    const updated = await State.where({ id: Number(state.id) }).update({
+      accumulations: Number(state.accumulations ?? 0) + added,
+      totalTicks: Number(state.totalTicks ?? 0) + ticks,
+      lastTickAt: new Date(lastMs),
+      updatedAt: now,
+    });
+    results.push({ skillId: Number(state.skillId), ticks, added, state: updated });
+  }
+  return results;
+}

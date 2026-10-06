@@ -12,12 +12,12 @@ type EquipmentItem = {
 
 type SkillEffect = { type: "DAMAGE_MULTIPLIER" | "STAT_MULTIPLIER" | "STAT_BONUS" | "NARRATIVE"; target?: string; value?: number; description?: string };
 type Skill = {
-  id: number; characterId: number; name: string; cost: number; maintenanceCost: number; description: string | null; duration: string | null;
-  category: string; areaOfEffect: string | null; speed: string | null; cooldown: string | null; effect: SkillEffect[];
+  id: number; characterId: number; name: string; cost: number; accumulationCost: number; maintenanceCost: number; description: string | null; duration: string | null;
+  category: string; basicType: string | null; attackType: string | null; defenseType: string | null; areaOfEffect: string | null; speed: string | null; cooldown: string | null; effect: SkillEffect[];
   condition: string | null; status: string; approvedAt: string | null;
 };
 
-const skillCategories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"]] as const;
+const skillCategories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]] as const;
 const skillEffectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["NARRATIVE","Narrativo"]] as const;
 const skillTargets = [
   ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
@@ -59,6 +59,7 @@ type Character = {
   age: number | null;
   gender: string | null;
   height: number | null;
+  magicAttackType: string;
   stats: {
     strength: number;
     agility: number;
@@ -496,7 +497,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [skillModalOpen, setSkillModalOpen] = useState(false);
   const [skillSaving, setSkillSaving] = useState(false);
   const [skillForm, setSkillForm] = useState({
-    name: "", cost: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE",
+    name: "", cost: 0, accumulationCost: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE",
     areaOfEffect: "", speed: "", cooldown: "", condition: "",
     effect: [] as SkillEffect[],
   });
@@ -1073,7 +1074,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       setSkillCreationCredits((value) => Math.max(0, value - 1));
       setPendingSkills((current) => [data.skill, ...current]);
       setSkillModalOpen(false);
-      setSkillForm({ name: "", cost: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
+      setSkillForm({ name: "", cost: 0, accumulationCost: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
       setSuccess("Habilidad enviada. Quedó pendiente de aprobación administrativa.");
       const refreshed = await fetch("/api/characters/" + character.id + "/skills", { cache: "no-store" });
       if (refreshed.ok) {
@@ -1112,6 +1113,21 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cambiar el equipamiento.");
     } finally { setEquipmentBusy(null); }
+  }
+
+  async function saveMagicAttackType(value: string) {
+    if (!character) return;
+    setError("");
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/profile", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ magicAttackType: value }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar el tipo de ataque mágico.");
+      setCharacter((current) => current ? { ...current, magicAttackType: data.magicAttackType } : current);
+      setSuccess("Tipo de ataque mágico actualizado.");
+    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo guardar el tipo de ataque mágico."); }
   }
 
   async function saveCharacterFlair() {
@@ -1625,7 +1641,18 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           ) : <p className="mt-5 text-sm text-zinc-500">No tiene perks.</p>}
         </section>
 
-        <section className="mt-10 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6">
+        <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
+  <h2 className="text-xl font-semibold">Combate básico</h2>
+  <p className="mt-1 text-sm text-zinc-500">Las acciones básicas forman la base del futuro sistema de combate.</p>
+  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">⚔️ Ataque físico</p><p className="mt-1 text-lg font-semibold">Depende del arma equipada</p></div>
+    <label className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">✨ Ataque mágico</p><select value={character.magicAttackType} onChange={(e) => saveMagicAttackType(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="CUT">🗡️ Corte</option><option value="BLUNT">🔨 Contundente</option><option value="PIERCE">🪡 Penetración</option></select></label>
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">💨 Esquivar · 🛡️ Bloquear · 🔮 Campo</p><p className="mt-1 text-lg font-semibold">Acciones básicas</p></div>
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 sm:col-span-2 lg:col-span-3"><p className="text-xs text-zinc-500">Puntos de acción</p><p className="mt-1 text-2xl font-semibold">9 + CON = {9 + Number(character.effectiveStats?.constitution ?? character.stats?.constitution ?? 0)}</p><p className="mt-1 text-xs text-zinc-600">La Constitución determina cuántas acciones puede realizar el personaje por ciclo de combate.</p></div>
+  </div>
+</section>
+
+<section className="mt-10 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold">Habilidades</h2>
@@ -1728,6 +1755,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <label className="text-sm text-zinc-400">Nombre<input value={skillForm.name} onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Coste<input type="number" min="0" value={skillForm.cost} onChange={(e) => setSkillForm({ ...skillForm, cost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Costo por acumulación<input type="number" min="0" value={skillForm.accumulationCost} onChange={(e) => setSkillForm({ ...skillForm, accumulationCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Costo por turno (mantenimiento)<input type="number" min="0" value={skillForm.maintenanceCost} onChange={(e) => setSkillForm({ ...skillForm, maintenanceCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Categoría<select value={skillForm.category} onChange={(e) => setSkillForm({ ...skillForm, category: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">{skillCategories.map((category) => <option key={category[0]} value={category[0]}>{category[1]}</option>)}</select></label>
                 <label className="text-sm text-zinc-400">Duración<input value={skillForm.duration} onChange={(e) => setSkillForm({ ...skillForm, duration: e.target.value })} placeholder="Ej. 3 turnos / Instantánea" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>

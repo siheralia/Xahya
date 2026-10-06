@@ -308,7 +308,7 @@ export default function CreateCharacterPage() {
         </div>
       </div>
       {showPerks && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 px-4 py-8 backdrop-blur-sm">
+        <div className="xahya-modal-overlay flex items-center justify-center bg-black/80 px-4 py-8 backdrop-blur-sm">
           <div className="w-full max-w-5xl rounded-3xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl sm:p-8">
             <div className="text-center">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-400/80">Creación completada</p>

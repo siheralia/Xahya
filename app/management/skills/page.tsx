@@ -6,15 +6,15 @@ import { EFFECT_CATALOG, EFFECT_TARGETS } from "@/lib/effects/catalog";
 
 type Effect = { type: string; target?: string; value?: number; description?: string };
 type Skill = {
-  id:number; characterId:number; name:string; cost:number; maintenanceCost:number; description:string|null; duration:string|null;
-  category:string; areaOfEffect:string|null; speed:string|null; cooldown:string|null; effect:Effect[];
+  id:number; characterId:number; name:string; cost:number; accumulationCost:number; maintenanceCost:number; description:string|null; duration:string|null;
+  category:string; basicType:string|null; attackType:string|null; defenseType:string|null; areaOfEffect:string|null; speed:string|null; cooldown:string|null; effect:Effect[];
   condition:string|null; status:string; approvedAt:string|null; character?: { id:number; name:string }|null;
 };
 
-const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"]];
+const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
 const effectTypes=[...EFFECT_CATALOG.filter(e=>e.type!=="MAZE_UTILITY").map(e=>[e.type,e.label] as const),["MAZE_UTILITY_INVISIBILITY","Invisibilidad"]] as const;
 const blankEffect=():Effect=>({type:"STAT_BONUS",target:"STR",value:10,description:""});
-const blankForm=()=>({characterId:"",name:"",cost:0,maintenanceCost:0,description:"",duration:"",category:"UTILITY",areaOfEffect:"",speed:"",cooldown:"",condition:"",effect:[] as Effect[]});
+const blankForm=()=>({characterId:"",name:"",cost:0,accumulationCost:0,maintenanceCost:0,description:"",duration:"",category:"UTILITY",areaOfEffect:"",speed:"",cooldown:"",condition:"",effect:[] as Effect[]});
 
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
@@ -48,7 +48,7 @@ export default function SkillsManagementPage(){
   function edit(skill:Skill){
     setSelected(skill.id);
     setForm({
-      characterId:String(skill.characterId),name:skill.name,cost:Number(skill.cost),maintenanceCost:Number(skill.maintenanceCost??0),description:skill.description??"",
+      characterId:String(skill.characterId),name:skill.name,cost:Number(skill.cost),accumulationCost:Number(skill.accumulationCost??0),maintenanceCost:Number(skill.maintenanceCost??0),description:skill.description??"",
       duration:skill.duration??"",category:skill.category,areaOfEffect:skill.areaOfEffect??"",speed:skill.speed??"",
       cooldown:skill.cooldown??"",condition:skill.condition??"",effect:Array.isArray(skill.effect)?skill.effect:[],
     });
@@ -104,7 +104,7 @@ export default function SkillsManagementPage(){
             <div><span className="font-semibold">{skill.name}</span><span className="ml-2 text-xs text-zinc-500">#{skill.id}</span></div>
             <span className={"rounded-full border px-2 py-1 text-xs "+(skill.status==="APPROVED"?"border-emerald-400/30 text-emerald-300":skill.status==="REJECTED"?"border-red-400/30 text-red-300":"border-amber-400/30 text-amber-300")}>{skill.status==="APPROVED"?"Aprobada":skill.status==="REJECTED"?"Rechazada":"Pendiente"}</span>
           </div>
-          <p className="mt-1 text-xs text-zinc-500">{skill.character?.name??("Personaje #"+skill.characterId)} · {categories.find(c=>c[0]===skill.category)?.[1]??skill.category} · Coste {skill.cost}{Number(skill.maintenanceCost??0)>0?" · Mantenimiento/turno "+skill.maintenanceCost:""}</p>
+          <p className="mt-1 text-xs text-zinc-500">{skill.character?.name??("Personaje #"+skill.characterId)} · {categories.find(c=>c[0]===skill.category)?.[1]??skill.category} · Coste {skill.cost}{Number(skill.accumulationCost??0)>0?" · Acumulación "+skill.accumulationCost:""}{Number(skill.maintenanceCost??0)>0?" · Mantenimiento/turno "+skill.maintenanceCost:""}</p>
           <p className="mt-2 line-clamp-2 text-sm text-zinc-400">{skill.description}</p>
         </button>)}
         {!visible.length&&<p className="py-8 text-center text-sm text-zinc-500">No hay habilidades con este filtro.</p>}
@@ -117,6 +117,7 @@ export default function SkillsManagementPage(){
           <label className="text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="">Selecciona...</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>
           <label className="text-sm text-zinc-400">Nombre<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           <label className="text-sm text-zinc-400">Coste<input type="number" min="0" value={form.cost} onChange={e=>setForm({...form,cost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
+          <label className="text-sm text-zinc-400">Costo por acumulación<input type="number" min="0" value={form.accumulationCost} onChange={e=>setForm({...form,accumulationCost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           <label className="text-sm text-zinc-400">Costo por turno (mantenimiento)<input type="number" min="0" value={form.maintenanceCost} onChange={e=>setForm({...form,maintenanceCost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           <label className="text-sm text-zinc-400">Categoría<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{categories.map(c=><option key={c[0]} value={c[0]}>{c[1]}</option>)}</select></label>
           <label className="text-sm text-zinc-400">Duración<input value={form.duration} onChange={e=>setForm({...form,duration:e.target.value})} placeholder="Ej. 3 turnos / Instantánea" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>

@@ -30,6 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const skill = await Skill.where({ id: skillId, characterId }).first();
     if (!skill || String(skill.status) !== "APPROVED") return NextResponse.json({ error: "Habilidad no encontrada o no aprobada." }, { status: 404 });
     const now = new Date();
+    if (action === "stop") await db.transaction((tx) => advanceCharacterSkillTicks(tx, characterId, now));
     const existing = await State.where({ characterId, skillId }).first();
     const state = existing
       ? await State.where({ id: Number(existing.id) }).update({ active: action === "start", lastTickAt: action === "start" ? now : existing.lastTickAt, updatedAt: now })

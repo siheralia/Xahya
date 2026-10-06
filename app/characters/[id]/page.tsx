@@ -1800,7 +1800,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               style={{
                 borderColor: themePalette.border,
                 backgroundColor: themePalette.background,
-                color: themePalette.foreground,
+                color: "#ffffff",
                 boxShadow: "0 0 60px " + themePalette.primary + "33",
               }}
               onMouseDown={(event) => event.stopPropagation()}

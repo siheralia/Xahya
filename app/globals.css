@@ -112,6 +112,13 @@ body {
   z-index: 900;
 }
 
+/* Compact combat tab sits below the avatar/flair tab. */
+.xahya-floating-combat-tab {
+  position: fixed;
+  top: calc(var(--xahya-nav-height, 140px) + 110px);
+  z-index: 900;
+}
+
 /* Modal layers must render above the navigation and use only the space below it. */
 .xahya-modal-overlay {
   position: fixed;

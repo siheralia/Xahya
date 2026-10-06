@@ -5,6 +5,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 import { EFFECT_TYPES } from "@/lib/effects/catalog";
 
+const ATTACK_TYPES = ["CUT", "BLUNT", "PIERCE"] as const;
 const ITEM_TYPES = ["WEAPON", "ARMOR", "ACCESSORY", "CONSUMABLE", "MATERIAL", "PROPERTY", "OTHER"] as const;
 
 async function getAdmin() {
@@ -29,11 +30,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const itemType = String(body.itemType ?? item.itemType);
   const itemSubtype = typeof body.itemSubtype === "string" ? body.itemSubtype.trim() || null : (item.itemSubtype ?? null);
   const acquisitionType = String(body.acquisitionType ?? item.acquisitionType);
+  const attackType = body.attackType == null || body.attackType === "" ? (item.attackType ?? null) : String(body.attackType);
   const price = Number(body.price ?? item.price);
   const effects = Array.isArray(body.effects) ? body.effects : item.effects;
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : (Array.isArray(item.allowedSlots) ? item.allowedSlots : []);
   const propertyBusinessId = body.propertyBusinessId === "" || body.propertyBusinessId == null ? null : Number(body.propertyBusinessId);
   const systemActions = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL"];
+  if (attackType !== null && (!ATTACK_TYPES.includes(attackType as any) || itemType !== "WEAPON")) return NextResponse.json({ error: "Tipo de ataque físico inválido." }, { status: 400 });
+  if (itemType === "WEAPON" && attackType === null) return NextResponse.json({ error: "Las armas deben tener un tipo de ataque físico." }, { status: 400 });
   if (!name || name.length > 100 || !ITEM_TYPES.includes(itemType as any) || !Number.isInteger(price) || price < 0) return NextResponse.json({ error: "Datos del objeto inválidos." }, { status: 400 });
   if (itemType === "PROPERTY" && acquisitionType === "PURCHASABLE") return NextResponse.json({ error: "Las propiedades no se venden en la tienda general." }, { status: 400 });
   if (propertyBusinessId !== null && (!Number.isInteger(propertyBusinessId) || propertyBusinessId <= 0)) return NextResponse.json({ error: "Negocio exclusivo inválido." }, { status: 400 });
@@ -52,7 +56,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     }
   }
-  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, acquisitionType, price, effects, allowedSlots, propertyBusinessId: itemType === "PROPERTY" ? propertyBusinessId : null });
+  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, attackType: itemType === "WEAPON" ? attackType : null, acquisitionType, price, effects, allowedSlots, propertyBusinessId: itemType === "PROPERTY" ? propertyBusinessId : null });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_UPDATE", entityType: "ITEM", entityId: id, details: { before: item, after: updated } });
   return NextResponse.json({ item: updated });
 }

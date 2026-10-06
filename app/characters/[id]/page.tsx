@@ -61,6 +61,7 @@ type Character = {
   gender: string | null;
   height: number | null;
   magicAttackType: string;
+  defenseType: string;
   stats: {
     strength: number;
     agility: number;
@@ -479,6 +480,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [characterFlair, setCharacterFlair] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingFlair, setSavingFlair] = useState(false);
+  const [combatMagicAttackType, setCombatMagicAttackType] = useState("CUT");
+  const [combatDefenseType, setCombatDefenseType] = useState("CONCENTRATED");
+  const [savingCombatTypes, setSavingCombatTypes] = useState(false);
   const [equipmentBusy, setEquipmentBusy] = useState<number | null>(null);
   const [flairSaving, setFlairSaving] = useState<number | null>(null);
   const [inventoryDeleting, setInventoryDeleting] = useState<number | null>(null);
@@ -1158,19 +1162,28 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     } finally { setEquipmentBusy(null); }
   }
 
-  async function saveMagicAttackType(value: string) {
-    if (!character) return;
+  async function saveCombatTypes() {
+    if (!character || savingCombatTypes) return;
+    setSavingCombatTypes(true);
     setError("");
+    setSuccess("");
     try {
       const response = await fetch("/api/characters/" + character.id + "/profile", {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ magicAttackType: value }),
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ magicAttackType: combatMagicAttackType, defenseType: combatDefenseType }),
       });
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar el tipo de ataque mágico.");
-      setCharacter((current) => current ? { ...current, magicAttackType: data.magicAttackType } : current);
-      setSuccess("Tipo de ataque mágico actualizado.");
-    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo guardar el tipo de ataque mágico."); }
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar la configuración de combate.");
+      setCharacter((current) => current ? { ...current, magicAttackType: data.magicAttackType, defenseType: data.defenseType } : current);
+      setCombatMagicAttackType(data.magicAttackType ?? combatMagicAttackType);
+      setCombatDefenseType(data.defenseType ?? combatDefenseType);
+      setSuccess("Configuración de combate guardada.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar la configuración de combate.");
+    } finally {
+      setSavingCombatTypes(false);
+    }
   }
 
   async function saveCharacterFlair() {
@@ -1469,6 +1482,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       })
       .then((data) => {
         setCharacter(data);
+        setCharacterFlair(data.flair ?? "");
+        setCombatMagicAttackType(data.magicAttackType ?? "CUT");
+        setCombatDefenseType(data.defenseType ?? "CONCENTRATED");
         return data;
       })
       .then((data) => {
@@ -1534,62 +1550,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             </div>
           </div>
         </section>
-
-        <section className="mt-10 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
-          <div className="flex items-baseline justify-between gap-4">
-            <div><h2 className="text-xl font-semibold">Estado de rol</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">HP, Mana y efectos temporales. Nada de esta sección se guarda en la ficha.</p></div>
-            <button type="button" onClick={() => setTemporaryEffects([])} disabled={!temporaryEffects.length} className="text-xs text-zinc-500 hover:text-white disabled:opacity-30">Limpiar efectos</button>
-          </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <label className="text-sm text-zinc-400">❤️ HP actual
-              <input type="number" min="0" max={maxHp} value={currentHp} onChange={(e) => setCurrentHp(Math.min(maxHp, Math.max(0, Number(e.target.value) || 0)))} className="mt-2 h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" />
-            </label>
-            <label className="text-sm text-zinc-400">🔷 Mana actual
-              <input type="number" min="0" max={maxMana} value={currentMana} onChange={(e) => setCurrentMana(Math.min(maxMana, Math.max(0, Number(e.target.value) || 0)))} className="mt-2 h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" />
-            </label>
-          </div>
-          <p className="mt-3 text-xs text-zinc-500">Los cambios de HP y Mana se reflejan inmediatamente en el estado; no necesitas aplicar un efecto.</p>
-          <button type="button" onClick={copyEstadoToClipboard} className="mt-4 w-full rounded-xl border border-violet-700/60 px-4 py-3 text-sm font-semibold text-violet-200 transition hover:bg-violet-900/20">
-            {copied === "estado" ? "✓ Estado copiado" : "Copiar estado actual"}
-          </button>
-          <div className="mt-5 grid gap-3 md:grid-cols-[1fr_140px_120px_1fr_auto]">
-            <select value={effectTarget} onChange={(e) => setEffectTarget(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white">
-              {Object.entries(statLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-              {Object.entries(derivedLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-            </select>
-            <select value={effectMode} onChange={(e) => setEffectMode(e.target.value as "percent" | "flat")} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white">
-              <option value="percent">Porcentaje</option><option value="flat">Plano</option>
-            </select>
-            <input type="number" value={effectValue} onChange={(e) => setEffectValue(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" placeholder="Valor" />
-            <input type="text" value={effectLabel} onChange={(e) => setEffectLabel(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" placeholder="Ej. Debuff del enemigo" />
-            <button type="button" onClick={addTemporaryEffect} disabled={!effectLabel.trim() || effectValue === "" || Number(effectValue) === 0} className="rounded-xl bg-violet-400 px-4 py-2 font-bold text-zinc-950 disabled:opacity-40">Aplicar</button>
-          </div>
-          {temporaryEffects.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {temporaryEffects.map((effect) => (
-                <div key={effect.id} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm">
-                  <span>{effect.label} · {effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value)} {statLabels[effect.target] ?? derivedLabels[effect.target] ?? effect.target} <span className="text-zinc-500">→ {formatNumber(applyTemporaryEffects(effect.target, character.effectiveStats?.[effect.target] ?? character.derivedStats?.[effect.target] ?? character.stats?.[effect.target as keyof typeof character.stats] ?? 0))}</span></span>
-                  <button type="button" onClick={() => removeTemporaryEffect(effect.id)} className="text-red-300 hover:text-red-200">Quitar</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {character.maze && (
-          <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-widest text-violet-300/70">Exploración activa</p>
-                <h2 className="mt-1 text-xl font-semibold">Está dentro de {character.maze.name}</h2>
-                <p className="mt-1 text-sm text-zinc-400">Habitación #{character.maze.roomNumber ?? "?"}</p>
-              </div>
-              <Link href={"/maze?mazeId=" + character.maze.id + "&characterId=" + character.id} className="rounded-lg border border-violet-400/30 px-4 py-2 text-sm text-violet-200 hover:bg-violet-400/10">
-                Ver laberinto
-              </Link>
-            </div>
-          </section>
-        )}
 
         <section className="theme-card mt-10 rounded-2xl border bg-zinc-900/40 p-6" style={{ borderColor: themePalette.border, backgroundColor: themePalette.surface + "aa" }}>
           <h2 className="text-xl font-semibold">Flair</h2>
@@ -1689,10 +1649,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   <p className="mt-1 text-sm text-zinc-500">Las acciones básicas forman la base del futuro sistema de combate.</p>
   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
     <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">⚔️ Ataque físico</p><p className="mt-1 text-lg font-semibold">Depende del arma equipada</p></div>
-    <label className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">✨ Ataque mágico</p><select value={character.magicAttackType} onChange={(e) => saveMagicAttackType(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="CUT">🗡️ Corte</option><option value="BLUNT">🔨 Contundente</option><option value="PIERCE">🪡 Penetración</option></select></label>
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">💨 Esquivar · 🛡️ Bloquear · 🔮 Campo</p><p className="mt-1 text-lg font-semibold">Acciones básicas</p></div>
+    <label className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">✨ Tipo de ataque mágico</p><select value={combatMagicAttackType} onChange={(e) => setCombatMagicAttackType(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="CUT">🗡️ Corte</option><option value="BLUNT">🔨 Contundente</option><option value="PIERCE">🪡 Penetración</option></select></label>
+    <label className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">🛡️ Tipo de defensa</p><select value={combatDefenseType} onChange={(e) => setCombatDefenseType(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="CONCENTRATED">🟢 Concentrada</option><option value="DISPERSED">🟡 Dispersa</option><option value="SOLID">🔴 Sólida</option></select><p className="mt-2 text-xs text-zinc-600">Se aplica tanto a Bloqueo como a Campo mágico.</p></label><div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">💨 Esquivar · 🛡️ Bloquear · 🔮 Campo</p><p className="mt-1 text-lg font-semibold">Acciones básicas</p></div>
     <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 sm:col-span-2 lg:col-span-3"><p className="text-xs text-zinc-500">Puntos de acción</p><p className="mt-1 text-2xl font-semibold">9 + CON = {9 + Number(character.effectiveStats?.constitution ?? character.stats?.constitution ?? 0)}</p><p className="mt-1 text-xs text-zinc-600">La Constitución determina cuántas acciones puede realizar el personaje por ciclo de combate.</p></div>
   </div>
+  <button type="button" onClick={saveCombatTypes} disabled={savingCombatTypes} className="mt-4 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{savingCombatTypes ? "Guardando..." : "Guardar configuración de combate"}</button>
 </section>
 
 <section className="mt-10 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6">
@@ -2018,7 +1979,64 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         )}
 
         {character.combatEffects.length > 0 && (
-          <section className="mt-10 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
+  
+        <section className="mt-10 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
+          <div className="flex items-baseline justify-between gap-4">
+            <div><h2 className="text-xl font-semibold">Estado de rol</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">HP, Mana y efectos temporales. Nada de esta sección se guarda en la ficha.</p></div>
+            <button type="button" onClick={() => setTemporaryEffects([])} disabled={!temporaryEffects.length} className="text-xs text-zinc-500 hover:text-white disabled:opacity-30">Limpiar efectos</button>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <label className="text-sm text-zinc-400">❤️ HP actual
+              <input type="number" min="0" max={maxHp} value={currentHp} onChange={(e) => setCurrentHp(Math.min(maxHp, Math.max(0, Number(e.target.value) || 0)))} className="mt-2 h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" />
+            </label>
+            <label className="text-sm text-zinc-400">🔷 Mana actual
+              <input type="number" min="0" max={maxMana} value={currentMana} onChange={(e) => setCurrentMana(Math.min(maxMana, Math.max(0, Number(e.target.value) || 0)))} className="mt-2 h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" />
+            </label>
+          </div>
+          <p className="mt-3 text-xs text-zinc-500">Los cambios de HP y Mana se reflejan inmediatamente en el estado; no necesitas aplicar un efecto.</p>
+          <button type="button" onClick={copyEstadoToClipboard} className="mt-4 w-full rounded-xl border border-violet-700/60 px-4 py-3 text-sm font-semibold text-violet-200 transition hover:bg-violet-900/20">
+            {copied === "estado" ? "✓ Estado copiado" : "Copiar estado actual"}
+          </button>
+          <div className="mt-5 grid gap-3 md:grid-cols-[1fr_140px_120px_1fr_auto]">
+            <select value={effectTarget} onChange={(e) => setEffectTarget(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white">
+              {Object.entries(statLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+              {Object.entries(derivedLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+            <select value={effectMode} onChange={(e) => setEffectMode(e.target.value as "percent" | "flat")} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white">
+              <option value="percent">Porcentaje</option><option value="flat">Plano</option>
+            </select>
+            <input type="number" value={effectValue} onChange={(e) => setEffectValue(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" placeholder="Valor" />
+            <input type="text" value={effectLabel} onChange={(e) => setEffectLabel(e.target.value)} className="h-11 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" placeholder="Ej. Debuff del enemigo" />
+            <button type="button" onClick={addTemporaryEffect} disabled={!effectLabel.trim() || effectValue === "" || Number(effectValue) === 0} className="rounded-xl bg-violet-400 px-4 py-2 font-bold text-zinc-950 disabled:opacity-40">Aplicar</button>
+          </div>
+          {temporaryEffects.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {temporaryEffects.map((effect) => (
+                <div key={effect.id} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm">
+                  <span>{effect.label} · {effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value)} {statLabels[effect.target] ?? derivedLabels[effect.target] ?? effect.target} <span className="text-zinc-500">→ {formatNumber(applyTemporaryEffects(effect.target, character.effectiveStats?.[effect.target] ?? character.derivedStats?.[effect.target] ?? character.stats?.[effect.target as keyof typeof character.stats] ?? 0))}</span></span>
+                  <button type="button" onClick={() => removeTemporaryEffect(effect.id)} className="text-red-300 hover:text-red-200">Quitar</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {character.maze && (
+          <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-violet-300/70">Exploración activa</p>
+                <h2 className="mt-1 text-xl font-semibold">Está dentro de {character.maze.name}</h2>
+                <p className="mt-1 text-sm text-zinc-400">Habitación #{character.maze.roomNumber ?? "?"}</p>
+              </div>
+              <Link href={"/maze?mazeId=" + character.maze.id + "&characterId=" + character.id} className="rounded-lg border border-violet-400/30 px-4 py-2 text-sm text-violet-200 hover:bg-violet-400/10">
+                Ver laberinto
+              </Link>
+            </div>
+          </section>
+        )}
+
+        <section className="mt-10 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
             <h2 className="text-xl font-semibold">Objetos y efectos</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {character.combatEffects.map((effect) => (

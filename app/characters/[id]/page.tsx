@@ -1183,10 +1183,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar la configuración de combate.");
       setCharacter((current) => current ? { ...current, magicAttackType: data.magicAttackType, magicAttackDescription: data.magicAttackDescription ?? null, blockDefenseType: data.blockDefenseType, fieldDefenseType: data.fieldDefenseType, fieldDefenseDescription: data.fieldDefenseDescription ?? null } : current);
       setCombatMagicAttackType(data.magicAttackType ?? combatMagicAttackType);
-       setCombatMagicAttackDescription(data.magicAttackDescription ?? combatMagicAttackDescription);
+      setCombatMagicAttackDescription(data.magicAttackDescription ?? combatMagicAttackDescription);
       setCombatBlockDefenseType(data.blockDefenseType ?? combatBlockDefenseType);
       setCombatFieldDefenseType(data.fieldDefenseType ?? combatFieldDefenseType);
-       setCombatFieldDefenseDescription(data.fieldDefenseDescription ?? combatFieldDefenseDescription);
+      setCombatFieldDefenseDescription(data.fieldDefenseDescription ?? combatFieldDefenseDescription);
       setSuccess("Configuración de combate guardada.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar la configuración de combate.");

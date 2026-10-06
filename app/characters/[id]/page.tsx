@@ -1568,7 +1568,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         </div>
 
         {avatarFlairOpen && (
-          <div className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-[2px]" onMouseDown={() => setAvatarFlairOpen(false)}>
+          <div className="xahya-modal-overlay bg-black/55 backdrop-blur-[2px]" onMouseDown={() => setAvatarFlairOpen(false)}>
             <aside
               role="dialog"
               aria-modal="true"
@@ -1822,8 +1822,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         </section>
 
         {skillModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4">
-            <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-cyan-400/30 bg-zinc-950 p-6 shadow-2xl">
+          <div className="xahya-modal-overlay flex items-center justify-center bg-black/75 p-4">
+            <div className="xahya-modal-panel w-full max-w-3xl rounded-2xl border border-cyan-400/30 bg-zinc-950 p-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-bold">Crear habilidad</h2>

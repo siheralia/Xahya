@@ -24,7 +24,8 @@ model Character {
   user      User                @relation(fields:[userId], references:[id])
   skillCreationCredits Int     @default(0)
   magicAttackType String @default("CUT")
-  defenseType String @default("CONCENTRATED")
+  blockDefenseType String @default("CONCENTRATED")
+  fieldDefenseType String @default("CONCENTRATED")
   age       Int?
   gender    String?
   height    Int?

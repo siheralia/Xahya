@@ -39,7 +39,7 @@ export async function PATCH(
 
   if (Object.prototype.hasOwnProperty.call(body ?? {}, "magicAttackType") || Object.prototype.hasOwnProperty.call(body ?? {}, "defenseType")) {
     const magicAttackType = String(body?.magicAttackType ?? character.magicAttackType ?? "CUT").trim().toUpperCase();
-    const defenseType = String(body?.defenseType ?? character.defenseType ?? "CONCENTRATED").trim().toUpperCase();
+    const defenseType = String(body?.defenseType ?? (character as any).defenseType ?? "CONCENTRATED").trim().toUpperCase();
     if (!["CUT", "BLUNT", "PIERCE"].includes(magicAttackType)) return NextResponse.json({ error: "Tipo de ataque mágico inválido." }, { status: 400 });
     if (!["CONCENTRATED", "DISPERSED", "SOLID"].includes(defenseType)) return NextResponse.json({ error: "Tipo de defensa inválido." }, { status: 400 });
     await db.orm.public.Character.where({ id: characterId, userId: user.id }).update({ magicAttackType, defenseType });

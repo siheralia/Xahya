@@ -804,6 +804,15 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
     // Los efectos temporales sobre estadísticas base deben recalcular TODAS las
     // estadísticas derivadas usando las mismas fórmulas del sistema.
+    const equippedEffects = character.equipment.filter((entry) => entry.equipped).flatMap((entry) =>
+      (entry.item?.effects ?? []).map((effect) => ({
+        item: entry.item?.name ?? "Objeto",
+        type: effect.type,
+        stat: String((effect as { stat?: string }).stat ?? "").toUpperCase(),
+        value: Number(effect.value),
+      }))
+    );
+
     const temporaryBaseStats = {
       strength: applyTemporaryEffects("strength", character.effectiveStats?.strength ?? character.stats?.strength ?? 0),
       agility: applyTemporaryEffects("agility", character.effectiveStats?.agility ?? character.stats?.agility ?? 0),
@@ -956,6 +965,28 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         : formatNumber(base);
       return [multiplierText, karma !== 0 ? signed(karma) + " 🪷" : "", flat !== 0 ? signed(flat) : ""].filter(Boolean).join(" ");
     };
+    const temporaryBaseStats = {
+      strength: applyTemporaryEffects("strength", character.effectiveStats?.strength ?? character.stats?.strength ?? 0),
+      agility: applyTemporaryEffects("agility", character.effectiveStats?.agility ?? character.stats?.agility ?? 0),
+      constitution: applyTemporaryEffects("constitution", character.effectiveStats?.constitution ?? character.stats?.constitution ?? 0),
+      intelligence: applyTemporaryEffects("intelligence", character.effectiveStats?.intelligence ?? character.stats?.intelligence ?? 0),
+      wisdom: applyTemporaryEffects("wisdom", character.effectiveStats?.wisdom ?? character.stats?.wisdom ?? 0),
+      charisma: applyTemporaryEffects("charisma", character.effectiveStats?.charisma ?? character.stats?.charisma ?? 0),
+      spirit: applyTemporaryEffects("spirit", character.effectiveStats?.spirit ?? character.stats?.spirit ?? 0),
+      luck: applyTemporaryEffects("luck", character.effectiveStats?.luck ?? character.stats?.luck ?? 0),
+    };
+    const recalculatedDerived = applyDerivedItemEffects(
+      calculateDerivedStats(temporaryBaseStats),
+      character.equipment.filter((entry) => entry.equipped).flatMap((entry) =>
+        (entry.item?.effects ?? [])
+          .filter((effect) => effect.type === "stat_bonus" || effect.type === "stat_multiplier")
+          .map((effect) => ({
+            type: effect.type,
+            stat: String((effect as { stat?: string }).stat ?? "").toUpperCase(),
+            value: Number(effect.value),
+          }))
+      )
+    );
     const itemStatCode: Record<string, string> = {
       strength: "STR", agility: "AGI", constitution: "CON", intelligence: "INT",
       wisdom: "WIS", charisma: "CHA", spirit: "SPI", luck: "LCK",

@@ -288,6 +288,7 @@ export async function GET(
     canSeeCharacterId: user.role === "ADMIN",
     isAdmin: String(user.role) === "ADMIN",
     canManageCharacter: isManagementUser,
+    isOwner,
     canLevelUp: isOwner && Number(resources?.levelUpPoints ?? 0) > 0,
     maze: currentMaze ? {
       id: Number(currentMaze.id),

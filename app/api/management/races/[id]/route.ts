@@ -38,9 +38,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const hasPerkIds = body && Object.prototype.hasOwnProperty.call(body, "perkIds");
   let perkIds: number[] = [];
   if (hasPerkIds) {
-    perkIds = Array.isArray(body.perkIds) ? [...new Set(body.perkIds.map(Number).filter(Number.isInteger))] : [];
-    const validPerks = await Perk.where({ active: true }).all();
-    const validIds = new Set(validPerks.map((perk: any) => Number(perk.id)));
+    const rawPerkIds: unknown[] = Array.isArray(body.perkIds) ? body.perkIds : [];
+    perkIds = [...new Set(rawPerkIds.map((value: unknown) => Number(value)).filter((value: number) => Number.isInteger(value)))];
+    const validPerks: any[] = await Perk.where({ active: true }).all();
+    const validIds = new Set<number>(validPerks.map((perk: any) => Number(perk.id)));
     if (perkIds.some((perkId) => !validIds.has(perkId))) return NextResponse.json({ error: "Una o más perks no son válidas." }, { status: 400 });
   }
 

@@ -2001,7 +2001,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           </section>
 
           {racePickerOpen && !character.race && typeof document !== "undefined" && createPortal(
-            <div className="fixed inset-0 z-[100] flex min-h-screen items-center justify-center overflow-y-auto bg-black/90 px-4 py-6 backdrop-blur-md">
+            <div className="fixed inset-0 z-[1200] flex min-h-screen items-center justify-center overflow-y-auto bg-black/90 px-4 py-6 backdrop-blur-md">
               <div className="my-auto w-full max-w-6xl rounded-3xl border border-violet-400/30 bg-zinc-950 p-5 shadow-2xl sm:p-8">
                 <div className="text-center">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">Origen del personaje</p>

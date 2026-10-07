@@ -1029,8 +1029,33 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   temporaryAttackPercentages.reduce((sum, percent) => sum + percent / 100, 0)
                 : 1 + temporaryAttackPercentages.reduce((sum, percent) => sum + percent / 100, 0))
             : 1;
-          const valueWithEquipment = affectedByAttackMultiplier ? value * combinedExportAttackMultiplier : value;
-          const effectiveValue = applyTemporaryEffects(key, valueWithEquipment);
+
+          // Los ataques derivados dependen de estadísticas base. Si una de ellas
+          // tiene un efecto temporal, primero ajustamos la base del ataque y
+          // después aplicamos una sola vez los multiplicadores del ataque.
+          let attackBaseValue = value;
+          if (key === "physicalAttack") {
+            const permanentStrength = character.effectiveStats?.strength ?? character.stats?.strength ?? 0;
+            const permanentAgility = character.effectiveStats?.agility ?? character.stats?.agility ?? 0;
+            const temporaryStrength = applyTemporaryEffects("strength", permanentStrength);
+            const temporaryAgility = applyTemporaryEffects("agility", permanentAgility);
+            attackBaseValue += (temporaryStrength - permanentStrength) + (temporaryAgility - permanentAgility) / 4;
+          } else if (key === "magicAttack") {
+            const permanentIntelligence = character.effectiveStats?.intelligence ?? character.stats?.intelligence ?? 0;
+            const permanentSpirit = character.effectiveStats?.spirit ?? character.stats?.spirit ?? 0;
+            const temporaryIntelligence = applyTemporaryEffects("intelligence", permanentIntelligence);
+            const temporarySpirit = applyTemporaryEffects("spirit", permanentSpirit);
+            attackBaseValue += (temporaryIntelligence - permanentIntelligence) + (temporarySpirit - permanentSpirit);
+          }
+
+          const valueWithEquipment = affectedByAttackMultiplier
+            ? attackBaseValue * combinedExportAttackMultiplier
+            : value;
+          // Los porcentajes temporales del ataque ya están incluidos arriba;
+          // no deben volver a pasar por applyTemporaryEffects.
+          const effectiveValue = affectedByAttackMultiplier
+            ? valueWithEquipment
+            : applyTemporaryEffects(key, valueWithEquipment);
           const formula = affectedByAttackMultiplier && (equipmentAttackFactors.length || temporaryAttackPercentages.length)
             ? getAttackExportFormula(value, equipmentAttackFactors, temporaryAttackPercentages)
             : getDerivedFormula(key, value);

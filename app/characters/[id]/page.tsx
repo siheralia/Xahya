@@ -769,6 +769,46 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
   function buildFichaWhatsApp(character: Character) {
+    const itemStatCode: Record<string, string> = {
+      strength: "STR", agility: "AGI", constitution: "CON", intelligence: "INT",
+      wisdom: "WIS", charisma: "CHA", spirit: "SPI", luck: "LCK",
+    };
+
+    const signed = (value: number) => (value >= 0 ? "+" : "") + formatNumber(value);
+
+    // En la ficha no mostramos la fórmula interna de cálculo. Solo mostramos
+    // la composición de buffs cuando realmente existe algo relevante.
+    const buffFormula = (base: number, multipliers: number[], karma: number, flat: number) => {
+      const multiplierParts = multipliers
+        .map((value) => value - 1)
+        .filter((value) => Math.abs(value) > 0.000001);
+
+      const parts: string[] = [];
+      if (multiplierParts.length) {
+        parts.push(
+          formatNumber(base) + " × (1" +
+          multiplierParts.map((value) => " " + signed(value)).join("") +
+          ")"
+        );
+      } else {
+        parts.push(formatNumber(base));
+      }
+
+      if (karma !== 0) parts.push(signed(karma) + " 🪷");
+      if (flat !== 0) parts.push(signed(flat));
+
+      const hasRelevantBuff = multiplierParts.length > 0 || karma !== 0 || flat !== 0;
+      return hasRelevantBuff ? parts.join(" ") : "";
+    };
+
+    const getEquippedStatEffects = (stat: string) =>
+      character.equipment.filter((entry) => entry.equipped).flatMap((entry) =>
+        (entry.item?.effects ?? []).filter((effect) =>
+          (effect as { stat?: string }).stat === itemStatCode[stat] &&
+          (effect.type === "stat_bonus" || effect.type === "stat_multiplier")
+        )
+      );
+
     const lines = [
       "*" + character.name + (character.flair ? " ⟨" + character.flair + "⟩" : "") + "*",
       "",
@@ -783,98 +823,84 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             const breakdown = character.statBreakdown?.[key];
             const base = breakdown?.base ?? character.stats?.[key as keyof typeof character.stats] ?? 0;
             const effective = breakdown?.value ?? character.effectiveStats?.[key] ?? base;
-            const multiplier = breakdown?.combinedMultiplier ?? 1;
-            const objectBonus = breakdown?.objectFlatBonus ?? 0;
-            const karmaBonus = breakdown?.karmaBonus ?? 0;
-            const itemStatCode: Record<string, string> = { strength: "STR", agility: "AGI", constitution: "CON", intelligence: "INT", wisdom: "WIS", charisma: "CHA", spirit: "SPI", luck: "LCK" };
-            const itemBonuses = character.equipment.filter((entry) => entry.equipped).flatMap((entry) =>
-              (entry.item?.effects ?? [])
-                .filter((effect) => (effect as { stat?: string }).stat === itemStatCode[key] && (effect.type === "stat_bonus" || effect.type === "stat_multiplier"))
-                .map((effect) => effect.type === "stat_multiplier"
-                  ? "×" + formatNumber(Number(effect.value) / 100) + " (" + (entry.item?.name ?? "Objeto") + ")"
-                  : (Number(effect.value) > 0 ? "+" : "") + formatNumber(Number(effect.value)) + " (" + (entry.item?.name ?? "Objeto") + ")")
-            );
-            const externalObjectBonus = objectBonus - character.equipment.filter((entry) => entry.equipped).flatMap((entry) => entry.item?.effects ?? [])
-              .filter((effect) => (effect as { stat?: string }).stat === itemStatCode[key] && effect.type === "stat_bonus")
+            const itemEffects = getEquippedStatEffects(key);
+            const itemFlat = itemEffects
+              .filter((effect) => effect.type === "stat_bonus")
               .reduce((sum, effect) => sum + Number(effect.value), 0);
-            const multiplierText = breakdown?.multipliers?.length ? " ×" + breakdown.multipliers.map((value) => formatNumber(value)).join(" ×") + " = ×" + formatNumber(multiplier) : "";
-            const bonuses = [
-              ...itemBonuses,
-              externalObjectBonus !== 0 ? (externalObjectBonus > 0 ? "+" : "") + formatNumber(externalObjectBonus) : "",
-              karmaBonus !== 0 ? (karmaBonus > 0 ? "+" : "") + formatNumber(karmaBonus) + " 🪷" : "",
-            ].filter(Boolean);
-            return "• " + label + ": " + formatNumber(effective) + " [" + formatNumber(base) + (multiplierText || bonuses.length ? " " + [...(multiplierText ? [multiplierText] : []), ...bonuses].join(" ") : "") + "]";
+            const itemMultipliers = itemEffects
+              .filter((effect) => effect.type === "stat_multiplier")
+              .map((effect) => 1 + Number(effect.value) / 100);
+
+            const extraFlat = (breakdown?.objectFlatBonus ?? 0) - itemFlat;
+            const multiplierList = [
+              ...(breakdown?.multipliers ?? []),
+              ...itemMultipliers,
+            ];
+            const formula = buffFormula(
+              base,
+              multiplierList,
+              breakdown?.karmaBonus ?? 0,
+              (breakdown?.objectFlatBonus ?? 0)
+            );
+
+            return "• " + label + ": " + formatNumber(effective) + (formula ? " [" + formula + "]" : "");
           }).join("\n")
         : "",
       "*ESTADÍSTICAS DERIVADAS*",
       character.derivedStats
         ? Object.entries(character.derivedStats).map(([key, value]) => {
-            const stat = (name: string) => {
-              const breakdown = character.statBreakdown?.[name];
-              const base = breakdown?.base ?? character.stats?.[name as keyof typeof character.stats] ?? 0;
-              const itemCode: Record<string, string> = { strength: "STR", agility: "AGI", constitution: "CON", intelligence: "INT", wisdom: "WIS", charisma: "CHA", spirit: "SPI", luck: "LCK" };
-              const itemParts = character.equipment.filter((entry) => entry.equipped).flatMap((entry) =>
-                (entry.item?.effects ?? []).filter((effect) => (effect as { stat?: string }).stat === itemCode[name] && (effect.type === "stat_bonus" || effect.type === "stat_multiplier"))
-                  .map((effect) => effect.type === "stat_multiplier"
-                    ? "×" + formatNumber(Number(effect.value) / 100) + " (" + (entry.item?.name ?? "Objeto") + ")"
-                    : (Number(effect.value) >= 0 ? "+" : "") + formatNumber(Number(effect.value)) + " (" + (entry.item?.name ?? "Objeto") + ")")
-              );
-              const itemFlat = character.equipment.filter((entry) => entry.equipped).flatMap((entry) => entry.item?.effects ?? [])
-                .filter((effect) => (effect as { stat?: string }).stat === itemCode[name] && effect.type === "stat_bonus")
-                .reduce((sum, effect) => sum + Number(effect.value), 0);
-              const objectExtra = (breakdown?.objectFlatBonus ?? 0) - itemFlat;
-              const parts = [
-                formatNumber(base),
-                ...itemParts,
-                objectExtra !== 0 ? (objectExtra > 0 ? "+" : "") + formatNumber(objectExtra) : "",
-                breakdown?.karmaBonus ? ((breakdown.karmaBonus > 0 ? "+" : "") + formatNumber(breakdown.karmaBonus) + " 🪷") : "",
-              ].filter(Boolean);
-              const multiplier = breakdown?.combinedMultiplier ?? 1;
-              return "(" + parts.join(" ") + (multiplier !== 1 ? ")×" + formatNumber(multiplier) : ")");
-            };
             const directEffects = character.equipment.filter((entry) => entry.equipped).flatMap((entry) =>
               (entry.item?.effects ?? []).filter((effect) => {
                 const target = String((effect as { stat?: string }).stat ?? "").toUpperCase();
-                const aliases: Record<string,string> = { HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",PHYSICAL_DEF:"physicalDefense",DEF:"physicalDefense",DEFENSE:"physicalDefense",MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",CRITICAL:"critical",DISCOVERY:"discovery",MIRACLE:"miracle",INTIMIDATION:"intimidation",CONQUEST:"conquest",RACE:"race",DODGE:"dodge",STEALTH:"stealth",DETECTION:"detection" };
+                const aliases: Record<string, string> = {
+                  HP: "maxHp", MAX_HP: "maxHp", MANA: "maxMana", MAX_MANA: "maxMana",
+                  PHYS_ATK: "physicalAttack", PHYSICAL_ATTACK: "physicalAttack",
+                  MAGIC_ATK: "magicAttack", PHYSICAL_DEF: "physicalDefense",
+                  DEF: "physicalDefense", DEFENSE: "physicalDefense", MAG_DEF: "magicDefense",
+                  MAGIC_DEFENSE: "magicDefense", PRECISION: "precision", CRITICAL: "critical",
+                  DISCOVERY: "discovery", MIRACLE: "miracle", INTIMIDATION: "intimidation",
+                  CONQUEST: "conquest", RACE: "race", DODGE: "dodge", STEALTH: "stealth",
+                  DETECTION: "detection",
+                };
                 return aliases[target] === key && (effect.type === "stat_bonus" || effect.type === "stat_multiplier");
-              }).map((effect) => ({
-                text: effect.type === "stat_multiplier" ? "×" + formatNumber(Number(effect.value) / 100) : (Number(effect.value) >= 0 ? "+" : "") + formatNumber(Number(effect.value)),
-                source: entry.item?.name ?? "Objeto",
-              }))
+              })
             );
-            const perkEffects = (character.perkEffects ?? []).filter((effect) => String(effect.type) === "RESOURCE_BONUS" && ((key === "maxHp" && String(effect.target) === "HP") || (key === "maxMana" && String(effect.target) === "MANA")));
-            const formulas: Record<string,string> = {
-              maxHp: "10 + 2×" + stat("constitution"),
-              maxMana: "5 + " + stat("intelligence") + " + " + stat("spirit"),
-              physicalAttack: stat("strength") + " + " + stat("agility") + "/4",
-              magicAttack: stat("intelligence") + " + " + stat("spirit"),
-              physicalDefense: stat("constitution") + " + " + stat("agility") + "/4",
-              magicDefense: stat("spirit") + " + " + stat("wisdom"),
-              precision: stat("agility") + "/2 + " + stat("intelligence") + "/2 + " + stat("wisdom") + "/2 + " + stat("spirit") + "/2 + " + stat("luck") + "/3",
-              critical: stat("luck") + "×2 + Precisión/10 + " + stat("wisdom") + "/2",
-              discovery: stat("luck") + " + " + stat("wisdom"),
-              miracle: stat("luck") + " + " + stat("spirit") + "/2 + " + stat("charisma") + "/2",
-              intimidation: stat("charisma") + " + " + stat("strength"),
-              conquest: stat("charisma") + " + " + stat("luck"),
-              race: "mín(" + stat("agility") + ", " + stat("strength") + ") + " + stat("constitution") + "/4",
-              dodge: stat("luck") + "×3 + " + stat("agility") + " + " + stat("wisdom") + "/2",
-              stealth: stat("agility") + " + " + stat("intelligence") + "/2 - " + stat("spirit") + "/10",
-              detection: stat("wisdom") + " + " + stat("luck") + "/3",
-            };
+
+            const directFlat = directEffects
+              .filter((effect) => effect.type === "stat_bonus")
+              .reduce((sum, effect) => sum + Number(effect.value), 0);
+            const directMultipliers = directEffects
+              .filter((effect) => effect.type === "stat_multiplier")
+              .map((effect) => 1 + Number(effect.value) / 100);
+
+            const perkEffects = (character.perkEffects ?? []).filter((effect) =>
+              String(effect.type) === "RESOURCE_BONUS" &&
+              ((key === "maxHp" && String(effect.target) === "HP") || (key === "maxMana" && String(effect.target) === "MANA"))
+            );
+            const perkFlat = perkEffects.reduce((sum, effect) => sum + Number(effect.value ?? 0), 0);
+
             const attackMultiplier = (key === "physicalAttack" || key === "magicAttack") ? allAttackMultiplier : 1;
             const attackParts = attackMultiplier !== 1
-              ? character.equipment.filter((entry) => entry.equipped).flatMap((entry) => (entry.item?.effects ?? [])
-                  .filter((effect) => ((effect as { stat?: string }).stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && Number(effect.value) / 100 !== 1)
-                  .map((effect) => "×" + formatNumber(Number(effect.value) / 100) + " (" + (entry.item?.name ?? "Objeto") + ")"))
+              ? character.equipment.filter((entry) => entry.equipped).flatMap((entry) =>
+                  (entry.item?.effects ?? [])
+                    .filter((effect) => ((effect as { stat?: string }).stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && Number(effect.value) / 100 !== 1)
+                    .map((effect) => 1 + (Number(effect.value) / 100 - 1))
+                )
               : [];
-            const suffix = [
-              ...directEffects.map((effect) => effect.text + " (" + effect.source + ")"),
-              ...perkEffects.map((effect) => (Number(effect.value) >= 0 ? "+" : "") + formatNumber(Number(effect.value)) + " (" + (effect.perkName ?? "Perk") + ")"),
-              ...attackParts,
-            ].filter(Boolean);
+
+            const multiplierList = [...directMultipliers, ...attackParts];
+            const flat = directFlat + perkFlat;
+            // El valor actual ya contiene la fórmula base; para exportar solo la
+            // fórmula de buffs despejamos el valor previo a los buffs directos.
+            const combined = multiplierList.reduce((sum, multiplier) => sum + (multiplier - 1), 0);
+            const buffedBase = combined !== 0
+              ? (value - flat) / (1 + combined)
+              : value - flat;
+            const formula = buffFormula(buffedBase, multiplierList, 0, flat);
+
             return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(
               (key === "physicalAttack" || key === "magicAttack") ? value * attackMultiplier : value
-            ) + " [" + (formulas[key] ?? formatNumber(value)) + (suffix.length ? " " + suffix.join(" ") : "") + "]";
+            ) + (formula ? " [" + formula + "]" : "");
           }).join("\n")
         : "",
       "*PERKS*",
@@ -888,53 +914,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             const categoryLabels: Record<string, string> = { OFFENSIVE: "Ofensiva", PASSIVE: "Pasiva", SUPPORT: "Soporte", UTILITY: "Utilidad" };
             const targetLabels: Record<string, string> = Object.fromEntries(skillTargets.map(([value, label]) => [value, label]));
             const effectLines = skill.effect.map((effect) => {
-              const target = effect.target ? (targetLabels[effect.target] ?? effect.target) : "";
-              if (effect.type === "NARRATIVE") {
-                return effect.description ? "  " + effect.description : "";
-              }
-              if (effect.type === "DAMAGE_MULTIPLIER") {
-                return "  Daño: " + target + " ×" + formatNumber(Number(effect.value ?? 100) / 100);
-              }
-              if (effect.type === "STAT_MULTIPLIER") {
-                return "  " + target + " ×" + formatNumber(Number(effect.value ?? 100) / 100);
-              }
-              if (effect.type === "STAT_BONUS") {
-                return "  " + target + " " + (Number(effect.value ?? 0) >= 0 ? "+" : "") + formatNumber(Number(effect.value ?? 0));
-              }
-              return "";
-            }).filter(Boolean);
-            return [
-              "• *" + skill.name + "* — " + (categoryLabels[skill.category] ?? skill.category) + " | Coste: " + formatNumber(skill.cost) + (Number(skill.maintenanceCost ?? 0) > 0 ? " | Mantenimiento/turno: " + formatNumber(Number(skill.maintenanceCost)) : ""),
-              ...(skill.description ? ["  " + skill.description] : []),
-              ...(skill.duration ? ["  Duración: " + skill.duration] : []),
-              ...(skill.areaOfEffect ? ["  Área: " + skill.areaOfEffect] : []),
-              ...(skill.speed ? ["  Velocidad: " + skill.speed] : []),
-              ...(skill.cooldown ? ["  Cooldown: " + skill.cooldown] : []),
-              ...(skill.condition ? ["  Condición: " + skill.condition] : []),
-              ...effectLines,
-            ];
-          }).join("\n")
-        : "• Ninguna",
-      "",
-      "*INVENTARIO*",
-      character.equipment.length
-        ? character.equipment.map((entry) =>
-            "• " + (entry.item?.name ?? "Objeto") + " ×" + entry.quantity +
-            (entry.equipped ? " [Equipado" + (entry.equippedSlot ? ": " + (equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot) : "") + "]" : "") +
-            (entry.flair ? " — " + entry.flair : "")
-          ).join("\n")
-        : "• Vacío",
-      "",
-      "*BONOS DE EQUIPO*",
-      character.equipment.filter((entry) => entry.equipped && (entry.item?.effects?.length ?? 0) > 0).flatMap((entry) =>
-        (entry.item?.effects ?? []).map((effect) => "• " + (entry.item?.name ?? "Objeto") + ": " + (effect.description ?? effect.type + " " + effect.value))
-      ).join("\n") || "• Ninguno",
-      "",
-      "*RECURSOS PERMANENTES*",
-      character.resources ? "• Karma: " + character.resources.karma + "\n• Dinero: " + character.resources.money : "",
-    ];
-    return lines.filter((line, index) => !(line === "" && lines[index - 1] === "")).join("\n");
-  }
 
   function buildEstadoWhatsApp(character: Character) {
     const lines = [

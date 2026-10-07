@@ -5,6 +5,7 @@ import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/deri
 import { getCombatEffects } from "@/lib/combat/effects";
 import { getPerkEffects, awardCreationPerks } from "@/lib/perks";
 import { recordAuditEvent } from "@/lib/audit";
+import { getRaceImageUrl } from "@/lib/race-image";
 
 export async function GET(
   request: Request,
@@ -268,6 +269,7 @@ export async function GET(
     name: String(race.name),
     description: race.description ?? null,
     imagePath: race.imagePath ?? null,
+    imageUrl: await getRaceImageUrl(race.imagePath ? String(race.imagePath) : null),
     perkIds: raceLinks.map((link:any) => Number(link.perkId)),
   } : null;
   const normalizedCharacter = { ...character, avatarUrl, themePalette: (character as any).themePalette ?? null, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase(), race: normalizedRace };

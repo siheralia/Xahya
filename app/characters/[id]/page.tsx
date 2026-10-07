@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { CharacterSilhouette, getCharacterSilhouetteSvg } from "@/components/CharacterSilhouette";
+import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
 
 type PropertyItem = { id:number; itemId:number; businessId:number|null; purchasePrice:number; item:{ id:number; name:string; description:string|null; imageUrl:string|null }|null };
 type EquipmentItem = {
@@ -801,8 +802,27 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         )
       );
 
+    // Los efectos temporales sobre estadísticas base deben recalcular TODAS las
+    // estadísticas derivadas usando las mismas fórmulas del sistema.
+    const temporaryBaseStats = {
+      strength: applyTemporaryEffects("strength", character.effectiveStats?.strength ?? character.stats?.strength ?? 0),
+      agility: applyTemporaryEffects("agility", character.effectiveStats?.agility ?? character.stats?.agility ?? 0),
+      constitution: applyTemporaryEffects("constitution", character.effectiveStats?.constitution ?? character.stats?.constitution ?? 0),
+      intelligence: applyTemporaryEffects("intelligence", character.effectiveStats?.intelligence ?? character.stats?.intelligence ?? 0),
+      wisdom: applyTemporaryEffects("wisdom", character.effectiveStats?.wisdom ?? character.stats?.wisdom ?? 0),
+      charisma: applyTemporaryEffects("charisma", character.effectiveStats?.charisma ?? character.stats?.charisma ?? 0),
+      spirit: applyTemporaryEffects("spirit", character.effectiveStats?.spirit ?? character.stats?.spirit ?? 0),
+      luck: applyTemporaryEffects("luck", character.effectiveStats?.luck ?? character.stats?.luck ?? 0),
+    };
+    const recalculatedDerived = applyDerivedItemEffects(
+      calculateDerivedStats(temporaryBaseStats),
+      equippedEffects
+        .filter((effect) => effect.type === "stat_bonus" || effect.type === "stat_multiplier")
+        .map((effect) => ({ type: effect.type, stat: effect.stat, value: effect.value }))
+    );
+
     const lines = [
-      "*" + character.name + (character.flair ? " ⟨" + character.flair + "⟩" : "") + "*",
+      "*" + character.name + (character.flair ? " ⟨" + character.flair + "⟩" : ""),
       "",
       "*DATOS DEL PERSONAJE*",
       character.age !== null ? "• Edad: " + character.age + " años" : "",
@@ -1011,8 +1031,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       }),
       ...(character.derivedStats ? [
         "",
-        ...Object.entries(character.derivedStats).map(([key, value]) => {
+        ...Object.entries(character.derivedStats).map(([key, serverValue]) => {
           const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
+          // Recalculamos desde las estadísticas base temporales en vez de partir
+          // del valor derivado permanente del servidor.
+          const value = recalculatedDerived[key as keyof typeof recalculatedDerived] ?? serverValue;
           const temporaryAttackPercentages = affectedByAttackMultiplier
             ? temporaryEffects
                 .filter((effect) => effect.target === key && effect.mode === "percent")
@@ -1030,26 +1053,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 : 1 + temporaryAttackPercentages.reduce((sum, percent) => sum + percent / 100, 0))
             : 1;
 
-          // Los ataques derivados dependen de estadísticas base. Si una de ellas
-          // tiene un efecto temporal, primero ajustamos la base del ataque y
-          // después aplicamos una sola vez los multiplicadores del ataque.
-          let attackBaseValue = value;
-          if (key === "physicalAttack") {
-            const permanentStrength = character.effectiveStats?.strength ?? character.stats?.strength ?? 0;
-            const permanentAgility = character.effectiveStats?.agility ?? character.stats?.agility ?? 0;
-            const temporaryStrength = applyTemporaryEffects("strength", permanentStrength);
-            const temporaryAgility = applyTemporaryEffects("agility", permanentAgility);
-            attackBaseValue += (temporaryStrength - permanentStrength) + (temporaryAgility - permanentAgility) / 4;
-          } else if (key === "magicAttack") {
-            const permanentIntelligence = character.effectiveStats?.intelligence ?? character.stats?.intelligence ?? 0;
-            const permanentSpirit = character.effectiveStats?.spirit ?? character.stats?.spirit ?? 0;
-            const temporaryIntelligence = applyTemporaryEffects("intelligence", permanentIntelligence);
-            const temporarySpirit = applyTemporaryEffects("spirit", permanentSpirit);
-            attackBaseValue += (temporaryIntelligence - permanentIntelligence) + (temporarySpirit - permanentSpirit);
-          }
-
           const valueWithEquipment = affectedByAttackMultiplier
-            ? attackBaseValue * combinedExportAttackMultiplier
+            ? value * combinedExportAttackMultiplier
             : value;
           // Los porcentajes temporales del ataque ya están incluidos arriba;
           // no deben volver a pasar por applyTemporaryEffects.

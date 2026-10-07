@@ -100,7 +100,9 @@ type Character = {
   canSeeCharacterId: boolean;
   isAdmin: boolean;
   canManageCharacter: boolean;
+  isOwner: boolean;
   canLevelUp: boolean;
+  race: { id:number; name:string; description:string|null; imagePath:string|null; perkIds:number[] } | null;
   maze: { id: number; name: string; roomId: number; roomNumber: number | null } | null;
 };
 
@@ -506,6 +508,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [avatarFlairOpen, setAvatarFlairOpen] = useState(false);
   const [combatPanelOpen, setCombatPanelOpen] = useState(false);
   const [perkRecoveryBusy, setPerkRecoveryBusy] = useState(false);
+  const [races, setRaces] = useState<Array<{ id:number; name:string; description:string|null; imagePath:string|null; perks:Array<{id:number;name:string;description:string|null}> }>>([]);
+  const [racePickerOpen, setRacePickerOpen] = useState(false);
+  const [raceSaving, setRaceSaving] = useState(false);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [pendingSkills, setPendingSkills] = useState<Skill[]>([]);
   const [skillStates, setSkillStates] = useState<SkillState[]>([]);
@@ -662,6 +667,41 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }, [character?.avatarUrl]);
 
   const creationPerkCount = character?.perks?.filter((perk: any) => String(perk.source ?? "") === "CREATION_ROLL").length ?? 0;
+
+  useEffect(() => {
+    if (!character || character.race || (!character.isOwner && !character.canManageCharacter)) return;
+    fetch("/api/races", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setRaces(Array.isArray(data.races) ? data.races : []);
+      })
+      .catch(() => setRaces([]));
+  }, [character?.id, character?.race, character?.canManageCharacter]);
+
+  async function chooseExistingCharacterRace(raceId:number) {
+    if (!character || raceSaving || character.race) return;
+    setRaceSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/characters/" + character.id + "/race", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ raceId }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo elegir la raza.");
+      const refresh = await fetch("/api/characters/" + character.id, { cache: "no-store" });
+      if (!refresh.ok) throw new Error("La raza se guardó, pero no se pudo actualizar la ficha.");
+      setCharacter(await refresh.json());
+      setRacePickerOpen(false);
+      setSuccess("Raza elegida correctamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo elegir la raza.");
+    } finally {
+      setRaceSaving(false);
+    }
+  }
 
   async function recoverCreationPerks() {
     if (!character || creationPerkCount >= 3 || perkRecoveryBusy) return;
@@ -1946,6 +1986,37 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   Cerrar
                 </button>
               </div>
+          <section className="mt-10 rounded-2xl border border-violet-400/20 bg-violet-400/5 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div><h2 className="text-xl font-semibold">Raza</h2><p className="mt-1 text-sm text-zinc-500">La raza es permanente y otorga las perks configuradas para ella.</p></div>
+              {!character.race && character.isOwner && <button type="button" onClick={() => setRacePickerOpen(true)} className="rounded-lg bg-violet-400 px-4 py-2 font-semibold text-zinc-950">Elegir raza</button>}
+            </div>
+            {character.race ? (
+              <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 sm:flex-row">
+                <div className="h-32 w-full overflow-hidden rounded-xl bg-zinc-950 sm:w-44">{character.race.imagePath && <img src={character.race.imagePath} alt={character.race.name} className="h-full w-full object-cover" />}</div>
+                <div><h3 className="text-2xl font-bold">{character.race.name}</h3>{character.race.description&&<p className="mt-2 text-sm text-zinc-400">{character.race.description}</p>}</div>
+              </div>
+            ) : <p className="mt-5 text-sm text-zinc-500">Todavía no has elegido una raza.</p>}
+          </section>
+
+          {racePickerOpen && !character.race && (
+            <div className="xahya-modal-overlay flex items-center justify-center bg-black/80 px-4 py-8 backdrop-blur-sm">
+              <div className="w-full max-w-5xl rounded-3xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl sm:p-8">
+                <div className="text-center"><p className="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">Origen del personaje</p><h2 className="mt-2 text-3xl font-bold">Elige tu raza</h2><p className="mt-2 text-sm text-zinc-500">La elección es permanente.</p></div>
+                <div className="mt-7 flex snap-x snap-mandatory gap-5 overflow-x-auto px-3 pb-5 pt-3">
+                  {races.map((race,index)=><article key={race.id} className={`w-[min(78vw,330px)] shrink-0 snap-center overflow-hidden rounded-3xl border border-violet-400/25 bg-zinc-900 shadow-2xl transition-transform ${index%3===0?"-rotate-2":index%3===1?"translate-y-2":"rotate-2"}`}>
+                    <div className="aspect-[4/3] bg-zinc-950">{race.imagePath?<img src={race.imagePath} alt={race.name} className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-zinc-700">Sin imagen</div>}</div>
+                    <div className="p-5"><h3 className="text-2xl font-bold">{race.name}</h3>{race.description&&<p className="mt-2 text-sm leading-6 text-zinc-400">{race.description}</p>}
+                      <div className="mt-4 space-y-2">{race.perks.map(perk=><div key={perk.id} className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3"><p className="font-semibold">{perk.name}</p>{perk.description&&<p className="mt-1 text-xs text-zinc-500">{perk.description}</p>}</div>)}</div>
+                      <button type="button" onClick={()=>chooseExistingCharacterRace(race.id)} disabled={raceSaving} className="mt-5 w-full rounded-xl bg-violet-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-40">{raceSaving?"Eligiendo...":"Elegir"}</button>
+                    </div>
+                  </article>)}
+                </div>
+                <button type="button" onClick={()=>setRacePickerOpen(false)} className="mt-2 w-full rounded-xl border border-zinc-700 px-5 py-3 text-zinc-300">Cancelar</button>
+              </div>
+            </div>
+          )}
+
           <section className="mt-10 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div><h2 className="text-xl font-semibold">Perks</h2><p className="mt-1 text-sm text-zinc-500">Beneficios permanentes obtenidos por el personaje.</p></div>
@@ -1969,7 +2040,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
                   <p className="font-semibold">{entry.perk?.name ?? "Perk"}</p>
                   {entry.perk?.description && <p className="mt-2 text-sm text-zinc-400">{entry.perk.description}</p>}
-                  <p className="mt-2 text-xs text-zinc-600">{entry.source === "CREATION_ROLL" ? "Obtenido al crear personaje" : "Otorgado por gestión"}</p>
+                  <p className="mt-2 text-xs text-zinc-600">{entry.source === "CREATION_ROLL" ? "Obtenido al crear personaje" : entry.source === "RACE" ? "Otorgado por raza" : "Otorgado por gestión"}</p>
                 </div>
               ))}
             </div>

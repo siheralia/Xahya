@@ -52,6 +52,10 @@ export async function GET(
     .where({ characterId })
     .first();
 
+  const Race = (db.orm.public as any).Race;
+  const RacePerk = (db.orm.public as any).RacePerk;
+  const race = Race && character.raceId != null ? await Race.where({ id: Number(character.raceId) }).first() : null;
+  const raceLinks = RacePerk && character.raceId != null ? await RacePerk.where({ raceId: Number(character.raceId) }).all() : [];
   const CharacterPerk = (db.orm.public as any).CharacterPerk;
   const Perk = (db.orm.public as any).Perk;
   const characterPerks = CharacterPerk ? await CharacterPerk.where({ characterId }).all() : [];
@@ -259,7 +263,14 @@ export async function GET(
     return { id: Number(property.id), itemId: Number(property.itemId), businessId: property.businessId == null ? null : Number(property.businessId), purchasePrice: Number(property.purchasePrice), item: item ? { ...item, imageUrl } : null };
   }));
 
-  const normalizedCharacter = { ...character, avatarUrl, themePalette: (character as any).themePalette ?? null, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase() };
+  const normalizedRace = race ? {
+    id: Number(race.id),
+    name: String(race.name),
+    description: race.description ?? null,
+    imagePath: race.imagePath ?? null,
+    perkIds: raceLinks.map((link:any) => Number(link.perkId)),
+  } : null;
+  const normalizedCharacter = { ...character, avatarUrl, themePalette: (character as any).themePalette ?? null, gender: character.gender == null ? null : String(character.gender).trim().toLowerCase(), race: normalizedRace };
 
   return NextResponse.json({
     ...normalizedCharacter,
@@ -277,6 +288,7 @@ export async function GET(
     canSeeCharacterId: user.role === "ADMIN",
     isAdmin: String(user.role) === "ADMIN",
     canManageCharacter: isManagementUser,
+    isOwner,
     canLevelUp: isOwner && Number(resources?.levelUpPoints ?? 0) > 0,
     maze: currentMaze ? {
       id: Number(currentMaze.id),

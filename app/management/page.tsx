@@ -78,6 +78,9 @@ export default function ManagementPage() {
   const [grantFlair, setGrantFlair] = useState("");
   const [grantSaving, setGrantSaving] = useState(false);
   const [statsModalOpen, setStatsModalOpen] = useState(false);
+  const [raceOptions, setRaceOptions] = useState<Array<{id:number;name:string}>>([]);
+  const [characterRaceId, setCharacterRaceId] = useState("");
+  const [raceSaving, setRaceSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/management/characters")
@@ -131,6 +134,16 @@ export default function ManagementPage() {
   }
 
   useEffect(() => {
+    fetch("/api/races", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setRaceOptions((data.races ?? []).map((race: any) => ({ id: Number(race.id), name: String(race.name) })));
+      })
+      .catch(() => setRaceOptions([]));
+  }, []);
+
+  useEffect(() => {
     fetch("/api/management/grant-item")
       .then(async (response) => {
         if (!response.ok) throw new Error();
@@ -156,6 +169,39 @@ export default function ManagementPage() {
       .catch(() => setEquipment([]))
       .finally(() => setEquipmentLoading(false));
   }, [characterId, isAdmin, isGM]);
+
+  useEffect(() => {
+    if (!(isAdmin || isGM) || !characterId) {
+      setCharacterRaceId("");
+      return;
+    }
+    fetch("/api/characters/" + characterId, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setCharacterRaceId(data.race?.id ? String(data.race.id) : "");
+      })
+      .catch(() => setCharacterRaceId(""));
+  }, [characterId, isAdmin, isGM]);
+
+  async function changeCharacterRace() {
+    if (!characterId || !characterRaceId || raceSaving) return;
+    setRaceSaving(true); setError(""); setSuccess("");
+    try {
+      const response = await fetch("/api/characters/" + characterId + "/race", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ raceId: Number(characterRaceId) }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo cambiar la raza.");
+      setSuccess("Raza actualizada y perks de raza sincronizadas.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar la raza.");
+    } finally {
+      setRaceSaving(false);
+    }
+  }
 
   async function grantItem() {
     if (!characterId || !grantItemId) {
@@ -548,6 +594,20 @@ export default function ManagementPage() {
               <button type="button" onClick={() => setGlobalOpen(true)} className="rounded-lg bg-amber-400 px-5 py-3 font-semibold text-zinc-950 transition hover:bg-amber-300">
                 Dar a todos
               </button>
+            </div>
+          </section>
+        )}
+
+        {(isAdmin || isGM) && characterId && (
+          <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-950/10 p-6">
+            <h2 className="text-xl font-semibold">Raza del personaje</h2>
+            <p className="mt-1 text-sm text-zinc-500">Cambiar la raza elimina solo las perks cuyo origen sea la raza anterior y conserva las obtenidas por creación u otras fuentes.</p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <select value={characterRaceId} onChange={(event) => setCharacterRaceId(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white">
+                <option value="">Selecciona una raza</option>
+                {raceOptions.map((race) => <option key={race.id} value={race.id}>{race.name}</option>)}
+              </select>
+              <button type="button" onClick={changeCharacterRace} disabled={!characterRaceId || raceSaving} className="rounded-lg bg-violet-400 px-5 py-3 font-semibold text-zinc-950 disabled:opacity-40">{raceSaving ? "Aplicando..." : "Cambiar raza"}</button>
             </div>
           </section>
         )}

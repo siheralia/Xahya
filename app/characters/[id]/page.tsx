@@ -775,13 +775,13 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     };
     const signed = (value: number) => (value >= 0 ? "+" : "") + formatNumber(value);
 
-    // Exporta únicamente la composición de buffs relevante:
-    // base × (1 + suma de modificadores %) + karma + bonos planos.
+    // Los multiplicadores se exportan como factores reales y se SUMAN:
+    // 2 + 2 = 4, por lo que una base de 21.5 queda como 21.5 × (2 + 2).
     const buffFormula = (base: number, multipliers: number[], karma: number, flat: number) => {
-      const changes = multipliers.map((value) => value - 1).filter((value) => Math.abs(value) > 0.000001);
-      if (!changes.length && karma === 0 && flat === 0) return "";
-      const multiplierText = changes.length
-        ? formatNumber(base) + " × (1" + changes.map((value) => " " + signed(value)).join("") + ")"
+      const factors = multipliers.filter((value) => Math.abs(value - 1) > 0.000001);
+      if (!factors.length && karma === 0 && flat === 0) return "";
+      const multiplierText = factors.length
+        ? formatNumber(base) + " × (" + factors.map((value) => formatNumber(value)).join(" + ") + ")"
         : formatNumber(base);
       return [
         multiplierText,
@@ -856,8 +856,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               : [];
             const multipliers = [...directMultipliers, ...attackMultipliers];
             const flat = directFlat + perkFlat;
-            const multiplierSum = multipliers.reduce((sum, value) => sum + (value - 1), 0);
-            const buffBase = multiplierSum !== 0 ? (value - flat) / (1 + multiplierSum) : value - flat;
+            const multiplierSum = multipliers.reduce((sum, value) => sum + value, 0);
+            const buffBase = multiplierSum !== 0 ? (value - flat) / multiplierSum : value - flat;
             const formula = buffFormula(buffBase, multipliers, 0, flat);
             const displayed = (key === "physicalAttack" || key === "magicAttack") ? value : value;
             return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(displayed) + (formula ? " [" + formula + "]" : "");
@@ -925,10 +925,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   function buildEstadoWhatsApp(character: Character) {
     const signed = (value: number) => (value >= 0 ? "+" : "") + formatNumber(value);
     const buffFormula = (base: number, multipliers: number[], karma: number, flat: number) => {
-      const changes = multipliers.map((value) => value - 1).filter((value) => Math.abs(value) > 0.000001);
-      if (!changes.length && karma === 0 && flat === 0) return "";
-      const multiplierText = changes.length
-        ? formatNumber(base) + " × (1" + changes.map((value) => " " + signed(value)).join("") + ")"
+      const factors = multipliers.filter((value) => Math.abs(value - 1) > 0.000001);
+      if (!factors.length && karma === 0 && flat === 0) return "";
+      const multiplierText = factors.length
+        ? formatNumber(base) + " × (" + factors.map((value) => formatNumber(value)).join(" + ") + ")"
         : formatNumber(base);
       return [multiplierText, karma !== 0 ? signed(karma) + " 🪷" : "", flat !== 0 ? signed(flat) : ""].filter(Boolean).join(" ");
     };
@@ -964,8 +964,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         : [];
       const multipliers = [...directMultipliers, ...attackMultipliers];
       const flat = directFlat + perkFlat;
-      const multiplierSum = multipliers.reduce((sum, value) => sum + (value - 1), 0);
-      const buffBase = multiplierSum !== 0 ? (value - flat) / (1 + multiplierSum) : value - flat;
+      const multiplierSum = multipliers.reduce((sum, value) => sum + value, 0);
+      const buffBase = multiplierSum !== 0 ? (value - flat) / multiplierSum : value - flat;
       return buffFormula(buffBase, multipliers, 0, flat);
     };
     const lines = [

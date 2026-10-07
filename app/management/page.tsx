@@ -470,6 +470,15 @@ export default function ManagementPage() {
             )}
             {isAdmin && (
               <Link
+                href="/management/races"
+                className="rounded-lg border border-violet-500/30 px-4 py-2 text-sm font-medium text-violet-300 transition hover:bg-violet-950/30"
+              >
+                Razas
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link
                 href="/management/skills"
                 className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
               >

@@ -100,6 +100,7 @@ type Character = {
   canSeeCharacterId: boolean;
   isAdmin: boolean;
   canManageCharacter: boolean;
+  isOwner: boolean;
   canLevelUp: boolean;
   race: { id:number; name:string; description:string|null; imagePath:string|null; perkIds:number[] } | null;
   maze: { id: number; name: string; roomId: number; roomNumber: number | null } | null;
@@ -668,7 +669,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const creationPerkCount = character?.perks?.filter((perk: any) => String(perk.source ?? "") === "CREATION_ROLL").length ?? 0;
 
   useEffect(() => {
-    if (!character || character.race || !character.canManageCharacter) return;
+    if (!character || character.race || (!character.isOwner && !character.canManageCharacter)) return;
     fetch("/api/races", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error();

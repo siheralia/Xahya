@@ -1056,7 +1056,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         const formula = buffFormula(base, breakdown?.multipliers ?? [], breakdown?.karmaBonus ?? 0, breakdown?.objectFlatBonus ?? 0);
         const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
         const temporaryText = temporaryEffectsForStat.length
-          ? " → " + formatNumber(temporaryValue) + " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"
+          ? " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"
           : "";
         return "• " + label + ": " + formatNumber(temporaryValue) + (formula ? " [" + formula + "]" : "") + temporaryText;
       }),
@@ -1097,7 +1097,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             : getDerivedFormula(key, value);
           const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
           const temporaryText = temporaryEffectsForStat.length
-            ? " → " + formatNumber(effectiveValue) + " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"
+            ? " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"
             : "";
           return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(effectiveValue) + (formula ? " [" + formula + "]" : "") + temporaryText;
         }),
@@ -1113,7 +1113,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       "",
       "*EFECTOS TEMPORALES*",
       ...(temporaryEffects.length
-        ? temporaryEffects.map((effect) => "• " + effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value)) + " → " + (statLabels[effect.target] ?? derivedLabels[effect.target] ?? effect.target))
+        ? temporaryEffects.map((effect) => "• " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value)) + " — " + effect.label + " → " + (statLabels[effect.target] ?? derivedLabels[effect.target] ?? effect.target))
         : ["• Ninguno"]),
     ];
     return lines.join("\n");

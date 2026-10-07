@@ -48,7 +48,7 @@ export function getResourceBonus(perk: PerkRecord) {
   );
 }
 
-export async function syncCharacterRacePerks(tx: any, characterId: number, raceId: number) {
+export async function syncCharacterRacePerks(tx: any, characterId: number, raceId: number, previousRacePerkIds?: Set<number>) {
   const Character = tx.orm.public.Character;
   const CharacterPerk = tx.orm.public.CharacterPerk;
   const RacePerk = tx.orm.public.RacePerk;
@@ -66,7 +66,7 @@ export async function syncCharacterRacePerks(tx: any, characterId: number, raceI
 
   if (oldRaceId != null) {
     const oldLinks: RacePerkLink[] = await RacePerk.where({ raceId: oldRaceId }).all();
-    const oldIds = new Set(oldLinks.map((link: any) => Number(link.perkId)));
+    const oldIds = previousRacePerkIds ?? new Set(oldLinks.map((link: any) => Number(link.perkId)));
 
     for (const entry of currentEntries) {
       if (String(entry.source) !== "RACE" || !oldIds.has(Number(entry.perkId))) continue;

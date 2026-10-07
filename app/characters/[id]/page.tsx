@@ -999,13 +999,24 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         "",
         ...Object.entries(character.derivedStats).map(([key, value]) => {
           const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
-          const valueWithEquipment = affectedByAttackMultiplier ? value * allAttackMultiplier : value;
-          const effectiveValue = applyTemporaryEffects(key, valueWithEquipment);
           const temporaryAttackMultipliers = affectedByAttackMultiplier
             ? temporaryEffects
                 .filter((effect) => effect.target === key && effect.mode === "percent")
                 .map((effect) => 1 + effect.value / 100)
             : [];
+          const exportAttackFactors = affectedByAttackMultiplier
+            ? [
+                ...equippedEffects
+                  .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value / 100 !== 1)
+                  .map((effect) => effect.value / 100),
+                ...temporaryAttackMultipliers,
+              ]
+            : [];
+          const combinedExportAttackMultiplier = affectedByAttackMultiplier
+            ? 1 + exportAttackFactors.reduce((sum, factor) => sum + (factor - 1), 0)
+            : 1;
+          const valueWithEquipment = affectedByAttackMultiplier ? value * combinedExportAttackMultiplier : value;
+          const effectiveValue = applyTemporaryEffects(key, valueWithEquipment);
           const formula = affectedByAttackMultiplier && temporaryAttackMultipliers.length
             ? (() => {
                 const equipmentMultipliers = equippedEffects

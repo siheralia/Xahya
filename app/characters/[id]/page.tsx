@@ -2040,7 +2040,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
                   <p className="font-semibold">{entry.perk?.name ?? "Perk"}</p>
                   {entry.perk?.description && <p className="mt-2 text-sm text-zinc-400">{entry.perk.description}</p>}
-                  <p className="mt-2 text-xs text-zinc-600">{entry.source === "CREATION_ROLL" ? "Obtenido al crear personaje" : "Otorgado por gestión"}</p>
+                  <p className="mt-2 text-xs text-zinc-600">{entry.source === "CREATION_ROLL" ? "Obtenido al crear personaje" : entry.source === "RACE" ? "Otorgado por raza" : "Otorgado por gestión"}</p>
                 </div>
               ))}
             </div>

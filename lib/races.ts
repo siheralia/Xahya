@@ -1,12 +1,18 @@
+type RaceRecord = { id: number; name: string; description?: string | null; imagePath?: string | null; active: boolean };
+type RacePerkLink = { raceId: number; perkId: number };
+type PerkRecord = { id: number; name: string; description?: string | null; active: boolean; stackable?: boolean | null; maxStacks?: number | null; effects?: unknown };
+type CharacterPerkRecord = { id: number; characterId: number; perkId: number; source?: string | null };
+type ResourceRecord = { characterId: number; karma?: number | null; money?: number | null; levelUpPoints?: number | null };
+
 export async function getActiveRaces(tx: any) {
   const Race = tx?.orm?.public?.Race;
   const RacePerk = tx?.orm?.public?.RacePerk;
   const Perk = tx?.orm?.public?.Perk;
   if (!Race || !RacePerk || !Perk) return [];
 
-  const races = await Race.where({ active: true }).all();
-  const links = await RacePerk.all();
-  const perks = await Perk.where({ active: true }).all();
+  const races: RaceRecord[] = await Race.where({ active: true }).all();
+  const links: RacePerkLink[] = await RacePerk.all();
+  const perks: PerkRecord[] = await Perk.where({ active: true }).all();
 
   return races.map((race: any) => ({
     id: Number(race.id),
@@ -16,8 +22,8 @@ export async function getActiveRaces(tx: any) {
     perks: links
       .filter((link: any) => Number(link.raceId) === Number(race.id))
       .map((link: any) => perks.find((perk: any) => Number(perk.id) === Number(link.perkId)))
-      .filter(Boolean)
-      .map((perk: any) => ({
+      .filter((perk): perk is PerkRecord => Boolean(perk))
+      .map((perk: PerkRecord) => ({
         id: Number(perk.id),
         name: String(perk.name),
         description: perk.description ?? null,
@@ -27,7 +33,7 @@ export async function getActiveRaces(tx: any) {
   }));
 }
 
-export function getResourceBonus(perk: any) {
+export function getResourceBonus(perk: PerkRecord) {
   return (Array.isArray(perk?.effects) ? perk.effects : []).reduce(
     (totals: { karma: number; money: number; levelUpPoints: number }, effect: any) => {
       const value = Number(effect?.value ?? 0);
@@ -52,14 +58,14 @@ export async function syncCharacterRacePerks(tx: any, characterId: number, raceI
   const character = await Character.where({ id: characterId }).first();
   if (!character) throw new Error("Personaje no encontrado.");
 
-  const currentEntries = await CharacterPerk.where({ characterId }).all();
+  const currentEntries: CharacterPerkRecord[] = await CharacterPerk.where({ characterId }).all();
   const oldRaceId = character.raceId == null ? null : Number(character.raceId);
 
-  const allPerks = await Perk.all();
+  const allPerks: PerkRecord[] = await Perk.all();
   const byId = new Map(allPerks.map((perk: any) => [Number(perk.id), perk]));
 
   if (oldRaceId != null) {
-    const oldLinks = await RacePerk.where({ raceId: oldRaceId }).all();
+    const oldLinks: RacePerkLink[] = await RacePerk.where({ raceId: oldRaceId }).all();
     const oldIds = new Set(oldLinks.map((link: any) => Number(link.perkId)));
 
     for (const entry of currentEntries) {
@@ -67,7 +73,7 @@ export async function syncCharacterRacePerks(tx: any, characterId: number, raceI
       const perk = byId.get(Number(entry.perkId));
       if (perk && CharacterResource) {
         const bonus = getResourceBonus(perk);
-        const resource = await CharacterResource.where({ characterId }).first();
+        const resource: ResourceRecord | null = await CharacterResource.where({ characterId }).first();
         if (resource) {
           await CharacterResource.where({ characterId }).update({
             karma: Number(resource.karma ?? 0) - bonus.karma,
@@ -80,8 +86,8 @@ export async function syncCharacterRacePerks(tx: any, characterId: number, raceI
     }
   }
 
-  const newLinks = await RacePerk.where({ raceId }).all();
-  const remainingEntries = await CharacterPerk.where({ characterId }).all();
+  const newLinks: RacePerkLink[] = await RacePerk.where({ raceId }).all();
+  const remainingEntries: CharacterPerkRecord[] = await CharacterPerk.where({ characterId }).all();
   const creationOrOther = remainingEntries.filter((entry: any) => String(entry.source) !== "RACE");
 
   for (const link of newLinks) {

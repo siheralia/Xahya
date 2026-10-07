@@ -509,7 +509,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [avatarFlairOpen, setAvatarFlairOpen] = useState(false);
   const [combatPanelOpen, setCombatPanelOpen] = useState(false);
   const [perkRecoveryBusy, setPerkRecoveryBusy] = useState(false);
-  const [races, setRaces] = useState<Array<{ id:number; name:string; description:string|null; imagePath:string|null; perks:Array<{id:number;name:string;description:string|null}> }>>([]);
+  const [races, setRaces] = useState<Array<{ id:number; name:string; description:string|null; imagePath:string|null; imageUrl:string|null; perks:Array<{id:number;name:string;description:string|null}> }>>([]);
   const [racePickerOpen, setRacePickerOpen] = useState(false);
   const [raceSaving, setRaceSaving] = useState(false);
   const [skills, setSkills] = useState<Skill[]>([]);

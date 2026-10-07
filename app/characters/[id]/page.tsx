@@ -2117,7 +2117,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           </section>
         )}
 
-        {character.combatEffects.length > 0 && (
+        {character.stats && (
   
         <section className="mt-10 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
           <div className="flex items-baseline justify-between gap-4">

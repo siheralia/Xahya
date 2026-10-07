@@ -780,8 +780,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     const buffFormula = (base: number, multipliers: number[], karma: number, flat: number) => {
       const factors = multipliers.filter((value) => Math.abs(value - 1) > 0.000001);
       if (!factors.length && karma === 0 && flat === 0) return "";
+      // Los factores se acumulan como incrementos sobre el 1 base:
+      // ×2 + ×2 + +30% = 1 + (2-1) + (2-1) + (1.3-1) = 4.3.
+      const combinedMultiplier = 1 + factors.reduce((sum, value) => sum + (value - 1), 0);
       const multiplierText = factors.length
-        ? formatNumber(base) + " × (" + factors.map((value) => formatNumber(value)).join(" + ") + ")"
+        ? formatNumber(base) + " × " + formatNumber(combinedMultiplier)
         : formatNumber(base);
       return [
         multiplierText,
@@ -850,16 +853,17 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             const attackMultipliers = (key === "physicalAttack" || key === "magicAttack")
               ? character.equipment.filter((entry) => entry.equipped).flatMap((entry) =>
                   (entry.item?.effects ?? [])
-                    .filter((effect) => ((effect as { stat?: string }).stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && Number(effect.value) / 100 !== 1)
-                    .map((effect) => 1 + Number(effect.value) / 100)
+                    .filter((effect) =>
+                      ((effect as { stat?: string }).stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") &&
+                      Number(effect.value) / 100 !== 1
+                    )
+                    .map((effect) => Number(effect.value) / 100)
                 )
               : [];
             const multipliers = [...directMultipliers, ...attackMultipliers];
             const flat = directFlat + perkFlat;
-            const multiplierSum = multipliers.reduce((sum, value) => sum + value, 0);
-            const buffBase = multiplierSum !== 0 ? (value - flat) / multiplierSum : value - flat;
-            const formula = buffFormula(buffBase, multipliers, 0, flat);
-            const displayed = (key === "physicalAttack" || key === "magicAttack") ? value : value;
+            const formula = buffFormula(value - flat, multipliers, 0, flat);
+            const displayed = value;
             return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(displayed) + (formula ? " [" + formula + "]" : "");
           }).join("\n")
         : "",
@@ -952,21 +956,24 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         value: Number(effect.value),
       }))
     );
+    const directEffectsForExport = (key: string) =>
+      equippedEffects.filter((effect) => derivedAliases[effect.stat] === key && (effect.type === "stat_bonus" || effect.type === "stat_multiplier"));
+
     const getDerivedFormula = (key: string, value: number) => {
-      const direct = equippedEffects.filter((effect) => derivedAliases[effect.stat] === key && (effect.type === "stat_bonus" || effect.type === "stat_multiplier"));
+      const direct = directEffectsForExport(key);
       const directFlat = direct.filter((effect) => effect.type === "stat_bonus").reduce((sum, effect) => sum + effect.value, 0);
       const directMultipliers = direct.filter((effect) => effect.type === "stat_multiplier").map((effect) => 1 + effect.value / 100);
       const perkFlat = (character.perkEffects ?? [])
         .filter((effect) => String(effect.type) === "RESOURCE_BONUS" && ((key === "maxHp" && String(effect.target) === "HP") || (key === "maxMana" && String(effect.target) === "MANA")))
         .reduce((sum, effect) => sum + Number(effect.value ?? 0), 0);
       const attackMultipliers = (key === "physicalAttack" || key === "magicAttack")
-        ? equippedEffects.filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value / 100 !== 1).map((effect) => 1 + effect.value / 100)
+        ? equippedEffects
+            .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value / 100 !== 1)
+            .map((effect) => effect.value / 100)
         : [];
       const multipliers = [...directMultipliers, ...attackMultipliers];
       const flat = directFlat + perkFlat;
-      const multiplierSum = multipliers.reduce((sum, value) => sum + value, 0);
-      const buffBase = multiplierSum !== 0 ? (value - flat) / multiplierSum : value - flat;
-      return buffFormula(buffBase, multipliers, 0, flat);
+      return buffFormula(value - flat, multipliers, 0, flat);
     };
     const lines = [
       "*" + character.name + (character.flair ? " ⟨" + character.flair + "⟩" : "") + "*",
@@ -994,7 +1001,27 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
           const valueWithEquipment = affectedByAttackMultiplier ? value * allAttackMultiplier : value;
           const effectiveValue = applyTemporaryEffects(key, valueWithEquipment);
-          const formula = getDerivedFormula(key, value);
+          const temporaryAttackMultipliers = affectedByAttackMultiplier
+            ? temporaryEffects
+                .filter((effect) => effect.target === key && effect.mode === "percent")
+                .map((effect) => 1 + effect.value / 100)
+            : [];
+          const formula = affectedByAttackMultiplier && temporaryAttackMultipliers.length
+            ? (() => {
+                const equipmentMultipliers = equippedEffects
+                  .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value / 100 !== 1)
+                  .map((effect) => effect.value / 100);
+                const directAttackMultipliers = directEffectsForExport(key)
+                  .filter((effect) => effect.type === "stat_multiplier")
+                  .map((effect) => 1 + effect.value / 100);
+                return buffFormula(
+                  value,
+                  [...directAttackMultipliers, ...equipmentMultipliers, ...temporaryAttackMultipliers],
+                  0,
+                  directEffectsForExport(key).filter((effect) => effect.type === "stat_bonus").reduce((sum, effect) => sum + effect.value, 0),
+                );
+              })()
+            : getDerivedFormula(key, value);
           const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
           const temporaryText = temporaryEffectsForStat.length
             ? " → " + formatNumber(effectiveValue) + " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"

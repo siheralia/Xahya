@@ -104,7 +104,7 @@ export default function CreateCharacterPage() {
   const [showPerks, setShowPerks] = useState(false);
   const [revealed, setRevealed] = useState(0);
   const [createdCharacterId, setCreatedCharacterId] = useState<number | null>(null);
-  const [races, setRaces] = useState<Array<{ id:number; name:string; description:string|null; imagePath:string|null; perks:Array<{id:number;name:string;description:string|null;stackable:boolean;maxStacks:number|null}> }>>([]);
+  const [races, setRaces] = useState<Array<{ id:number; name:string; description:string|null; imagePath:string|null; imageUrl:string|null; perks:Array<{id:number;name:string;description:string|null;stackable:boolean;maxStacks:number|null}> }>>([]);
   const [selectedRaceId, setSelectedRaceId] = useState<number | null>(null);
   const [raceSaving, setRaceSaving] = useState(false);
   const [values, setValues] = useState<Record<StatKey, number>>(
@@ -413,7 +413,7 @@ export default function CreateCharacterPage() {
                         {races.map((race,index) => (
                           <article key={race.id} className={`w-[min(78vw,330px)] shrink-0 snap-center overflow-hidden rounded-3xl border border-violet-400/25 bg-zinc-900 shadow-2xl shadow-violet-950/20 transition-transform ${index % 3 === 0 ? "-rotate-2" : index % 3 === 1 ? "translate-y-2" : "rotate-2"}`}>
                             <div className="aspect-[4/3] bg-zinc-950">
-                              {race.imagePath ? <img src={race.imagePath} alt={race.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-zinc-700">Sin imagen</div>}
+                              {race.imageUrl ? <img src={race.imageUrl} alt={race.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-zinc-700">Sin imagen</div>}
                             </div>
                             <div className="p-5">
                               <h4 className="text-2xl font-bold">{race.name}</h4>

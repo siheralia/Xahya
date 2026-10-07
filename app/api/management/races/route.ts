@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getRaceImageUrl } from "@/lib/race-image";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -19,13 +20,13 @@ export async function GET() {
   const Perk = (db.orm.public as any).Perk;
   const [races, links, perks] = await Promise.all([Race.all(), RacePerk.all(), Perk.where({ active: true }).all()]);
 
-  return NextResponse.json({
-    races: races.map((race: any) => ({
-      ...race,
-      perkIds: links.filter((link: any) => Number(link.raceId) === Number(race.id)).map((link: any) => Number(link.perkId)),
-    })),
-    perks,
-  });
+  const racesWithImages = await Promise.all(races.map(async (race: any) => ({
+    ...race,
+    imageUrl: await getRaceImageUrl(race.imagePath ? String(race.imagePath) : null),
+    perkIds: links.filter((link: any) => Number(link.raceId) === Number(race.id)).map((link: any) => Number(link.perkId)),
+  })));
+
+  return NextResponse.json({ races: racesWithImages, perks });
 }
 
 export async function POST(request: Request) {
@@ -46,9 +47,7 @@ export async function POST(request: Request) {
   const Perk = (db.orm.public as any).Perk;
   const validPerks: any[] = await Perk.where({ active: true }).all();
   const validIds = new Set<number>(validPerks.map((perk: any) => Number(perk.id)));
-  if (perkIds.some((id: number) => !validIds.has(id))) {
-    return NextResponse.json({ error: "Una o más perks no son válidas." }, { status: 400 });
-  }
+  if (perkIds.some((id: number) => !validIds.has(id))) return NextResponse.json({ error: "Una o más perks no son válidas." }, { status: 400 });
 
   try {
     const race = await db.transaction(async (tx) => {

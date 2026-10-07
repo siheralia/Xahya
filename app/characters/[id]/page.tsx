@@ -1989,7 +1989,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           <section className="mt-10 rounded-2xl border border-violet-400/20 bg-violet-400/5 p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div><h2 className="text-xl font-semibold">Raza</h2><p className="mt-1 text-sm text-zinc-500">La raza es permanente y otorga las perks configuradas para ella.</p></div>
-              {!character.race && <button type="button" onClick={() => setRacePickerOpen(true)} className="rounded-lg bg-violet-400 px-4 py-2 font-semibold text-zinc-950">Elegir raza</button>}
+              {!character.race && character.isOwner && <button type="button" onClick={() => setRacePickerOpen(true)} className="rounded-lg bg-violet-400 px-4 py-2 font-semibold text-zinc-950">Elegir raza</button>}
             </div>
             {character.race ? (
               <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 sm:flex-row">

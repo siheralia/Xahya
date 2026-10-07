@@ -104,6 +104,9 @@ export default function CreateCharacterPage() {
   const [showPerks, setShowPerks] = useState(false);
   const [revealed, setRevealed] = useState(0);
   const [createdCharacterId, setCreatedCharacterId] = useState<number | null>(null);
+  const [races, setRaces] = useState<Array<{ id:number; name:string; description:string|null; imagePath:string|null; perks:Array<{id:number;name:string;description:string|null;stackable:boolean;maxStacks:number|null}> }>>([]);
+  const [selectedRaceId, setSelectedRaceId] = useState<number | null>(null);
+  const [raceSaving, setRaceSaving] = useState(false);
   const [values, setValues] = useState<Record<StatKey, number>>(
     Object.fromEntries(stats.map((stat) => [stat.key, MIN_STAT])) as Record<StatKey, number>,
   );
@@ -179,12 +182,24 @@ export default function CreateCharacterPage() {
       setCreatedCharacterId(Number(character.id));
       setCreationPerks(Array.isArray(character.creationPerks) ? character.creationPerks : []);
       setRevealed(0);
+      setSelectedRaceId(null);
       setShowPerks(true);
     } catch (error) {
       setError(error instanceof Error ? error.message : "No se pudo crear el personaje.");
       setIsCreating(false);
     }
   }
+
+  useEffect(() => {
+    if (!showPerks) return;
+    fetch("/api/races")
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setRaces(Array.isArray(data.races) ? data.races : []);
+      })
+      .catch(() => setRaces([]));
+  }, [showPerks]);
 
   useEffect(() => {
     if (!showPerks || creationPerks.length === 0) return;
@@ -194,10 +209,29 @@ export default function CreateCharacterPage() {
     return () => timers.forEach(window.clearTimeout);
   }, [showPerks, creationPerks]);
 
-  function continueAfterPerks() {
-    if (createdCharacterId) {
-      router.push(`/characters/${createdCharacterId}`);
+  async function chooseRace(raceId:number) {
+    if (!createdCharacterId || raceSaving || selectedRaceId) return;
+    setRaceSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/characters/" + createdCharacterId + "/race", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ raceId }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo elegir la raza.");
+      setSelectedRaceId(raceId);
+      window.setTimeout(() => router.push("/characters/" + createdCharacterId), 450);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "No se pudo elegir la raza.");
+    } finally {
+      setRaceSaving(false);
     }
+  }
+
+  function continueWithoutRace() {
+    if (createdCharacterId) router.push("/characters/" + createdCharacterId);
   }
 
   return (
@@ -361,9 +395,45 @@ export default function CreateCharacterPage() {
               ) : (
                 <>
                   <p className="text-lg font-bold text-cyan-300">✨ Perks obtenidos ✨</p>
-                  <button type="button" onClick={continueAfterPerks} className="mt-4 rounded-xl bg-cyan-400 px-6 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300">
-                    Continuar
-                  </button>
+                  {races.length === 0 ? (
+                    <>
+                      <p className="mt-2 text-sm text-zinc-500">No hay razas disponibles todavía.</p>
+                      <button type="button" onClick={continueWithoutRace} className="mt-4 rounded-xl bg-cyan-400 px-6 py-3 font-bold text-zinc-950 transition hover:bg-cyan-300">Continuar</button>
+                    </>
+                  ) : selectedRaceId ? (
+                    <p className="mt-4 text-sm font-semibold text-emerald-300">Raza elegida. Abriendo tu personaje...</p>
+                  ) : (
+                    <div className="mt-7 text-left">
+                      <div className="text-center">
+                        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-violet-400">Siguiente paso</p>
+                        <h3 className="mt-2 text-2xl font-bold">Elige tu raza</h3>
+                        <p className="mt-2 text-sm text-zinc-500">La raza no podrá cambiarse desde tu personaje.</p>
+                      </div>
+                      <div className="mt-6 flex snap-x snap-mandatory gap-5 overflow-x-auto px-3 pb-5 pt-3">
+                        {races.map((race,index) => (
+                          <article key={race.id} className={`w-[min(78vw,330px)] shrink-0 snap-center overflow-hidden rounded-3xl border border-violet-400/25 bg-zinc-900 shadow-2xl shadow-violet-950/20 transition-transform ${index % 3 === 0 ? "-rotate-2" : index % 3 === 1 ? "translate-y-2" : "rotate-2"}`}>
+                            <div className="aspect-[4/3] bg-zinc-950">
+                              {race.imagePath ? <img src={race.imagePath} alt={race.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-zinc-700">Sin imagen</div>}
+                            </div>
+                            <div className="p-5">
+                              <h4 className="text-2xl font-bold">{race.name}</h4>
+                              {race.description && <p className="mt-2 text-sm leading-6 text-zinc-400">{race.description}</p>}
+                              <div className="mt-4">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-600">Perks</p>
+                                <div className="mt-2 space-y-2">{race.perks.length ? race.perks.map(perk => (
+                                  <div key={perk.id} className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
+                                    <p className="font-semibold text-zinc-200">{perk.name}</p>
+                                    {perk.description && <p className="mt-1 text-xs text-zinc-500">{perk.description}</p>}
+                                  </div>
+                                )) : <p className="text-sm text-zinc-600">Sin perks.</p>}</div>
+                              </div>
+                              <button type="button" onClick={() => chooseRace(race.id)} disabled={raceSaving} className="mt-5 w-full rounded-xl bg-violet-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-violet-300 disabled:opacity-40">{raceSaving ? "Eligiendo..." : "Elegir"}</button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -36,15 +36,16 @@ export async function POST(request: Request) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const description = typeof body?.description === "string" ? body.description.trim() : null;
   const imagePath = typeof body?.imagePath === "string" ? body.imagePath.trim() : null;
-  const perkIds = Array.isArray(body?.perkIds) ? [...new Set(body.perkIds.map(Number).filter(Number.isInteger))] : [];
+  const rawPerkIds: unknown[] = Array.isArray(body?.perkIds) ? body.perkIds : [];
+  const perkIds: number[] = [...new Set(rawPerkIds.map((value: unknown) => Number(value)).filter((value: number) => Number.isInteger(value)))];
 
   if (!name || name.length > 100) return NextResponse.json({ error: "El nombre es obligatorio y no puede superar 100 caracteres." }, { status: 400 });
 
   const Race = (db.orm.public as any).Race;
   const RacePerk = (db.orm.public as any).RacePerk;
   const Perk = (db.orm.public as any).Perk;
-  const validPerks = await Perk.where({ active: true }).all();
-  const validIds = new Set(validPerks.map((perk: any) => Number(perk.id)));
+  const validPerks: any[] = await Perk.where({ active: true }).all();
+  const validIds = new Set<number>(validPerks.map((perk: any) => Number(perk.id)));
   if (perkIds.some((id: number) => !validIds.has(id))) {
     return NextResponse.json({ error: "Una o más perks no son válidas." }, { status: 400 });
   }

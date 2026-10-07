@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { CharacterSilhouette, getCharacterSilhouetteSvg } from "@/components/CharacterSilhouette";
 import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
 
@@ -102,7 +103,7 @@ type Character = {
   canManageCharacter: boolean;
   isOwner: boolean;
   canLevelUp: boolean;
-  race: { id:number; name:string; description:string|null; imagePath:string|null; perkIds:number[] } | null;
+  race: { id:number; name:string; description:string|null; imagePath:string|null; imageUrl:string|null; perkIds:number[] } | null;
   maze: { id: number; name: string; roomId: number; roomNumber: number | null } | null;
 };
 
@@ -1993,28 +1994,50 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             </div>
             {character.race ? (
               <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 sm:flex-row">
-                <div className="h-32 w-full overflow-hidden rounded-xl bg-zinc-950 sm:w-44">{character.race.imagePath && <img src={character.race.imagePath} alt={character.race.name} className="h-full w-full object-cover" />}</div>
+                <div className="h-32 w-full overflow-hidden rounded-xl bg-zinc-950 sm:w-44">{character.race.imageUrl && <img src={character.race.imageUrl} alt={character.race.name} className="h-full w-full object-cover" />}</div>
                 <div><h3 className="text-2xl font-bold">{character.race.name}</h3>{character.race.description&&<p className="mt-2 text-sm text-zinc-400">{character.race.description}</p>}</div>
               </div>
             ) : <p className="mt-5 text-sm text-zinc-500">Todavía no has elegido una raza.</p>}
           </section>
 
-          {racePickerOpen && !character.race && (
-            <div className="xahya-modal-overlay flex items-center justify-center bg-black/80 px-4 py-8 backdrop-blur-sm">
-              <div className="w-full max-w-5xl rounded-3xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl sm:p-8">
-                <div className="text-center"><p className="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">Origen del personaje</p><h2 className="mt-2 text-3xl font-bold">Elige tu raza</h2><p className="mt-2 text-sm text-zinc-500">La elección es permanente.</p></div>
-                <div className="mt-7 flex snap-x snap-mandatory gap-5 overflow-x-auto px-3 pb-5 pt-3">
-                  {races.map((race,index)=><article key={race.id} className={`w-[min(78vw,330px)] shrink-0 snap-center overflow-hidden rounded-3xl border border-violet-400/25 bg-zinc-900 shadow-2xl transition-transform ${index%3===0?"-rotate-2":index%3===1?"translate-y-2":"rotate-2"}`}>
-                    <div className="aspect-[4/3] bg-zinc-950">{race.imagePath?<img src={race.imagePath} alt={race.name} className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-zinc-700">Sin imagen</div>}</div>
-                    <div className="p-5"><h3 className="text-2xl font-bold">{race.name}</h3>{race.description&&<p className="mt-2 text-sm leading-6 text-zinc-400">{race.description}</p>}
-                      <div className="mt-4 space-y-2">{race.perks.map(perk=><div key={perk.id} className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3"><p className="font-semibold">{perk.name}</p>{perk.description&&<p className="mt-1 text-xs text-zinc-500">{perk.description}</p>}</div>)}</div>
-                      <button type="button" onClick={()=>chooseExistingCharacterRace(race.id)} disabled={raceSaving} className="mt-5 w-full rounded-xl bg-violet-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-40">{raceSaving?"Eligiendo...":"Elegir"}</button>
-                    </div>
-                  </article>)}
+          {racePickerOpen && !character.race && typeof document !== "undefined" && createPortal(
+            <div className="fixed inset-0 z-[100] flex min-h-screen items-center justify-center overflow-y-auto bg-black/90 px-4 py-6 backdrop-blur-md">
+              <div className="my-auto w-full max-w-6xl rounded-3xl border border-violet-400/30 bg-zinc-950 p-5 shadow-2xl sm:p-8">
+                <div className="text-center">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">Origen del personaje</p>
+                  <h2 className="mt-2 text-3xl font-bold">Elige tu raza</h2>
+                  <p className="mt-2 text-sm text-zinc-500">La elección es permanente.</p>
                 </div>
-                <button type="button" onClick={()=>setRacePickerOpen(false)} className="mt-2 w-full rounded-xl border border-zinc-700 px-5 py-3 text-zinc-300">Cancelar</button>
+                <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {races.map((race) => (
+                    <article key={race.id} className="overflow-hidden rounded-3xl border border-violet-400/25 bg-zinc-900 shadow-2xl">
+                      <div className="aspect-[4/3] bg-zinc-950">
+                        {race.imageUrl
+                          ? <img src={race.imageUrl} alt={race.name} className="h-full w-full object-cover" />
+                          : <div className="flex h-full items-center justify-center text-zinc-700">Sin imagen</div>}
+                      </div>
+                      <div className="p-5">
+                        <h3 className="text-2xl font-bold">{race.name}</h3>
+                        {race.description && <p className="mt-2 text-sm leading-6 text-zinc-400">{race.description}</p>}
+                        <div className="mt-4 space-y-2">
+                          {race.perks.map((perk) => (
+                            <div key={perk.id} className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
+                              <p className="font-semibold">{perk.name}</p>
+                              {perk.description && <p className="mt-1 text-xs text-zinc-500">{perk.description}</p>}
+                            </div>
+                          ))}
+                        </div>
+                        <button type="button" onClick={() => chooseExistingCharacterRace(race.id)} disabled={raceSaving} className="mt-5 w-full rounded-xl bg-violet-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-40">
+                          {raceSaving ? "Eligiendo..." : "Elegir"}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setRacePickerOpen(false)} className="mt-6 w-full rounded-xl border border-zinc-700 px-5 py-3 text-zinc-300">Cancelar</button>
               </div>
-            </div>
+            </div>,
+            document.body,
           )}
 
           <section className="mt-10 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6">

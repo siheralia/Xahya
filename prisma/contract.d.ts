@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'0ce5b19a39cd8acfc073337e6d7b66dd6c10d556b59b4bc6676299b3169b5b9b'>;
+  StorageHashBase<'4aea78ae58e112ae2247d3133a10b4859725da2a1fac9a69d3f8b36613602439'>;
 export type ExecutionHash =
   ExecutionHashBase<'413d2a20ec0c876dd7b1ba023efcb6c339a0ec1893b44d1eb709e4c8610d6eaa'>;
 export type ProfileHash =
@@ -266,7 +266,6 @@ export type FieldOutputTypes = {
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly ownerCharacterId: CodecTypes['pg/int4@1']['output'];
       readonly passiveIncome: CodecTypes['pg/int4@1']['output'];
-      readonly weeklyExpenses: CodecTypes['pg/int4@1']['output'];
       readonly passiveFrequency: CodecTypes['pg/text@1']['output'];
       readonly passiveDayOfWeek: CodecTypes['pg/int4@1']['output'];
       readonly passiveTime: CodecTypes['pg/text@1']['output'];
@@ -284,6 +283,8 @@ export type FieldOutputTypes = {
       readonly sourceType: CodecTypes['pg/text@1']['output'];
       readonly sourceCharacterId: CodecTypes['pg/int4@1']['output'] | null;
       readonly amount: CodecTypes['pg/int4@1']['output'];
+      readonly frequency: CodecTypes['pg/text@1']['output'];
+      readonly active: CodecTypes['pg/bool@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
     readonly BusinessPosition: {
@@ -338,7 +339,13 @@ export type FieldOutputTypes = {
       readonly avatarPath: CodecTypes['pg/text@1']['output'] | null;
       readonly themePalette: CodecTypes['pg/json@1']['output'] | null;
       readonly userId: CodecTypes['pg/int4@1']['output'];
+      readonly raceId: CodecTypes['pg/int4@1']['output'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['output'];
+      readonly magicAttackType: CodecTypes['pg/text@1']['output'];
+      readonly magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
+      readonly blockDefenseType: CodecTypes['pg/text@1']['output'];
+      readonly fieldDefenseType: CodecTypes['pg/text@1']['output'];
+      readonly fieldDefenseDescription: CodecTypes['pg/text@1']['output'] | null;
       readonly age: CodecTypes['pg/int4@1']['output'] | null;
       readonly gender: CodecTypes['pg/text@1']['output'] | null;
       readonly height: CodecTypes['pg/int4@1']['output'] | null;
@@ -391,6 +398,17 @@ export type FieldOutputTypes = {
       readonly levelUpPoints: CodecTypes['pg/int4@1']['output'];
       readonly blackjackState: CodecTypes['pg/text@1']['output'] | null;
     };
+    readonly CharacterSkillState: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly characterId: CodecTypes['pg/int4@1']['output'];
+      readonly skillId: CodecTypes['pg/int4@1']['output'];
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly accumulations: CodecTypes['pg/int4@1']['output'];
+      readonly totalTicks: CodecTypes['pg/int4@1']['output'];
+      readonly lastTickAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
     readonly CharacterStat: {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly characterId: CodecTypes['pg/int4@1']['output'];
@@ -402,6 +420,21 @@ export type FieldOutputTypes = {
       readonly charisma: CodecTypes['pg/int4@1']['output'];
       readonly spirit: CodecTypes['pg/int4@1']['output'];
       readonly luck: CodecTypes['pg/int4@1']['output'];
+    };
+    readonly CombatSession: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly playerCharacterId: CodecTypes['pg/int4@1']['output'];
+      readonly npcName: CodecTypes['pg/text@1']['output'];
+      readonly npcStats: CodecTypes['pg/json@1']['output'];
+      readonly currentTick: CodecTypes['pg/int4@1']['output'];
+      readonly turn: CodecTypes['pg/int4@1']['output'];
+      readonly activeActor: CodecTypes['pg/text@1']['output'];
+      readonly playerNextActionTick: CodecTypes['pg/int4@1']['output'] | null;
+      readonly npcNextActionTick: CodecTypes['pg/int4@1']['output'] | null;
+      readonly status: CodecTypes['pg/text@1']['output'];
+      readonly lastAction: CodecTypes['pg/json@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
     readonly EconomyPaymentLog: {
       readonly id: CodecTypes['pg/int8@1']['output'];
@@ -449,6 +482,7 @@ export type FieldOutputTypes = {
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly itemType: CodecTypes['pg/text@1']['output'];
       readonly itemSubtype: CodecTypes['pg/text@1']['output'] | null;
+      readonly attackType: CodecTypes['pg/text@1']['output'] | null;
       readonly acquisitionType: CodecTypes['pg/text@1']['output'];
       readonly price: CodecTypes['pg/int4@1']['output'];
       readonly effects: CodecTypes['pg/json@1']['output'];
@@ -467,6 +501,7 @@ export type FieldOutputTypes = {
       readonly allowTraps: CodecTypes['pg/bool@1']['output'];
       readonly allowDeath: CodecTypes['pg/bool@1']['output'];
       readonly allowTreasures: CodecTypes['pg/bool@1']['output'];
+      readonly resettable: CodecTypes['pg/bool@1']['output'];
       readonly status: CodecTypes['pg/text@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -532,11 +567,26 @@ export type FieldOutputTypes = {
       readonly active: CodecTypes['pg/bool@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
+    readonly Race: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly imagePath: CodecTypes['pg/text@1']['output'] | null;
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly RacePerk: {
+      readonly raceId: CodecTypes['pg/int4@1']['output'];
+      readonly perkId: CodecTypes['pg/int4@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
     readonly RuleSection: {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly title: CodecTypes['pg/text@1']['output'];
       readonly content: CodecTypes['pg/text@1']['output'];
       readonly position: CodecTypes['pg/int4@1']['output'];
+      readonly backgroundPath: CodecTypes['pg/text@1']['output'] | null;
+      readonly bannerPath: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
@@ -545,6 +595,12 @@ export type FieldOutputTypes = {
       readonly characterId: CodecTypes['pg/int4@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly cost: CodecTypes['pg/int4@1']['output'];
+      readonly accumulationCost: CodecTypes['pg/int4@1']['output'];
+      readonly accumulationPerTick: CodecTypes['pg/int4@1']['output'];
+      readonly basicType: CodecTypes['pg/text@1']['output'] | null;
+      readonly attackType: CodecTypes['pg/text@1']['output'] | null;
+      readonly defenseType: CodecTypes['pg/text@1']['output'] | null;
+      readonly maintenanceCost: CodecTypes['pg/int4@1']['output'];
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly duration: CodecTypes['pg/text@1']['output'] | null;
       readonly category: CodecTypes['pg/text@1']['output'];
@@ -606,7 +662,6 @@ export type FieldInputTypes = {
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly ownerCharacterId: CodecTypes['pg/int4@1']['input'];
       readonly passiveIncome: CodecTypes['pg/int4@1']['input'];
-      readonly weeklyExpenses: CodecTypes['pg/int4@1']['input'];
       readonly passiveFrequency: CodecTypes['pg/text@1']['input'];
       readonly passiveDayOfWeek: CodecTypes['pg/int4@1']['input'];
       readonly passiveTime: CodecTypes['pg/text@1']['input'];
@@ -624,6 +679,8 @@ export type FieldInputTypes = {
       readonly sourceType: CodecTypes['pg/text@1']['input'];
       readonly sourceCharacterId: CodecTypes['pg/int4@1']['input'] | null;
       readonly amount: CodecTypes['pg/int4@1']['input'];
+      readonly frequency: CodecTypes['pg/text@1']['input'];
+      readonly active: CodecTypes['pg/bool@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
     readonly BusinessPosition: {
@@ -678,7 +735,13 @@ export type FieldInputTypes = {
       readonly avatarPath: CodecTypes['pg/text@1']['input'] | null;
       readonly themePalette: CodecTypes['pg/json@1']['input'] | null;
       readonly userId: CodecTypes['pg/int4@1']['input'];
+      readonly raceId: CodecTypes['pg/int4@1']['input'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['input'];
+      readonly magicAttackType: CodecTypes['pg/text@1']['input'];
+      readonly magicAttackDescription: CodecTypes['pg/text@1']['input'] | null;
+      readonly blockDefenseType: CodecTypes['pg/text@1']['input'];
+      readonly fieldDefenseType: CodecTypes['pg/text@1']['input'];
+      readonly fieldDefenseDescription: CodecTypes['pg/text@1']['input'] | null;
       readonly age: CodecTypes['pg/int4@1']['input'] | null;
       readonly gender: CodecTypes['pg/text@1']['input'] | null;
       readonly height: CodecTypes['pg/int4@1']['input'] | null;
@@ -731,6 +794,17 @@ export type FieldInputTypes = {
       readonly levelUpPoints: CodecTypes['pg/int4@1']['input'];
       readonly blackjackState: CodecTypes['pg/text@1']['input'] | null;
     };
+    readonly CharacterSkillState: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly characterId: CodecTypes['pg/int4@1']['input'];
+      readonly skillId: CodecTypes['pg/int4@1']['input'];
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly accumulations: CodecTypes['pg/int4@1']['input'];
+      readonly totalTicks: CodecTypes['pg/int4@1']['input'];
+      readonly lastTickAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
     readonly CharacterStat: {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly characterId: CodecTypes['pg/int4@1']['input'];
@@ -742,6 +816,21 @@ export type FieldInputTypes = {
       readonly charisma: CodecTypes['pg/int4@1']['input'];
       readonly spirit: CodecTypes['pg/int4@1']['input'];
       readonly luck: CodecTypes['pg/int4@1']['input'];
+    };
+    readonly CombatSession: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly playerCharacterId: CodecTypes['pg/int4@1']['input'];
+      readonly npcName: CodecTypes['pg/text@1']['input'];
+      readonly npcStats: CodecTypes['pg/json@1']['input'];
+      readonly currentTick: CodecTypes['pg/int4@1']['input'];
+      readonly turn: CodecTypes['pg/int4@1']['input'];
+      readonly activeActor: CodecTypes['pg/text@1']['input'];
+      readonly playerNextActionTick: CodecTypes['pg/int4@1']['input'] | null;
+      readonly npcNextActionTick: CodecTypes['pg/int4@1']['input'] | null;
+      readonly status: CodecTypes['pg/text@1']['input'];
+      readonly lastAction: CodecTypes['pg/json@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
     readonly EconomyPaymentLog: {
       readonly id: CodecTypes['pg/int8@1']['input'];
@@ -789,6 +878,7 @@ export type FieldInputTypes = {
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly itemType: CodecTypes['pg/text@1']['input'];
       readonly itemSubtype: CodecTypes['pg/text@1']['input'] | null;
+      readonly attackType: CodecTypes['pg/text@1']['input'] | null;
       readonly acquisitionType: CodecTypes['pg/text@1']['input'];
       readonly price: CodecTypes['pg/int4@1']['input'];
       readonly effects: CodecTypes['pg/json@1']['input'];
@@ -807,6 +897,7 @@ export type FieldInputTypes = {
       readonly allowTraps: CodecTypes['pg/bool@1']['input'];
       readonly allowDeath: CodecTypes['pg/bool@1']['input'];
       readonly allowTreasures: CodecTypes['pg/bool@1']['input'];
+      readonly resettable: CodecTypes['pg/bool@1']['input'];
       readonly status: CodecTypes['pg/text@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
@@ -872,11 +963,26 @@ export type FieldInputTypes = {
       readonly active: CodecTypes['pg/bool@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
+    readonly Race: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly imagePath: CodecTypes['pg/text@1']['input'] | null;
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly RacePerk: {
+      readonly raceId: CodecTypes['pg/int4@1']['input'];
+      readonly perkId: CodecTypes['pg/int4@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
     readonly RuleSection: {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly title: CodecTypes['pg/text@1']['input'];
       readonly content: CodecTypes['pg/text@1']['input'];
       readonly position: CodecTypes['pg/int4@1']['input'];
+      readonly backgroundPath: CodecTypes['pg/text@1']['input'] | null;
+      readonly bannerPath: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
@@ -885,6 +991,12 @@ export type FieldInputTypes = {
       readonly characterId: CodecTypes['pg/int4@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly cost: CodecTypes['pg/int4@1']['input'];
+      readonly accumulationCost: CodecTypes['pg/int4@1']['input'];
+      readonly accumulationPerTick: CodecTypes['pg/int4@1']['input'];
+      readonly basicType: CodecTypes['pg/text@1']['input'] | null;
+      readonly attackType: CodecTypes['pg/text@1']['input'] | null;
+      readonly defenseType: CodecTypes['pg/text@1']['input'] | null;
+      readonly maintenanceCost: CodecTypes['pg/int4@1']['input'];
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly duration: CodecTypes['pg/text@1']['input'] | null;
       readonly category: CodecTypes['pg/text@1']['input'];
@@ -955,12 +1067,13 @@ export type StorageColumnTypes = {
       readonly passiveTime: CodecTypes['pg/text@1']['output'];
       readonly securityInvestment: CodecTypes['pg/int4@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
-      readonly weeklyExpenses: CodecTypes['pg/int4@1']['output'];
     };
     readonly businessInvestment: {
+      readonly active: CodecTypes['pg/bool@1']['output'];
       readonly amount: CodecTypes['pg/int4@1']['output'];
       readonly businessId: CodecTypes['pg/int4@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly frequency: CodecTypes['pg/text@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly sourceCharacterId: CodecTypes['pg/int4@1']['output'] | null;
       readonly sourceType: CodecTypes['pg/text@1']['output'];
@@ -1014,12 +1127,18 @@ export type StorageColumnTypes = {
     readonly character: {
       readonly age: CodecTypes['pg/int4@1']['output'] | null;
       readonly avatarPath: CodecTypes['pg/text@1']['output'] | null;
+      readonly blockDefenseType: CodecTypes['pg/text@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly fieldDefenseDescription: CodecTypes['pg/text@1']['output'] | null;
+      readonly fieldDefenseType: CodecTypes['pg/text@1']['output'];
       readonly flair: CodecTypes['pg/text@1']['output'] | null;
       readonly gender: CodecTypes['pg/text@1']['output'] | null;
       readonly height: CodecTypes['pg/int4@1']['output'] | null;
       readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
+      readonly magicAttackType: CodecTypes['pg/text@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
+      readonly raceId: CodecTypes['pg/int4@1']['output'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['output'];
       readonly themePalette: CodecTypes['pg/json@1']['output'] | null;
       readonly userId: CodecTypes['pg/int4@1']['output'];
@@ -1071,6 +1190,17 @@ export type StorageColumnTypes = {
       readonly levelUpPoints: CodecTypes['pg/int4@1']['output'];
       readonly money: CodecTypes['pg/int4@1']['output'];
     };
+    readonly characterSkillState: {
+      readonly accumulations: CodecTypes['pg/int4@1']['output'];
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly characterId: CodecTypes['pg/int4@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly lastTickAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly skillId: CodecTypes['pg/int4@1']['output'];
+      readonly totalTicks: CodecTypes['pg/int4@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
     readonly characterStat: {
       readonly agility: CodecTypes['pg/int4@1']['output'];
       readonly characterId: CodecTypes['pg/int4@1']['output'];
@@ -1082,6 +1212,21 @@ export type StorageColumnTypes = {
       readonly spirit: CodecTypes['pg/int4@1']['output'];
       readonly strength: CodecTypes['pg/int4@1']['output'];
       readonly wisdom: CodecTypes['pg/int4@1']['output'];
+    };
+    readonly combatSession: {
+      readonly activeActor: CodecTypes['pg/text@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly currentTick: CodecTypes['pg/int4@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly lastAction: CodecTypes['pg/json@1']['output'];
+      readonly npcName: CodecTypes['pg/text@1']['output'];
+      readonly npcNextActionTick: CodecTypes['pg/int4@1']['output'] | null;
+      readonly npcStats: CodecTypes['pg/json@1']['output'];
+      readonly playerCharacterId: CodecTypes['pg/int4@1']['output'];
+      readonly playerNextActionTick: CodecTypes['pg/int4@1']['output'] | null;
+      readonly status: CodecTypes['pg/text@1']['output'];
+      readonly turn: CodecTypes['pg/int4@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
     readonly economyPaymentLog: {
       readonly amount: CodecTypes['pg/int4@1']['output'];
@@ -1126,6 +1271,7 @@ export type StorageColumnTypes = {
     readonly item: {
       readonly acquisitionType: CodecTypes['pg/text@1']['output'];
       readonly allowedSlots: CodecTypes['pg/json@1']['output'];
+      readonly attackType: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly effects: CodecTypes['pg/json@1']['output'];
@@ -1148,6 +1294,7 @@ export type StorageColumnTypes = {
       readonly maxRooms: CodecTypes['pg/int4@1']['output'] | null;
       readonly mazeType: CodecTypes['pg/text@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
+      readonly resettable: CodecTypes['pg/bool@1']['output'];
       readonly status: CodecTypes['pg/text@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
@@ -1212,7 +1359,22 @@ export type StorageColumnTypes = {
       readonly probability: CodecTypes['pg/float8@1']['output'];
       readonly stackable: CodecTypes['pg/bool@1']['output'];
     };
+    readonly race: {
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly imagePath: CodecTypes['pg/text@1']['output'] | null;
+      readonly name: CodecTypes['pg/text@1']['output'];
+    };
+    readonly racePerk: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly perkId: CodecTypes['pg/int4@1']['output'];
+      readonly raceId: CodecTypes['pg/int4@1']['output'];
+    };
     readonly ruleSection: {
+      readonly backgroundPath: CodecTypes['pg/text@1']['output'] | null;
+      readonly bannerPath: CodecTypes['pg/text@1']['output'] | null;
       readonly content: CodecTypes['pg/text@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -1221,18 +1383,24 @@ export type StorageColumnTypes = {
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
     readonly skill: {
+      readonly accumulationCost: CodecTypes['pg/int4@1']['output'];
+      readonly accumulationPerTick: CodecTypes['pg/int4@1']['output'];
       readonly approvedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly areaOfEffect: CodecTypes['pg/text@1']['output'] | null;
+      readonly attackType: CodecTypes['pg/text@1']['output'] | null;
+      readonly basicType: CodecTypes['pg/text@1']['output'] | null;
       readonly category: CodecTypes['pg/text@1']['output'];
       readonly characterId: CodecTypes['pg/int4@1']['output'];
       readonly condition: CodecTypes['pg/text@1']['output'] | null;
       readonly cooldown: CodecTypes['pg/text@1']['output'] | null;
       readonly cost: CodecTypes['pg/int4@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly defenseType: CodecTypes['pg/text@1']['output'] | null;
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly duration: CodecTypes['pg/text@1']['output'] | null;
       readonly effect: CodecTypes['pg/json@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly maintenanceCost: CodecTypes['pg/int4@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly speed: CodecTypes['pg/text@1']['output'] | null;
       readonly status: CodecTypes['pg/text@1']['output'];
@@ -1295,12 +1463,13 @@ export type StorageColumnInputTypes = {
       readonly passiveTime: CodecTypes['pg/text@1']['input'];
       readonly securityInvestment: CodecTypes['pg/int4@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
-      readonly weeklyExpenses: CodecTypes['pg/int4@1']['input'];
     };
     readonly businessInvestment: {
+      readonly active: CodecTypes['pg/bool@1']['input'];
       readonly amount: CodecTypes['pg/int4@1']['input'];
       readonly businessId: CodecTypes['pg/int4@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly frequency: CodecTypes['pg/text@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly sourceCharacterId: CodecTypes['pg/int4@1']['input'] | null;
       readonly sourceType: CodecTypes['pg/text@1']['input'];
@@ -1354,12 +1523,18 @@ export type StorageColumnInputTypes = {
     readonly character: {
       readonly age: CodecTypes['pg/int4@1']['input'] | null;
       readonly avatarPath: CodecTypes['pg/text@1']['input'] | null;
+      readonly blockDefenseType: CodecTypes['pg/text@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly fieldDefenseDescription: CodecTypes['pg/text@1']['input'] | null;
+      readonly fieldDefenseType: CodecTypes['pg/text@1']['input'];
       readonly flair: CodecTypes['pg/text@1']['input'] | null;
       readonly gender: CodecTypes['pg/text@1']['input'] | null;
       readonly height: CodecTypes['pg/int4@1']['input'] | null;
       readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly magicAttackDescription: CodecTypes['pg/text@1']['input'] | null;
+      readonly magicAttackType: CodecTypes['pg/text@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
+      readonly raceId: CodecTypes['pg/int4@1']['input'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['input'];
       readonly themePalette: CodecTypes['pg/json@1']['input'] | null;
       readonly userId: CodecTypes['pg/int4@1']['input'];
@@ -1411,6 +1586,17 @@ export type StorageColumnInputTypes = {
       readonly levelUpPoints: CodecTypes['pg/int4@1']['input'];
       readonly money: CodecTypes['pg/int4@1']['input'];
     };
+    readonly characterSkillState: {
+      readonly accumulations: CodecTypes['pg/int4@1']['input'];
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly characterId: CodecTypes['pg/int4@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly lastTickAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly skillId: CodecTypes['pg/int4@1']['input'];
+      readonly totalTicks: CodecTypes['pg/int4@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
     readonly characterStat: {
       readonly agility: CodecTypes['pg/int4@1']['input'];
       readonly characterId: CodecTypes['pg/int4@1']['input'];
@@ -1422,6 +1608,21 @@ export type StorageColumnInputTypes = {
       readonly spirit: CodecTypes['pg/int4@1']['input'];
       readonly strength: CodecTypes['pg/int4@1']['input'];
       readonly wisdom: CodecTypes['pg/int4@1']['input'];
+    };
+    readonly combatSession: {
+      readonly activeActor: CodecTypes['pg/text@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly currentTick: CodecTypes['pg/int4@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly lastAction: CodecTypes['pg/json@1']['input'];
+      readonly npcName: CodecTypes['pg/text@1']['input'];
+      readonly npcNextActionTick: CodecTypes['pg/int4@1']['input'] | null;
+      readonly npcStats: CodecTypes['pg/json@1']['input'];
+      readonly playerCharacterId: CodecTypes['pg/int4@1']['input'];
+      readonly playerNextActionTick: CodecTypes['pg/int4@1']['input'] | null;
+      readonly status: CodecTypes['pg/text@1']['input'];
+      readonly turn: CodecTypes['pg/int4@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
     readonly economyPaymentLog: {
       readonly amount: CodecTypes['pg/int4@1']['input'];
@@ -1466,6 +1667,7 @@ export type StorageColumnInputTypes = {
     readonly item: {
       readonly acquisitionType: CodecTypes['pg/text@1']['input'];
       readonly allowedSlots: CodecTypes['pg/json@1']['input'];
+      readonly attackType: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly effects: CodecTypes['pg/json@1']['input'];
@@ -1488,6 +1690,7 @@ export type StorageColumnInputTypes = {
       readonly maxRooms: CodecTypes['pg/int4@1']['input'] | null;
       readonly mazeType: CodecTypes['pg/text@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
+      readonly resettable: CodecTypes['pg/bool@1']['input'];
       readonly status: CodecTypes['pg/text@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
@@ -1552,7 +1755,22 @@ export type StorageColumnInputTypes = {
       readonly probability: CodecTypes['pg/float8@1']['input'];
       readonly stackable: CodecTypes['pg/bool@1']['input'];
     };
+    readonly race: {
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly imagePath: CodecTypes['pg/text@1']['input'] | null;
+      readonly name: CodecTypes['pg/text@1']['input'];
+    };
+    readonly racePerk: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly perkId: CodecTypes['pg/int4@1']['input'];
+      readonly raceId: CodecTypes['pg/int4@1']['input'];
+    };
     readonly ruleSection: {
+      readonly backgroundPath: CodecTypes['pg/text@1']['input'] | null;
+      readonly bannerPath: CodecTypes['pg/text@1']['input'] | null;
       readonly content: CodecTypes['pg/text@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -1561,18 +1779,24 @@ export type StorageColumnInputTypes = {
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
     readonly skill: {
+      readonly accumulationCost: CodecTypes['pg/int4@1']['input'];
+      readonly accumulationPerTick: CodecTypes['pg/int4@1']['input'];
       readonly approvedAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly areaOfEffect: CodecTypes['pg/text@1']['input'] | null;
+      readonly attackType: CodecTypes['pg/text@1']['input'] | null;
+      readonly basicType: CodecTypes['pg/text@1']['input'] | null;
       readonly category: CodecTypes['pg/text@1']['input'];
       readonly characterId: CodecTypes['pg/int4@1']['input'];
       readonly condition: CodecTypes['pg/text@1']['input'] | null;
       readonly cooldown: CodecTypes['pg/text@1']['input'] | null;
       readonly cost: CodecTypes['pg/int4@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly defenseType: CodecTypes['pg/text@1']['input'] | null;
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly duration: CodecTypes['pg/text@1']['input'] | null;
       readonly effect: CodecTypes['pg/json@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly maintenanceCost: CodecTypes['pg/int4@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly speed: CodecTypes['pg/text@1']['input'] | null;
       readonly status: CodecTypes['pg/text@1']['input'];
@@ -1624,13 +1848,20 @@ export namespace Models {
     avatarPath: CodecTypes['pg/text@1']['output'] | null;
     themePalette: CodecTypes['pg/json@1']['output'] | null;
     userId: CodecTypes['pg/int4@1']['output'];
+    raceId: CodecTypes['pg/int4@1']['output'] | null;
     skillCreationCredits: CodecTypes['pg/int4@1']['output'];
+    magicAttackType: CodecTypes['pg/text@1']['output'];
+    magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
+    blockDefenseType: CodecTypes['pg/text@1']['output'];
+    fieldDefenseType: CodecTypes['pg/text@1']['output'];
+    fieldDefenseDescription: CodecTypes['pg/text@1']['output'] | null;
     age: CodecTypes['pg/int4@1']['output'] | null;
     gender: CodecTypes['pg/text@1']['output'] | null;
     height: CodecTypes['pg/int4@1']['output'] | null;
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     auditLogs: public_AuditLog[];
     businessesOwned: public_Business[];
+    combatSessions: public_CombatSession[];
     economyPaymentsReceived: public_EconomyPaymentLog[];
     employmentContracts: public_EmploymentContract[];
     investmentsAsSource: public_BusinessInvestment[];
@@ -1641,7 +1872,9 @@ export namespace Models {
     perks: public_CharacterPerk[];
     positionsPaid: public_BusinessPosition[];
     properties: public_CharacterProperty[];
+    race: public_Race | null;
     resources: public_CharacterResource | null;
+    skillStates: public_CharacterSkillState[];
     skills: public_Skill[];
     stats: public_CharacterStat | null;
     subscriptions: public_BusinessSubscription[];
@@ -1649,6 +1882,7 @@ export namespace Models {
     readonly [RelationKeys]?:
       | 'auditLogs'
       | 'businessesOwned'
+      | 'combatSessions'
       | 'economyPaymentsReceived'
       | 'employmentContracts'
       | 'investmentsAsSource'
@@ -1659,7 +1893,9 @@ export namespace Models {
       | 'perks'
       | 'positionsPaid'
       | 'properties'
+      | 'race'
       | 'resources'
+      | 'skillStates'
       | 'skills'
       | 'stats'
       | 'subscriptions'
@@ -1670,6 +1906,12 @@ export namespace Models {
     characterId: CodecTypes['pg/int4@1']['output'];
     name: CodecTypes['pg/text@1']['output'];
     cost: CodecTypes['pg/int4@1']['output'];
+    accumulationCost: CodecTypes['pg/int4@1']['output'];
+    accumulationPerTick: CodecTypes['pg/int4@1']['output'];
+    basicType: CodecTypes['pg/text@1']['output'] | null;
+    attackType: CodecTypes['pg/text@1']['output'] | null;
+    defenseType: CodecTypes['pg/text@1']['output'] | null;
+    maintenanceCost: CodecTypes['pg/int4@1']['output'];
     description: CodecTypes['pg/text@1']['output'] | null;
     duration: CodecTypes['pg/text@1']['output'] | null;
     category: CodecTypes['pg/text@1']['output'];
@@ -1683,7 +1925,39 @@ export namespace Models {
     updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     approvedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     character: public_Character;
-    readonly [RelationKeys]?: 'character';
+    skillStates: public_CharacterSkillState[];
+    readonly [RelationKeys]?: 'character' | 'skillStates';
+  };
+  export type public_CharacterSkillState = {
+    id: CodecTypes['pg/int4@1']['output'];
+    characterId: CodecTypes['pg/int4@1']['output'];
+    skillId: CodecTypes['pg/int4@1']['output'];
+    active: CodecTypes['pg/bool@1']['output'];
+    accumulations: CodecTypes['pg/int4@1']['output'];
+    totalTicks: CodecTypes['pg/int4@1']['output'];
+    lastTickAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    character: public_Character;
+    skill: public_Skill;
+    readonly [RelationKeys]?: 'character' | 'skill';
+  };
+  export type public_CombatSession = {
+    id: CodecTypes['pg/int4@1']['output'];
+    playerCharacterId: CodecTypes['pg/int4@1']['output'];
+    npcName: CodecTypes['pg/text@1']['output'];
+    npcStats: CodecTypes['pg/json@1']['output'];
+    currentTick: CodecTypes['pg/int4@1']['output'];
+    turn: CodecTypes['pg/int4@1']['output'];
+    activeActor: CodecTypes['pg/text@1']['output'];
+    playerNextActionTick: CodecTypes['pg/int4@1']['output'] | null;
+    npcNextActionTick: CodecTypes['pg/int4@1']['output'] | null;
+    status: CodecTypes['pg/text@1']['output'];
+    lastAction: CodecTypes['pg/json@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    playerCharacter: public_Character;
+    readonly [RelationKeys]?: 'playerCharacter';
   };
   export type public_CharacterStat = {
     id: CodecTypes['pg/int4@1']['output'];
@@ -1740,6 +2014,7 @@ export namespace Models {
     description: CodecTypes['pg/text@1']['output'] | null;
     itemType: CodecTypes['pg/text@1']['output'];
     itemSubtype: CodecTypes['pg/text@1']['output'] | null;
+    attackType: CodecTypes['pg/text@1']['output'] | null;
     acquisitionType: CodecTypes['pg/text@1']['output'];
     price: CodecTypes['pg/int4@1']['output'];
     effects: CodecTypes['pg/json@1']['output'];
@@ -1784,6 +2059,7 @@ export namespace Models {
     allowTraps: CodecTypes['pg/bool@1']['output'];
     allowDeath: CodecTypes['pg/bool@1']['output'];
     allowTreasures: CodecTypes['pg/bool@1']['output'];
+    resettable: CodecTypes['pg/bool@1']['output'];
     status: CodecTypes['pg/text@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -1921,7 +2197,27 @@ export namespace Models {
     active: CodecTypes['pg/bool@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     characterPerks: public_CharacterPerk[];
-    readonly [RelationKeys]?: 'characterPerks';
+    racePerks: public_RacePerk[];
+    readonly [RelationKeys]?: 'characterPerks' | 'racePerks';
+  };
+  export type public_Race = {
+    id: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    description: CodecTypes['pg/text@1']['output'] | null;
+    imagePath: CodecTypes['pg/text@1']['output'] | null;
+    active: CodecTypes['pg/bool@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    characters: public_Character[];
+    perks: public_RacePerk[];
+    readonly [RelationKeys]?: 'characters' | 'perks';
+  };
+  export type public_RacePerk = {
+    raceId: CodecTypes['pg/int4@1']['output'];
+    perkId: CodecTypes['pg/int4@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    perk: public_Perk;
+    race: public_Race;
+    readonly [RelationKeys]?: 'perk' | 'race';
   };
   export type public_CharacterPerk = {
     id: CodecTypes['pg/int4@1']['output'];
@@ -1939,7 +2235,6 @@ export namespace Models {
     description: CodecTypes['pg/text@1']['output'] | null;
     ownerCharacterId: CodecTypes['pg/int4@1']['output'];
     passiveIncome: CodecTypes['pg/int4@1']['output'];
-    weeklyExpenses: CodecTypes['pg/int4@1']['output'];
     passiveFrequency: CodecTypes['pg/text@1']['output'];
     passiveDayOfWeek: CodecTypes['pg/int4@1']['output'];
     passiveTime: CodecTypes['pg/text@1']['output'];
@@ -2016,6 +2311,8 @@ export namespace Models {
     title: CodecTypes['pg/text@1']['output'];
     content: CodecTypes['pg/text@1']['output'];
     position: CodecTypes['pg/int4@1']['output'];
+    backgroundPath: CodecTypes['pg/text@1']['output'] | null;
+    bannerPath: CodecTypes['pg/text@1']['output'] | null;
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     readonly [RelationKeys]?: never;
@@ -2078,6 +2375,8 @@ export namespace Models {
     sourceType: CodecTypes['pg/text@1']['output'];
     sourceCharacterId: CodecTypes['pg/int4@1']['output'] | null;
     amount: CodecTypes['pg/int4@1']['output'];
+    frequency: CodecTypes['pg/text@1']['output'];
+    active: CodecTypes['pg/bool@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     business: public_Business;
     sourceCharacter: public_Character | null;
@@ -2090,6 +2389,8 @@ export declare const models: {
     User: Models.public_User;
     Character: Models.public_Character;
     Skill: Models.public_Skill;
+    CharacterSkillState: Models.public_CharacterSkillState;
+    CombatSession: Models.public_CombatSession;
     CharacterStat: Models.public_CharacterStat;
     CharacterResource: Models.public_CharacterResource;
     CharacterModifier: Models.public_CharacterModifier;
@@ -2108,6 +2409,8 @@ export declare const models: {
     MazeRoomEnemy: Models.public_MazeRoomEnemy;
     MazeCharacterPosition: Models.public_MazeCharacterPosition;
     Perk: Models.public_Perk;
+    Race: Models.public_Race;
+    RacePerk: Models.public_RacePerk;
     CharacterPerk: Models.public_CharacterPerk;
     Business: Models.public_Business;
     BusinessPosition: Models.public_BusinessPosition;
@@ -2346,15 +2649,6 @@ type ContractBase = Omit<
                     readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
                   };
                 };
-                readonly weeklyExpenses: {
-                  readonly nativeType: 'int4';
-                  readonly codecId: 'pg/int4@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
-                  };
-                };
                 readonly passiveFrequency: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
@@ -2492,6 +2786,24 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/int4@1';
                   readonly nullable: false;
                 };
+                readonly frequency: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'ONCE'>;
+                  };
+                };
+                readonly active: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                };
                 readonly createdAt: {
                   readonly nativeType: 'timestamptz';
                   readonly codecId: 'pg/timestamptz-temporal@1';
@@ -2506,6 +2818,12 @@ type ContractBase = Omit<
                   readonly name: 'businessInvestment_businessId_type_idx_30b9e417';
                   readonly prefix: 'businessInvestment_businessId_type_idx';
                   readonly columns: readonly ['businessId', 'type'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'businessInvestment_businessId_active_frequency_idx_8b8e3374';
+                  readonly prefix: 'businessInvestment_businessId_active_frequency_idx';
+                  readonly columns: readonly ['businessId', 'active', 'frequency'];
                   readonly unique: false;
                 },
                 {
@@ -3035,6 +3353,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/int4@1';
                   readonly nullable: false;
                 };
+                readonly raceId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
                 readonly skillCreationCredits: {
                   readonly nativeType: 'int4';
                   readonly codecId: 'pg/int4@1';
@@ -3043,6 +3366,43 @@ type ContractBase = Omit<
                     readonly kind: 'literal';
                     readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
                   };
+                };
+                readonly magicAttackType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'CUT'>;
+                  };
+                };
+                readonly magicAttackDescription: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly blockDefenseType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'CONCENTRATED'>;
+                  };
+                };
+                readonly fieldDefenseType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'CONCENTRATED'>;
+                  };
+                };
+                readonly fieldDefenseDescription: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
                 };
                 readonly age: {
                   readonly nativeType: 'int4';
@@ -3075,6 +3435,12 @@ type ContractBase = Omit<
                   readonly columns: readonly ['userId'];
                   readonly unique: false;
                 },
+                {
+                  readonly name: 'character_raceId_idx_723e6d41';
+                  readonly prefix: 'character_raceId_idx';
+                  readonly columns: readonly ['raceId'];
+                  readonly unique: false;
+                },
               ];
               foreignKeys: readonly [
                 {
@@ -3086,6 +3452,18 @@ type ContractBase = Omit<
                   readonly target: {
                     readonly namespaceId: 'public' & NamespaceId;
                     readonly tableName: 'user';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'character';
+                    readonly columns: readonly ['raceId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'race';
                     readonly columns: readonly ['id'];
                   };
                 },
@@ -3575,6 +3953,127 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly characterSkillState: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly characterId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly skillId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly active: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly accumulations: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly totalTicks: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly lastTickAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['characterId', 'skillId'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'characterSkillState_characterId_active_idx_31a42363';
+                  readonly prefix: 'characterSkillState_characterId_active_idx';
+                  readonly columns: readonly ['characterId', 'active'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'characterSkillState_lastTickAt_idx_3f1acd75';
+                  readonly prefix: 'characterSkillState_lastTickAt_idx';
+                  readonly columns: readonly ['lastTickAt'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'characterSkillState_characterId_idx_2423fe9d';
+                  readonly prefix: 'characterSkillState_characterId_idx';
+                  readonly columns: readonly ['characterId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'characterSkillState_skillId_idx_6e19993d';
+                  readonly prefix: 'characterSkillState_skillId_idx';
+                  readonly columns: readonly ['skillId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'characterSkillState';
+                    readonly columns: readonly ['characterId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'character';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'characterSkillState';
+                    readonly columns: readonly ['skillId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'skill';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
             readonly characterStat: {
               columns: {
                 readonly id: {
@@ -3673,6 +4172,135 @@ type ContractBase = Omit<
                     readonly namespaceId: 'public' & NamespaceId;
                     readonly tableName: 'characterStat';
                     readonly columns: readonly ['characterId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'character';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly combatSession: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly playerCharacterId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly npcName: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly npcStats: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
+                readonly currentTick: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly turn: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 1>;
+                  };
+                };
+                readonly activeActor: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'PLAYER'>;
+                  };
+                };
+                readonly playerNextActionTick: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly npcNextActionTick: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly status: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'ACTIVE'>;
+                  };
+                };
+                readonly lastAction: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'combatSession_playerCharacterId_status_idx_f9e0f09b';
+                  readonly prefix: 'combatSession_playerCharacterId_status_idx';
+                  readonly columns: readonly ['playerCharacterId', 'status'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'combatSession_playerCharacterId_idx_3bcdc9e8';
+                  readonly prefix: 'combatSession_playerCharacterId_idx';
+                  readonly columns: readonly ['playerCharacterId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'combatSession';
+                    readonly columns: readonly ['playerCharacterId'];
                   };
                   readonly target: {
                     readonly namespaceId: 'public' & NamespaceId;
@@ -4108,6 +4736,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
                 };
+                readonly attackType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
                 readonly acquisitionType: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
@@ -4231,6 +4864,15 @@ type ContractBase = Omit<
                   readonly default: {
                     readonly kind: 'literal';
                     readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                };
+                readonly resettable: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
                   };
                 };
                 readonly status: {
@@ -4854,6 +5496,115 @@ type ContractBase = Omit<
               indexes: readonly [];
               foreignKeys: readonly [];
             };
+            readonly race: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly imagePath: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly active: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['name'] }];
+              indexes: readonly [];
+              foreignKeys: readonly [];
+            };
+            readonly racePerk: {
+              columns: {
+                readonly raceId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly perkId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['raceId', 'perkId'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'racePerk_perkId_idx_1c5b4f6b';
+                  readonly prefix: 'racePerk_perkId_idx';
+                  readonly columns: readonly ['perkId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'racePerk_raceId_idx_723e6d41';
+                  readonly prefix: 'racePerk_raceId_idx';
+                  readonly columns: readonly ['raceId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'racePerk';
+                    readonly columns: readonly ['raceId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'race';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'racePerk';
+                    readonly columns: readonly ['perkId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'perk';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
             readonly ruleSection: {
               columns: {
                 readonly id: {
@@ -4883,6 +5634,16 @@ type ContractBase = Omit<
                     readonly kind: 'literal';
                     readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
                   };
+                };
+                readonly backgroundPath: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly bannerPath: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
                 };
                 readonly createdAt: {
                   readonly nativeType: 'timestamptz';
@@ -4931,6 +5692,48 @@ type ContractBase = Omit<
                   readonly nullable: false;
                 };
                 readonly cost: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly accumulationCost: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly accumulationPerTick: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly basicType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly attackType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly defenseType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly maintenanceCost: {
                   readonly nativeType: 'int4';
                   readonly codecId: 'pg/int4@1';
                   readonly nullable: false;
@@ -5179,6 +5982,14 @@ type ContractBase = Omit<
     readonly user: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
     readonly character: { readonly namespace: 'public' & NamespaceId; readonly model: 'Character' };
     readonly skill: { readonly namespace: 'public' & NamespaceId; readonly model: 'Skill' };
+    readonly characterSkillState: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'CharacterSkillState';
+    };
+    readonly combatSession: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'CombatSession';
+    };
     readonly characterStat: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'CharacterStat';
@@ -5224,6 +6035,8 @@ type ContractBase = Omit<
       readonly model: 'MazeCharacterPosition';
     };
     readonly perk: { readonly namespace: 'public' & NamespaceId; readonly model: 'Perk' };
+    readonly race: { readonly namespace: 'public' & NamespaceId; readonly model: 'Race' };
+    readonly racePerk: { readonly namespace: 'public' & NamespaceId; readonly model: 'RacePerk' };
     readonly characterPerk: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'CharacterPerk';
@@ -5424,10 +6237,6 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
-              readonly weeklyExpenses: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
-              };
               readonly passiveFrequency: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -5560,7 +6369,6 @@ type ContractBase = Omit<
                 readonly description: { readonly column: 'description' };
                 readonly ownerCharacterId: { readonly column: 'ownerCharacterId' };
                 readonly passiveIncome: { readonly column: 'passiveIncome' };
-                readonly weeklyExpenses: { readonly column: 'weeklyExpenses' };
                 readonly passiveFrequency: { readonly column: 'passiveFrequency' };
                 readonly passiveDayOfWeek: { readonly column: 'passiveDayOfWeek' };
                 readonly passiveTime: { readonly column: 'passiveTime' };
@@ -5598,6 +6406,14 @@ type ContractBase = Omit<
               readonly amount: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly frequency: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly active: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
               readonly createdAt: {
                 readonly nullable: false;
@@ -5643,6 +6459,8 @@ type ContractBase = Omit<
                 readonly sourceType: { readonly column: 'sourceType' };
                 readonly sourceCharacterId: { readonly column: 'sourceCharacterId' };
                 readonly amount: { readonly column: 'amount' };
+                readonly frequency: { readonly column: 'frequency' };
+                readonly active: { readonly column: 'active' };
                 readonly createdAt: { readonly column: 'createdAt' };
               };
             };
@@ -6027,9 +6845,33 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
+              readonly raceId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly skillCreationCredits: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly magicAttackType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly magicAttackDescription: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly blockDefenseType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly fieldDefenseType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly fieldDefenseDescription: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly age: {
                 readonly nullable: true;
@@ -6072,6 +6914,17 @@ type ContractBase = Omit<
                 readonly on: {
                   readonly localFields: readonly ['id'];
                   readonly targetFields: readonly ['ownerCharacterId'];
+                };
+              };
+              readonly combatSessions: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'CombatSession';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['playerCharacterId'];
                 };
               };
               readonly economyPaymentsReceived: {
@@ -6184,6 +7037,15 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['characterId'];
                 };
               };
+              readonly race: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'Race' };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['raceId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
               readonly resources: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -6191,6 +7053,17 @@ type ContractBase = Omit<
                 };
                 readonly cardinality: '1:1';
                 readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['characterId'];
+                };
+              };
+              readonly skillStates: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'CharacterSkillState';
+                };
+                readonly cardinality: '1:N';
                 readonly on: {
                   readonly localFields: readonly ['id'];
                   readonly targetFields: readonly ['characterId'];
@@ -6250,7 +7123,13 @@ type ContractBase = Omit<
                 readonly avatarPath: { readonly column: 'avatarPath' };
                 readonly themePalette: { readonly column: 'themePalette' };
                 readonly userId: { readonly column: 'userId' };
+                readonly raceId: { readonly column: 'raceId' };
                 readonly skillCreationCredits: { readonly column: 'skillCreationCredits' };
+                readonly magicAttackType: { readonly column: 'magicAttackType' };
+                readonly magicAttackDescription: { readonly column: 'magicAttackDescription' };
+                readonly blockDefenseType: { readonly column: 'blockDefenseType' };
+                readonly fieldDefenseType: { readonly column: 'fieldDefenseType' };
+                readonly fieldDefenseDescription: { readonly column: 'fieldDefenseDescription' };
                 readonly age: { readonly column: 'age' };
                 readonly gender: { readonly column: 'gender' };
                 readonly height: { readonly column: 'height' };
@@ -6643,6 +7522,96 @@ type ContractBase = Omit<
               };
             };
           };
+          readonly CharacterSkillState: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly characterId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly skillId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly active: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly accumulations: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly totalTicks: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly lastTickAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly character: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Character';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['characterId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly skill: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Skill';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['skillId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'characterSkillState';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly characterId: { readonly column: 'characterId' };
+                readonly skillId: { readonly column: 'skillId' };
+                readonly active: { readonly column: 'active' };
+                readonly accumulations: { readonly column: 'accumulations' };
+                readonly totalTicks: { readonly column: 'totalTicks' };
+                readonly lastTickAt: { readonly column: 'lastTickAt' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
           readonly CharacterStat: {
             readonly fields: {
               readonly id: {
@@ -6714,6 +7683,101 @@ type ContractBase = Omit<
                 readonly charisma: { readonly column: 'charisma' };
                 readonly spirit: { readonly column: 'spirit' };
                 readonly luck: { readonly column: 'luck' };
+              };
+            };
+          };
+          readonly CombatSession: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly playerCharacterId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly npcName: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly npcStats: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
+              readonly currentTick: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly turn: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly activeActor: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly playerNextActionTick: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly npcNextActionTick: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly lastAction: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly playerCharacter: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Character';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['playerCharacterId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'combatSession';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly playerCharacterId: { readonly column: 'playerCharacterId' };
+                readonly npcName: { readonly column: 'npcName' };
+                readonly npcStats: { readonly column: 'npcStats' };
+                readonly currentTick: { readonly column: 'currentTick' };
+                readonly turn: { readonly column: 'turn' };
+                readonly activeActor: { readonly column: 'activeActor' };
+                readonly playerNextActionTick: { readonly column: 'playerNextActionTick' };
+                readonly npcNextActionTick: { readonly column: 'npcNextActionTick' };
+                readonly status: { readonly column: 'status' };
+                readonly lastAction: { readonly column: 'lastAction' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
           };
@@ -7056,6 +8120,10 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly attackType: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly acquisitionType: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -7132,6 +8200,7 @@ type ContractBase = Omit<
                 readonly description: { readonly column: 'description' };
                 readonly itemType: { readonly column: 'itemType' };
                 readonly itemSubtype: { readonly column: 'itemSubtype' };
+                readonly attackType: { readonly column: 'attackType' };
                 readonly acquisitionType: { readonly column: 'acquisitionType' };
                 readonly price: { readonly column: 'price' };
                 readonly effects: { readonly column: 'effects' };
@@ -7177,6 +8246,10 @@ type ContractBase = Omit<
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
               readonly allowTreasures: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly resettable: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
@@ -7247,6 +8320,7 @@ type ContractBase = Omit<
                 readonly allowTraps: { readonly column: 'allowTraps' };
                 readonly allowDeath: { readonly column: 'allowDeath' };
                 readonly allowTreasures: { readonly column: 'allowTreasures' };
+                readonly resettable: { readonly column: 'resettable' };
                 readonly status: { readonly column: 'status' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
@@ -7766,6 +8840,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['perkId'];
                 };
               };
+              readonly racePerks: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'RacePerk';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['perkId'];
+                };
+              };
             };
             readonly storage: {
               readonly table: 'perk';
@@ -7779,6 +8864,121 @@ type ContractBase = Omit<
                 readonly stackable: { readonly column: 'stackable' };
                 readonly maxStacks: { readonly column: 'maxStacks' };
                 readonly active: { readonly column: 'active' };
+                readonly createdAt: { readonly column: 'createdAt' };
+              };
+            };
+          };
+          readonly Race: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly imagePath: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly active: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly characters: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Character';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['raceId'];
+                };
+              };
+              readonly perks: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'RacePerk';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['raceId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'race';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+                readonly description: { readonly column: 'description' };
+                readonly imagePath: { readonly column: 'imagePath' };
+                readonly active: { readonly column: 'active' };
+                readonly createdAt: { readonly column: 'createdAt' };
+              };
+            };
+          };
+          readonly RacePerk: {
+            readonly fields: {
+              readonly raceId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly perkId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly perk: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'Perk' };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['perkId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly race: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'Race' };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['raceId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'racePerk';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly raceId: { readonly column: 'raceId' };
+                readonly perkId: { readonly column: 'perkId' };
                 readonly createdAt: { readonly column: 'createdAt' };
               };
             };
@@ -7800,6 +9000,14 @@ type ContractBase = Omit<
               readonly position: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly backgroundPath: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly bannerPath: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly createdAt: {
                 readonly nullable: false;
@@ -7825,6 +9033,8 @@ type ContractBase = Omit<
                 readonly title: { readonly column: 'title' };
                 readonly content: { readonly column: 'content' };
                 readonly position: { readonly column: 'position' };
+                readonly backgroundPath: { readonly column: 'backgroundPath' };
+                readonly bannerPath: { readonly column: 'bannerPath' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
               };
@@ -7845,6 +9055,30 @@ type ContractBase = Omit<
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly cost: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly accumulationCost: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly accumulationPerTick: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly basicType: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly attackType: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly defenseType: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly maintenanceCost: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
@@ -7919,6 +9153,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['id'];
                 };
               };
+              readonly skillStates: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'CharacterSkillState';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['skillId'];
+                };
+              };
             };
             readonly storage: {
               readonly table: 'skill';
@@ -7928,6 +9173,12 @@ type ContractBase = Omit<
                 readonly characterId: { readonly column: 'characterId' };
                 readonly name: { readonly column: 'name' };
                 readonly cost: { readonly column: 'cost' };
+                readonly accumulationCost: { readonly column: 'accumulationCost' };
+                readonly accumulationPerTick: { readonly column: 'accumulationPerTick' };
+                readonly basicType: { readonly column: 'basicType' };
+                readonly attackType: { readonly column: 'attackType' };
+                readonly defenseType: { readonly column: 'defenseType' };
+                readonly maintenanceCost: { readonly column: 'maintenanceCost' };
                 readonly description: { readonly column: 'description' };
                 readonly duration: { readonly column: 'duration' };
                 readonly category: { readonly column: 'category' };

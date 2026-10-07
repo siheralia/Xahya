@@ -64,8 +64,16 @@
       "model": "CharacterResource",
       "namespace": "public"
     },
+    "characterSkillState": {
+      "model": "CharacterSkillState",
+      "namespace": "public"
+    },
     "characterStat": {
       "model": "CharacterStat",
+      "namespace": "public"
+    },
+    "combatSession": {
+      "model": "CombatSession",
       "namespace": "public"
     },
     "economyPaymentLog": {
@@ -114,6 +122,14 @@
     },
     "perk": {
       "model": "Perk",
+      "namespace": "public"
+    },
+    "race": {
+      "model": "Race",
+      "namespace": "public"
+    },
+    "racePerk": {
+      "model": "RacePerk",
       "namespace": "public"
     },
     "ruleSection": {
@@ -608,6 +624,13 @@
           },
           "BusinessInvestment": {
             "fields": {
+              "active": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "amount": {
                 "nullable": false,
                 "type": {
@@ -626,6 +649,13 @@
                 "nullable": false,
                 "type": {
                   "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "frequency": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
                   "kind": "scalar"
                 }
               },
@@ -694,6 +724,9 @@
             },
             "storage": {
               "fields": {
+                "active": {
+                  "column": "active"
+                },
                 "amount": {
                   "column": "amount"
                 },
@@ -702,6 +735,9 @@
                 },
                 "createdAt": {
                   "column": "createdAt"
+                },
+                "frequency": {
+                  "column": "frequency"
                 },
                 "id": {
                   "column": "id"
@@ -1296,10 +1332,31 @@
                   "kind": "scalar"
                 }
               },
+              "blockDefenseType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "createdAt": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "fieldDefenseDescription": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "fieldDefenseType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
                   "kind": "scalar"
                 }
               },
@@ -1331,10 +1388,31 @@
                   "kind": "scalar"
                 }
               },
+              "magicAttackDescription": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "magicAttackType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "name": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "raceId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
                   "kind": "scalar"
                 }
               },
@@ -1388,6 +1466,21 @@
                 },
                 "to": {
                   "model": "Business",
+                  "namespace": "public"
+                }
+              },
+              "combatSessions": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "playerCharacterId"
+                  ]
+                },
+                "to": {
+                  "model": "CombatSession",
                   "namespace": "public"
                 }
               },
@@ -1541,6 +1634,22 @@
                   "namespace": "public"
                 }
               },
+              "race": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "raceId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Race",
+                  "namespace": "public"
+                }
+              },
               "resources": {
                 "cardinality": "1:1",
                 "nullable": true,
@@ -1554,6 +1663,21 @@
                 },
                 "to": {
                   "model": "CharacterResource",
+                  "namespace": "public"
+                }
+              },
+              "skillStates": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "characterId"
+                  ]
+                },
+                "to": {
+                  "model": "CharacterSkillState",
                   "namespace": "public"
                 }
               },
@@ -1628,8 +1752,17 @@
                 "avatarPath": {
                   "column": "avatarPath"
                 },
+                "blockDefenseType": {
+                  "column": "blockDefenseType"
+                },
                 "createdAt": {
                   "column": "createdAt"
+                },
+                "fieldDefenseDescription": {
+                  "column": "fieldDefenseDescription"
+                },
+                "fieldDefenseType": {
+                  "column": "fieldDefenseType"
                 },
                 "flair": {
                   "column": "flair"
@@ -1643,8 +1776,17 @@
                 "id": {
                   "column": "id"
                 },
+                "magicAttackDescription": {
+                  "column": "magicAttackDescription"
+                },
+                "magicAttackType": {
+                  "column": "magicAttackType"
+                },
                 "name": {
                   "column": "name"
+                },
+                "raceId": {
+                  "column": "raceId"
                 },
                 "skillCreationCredits": {
                   "column": "skillCreationCredits"
@@ -2258,6 +2400,140 @@
               "table": "characterResource"
             }
           },
+          "CharacterSkillState": {
+            "fields": {
+              "accumulations": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "active": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "characterId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "lastTickAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "skillId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "totalTicks": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "character": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "characterId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Character",
+                  "namespace": "public"
+                }
+              },
+              "skill": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "skillId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Skill",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "accumulations": {
+                  "column": "accumulations"
+                },
+                "active": {
+                  "column": "active"
+                },
+                "characterId": {
+                  "column": "characterId"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "lastTickAt": {
+                  "column": "lastTickAt"
+                },
+                "skillId": {
+                  "column": "skillId"
+                },
+                "totalTicks": {
+                  "column": "totalTicks"
+                },
+                "updatedAt": {
+                  "column": "updatedAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "characterSkillState"
+            }
+          },
           "CharacterStat": {
             "fields": {
               "agility": {
@@ -2384,6 +2660,164 @@
               },
               "namespaceId": "public",
               "table": "characterStat"
+            }
+          },
+          "CombatSession": {
+            "fields": {
+              "activeActor": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "currentTick": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "lastAction": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              },
+              "npcName": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "npcNextActionTick": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "npcStats": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              },
+              "playerCharacterId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "playerNextActionTick": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "turn": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "playerCharacter": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "playerCharacterId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Character",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "activeActor": {
+                  "column": "activeActor"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "currentTick": {
+                  "column": "currentTick"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "lastAction": {
+                  "column": "lastAction"
+                },
+                "npcName": {
+                  "column": "npcName"
+                },
+                "npcNextActionTick": {
+                  "column": "npcNextActionTick"
+                },
+                "npcStats": {
+                  "column": "npcStats"
+                },
+                "playerCharacterId": {
+                  "column": "playerCharacterId"
+                },
+                "playerNextActionTick": {
+                  "column": "playerNextActionTick"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "turn": {
+                  "column": "turn"
+                },
+                "updatedAt": {
+                  "column": "updatedAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "combatSession"
             }
           },
           "EconomyPaymentLog": {
@@ -2896,6 +3330,13 @@
                   "kind": "scalar"
                 }
               },
+              "attackType": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "createdAt": {
                 "nullable": false,
                 "type": {
@@ -3022,6 +3463,9 @@
                 "allowedSlots": {
                   "column": "allowedSlots"
                 },
+                "attackType": {
+                  "column": "attackType"
+                },
                 "createdAt": {
                   "column": "createdAt"
                 },
@@ -3129,6 +3573,13 @@
                   "kind": "scalar"
                 }
               },
+              "resettable": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "status": {
                 "nullable": false,
                 "type": {
@@ -3222,6 +3673,9 @@
                 },
                 "name": {
                   "column": "name"
+                },
+                "resettable": {
+                  "column": "resettable"
                 },
                 "status": {
                   "column": "status"
@@ -4042,6 +4496,21 @@
                   "model": "CharacterPerk",
                   "namespace": "public"
                 }
+              },
+              "racePerks": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "perkId"
+                  ]
+                },
+                "to": {
+                  "model": "RacePerk",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
@@ -4076,6 +4545,182 @@
               },
               "namespaceId": "public",
               "table": "perk"
+            }
+          },
+          "Race": {
+            "fields": {
+              "active": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "description": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "imagePath": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "characters": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "raceId"
+                  ]
+                },
+                "to": {
+                  "model": "Character",
+                  "namespace": "public"
+                }
+              },
+              "perks": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "raceId"
+                  ]
+                },
+                "to": {
+                  "model": "RacePerk",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "active": {
+                  "column": "active"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "description": {
+                  "column": "description"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "imagePath": {
+                  "column": "imagePath"
+                },
+                "name": {
+                  "column": "name"
+                }
+              },
+              "namespaceId": "public",
+              "table": "race"
+            }
+          },
+          "RacePerk": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "perkId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "raceId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "perk": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "perkId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Perk",
+                  "namespace": "public"
+                }
+              },
+              "race": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "raceId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Race",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "perkId": {
+                  "column": "perkId"
+                },
+                "raceId": {
+                  "column": "raceId"
+                }
+              },
+              "namespaceId": "public",
+              "table": "racePerk"
             }
           },
           "RuleSection": {
@@ -4171,6 +4816,20 @@
           },
           "Skill": {
             "fields": {
+              "accumulationCost": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "accumulationPerTick": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "approvedAt": {
                 "nullable": true,
                 "type": {
@@ -4179,6 +4838,20 @@
                 }
               },
               "areaOfEffect": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "attackType": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "basicType": {
                 "nullable": true,
                 "type": {
                   "codecId": "pg/text@1",
@@ -4227,6 +4900,13 @@
                   "kind": "scalar"
                 }
               },
+              "defenseType": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "description": {
                 "nullable": true,
                 "type": {
@@ -4249,6 +4929,13 @@
                 }
               },
               "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "maintenanceCost": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/int4@1",
@@ -4300,15 +4987,42 @@
                   "model": "Character",
                   "namespace": "public"
                 }
+              },
+              "skillStates": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "skillId"
+                  ]
+                },
+                "to": {
+                  "model": "CharacterSkillState",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
               "fields": {
+                "accumulationCost": {
+                  "column": "accumulationCost"
+                },
+                "accumulationPerTick": {
+                  "column": "accumulationPerTick"
+                },
                 "approvedAt": {
                   "column": "approvedAt"
                 },
                 "areaOfEffect": {
                   "column": "areaOfEffect"
+                },
+                "attackType": {
+                  "column": "attackType"
+                },
+                "basicType": {
+                  "column": "basicType"
                 },
                 "category": {
                   "column": "category"
@@ -4328,6 +5042,9 @@
                 "createdAt": {
                   "column": "createdAt"
                 },
+                "defenseType": {
+                  "column": "defenseType"
+                },
                 "description": {
                   "column": "description"
                 },
@@ -4339,6 +5056,9 @@
                 },
                 "id": {
                   "column": "id"
+                },
+                "maintenanceCost": {
+                  "column": "maintenanceCost"
                 },
                 "name": {
                   "column": "name"
@@ -5002,6 +5722,15 @@
             },
             "businessInvestment": {
               "columns": {
+                "active": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
                 "amount": {
                   "codecId": "pg/int4@1",
                   "nativeType": "int4",
@@ -5019,6 +5748,15 @@
                     "kind": "function"
                   },
                   "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "frequency": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "ONCE"
+                  },
+                  "nativeType": "text",
                   "nullable": false
                 },
                 "id": {
@@ -5083,6 +5821,16 @@
                 }
               ],
               "indexes": [
+                {
+                  "columns": [
+                    "businessId",
+                    "active",
+                    "frequency"
+                  ],
+                  "name": "businessInvestment_businessId_active_frequency_idx_8b8e3374",
+                  "prefix": "businessInvestment_businessId_active_frequency_idx",
+                  "unique": false
+                },
                 {
                   "columns": [
                     "businessId"
@@ -5675,6 +6423,15 @@
                   "nativeType": "text",
                   "nullable": true
                 },
+                "blockDefenseType": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CONCENTRATED"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "default": {
@@ -5682,6 +6439,20 @@
                     "kind": "function"
                   },
                   "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "fieldDefenseDescription": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "fieldDefenseType": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CONCENTRATED"
+                  },
+                  "nativeType": "text",
                   "nullable": false
                 },
                 "flair": {
@@ -5708,10 +6479,29 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "magicAttackDescription": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "magicAttackType": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CUT"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
                 "name": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": false
+                },
+                "raceId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
                 },
                 "skillCreationCredits": {
                   "codecId": "pg/int4@1",
@@ -5749,9 +6539,34 @@
                     "namespaceId": "public",
                     "tableName": "user"
                   }
+                },
+                {
+                  "onDelete": "setNull",
+                  "source": {
+                    "columns": [
+                      "raceId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "character"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "race"
+                  }
                 }
               ],
               "indexes": [
+                {
+                  "columns": [
+                    "raceId"
+                  ],
+                  "name": "character_raceId_idx_723e6d41",
+                  "prefix": "character_raceId_idx",
+                  "unique": false
+                },
                 {
                   "columns": [
                     "userId"
@@ -6372,6 +7187,163 @@
                 }
               ]
             },
+            "characterSkillState": {
+              "columns": {
+                "accumulations": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "active": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "characterId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "lastTickAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "skillId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "totalTicks": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "updatedAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "characterId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "characterSkillState"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "character"
+                  }
+                },
+                {
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "skillId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "characterSkillState"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "skill"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "characterId",
+                    "active"
+                  ],
+                  "name": "characterSkillState_characterId_active_idx_31a42363",
+                  "prefix": "characterSkillState_characterId_active_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "characterId"
+                  ],
+                  "name": "characterSkillState_characterId_idx_2423fe9d",
+                  "prefix": "characterSkillState_characterId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "lastTickAt"
+                  ],
+                  "name": "characterSkillState_lastTickAt_idx_3f1acd75",
+                  "prefix": "characterSkillState_lastTickAt_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "skillId"
+                  ],
+                  "name": "characterSkillState_skillId_idx_6e19993d",
+                  "prefix": "characterSkillState_skillId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "characterId",
+                    "skillId"
+                  ]
+                }
+              ]
+            },
             "characterStat": {
               "columns": {
                 "agility": {
@@ -6492,6 +7464,155 @@
                   ]
                 }
               ]
+            },
+            "combatSession": {
+              "columns": {
+                "activeActor": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "PLAYER"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "currentTick": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "lastAction": {
+                  "codecId": "pg/json@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "{}"
+                  },
+                  "nativeType": "json",
+                  "nullable": false
+                },
+                "npcName": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "npcNextActionTick": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
+                "npcStats": {
+                  "codecId": "pg/json@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "{}"
+                  },
+                  "nativeType": "json",
+                  "nullable": false
+                },
+                "playerCharacterId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "playerNextActionTick": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
+                "status": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "ACTIVE"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "turn": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 1
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "updatedAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "playerCharacterId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "combatSession"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "character"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "playerCharacterId"
+                  ],
+                  "name": "combatSession_playerCharacterId_idx_3bcdc9e8",
+                  "prefix": "combatSession_playerCharacterId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "playerCharacterId",
+                    "status"
+                  ],
+                  "name": "combatSession_playerCharacterId_status_idx_f9e0f09b",
+                  "prefix": "combatSession_playerCharacterId_status_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
             },
             "economyPaymentLog": {
               "columns": {
@@ -6987,6 +8108,11 @@
                   "nativeType": "json",
                   "nullable": false
                 },
+                "attackType": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "default": {
@@ -7141,6 +8267,15 @@
                 "name": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
+                  "nullable": false
+                },
+                "resettable": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
                   "nullable": false
                 },
                 "status": {
@@ -7912,8 +9047,162 @@
               },
               "uniques": []
             },
+            "race": {
+              "columns": {
+                "active": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "description": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "imagePath": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "name"
+                  ]
+                }
+              ]
+            },
+            "racePerk": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "perkId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "raceId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "raceId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "racePerk"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "race"
+                  }
+                },
+                {
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "perkId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "racePerk"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "perk"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "perkId"
+                  ],
+                  "name": "racePerk_perkId_idx_1c5b4f6b",
+                  "prefix": "racePerk_perkId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "raceId"
+                  ],
+                  "name": "racePerk_raceId_idx_723e6d41",
+                  "prefix": "racePerk_raceId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "raceId",
+                  "perkId"
+                ]
+              },
+              "uniques": []
+            },
             "ruleSection": {
               "columns": {
+                "backgroundPath": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "bannerPath": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "content": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -7982,12 +9271,40 @@
             },
             "skill": {
               "columns": {
+                "accumulationCost": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "accumulationPerTick": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
                 "approvedAt": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "nativeType": "timestamptz",
                   "nullable": true
                 },
                 "areaOfEffect": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "attackType": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "basicType": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": true
@@ -8034,6 +9351,11 @@
                   "nativeType": "timestamptz",
                   "nullable": false
                 },
+                "defenseType": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "description": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -8058,6 +9380,15 @@
                   "default": {
                     "expression": "autoincrement()",
                     "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "maintenanceCost": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
                   },
                   "nativeType": "int4",
                   "nullable": false
@@ -8291,7 +9622,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "0ce5b19a39cd8acfc073337e6d7b66dd6c10d556b59b4bc6676299b3169b5b9b"
+    "storageHash": "4aea78ae58e112ae2247d3133a10b4859725da2a1fac9a69d3f8b36613602439"
   },
   "execution": {
     "executionHash": "413d2a20ec0c876dd7b1ba023efcb6c339a0ec1893b44d1eb709e4c8610d6eaa",

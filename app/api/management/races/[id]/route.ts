@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { syncCharacterRacePerks } from "@/lib/races";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -50,11 +51,26 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (Object.keys(updates).length) await (tx.orm.public as any).Race.where({ id: raceId }).update(updates);
       if (hasPerkIds) {
         const RP = (tx.orm.public as any).RacePerk;
+        const Character = (tx.orm.public as any).Character;
         const existing = await RP.where({ raceId }).all();
+        const previousPerkIds = new Set<number>(existing.map((link: any) => Number(link.perkId)));
         const wanted = new Set(perkIds);
-        for (const link of existing) if (!wanted.has(Number(link.perkId))) await RP.where({ raceId, perkId: Number(link.perkId) }).delete();
+
+        for (const link of existing) {
+          if (!wanted.has(Number(link.perkId))) {
+            await RP.where({ raceId, perkId: Number(link.perkId) }).delete();
+          }
+        }
+
         const existingIds = new Set(existing.map((link: any) => Number(link.perkId)));
-        for (const perkId of perkIds) if (!existingIds.has(perkId)) await RP.create({ raceId, perkId });
+        for (const perkId of perkIds) {
+          if (!existingIds.has(perkId)) await RP.create({ raceId, perkId });
+        }
+
+        const characters: any[] = await Character.where({ raceId }).all();
+        for (const character of characters) {
+          await syncCharacterRacePerks(tx, Number(character.id), raceId, previousPerkIds);
+        }
       }
     });
   } catch {

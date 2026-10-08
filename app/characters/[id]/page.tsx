@@ -21,12 +21,12 @@ type Skill = {
 };
 
 const skillCategories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]] as const;
-const skillEffectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["NARRATIVE","Narrativo"],["MAZE_UTILITY_FLOATING","Flotar"],["MAZE_UTILITY_INVISIBILITY","Invisibilidad"]] as const;
+const skillEffectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["DAMAGE_REDUCTION","Daño recibido reducido ×"],["DAMAGE_INCREASE","Daño recibido aumentado ×"],["NARRATIVE","Narrativo"],["MAZE_UTILITY_FLOATING","Flotar"],["MAZE_UTILITY_INVISIBILITY","Invisibilidad"]] as const;
 const skillTargets = [
   ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
   ["HP","HP"],["MANA","Mana"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],
   ["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],
-  ["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],["DAMAGE_REDUCTION_ALL","Reducción de daño recibido"],["DAMAGE_REDUCTION_PHYSICAL","Reducción de daño físico recibido"],["DAMAGE_REDUCTION_MAGICAL","Reducción de daño mágico recibido"],["DAMAGE_INCREASE_ALL","Aumento de daño recibido"],["DAMAGE_INCREASE_PHYSICAL","Aumento de daño físico recibido"],["DAMAGE_INCREASE_MAGICAL","Aumento de daño mágico recibido"],
+  ["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],["ALL","Todo"],["PHYSICAL","Físico"],["MAGICAL","Mágico"],
 ] as const;
 
 type ThemePalette = {

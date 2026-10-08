@@ -78,7 +78,7 @@ export async function getActiveCasinoSet(): Promise<{ set: CasinoSet; schedule: 
   };
   const schedule = schedules.find((entry) =>
     entry.active &&
-    entry.dayOfWeek === p.weekday &&
+    (entry.dayOfWeek === -1 || entry.dayOfWeek === p.weekday) &&
     nowMinutes >= timeValue(entry.startTime) &&
     nowMinutes < timeValue(entry.endTime),
   ) ?? null;
@@ -111,7 +111,7 @@ export function validateCasinoSchedules(input: unknown, validSetIds: Set<string>
     };
     const start = time(startTime);
     const end = time(endTime);
-    if (!id || !validSetIds.has(setId) || !Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6 || start < 0 || end <= start) {
+    if (!id || !validSetIds.has(setId) || !Number.isInteger(dayOfWeek) || dayOfWeek < -1 || dayOfWeek > 6 || start < 0 || end <= start) {
       return { error: "Cada horario necesita un set válido, día y horas correctas; la hora final debe ser posterior a la inicial." };
     }
     schedules.push({ id, setId, dayOfWeek, startTime, endTime, active });
@@ -124,7 +124,7 @@ export function validateCasinoSchedules(input: unknown, validSetIds: Set<string>
     const aEnd = timeToMinutes(a.endTime);
     for (let j = i + 1; j < activeSchedules.length; j += 1) {
       const b = activeSchedules[j];
-      if (a.dayOfWeek !== b.dayOfWeek) continue;
+      if (a.dayOfWeek !== -1 && b.dayOfWeek !== -1 && a.dayOfWeek !== b.dayOfWeek) continue;
       const bStart = timeToMinutes(b.startTime);
       const bEnd = timeToMinutes(b.endTime);
       if (aStart < bEnd && bStart < aEnd) {

@@ -782,7 +782,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const requestedExit = await TxExit.where({ fromRoomId:currentRoom.id, direction }).first();
     if (!requestedExit) throw new Error("EXIT_NOT_FOUND");
 
-    if (activeEnemies.length > 0 && Number(requestedExit.toRoomId) !== Number(position?.previousRoomId ?? -1) && !exploreInvisible && !exploreStealth) throw new Error("ROOM_BLOCKED");
+    // Una sala marcada CLEARED ya fue resuelta. Su estado es la fuente de verdad
+    // para permitir nuevas salidas aunque exista un encuentro ACTIVE obsoleto.
+    const roomIsCleared = String(currentRoom.status) === "CLEARED";
+    if (!roomIsCleared && activeEnemies.length > 0 && Number(requestedExit.toRoomId) !== Number(position?.previousRoomId ?? -1) && !exploreInvisible && !exploreStealth) throw new Error("ROOM_BLOCKED");
     // Sigilo/invisibilidad solo se comprueban cuando realmente hay enemigos activos.
     if (activeEnemies.length > 0 && exploreInvisible) {
       const capabilities = await getCharacterMazeCapabilities(tx, characterId);

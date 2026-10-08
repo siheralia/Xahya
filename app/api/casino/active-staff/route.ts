@@ -19,21 +19,25 @@ export async function GET() {
     const [positions, contracts, characters] = await Promise.all([
       Position.all(), Contract.all(), db.orm.public.Character.all(),
     ]);
+    const now = Date.now();
+    const isContractCurrent = (entry: any) => {
+      if (!entry.active) return false;
+      const startDate = entry.startDate?.epochMilliseconds ?? Number.NEGATIVE_INFINITY;
+      const endDate = entry.endDate?.epochMilliseconds ?? Number.POSITIVE_INFINITY;
+      return startDate <= now && now < endDate;
+    };
     const position = positions.find((entry: any) =>
       entry.businessId == null &&
       entry.active &&
       String(entry.title ?? "").trim().toLocaleLowerCase("es-MX") === "encargado de casino" &&
-      isOpen(String(entry.startTime), String(entry.endTime), nowMinutes),
+      isOpen(String(entry.startTime), String(entry.endTime), nowMinutes) &&
+      contracts.some((contract: any) => Number(contract.positionId) === Number(entry.id) && isContractCurrent(contract)),
     );
     if (!position) return NextResponse.json({ timeZone: TIME_ZONE, activeStaff: null });
 
-    const now = Date.now();
-    const contract = contracts.find((entry: any) => {
-      if (Number(entry.positionId) !== Number(position.id) || !entry.active) return false;
-      const startDate = entry.startDate?.epochMilliseconds ?? Number.NEGATIVE_INFINITY;
-      const endDate = entry.endDate?.epochMilliseconds ?? Number.POSITIVE_INFINITY;
-      return startDate <= now && now < endDate;
-    });
+    const contract = contracts.find((entry: any) =>
+      Number(entry.positionId) === Number(position.id) && isContractCurrent(entry),
+    );
     if (!contract) return NextResponse.json({ timeZone: TIME_ZONE, activeStaff: null });
 
     const character = characters.find((entry: any) => Number(entry.id) === Number(contract.characterId));

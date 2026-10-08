@@ -257,7 +257,7 @@ export default function MazePage(){
           </div>
           </div>}
         </section>
-        <aside className="flex min-h-0 w-full flex-col gap-3 pb-[70dvh]">
+        <aside className="flex min-h-0 w-full flex-col gap-3 pb-[90dvh] lg:pb-24">
           <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
             <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2.5">
               <div>

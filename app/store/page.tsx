@@ -37,7 +37,7 @@ type ActiveStaff = {
 };
 
 const typeLabels: Record<string, string> = { WEAPON: "Arma", ARMOR: "Armadura", ACCESSORY: "Accesorio", CONSUMABLE: "Consumible", MATERIAL: "Material", OTHER: "Otro" };
-const effectLabels: Record<string, string> = { attack_multiplier_all: "Ataque total", damage_reduction_all: "Reducción de daño recibido" };
+const effectLabels: Record<string, string> = { attack_multiplier_all: "Ataque total", damage_reduction_all: "Reducción de daño recibido", damage_reduction_physical: "Reducción de daño físico recibido", damage_reduction_magical: "Reducción de daño mágico recibido", damage_increase_all: "Aumento de daño recibido", damage_increase_physical: "Aumento de daño físico recibido", damage_increase_magical: "Aumento de daño mágico recibido" };
 const subtypeLabels: Record<string, string> = {
   SABRE: "Sable", SWORD: "Espada", BOW: "Arco", DAGGER: "Daga", SPEAR: "Lanza",
   STAFF: "Bastón", AXE: "Hacha", HAMMER: "Martillo", SHIELD: "Escudo",

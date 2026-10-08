@@ -160,7 +160,12 @@ export async function POST(request: Request) {
       }
 
       await tx.orm.public.CharacterResource.where({ id: resource.id }).update({ money, karma });
-      return { ...results[results.length - 1], results };
+      return {
+        ...results[results.length - 1],
+        results,
+        activeSet: { id: activeSet.id, name: activeSet.name },
+        segments: segments.map(({ label, weight, color }) => ({ label, weight, color })),
+      };
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo completar el giro.";

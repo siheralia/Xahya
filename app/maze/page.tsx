@@ -213,7 +213,7 @@ export default function MazePage(){
                     const isReturn=Boolean(exit&&Number(exit.id)===Number(returnExitId));
                     const blocked=Boolean(exit)&&(
                       maze.positionStatus!=="ACTIVE" ||
-                      ((!invisibilityActive&&!stealthActive)&&hasActiveRoomEnemies&&!isReturn)
+                      ((!invisibilityActive&&!stealthActive)&&room?.status!=="CLEARED"&&hasActiveRoomEnemies&&!isReturn)
                     );
                     const available=Boolean(exit);
                     return <button key={direction}

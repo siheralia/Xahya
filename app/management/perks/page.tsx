@@ -30,12 +30,7 @@ export default function PerksManagementPage(){
     CRITICAL: "Crítico", DISCOVERY: "Descubrimiento", MIRACLE: "Milagro",
     INTIMIDATION: "Intimidación", CONQUEST: "Conquista", RACE: "Raza",
     DODGE: "Esquiva", STEALTH: "Sigilo", DETECTION: "Detección", ATTACK_TOTAL: "Ataque total",
-    DAMAGE_REDUCTION_ALL: "Daño recibido reducido — todo",
-    DAMAGE_REDUCTION_PHYSICAL: "Daño recibido reducido — físico",
-    DAMAGE_REDUCTION_MAGICAL: "Daño recibido reducido — mágico",
-    DAMAGE_INCREASE_ALL: "Daño recibido aumentado — todo",
-    DAMAGE_INCREASE_PHYSICAL: "Daño recibido aumentado — físico",
-    DAMAGE_INCREASE_MAGICAL: "Daño recibido aumentado — mágico",
+    ALL: "Todo", PHYSICAL: "Físico", MAGICAL: "Mágico",
     MONEY: "Dinero", KARMA: "Karma", LEVEL_UP_POINTS: "Puntos de subida",
     OTHER: "Otro", INVISIBILITY: "Invisibilidad", FLOATING: "Flotar",
   };

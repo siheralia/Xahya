@@ -21,7 +21,7 @@ type Skill = {
 };
 
 const skillCategories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]] as const;
-const skillEffectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["NARRATIVE","Narrativo"]] as const;
+const skillEffectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["NARRATIVE","Narrativo"],["MAZE_UTILITY_FLOATING","Flotar"],["MAZE_UTILITY_INVISIBILITY","Invisibilidad"]] as const;
 const skillTargets = [
   ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
   ["HP","HP"],["MANA","Mana"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],

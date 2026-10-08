@@ -252,8 +252,28 @@ export async function POST(request: Request) {
     const existing = (await Contract.where({ positionId }).all()).find((contract: any) => contract.active);
     if (existing) return NextResponse.json({ error: "Ese puesto ya tiene una persona contratada." }, { status: 400 });
 
-    const sameCharacter = (await Contract.where({ characterId }).all()).find((contract: any) => contract.active);
-    if (sameCharacter) return NextResponse.json({ error: "Ese personaje ya tiene un empleo activo." }, { status: 400 });
+    const activeContracts = (await Contract.where({ characterId }).all()).filter((contract: any) => contract.active);
+    const minutes = (value: unknown) => {
+      const match = /^(\\d{2}):(\\d{2})$/.exec(String(value ?? ""));
+      return match ? Number(match[1]) * 60 + Number(match[2]) : -1;
+    };
+    const splitShift = (startValue: unknown, endValue: unknown) => {
+      const start = minutes(startValue);
+      const end = minutes(endValue);
+      if (start < 0 || end < 0 || start === end) return [[0, 1440]];
+      return end > start ? [[start, end]] : [[start, 1440], [0, end]];
+    };
+    const candidateShift = splitShift(position.startTime, position.endTime);
+    for (const contract of activeContracts) {
+      const otherPosition = await Position.where({ id: Number(contract.positionId) }).first();
+      if (!otherPosition) continue;
+      const otherShift = splitShift(otherPosition.startTime, otherPosition.endTime);
+      if (candidateShift.some(([start, end]) => otherShift.some(([otherStart, otherEnd]) => start < otherEnd && otherStart < end))) {
+        return NextResponse.json({
+          error: `Ese personaje ya tiene un turno que se solapa con ${otherPosition.title} (${otherPosition.startTime}–${otherPosition.endTime}). Solo puedes contratarlo en turnos compatibles.`,
+        }, { status: 400 });
+      }
+    }
 
     try {
       const contract = await Contract.create({ positionId, characterId, startDate: Temporal.Instant.fromEpochMilliseconds(Date.now()), endDate: null, active: true });

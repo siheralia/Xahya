@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const probability = Number(body?.probability);
   const effects = Array.isArray(body?.effects) ? body.effects : [];
   const stackable = body?.stackable !== false;
-  const validCombatTypes = ["IGNORE_PHYS_DEF_MULTIPLIER","IGNORE_PHYS_DEF_BONUS","IGNORE_MAGIC_DEF_MULTIPLIER","IGNORE_MAGIC_DEF_BONUS","IGNORE_ALL_DEF_MULTIPLIER","IGNORE_ALL_DEF_BONUS","FINAL_DAMAGE_MULTIPLIER","FINAL_DAMAGE_BONUS"];
+  const validCombatTypes = ["IGNORE_PHYS_DEF_MULTIPLIER","IGNORE_PHYS_DEF_BONUS","IGNORE_MAGIC_DEF_MULTIPLIER","IGNORE_MAGIC_DEF_BONUS","IGNORE_ALL_DEF_MULTIPLIER","IGNORE_ALL_DEF_BONUS","FINAL_DAMAGE_MULTIPLIER","FINAL_DAMAGE_BONUS","DAMAGE_REDUCTION","DAMAGE_INCREASE"];
   if (effects.some((e:any) => !e || typeof e.type !== "string" || (!["STAT_BONUS","STAT_MULTIPLIER","RESOURCE_BONUS","COMBAT_MULTIPLIER","EQUIPMENT_SLOT_CAP"].includes(e.type) && !validCombatTypes.includes(e.type)) || !Number.isFinite(Number(e.value)))) return NextResponse.json({ error: "Efecto de perk inválido." }, { status: 400 });
   const maxStacks = body?.maxStacks == null || body.maxStacks === "" ? null : Math.max(1, Math.trunc(Number(body.maxStacks)));
   if (!name || name.length > 100) return NextResponse.json({ error: "El nombre es obligatorio y no puede superar 100 caracteres." }, { status: 400 });

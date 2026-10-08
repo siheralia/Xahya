@@ -1,6 +1,6 @@
 export const EFFECT_CATALOG = [
   { type: "DAMAGE_MULTIPLIER", label: "Daño ×", mode: "multiplier", targets: ["PHYS_ATK","MAGIC_ATK","ATTACK_TOTAL"] },
-  { type: "STAT_MULTIPLIER", label: "Estadística ×", mode: "multiplier", targets: ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK","HP","MANA","PHYS_ATK","MAGIC_ATK","DEF","MAG_DEF","PRECISION","CRITICAL","DISCOVERY","MIRACLE","INTIMIDATION","CONQUEST","RACE","DODGE","STEALTH","DETECTION","ATTACK_TOTAL"] },
+  { type: "STAT_MULTIPLIER", label: "Estadística ×", mode: "multiplier", targets: ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK","HP","MANA","PHYS_ATK","MAGIC_ATK","DEF","MAG_DEF","PRECISION","CRITICAL","DISCOVERY","MIRACLE","INTIMIDATION","CONQUEST","RACE","DODGE","STEALTH","DETECTION","ATTACK_TOTAL","DAMAGE_REDUCTION_ALL"] },
   { type: "STAT_BONUS", label: "Estadística +", mode: "bonus", targets: ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK","HP","MANA","PHYS_ATK","MAGIC_ATK","DEF","MAG_DEF","PRECISION","CRITICAL","DISCOVERY","MIRACLE","INTIMIDATION","CONQUEST","RACE","DODGE","STEALTH","DETECTION","ATTACK_TOTAL"] },
   { type: "RESOURCE_BONUS", label: "Recurso +", mode: "bonus", targets: ["HP","MANA","MONEY","KARMA","LEVEL_UP_POINTS"] },
   { type: "COMBAT_MULTIPLIER", label: "Combate ×", mode: "multiplier", targets: ["PHYS_ATK","MAGIC_ATK","ATTACK_TOTAL"] },
@@ -14,7 +14,7 @@ export const EFFECT_CATALOG = [
   { type: "IGNORE_ALL_DEF_BONUS", label: "Ignorar defensas +", mode: "bonus", targets: [] },
   { type: "FINAL_DAMAGE_MULTIPLIER", label: "Daño final ocasionado ×", mode: "multiplier", targets: [] },
   { type: "FINAL_DAMAGE_BONUS", label: "Daño final ocasionado +", mode: "bonus", targets: [] },
-  { type: "MAZE_UTILITY", label: "Capacidad de laberinto", mode: "special", targets: ["INVISIBILITY"] },
+  { type: "MAZE_UTILITY", label: "Capacidad de laberinto", mode: "special", targets: ["INVISIBILITY","FLOATING"] },
 ] as const;
 
 export type SkillEffectType = typeof EFFECT_CATALOG[number]["type"];

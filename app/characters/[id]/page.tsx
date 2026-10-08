@@ -26,7 +26,7 @@ const skillTargets = [
   ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
   ["HP","HP"],["MANA","Mana"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],
   ["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],
-  ["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],
+  ["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],["DAMAGE_REDUCTION_ALL","Reducción de daño recibido"],
 ] as const;
 
 type ThemePalette = {
@@ -1271,9 +1271,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   function updateSkillEffect(index: number, key: keyof SkillEffect, value: string) {
     setSkillForm((current) => ({
       ...current,
-      effect: current.effect.map((effect, effectIndex) => effectIndex === index
-        ? { ...effect, [key]: key === "value" ? Number(value) : value }
-        : effect),
+      effect: current.effect.map((effect, effectIndex) => {
+        if (effectIndex !== index) return effect;
+        if (key === "type" && value === "MAZE_UTILITY_FLOATING") return { ...effect, type: "MAZE_UTILITY", target: "FLOATING", value: 1 };
+        if (key === "type" && value === "MAZE_UTILITY_INVISIBILITY") return { ...effect, type: "MAZE_UTILITY", target: "INVISIBILITY", value: 1 };
+        return { ...effect, [key]: key === "value" ? Number(value) : value };
+      }),
     }));
   }
 
@@ -1886,11 +1889,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 <div className="mt-4 space-y-3">
                   {skillForm.effect.map((effect, index) => {
                     const narrative = effect.type === "NARRATIVE";
+                    const mazeUtility = effect.type === "MAZE_UTILITY";
                     return <div key={index} className="grid gap-2 sm:grid-cols-[170px_1fr_100px_auto]">
                       <select value={effect.type} onChange={(e) => updateSkillEffect(index, "type", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{skillEffectTypes.map((type) => <option key={type[0]} value={type[0]}>{type[1]}</option>)}</select>
                       {narrative
                         ? <input value={effect.description ?? ""} onChange={(e) => updateSkillEffect(index, "description", e.target.value)} placeholder="Qué ocurre en rol" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" />
-                        : <select value={effect.target ?? "MAGIC_ATK"} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{skillTargets.map((target) => <option key={target[0]} value={target[0]}>{target[1]}</option>)}</select>}
+                        : <select value={mazeUtility ? (effect.target ?? "INVISIBILITY") : (effect.target ?? "MAGIC_ATK")} disabled={mazeUtility} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{(mazeUtility ? [["INVISIBILITY","Invisibilidad"],["FLOATING","Flotar"]] as const : skillTargets).map((target) => <option key={target[0]} value={target[0]}>{target[1]}</option>)}</select>}
                       {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "200 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
                       <button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
                     </div>;

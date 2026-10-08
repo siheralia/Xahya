@@ -73,7 +73,7 @@ export async function getActiveCasinoSet(): Promise<{ set: CasinoSet; schedule: 
   const p = localParts();
   const nowMinutes = p.hour * 60 + p.minute;
   const timeValue = (value: string) => {
-    const match = /^(\\d{2}):(\\d{2})$/.exec(value);
+    const match = /^(\d{2}):(\d{2})$/.exec(value);
     return match ? Number(match[1]) * 60 + Number(match[2]) : -1;
   };
   const schedule = schedules.find((entry) =>
@@ -103,7 +103,7 @@ export function validateCasinoSchedules(input: unknown, validSetIds: Set<string>
     const endTime = String(item?.endTime ?? "");
     const active = item?.active !== false;
     const time = (value: string) => {
-      const match = /^(\\d{2}):(\\d{2})$/.exec(value);
+      const match = /^(\d{2}):(\d{2})$/.exec(value);
       if (!match) return -1;
       const hour = Number(match[1]);
       const minute = Number(match[2]);

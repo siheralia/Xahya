@@ -187,19 +187,35 @@ export async function GET(
         const type = String(effect.type);
         const stat = String(effect.stat ?? "");
         if (type === "stat_multiplier" && stat === "ATTACK_TOTAL") return [{ type: "attack_multiplier_all", value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
-        if (type === "stat_bonus" && stat === "DAMAGE_REDUCTION_ALL") return [{ type: "damage_reduction_all", value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
+        const damageEffectTypes: Record<string, string> = {
+          DAMAGE_REDUCTION_ALL: "damage_reduction_all",
+          DAMAGE_REDUCTION_PHYSICAL: "damage_reduction_physical",
+          DAMAGE_REDUCTION_MAGICAL: "damage_reduction_magical",
+          DAMAGE_INCREASE_ALL: "damage_increase_all",
+          DAMAGE_INCREASE_PHYSICAL: "damage_increase_physical",
+          DAMAGE_INCREASE_MAGICAL: "damage_increase_magical",
+        };
+        if (type === "stat_bonus" && damageEffectTypes[stat]) return [{ type: damageEffectTypes[stat], value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
         if (["ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus"].includes(type)) return [{ type, value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
         if (type === "attack_multiplier_all" || type === "damage_reduction_all") return [{ type, value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
         return [];
       });
     });
 
-  const newItemCombatTypes = ["ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus"];
+  const newItemCombatTypes = ["ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus","damage_reduction_all","damage_reduction_physical","damage_reduction_magical","damage_increase_all","damage_increase_physical","damage_increase_magical"];
   const perkCombatEffects = perkEffects.flatMap((effect:any) => {
     const type = String(effect.type ?? "");
     if (type === "COMBAT_MULTIPLIER" && String(effect.target) === "ATTACK_TOTAL") return [{ type: "attack_multiplier_all", value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
     if (type === "COMBAT_MULTIPLIER" && String(effect.target) === "DAMAGE_REDUCTION_ALL") return [{ type: "damage_reduction_all", value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
-    if (type === "STAT_BONUS" && String(effect.target) === "DAMAGE_REDUCTION_ALL") return [{ type: "damage_reduction_all", value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
+    const damageEffectTypes: Record<string, string> = {
+      DAMAGE_REDUCTION_ALL: "damage_reduction_all",
+      DAMAGE_REDUCTION_PHYSICAL: "damage_reduction_physical",
+      DAMAGE_REDUCTION_MAGICAL: "damage_reduction_magical",
+      DAMAGE_INCREASE_ALL: "damage_increase_all",
+      DAMAGE_INCREASE_PHYSICAL: "damage_increase_physical",
+      DAMAGE_INCREASE_MAGICAL: "damage_increase_magical",
+    };
+    if ((type === "STAT_BONUS" || type === "STAT_MULTIPLIER") && damageEffectTypes[String(effect.target)]) return [{ type: damageEffectTypes[String(effect.target)], value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
     if (newItemCombatTypes.includes(type)) return [{ type, value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
     return [];
   });

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CasinoStaffBanner from "./CasinoStaffBanner";
 
 const games = [
   {
@@ -37,6 +38,10 @@ export default function CasinoPage() {
             <h1 className="text-3xl font-bold">Caosino</h1>
           </div>
         </div>
+
+        <section className="mt-8">
+          <CasinoStaffBanner />
+        </section>
 
         <section className="mt-12 text-center">
           <p className="text-xs uppercase tracking-[0.35em] text-zinc-600">Salón de juegos</p>

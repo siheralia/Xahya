@@ -2,27 +2,13 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { getCasinoLuckAdjustedWeights, getCasinoSet, type CasinoSet } from "@/lib/casino";
+import { getCasinoLuckAdjustedWeights, type CasinoSet } from "@/lib/casino";
+import { getActiveCasinoSet as getScheduledActiveCasinoSet } from "@/lib/casino-schedule";
 
 // RULE NOTE: 0 charges the wager once (-bet). -100% charges the wager twice (-2 × bet).
 // Positive results only add their profit; they do not refund the wager separately. Negative money is allowed and represents debt to the casino.
 async function getActiveCasinoSet(): Promise<CasinoSet> {
-  const logs = await db.orm.public.AuditLog
-    .where({ action: "CASINO_CONFIG" })
-    .all();
-  const latest = logs
-    .map((log) => {
-      try {
-        return { createdAt: String(log.createdAt), details: typeof log.details === "string" ? JSON.parse(log.details) : (log.details ?? {}) };
-      } catch {
-        return { createdAt: String(log.createdAt), details: {} };
-      }
-    })
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-
-  const savedSet = latest?.details?.set;
-  if (savedSet?.id && Array.isArray(savedSet.segments)) return savedSet as CasinoSet;
-  return getCasinoSet(latest?.details?.setId);
+  return (await getScheduledActiveCasinoSet()).set;
 }
 
 async function getCurrentUser() {

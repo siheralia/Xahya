@@ -12,7 +12,7 @@ type Skill = {
 };
 
 const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
-const effectTypes=[...EFFECT_CATALOG.filter(e=>e.type!=="MAZE_UTILITY").map(e=>[e.type,e.label] as const),["MAZE_UTILITY_INVISIBILITY","Invisibilidad"]] as const;
+const effectTypes=[...EFFECT_CATALOG.filter(e=>e.type!=="MAZE_UTILITY").map(e=>[e.type,e.label] as const),["MAZE_UTILITY_INVISIBILITY","Invisibilidad"],["MAZE_UTILITY_FLOATING","Flotar"]] as const;
 const blankEffect=():Effect=>({type:"STAT_BONUS",target:"STR",value:10,description:""});
 const blankForm=()=>({characterId:"",name:"",cost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"",category:"UTILITY",areaOfEffect:"",speed:"",cooldown:"",condition:"",effect:[] as Effect[]});
 
@@ -62,6 +62,7 @@ export default function SkillsManagementPage(){
     setForm(f=>({...f,effect:f.effect.map((e,idx)=>{
       if(idx!==i) return e;
       if(key==="type" && value==="MAZE_UTILITY_INVISIBILITY") return {...e,type:"MAZE_UTILITY",target:"INVISIBILITY",value:1};
+      if(key==="type" && value==="MAZE_UTILITY_FLOATING") return {...e,type:"MAZE_UTILITY",target:"FLOATING",value:1};
       return {...e,[key]:key==="value"?Number(value):value};
     })}));
   }

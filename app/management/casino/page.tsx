@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+type Schedule = { id: string; setId: string; dayOfWeek: number; startTime: string; endTime: string; active: boolean };
+
 type Segment = {
   label: string;
   weight: number;
@@ -47,6 +49,12 @@ function getWheelBackground(segments: Segment[]) {
 export default function CasinoManagementPage() {
   const [sets, setSets] = useState<CasinoSet[]>([]);
   const [activeSetId, setActiveSetId] = useState("");
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [scheduleSetId, setScheduleSetId] = useState("");
+  const [scheduleDay, setScheduleDay] = useState(1);
+  const [scheduleStart, setScheduleStart] = useState("09:00");
+  const [scheduleEnd, setScheduleEnd] = useState("12:00");
+  const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [editing, setEditing] = useState<CasinoSet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +71,9 @@ export default function CasinoManagementPage() {
       if (!response.ok) throw new Error(data?.error ?? "No se pudo cargar la gestión del casino.");
       setSets(data.sets ?? []);
       setActiveSetId(data.activeSetId ?? "");
+      setSchedules(Array.isArray(data.schedules) ? data.schedules : []);
+      setActiveScheduleId(data.activeScheduleId ?? null);
+      setScheduleSetId((current) => current || data.sets?.[0]?.id || "");
       setSelectedId(data.activeSetId ?? data.sets?.[0]?.id ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar la gestión del casino.");
@@ -149,6 +160,48 @@ export default function CasinoManagementPage() {
     }
   }
 
+  const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+  function addSchedule() {
+    const id = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : "schedule-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+    setSchedules((current) => [...current, {
+      id,
+      setId: scheduleSetId || sets[0]?.id || "",
+      dayOfWeek: scheduleDay,
+      startTime: scheduleStart,
+      endTime: scheduleEnd,
+      active: true,
+    }]);
+    setError("");
+    setSuccess("");
+  }
+
+  async function saveSchedules() {
+    if (saving) return;
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/management/casino", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "scheduleSave", schedules }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar la programación.");
+      setSchedules(data.schedules ?? []);
+      setActiveSetId(data.activeSetId ?? activeSetId);
+      setActiveScheduleId(data.activeScheduleId ?? null);
+      setSuccess("Programación guardada. Los cambios se aplican automáticamente según la hora de Chihuahua.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar la programación.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function activate() {
     if (!selected || saving || selected.id === activeSetId) return;
     setSaving(true);
@@ -213,6 +266,69 @@ export default function CasinoManagementPage() {
 
         {error && <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
         {success && <div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
+
+        <section className="mt-8 rounded-2xl border border-sky-900/60 bg-zinc-900/50 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold">Programación de ruletas</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+                Elige sets ya creados y asigna un día y horario. El casino permanece abierto; fuera de estos horarios se conserva el set activado manualmente. Los horarios activos no pueden solaparse.
+              </p>
+              <p className="mt-2 text-xs text-zinc-500">Zona horaria: America/Chihuahua · Días de domingo a sábado</p>
+            </div>
+            <button type="button" onClick={saveSchedules} disabled={saving} className="rounded-xl bg-sky-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
+              {saving ? "Guardando..." : "Guardar programación"}
+            </button>
+          </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-sm text-zinc-300">
+              Set de ruleta
+              <select value={scheduleSetId} onChange={(e) => setScheduleSetId(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3">
+                {sets.map((set) => <option key={set.id} value={set.id}>{set.name}</option>)}
+              </select>
+            </label>
+            <label className="text-sm text-zinc-300">
+              Día
+              <select value={scheduleDay} onChange={(e) => setScheduleDay(Number(e.target.value))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3">
+                {dayNames.map((day, index) => <option key={day} value={index}>{day}</option>)}
+              </select>
+            </label>
+            <label className="text-sm text-zinc-300">
+              Desde
+              <input type="time" value={scheduleStart} onChange={(e) => setScheduleStart(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3" />
+            </label>
+            <label className="text-sm text-zinc-300">
+              Hasta
+              <input type="time" value={scheduleEnd} onChange={(e) => setScheduleEnd(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3" />
+            </label>
+          </div>
+          <button type="button" onClick={addSchedule} disabled={!sets.length || !scheduleSetId} className="mt-4 rounded-lg border border-sky-800 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-950/50 disabled:opacity-40">
+            + Añadir horario
+          </button>
+
+          <div className="mt-5 space-y-3">
+            {schedules.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-zinc-800 p-5 text-sm text-zinc-500">Todavía no hay horarios programados.</p>
+            ) : schedules.map((schedule) => {
+              const set = sets.find((item) => item.id === schedule.setId);
+              return (
+                <div key={schedule.id} className="grid gap-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                  <div>
+                    <p className="font-semibold">{set?.name ?? "Set no disponible"} · {dayNames[schedule.dayOfWeek]}</p>
+                    <p className="mt-1 text-sm text-zinc-500">{schedule.startTime}–{schedule.endTime} · {schedule.active ? "Programación activa" : "Desactivada"}</p>
+                    {schedule.id === activeScheduleId && <p className="mt-1 text-xs font-semibold text-emerald-300">Vigente ahora</p>}
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                    <input type="checkbox" checked={schedule.active} onChange={(e) => setSchedules((current) => current.map((entry) => entry.id === schedule.id ? { ...entry, active: e.target.checked } : entry))} />
+                    Activo
+                  </label>
+                  <button type="button" onClick={() => setSchedules((current) => current.filter((entry) => entry.id !== schedule.id))} className="rounded-lg border border-red-900/70 px-3 py-2 text-sm text-red-300 hover:bg-red-950/40">Quitar</button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
         {editing && (
           <section className="mt-8 rounded-2xl border border-amber-500/30 bg-zinc-900/70 p-6">

@@ -195,7 +195,10 @@ export async function GET(
           DAMAGE_INCREASE_PHYSICAL: "damage_increase_physical",
           DAMAGE_INCREASE_MAGICAL: "damage_increase_magical",
         };
-        if (type === "stat_bonus" && damageEffectTypes[stat]) return [{ type: damageEffectTypes[stat], value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
+        if ((type === "stat_bonus" && damageEffectTypes[stat]) || ((type === "damage_reduction" || type === "damage_increase") && damageEffectTypes[(type === "damage_reduction" ? "DAMAGE_REDUCTION_" : "DAMAGE_INCREASE_") + stat])) return [{
+          type: damageEffectTypes[(type === "stat_bonus" ? stat : (type === "damage_reduction" ? "DAMAGE_REDUCTION_" : "DAMAGE_INCREASE_") + stat)],
+          value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null
+        }];
         if (["ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus"].includes(type)) return [{ type, value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
         if (type === "attack_multiplier_all" || type === "damage_reduction_all") return [{ type, value: Number(effect.value), source: "ITEM:" + String(item.name), expiresAt: null }];
         return [];
@@ -215,7 +218,10 @@ export async function GET(
       DAMAGE_INCREASE_PHYSICAL: "damage_increase_physical",
       DAMAGE_INCREASE_MAGICAL: "damage_increase_magical",
     };
-    if ((type === "STAT_BONUS" || type === "STAT_MULTIPLIER") && damageEffectTypes[String(effect.target)]) return [{ type: damageEffectTypes[String(effect.target)], value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
+    if (((type === "STAT_BONUS" || type === "STAT_MULTIPLIER") && damageEffectTypes[String(effect.target)]) || ((type === "DAMAGE_REDUCTION" || type === "DAMAGE_INCREASE") && damageEffectTypes[(type === "DAMAGE_REDUCTION" ? "DAMAGE_REDUCTION_" : "DAMAGE_INCREASE_") + String(effect.target)])) return [{
+      type: damageEffectTypes[type === "STAT_BONUS" || type === "STAT_MULTIPLIER" ? String(effect.target) : (type === "DAMAGE_REDUCTION" ? "DAMAGE_REDUCTION_" : "DAMAGE_INCREASE_") + String(effect.target)],
+      value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null
+    }];
     if (newItemCombatTypes.includes(type)) return [{ type, value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
     return [];
   });

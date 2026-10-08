@@ -34,7 +34,7 @@ const EFFECT_TARGETS = [
   ["MAG_DEF", "Defensa mágica"], ["PRECISION", "Precisión"], ["CRITICAL", "Crítico"], ["DISCOVERY", "Hallazgo"],
   ["MIRACLE", "Milagro"], ["INTIMIDATION", "Intimidación"], ["CONQUEST", "Conquista"], ["RACE", "Carrera"],
   ["DODGE", "Evasión"], ["STEALTH", "Sigilo"], ["DETECTION", "Detección"], ["ATTACK_TOTAL", "Ataque total"],
-  ["DAMAGE_REDUCTION_ALL", "Reducción de daño recibido"], ["INVISIBILITY", "Invisibilidad"], ["FLOATING", "Flotar"], ["OTHER", "Otro"],
+  ["DAMAGE_REDUCTION_ALL", "Reducción de daño recibido"], ["DAMAGE_REDUCTION_PHYSICAL", "Reducción de daño físico recibido"], ["DAMAGE_REDUCTION_MAGICAL", "Reducción de daño mágico recibido"], ["DAMAGE_INCREASE_ALL", "Aumento de daño recibido"], ["DAMAGE_INCREASE_PHYSICAL", "Aumento de daño físico recibido"], ["DAMAGE_INCREASE_MAGICAL", "Aumento de daño mágico recibido"], ["INVISIBILITY", "Invisibilidad"], ["FLOATING", "Flotar"], ["OTHER", "Otro"],
 ] as const;
 
 const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", action: "ESCAPE_MAZE", value: 100, description: "" });

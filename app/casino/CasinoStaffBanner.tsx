@@ -14,6 +14,15 @@ type Staff = {
   };
 };
 
+function getReadableTextColor(background: string | undefined) {
+  const hex = String(background ?? "#09090b").replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return "#ffffff";
+  const channels = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const linear = channels.map((value) => value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4));
+  const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  return luminance > 0.45 ? "#18181b" : "#ffffff";
+}
+
 export default function CasinoStaffBanner() {
   const [staff, setStaff] = useState<Staff | null>(null);
 
@@ -29,7 +38,7 @@ export default function CasinoStaffBanner() {
   if (!staff) return null;
   const theme = staff.character.themePalette;
   const background = theme?.background ?? "#18181b";
-  const foreground = theme?.foreground ?? "#ffffff";
+  const foreground = getReadableTextColor(background);
   const primary = theme?.primary ?? "#f59e0b";
   const surface = theme?.surface ?? "#27272a";
 
@@ -49,8 +58,8 @@ export default function CasinoStaffBanner() {
           <h2 className="mt-2 text-3xl font-bold">{staff.character.name} {staff.character.flair ?? ""}</h2>
           <p className="mt-2 text-sm opacity-70">Turno {staff.startTime}–{staff.endTime}</p>
           {staff.positionDescription && (
-            <div className="relative z-10 mt-4 max-w-xl rounded-3xl border px-4 py-3 text-sm shadow-lg" style={{ borderColor: primary, backgroundColor: background, color: foreground }}>
-              {staff.positionDescription}
+            <div className="relative z-10 -ml-6 mt-4 max-w-xl rounded-3xl border px-4 py-3 text-sm shadow-lg" style={{ borderColor: primary, backgroundColor: background, color: foreground }}>
+              <span style={{ color: foreground }}>{staff.positionDescription}</span>
             </div>
           )}
         </div>

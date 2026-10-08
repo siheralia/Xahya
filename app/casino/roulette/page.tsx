@@ -47,6 +47,7 @@ function getSegmentCenter(segments: Segment[], index: number) {
 export default function RoulettePage() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [segments, setSegments] = useState<Segment[]>(FALLBACK_SEGMENTS);
+  const [activeSetName, setActiveSetName] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [bet, setBet] = useState(50);
   const [rotation, setRotation] = useState(0);
@@ -90,6 +91,7 @@ export default function RoulettePage() {
       .then((data) => {
         const nextCharacters = data.characters as Character[];
         if (Array.isArray(data.segments)) setSegments(data.segments as Segment[]);
+        if (data.activeSet?.name) setActiveSetName(String(data.activeSet.name));
         setCharacters(nextCharacters);
 
         const requested = nextCharacters.find((character) => character.id === requestedId);
@@ -145,7 +147,10 @@ export default function RoulettePage() {
       if (!response.ok) throw new Error(data?.error ?? "No se pudo girar la ruleta.");
 
       const final = data.results?.[data.results.length - 1] ?? data;
-      const center = getSegmentCenter(segments, Number(final.segmentIndex));
+      const spinSegments = Array.isArray(data.segments) ? data.segments as Segment[] : segments;
+      if (Array.isArray(data.segments)) setSegments(spinSegments);
+      if (data.activeSet?.name) setActiveSetName(String(data.activeSet.name));
+      const center = getSegmentCenter(spinSegments, Number(final.segmentIndex));
       const target = rotation + (animateWheel ? 1800 : 0) + ((360 - center - (rotation % 360)) + 360) % 360;
       setRotation(target);
 
@@ -209,6 +214,7 @@ export default function RoulettePage() {
           <div className="text-right">
             <p className="text-xs uppercase tracking-[0.3em] text-amber-300/70">Casino</p>
             <h1 className="text-3xl font-bold">Caosino</h1>
+            {activeSetName && <p className="mt-1 text-xs text-zinc-500">Ruleta actual: {activeSetName}</p>}
           </div>
         </div>
 

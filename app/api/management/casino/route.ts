@@ -2,7 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { CASINO_SETS, getCasinoExpectedReturn, getCasinoSet, type CasinoSet } from "@/lib/casino";
+import { CASINO_SETS, getCasinoExpectedReturn, type CasinoSet } from "@/lib/casino";
+import { getActiveCasinoSet, getAllCasinoSets, getCasinoSchedules, validateCasinoSchedules } from "@/lib/casino-schedule";
 
 async function getCurrentUser() {
   const { userId: clerkId } = await auth();
@@ -11,68 +12,18 @@ async function getCurrentUser() {
   return users.find((user) => user.clerkId === clerkId) ?? null;
 }
 
-function parseDetails(log: { details?: unknown }) {
-  try {
-    return typeof log.details === "string" ? JSON.parse(log.details) : (log.details ?? {});
-  } catch {
-    return {};
-  }
-}
-
-async function getSavedSets(): Promise<CasinoSet[]> {
-  const logs = await db.orm.public.AuditLog.where({ action: "CASINO_SET" }).all();
-  const deletedLogs = await db.orm.public.AuditLog.where({ action: "CASINO_SET_DELETE" }).all();
-  const deletedIds = new Set(
-    deletedLogs
-      .map((log) => parseDetails(log)?.setId)
-      .filter((id): id is string => typeof id === "string"),
-  );
-  const latestById = new Map<string, { createdAt: string; set: CasinoSet }>();
-
-  for (const log of logs) {
-    const details = parseDetails(log);
-    const set = details?.set as CasinoSet | undefined;
-    if (!set?.id || !Array.isArray(set.segments) || deletedIds.has(set.id)) continue;
-    const createdAt = String(log.createdAt);
-    const previous = latestById.get(set.id);
-    if (!previous || createdAt > previous.createdAt) {
-      latestById.set(set.id, { createdAt, set });
-    }
-  }
-
-  return [...latestById.values()].map((entry) => entry.set);
-}
-
-async function getAllSets() {
-  const saved = await getSavedSets();
-  const savedById = new Map(saved.map((set) => [set.id, set]));
-  return CASINO_SETS.map((set) => savedById.get(set.id) ?? set).concat(
-    saved.filter((set) => !CASINO_SETS.some((base) => base.id === set.id)),
-  );
-}
-
-async function getActiveSet(allSets: CasinoSet[]) {
-  const logs = await db.orm.public.AuditLog.where({ action: "CASINO_CONFIG" }).all();
-  const latest = logs
-    .map((log) => ({ createdAt: String(log.createdAt), details: parseDetails(log) }))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-
-  const savedSnapshot = latest?.details?.set as CasinoSet | undefined;
-  if (savedSnapshot?.id) return savedSnapshot;
-
-  return allSets.find((set) => set.id === latest?.details?.setId) ?? getCasinoSet(latest?.details?.setId);
-}
-
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (String(user.role) !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const sets = await getAllSets();
-  const activeSet = await getActiveSet(sets);
+  const [sets, schedules, active] = await Promise.all([getAllCasinoSets(), getCasinoSchedules(), getActiveCasinoSet()]);
+  const activeSet = active.set;
 
   return NextResponse.json({
     activeSetId: activeSet.id,
+    schedules,
+    activeScheduleId: active.schedule?.id ?? null,
     sets: sets.map((set) => ({
       id: set.id,
       name: set.name,
@@ -95,7 +46,7 @@ export async function POST(request: Request) {
 
   if (action === "activate") {
     const setId = String(body?.setId ?? "");
-    const sets = await getAllSets();
+    const sets = await getAllCasinoSets();
     const selected = sets.find((set) => set.id === setId);
 
     if (!selected) {
@@ -116,6 +67,23 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ ok: true, activeSetId: selected.id });
+  }
+
+  if (action === "scheduleSave") {
+    const sets = await getAllCasinoSets();
+    const parsed = validateCasinoSchedules(body?.schedules, new Set(sets.map((set) => set.id)));
+    if (parsed.error || !parsed.schedules) {
+      return NextResponse.json({ error: parsed.error ?? "Programación inválida." }, { status: 400 });
+    }
+    await recordAuditEvent({
+      actorUserId: user.id,
+      action: "CASINO_SCHEDULE_CONFIG",
+      entityType: "CASINO",
+      entityId: 1,
+      details: { schedules: parsed.schedules },
+    });
+    const active = await getActiveCasinoSet();
+    return NextResponse.json({ ok: true, schedules: parsed.schedules, activeSetId: active.set.id, activeScheduleId: active.schedule?.id ?? null });
   }
 
   if (action === "save") {
@@ -169,7 +137,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Los sets predeterminados no se eliminan." }, { status: 400 });
     }
 
-    const sets = await getAllSets();
+    const sets = await getAllCasinoSets();
+    const schedules = await getCasinoSchedules();
+    if (schedules.some((schedule) => schedule.setId === setId)) {
+      return NextResponse.json({ error: "No puedes eliminar un set que aparece en la programación. Quita primero sus horarios." }, { status: 400 });
+    }
     if (!sets.some((set) => set.id === setId)) {
       return NextResponse.json({ error: "Set no encontrado." }, { status: 404 });
     }

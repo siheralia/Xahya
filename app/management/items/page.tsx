@@ -84,7 +84,7 @@ export default function ItemsManagementPage() {
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
-      if(key==="type") return value==="system_action" ? {...e,type:value,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1} : value==="narrative" ? {...e,type:value,stat:"OTHER",value:1} : value==="maze_utility" ? {...e,type:value,stat:e.stat==="FLOATING"||e.stat==="INVISIBILITY"?e.stat:"INVISIBILITY",value:1} : {...e,type:value,stat:e.stat==="SYSTEM_ACTION"||e.stat==="OTHER"||e.stat==="INVISIBILITY"?"STR":e.stat};
+      if(key==="type") return value==="system_action" ? {...e,type:value,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1} : value==="narrative" ? {...e,type:value,stat:"OTHER",value:1} : value==="maze_utility" ? {...e,type:value,stat:e.stat==="FLOATING"||e.stat==="INVISIBILITY"?e.stat:"INVISIBILITY",value:1} : {...e,type:value,stat:e.stat==="SYSTEM_ACTION"||e.stat==="OTHER"||e.stat==="INVISIBILITY"||e.stat==="FLOATING"?"STR":e.stat};
       if(key==="stat") return {...e,stat:value};
       return {...e,[key]:key==="value"?Number(value):value};
     })}));

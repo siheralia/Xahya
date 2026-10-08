@@ -1,6 +1,11 @@
 export const COMBAT_EFFECTS = {
   attack_multiplier_all: "attack_multiplier_all",
   damage_reduction_all: "damage_reduction_all",
+  damage_reduction_physical: "damage_reduction_physical",
+  damage_reduction_magical: "damage_reduction_magical",
+  damage_increase_all: "damage_increase_all",
+  damage_increase_physical: "damage_increase_physical",
+  damage_increase_magical: "damage_increase_magical",
 } as const;
 
 export type CombatEffect = {

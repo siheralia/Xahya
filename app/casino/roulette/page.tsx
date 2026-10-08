@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import CasinoStaffBanner from "../CasinoStaffBanner";
 
 type Character = {
   id: number;
@@ -217,6 +218,10 @@ export default function RoulettePage() {
             {activeSetName && <p className="mt-1 text-xs text-zinc-500">Ruleta actual: {activeSetName}</p>}
           </div>
         </div>
+
+        <section className="mt-8">
+          <CasinoStaffBanner />
+        </section>
 
         {error && (
           <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">

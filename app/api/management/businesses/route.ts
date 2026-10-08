@@ -254,7 +254,7 @@ export async function POST(request: Request) {
 
     const activeContracts = (await Contract.where({ characterId }).all()).filter((contract: any) => contract.active);
     const minutes = (value: unknown) => {
-      const match = /^(\\d{2}):(\\d{2})$/.exec(String(value ?? ""));
+      const match = /^(\d{2}):(\d{2})$/.exec(String(value ?? ""));
       return match ? Number(match[1]) * 60 + Number(match[2]) : -1;
     };
     const splitShift = (startValue: unknown, endValue: unknown) => {

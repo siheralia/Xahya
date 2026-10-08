@@ -51,7 +51,7 @@ export default function CasinoManagementPage() {
   const [activeSetId, setActiveSetId] = useState("");
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [scheduleSetId, setScheduleSetId] = useState("");
-  const [scheduleDay, setScheduleDay] = useState(1);
+  const [scheduleDay, setScheduleDay] = useState(-1);
   const [scheduleStart, setScheduleStart] = useState("09:00");
   const [scheduleEnd, setScheduleEnd] = useState("12:00");
   const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
@@ -272,7 +272,7 @@ export default function CasinoManagementPage() {
             <div>
               <h2 className="text-2xl font-bold">Programación de ruletas</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-                Elige sets ya creados y asigna un día y horario. El casino permanece abierto; fuera de estos horarios se conserva el set activado manualmente. Los horarios activos no pueden solaparse.
+                Elige sets ya creados y asigna un día o toda la semana y un horario. El casino permanece abierto; fuera de estos horarios se conserva el set activado manualmente. Los horarios activos no pueden solaparse.
               </p>
               <p className="mt-2 text-xs text-zinc-500">Zona horaria: America/Chihuahua · Días de domingo a sábado</p>
             </div>
@@ -291,7 +291,7 @@ export default function CasinoManagementPage() {
             <label className="text-sm text-zinc-300">
               Día
               <select value={scheduleDay} onChange={(e) => setScheduleDay(Number(e.target.value))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3">
-                {dayNames.map((day, index) => <option key={day} value={index}>{day}</option>)}
+                <option value={-1}>Toda la semana</option>{dayNames.map((day, index) => <option key={day} value={index}>{day}</option>)}
               </select>
             </label>
             <label className="text-sm text-zinc-300">
@@ -315,7 +315,7 @@ export default function CasinoManagementPage() {
               return (
                 <div key={schedule.id} className="grid gap-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
                   <div>
-                    <p className="font-semibold">{set?.name ?? "Set no disponible"} · {dayNames[schedule.dayOfWeek]}</p>
+                    <p className="font-semibold">{set?.name ?? "Set no disponible"} · {schedule.dayOfWeek === -1 ? "Toda la semana" : dayNames[schedule.dayOfWeek]}</p>
                     <p className="mt-1 text-sm text-zinc-500">{schedule.startTime}–{schedule.endTime} · {schedule.active ? "Programación activa" : "Desactivada"}</p>
                     {schedule.id === activeScheduleId && <p className="mt-1 text-xs font-semibold text-emerald-300">Vigente ahora</p>}
                   </div>

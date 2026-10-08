@@ -26,7 +26,7 @@ const skillTargets = [
   ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
   ["HP","HP"],["MANA","Mana"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],
   ["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],
-  ["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],["DAMAGE_REDUCTION_ALL","Reducción de daño recibido"],
+  ["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],["DAMAGE_REDUCTION_ALL","Reducción de daño recibido"],["DAMAGE_REDUCTION_PHYSICAL","Reducción de daño físico recibido"],["DAMAGE_REDUCTION_MAGICAL","Reducción de daño mágico recibido"],["DAMAGE_INCREASE_ALL","Aumento de daño recibido"],["DAMAGE_INCREASE_PHYSICAL","Aumento de daño físico recibido"],["DAMAGE_INCREASE_MAGICAL","Aumento de daño mágico recibido"],
 ] as const;
 
 type ThemePalette = {

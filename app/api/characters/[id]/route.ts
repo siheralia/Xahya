@@ -199,6 +199,7 @@ export async function GET(
     const type = String(effect.type ?? "");
     if (type === "COMBAT_MULTIPLIER" && String(effect.target) === "ATTACK_TOTAL") return [{ type: "attack_multiplier_all", value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
     if (type === "COMBAT_MULTIPLIER" && String(effect.target) === "DAMAGE_REDUCTION_ALL") return [{ type: "damage_reduction_all", value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
+    if (type === "STAT_BONUS" && String(effect.target) === "DAMAGE_REDUCTION_ALL") return [{ type: "damage_reduction_all", value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
     if (newItemCombatTypes.includes(type)) return [{ type, value: Number(effect.value), source: String(effect.source ?? "PERK"), expiresAt: null }];
     return [];
   });

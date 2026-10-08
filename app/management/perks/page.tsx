@@ -22,6 +22,23 @@ export default function PerksManagementPage(){
   const [effectRows,setEffectRows]=useState<Effect[]>([]);
   const EFFECT_TYPES = EFFECT_CATALOG.map(effect => [effect.type,effect.label] as [EffectType,string]);
   const TARGETS = EFFECT_TARGETS;
+  const TARGET_LABELS: Record<string, string> = {
+    STR: "Fuerza", AGI: "Agilidad", CON: "Constitución", INT: "Inteligencia",
+    WIS: "Sabiduría", CHA: "Carisma", SPI: "Espíritu", LCK: "Suerte",
+    HP: "Vida", MANA: "Maná", PHYS_ATK: "Ataque físico", MAGIC_ATK: "Ataque mágico",
+    DEF: "Defensa física", MAG_DEF: "Defensa mágica", PRECISION: "Precisión",
+    CRITICAL: "Crítico", DISCOVERY: "Descubrimiento", MIRACLE: "Milagro",
+    INTIMIDATION: "Intimidación", CONQUEST: "Conquista", RACE: "Raza",
+    DODGE: "Esquiva", STEALTH: "Sigilo", DETECTION: "Detección", ATTACK_TOTAL: "Ataque total",
+    DAMAGE_REDUCTION_ALL: "Daño recibido reducido — todo",
+    DAMAGE_REDUCTION_PHYSICAL: "Daño recibido reducido — físico",
+    DAMAGE_REDUCTION_MAGICAL: "Daño recibido reducido — mágico",
+    DAMAGE_INCREASE_ALL: "Daño recibido aumentado — todo",
+    DAMAGE_INCREASE_PHYSICAL: "Daño recibido aumentado — físico",
+    DAMAGE_INCREASE_MAGICAL: "Daño recibido aumentado — mágico",
+    MONEY: "Dinero", KARMA: "Karma", LEVEL_UP_POINTS: "Puntos de subida",
+    OTHER: "Otro", INVISIBILITY: "Invisibilidad", FLOATING: "Flotar",
+  };
   const [effects,setEffects]=useState("");
   const [stackable,setStackable]=useState(true);
   const [maxStacks,setMaxStacks]=useState("");
@@ -115,7 +132,16 @@ export default function PerksManagementPage(){
           <label className="text-sm text-zinc-400">Probabilidad<input type="number" min="0" step="0.1" value={probability} onChange={e=>setProbability(e.target.value)} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"/></label>
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
             <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">Efectos</div><div className="text-xs text-zinc-500">Configúralos con selectores, sin escribir JSON.</div></div><button type="button" onClick={()=>setEffectRows(rows=>[...rows,{type:"STAT_BONUS",target:"STR",value:0}])} className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm text-cyan-300">+ Añadir efecto</button></div>
-            <div className="mt-3 space-y-3">{effectRows.map((effect,index)=>{const targets=TARGETS[effect.type]??[];return <div key={index} className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 md:grid-cols-[1fr_1fr_120px_auto]"><select value={effect.type} onChange={e=>{const type=e.target.value as EffectType;setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,type,target:TARGETS[type]?.[0]??undefined}:row));}} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">{EFFECT_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><select value={targets.length?(targets.includes(effect.target??"")?effect.target:targets[0]):undefined} onChange={e=>setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,target:e.target.value}:row))} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">{targets.map(target=><option key={target} value={target}>{target}</option>)}</select><input type="number" step="0.1" value={effect.value} onChange={e=>setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,value:Number(e.target.value)}:row))} placeholder="Valor" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"/><button type="button" onClick={()=>setEffectRows(rows=>rows.filter((_,i)=>i!==index))} className="rounded-lg border border-red-900/60 px-3 py-2 text-sm text-red-300">Quitar</button></div>})}{!effectRows.length&&<p className="text-sm text-zinc-600">Sin efectos.</p>}</div>
+            <div className="mt-3 space-y-3">{effectRows.map((effect,index)=>{const targets=TARGETS[effect.type]??[];return <div key={index} className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 md:grid-cols-[1fr_1fr_120px_auto]"><select value={effect.type} onChange={e=>{const type=e.target.value as EffectType;setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,type,target:TARGETS[type]?.[0]??undefined}:row));}} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">{EFFECT_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><select value={targets.length?(targets.includes(effect.target??"")?effect.target:targets[0]):undefined} onChange={e=>setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,target:e.target.value}:row))} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">
+                      {targets.some(target=>target.startsWith("DAMAGE_")) ? <>
+                        <optgroup label="Estadísticas">
+                          {targets.filter(target=>!target.startsWith("DAMAGE_")).map(target=><option key={target} value={target}>{TARGET_LABELS[target]??target}</option>)}
+                        </optgroup>
+                        <optgroup label="Daño recibido">
+                          {targets.filter(target=>target.startsWith("DAMAGE_")).map(target=><option key={target} value={target}>{TARGET_LABELS[target]??target}</option>)}
+                        </optgroup>
+                      </> : targets.map(target=><option key={target} value={target}>{TARGET_LABELS[target]??target}</option>)}
+                    </select><input type="number" step="0.1" value={effect.value} onChange={e=>setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,value:Number(e.target.value)}:row))} placeholder="Valor" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"/><button type="button" onClick={()=>setEffectRows(rows=>rows.filter((_,i)=>i!==index))} className="rounded-lg border border-red-900/60 px-3 py-2 text-sm text-red-300">Quitar</button></div>})}{!effectRows.length&&<p className="text-sm text-zinc-600">Sin efectos.</p>}</div>
           </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={stackable} onChange={e=>setStackable(e.target.checked)}/> Acumulable</label>
           {!stackable&&<input type="number" min="1" value={maxStacks} onChange={e=>setMaxStacks(e.target.value)} placeholder="Máximo de acumulaciones" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"/>}

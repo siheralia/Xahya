@@ -122,6 +122,16 @@ export async function GET() {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const mazes = await db.orm.public.Maze.all();
+  const positions = await (db.orm.public as any).MazeCharacterPosition.all();
+  const ownCharacterIds = new Set((await db.orm.public.Character.where({ userId:Number(user.id) }).all()).map((character:any)=>Number(character.id)));
+  const ownPositionsByMaze = new Map<number, any[]>();
+  for (const position of positions) {
+    const characterId = Number(position.characterId);
+    if (!ownCharacterIds.has(characterId)) continue;
+    const list = ownPositionsByMaze.get(Number(position.mazeId)) ?? [];
+    list.push({ characterId, roomId:Number(position.roomId) });
+    ownPositionsByMaze.set(Number(position.mazeId), list);
+  }
   const rooms = await db.orm.public.MazeRoom.all();
   const MazeTheme=(db.orm.public as any).MazeTheme;
   const Theme=(db.orm.public as any).Theme;
@@ -137,6 +147,7 @@ export async function GET() {
     allowTreasures: maze.allowTreasures == null ? true : Boolean(maze.allowTreasures),
     resettable: maze.resettable == null ? false : Boolean(maze.resettable),
     roomCount: rooms.filter((room: any) => Number(room.mazeId) === Number(maze.id)).length,
+    characterPositions: ownPositionsByMaze.get(Number(maze.id)) ?? [],
   })));
 }
 

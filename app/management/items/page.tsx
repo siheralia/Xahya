@@ -24,6 +24,7 @@ const equipmentSlots = [
 ];
 
 const EFFECT_TYPES = [...EFFECT_CATALOG.map(effect => [effect.type.toLowerCase(), effect.label] as const), ["system_action","Acción del sistema"]] as const;
+const DAMAGE_TARGETS = [["ALL","Todo"],["PHYSICAL","Físico"],["MAGICAL","Mágico"]] as const;
 const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_TRAP", "Romper una trampa y liberarte"], ["RELEASE_MAZE_TRAPPED", "Liberarte de una trampa"], ["CREATE_SKILL", "Permitir crear una habilidad"]] as const;
 
 const EFFECT_TARGETS = [
@@ -34,7 +35,7 @@ const EFFECT_TARGETS = [
   ["MAG_DEF", "Defensa mágica"], ["PRECISION", "Precisión"], ["CRITICAL", "Crítico"], ["DISCOVERY", "Hallazgo"],
   ["MIRACLE", "Milagro"], ["INTIMIDATION", "Intimidación"], ["CONQUEST", "Conquista"], ["RACE", "Carrera"],
   ["DODGE", "Evasión"], ["STEALTH", "Sigilo"], ["DETECTION", "Detección"], ["ATTACK_TOTAL", "Ataque total"],
-  ["DAMAGE_REDUCTION_ALL", "Reducción de daño recibido"], ["DAMAGE_REDUCTION_PHYSICAL", "Reducción de daño físico recibido"], ["DAMAGE_REDUCTION_MAGICAL", "Reducción de daño mágico recibido"], ["DAMAGE_INCREASE_ALL", "Aumento de daño recibido"], ["DAMAGE_INCREASE_PHYSICAL", "Aumento de daño físico recibido"], ["DAMAGE_INCREASE_MAGICAL", "Aumento de daño mágico recibido"], ["INVISIBILITY", "Invisibilidad"], ["FLOATING", "Flotar"], ["OTHER", "Otro"],
+  ["INVISIBILITY", "Invisibilidad"], ["FLOATING", "Flotar"], ["OTHER", "Otro"],
 ] as const;
 
 const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", action: "ESCAPE_MAZE", value: 100, description: "" });
@@ -84,7 +85,7 @@ export default function ItemsManagementPage() {
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
-      if(key==="type") return value==="system_action" ? {...e,type:value,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1} : value==="narrative" ? {...e,type:value,stat:"OTHER",value:1} : value==="maze_utility" ? {...e,type:value,stat:e.stat==="FLOATING"||e.stat==="INVISIBILITY"?e.stat:"INVISIBILITY",value:1} : {...e,type:value,stat:e.stat==="SYSTEM_ACTION"||e.stat==="OTHER"||e.stat==="INVISIBILITY"||e.stat==="FLOATING"?"STR":e.stat};
+      if(key==="type") return value==="system_action" ? {...e,type:value,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1} : value==="narrative" ? {...e,type:value,stat:"OTHER",value:1} : value==="maze_utility" ? {...e,type:value,stat:e.stat==="FLOATING"||e.stat==="INVISIBILITY"?e.stat:"INVISIBILITY",value:1} : value==="damage_reduction"||value==="damage_increase" ? {...e,type:value,stat:e.stat==="ALL"||e.stat==="PHYSICAL"||e.stat==="MAGICAL"?e.stat:"ALL",value:e.value||100} : {...e,type:value,stat:e.stat==="SYSTEM_ACTION"||e.stat==="OTHER"||e.stat==="INVISIBILITY"||e.stat==="FLOATING"?"STR":e.stat};
       if(key==="stat") return {...e,stat:value};
       return {...e,[key]:key==="value"?Number(value):value};
     })}));
@@ -176,6 +177,10 @@ export default function ItemsManagementPage() {
                 </select>
               ) : effect.type === "narrative" ? (
                 <select value="OTHER" disabled className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-400"><option value="OTHER">Otro</option></select>
+              ) : effect.type === "damage_reduction" || effect.type === "damage_increase" ? (
+                <select value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+                  {DAMAGE_TARGETS.map(([value,label])=><option key={value} value={value}>{label}</option>)}
+                </select>
               ) : effect.stat === "OTHER" ? (
                 <input value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Objetivo personalizado"/>
               ) : (

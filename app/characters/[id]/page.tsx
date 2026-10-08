@@ -12,7 +12,7 @@ type EquipmentItem = {
   item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; value: number; description?: string; action?: string }[] } | null;
 };
 
-type SkillEffect = { type: "DAMAGE_MULTIPLIER" | "STAT_MULTIPLIER" | "STAT_BONUS" | "NARRATIVE"; target?: string; value?: number; description?: string };
+type SkillEffect = { type: "DAMAGE_MULTIPLIER" | "STAT_MULTIPLIER" | "STAT_BONUS" | "NARRATIVE" | "MAZE_UTILITY"; target?: string; value?: number; description?: string };
 type SkillState = { id:number; characterId:number; skillId:number; active:boolean; accumulations:number; totalTicks:number; lastTickAt:string|null; };
 type Skill = {
   id: number; characterId: number; name: string; cost: number; accumulationCost: number; accumulationPerTick: number; maintenanceCost: number; description: string | null; duration: string | null;

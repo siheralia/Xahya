@@ -29,7 +29,7 @@ export async function GET() {
     const position = positions.find((entry: any) =>
       entry.businessId == null &&
       entry.active &&
-      String(entry.title ?? "").trim().toLocaleLowerCase("es-MX") === "encargado de casino" &&
+      ["encargado de casino", "encargado del casino"].includes(String(entry.title ?? "").trim().toLocaleLowerCase("es-MX")) &&
       isOpen(String(entry.startTime), String(entry.endTime), nowMinutes) &&
       contracts.some((contract: any) => Number(contract.positionId) === Number(entry.id) && isContractCurrent(contract)),
     );

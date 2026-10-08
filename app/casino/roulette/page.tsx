@@ -145,7 +145,9 @@ export default function RoulettePage() {
       if (!response.ok) throw new Error(data?.error ?? "No se pudo girar la ruleta.");
 
       const final = data.results?.[data.results.length - 1] ?? data;
-      const center = getSegmentCenter(segments, Number(final.segmentIndex));
+      const spinSegments = Array.isArray(data.segments) ? data.segments as Segment[] : segments;
+      if (Array.isArray(data.segments)) setSegments(spinSegments);
+      const center = getSegmentCenter(spinSegments, Number(final.segmentIndex));
       const target = rotation + (animateWheel ? 1800 : 0) + ((360 - center - (rotation % 360)) + 360) % 360;
       setRotation(target);
 

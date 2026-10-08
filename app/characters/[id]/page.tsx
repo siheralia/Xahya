@@ -95,7 +95,7 @@ type Character = {
     value: number;
   }> | null;
   perkEffects?: { type: string; target?: string; value?: number; perkName?: string }[];
-  combatEffects: { type: "attack_multiplier_all" | "damage_reduction_all"; value: number; source: string; expiresAt: string | null }[];
+  combatEffects: { type: "attack_multiplier_all" | "damage_reduction_all" | "damage_reduction_physical" | "damage_reduction_magical" | "damage_increase_all" | "damage_increase_physical" | "damage_increase_magical"; value: number; source: string; expiresAt: string | null }[];
   equipment: EquipmentItem[];
   properties: PropertyItem[];
   canSeeCharacterId: boolean;
@@ -2395,7 +2395,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 <div key={effect.type + effect.source} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
                   <p className="font-semibold">{effect.source.replace(/^ITEM:/, "")}</p>
                   <p className="mt-1 text-sm text-zinc-400">
-                    {effect.type === "attack_multiplier_all" ? `×${effect.value / 100} a todos los ataques` : `×${effect.value / 100} al daño recibido`}
+                     effect.type === "attack_multiplier_all" ? `×${effect.value / 100} a todos los ataques` : effect.type === "damage_reduction_all" ? `×${effect.value / 100} al daño recibido` : effect.type === "damage_reduction_physical" ? `×${effect.value / 100} al daño físico recibido` : effect.type === "damage_reduction_magical" ? `×${effect.value / 100} al daño mágico recibido` : effect.type === "damage_increase_all" ? `×${effect.value / 100} al daño recibido` : effect.type === "damage_increase_physical" ? `×${effect.value / 100} al daño físico recibido` : `×${effect.value / 100} al daño mágico recibido`}
                   </p>
                 </div>
               ))}

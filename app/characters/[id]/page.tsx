@@ -2329,8 +2329,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           </section>
         )}
 
-        {character.combatEffects.length > 0 && (
-  
+        <>
         <section className="mt-10 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
           <div className="flex items-baseline justify-between gap-4">
             <div><h2 className="text-xl font-semibold">Estado de rol</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">HP, Mana y efectos temporales. Nada de esta sección se guarda en la ficha.</p></div>
@@ -2371,7 +2370,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             </div>
           )}
         </section>
-        )}
+        </>
 
         {character.maze && (
           <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">

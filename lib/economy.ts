@@ -176,7 +176,21 @@ export async function processEconomyPayments(now = new Date()) {
         const current = await BusinessTx.where({ id: Number(business.id) }).first();
         if (!current) throw new Error("BUSINESS_MISSING");
 
-        const growthBonus = frequency === "WEEKLY" ? Math.floor(Number(business.growthInvestment ?? 0) * 0.10) : 0;
+        // El rendimiento semanal considera también el crecimiento que se reinvertirá en este mismo ciclo.
+        const scheduledGrowth = frequency === "WEEKLY"
+          ? (await Investment.all())
+              .filter((investment: any) =>
+                Number(investment.businessId) === Number(business.id) &&
+                String(investment.type) === "GROWTH" &&
+                String(investment.frequency ?? "ONCE") === "WEEKLY" &&
+                Boolean(investment.active) &&
+                Number(investment.amount) > 0
+              )
+              .reduce((sum: number, investment: any) => sum + Number(investment.amount), 0)
+          : 0;
+        const growthBonus = frequency === "WEEKLY"
+          ? Math.floor((Number(business.growthInvestment ?? 0) + scheduledGrowth) * 0.10)
+          : 0;
         const incomeAmount = Number(business.passiveIncome) + growthBonus;
         await BusinessTx.where({ id: Number(business.id) }).update({
           balance: Number(current.balance ?? 0) + incomeAmount,
@@ -271,8 +285,16 @@ export async function processEconomyPayments(now = new Date()) {
         const currentBusiness = await BusinessTx.where({ id: Number(business.id) }).first();
         if (!currentBusiness) throw new Error("BUSINESS_MISSING");
 
+        const investmentField = String(investment.type) === "GROWTH"
+          ? "growthInvestment"
+          : String(investment.type) === "SECURITY"
+            ? "securityInvestment"
+            : null;
         await BusinessTx.where({ id: Number(business.id) }).update({
           balance: Number(currentBusiness.balance ?? 0) - Number(investment.amount),
+          ...(investmentField ? {
+            [investmentField]: Number(currentBusiness[investmentField] ?? 0) + Number(investment.amount),
+          } : {}),
         });
 
         await LogTx.create({

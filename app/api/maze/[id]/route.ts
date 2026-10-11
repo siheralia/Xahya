@@ -802,6 +802,53 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (detectedBy) throw new Error("STEALTH_DETECTED");
     }
 
+    // In PLANAR_2D, reuse an existing room at the target grid coordinate.
+    if (requestedExit.toRoomId == null && String(maze.generationMode ?? "FREE_3D") === "PLANAR_2D") {
+      const mazeRooms = await TxRoom.where({ mazeId }).all();
+      const mazeExits = await TxExit.where({ mazeId }).all();
+      const delta:Record<string,[number,number]> = { N:[0,-1], E:[1,0], S:[0,1], O:[-1,0] };
+      const coordinates = new Map<number,{x:number;y:number}>();
+      const root = mazeRooms.find((room:any) => Number(room.roomNumber) === 1) ?? mazeRooms[0];
+      if (root) {
+        coordinates.set(Number(root.id), { x:0, y:0 });
+        const pending = [Number(root.id)];
+        while (pending.length) {
+          const fromId = pending.shift()!;
+          const origin = coordinates.get(fromId)!;
+          for (const exit of mazeExits.filter((entry:any) => Number(entry.fromRoomId) === fromId)) {
+            const step = delta[String(exit.direction)];
+            if (!step || exit.toRoomId == null) continue;
+            const toId = Number(exit.toRoomId);
+            if (coordinates.has(toId)) continue;
+            coordinates.set(toId, { x:origin.x + step[0], y:origin.y + step[1] });
+            pending.push(toId);
+          }
+        }
+      }
+      const step = delta[direction];
+      const currentCoordinate = coordinates.get(Number(currentRoom.id));
+      if (step && currentCoordinate) {
+        const targetX = currentCoordinate.x + step[0];
+        const targetY = currentCoordinate.y + step[1];
+        const existingRoom = mazeRooms.find((room:any) => {
+          if (Number(room.id) === Number(currentRoom.id)) return false;
+          const coordinate = coordinates.get(Number(room.id));
+          return coordinate?.x === targetX && coordinate?.y === targetY;
+        });
+        if (existingRoom) {
+          await TxExit.where({ id:Number(requestedExit.id) }).update({ toRoomId:Number(existingRoom.id) });
+          requestedExit.toRoomId = Number(existingRoom.id);
+          const returnDirection = OPPOSITE_DIRECTION[direction as keyof typeof OPPOSITE_DIRECTION];
+          const returnExit = await TxExit.where({ fromRoomId:Number(existingRoom.id), direction:returnDirection }).first();
+          if (returnExit) {
+            if (returnExit.toRoomId == null) await TxExit.where({ id:Number(returnExit.id) }).update({ toRoomId:Number(currentRoom.id) });
+          } else {
+            await TxExit.create({ mazeId, fromRoomId:Number(existingRoom.id), direction:returnDirection, toRoomId:Number(currentRoom.id) });
+          }
+        }
+      }
+    }
+
     if (requestedExit.toRoomId != null) {
       const destination = await TxRoom.where({ id:Number(requestedExit.toRoomId) }).first();
       if (!destination) throw new Error("DESTINATION_NOT_FOUND");

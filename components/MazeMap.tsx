@@ -23,6 +23,7 @@ type MazeMapProps = {
   exits:MapExit[];
   currentRoomId:number|null;
   directionLabels?:Record<string,string>;
+  generationMode?:string;
 };
 
 const ROOM_META:Record<string,{label:string; symbol:string}> = {
@@ -53,9 +54,11 @@ function roomStyle(type:string, current:boolean) {
   return { fill:"#18181b", stroke:"#71717a", text:"#e4e4e7" };
 }
 
-export default function MazeMap({rooms,exits,currentRoomId,directionLabels}:MazeMapProps) {
+export default function MazeMap({rooms,exits,currentRoomId,directionLabels,generationMode}:MazeMapProps) {
   const [selectedId,setSelectedId] = useState<number|null>(null);
   const [rotation,setRotation] = useState({x:-18,y:-28});
+  const isPlanar = generationMode === "PLANAR_2D";
+  const viewRotation = isPlanar ? {x:0,y:0} : rotation;
 
   const rotate=(axis:"x"|"y",amount:number)=>{
     setRotation(prev=>({
@@ -105,8 +108,8 @@ export default function MazeMap({rooms,exits,currentRoomId,directionLabels}:Maze
     }
 
     // Project the logical x/y/z room coordinates into a rotatable 3D/isometric view.
-    const yaw=rotation.y*Math.PI/180;
-    const pitch=rotation.x*Math.PI/180;
+    const yaw=viewRotation.y*Math.PI/180;
+    const pitch=viewRotation.x*Math.PI/180;
     const projected=[...positions.values()].map(p=>{
       const x1=p.x*Math.cos(yaw)-p.z*Math.sin(yaw);
       const z1=p.x*Math.sin(yaw)+p.z*Math.cos(yaw);
@@ -168,7 +171,7 @@ export default function MazeMap({rooms,exits,currentRoomId,directionLabels}:Maze
       width,
       height,
     };
-  },[rooms,exits,rotation]);
+  },[rooms,exits,rotation,isPlanar]);
 
   if(!rooms.length) return null;
 
@@ -179,15 +182,15 @@ export default function MazeMap({rooms,exits,currentRoomId,directionLabels}:Maze
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-5 py-4">
         <div>
           <h3 className="text-lg font-semibold">Mapa de exploración</h3>
-          <p className="mt-1 text-xs text-zinc-500">Vista 3D: gira el mapa para distinguir niveles y habitaciones superpuestas.</p>
+          <p className="mt-1 text-xs text-zinc-500">{isPlanar ? "Vista 2D: las salidas conectan habitaciones en una cuadrícula." : "Vista 3D: gira el mapa para distinguir niveles y habitaciones."}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-1">
+        {!isPlanar && <div className="flex flex-wrap items-center gap-1">
           <button type="button" onClick={()=>rotate("y",-12)} className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800" aria-label="Girar a la izquierda">↶</button>
           <button type="button" onClick={()=>rotate("x",12)} className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800" aria-label="Inclinar hacia arriba">↟</button>
           <button type="button" onClick={()=>{setRotation({x:-18,y:-28});}} className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800">3D</button>
           <button type="button" onClick={()=>rotate("x",-12)} className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800" aria-label="Inclinar hacia abajo">↡</button>
           <button type="button" onClick={()=>rotate("y",12)} className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800" aria-label="Girar a la derecha">↷</button>
-        </div>
+        </div>}
       </div>
 
       <div className="relative overflow-auto bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.045),transparent_55%)] p-3">

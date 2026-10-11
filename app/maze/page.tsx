@@ -267,7 +267,7 @@ export default function MazePage(){
               <button onClick={()=>setPanel("map")} className="rounded-lg border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 hover:text-white">Expandir</button>
             </div>
             <div className="p-2">
-              <MazeMap rooms={maze.rooms??[]} exits={maze.exits??[]} currentRoomId={position} directionLabels={maze.directionLabels}/>
+              <MazeMap rooms={maze.rooms??[]} exits={maze.exits??[]} currentRoomId={position} directionLabels={maze.directionLabels} generationMode={maze.maze?.generationMode}/>
             </div>
           </div>
 

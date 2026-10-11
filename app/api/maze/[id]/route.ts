@@ -837,6 +837,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         });
         if (existingRoom) {
           await TxExit.where({ id:Number(requestedExit.id) }).update({ toRoomId:Number(existingRoom.id) });
+          requestedExit.toRoomId = Number(existingRoom.id);
           const returnDirection = OPPOSITE_DIRECTION[direction as keyof typeof OPPOSITE_DIRECTION];
           const returnExit = await TxExit.where({ fromRoomId:Number(existingRoom.id), direction:returnDirection }).first();
           if (returnExit) {

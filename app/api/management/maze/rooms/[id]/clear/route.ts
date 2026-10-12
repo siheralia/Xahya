@@ -49,8 +49,12 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     const encounters=await Enemy.where({roomId}).all();
     if(encounters.length===0) return {alreadyCleared:true,incomplete:false,remaining:0,rewards:[]};
     const active=encounters.filter((row:any)=>String(row.status)==="ACTIVE");
-    const defeated=encounters.filter((row:any)=>String(row.status)==="DEFEATED");
-    if(active.length>0) return {alreadyCleared:false,incomplete:true,remaining:active.length,rewards:[]};
+    // La confirmación del GM marca como derrotados los encuentros que siguen activos.
+    // La entrega ocurre en esta misma transacción para no separar derrota y recompensa.
+    if(active.length>0) {
+      await Enemy.where({roomId,status:"ACTIVE"}).update({status:"DEFEATED"});
+    }
+    const defeated=encounters.filter((row:any)=>String(row.status)==="DEFEATED"||String(row.status)==="ACTIVE");
     if(defeated.length===0) return {alreadyCleared:true,incomplete:false,remaining:0,rewards:[]};
 
     const positions=await (tx.orm.public as any).MazeCharacterPosition.where({roomId}).all();
@@ -113,7 +117,6 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     return {alreadyCleared:false,incomplete:false,remaining:0,rewards:distributions};
   });
 
-  if(result.incomplete) return NextResponse.json({error:`Aún quedan ${result.remaining} enemigo(s) activos.`},{status:400});
   if(result.alreadyCleared) return NextResponse.json({ok:true,alreadyCleared:true,rewards:[]});
 
   await recordAuditEvent({

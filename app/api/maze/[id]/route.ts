@@ -615,6 +615,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             trapActive:false,
           });
           room = await tx.orm.public.MazeRoom.where({ id:Number(rootRoom.id) }).first();
+
+          // El reset conserva la habitación inicial, pero sus salidas se borraron arriba.
+          // Regenerarlas aquí mantiene la exploración progresiva sin crear el mapa completo.
+          const generationMode = String(maze.generationMode ?? "FREE_3D");
+          const directions = pickRandomDirections(
+            generationMode === "LINEAR" || generationMode === "SPIRAL_TOWER" ? 1 : 2,
+            generationMode as any,
+            1,
+          );
+          for (const direction of directions) {
+            await (tx.orm.public as any).MazeExit.create({
+              mazeId,
+              fromRoomId: Number(room.id),
+              direction,
+              toRoomId: null,
+            });
+          }
         } else {
           room = await generateRoom(tx, maze, 1);
         }

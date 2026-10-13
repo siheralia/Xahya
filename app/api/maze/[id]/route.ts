@@ -369,6 +369,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     : { invisibility:false };
   const positions = await (db.orm.public as any).MazeCharacterPosition.where({ mazeId }).all();
   const characters = await db.orm.public.Character.all();
+  const mazeUsers = await db.orm.public.User.all();
   const occupants = await Promise.all(positions.map(async (entry:any) => {
     const character = characters.find((candidate:any) => Number(candidate.id) === Number(entry.characterId));
     if (!character) return null;
@@ -396,6 +397,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return {
       id: Number(character.id),
       name: String(character.name),
+      ownerName: mazeUsers.find((candidate:any) => Number(candidate.id) === Number(character.userId))?.name ?? null,
       flair: character.flair ?? null,
       avatarUrl,
       roomId: Number(entry.roomId),

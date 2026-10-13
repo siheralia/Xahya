@@ -33,6 +33,7 @@ export async function GET() {
         id: character.id,
         name: character.name,
         ownerName: owner?.name ?? owner?.email ?? "Usuario desconocido",
+        ownerRole: String(owner?.role ?? "PLAYER"),
       };
     }),
   });

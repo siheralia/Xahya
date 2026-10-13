@@ -106,7 +106,7 @@ export default function MazePage(){
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"defeatEnemy",characterId:Number(characterId),enemyId:Number(enemy.id)})});
     const d=await r.json();
     if(!r.ok)setError(d?.error??"No se pudo derrotar al enemigo.");
-    else {setSelectedEnemy(null);await loadMaze();}
+    else {setSelectedEnemy(null);await loadMaze();const characterResponse=await fetch("/api/characters/"+characterId,{cache:"no-store"});const characterDetails=await characterResponse.json().catch(()=>null);if(characterResponse.ok&&characterDetails)setCharacterData(characterDetails);}
     setBusy(false);
   }
   const room=maze?.rooms?.find((r:Room)=>Number(r.id)===Number(position)) as Room|undefined;

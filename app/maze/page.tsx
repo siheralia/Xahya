@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import MazeMap from "@/components/MazeMap";
 
-type Character={id:number;name:string;flair:string|null;avatarUrl?:string|null};
+type Character={id:number;name:string;flair:string|null;avatarUrl?:string|null;isSystem?:boolean};
 type Occupant={id:number;name:string;flair:string|null;avatarUrl?:string|null;roomId:number;status?:string;lockReason?:string|null};
 type Theme={id:number;name:string;slug:string;imageUrl?:string|null};
 type Maze={id:number;name:string;description:string|null;mazeType:string;maxRooms:number|null;status:string;roomCount:number;themes?:Theme[]};
@@ -15,6 +15,7 @@ const typeLabels:Record<string,string>={ENEMY:"Enemigos",TRAP:"Trampa",BOSS:"Jef
 
 export default function MazePage(){
   const [characters,setCharacters]=useState<Character[]>([]);
+  const [isAdmin,setIsAdmin]=useState(false);
   const [mazes,setMazes]=useState<Maze[]>([]);
   const [mazeId,setMazeId]=useState("");
   const [characterId,setCharacterId]=useState("");
@@ -40,7 +41,7 @@ export default function MazePage(){
   }
   const mazeListWithPositions=(mazes as any[]).flatMap((entry:any)=>Array.isArray(entry.characterPositions)?entry.characterPositions.map((position:any)=>({...position,mazeId:Number(entry.id)})):[]);
 
-  useEffect(()=>{Promise.all([fetch("/api/characters?mine=true"),fetch("/api/maze")]).then(async([a,b])=>{const [charText,mazeText]=await Promise.all([a.text(),b.text()]);const chars=charText?JSON.parse(charText):[];const ms=mazeText?JSON.parse(mazeText):[];if(!a.ok)throw new Error(chars?.error??"No se pudieron cargar los personajes.");if(!b.ok)throw new Error(ms?.error??"No se pudieron cargar los laberintos.");const nextCharacters=Array.isArray(chars)?chars:[];const nextMazes=Array.isArray(ms)?ms:[];setCharacters(nextCharacters);setMazes(nextMazes);const positions=nextMazes.flatMap((entry:any)=>Array.isArray(entry.characterPositions)?entry.characterPositions.map((position:any)=>({...position,mazeId:Number(entry.id)})):[]);if(nextCharacters.length===1){const only=nextCharacters[0];setCharacterId(String(only.id));const activePosition=positions.find((position:any)=>Number(position.characterId)===Number(only.id));if(activePosition)setMazeId(String(activePosition.mazeId));}else if(positions.length===1){setCharacterId(String(positions[0].characterId));setMazeId(String(positions[0].mazeId));}}).catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar la exploración."));},[]);
+  useEffect(()=>{Promise.all([fetch("/api/characters?mine=true"),fetch("/api/maze"),fetch("/api/management/characters")]).then(async([a,b,adminResponse])=>{const [charText,mazeText,adminText]=await Promise.all([a.text(),b.text(),adminResponse.text()]);const chars=charText?JSON.parse(charText):[];const ms=mazeText?JSON.parse(mazeText):[];const management=adminText?JSON.parse(adminText):null;if(!a.ok)throw new Error(chars?.error??"No se pudieron cargar los personajes.");if(!b.ok)throw new Error(ms?.error??"No se pudieron cargar los laberintos.");const nextMazes=Array.isArray(ms)?ms:[];const admin=Boolean(adminResponse.ok&&management?.isAdmin);setIsAdmin(admin);const ownedCharacters=Array.isArray(chars)?chars:[];const systemCharacters=admin&&Array.isArray(management?.characters)?management.characters.filter((character:any)=>String(character.ownerRole)==="SYSTEM").map((character:any)=>({id:Number(character.id),name:String(character.name),flair:null,isSystem:true})):[];const nextCharacters=[...ownedCharacters.filter((character:any)=>!systemCharacters.some((system:any)=>Number(system.id)===Number(character.id))),...systemCharacters];setCharacters(nextCharacters);setMazes(nextMazes);const positions=nextMazes.flatMap((entry:any)=>Array.isArray(entry.characterPositions)?entry.characterPositions.map((position:any)=>({...position,mazeId:Number(entry.id)})):[]);if(nextCharacters.length===1){const only=nextCharacters[0];setCharacterId(String(only.id));const activePosition=positions.find((position:any)=>Number(position.characterId)===Number(only.id));if(activePosition)setMazeId(String(activePosition.mazeId));}else if(positions.length===1){setCharacterId(String(positions[0].characterId));setMazeId(String(positions[0].mazeId));}}).catch(e=>setError(e instanceof Error?e.message:"No se pudo cargar la exploración."));},[]);
   useEffect(()=>{if(!mazeId||!characterId)return; loadMaze();},[mazeId,characterId]);
   useEffect(()=>{if(!characterId){setCharacterData(null);return;} fetch("/api/characters/"+characterId,{cache:"no-store"}).then(async r=>{const d=await r.json();if(r.ok)setCharacterData(d);}).catch(()=>{});},[characterId]);
   useEffect(()=>{if(!maze?.mazeCapabilities?.invisibility)setInvisibilityActive(false);},[maze?.mazeCapabilities?.invisibility]);
@@ -179,7 +180,7 @@ export default function MazePage(){
     <div className="mx-auto flex min-h-screen w-full flex-col px-3 py-3 sm:px-5 sm:py-4">
       {error&&<div className="mt-3 rounded-xl border border-red-900/60 bg-red-950/30 p-3 text-sm text-red-300">{error}</div>}
       {!maze&&<section className="mt-3 grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 sm:grid-cols-2">
-        <label className="text-xs text-zinc-500">Personaje<select value={characterId} onChange={e=>selectCharacter(e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm"><option value="">Selecciona</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        <label className="text-xs text-zinc-500">Personaje<select value={characterId} onChange={e=>selectCharacter(e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm"><option value="">Selecciona</option>{characters.map(c=><option key={c.id} value={c.id}>{c.isSystem?"⚙️ SYSTEM · ":""}{c.name}</option>)}</select></label>
         <label className="text-xs text-zinc-500">Laberinto<select value={mazeId} onChange={e=>setMazeId(e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm"><option value="">Selecciona</option>{mazes.map(m=><option key={m.id} value={m.id}>{m.name} — {m.mazeType==="FINITE"?m.roomCount+"/"+m.maxRooms:"∞"}</option>)}</select></label>
       </section>}
       {maze&&<div className="mx-auto mt-3 grid w-fit min-h-0 flex-1 grid-cols-[320px] gap-3 lg:grid-cols-[320px_320px] lg:justify-center">

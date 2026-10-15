@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public."worldLocation" (
   "operationalStatus" text NOT NULL DEFAULT 'ACTIVE',
   "claimability" text NOT NULL DEFAULT 'NOT_CLAIMABLE',
   "createdAt" timestamptz NOT NULL DEFAULT now(),
-  "updatedAt" timestamptz NOT NULL DEFAULT now(),
+  "updatedAt" timestamptz NOT NULL,
   CONSTRAINT "worldLocation_parentId_fkey"
     FOREIGN KEY ("parentId") REFERENCES public."worldLocation"("id")
     ON DELETE SET NULL ON UPDATE CASCADE,

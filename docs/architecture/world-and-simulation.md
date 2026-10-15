@@ -11,7 +11,9 @@
 - Una locación puede existir sin ciudad, habitantes, edificios ni detalle visual.
 - El mapa general puede mostrar solo ciudades; el detalle de barrios, edificios y puntos de interés se muestra cuando exista y sea útil.
 - Las islas flotantes pertenecen al mismo mundo y pueden requerir vuelo, monturas, magia, portales u otros medios configurables para acceder.
-- Los negocios Aurora ubicados en continentes distintos pueden conectarse mediante teletransportación.
+- Aurora son negocios existentes, no el nombre genérico de la tecnología. Las sedes de Santuario Aurora y El Gran Refugio Aurora pertenecen actualmente a Guha Arisel y deben poder estar en locaciones distintas, incluso en continentes diferentes o con una sede en una isla flotante.
+- Un negocio que alcance el nivel de tecnología de teletransporte puede proponer una conexión con otro negocio; la conexión solo se activa si ambos propietarios la autorizan.
+- Red Nova Link es un negocio existente con una función conceptual distinta: su red de múltiples torres representa una infraestructura de transporte distribuida y de mayor escala que un enlace entre dos sedes.
 - La población general se representa principalmente con cohortes estadísticas, no con una fila por habitante. Los NPC que necesiten identidad e historia propias pueden individualizarse.
 - Los jugadores podrán reunir seguidores individuales y cohortes, fundar asentamientos y, si cumplen las reglas del juego, formar reinos.
 - Las tiendas pueden tener catálogos, existencias y precios diferentes según su negocio y ubicación.
@@ -48,7 +50,30 @@ Las reclamaciones se validan en el servidor y se resuelven transaccionalmente pa
 
 La geografía y las rutas se modelan por separado. Las conexiones pueden ser terrestres, marítimas, aéreas, mágicas o portales/teletransportación. Cada conexión puede definir origen, destino, estado, coste opcional y requisitos.
 
-El vuelo y la magia deben ser requisitos configurables, no excepciones codificadas exclusivamente para islas flotantes. Los negocios Aurora son establecimientos físicos; su conexión de teletransportación se modela aparte de su ubicación. Cada sede conserva su propia economía.
+El vuelo y la magia deben ser requisitos configurables, no excepciones codificadas exclusivamente para islas flotantes. Los negocios son establecimientos físicos; sus conexiones de transporte se modelan aparte de sus ubicaciones. Cada sede conserva su propia economía.
+
+#### Terminología sánscrita propuesta
+
+Estos nombres son etiquetas de diseño pendientes de validación; no son sistemas implementados ni cambian los nombres comerciales actuales:
+
+- **Dvāra (द्वार, «puerta»):** tecnología/capacidad de teletransporte que un negocio puede adquirir y mejorar por nivel. No es un negocio independiente ni reemplaza nombres como Aurora o Red Nova Link.
+- **Setu (सेतु, «puente»):** conexión de teletransporte autorizada entre dos extremos compatibles. Cada extremo pertenece a una sede física y mantiene su identidad, inventario, empleados, precios y economía.
+- **Mahāsetu (महासेतु, «gran puente»):** nombre conceptual para una infraestructura distribuida de transporte, como la red de múltiples torres de Red Nova Link. Debe soportar numerosos nodos y rutas; no limitarse al modelo de una conexión entre dos negocios.
+
+#### Reglas de una conexión Dvāra/Setu
+
+1. La capacidad Dvāra pertenece al negocio y tiene un nivel propio; no se confunde con el nivel del personaje propietario ni con el nivel general del negocio.
+2. Un negocio con el nivel requerido puede solicitar conectar una sede con otra sede compatible.
+3. La conexión queda pendiente hasta que los propietarios de ambos negocios la autoricen. La autorización debe registrarse por cada extremo; no basta con que un único propietario controle ambos negocios.
+4. La conexión puede activarse, suspenderse o revocarse según las reglas que se definan. El estado y las autorizaciones deben persistir y validarse en el servidor.
+5. La ubicación física nunca se falsifica: una sede en un continente y otra en una isla flotante siguen siendo locaciones distintas aunque estén conectadas instantáneamente.
+6. Una conexión entre dos sedes no implica que todo el negocio comparta inventarios o precios, ni concede acceso automático a otras sedes.
+7. La infraestructura Mahāsetu puede tener múltiples torres/nodos y muchas rutas, con requisitos y permisos propios. Debe modelarse como una red distribuida asociada al negocio, no como una lista de enlaces bilaterales Aurora.
+
+#### Casos de referencia actuales
+
+- **Santuario Aurora** y **El Gran Refugio Aurora** pertenecen actualmente a **Guha Arisel**. Pueden ubicarse en continentes diferentes; una de las locaciones podría ser una isla flotante. Aunque hoy compartan propietario, sus ubicaciones y economías siguen separadas. La regla de autorización de ambos extremos se conserva para permitir que, en el futuro, se conecten negocios de propietarios distintos.
+- **Red Nova Link** también pertenece actualmente a **Guha Arisel** y se concibe como una infraestructura con muchas torres repartidas por el mundo. Su modelo futuro debe poder representar muchos nodos y conexiones, una escala superior a la conexión entre dos sedes.
 
 ### 4. Población agregada y NPC individualizados
 
@@ -136,7 +161,10 @@ Son conceptos de diseño, no nombres finales ni tablas creadas:
 | FollowerGroup | Cohortes bajo seguimiento o autoridad de un personaje |
 | Kingdom / Faction | Organización política |
 | KingdomTerritory | Relación entre reinos y territorios |
-| AuroraLink | Conexión de teletransportación entre sedes o locaciones Aurora |
+| BusinessLocation | Relación entre un negocio y cada una de sus sedes físicas; permite que un negocio tenga varias ubicaciones o torres |
+| BusinessCapability | Capacidad tecnológica que posee un negocio y su nivel, por ejemplo Dvāra |
+| TeleportLink / Setu | Conexión entre dos sedes con autorización registrada de ambos extremos |
+| TeleportNode / MahāsetuNetwork | Torre o nodo físico y red de transporte distribuida con múltiples rutas |
 
 No crear todas estas tablas de una vez. El esquema definitivo debe respetar las convenciones actuales de Prisma, las relaciones, los tipos de fecha y las claves de Xahya.
 
@@ -153,7 +181,9 @@ Consecuencias:
 - evaluar cómo asociar Business a una locación sin duplicar la lógica económica;
 - conservar los personajes actuales y no convertir cohortes en fichas Character completas;
 - auditar si el NPC individual reutiliza un modelo existente o necesita uno separado;
-- localizar la implementación actual de Aurora antes de diseñar su relación o migración; no asumir que ya existe una tabla dedicada.
+- conservar los nombres y registros comerciales existentes: Aurora y Red Nova Link son negocios, no nombres de tablas tecnológicas;
+- no asumir que existe una implementación dedicada de Dvāra, Setu o Mahāsetu: son propuestas de nomenclatura y modelado;
+- permitir que un negocio tenga varias sedes, necesario para una infraestructura como Red Nova Link, sin duplicar su entidad comercial ni mezclar economías locales.
 
 ## Plan de implementación
 
@@ -169,10 +199,11 @@ Consecuencias:
 - Permitir locaciones sin contenido detallado.
 - No generar todavía población masiva ni simulación económica.
 
-### Fase 2 — Conexiones y ubicaciones comerciales
-- Conectar sedes Aurora a locaciones.
-- Modelar rutas con requisitos.
-- Asociar negocios a locaciones.
+### Fase 2 — Sedes comerciales y transporte
+- Asociar cada sede física a una locación del mundo; permitir varias sedes por negocio.
+- Modelar la capacidad Dvāra como tecnología de negocio con nivel, sin convertirla en un negocio separado.
+- Crear el flujo de solicitud y autorización bilateral para conexiones Setu, con registro de consentimiento de ambos propietarios.
+- Diseñar nodos y rutas múltiples Mahāsetu para infraestructuras distribuidas como Red Nova Link.
 - Verificar que precios, inventarios, inversiones, empleos y pagos actuales no sufran regresiones.
 
 ### Fase 3 — Economía territorial

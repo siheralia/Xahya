@@ -76,7 +76,7 @@ model Skill {
   condition   String?
   status      String    @default("PENDING")
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now())
+  updatedAt   temporal.updatedAt()
   approvedAt  DateTime?
   @@index([characterId])
   @@index([status])

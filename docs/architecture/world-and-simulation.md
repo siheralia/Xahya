@@ -202,6 +202,112 @@ Esta revisión es estática del contrato Prisma y de las rutas de negocio/cobro 
 - Modelar contratos institucionales como acuerdos con contraparte, alcance geográfico, servicio contratado, precio, vigencia, estado, condiciones de renovación y registro de pagos. Los detalles de gobierno, impuestos, penalizaciones y contratación quedan abiertos.
 - No añadir todavía las tablas anteriores a producción. Primero cerrar el modelo lógico y preparar una migración revisable, incluyendo las restricciones e índices necesarios.
 
+
+## Modelo lógico propuesto: geografía, sedes y servicios
+
+Este modelo es una propuesta de diseño para revisar antes de escribir migraciones. Los nombres de campos y enums son orientativos; se ajustarán a las convenciones reales de Prisma y a las reglas finales del juego.
+
+### 1. Geografía y territorios
+
+**WorldLocation** representa una unidad geográfica o un lugar preparado por administración.
+
+Campos conceptuales:
+- `id`: identificador estable.
+- `parentId`: relación opcional con otra `WorldLocation`; permite jerarquías sin obligar a crear todos los niveles.
+- `type`: tipo geográfico, inicialmente con opciones como `CONTINENT`, `REGION`, `CITY`, `ISLAND`, `ARCHIPELAGO`, `FLOATING_ISLAND`, `DISTRICT`, `BUILDING` y `POINT_OF_INTEREST`. La lista definitiva se validará antes de migrar.
+- `name`, `description`: nombre y descripción.
+- `status` o indicadores explícitos: preparado/publicado, activo y disponible para reclamación.
+- `claimable`: si puede reclamarse; no sustituye la validación del estado ni de los requisitos.
+- metadatos opcionales para orden de presentación, coordenadas, requisitos de acceso y propiedades específicas del tipo.
+
+**Regla importante:** el tipo describe la geografía; el estado indica si está preparada/disponible. Una isla flotante no se considera automáticamente reclamable ni accesible. Los territorios que todavía no haya preparado administración no aparecen como opciones para reclamar. Las ubicaciones pueden existir sin mapa, barrios, edificios ni población.
+
+**TerritoryClaim** debe ser una entidad separada, con territorio, titular (personaje o futura facción/reino), estado, fechas e historial. La reclamación activa se protege con transacción y una restricción que impida dos titulares activos incompatibles para el mismo territorio. Las reglas de quién puede reclamar y cómo se libera se definirán por separado.
+
+### 2. Negocios y sedes físicas
+
+**Business** continúa representando la empresa y su caja. **BusinessLocation** representa cada sede física, sin crear una empresa nueva por cada sucursal.
+
+Campos conceptuales de `BusinessLocation`:
+- `id`, `businessId`, `worldLocationId`;
+- `name` y descripción opcional;
+- `siteType` (por ejemplo sede, sucursal, tienda o instalación);
+- estado activo/inactivo y metadatos específicos cuando hagan falta.
+
+Una sede pertenece a un negocio y se asocia a una locación del mundo. Un negocio puede tener varias sedes; no se debe suponer que la sede principal comparte automáticamente inventario, personal, precios o caja con las demás. La primera migración no debe inventar dónde están actualmente Red Nova Link, Santuario Aurora o El Gran Refugio Aurora: sus ubicaciones se asignarán cuando se decidan explícitamente.
+
+Los productos siguen usando el catálogo compartido `Item` y el inventario/precio local existente de `BusinessProduct` mientras ese diseño siga siendo suficiente. Si después se requiere inventario separado por sede dentro de un mismo negocio, se diseña esa extensión como una fase propia en lugar de cambiar silenciosamente la semántica actual.
+
+### 3. Red Nova Link: comunicación, no transporte
+
+La red de comunicación se modela separada de las sedes comerciales y de los portales.
+
+**CommunicationNode** representa una torre, satélite u otro nodo técnico. Puede relacionarse con una `BusinessLocation` cuando esté instalado en una sede; los satélites u otros nodos no terrestres no deben forzarse a tener una sede urbana. Campos conceptuales:
+- `id`, `businessId` y relación opcional con `BusinessLocation` o con una ubicación/orbita compatible;
+- `nodeType` (por ejemplo torre, satélite o estación);
+- estado, capacidad y parámetros de cobertura;
+- datos técnicos adicionales en columnas tipadas o una configuración validada, según las necesidades que se confirmen.
+
+La cobertura y la capacidad son datos de red, no permisos de teletransporte. Un punto puede tener internet Red Nova sin portal, o portal sin cobertura Red Nova.
+
+El acceso público y el acceso por contrato deben coexistir. La cobertura por sí sola no significa que todo dispositivo tenga acceso gratuito: la elegibilidad del dispositivo, condiciones de servicio, límites y cobertura efectiva se definirán como reglas del servicio. No crear todavía tarifas ni requisitos no acordados.
+
+### 4. Dvāra y Setu: capacidad y enlace bilateral
+
+**BusinessCapability** representa capacidades tecnológicas adquiridas por un negocio, con tipo y nivel. Dvāra sería una capacidad de teletransporte; no una empresa, una sede ni un enlace ya activo. Conviene que el modelo permita futuras capacidades sin añadir una tabla distinta por cada tecnología.
+
+**TeleportLink / Setu** representa una conexión entre dos `BusinessLocation` compatibles. Campos conceptuales:
+- identificador y dos extremos explícitos (`endpointAId`, `endpointBId`);
+- estado de la solicitud y estado operativo;
+- fechas de solicitud, aprobación, activación, suspensión o revocación;
+- nivel/requisitos validados al solicitar y al activar, si las reglas necesitan conservar evidencia.
+
+Las autorizaciones deben registrarse por extremo, no como un único booleano global. Cada extremo identifica el negocio/sede que consiente y la autorización de su propietario autorizado. Si una persona posee ambos negocios, se siguen registrando ambas aprobaciones explícitas. La activación requiere los dos consentimientos y la validación del nivel Dvāra y de la compatibilidad. El servidor verifica permisos y estados; el cliente no puede activar ni aprobar el enlace por sí solo.
+
+No se debe permitir que un enlace convierta dos sedes en una sola ubicación ni que comparta automáticamente sus economías. Mahāsetu permanece fuera de esta primera versión; solo se modelará si se aprueba una infraestructura de transporte distribuida con rutas y nodos propios.
+
+### 5. Acceso por suscripción y contratos institucionales
+
+Se conserva el flujo actual:
+- **BusinessSubscriptionPlan**: plan ofrecido por un negocio.
+- **BusinessSubscription**: suscripción de un personaje a un plan.
+
+Antes de extenderlo a Red Nova, se debe reforzar la integridad de suscripciones duplicadas y probar los cobros recurrentes con ejecuciones concurrentes/reintentos. Cada cuota debería poder auditarse con una clave idempotente estable que identifique la suscripción y el periodo facturado. La implementación concreta debe comprobarse contra el esquema y el motor de economía antes de definir la restricción final; no añadir una unicidad que impida renovaciones legítimas.
+
+**ServiceAgreement / InstitutionalContract** representa un contrato entre un negocio proveedor y una contraparte institucional (por ejemplo un gobierno, municipio o institución), que no tiene por qué ser un `Character`. Debe contemplar:
+- proveedor y contraparte institucional;
+- servicio contratado y alcance geográfico opcional;
+- precio, moneda/recurso de pago y periodicidad o vigencia;
+- estado, fechas de inicio/fin y condiciones de renovación;
+- referencia a términos aceptados y a los pagos del contrato.
+
+La contraparte institucional debe tener identidad propia, aunque su estructura de gobierno y sus representantes se definan más adelante. No se debe simular un gobierno creando una ficha de personaje ficticia. La facturación institucional necesita un pagador/receptor compatible con el motor económico y un registro de pagos idempotente; no asumir que los campos actuales de pagos, ligados a personajes, bastan sin una revisión.
+
+### 6. Restricciones e índices previstos
+
+Antes de migrar, confirmar los nombres y tipos finales. Como mínimo, evaluar:
+- índices en `WorldLocation.parentId`, `BusinessLocation.businessId`, `BusinessLocation.worldLocationId` y las claves de los extremos de `TeleportLink`;
+- claves foráneas y reglas de borrado que eviten borrar una locación con sedes, reclamaciones o enlaces activos sin una operación explícita;
+- comprobación de que los dos extremos de Setu son distintos y compatibles;
+- unicidad de una reclamación activa por territorio cuando las reglas no permitan copropiedad;
+- unicidad de las aprobaciones por enlace y extremo;
+- protección contra enlaces duplicados activos para el mismo par de sedes, normalizando el orden de los extremos o aplicando una estrategia equivalente;
+- restricciones de estados válidos y validación de permisos en el servidor;
+- claves idempotentes de cobro por contrato/suscripción y periodo, compatibles con el historial de pagos existente.
+
+Los índices no sustituyen la autorización del servidor ni las políticas RLS que correspondan. Las relaciones que involucren varias tablas o reglas de propietario requieren validación transaccional.
+
+### 7. Orden de migración recomendado
+
+1. **Geografía mínima:** crear `WorldLocation` y sus índices/relaciones. No poblar ubicaciones ficticias ni asignar sedes sin confirmación.
+2. **Sedes:** crear `BusinessLocation` y la relación con `Business` y `WorldLocation`. Los negocios existentes pueden permanecer temporalmente sin sede mientras se prepara el backfill explícito.
+3. **Comunicación:** añadir `CommunicationNode` y relaciones necesarias para torres/satélites, manteniendo separada la cobertura de Red Nova.
+4. **Teletransporte:** añadir `BusinessCapability`, Setu y las aprobaciones bilaterales; probar autorización, revocación y extremos de propietarios iguales/distintos.
+5. **Servicios y pagos:** definir contraparte institucional y contratos; primero probar idempotencia y concurrencia del flujo de suscripciones, y luego adaptar el registro de pagos.
+6. **Fases posteriores:** reclamaciones, asentamientos, cohortes y simulación solo cuando se definan sus reglas y se pueda probar la integridad de población.
+
+Cada fase debe llegar con migración revisable, prueba de regresión y estrategia de reversión. Esta propuesta no ejecuta cambios en la base de datos ni modifica `main`.
+
 ## Relación con el esquema actual
 
 La inspección inicial de prisma/contract.prisma muestra, entre otros:

@@ -570,3 +570,229 @@ No incluir todavía coordenadas obligatorias, simulación de terreno, fronteras 
 - Marcar una locación como reclamable sin implicar que todo personaje puede llegar a ella.
 - Rechazar ciclos jerárquicos y escrituras no autorizadas.
 - Impedir borrados que dejen dependencias huérfanas.
+
+
+## Contrato de relaciones de la primera fase
+
+Esta sección cierra el modelo lógico mínimo de geografía, rutas y sedes físicas para que la futura migración pueda prepararse como una unidad revisable. **Es documentación exclusivamente:** no crea modelos Prisma, migraciones, registros geográficos ni asignaciones a negocios existentes.
+
+### Diagrama de relaciones
+
+```mermaid
+erDiagram
+    WorldLocation o|--o{ WorldLocation : "contiene opcionalmente"
+    WorldLocation ||--o{ TravelConnection : "es origen de"
+    WorldLocation ||--o{ TravelConnection : "es destino de"
+    Business ||--o{ BusinessLocation : "tiene sedes"
+    WorldLocation ||--o{ BusinessLocation : "alberga sedes"
+    WorldLocation ||--o{ CommunicationNode : "alberga nodos futuros"
+
+    WorldLocation {
+        string id
+        string name
+        string type
+        string parentId
+        string publicationStatus
+        string operationalStatus
+        string claimability
+    }
+    TravelConnection {
+        string id
+        string fromLocationId
+        string toLocationId
+        string type
+        string directionality
+        string status
+        string requirements
+        string cost
+        string duration
+    }
+    Business {
+        int id
+    }
+    BusinessLocation {
+        string id
+        int businessId
+        string worldLocationId
+        string name
+        string status
+    }
+    CommunicationNode {
+        string id
+        string worldLocationId
+        string nodeType
+        string status
+    }
+```
+
+El diagrama expresa cardinalidades conceptuales. Los tipos concretos, nombres definitivos y claves deben cotejarse con `prisma/contract.prisma` antes de una migración. En particular, no se asume que el ID de `Business` sea de tipo `String`: se conserva el tipo que ya tenga el esquema real.
+
+### 1. WorldLocation — identidad y organización geográfica
+
+**Una fila representa un lugar**, no su imagen, su dueño, su población, su gobierno ni una ruta.
+
+Relaciones:
+- Una locación puede tener cero o una locación padre.
+- Una locación puede tener cero o muchas hijas.
+- Una locación puede ser origen de muchas conexiones de viaje y destino de muchas otras.
+- Una locación puede albergar cero o muchas sedes de negocio y, en una fase posterior, nodos de comunicación.
+- La reclamación territorial será una relación futura separada; no se incorpora como propiedad de un personaje dentro de la locación.
+
+Reglas:
+- El padre es una relación organizativa, no una prueba de contigüidad, soberanía ni accesibilidad.
+- La creación de una hija no obliga a crear niveles intermedios.
+- Se deben impedir ciclos en la jerarquía en las operaciones de servidor.
+- Cambiar nombre, descripción, estado o mapa no cambia el identificador.
+- No se debe borrar en cascada una locación con rutas, sedes, nodos, hijas o reclamaciones asociadas. La política concreta de claves foráneas se decidirá en la migración; la conducta segura por defecto es bloquear el borrado y preferir archivo lógico.
+- La publicación de una locación no publica automáticamente sus hijas, ni la publicación de una hija publica a su padre. La política de visibilidad de la jerarquía se debe resolver en consultas y permisos.
+
+### 2. TravelConnection — cómo se viaja entre lugares
+
+Una conexión es un vínculo explícito entre dos locaciones. No es sinónimo de parentesco geográfico ni de comunicación arcana.
+
+Campos conceptuales:
+- identificador estable;
+- origen y destino obligatorios, ambos referenciando `WorldLocation`;
+- tipo de viaje configurable: terrestre, marítimo, aéreo, vuelo/montura, mágico, portal/teletransporte u otro;
+- direccionalidad explícita: solo origen→destino o ambos sentidos;
+- estado operativo, separado de la existencia del registro;
+- requisitos expresados mediante una estructura validable y versionable, sin ejecutar reglas arbitrarias enviadas por el cliente;
+- coste y duración opcionales; nulos significan “no definido”, no cero ni viaje instantáneo;
+- descripción/notas opcionales y campos de auditoría según convenciones del proyecto.
+
+Reglas de integridad y uso:
+1. Origen y destino deben existir. No se crea una ruta a partir de nombres libres.
+2. Una conexión no puede apuntar al mismo lugar en ambos extremos, salvo que en el futuro se justifique explícitamente un caso de uso.
+3. Dos locaciones pueden tener varias conexiones diferentes (por ejemplo, camino y portal), cada una con requisitos y estados propios.
+4. No asumir que toda ruta es bidireccional. Si lo es, debe quedar explícito en el registro o representarse mediante dos conexiones cuando las reglas requieran costes/condiciones independientes por sentido.
+5. Tener un requisito de vuelo no garantiza que el personaje lo cumpla: el servidor evalúa capacidades y permisos actuales al viajar.
+6. Desactivar o bloquear una conexión no borra su historial ni la convierte en una ruta disponible.
+7. No inferir ruta por compartir continente, región, padre, negocio, cobertura de Red Nova ni propiedad.
+8. Los costes y tiempos se omiten hasta que haya reglas de cálculo y datos fiables; no se inventan a partir de coordenadas inexistentes.
+9. La ejecución de un viaje (consumo, permisos, cambio de ubicación, registro del evento) será una operación de servidor transaccional cuando se implemente. El modelo de ruta por sí solo no concede el derecho a viajar.
+
+**Setu:** una conexión Setu podrá reutilizar los conceptos de origen/destino y estado, pero su autorización bilateral, compatibilidad Dvāra y registro de consentimiento necesitan reglas de dominio específicas. No se debe dar por hecho que cualquier `TravelConnection` sea un Setu ni que cualquier ruta común necesite consentimiento de propietarios.
+
+### 3. BusinessLocation — dónde opera un negocio
+
+`Business` sigue siendo la entidad comercial existente. `BusinessLocation` representa cada sede física, sucursal o establecimiento del negocio y apunta a una `WorldLocation`.
+
+Relaciones:
+- Un negocio puede tener cero, una o muchas sedes.
+- Una locación puede albergar cero, una o muchas sedes.
+- Una sede pertenece a un negocio y a una locación concreta.
+- El negocio conserva la identidad, el propietario y los atributos comerciales que ya existen en Xahya.
+- La sede podrá tener nombre visible, estado operativo y detalles locales; no debe duplicar sin motivo la caja, el propietario o el catálogo compartido del negocio.
+
+Decisiones:
+- La primera migración geográfica no asignará automáticamente una sede a cada negocio existente. Los negocios actuales pueden quedar sin `BusinessLocation` hasta una asignación explícita.
+- Dos sedes de un mismo negocio pueden estar en continentes diferentes o en una isla flotante.
+- Los inventarios, precios, empleados, inversiones y caja seguirán las reglas actuales del sistema comercial. La nueva relación geográfica no debe fusionarlos ni dividirlos accidentalmente.
+- Si el negocio vende productos con variación local, la sede será el punto de extensión para esa diferencia, pero primero se auditará si `BusinessProduct` y los modelos actuales ya pueden cubrir el caso.
+- No se crea un negocio nuevo para cada torre o satélite de Red Nova únicamente porque sea una instalación física.
+- Preferir desactivar/archivar una sede en lugar de borrarla cuando ya tenga actividad histórica. Las claves foráneas no deben dejar registros comerciales huérfanos.
+
+Una sede es un sitio de operación. No implica automáticamente que el personaje propietario resida allí, que la locación esté bajo su soberanía o que la sede tenga cobertura de red, un portal o una ruta de viaje.
+
+### 4. CommunicationNode — extensión futura para Red Nova Link
+
+Se documenta como extensión de fase posterior, no como requisito de la primera migración. Un nodo de comunicación es infraestructura de la red y puede referenciar una `WorldLocation`, sin tener que ser un negocio ni una sede comercial ordinaria.
+
+Tipos conceptuales:
+- torre o edificio de transmisión;
+- satélite arcano, incluidos los cuatro Ojos de Nova;
+- sede global de coordinación;
+- estación u otro nodo futuro.
+
+La sede global de Red Nova Link se considera una instalación adicional a las 26 torres/edificios y los cuatro satélites descritos actualmente; no se debe contar automáticamente como una de esas 26 torres. Su nombre, ubicación, diseño y reglas operativas siguen pendientes. La red debe ser distribuida: la sede coordina administración, seguridad, mantenimiento, operaciones y contratos, pero no tiene que ser el punto por el que pase cada mensaje.
+
+No es necesario decidir ahora cómo se calcula cobertura, latencia, capacidad o tarifas. El modelo futuro debe separar:
+- existencia y ubicación física del nodo;
+- pertenencia a una red de comunicación;
+- cobertura y capacidad;
+- método de acceso (público con dispositivo compatible, contrato u otra regla);
+- contrato/suscripción y su facturación.
+
+La cobertura de Red Nova no crea `TravelConnection`, no activa Dvāra/Setu y no permite transportar físicamente personas u objetos.
+
+### 5. Territorio reclamable — relación futura independiente
+
+La reclamación territorial queda fuera de la primera entrega. Cuando se diseñe, deberá apuntar a una locación preparada y registrar al reclamante válido, estado, fechas e historial según las reglas de Xahya.
+
+No guardar simplemente `ownerCharacterId` en `WorldLocation`: la propiedad privada de una sede, la reclamación de un territorio y la soberanía de un reino son relaciones distintas. El sistema debe validar disponibilidad, elegibilidad y concurrencia en servidor y en una transacción. Una locación publicada no es automáticamente reclamable.
+
+### 6. Política de borrado, archivo y dependencias
+
+La migración debe evitar cascadas destructivas. Política conceptual por defecto:
+- **WorldLocation:** bloquear borrado físico si hay hijas o dependencias; preferir archivo lógico.
+- **TravelConnection:** desactivar/archivar rutas usadas o referenciadas; no borrar automáticamente una locación al borrar una ruta.
+- **BusinessLocation:** desactivar/archivar sedes con historial comercial; no borrar el negocio ni la locación al archivarla.
+- **CommunicationNode:** conservar identidad e historial operativo al desactivarlo.
+- **Relaciones futuras de reclamación y Setu:** preservar el historial de autorizaciones y cambios de estado.
+
+Los `onDelete` definitivos no se declaran aquí. Deben elegirse según los tipos y convenciones reales del esquema, y comprobarse con pruebas de migración. Una cascada solo se permitirá si se demuestra que no puede borrar historia o datos de negocio válidos.
+
+### 7. Seguridad y acceso
+
+- Solo administradores/GM autorizados pueden crear, modificar, publicar, archivar o conectar locaciones desde Gestión.
+- La vista de jugador solo consulta locaciones y rutas que correspondan a la política de publicación y acceso.
+- Las APIs deben validar permisos, tipos, estados y referencias en el servidor; ocultar botones no constituye autorización.
+- No confiar en un `businessId`, `worldLocationId`, precio, requisito de viaje ni consentimiento enviado por el cliente sin verificarlo.
+- Revisar RLS y cualquier acceso directo desde cliente antes de exponer tablas nuevas. No asumir que la seguridad de las tablas actuales se hereda a las futuras.
+- Toda operación futura que mueva un personaje, cobre un viaje, active un portal o cambie una reclamación debe ser validada en servidor y protegida contra concurrencia.
+- Los registros de auditoría deben seguir el modelo existente del proyecto; no crear un segundo sistema de auditoría sin necesidad.
+
+### 8. Índices y restricciones a evaluar antes de migrar
+
+No son decisiones de DDL todavía, sino una lista de revisión:
+- búsquedas y filtros de `WorldLocation` por nombre, tipo, padre, publicación y estado operativo;
+- `TravelConnection` por origen, destino, tipo y estado;
+- `BusinessLocation` por negocio, locación y estado;
+- `CommunicationNode` por locación, red y tipo cuando se diseñe;
+- claves foráneas obligatorias para los extremos de una ruta y las referencias de una sede;
+- reglas para evitar duplicados accidentales sin impedir múltiples rutas legítimas entre dos lugares;
+- normalización y sensibilidad a mayúsculas/acentos en búsquedas, de acuerdo con las convenciones del proyecto;
+- política de archivo y unicidad de nombres: los nombres visibles no deben usarse como identificadores globales.
+
+La regla de unicidad de `BusinessLocation` queda deliberadamente abierta: no imponer unicidad por `businessId + worldLocationId` hasta decidir si un negocio puede tener varias instalaciones diferenciadas dentro de una misma locación.
+
+### 9. Secuencia de implementación revisada
+
+1. **Contrato geográfico:** implementar `WorldLocation` con jerarquía opcional, estados separados, auditoría y validación anti-ciclos.
+2. **Gestión mínima:** alta, edición, búsqueda, publicación y archivo lógico de locaciones; sin inventar ni sembrar territorios.
+3. **Rutas explícitas:** implementar `TravelConnection` solo cuando se definan los primeros modos de viaje y el flujo de validación de acceso.
+4. **Sedes comerciales:** introducir `BusinessLocation`, asignando negocios existentes solo mediante una decisión y operación explícitas.
+5. **Infraestructura de comunicación:** diseñar `CommunicationNode`, red, cobertura y acceso; registrar las 26 instalaciones y cuatro satélites solo cuando la administración confirme datos concretos.
+6. **Dvāra/Setu:** capacidad del negocio, compatibilidad, consentimiento por ambos extremos, revocación e historial.
+7. **Territorios y simulación:** reclamaciones, asentamientos, cohortes, economía local y ciclos idempotentes en fases independientes.
+
+Cada fase debe tener migración revisable, pruebas de permisos e integridad, plan de reversión y verificación de que personajes, negocios, tienda, economía y laberinto continúan funcionando. Los despliegues siguen siendo manuales.
+
+### 10. Criterios de aceptación adicionales
+
+- Una locación padre puede tener hijas sin exigir un árbol completo.
+- No se puede crear una jerarquía circular ni una ruta con extremos inexistentes.
+- Dos locaciones pueden tener varias rutas y cada una puede ser unidireccional o bidireccional según configuración.
+- Compartir continente no genera rutas implícitas.
+- Una sede puede asociarse a una locación sin alterar caja, catálogo, propietario o economía del negocio.
+- Un negocio puede tener varias sedes, y un negocio existente puede permanecer sin sede asignada hasta que se decida.
+- Archivar una locación o sede no borra historial ni deja rutas o transacciones huérfanas.
+- Los nodos Red Nova no se confunden con rutas de transporte ni con negocios individuales por instalación.
+- La sede global de Red Nova es una instalación adicional por defecto, distinta del conteo actual de 26 torres/edificios y cuatro satélites.
+- No se crea ninguna ubicación ficticia, no se modifica el esquema Prisma y no se despliega código como resultado de cerrar esta documentación.
+
+## Decisiones aplazadas conscientemente
+
+Para evitar bloquear la arquitectura con detalles que aún no tienen reglas de juego, quedan para una fase específica:
+- tipos finales y estados de cada entidad;
+- estructura de requisitos de viaje y su evaluador seguro;
+- cómo se guardan mapas/activos según el almacenamiento ya utilizado por Xahya;
+- cálculo de costes, tiempos, distancias y cobertura;
+- reglas de reclamación, soberanía y fronteras;
+- si una sede puede tener varias instalaciones dentro de la misma locación;
+- contratos institucionales y facturación de Red Nova;
+- ubicación, nombre y funcionamiento concreto de la sede global de Red Nova;
+- inventario y coordenadas exactas de las 26 torres y los cuatro satélites;
+- implementación de Dvāra, Setu, CommunicationNode y Mahāsetu.
+
+Estas decisiones no impiden implementar la geografía mínima, siempre que no se introduzcan supuestos irreversibles en la primera migración.

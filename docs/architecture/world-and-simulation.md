@@ -393,3 +393,90 @@ Consecuencias:
 ## Alcance de este documento
 
 Este archivo conserva la visión y el diseño inicial. **No crea tablas, no ejecuta migraciones ni modifica la economía actual.** El siguiente paso técnico es auditar el esquema y el código existentes; después se prepara una migración pequeña y revisable para la primera fase.
+
+
+## Siguiente decisión de diseño: geografía global y rutas de viaje
+
+Esta sección concreta la primera fase del mundo. Sigue siendo documentación: no añade tablas, ubicaciones ficticias ni cambios de producción.
+
+### A. Estructura del mundo
+
+- **Mundo**: raíz conceptual compartida por todos los jugadores. No necesita ser una fila geográfica seleccionable.
+- **Continente o gran masa territorial**: agrupador de territorios extensos. Puede contener regiones y ciudades; no es obligatorio registrar cada región intermedia.
+- **Isla / archipiélago / isla flotante**: unidad geográfica explícita. Puede depender de un continente, una región o un agrupador marítimo/aéreo cuando esa relación tenga sentido. Una isla flotante sigue perteneciendo al mismo mundo, aunque esté separada físicamente.
+- **Región / territorio**: área administrable y potencialmente reclamable. Puede ser una zona natural, política o de juego; su tipo geográfico no determina por sí solo su soberanía.
+- **Ciudad / asentamiento**: núcleo habitado o lugar urbano. Puede existir sin barrios, edificios individuales, población simulada ni mapa.
+- **Barrio / edificio / punto de interés**: detalle opcional para las locaciones que realmente lo necesiten.
+
+La jerarquía debe ser flexible: no se obliga a que cada ciudad tenga región, cada isla pertenezca a un continente ni cada edificio tenga un barrio. El vínculo padre-hijo expresa organización del mundo, pero no reemplaza las relaciones políticas, la propiedad privada ni las rutas de viaje.
+
+### B. Tipo, publicación, reclamación y mapa son conceptos distintos
+
+Una locación necesita distinguir, como mínimo, estos ejes lógicos:
+
+1. **Tipo geográfico**: qué clase de lugar es.
+2. **Preparación/publicación**: si administración ya lo habilitó para aparecer en la experiencia del jugador.
+3. **Estado operativo**: si está activo, cerrado temporalmente o reservado.
+4. **Reclamabilidad**: si se permite intentar reclamarlo y qué reglas adicionales debe cumplir el reclamante.
+5. **Mapa y nivel de detalle**: si existe mapa visual, descripción ampliada, barrios o puntos de interés.
+
+No inferir una propiedad de otra. Por ejemplo, una isla flotante publicada no es automáticamente accesible; una ciudad sin mapa puede estar disponible y ser visitable mediante una descripción; un territorio libre no es reclamable si está reservado para historia o administración.
+
+La administración prepara las locaciones y decide cuáles están disponibles. Los jugadores no crean continentes, islas ni mapas desde la interfaz de reclamación. El sistema solo presenta opciones preparadas y habilitadas. La posibilidad de reclamar se valida de nuevo en el servidor al confirmar la operación.
+
+### C. Mapas progresivos, no obligatorios
+
+El modelo debe permitir tres niveles independientes de presentación:
+
+- **Referencia básica**: nombre, tipo, descripción breve y locación padre.
+- **Vista de ciudad o territorio**: imagen o mapa general, puntos principales y datos de acceso cuando existan.
+- **Detalle explorable**: barrios, edificios, interiores y puntos de interés con sus propias relaciones y, si corresponde, mapas específicos.
+
+Un mapa es un recurso de presentación vinculado a una locación, no la propia locación. La ausencia o sustitución de una imagen no debe borrar el lugar ni cambiar sus identificadores. En la primera fase se puede registrar la geografía como datos aunque todavía no exista ningún mapa visual.
+
+La vista global puede mostrar solo ciudades y etiquetas de territorios relevantes; los detalles se abren al entrar en una locación o cuando administración los haya preparado. No se exige dibujar el mundo completo para poder incorporar una ciudad nueva.
+
+### D. Rutas de viaje como conexiones explícitas
+
+Las rutas no deben deducirse únicamente de la jerarquía geográfica. Que dos ciudades pertenezcan al mismo continente no garantiza que exista un camino transitable; que una isla flotante pertenezca a una región tampoco significa que se pueda llegar caminando.
+
+Una futura entidad conceptual `TravelConnection` relacionará un origen y un destino y podrá registrar:
+
+- tipo de conexión: terrestre, marítima, aérea, vuelo personal/montura, mágica, portal/teletransporte u otro modo configurable;
+- estado: disponible, bloqueada, suspendida o en construcción;
+- requisitos: capacidad de volar, permiso, llave, nivel, recurso, evento o condición de historia;
+- coste y duración opcionales, solo cuando las reglas de juego los definan;
+- dirección: bidireccional por defecto solo si así se configura; algunas rutas pueden ser de un solo sentido;
+- notas de acceso y referencias a los datos necesarios para validar el viaje.
+
+Los requisitos se expresan como reglas configurables, no como excepciones codificadas únicamente para islas flotantes. Así, un abismo, una ciudad submarina o una zona sellada podría necesitar condiciones especiales sin cambiar el modelo base.
+
+No se deben inventar distancias, tiempos, precios ni rutas automáticas antes de que exista un mapa o una regla de viaje que los respalde. Si una conexión no está definida, la interfaz no debe presentarla como una ruta confirmada.
+
+### E. Separación de sistemas
+
+- **Geografía** responde dónde existe un lugar.
+- **Control territorial** responde quién lo gobierna o reclama.
+- **Asentamiento/población** responde quién vive allí.
+- **Propiedad y sedes** responden qué personaje o negocio posee un establecimiento.
+- **TravelConnection** responde cómo se puede viajar entre lugares.
+- **Dvāra/Setu** representa una capacidad de teletransporte y una conexión bilateral autorizada entre sedes compatibles; no reemplaza toda la red de caminos.
+- **Red Nova Link** comunica información a través de sus nodos y cobertura; no concede por sí misma movilidad física ni acceso a portales.
+
+Estas relaciones pueden coexistir sin confundirse. Por ejemplo, una ciudad puede tener cobertura Red Nova y carecer de portal; una sede puede conectarse mediante Setu a otra locación sin que las dos sedes compartan su inventario; un territorio puede estar reclamado sin contar aún con un asentamiento.
+
+### F. Ejemplos de validación del modelo
+
+1. **Ciudad sin mapa**: puede publicarse y visitarse mediante su ficha descriptiva; más adelante se añade su mapa sin recrear la ciudad.
+2. **Isla flotante no preparada**: no aparece como destino seleccionable ni como territorio reclamable.
+3. **Isla flotante preparada, pero inaccesible para un personaje**: se muestra con su requisito de acceso; no se habilita el viaje hasta cumplirlo.
+4. **Dos ciudades del mismo continente sin ruta**: la jerarquía no inventa un camino entre ellas.
+5. **Ruta aérea y ruta mágica al mismo destino**: pueden coexistir con requisitos, costes y estados diferentes.
+6. **Sede de Red Nova en una ciudad**: puede asociarse a la locación y ofrecer cobertura sin convertirse en una ruta de transporte.
+7. **Territorio reservado**: puede existir y mostrarse en información administrativa, pero no aparece como reclamable para jugadores.
+
+### G. Alcance de la primera entrega geográfica
+
+La primera entrega debe limitarse a definir y revisar el contrato lógico de `WorldLocation`, sus tipos y estados, la relación jerárquica opcional y la asociación futura de mapas. `TravelConnection` se documenta ahora para que el diseño sea compatible, pero sus costes, duración, cálculo de rutas y ejecución de viajes quedan para una fase posterior.
+
+Antes de crear la migración, hay que revisar las convenciones del esquema Prisma, tipos de fecha, políticas de acceso y reglas de borrado. No poblar continentes o ciudades de ejemplo en producción ni asignar sedes a negocios existentes hasta que se decidan explícitamente.

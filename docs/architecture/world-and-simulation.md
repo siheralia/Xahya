@@ -513,3 +513,60 @@ Campos iniciales: nombre, tipo, locación padre opcional, estado de publicación
 5. Añadir simulación cuando sus reglas estén definidas.
 
 No inventar territorios ni asignar ubicaciones a negocios existentes sin decisión explícita. Cada fase requiere pruebas de permisos, RLS e integridad. La vista de jugador no puede crear geografía arbitraria.
+
+
+## Contrato inicial de WorldLocation
+
+Este contrato define la primera entidad geográfica mínima para revisión. No es un modelo Prisma implementado ni una autorización para migrar.
+
+### Responsabilidad y límites
+`WorldLocation` representa un lugar o unidad geográfica preparada por administración. No representa por sí sola quién lo gobierna, quién vive allí, quién lo posee, si existe una ruta para llegar o si tiene cobertura Red Nova.
+
+### Campos conceptuales mínimos
+- `id`: identificador estable, independiente del nombre y de los mapas.
+- `name`: nombre visible de la locación.
+- `type`: clase de lugar, por ejemplo continente, región, ciudad, isla, archipiélago, isla flotante, barrio, edificio o punto de interés.
+- `parentId`: relación opcional con otra locación; permite una jerarquía flexible.
+- `description`: descripción breve opcional.
+- `publicationStatus`: borrador, publicada u oculta/archivada, con estados finales por acordar.
+- `operationalStatus`: activa, cerrada temporalmente o reservada/inactiva, según reglas finales.
+- `claimability`: condición separada que indica si puede reclamarse; no se deduce de la publicación ni de estar activa.
+- `mapAsset` o referencia equivalente: opcional; el recurso visual no define la existencia del lugar.
+- `createdAt` y `updatedAt`: auditoría temporal conforme a las convenciones existentes del proyecto.
+- `createdBy` / `updatedBy`: actor administrativo cuando sea compatible con el modelo de auditoría vigente.
+
+Los nombres de campo son conceptuales. Antes de Prisma se confirmarán tipos, valores permitidos, índices, borrado y relaciones con las convenciones del repositorio.
+
+### Estados independientes
+No comprimir todo en un único `status`. Son ejes diferentes:
+- **Publicación:** si el lugar puede mostrarse en la experiencia del jugador.
+- **Estado operativo:** si el lugar está disponible, cerrado o reservado.
+- **Reclamabilidad:** si se puede iniciar una reclamación y bajo qué condiciones.
+- **Acceso:** si el personaje puede llegar; se determina por conexiones y requisitos, no por un booleano geográfico general.
+- **Detalle visual:** si tiene mapa, imagen o sublocaciones; no afecta su existencia.
+
+Una locación publicada puede ser inaccesible para un personaje; una locación activa puede no ser reclamable; un borrador puede estar incompleto sin ser inválido.
+
+### Reglas de integridad
+1. `parentId` es opcional y no se exige una jerarquía completa.
+2. Una locación no puede ser su propia ascendiente; las escrituras deben impedir ciclos, incluso si se realizan mediante API.
+3. Cambiar nombre, descripción, estado o mapa no cambia el `id`.
+4. La ausencia de mapa, población, edificios o rutas no invalida la locación.
+5. No borrar automáticamente una locación con hijas o dependencias (rutas, sedes, reclamaciones); primero debe resolverse explícitamente cada relación.
+6. Las combinaciones válidas de tipo padre/hija se definirán antes de habilitar creación libre desde administración. Las restricciones deben permitir casos legítimos, como una isla flotante vinculada a una región o a un agrupador geográfico.
+7. No poblar territorios ficticios ni asignar locaciones a negocios actuales como parte de la migración inicial.
+8. Las reglas de escritura se validan en servidor; los permisos de lectura/publicación y las políticas RLS se revisan antes de exponer el modelo.
+
+### Consultas y experiencia de gestión
+La lista administrativa debe poder filtrar por nombre, tipo, padre/continente y publicación. Los campos de estado operativo y reclamabilidad pueden añadirse como filtros sin fusionarlos con el tipo. El detalle de una locación debe mostrar relaciones con hijas, rutas, sedes, nodos de comunicación y reclamaciones cuando existan; esas relaciones no se guardan como listas duplicadas dentro de la locación.
+
+### Fuera de la primera entrega
+No incluir todavía coordenadas obligatorias, simulación de terreno, fronteras poligonales, población, precios, distancias, cálculo automático de rutas ni reglas complejas de soberanía. Se pueden añadir posteriormente sin redefinir la identidad básica de la locación.
+
+### Pruebas de aceptación del contrato
+- Crear una ciudad sin mapa y editarla después sin cambiar su identidad.
+- Crear una isla flotante sin inventar una ruta de acceso.
+- Publicar una locación sin hacerla automáticamente reclamable.
+- Marcar una locación como reclamable sin implicar que todo personaje puede llegar a ella.
+- Rechazar ciclos jerárquicos y escrituras no autorizadas.
+- Impedir borrados que dejen dependencias huérfanas.

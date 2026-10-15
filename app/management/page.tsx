@@ -497,6 +497,16 @@ export default function ManagementPage() {
               </>
             )}
 
+
+            {isAdmin && (
+              <Link
+                href="/management/world"
+                className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30"
+              >
+                Mundo
+              </Link>
+            )}
+
             {isAdmin && (
               <Link
                 href="/management/businesses"

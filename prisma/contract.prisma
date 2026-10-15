@@ -593,7 +593,7 @@ model WorldLocation {
   operationalStatus String          @default("ACTIVE")
   claimability      String          @default("NOT_CLAIMABLE")
   createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  updatedAt         DateTime        @default(now())
 
   @@index([parentId])
   @@index([type])

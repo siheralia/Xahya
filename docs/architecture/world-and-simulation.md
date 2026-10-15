@@ -173,6 +173,35 @@ Son conceptos de diseño, no nombres finales ni tablas creadas:
 
 No crear todas estas tablas de una vez. El esquema definitivo debe respetar las convenciones actuales de Prisma, las relaciones, los tipos de fecha y las claves de Xahya.
 
+## Auditoría técnica preliminar del sistema existente
+
+Esta revisión es estática del contrato Prisma y de las rutas de negocio/cobro en el repositorio; no modifica datos ni ejecuta pagos. Antes de diseñar migraciones, estos son los hallazgos útiles:
+
+### Lo que ya existe y conviene reutilizar
+
+- `Business` representa la entidad comercial y contiene propietario, caja, ingresos pasivos, inversiones y estado activo.
+- `BusinessProduct` ya guarda catálogo por negocio, existencias y precios de compra/venta independientes; no hace falta duplicar el catálogo de artículos para cada locación.
+- `BusinessSubscriptionPlan` define planes de suscripción propiedad de un negocio. `BusinessSubscription` enlaza el plan con un personaje, guarda si está activa y cuándo corresponde el siguiente cobro.
+- `app/api/businesses/subscribe/route.ts` valida la propiedad del personaje, comprueba saldo y, dentro de una transacción, cobra la primera cuota y abona la caja del negocio.
+- `lib/economy.ts` procesa cobros recurrentes desde el cron de economía. Si el personaje no tiene fondos suficientes, la suscripción actual se desactiva.
+- `EconomyPaymentLog` tiene una clave única para evitar duplicar ciertos pagos por periodo. Sin embargo, los cobros de suscripción no crean actualmente una fila en ese registro; su avance depende de actualizar `lastChargedAt` y `nextChargeAt`.
+
+### Límites que el nuevo diseño debe resolver
+
+1. **No existe una entidad geográfica asociada a Business.** No hay una relación que diga dónde está una sede física, y tampoco un modelo para múltiples sedes, torres o satélites de un mismo negocio.
+2. **Las suscripciones actuales son individuales.** `BusinessSubscription` exige `characterId`; no representa directamente un contrato con gobierno, municipio u otra institución.
+3. **La prevención de suscripciones duplicadas debe reforzarse.** El endpoint comprueba si ya hay una suscripción activa antes de crearla, pero el modelo no declara una restricción única que impida una duplicación concurrente del mismo personaje y plan.
+4. **La idempotencia de cobros recurrentes merece una prueba específica.** Como el cobro de suscripción no registra una entrada en `EconomyPaymentLog`, se debe comprobar el comportamiento ante dos ejecuciones simultáneas del cron o reintentos antes de ampliar este sistema a servicios de Red Nova.
+5. **El contrato institucional no debe fingir que un gobierno es un personaje.** Conviene modelar la contraparte institucional y el acuerdo por separado, reutilizando el motor de caja/cobros donde sea seguro, pero sin forzar `characterId` para un pagador no-personaje.
+
+### Recomendación técnica resultante
+
+- Mantener `Business` como entidad comercial, sin convertir cada torre, satélite o sucursal en un negocio distinto.
+- Añadir en una fase futura `BusinessLocation` para cada sede o punto físico y asociarlo a `WorldLocation`; los nodos de comunicación de Red Nova deben distinguirse de las sedes comerciales ordinarias.
+- Conservar `BusinessSubscriptionPlan` y `BusinessSubscription` para suscripciones de personajes. Antes de extenderlas, diseñar y probar un registro de cobro/idempotencia que permita auditar cada cuota.
+- Modelar contratos institucionales como acuerdos con contraparte, alcance geográfico, servicio contratado, precio, vigencia, estado, condiciones de renovación y registro de pagos. Los detalles de gobierno, impuestos, penalizaciones y contratación quedan abiertos.
+- No añadir todavía las tablas anteriores a producción. Primero cerrar el modelo lógico y preparar una migración revisable, incluyendo las restricciones e índices necesarios.
+
 ## Relación con el esquema actual
 
 La inspección inicial de prisma/contract.prisma muestra, entre otros:

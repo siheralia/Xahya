@@ -13,7 +13,7 @@
 - Las islas flotantes pertenecen al mismo mundo y pueden requerir vuelo, monturas, magia, portales u otros medios configurables para acceder.
 - Aurora son negocios existentes, no el nombre genérico de la tecnología. Las sedes de Santuario Aurora y El Gran Refugio Aurora pertenecen actualmente a Guha Arisel y deben poder estar en locaciones distintas, incluso en continentes diferentes o con una sede en una isla flotante.
 - Un negocio que alcance el nivel de tecnología de teletransporte puede proponer una conexión con otro negocio; la conexión solo se activa si ambos propietarios la autorizan.
-- Red Nova Link es un negocio existente con una función conceptual distinta: su red de múltiples torres representa una infraestructura de transporte distribuida y de mayor escala que un enlace entre dos sedes.
+- Red Nova Link es un negocio existente y el equivalente al internet de Xahya: una red global de comunicación e información que incluye torres y satélites. Puede ofrecer acceso público mediante dispositivos compatibles y acceso mediante contratos con el negocio; ambos modelos deben poder coexistir. La cobertura de Red Nova no implica capacidad de teletransporte ni una ruta física.
 - La población general se representa principalmente con cohortes estadísticas, no con una fila por habitante. Los NPC que necesiten identidad e historia propias pueden individualizarse.
 - Los jugadores podrán reunir seguidores individuales y cohortes, fundar asentamientos y, si cumplen las reglas del juego, formar reinos.
 - Las tiendas pueden tener catálogos, existencias y precios diferentes según su negocio y ubicación.
@@ -58,7 +58,7 @@ Estos nombres son etiquetas de diseño pendientes de validación; no son sistema
 
 - **Dvāra (द्वार, «puerta»):** tecnología/capacidad de teletransporte que un negocio puede adquirir y mejorar por nivel. No es un negocio independiente ni reemplaza nombres como Aurora o Red Nova Link.
 - **Setu (सेतु, «puente»):** conexión de teletransporte autorizada entre dos extremos compatibles. Cada extremo pertenece a una sede física y mantiene su identidad, inventario, empleados, precios y economía.
-- **Mahāsetu (महासेतु, «gran puente»):** nombre conceptual para una infraestructura distribuida de transporte, como la red de múltiples torres de Red Nova Link. Debe soportar numerosos nodos y rutas; no limitarse al modelo de una conexión entre dos negocios.
+- **Mahāsetu (महासेतु, «gran puente»):** nombre conceptual reservado para una posible infraestructura distribuida de transporte físico con múltiples nodos y rutas. No representa Red Nova Link ni su red de internet; solo se usaría si Xahya incorpora una infraestructura de transporte de ese tipo.
 
 #### Reglas de una conexión Dvāra/Setu
 
@@ -68,12 +68,12 @@ Estos nombres son etiquetas de diseño pendientes de validación; no son sistema
 4. La conexión puede activarse, suspenderse o revocarse según las reglas que se definan. El estado y las autorizaciones deben persistir y validarse en el servidor.
 5. La ubicación física nunca se falsifica: una sede en un continente y otra en una isla flotante siguen siendo locaciones distintas aunque estén conectadas instantáneamente.
 6. Una conexión entre dos sedes no implica que todo el negocio comparta inventarios o precios, ni concede acceso automático a otras sedes.
-7. La infraestructura Mahāsetu puede tener múltiples torres/nodos y muchas rutas, con requisitos y permisos propios. Debe modelarse como una red distribuida asociada al negocio, no como una lista de enlaces bilaterales Aurora.
+7. Si en el futuro existe una infraestructura de transporte Mahāsetu, podrá tener múltiples nodos y rutas, con requisitos y permisos propios. Debe modelarse por separado de la red de comunicación Red Nova Link y no como una lista de enlaces bilaterales Aurora.
 
 #### Casos de referencia actuales
 
 - **Santuario Aurora** y **El Gran Refugio Aurora** pertenecen actualmente a **Guha Arisel**. Pueden ubicarse en continentes diferentes; una de las locaciones podría ser una isla flotante. Aunque hoy compartan propietario, sus ubicaciones y economías siguen separadas. La regla de autorización de ambos extremos se conserva para permitir que, en el futuro, se conecten negocios de propietarios distintos.
-- **Red Nova Link** también pertenece actualmente a **Guha Arisel** y se concibe como una infraestructura con muchas torres repartidas por el mundo. Su modelo futuro debe poder representar muchos nodos y conexiones, una escala superior a la conexión entre dos sedes.
+- **Red Nova Link** también pertenece actualmente a **Guha Arisel** y se concibe como el internet de Xahya, con torres repartidas por el mundo y satélites. Su modelo debe representar nodos de comunicación, cobertura, capacidad y acceso. Puede haber acceso público con dispositivos compatibles y acceso mediante contratos comerciales; la coexistencia y las condiciones exactas de ambos modelos quedan por definir. Tener cobertura Red Nova no concede acceso a portales ni permite teletransportarse.
 
 ### 4. Población agregada y NPC individualizados
 
@@ -164,7 +164,8 @@ Son conceptos de diseño, no nombres finales ni tablas creadas:
 | BusinessLocation | Relación entre un negocio y cada una de sus sedes físicas; permite que un negocio tenga varias ubicaciones o torres |
 | BusinessCapability | Capacidad tecnológica que posee un negocio y su nivel, por ejemplo Dvāra |
 | TeleportLink / Setu | Conexión entre dos sedes con autorización registrada de ambos extremos |
-| TeleportNode / MahāsetuNetwork | Torre o nodo físico y red de transporte distribuida con múltiples rutas |
+| CommunicationNode / RedNovaNetwork | Torres, satélites, cobertura, capacidad y acceso a la red global de comunicación equivalente al internet |
+| TeleportNode / MahāsetuNetwork | Nodos y rutas de una posible infraestructura distribuida de transporte físico, independiente de Red Nova Link |
 
 No crear todas estas tablas de una vez. El esquema definitivo debe respetar las convenciones actuales de Prisma, las relaciones, los tipos de fecha y las claves de Xahya.
 
@@ -183,7 +184,7 @@ Consecuencias:
 - auditar si el NPC individual reutiliza un modelo existente o necesita uno separado;
 - conservar los nombres y registros comerciales existentes: Aurora y Red Nova Link son negocios, no nombres de tablas tecnológicas;
 - no asumir que existe una implementación dedicada de Dvāra, Setu o Mahāsetu: son propuestas de nomenclatura y modelado;
-- permitir que un negocio tenga varias sedes, necesario para una infraestructura como Red Nova Link, sin duplicar su entidad comercial ni mezclar economías locales.
+- permitir que un negocio tenga varias sedes o nodos de comunicación, necesario para Red Nova Link, sin duplicar su entidad comercial ni mezclar economías locales.
 
 ## Plan de implementación
 
@@ -203,7 +204,7 @@ Consecuencias:
 - Asociar cada sede física a una locación del mundo; permitir varias sedes por negocio.
 - Modelar la capacidad Dvāra como tecnología de negocio con nivel, sin convertirla en un negocio separado.
 - Crear el flujo de solicitud y autorización bilateral para conexiones Setu, con registro de consentimiento de ambos propietarios.
-- Diseñar nodos y rutas múltiples Mahāsetu para infraestructuras distribuidas como Red Nova Link.
+- Diseñar por separado la red de comunicación Red Nova Link (torres, satélites, cobertura y acceso) y las conexiones de teletransporte Setu. Considerar Mahāsetu solo si se define una infraestructura distribuida de transporte físico.
 - Verificar que precios, inventarios, inversiones, empleos y pagos actuales no sufran regresiones.
 
 ### Fase 3 — Economía territorial

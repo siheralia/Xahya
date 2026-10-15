@@ -17,6 +17,8 @@
 - La población general se representa principalmente con cohortes estadísticas, no con una fila por habitante. Los NPC que necesiten identidad e historia propias pueden individualizarse.
 - Los jugadores podrán reunir seguidores individuales y cohortes, fundar asentamientos y, si cumplen las reglas del juego, formar reinos.
 - Las tiendas pueden tener catálogos, existencias y precios diferentes según su negocio y ubicación.
+- El esquema actual ya contempla planes de suscripción y suscripciones de personajes a servicios de negocios (`BusinessSubscriptionPlan` y `BusinessSubscription`); antes de añadir servicios de Red Nova, se debe reutilizar y auditar este flujo en vez de crear una segunda suscripción equivalente.
+- Los contratos con gobiernos o instituciones deben poder representarse como acuerdos comerciales/institucionales distintos de una suscripción individual recurrente, aunque puedan compartir conceptos como servicio, vigencia, precio, estado y condiciones.
 - La simulación avanza por ciclos y guarda su estado; no recalcula el mundo entero cada vez que alguien abre una pantalla.
 
 ## Principios de arquitectura
@@ -163,6 +165,8 @@ Son conceptos de diseño, no nombres finales ni tablas creadas:
 | KingdomTerritory | Relación entre reinos y territorios |
 | BusinessLocation | Relación entre un negocio y cada una de sus sedes físicas; permite que un negocio tenga varias ubicaciones o torres |
 | BusinessCapability | Capacidad tecnológica que posee un negocio y su nivel, por ejemplo Dvāra |
+| ServiceAgreement / InstitutionalContract | Acuerdo comercial con una institución o gobierno; propuesta futura, distinta de una suscripción individual |
+| BusinessSubscriptionPlan / BusinessSubscription | Modelos existentes en Prisma para planes de suscripción de negocios y suscripciones de personajes; auditar y reutilizar antes de extender servicios |
 | TeleportLink / Setu | Conexión entre dos sedes con autorización registrada de ambos extremos |
 | CommunicationNode / RedNovaNetwork | Torres, satélites, cobertura, capacidad y acceso a la red global de comunicación equivalente al internet |
 | TeleportNode / MahāsetuNetwork | Nodos y rutas de una posible infraestructura distribuida de transporte físico, independiente de Red Nova Link |
@@ -189,7 +193,7 @@ Consecuencias:
 ## Plan de implementación
 
 ### Fase 0 — Auditoría y diseño
-- Revisar el esquema Prisma completo, migraciones, código de tiendas/economía y cualquier implementación de Aurora.
+- Revisar el esquema Prisma completo, migraciones, código de tiendas/economía, el flujo existente `BusinessSubscriptionPlan` / `BusinessSubscription` y cualquier implementación de Aurora.
 - Documentar relaciones actuales, IDs y convenciones de fechas.
 - Acordar reglas de reclamación, unidades geográficas y permisos.
 - Preparar diagrama de entidades y migración revisable.

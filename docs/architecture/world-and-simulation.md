@@ -480,3 +480,36 @@ Estas relaciones pueden coexistir sin confundirse. Por ejemplo, una ciudad puede
 La primera entrega debe limitarse a definir y revisar el contrato lógico de `WorldLocation`, sus tipos y estados, la relación jerárquica opcional y la asociación futura de mapas. `TravelConnection` se documenta ahora para que el diseño sea compatible, pero sus costes, duración, cálculo de rutas y ejecución de viajes quedan para una fase posterior.
 
 Antes de crear la migración, hay que revisar las convenciones del esquema Prisma, tipos de fecha, políticas de acceso y reglas de borrado. No poblar continentes o ciudades de ejemplo en producción ni asignar sedes a negocios existentes hasta que se decidan explícitamente.
+
+
+## Gestión del mundo: panel administrativo y experiencia de jugador
+
+Propuesta funcional; no es una implementación ni autoriza migraciones.
+
+### Separación de experiencias
+- **Gestión del mundo** se integra en Gestión y solo permite escritura a administradores/GM autorizados.
+- **Mundo** es la vista de jugadores: consulta de locaciones publicadas, requisitos de acceso, rutas confirmadas y acciones permitidas.
+- Ocultar controles no es seguridad: las APIs validan permisos en servidor y las tablas expuestas tienen políticas RLS coherentes.
+- Se permiten borradores incompletos. Una locación puede comenzar con nombre y tipo, sin mapa, población ni edificios.
+
+### Módulos de administración
+1. **Geografía y mapas:** crear y editar continentes, regiones, ciudades, islas, archipiélagos e islas flotantes; mapas opcionales.
+2. **Ciudades y lugares:** barrios, edificios y puntos de interés cuando sean necesarios.
+3. **Rutas y accesos:** conexiones explícitas con tipo, sentido, estado y requisitos. No inferir rutas por compartir continente; coste y duración esperan reglas acordadas.
+4. **Territorios y reclamaciones:** disponibilidad, reservas, reclamantes e historial. Las reclamaciones se validan en servidor y son transaccionales.
+5. **Negocios e infraestructura:** sedes físicas y nodos de Red Nova Link por separado; Dvāra/Setu se administran cuando estén implementados.
+6. **Población y simulación:** fase posterior para asentamientos, cohortes, NPC y ciclos auditables e idempotentes.
+
+### Pantalla inicial y formulario
+La portada ofrece resumen por tipo/estado, búsqueda por nombre, filtros por tipo, locación padre, publicación, estado operativo y reclamabilidad, más avisos de relaciones inválidas. La primera versión puede ser una lista filtrable con formularios; no requiere editor cartográfico.
+
+Campos iniciales: nombre, tipo, locación padre opcional, estado de publicación, estado operativo, reclamabilidad y descripción opcional. Imagen/mapa son opcionales. Evitar ciclos jerárquicos, conservar IDs al editar y bloquear borrados que dejen rutas, sedes o reclamaciones huérfanas.
+
+### Entrega por fases
+1. Cerrar contrato, estados y permisos de `WorldLocation`.
+2. Implementar alta, edición, búsqueda y publicación de geografía mínima.
+3. Añadir mapas opcionales, detalle urbano y rutas explícitas.
+4. Incorporar reclamaciones, sedes y nodos de Red Nova.
+5. Añadir simulación cuando sus reglas estén definidas.
+
+No inventar territorios ni asignar ubicaciones a negocios existentes sin decisión explícita. Cada fase requiere pruebas de permisos, RLS e integridad. La vista de jugador no puede crear geografía arbitraria.

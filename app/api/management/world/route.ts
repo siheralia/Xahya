@@ -93,7 +93,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const action = String(body?.action ?? "create");
   const validated = validateFields(body);
-  if (!("data" in validated)) return NextResponse.json({ error: validated.error }, { status: 400 });
+  if ("error" in validated) return NextResponse.json({ error: validated.error }, { status: 400 });
   const fields = validated.data;
   const Location = (db.orm.public as any).WorldLocation;
 

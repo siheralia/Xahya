@@ -10,7 +10,7 @@ const sectionMap: Record<string, { label: string; color: string }> = {
   casino: { label: "Casino", color: "text-amber-300/70" },
   characters: { label: "Personajes", color: "text-cyan-300/70" },
   profile: { label: "Perfil", color: "text-violet-300/70" },
-  management: { label: "Management", color: "text-rose-300/70" },
+  management: { label: "Gestión", color: "text-rose-300/70" },
   store: { label: "Tienda", color: "text-emerald-300/70" },
   businesses: { label: "Negocios", color: "text-emerald-300/70" },
   maze: { label: "Laberinto", color: "text-fuchsia-300/70" },
@@ -40,7 +40,7 @@ function getRouteInfo(pathname: string, characters: Character[]) {
       ? characters.find((item) => String(item.id) === parts[1])
       : undefined;
 
-  const page = character ? character.name : (
+  const page = sectionKey === "management" && parts[1] === "world" ? "Mundo" : character ? character.name : (
     parts.length === 0
       ? "Inicio"
       : parts.length === 1

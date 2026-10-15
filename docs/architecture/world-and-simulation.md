@@ -796,3 +796,8 @@ Para evitar bloquear la arquitectura con detalles que aún no tienen reglas de j
 - implementación de Dvāra, Setu, CommunicationNode y Mahāsetu.
 
 Estas decisiones no impiden implementar la geografía mínima, siempre que no se introduzcan supuestos irreversibles en la primera migración.
+
+
+## Siguiente documento de implementación
+
+La propuesta de implementación revisable para la primera entrega geográfica está en [`world-geography-phase-1.md`](./world-geography-phase-1.md). Aterriza las convenciones encontradas en `prisma/contract.prisma`, define el alcance recomendado de la primera migración (`WorldLocation` solamente), propone la matriz de pruebas y enumera las decisiones pendientes. Sigue siendo documentación; no cambia el contrato Prisma ni autoriza una migración o despliegue.

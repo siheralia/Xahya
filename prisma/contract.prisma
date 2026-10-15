@@ -581,3 +581,22 @@ model BusinessInvestment {
   @@index([businessId, active, frequency])
 }
 
+model WorldLocation {
+  id                Int             @id @default(autoincrement())
+  name              String
+  type              String
+  parentId          Int?
+  parent            WorldLocation?  @relation("WorldLocationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children          WorldLocation[] @relation("WorldLocationHierarchy")
+  description       String?
+  publicationStatus String          @default("DRAFT")
+  operationalStatus String          @default("ACTIVE")
+  claimability      String          @default("NOT_CLAIMABLE")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([parentId])
+  @@index([type])
+  @@index([publicationStatus])
+  @@map("worldLocation")
+}

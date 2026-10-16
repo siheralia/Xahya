@@ -440,6 +440,7 @@ model Business {
   investments           BusinessInvestment[]
   propertySales         CharacterProperty[]
   @@index([ownerCharacterId])
+  infrastructure WorldInfrastructure[]
   @@index([locationId])
 }
 
@@ -661,6 +662,8 @@ model WorldInfrastructure {
   kind            String
   worldLocationId Int?
   worldLocation   WorldLocation? @relation(fields: [worldLocationId], references: [id], onDelete: SetNull)
+  businessId      Int?
+  business        Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
   description     String?
   foundingHistory String?
   constructionType String?
@@ -675,6 +678,7 @@ model WorldInfrastructure {
 
   @@index([kind, operationalStatus])
   @@index([worldLocationId])
+  @@index([businessId])
   @@index([publicationStatus])
   @@map("worldInfrastructure")
 }

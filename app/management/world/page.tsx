@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Location = {
@@ -44,6 +45,8 @@ export default function WorldManagementPage() {
   const [form, setForm] = useState(blankForm);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [viewMode, setViewMode] = useState<"tree" | "list">("tree");
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -74,6 +77,70 @@ export default function WorldManagementPage() {
       return matchesSearch && (statusFilter === "ALL" || location.publicationStatus === statusFilter);
     });
   }, [locations, search, statusFilter]);
+
+  const treeLocations = useMemo(() => {
+    const included = new Set<number>();
+    const byId = new Map(locations.map((location) => [location.id, location]));
+    for (const location of visibleLocations) {
+      let current: Location | undefined = location;
+      const visited = new Set<number>();
+      while (current && !visited.has(current.id)) {
+        visited.add(current.id);
+        included.add(current.id);
+        current = current.parentId == null ? undefined : byId.get(current.parentId);
+      }
+    }
+    return locations.filter((location) => included.has(location.id));
+  }, [locations, visibleLocations]);
+
+  const treeById = useMemo(() => new Map(treeLocations.map((location) => [location.id, location])), [treeLocations]);
+  const treeRoots = useMemo(
+    () => treeLocations.filter((location) => location.parentId == null || !treeById.has(location.parentId)),
+    [treeLocations, treeById],
+  );
+
+  function toggleExpanded(id: number) {
+    setExpandedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function renderTreeNode(location: Location, depth = 0): ReactNode {
+    const children = treeLocations.filter((candidate) => candidate.parentId === location.id)
+      .sort((a, b) => a.name.localeCompare(b.name, "es"));
+    const hasChildren = children.length > 0;
+    const expanded = expandedIds.has(location.id);
+    return (
+      <div key={location.id} className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 hover:border-zinc-700"
+          style={{ marginLeft: Math.min(depth, 8) * 12 }}>
+          {hasChildren ? (
+            <button type="button" aria-label={expanded ? "Contraer sublocaciones" : "Expandir sublocaciones"}
+              aria-expanded={expanded} onClick={() => toggleExpanded(location.id)}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+              <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
+            </button>
+          ) : <span className="w-8 shrink-0 text-center text-zinc-700">•</span>}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-white">{location.name}</span>
+              <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-xs text-zinc-300">{typeLabel(location.type)}</span>
+              <span className={`rounded-full border px-2 py-0.5 text-xs ${location.publicationStatus === "PUBLISHED" ? "border-emerald-800 text-emerald-300" : location.publicationStatus === "ARCHIVED" ? "border-zinc-700 text-zinc-500" : "border-amber-800 text-amber-300"}`}>{statusLabel(location.publicationStatus)}</span>
+            </div>
+            <p className="mt-1 text-xs text-zinc-500">ID {location.id} · {children.length} sublocaciones{location.parentId == null ? " · Sin padre" : ""}</p>
+            {location.description && <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{location.description}</p>}
+          </div>
+          <button type="button" onClick={() => editLocation(location)} className="shrink-0 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">Editar</button>
+        </div>
+        {hasChildren && expanded && <div className="mt-2 space-y-2 border-l border-zinc-700/80 pl-2 sm:pl-4">
+          {children.map((child) => renderTreeNode(child, depth + 1))}
+        </div>}
+      </div>
+    );
+  }
 
   function editLocation(location: Location) {
     setForm({
@@ -221,14 +288,31 @@ export default function WorldManagementPage() {
       </section>
 
       <section className="mt-7">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre, descripción, tipo o superior…"
-            className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400" />
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}
-            className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-white">
-            <option value="ALL">Todos los estados</option>
-            {PUBLICATION.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
+        <div className="mb-4 flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex rounded-xl border border-zinc-800 bg-zinc-900/60 p-1">
+              <button type="button" onClick={() => setViewMode("tree")} aria-pressed={viewMode === "tree"}
+                className={`rounded-lg px-4 py-2 text-sm font-medium ${viewMode === "tree" ? "bg-cyan-300 text-zinc-950" : "text-zinc-300 hover:bg-zinc-800"}`}>Vista de árbol</button>
+              <button type="button" onClick={() => setViewMode("list")} aria-pressed={viewMode === "list"}
+                className={`rounded-lg px-4 py-2 text-sm font-medium ${viewMode === "list" ? "bg-cyan-300 text-zinc-950" : "text-zinc-300 hover:bg-zinc-800"}`}>Vista de lista</button>
+            </div>
+            {viewMode === "tree" && treeLocations.length > 0 && <div className="flex gap-2">
+              <button type="button" onClick={() => setExpandedIds(new Set(treeLocations.filter((location) => treeLocations.some((child) => child.parentId === location.id)).map((location) => location.id))}
+                className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800">Expandir todo</button>
+              <button type="button" onClick={() => setExpandedIds(new Set())}
+                className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800">Contraer todo</button>
+            </div>}
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre, descripción, tipo o superior…"
+              className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400" />
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}
+              className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-white">
+              <option value="ALL">Todos los estados</option>
+              {PUBLICATION.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
+          {viewMode === "tree" && <p className="text-xs text-zinc-500">Las locaciones sin padre aparecen en la raíz. La búsqueda conserva los antecesores para mantener el contexto.</p>}
         </div>
 
         {loading ? <p className="py-12 text-center text-sm text-zinc-500">Cargando locaciones…</p> :
@@ -237,6 +321,8 @@ export default function WorldManagementPage() {
               <p className="font-medium text-zinc-300">{locations.length === 0 ? "Todavía no hay locaciones" : "No hay resultados"}</p>
               <p className="mt-2 text-sm text-zinc-500">{locations.length === 0 ? "Crea la primera ciudad, región, isla o continente desde el formulario." : "Prueba con otro término o estado."}</p>
             </div>
+          ) : viewMode === "tree" ? (
+            <div className="space-y-3">{treeRoots.map((location) => renderTreeNode(location))}</div>
           ) : (
             <div className="grid gap-3">
               {visibleLocations.map((location) => (
@@ -255,8 +341,7 @@ export default function WorldManagementPage() {
                 </article>
               ))}
             </div>
-          )
-        }
+          )}
       </section>
     </main>
   );

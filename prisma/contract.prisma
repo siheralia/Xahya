@@ -442,6 +442,7 @@ model Business {
   @@index([ownerCharacterId])
   infrastructure WorldInfrastructure[]
   @@index([locationId])
+  @@map("business")
 }
 
 model BusinessPosition {

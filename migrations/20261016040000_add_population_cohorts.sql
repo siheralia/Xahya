@@ -41,3 +41,11 @@ CREATE INDEX IF NOT EXISTS "worldSimulationRun_type_completed_idx"
 ALTER TABLE public."populationCohort" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."worldSimulationRun" ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "populationCohort_service_role_access" ON public."populationCohort";
+CREATE POLICY "populationCohort_service_role_access" ON public."populationCohort"
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "worldSimulationRun_service_role_access" ON public."worldSimulationRun";
+CREATE POLICY "worldSimulationRun_service_role_access" ON public."worldSimulationRun"
+  FOR ALL TO service_role USING (true) WITH CHECK (true);

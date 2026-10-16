@@ -40,8 +40,8 @@ export async function GET() {
       .filter((location: any) => location.publicationStatus !== "ARCHIVED")
       .map((location: any) => {
         const local = byLocation.get(Number(location.id)) ?? [];
-        const population = local.reduce((sum: number, cohort: any) => sum + Number(cohort.population ?? 0), 0);
-        const wealth = local.reduce((sum: number, cohort: any) => sum + Number(cohort.wealth ?? 0), 0);
+        const population = local.reduce((sum: bigint, cohort: any) => sum + BigInt(cohort.population ?? 0), BigInt(0));
+        const wealth = local.reduce((sum: bigint, cohort: any) => sum + BigInt(cohort.wealth ?? 0), BigInt(0));
         const signatures = new Map<string, number>();
         for (const cohort of local) {
           const signature = [
@@ -57,16 +57,16 @@ export async function GET() {
           locationId: Number(location.id),
           locationName: String(location.name),
           cohortCount: local.length,
-          population: String(population),
-          wealth: String(wealth),
+          population: population.toString(),
+          wealth: wealth.toString(),
           status: local.length === 0 ? "NO_ACTIVE_COHORTS" : local.length === 1 ? "SINGLE_COHORT_REVIEW" : "MULTIPLE_COHORTS",
           duplicateProfiles,
         };
       })
       .sort((a: any, b: any) => a.locationName.localeCompare(b.locationName, "es"));
 
-    const totalPopulation = active.reduce((sum: number, cohort: any) => sum + Number(cohort.population ?? 0), 0);
-    const totalWealth = active.reduce((sum: number, cohort: any) => sum + Number(cohort.wealth ?? 0), 0);
+    const totalPopulation = active.reduce((sum: bigint, cohort: any) => sum + BigInt(cohort.population ?? 0), BigInt(0));
+    const totalWealth = active.reduce((sum: bigint, cohort: any) => sum + BigInt(cohort.wealth ?? 0), BigInt(0));
 
     return NextResponse.json({
       readOnly: true,
@@ -75,8 +75,8 @@ export async function GET() {
         locationsAudited: results.length,
         activeCohorts: active.length,
         inactiveCohorts: cohorts.length - active.length,
-        population: String(totalPopulation),
-        wealth: String(totalWealth),
+        population: totalPopulation.toString(),
+        wealth: totalWealth.toString(),
         locationsWithoutActiveCohorts: results.filter((entry: any) => entry.status === "NO_ACTIVE_COHORTS").length,
         locationsWithSingleActiveCohort: results.filter((entry: any) => entry.status === "SINGLE_COHORT_REVIEW").length,
         locationsWithMultipleActiveCohorts: results.filter((entry: any) => entry.status === "MULTIPLE_COHORTS").length,

@@ -598,5 +598,48 @@ model WorldLocation {
   @@index([parentId])
   @@index([type])
   @@index([publicationStatus])
+  cohorts          PopulationCohort[]
+
   @@map("worldLocation")
+}
+
+
+model PopulationCohort {
+  id             Int          @id @default(autoincrement())
+  locationId     Int
+  location       WorldLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  name           String
+  race           String       @default("Sin especificar")
+  occupation     String       @default("Sin especificar")
+  socialClass    String       @default("Sin especificar")
+  ageGroup       String       @default("Mixta")
+  population     BigInt       @default(0)
+  wealth         BigInt       @default(0)
+  birthRate      Float        @default(0.012)
+  deathRate      Float        @default(0.008)
+  migrationRate  Float        @default(0)
+  productivity   Float        @default(1)
+  consumption    Float        @default(1)
+  behavior       Json         @default("{}")
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now())
+
+  @@index([locationId, active])
+  @@index([race])
+  @@index([occupation])
+  @@map("populationCohort")
+}
+
+model WorldSimulationRun {
+  id             Int      @id @default(autoincrement())
+  simulationType String
+  periodKey      String   @unique
+  status         String   @default("COMPLETED")
+  startedAt      DateTime @default(now())
+  completedAt    DateTime @default(now())
+  summary        Json     @default("{}")
+
+  @@index([simulationType, completedAt])
+  @@map("worldSimulationRun")
 }

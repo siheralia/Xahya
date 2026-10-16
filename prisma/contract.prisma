@@ -606,6 +606,7 @@ model WorldLocation {
   @@index([publicationStatus])
   cohorts          PopulationCohort[]
   businesses       Business[]
+  infrastructure   WorldInfrastructure[]
 
   @@map("worldLocation")
 }

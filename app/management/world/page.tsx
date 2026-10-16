@@ -200,6 +200,7 @@ export default function WorldManagementPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <nav className="mb-6 flex flex-wrap gap-2"><Link href="/management/world/cohorts" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-cyan-700">Cohortes de población ↗</Link><Link href="/management/world/catalogs" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-cyan-700">Ocupaciones y clases sociales ↗</Link><Link href="/management/races" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-cyan-700">Razas ↗</Link></nav>
       <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href="/management" className="text-sm text-zinc-500 hover:text-zinc-300">← Gestión</Link>

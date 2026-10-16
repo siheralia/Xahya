@@ -112,7 +112,7 @@ export default function WorldManagementPage() {
     const children = treeLocations.filter((candidate) => candidate.parentId === location.id)
       .sort((a, b) => a.name.localeCompare(b.name, "es"));
     const hasChildren = children.length > 0;
-    const expanded = expandedIds.has(location.id);
+    const expanded = expandedIds.has(location.id) || Boolean(search.trim()) || statusFilter !== "ALL";
     return (
       <div key={location.id} className="min-w-0">
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 hover:border-zinc-700"

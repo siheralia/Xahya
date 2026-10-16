@@ -33,6 +33,12 @@ El contrato Prisma incluye `Business.locationId` como relación opcional a `Worl
 5. Las conexiones y cobertura se deben editar desde la gestión real de Xahya, con autorización de GM/ADMIN y validación en servidor.
 6. Las simulaciones por cohortes siguen separadas de la topología de comunicaciones. Una caída de enlaces podría afectar la disponibilidad informativa en una fase futura, pero no debe alterar automáticamente la población o la economía hasta definir esas reglas.
 
+## Gestión en Xahya
+
+La ruta `/management/world/infrastructure` cuelga de la Gestión del Mundo existente y usa la API `/api/management/world/infrastructure`. Solo `ADMIN` puede leer o modificar los datos, siguiendo el control de acceso que ya utiliza la gestión geográfica. Permite registrar/editar/eliminar nodos, asignarles una ubicación existente, guardar cobertura/detalles como JSON y crear/eliminar enlaces dirigidos. El borrado de un nodo elimina sus enlaces por cascada; la interfaz pide confirmación.
+
+Los nuevos nodos nacen como `DRAFT` y `PLANNED`. La interfaz muestra conteos, pero no declara la red lista por alcanzar una cantidad: antes de publicar se debe comprobar el conjunto de instalaciones activas/publicadas.
+
 ## Alcance de este cambio
 
-Esta etapa añade el contrato de datos y la migración de esquema. No inserta instalaciones, no aplica la migración a Supabase, no cambia la interfaz ni despliega la aplicación. Esos pasos se realizan después de revisar la migración y completar la implementación de Gestión del Mundo.
+Esta etapa añade el contrato de datos, la migración de esquema, la API protegida y la pantalla integrada en Gestión del Mundo. No inserta instalaciones ni enlaces, no aplica la migración a Supabase, no fusiona a `main` ni despliega la aplicación. La validación de Prisma/TypeScript y build sigue pendiente en un entorno de proyecto con dependencias.

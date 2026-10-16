@@ -77,10 +77,10 @@ INSERT INTO public."populationCohort" (
 SELECT
   a."locationId",
   LEFT(a."name" || ' — ' || a.label || ' (estimación)', 120),
-  NULL,
+  a."raceId",
   a.occupation_id,
   a.class_id,
-  'Sin especificar',
+  COALESCE(NULLIF(btrim(a."race"), ''), 'Sin especificar'),
   a.occupation_name,
   a.class_name,
   a.age_group,
@@ -96,7 +96,7 @@ SELECT
     'estimateVersion', 'heuristic-social-v1',
     'estimateWeightPercent', a.weight,
     'sourceAggregateCohortId', a."id",
-    'raceComposition', 'unknown'
+    'raceComposition', CASE WHEN a."raceId" IS NOT NULL OR (a."race" IS NOT NULL AND btrim(a."race") <> '' AND a."race" <> 'Sin especificar') THEN 'inherited-from-source-aggregate' ELSE 'unknown' END
   ),
   true,
   now(),

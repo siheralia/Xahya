@@ -114,7 +114,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ cohort: serializeCohort(created) }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo guardar la cohorte.";
-    if (message.includes("debe ser") || message.includes("no es válido") || message.includes("obligatorio") || message.includes("máximo") || message.includes("entre")) {
+    if (message.includes("debe ser") || message.includes("no es válido") || message.includes("obligatorio") || message.includes("máximo") || message.includes("entre") || message.includes("Selecciona") || message.includes("locación")) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
     console.error("WORLD_COHORT_SAVE_ERROR", error);

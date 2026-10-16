@@ -380,14 +380,15 @@ model Perk {
 }
 
 model Race {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  description String?
-  imagePath   String?
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  characters  Character[]
-  perks       RacePerk[]
+  id                   Int       @id @default(autoincrement())
+  name                 String    @unique
+  description          String?
+  imagePath            String?
+  lifeExpectancyYears  Int?
+  active               Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  characters           Character[]
+  perks                RacePerk[]
 }
 
 model RacePerk {
@@ -418,6 +419,8 @@ model Business {
   id                    Int       @id @default(autoincrement())
   name                  String
   description           String?
+  locationId            Int?
+  location              WorldLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   ownerCharacterId      Int
   ownerCharacter        Character @relation("BusinessOwner", fields:[ownerCharacterId], references:[id], onDelete:Restrict)
   passiveIncome         Int       @default(0)
@@ -437,6 +440,7 @@ model Business {
   investments           BusinessInvestment[]
   propertySales         CharacterProperty[]
   @@index([ownerCharacterId])
+  @@index([locationId])
 }
 
 model BusinessPosition {
@@ -599,6 +603,7 @@ model WorldLocation {
   @@index([type])
   @@index([publicationStatus])
   cohorts          PopulationCohort[]
+  businesses       Business[]
 
   @@map("worldLocation")
 }

@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS public."worldInfrastructureLink" (
   CONSTRAINT "worldInfrastructureLink_no_self_link_check"
     CHECK ("sourceId" <> "targetId"),
   CONSTRAINT "worldInfrastructureLink_type_check"
-    CHECK ("linkType" IN ('TRANSMISSION', 'BACKHAUL', 'SATELLITE_UPLINK', 'SATELLITE_DOWNLINK', 'HEADQUARTERS_CONTROL')),
+    CHECK ("linkType" IN ('ROAD', 'RAIL', 'WATER', 'POWER', 'SUPPLY', 'DATA', 'TRANSMISSION', 'BACKHAUL', 'SATELLITE_UPLINK', 'SATELLITE_DOWNLINK', 'HEADQUARTERS_CONTROL', 'CUSTOM')),
   CONSTRAINT "worldInfrastructureLink_operationalStatus_check"
     CHECK ("operationalStatus" IN ('PLANNED', 'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'DAMAGED')),
   CONSTRAINT "worldInfrastructureLink_sourceId_fkey"

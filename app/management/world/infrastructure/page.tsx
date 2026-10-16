@@ -169,7 +169,7 @@ export default function WorldInfrastructurePage() {
       <Link href="/management/world" className="text-sm text-zinc-500 hover:text-zinc-300">← Gestión del mundo</Link>
       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">Infraestructura</p>
       <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Infraestructura del mundo</h1>
-      <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">Administra los 26 nodos terrestres, los 4 Ojos de Nova y la sede global adicional. Esta red transmite información arcana; no crea portales ni sustituye a Dvāra/Setu. Los registros nuevos comienzan como borrador y planeados.</p>
+      <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">Administra la infraestructura física, mágica, logística y de comunicaciones del mundo: instalaciones, edificios, rutas, redes de suministro, energía, datos y conexiones entre activos. Cada nodo puede ser independiente o pertenecer a un negocio; las conexiones empiezan planeadas y no se activan automáticamente.</p>
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[["Nodos totales", String(nodes.length)], ["Torres", String(count("TOWER"))], ["Ojos de Nova", String(count("ORBITAL_SATELLITE"))], ["Sede global", String(count("GLOBAL_HEADQUARTERS"))]].map(([title, value]) =>
           <div key={title} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4"><p className="text-xs text-zinc-500">{title}</p><p className="mt-1 text-2xl font-semibold text-white">{value}</p></div>)}

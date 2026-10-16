@@ -61,8 +61,8 @@ export default function WorldCohortsPage() {
     });
   }, [cohorts, search, locationFilter]);
 
-  const totalPopulation = cohorts.reduce((sum, cohort) => sum + BigInt(cohort.population || "0"), 0n);
-  const totalWealth = cohorts.reduce((sum, cohort) => sum + BigInt(cohort.wealth || "0"), 0n);
+  const totalPopulation = cohorts.reduce((sum, cohort) => sum + BigInt(cohort.population || "0"), BigInt(0));
+  const totalWealth = cohorts.reduce((sum, cohort) => sum + BigInt(cohort.wealth || "0"), BigInt(0));
 
   function edit(cohort: Cohort) {
     setForm({ ...cohort, id: cohort.id });

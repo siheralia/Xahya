@@ -87,6 +87,105 @@ export async function POST(request: Request) {
   const Location = (db.orm.public as any).WorldLocation;
   const Run = (db.orm.public as any).WorldSimulationRun;
   try {
+    if (action === "simulate-economy") {
+      const periodKey = String(body?.periodKey ?? "").trim();
+      if (!/^world-economy-annual-[A-Za-z0-9-]{1,100}$/.test(periodKey)) {
+        return NextResponse.json({ error: "Clave de ciclo económico inválida." }, { status: 400 });
+      }
+      const previous = await Run.where({ periodKey }).first();
+      if (previous) return NextResponse.json({ alreadyRun: true, run: previous, summary: previous.summary });
+
+      const result = await db.transaction(async (tx) => {
+        const TxCohort = (tx.orm.public as any).PopulationCohort;
+        const TxRun = (tx.orm.public as any).WorldSimulationRun;
+        const TxBusiness = (tx.orm.public as any).Business;
+        const existingRun = await TxRun.where({ periodKey }).first();
+        if (existingRun) return { alreadyRun: true, run: existingRun, summary: existingRun.summary };
+
+        const activeCohorts = (await TxCohort.all()).filter((entry: any) => entry.active !== false);
+        const businesses = (await TxBusiness.all()).filter((entry: any) => entry.active !== false);
+        const scale = BigInt(1000);
+        let populationProcessed = BigInt(0);
+        let wealthBefore = BigInt(0);
+        let wealthAfter = BigInt(0);
+        let productionTotal = BigInt(0);
+        let consumptionTotal = BigInt(0);
+        let unmetConsumptionTotal = BigInt(0);
+        let cohortsWithProduction = 0;
+
+        const locationTotals = new Map<number, { locationId: number; population: bigint; production: bigint; consumption: bigint; businesses: number }>();
+        for (const cohort of activeCohorts) {
+          const population = BigInt(cohort.population ?? 0);
+          const wealth = BigInt(cohort.wealth ?? 0);
+          const productivity = Number(cohort.productivity ?? 1);
+          const consumptionRate = Number(cohort.consumption ?? 1);
+          const production = population * BigInt(Math.round(productivity * 1000)) / scale;
+          const consumption = population * BigInt(Math.round(consumptionRate * 1000)) / scale;
+          const availableWealth = wealth + production;
+          const nextWealth = availableWealth > consumption ? availableWealth - consumption : BigInt(0);
+          const unmetConsumption = consumption > availableWealth ? consumption - availableWealth : BigInt(0);
+
+          populationProcessed += population;
+          wealthBefore += wealth;
+          wealthAfter += nextWealth;
+          productionTotal += production;
+          consumptionTotal += consumption;
+          unmetConsumptionTotal += unmetConsumption;
+          if (production > BigInt(0)) cohortsWithProduction++;
+          await TxCohort.where({ id: Number(cohort.id) }).update({ wealth: nextWealth });
+
+          const locationId = Number(cohort.locationId);
+          const local = locationTotals.get(locationId) ?? { locationId, population: BigInt(0), production: BigInt(0), consumption: BigInt(0), businesses: 0 };
+          local.population += population;
+          local.production += production;
+          local.consumption += consumption;
+          locationTotals.set(locationId, local);
+        }
+
+        for (const business of businesses) {
+          if (business.locationId == null) continue;
+          const local = locationTotals.get(Number(business.locationId));
+          if (local) local.businesses++;
+        }
+
+        const summary = {
+          cohortsProcessed: activeCohorts.length,
+          populationProcessed: String(populationProcessed),
+          wealthBefore: String(wealthBefore),
+          wealthAfter: String(wealthAfter),
+          production: String(productionTotal),
+          consumption: String(consumptionTotal),
+          unmetConsumption: String(unmetConsumptionTotal),
+          locations: Array.from(locationTotals.values()).map((local) => ({
+            locationId: local.locationId,
+            population: String(local.population),
+            production: String(local.production),
+            consumption: String(local.consumption),
+            activeBusinesses: local.businesses,
+          })),
+          cohortsWithProduction,
+          formula: "riqueza final = max(0, riqueza inicial + población × productividad − población × consumo)",
+          businessAccounting: "Los negocios locales se cuentan como contexto territorial; sus cajas, salarios y reinversiones siguen en la economía operativa para evitar doble contabilización.",
+        };
+        const run = await TxRun.create({
+          simulationType: "WORLD_ECONOMY_ANNUAL",
+          periodKey,
+          status: "COMPLETED",
+          summary,
+        });
+        return { alreadyRun: false, run, summary };
+      });
+
+      await recordAuditEvent({
+        actorUserId: Number(admin.id),
+        action: result.alreadyRun ? "WORLD_ECONOMIC_CYCLE_REPLAY" : "WORLD_ECONOMIC_CYCLE",
+        entityType: "WORLD_SIMULATION_RUN",
+        entityId: Number(result.run.id),
+        details: { periodKey, summary: result.summary ?? result.run.summary },
+      });
+      return NextResponse.json(result, { status: result.alreadyRun ? 200 : 201 });
+    }
+
     if (action === "simulate-demographics") {
       const periodKey = String(body?.periodKey ?? "").trim();
       if (!/^population-demographic-[A-Za-z0-9-]{1,100}$/.test(periodKey)) {

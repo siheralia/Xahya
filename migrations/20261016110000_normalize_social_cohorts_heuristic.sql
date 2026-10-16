@@ -6,7 +6,9 @@ BEGIN;
 CREATE TEMP TABLE "_cohort_heuristic_sources" ON COMMIT DROP AS
 SELECT c.*
 FROM public."populationCohort" c
+JOIN public."worldLocation" l ON l."id" = c."locationId"
 WHERE c."active" = true
+  AND lower(btrim(l."name")) <> 'vanamati' -- anomalous wealth concentration requires separate canon review
   AND c."population" > 0
   AND (
     SELECT count(*) FROM public."populationCohort" other

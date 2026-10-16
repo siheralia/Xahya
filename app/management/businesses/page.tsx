@@ -5,6 +5,7 @@ import Link from "next/link";
 import ManagementModal from "../_components/ManagementModal";
 
 type Character = { id: number; name: string; flair: string | null };
+type WorldLocation = { id: number; name: string; type: string; publicationStatus: string };
 type Contract = { id: number; character: Character | null };
 type Position = {
   id: number;
@@ -25,6 +26,8 @@ type Business = {
   id: number;
   name: string;
   description: string | null;
+  locationId: number | null;
+  locationName?: string | null;
   ownerCharacterId: number;
   ownerCharacter: Character | null;
   passiveIncome: number;
@@ -40,6 +43,7 @@ const days = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "
 const emptyBusiness = {
   name: "",
   description: "",
+  locationId: "",
   ownerCharacterId: "",
   passiveIncome: 0,
   passiveFrequency: "WEEKLY",
@@ -64,6 +68,7 @@ export default function BusinessesManagementPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [systemPositions, setSystemPositions] = useState<Position[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [locations, setLocations] = useState<WorldLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -97,6 +102,7 @@ export default function BusinessesManagementPage() {
       setBusinesses(data.businesses ?? []);
       setSystemPositions(data.systemPositions ?? []);
       setCharacters(data.characters ?? []);
+      setLocations(data.locations ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar los negocios.");
     } finally {
@@ -141,6 +147,7 @@ export default function BusinessesManagementPage() {
     setBusiness({
       name: item.name,
       description: item.description ?? "",
+      locationId: item.locationId == null ? "" : String(item.locationId),
       ownerCharacterId: String(item.ownerCharacterId),
       passiveIncome: Number(item.passiveIncome),
       passiveFrequency: item.passiveFrequency,
@@ -157,6 +164,7 @@ export default function BusinessesManagementPage() {
         action: businessId ? "updateBusiness" : "createBusiness",
         ...(businessId ? { id: businessId } : {}),
         ...business,
+        locationId: business.locationId ? Number(business.locationId) : null,
         ownerCharacterId: Number(business.ownerCharacterId),
         passiveIncome: Number(business.passiveIncome),
         passiveDayOfWeek: Number(business.passiveDayOfWeek),
@@ -282,6 +290,14 @@ export default function BusinessesManagementPage() {
               Descripción
               <textarea value={business.description} onChange={(e) => setBusiness({ ...business, description: e.target.value })} rows={4} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3" />
             </label>
+            <label className="text-sm text-zinc-300">
+              Ubicación del negocio
+              <select value={business.locationId} onChange={(e) => setBusiness({ ...business, locationId: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3">
+                <option value="">Sin ubicación asignada</option>
+                {locations.filter((location) => location.publicationStatus !== "ARCHIVED").map((location) => <option key={location.id} value={location.id}>{location.name} · {location.type === "CITY" ? "Ciudad" : location.type === "REGION" ? "Región" : location.type === "CONTINENT" ? "Continente" : location.type === "ISLAND" ? "Isla" : location.type === "FLOATING_ISLAND" ? "Isla flotante" : location.type}</option>)}
+              </select>
+              <span className="mt-1 block text-xs text-zinc-600">Se puede dejar vacía para negocios que aún no tienen una sede definida.</span>
+            </label>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="text-sm text-zinc-300">
                 Ganancia pasiva
@@ -402,6 +418,7 @@ export default function BusinessesManagementPage() {
                   <div>
                     <h2 className="text-2xl font-bold">{b.name}</h2>
                     <p className="mt-1 text-zinc-500">{b.description || "Sin descripción."}</p>
+                    <p className="mt-1 text-sm text-cyan-300">📍 {b.locationName || "Ubicación sin asignar"}</p>
                   </div>
                   <div className="flex items-start gap-4">
                     <div className="text-right text-sm text-zinc-400">

@@ -189,7 +189,7 @@ export default function WorldCohortsPage() {
     {error && <div role="alert" className="mb-4 rounded-xl border border-red-900/70 bg-red-950/30 p-4 text-sm text-red-300">{error}</div>}
     {success && <div role="status" className="mb-4 rounded-xl border border-emerald-900/70 bg-emerald-950/20 p-4 text-sm text-emerald-300">{success}</div>}
 
-    <nav className="mb-5 flex flex-wrap gap-2"><Link href="/management/world/catalogs" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-cyan-700">Gestionar ocupaciones y clases sociales ↗</Link><Link href="/management/races" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-cyan-700">Gestionar razas ↗</Link></nav>
+    <nav className="mb-5 flex flex-wrap gap-2"><Link href="/management/world/catalogs" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-cyan-700">Gestionar ocupaciones y clases sociales ↗</Link><Link href="/management/races" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-cyan-700">Gestionar razas ↗</Link><Link href="/api/management/world/cohorts/audit" target="_blank" rel="noreferrer" className="rounded-lg border border-amber-800 px-4 py-2 text-sm text-amber-200 hover:border-amber-600">Auditoría estructural ↗</Link></nav>
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div><h2 className="text-xl font-semibold text-white">{form.id === null ? "Crear cohorte" : `Editar cohorte #${form.id}`}</h2>

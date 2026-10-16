@@ -34,6 +34,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
   if (body && Object.prototype.hasOwnProperty.call(body, "description")) updates.description = typeof body.description === "string" ? body.description.trim() || null : null;
   if (body && Object.prototype.hasOwnProperty.call(body, "imagePath")) updates.imagePath = typeof body.imagePath === "string" ? body.imagePath.trim() || null : null;
+  if (body && Object.prototype.hasOwnProperty.call(body, "lifeExpectancyYears")) {
+    const raw = body.lifeExpectancyYears;
+    const lifeExpectancyYears = raw == null || raw === "" ? null : Number(raw);
+    if (lifeExpectancyYears !== null && (!Number.isSafeInteger(lifeExpectancyYears) || lifeExpectancyYears < 1 || lifeExpectancyYears > 100000)) {
+      return NextResponse.json({ error: "La esperanza de vida debe ser un entero entre 1 y 100000 años, o dejarse vacía." }, { status: 400 });
+    }
+    updates.lifeExpectancyYears = lifeExpectancyYears;
+  }
   if (body && Object.prototype.hasOwnProperty.call(body, "active")) updates.active = Boolean(body.active);
 
   const hasPerkIds = body && Object.prototype.hasOwnProperty.call(body, "perkIds");

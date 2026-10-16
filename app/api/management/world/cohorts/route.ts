@@ -99,11 +99,14 @@ export async function POST(request: Request) {
         const TxCohort = (tx.orm.public as any).PopulationCohort;
         const TxRun = (tx.orm.public as any).WorldSimulationRun;
         const TxBusiness = (tx.orm.public as any).Business;
+        const TxLocation = (tx.orm.public as any).WorldLocation;
         const existingRun = await TxRun.where({ periodKey }).first();
         if (existingRun) return { alreadyRun: true, run: existingRun, summary: existingRun.summary };
 
         const activeCohorts = (await TxCohort.all()).filter((entry: any) => entry.active !== false);
         const businesses = (await TxBusiness.all()).filter((entry: any) => entry.active !== false);
+        const locations = await TxLocation.all();
+        const locationNames = new Map<number, string>(locations.map((location: any) => [Number(location.id), String(location.name)]));
         const scale = BigInt(1000);
         let populationProcessed = BigInt(0);
         let wealthBefore = BigInt(0);
@@ -158,6 +161,7 @@ export async function POST(request: Request) {
           unmetConsumption: String(unmetConsumptionTotal),
           locations: Array.from(locationTotals.values()).map((local) => ({
             locationId: local.locationId,
+            locationName: locationNames.get(local.locationId) ?? `Locación #${local.locationId}`,
             population: String(local.population),
             production: String(local.production),
             consumption: String(local.consumption),

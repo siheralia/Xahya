@@ -1,0 +1,123 @@
+import { auth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { recordAuditEvent } from "@/lib/audit";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+async function getAdmin() {
+  const { userId: clerkId } = await auth();
+  if (!clerkId) return null;
+  const users = await db.orm.public.User.all();
+  return users.find((entry) => entry.clerkId === clerkId && String(entry.role) === "ADMIN") ?? null;
+}
+
+function safeCount(value: unknown, label: string) {
+  const text = String(value ?? "0").trim();
+  if (!/^\d+$/.test(text)) throw new Error(`${label} debe ser un entero no negativo.`);
+  try { return BigInt(text); } catch { throw new Error(`${label} no es válido.`); }
+}
+
+function rate(value: unknown, fallback: number, label: string, min = 0, max = 1) {
+  const parsed = value === undefined || value === null || value === "" ? fallback : Number(value);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) throw new Error(`${label} debe estar entre ${min} y ${max}.`);
+  return parsed;
+}
+
+function fields(body: any) {
+  const name = String(body?.name ?? "").trim();
+  const race = String(body?.race ?? "Sin especificar").trim() || "Sin especificar";
+  const occupation = String(body?.occupation ?? "Sin especificar").trim() || "Sin especificar";
+  const socialClass = String(body?.socialClass ?? "Sin especificar").trim() || "Sin especificar";
+  const ageGroup = String(body?.ageGroup ?? "Mixta").trim() || "Mixta";
+  const locationId = Number(body?.locationId);
+  if (!name || name.length > 120) throw new Error("El nombre de la cohorte es obligatorio (máximo 120 caracteres).");
+  if (!Number.isSafeInteger(locationId) || locationId <= 0) throw new Error("Selecciona una locación válida.");
+  if ([race, occupation, socialClass, ageGroup].some((value) => value.length > 120)) throw new Error("Las características no pueden superar 120 caracteres.");
+  const behavior = body?.behavior && typeof body.behavior === "object" && !Array.isArray(body.behavior) ? body.behavior : {};
+  return {
+    name, race, occupation, socialClass, ageGroup, locationId,
+    population: safeCount(body?.population, "La población"),
+    wealth: safeCount(body?.wealth, "La riqueza"),
+    birthRate: rate(body?.birthRate, 0.012, "La tasa de natalidad"),
+    deathRate: rate(body?.deathRate, 0.008, "La tasa de mortalidad"),
+    migrationRate: rate(body?.migrationRate, 0, "La tasa migratoria", -1, 1),
+    productivity: rate(body?.productivity, 1, "La productividad", 0, 1000000),
+    consumption: rate(body?.consumption, 1, "El consumo", 0, 1000000),
+    behavior,
+    active: body?.active !== false,
+  };
+}
+
+function serializeCohort(entry: any) {
+  return { ...entry, population: String(entry.population ?? 0), wealth: String(entry.wealth ?? 0) };
+}
+
+export async function GET() {
+  const admin = await getAdmin();
+  if (!admin) return NextResponse.json({ error: "Solo ADMIN puede gestionar las cohortes." }, { status: 403 });
+  try {
+    const Cohort = (db.orm.public as any).PopulationCohort;
+    const Location = (db.orm.public as any).WorldLocation;
+    const Run = (db.orm.public as any).WorldSimulationRun;
+    const [cohorts, locations, runs] = await Promise.all([Cohort.all(), Location.all(), Run.all()]);
+    const locationById = new Map<number, any>(locations.map((location: any) => [Number(location.id), location]));
+    return NextResponse.json({
+      cohorts: cohorts.map((entry: any) => ({ ...serializeCohort(entry), locationName: locationById.get(Number(entry.locationId))?.name ?? "Locación desconocida" }))
+        .sort((a: any, b: any) => a.locationName.localeCompare(b.locationName, "es") || a.name.localeCompare(b.name, "es")),
+      locations: locations.filter((entry: any) => entry.publicationStatus !== "ARCHIVED")
+        .map((entry: any) => ({ id: Number(entry.id), name: entry.name, type: entry.type, publicationStatus: entry.publicationStatus }))
+        .sort((a: any, b: any) => a.name.localeCompare(b.name, "es")),
+      runs: runs.map((entry: any) => ({ ...entry, id: Number(entry.id) }))
+        .sort((a: any, b: any) => String(b.completedAt).localeCompare(String(a.completedAt))).slice(0, 20),
+    });
+  } catch (error) {
+    console.error("WORLD_COHORT_LIST_ERROR", error);
+    return NextResponse.json({ error: "No se pudieron cargar las cohortes. Aplica la migración de población del mundo." }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const admin = await getAdmin();
+  if (!admin) return NextResponse.json({ error: "Solo ADMIN puede gestionar las cohortes." }, { status: 403 });
+  const body = await request.json().catch(() => null);
+  const action = String(body?.action ?? "create");
+  const Cohort = (db.orm.public as any).PopulationCohort;
+  const Location = (db.orm.public as any).WorldLocation;
+  try {
+    if (action === "delete") {
+      const id = Number(body?.id);
+      if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: "ID de cohorte inválido." }, { status: 400 });
+      const existing = await Cohort.where({ id }).first();
+      if (!existing) return NextResponse.json({ error: "La cohorte no existe." }, { status: 404 });
+      await Cohort.where({ id }).delete();
+      await recordAuditEvent({ actorUserId: Number(admin.id), action: "WORLD_COHORT_DELETE", entityType: "WORLD_COHORT", entityId: id, details: { name: existing.name } });
+      return NextResponse.json({ success: true });
+    }
+    const data = fields(body);
+    const location = await Location.where({ id: data.locationId }).first();
+    if (!location) return NextResponse.json({ error: "La locación seleccionada no existe." }, { status: 400 });
+    if (location.publicationStatus === "ARCHIVED") return NextResponse.json({ error: "No puedes asignar población a una locación archivada." }, { status: 400 });
+    if (action === "update") {
+      const id = Number(body?.id);
+      if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: "ID de cohorte inválido." }, { status: 400 });
+      const existing = await Cohort.where({ id }).first();
+      if (!existing) return NextResponse.json({ error: "La cohorte no existe." }, { status: 404 });
+      const updated = await Cohort.where({ id }).update(data);
+      await recordAuditEvent({ actorUserId: Number(admin.id), action: "WORLD_COHORT_UPDATE", entityType: "WORLD_COHORT", entityId: id, details: { name: data.name, locationId: data.locationId, population: String(data.population) } });
+      return NextResponse.json({ cohort: serializeCohort(updated) });
+    }
+    if (action !== "create") return NextResponse.json({ error: "Acción no reconocida." }, { status: 400 });
+    const created = await Cohort.create(data);
+    await recordAuditEvent({ actorUserId: Number(admin.id), action: "WORLD_COHORT_CREATE", entityType: "WORLD_COHORT", entityId: Number(created.id), details: { name: data.name, locationId: data.locationId, population: String(data.population) } });
+    return NextResponse.json({ cohort: serializeCohort(created) }, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo guardar la cohorte.";
+    if (message.includes("debe ser") || message.includes("no es válido") || message.includes("obligatorio") || message.includes("máximo") || message.includes("entre")) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+    console.error("WORLD_COHORT_SAVE_ERROR", error);
+    return NextResponse.json({ error: "No se pudo guardar la cohorte." }, { status: 500 });
+  }
+}

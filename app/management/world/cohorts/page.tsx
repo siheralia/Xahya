@@ -9,6 +9,10 @@ type Cohort = {
   socialClass: string; ageGroup: string; population: string; wealth: string; birthRate: number;
   deathRate: number; migrationRate: number; productivity: number; consumption: number; active: boolean;
 };
+type SimulationRun = { id: number; simulationType: string; periodKey: string; status: string; completedAt: string; summary: {
+  cohortsProcessed?: number; populationBefore?: string; populationAfter?: string; births?: string;
+  deaths?: string; netMigration?: string; formula?: string;
+} };
 type FormState = Omit<Cohort, "id" | "locationName"> & { id: number | null };
 const blank: FormState = {
   id: null, locationId: 0, name: "", race: "Sin especificar", occupation: "Sin especificar",
@@ -28,6 +32,8 @@ const typeLabel = (value: string) => ({
 export default function WorldCohortsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [runs, setRuns] = useState<SimulationRun[]>([]);
+  const [simulationSaving, setSimulationSaving] = useState(false);
   const [form, setForm] = useState<FormState>(blank);
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("ALL");
@@ -45,6 +51,7 @@ export default function WorldCohortsPage() {
       if (!response.ok) throw new Error(data?.error ?? "No se pudieron cargar las cohortes.");
       setCohorts(Array.isArray(data.cohorts) ? data.cohorts : []);
       setLocations(Array.isArray(data.locations) ? data.locations : []);
+      setRuns(Array.isArray(data.runs) ? data.runs.filter((run: any) => run.simulationType === "DEMOGRAPHIC_ANNUAL") : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar las cohortes.");
     } finally { setLoading(false); }
@@ -89,6 +96,27 @@ export default function WorldCohortsPage() {
     finally { setSaving(false); }
   }
 
+  async function runDemographicCycle() {
+    if (simulationSaving) return;
+    const confirmed = window.confirm("Ejecutar un ciclo demográfico anual sobre todas las cohortes activas? Se aplicarán natalidad, mortalidad y migración neta a sus poblaciones actuales.");
+    if (!confirmed) return;
+    setSimulationSaving(true); setError(""); setSuccess("");
+    try {
+      const response = await fetch("/api/management/world/cohorts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "simulate-demographics", periodKey: `population-demographic-${Date.now()}` }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo ejecutar el ciclo demográfico.");
+      const summary = data.summary ?? data.run?.summary ?? {};
+      setSuccess(data.alreadyRun
+        ? "Este ciclo ya se había aplicado; no se modificó la población de nuevo."
+        : `Ciclo aplicado a ${summary.cohortsProcessed ?? 0} cohortes: nacimientos ${fmt(summary.births ?? "0")}, muertes ${fmt(summary.deaths ?? "0")}, migración neta ${fmt(summary.netMigration ?? "0")}.`);
+      await load();
+    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo ejecutar el ciclo demográfico."); }
+    finally { setSimulationSaving(false); }
+  }
+
   async function remove(cohort: Cohort) {
     if (!window.confirm(`¿Eliminar la cohorte “${cohort.name}”? Esta acción no se puede deshacer.`)) return;
     setDeleting(cohort.id); setError(""); setSuccess("");
@@ -115,9 +143,13 @@ export default function WorldCohortsPage() {
           <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Cohortes de población</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">Representa poblaciones enormes con grupos agregados, no con una fila por habitante. Cada cohorte conserva su locación, demografía, riqueza y parámetros para las futuras simulaciones.</p>
         </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-400">
+        <div className="flex flex-col items-start gap-3">
+          <button type="button" disabled={simulationSaving || loading || cohorts.length === 0} onClick={() => void runDemographicCycle()} className="rounded-lg bg-cyan-300 px-4 py-3 text-sm font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50">{simulationSaving ? "Simulando…" : "Ejecutar ciclo demográfico anual"}</button>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-400">
           <span className="block text-2xl font-semibold text-white">{cohorts.length}</span>cohortes
           <span className="mt-2 block text-lg font-semibold text-white">{fmt(String(totalPopulation))}</span>habitantes representados
+          <span className="mt-2 block text-lg font-semibold text-white">{fmt(String(totalWealth))}</span>riqueza agregada
+          </div>
         </div>
       </div>
     </div>
@@ -158,6 +190,11 @@ export default function WorldCohortsPage() {
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><div className="rounded-lg bg-zinc-950/70 p-3"><p className="text-xs text-zinc-500">Habitantes</p><p className="mt-1 text-lg font-semibold text-white">{fmt(cohort.population)}</p></div><div className="rounded-lg bg-zinc-950/70 p-3"><p className="text-xs text-zinc-500">Riqueza</p><p className="mt-1 text-lg font-semibold text-white">{fmt(cohort.wealth)}</p></div><div className="rounded-lg bg-zinc-950/70 p-3"><p className="text-xs text-zinc-500">Natalidad / mortalidad</p><p className="mt-1 text-sm font-medium text-white">{(cohort.birthRate * 100).toFixed(1)}% / {(cohort.deathRate * 100).toFixed(1)}%</p></div><div className="rounded-lg bg-zinc-950/70 p-3"><p className="text-xs text-zinc-500">Migración neta</p><p className="mt-1 text-sm font-medium text-white">{(cohort.migrationRate * 100).toFixed(1)}%</p></div></div>
       </article>)}</div>}
     </section>
-    <p className="mt-6 text-xs leading-5 text-zinc-600">Esta primera entrega guarda cohortes persistentes y sus parámetros. Todavía no ejecuta cambios demográficos automáticos ni mueve riqueza: el motor de simulación se conectará como siguiente paso y registrará cada ciclo para evitar duplicarlo.</p>
+    <section className="mt-7 rounded-2xl border border-zinc-800 bg-zinc-900/30 p-5">
+      <h2 className="text-lg font-semibold text-white">Historial de simulaciones demográficas</h2>
+      <p className="mt-1 text-sm text-zinc-500">Cada ejecución guarda su clave y resultados para poder auditarla y evitar que la misma solicitud se aplique dos veces.</p>
+      {runs.length === 0 ? <p className="mt-4 text-sm text-zinc-500">Todavía no se han ejecutado ciclos.</p> : <div className="mt-4 space-y-3">{runs.map((run) => <article key={run.id} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium text-white">Ciclo demográfico #{run.id}</p><span className="text-xs text-zinc-500">{run.completedAt ? new Date(run.completedAt).toLocaleString("es-MX") : run.periodKey}</span></div><p className="mt-2 text-sm text-zinc-400">Cohortes: {run.summary?.cohortsProcessed ?? 0} · Habitantes: {fmt(run.summary?.populationBefore ?? "0")} → {fmt(run.summary?.populationAfter ?? "0")}</p><p className="mt-1 text-sm text-zinc-400">Nacimientos: {fmt(run.summary?.births ?? "0")} · Muertes: {fmt(run.summary?.deaths ?? "0")} · Migración neta: {fmt(run.summary?.netMigration ?? "0")}</p></article>)}</div>}
+    </section>
+    <p className="mt-6 text-xs leading-5 text-zinc-600">El ciclo actual modifica población por natalidad, mortalidad y migración neta; no altera aún riqueza, salarios, precios ni negocios. Esa conexión económica será la siguiente capa y reutilizará la economía existente de Xahya.</p>
   </main>;
 }

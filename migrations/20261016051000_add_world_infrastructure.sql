@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS public."worldInfrastructure" (
   "name" text NOT NULL,
   "kind" text NOT NULL,
   "worldLocationId" integer NULL,
+  "businessId" integer NULL,
   "description" text NULL,
   "foundingHistory" text NULL,
   "constructionType" text NULL,
@@ -18,13 +19,16 @@ CREATE TABLE IF NOT EXISTS public."worldInfrastructure" (
   "createdAt" timestamptz NOT NULL DEFAULT now(),
   "updatedAt" timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT "worldInfrastructure_kind_check"
-    CHECK ("kind" IN ('TOWER', 'ORBITAL_SATELLITE', 'GLOBAL_HEADQUARTERS')),
+    CHECK ("kind" IN ('TOWER', 'ORBITAL_SATELLITE', 'GLOBAL_HEADQUARTERS', 'BUILDING', 'WORKSHOP', 'WAREHOUSE', 'VEHICLE', 'EQUIPMENT', 'STORE', 'FACILITY')),
   CONSTRAINT "worldInfrastructure_operationalStatus_check"
     CHECK ("operationalStatus" IN ('PLANNED', 'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'DAMAGED')),
   CONSTRAINT "worldInfrastructure_publicationStatus_check"
     CHECK ("publicationStatus" IN ('DRAFT', 'PUBLISHED', 'ARCHIVED')),
   CONSTRAINT "worldInfrastructure_worldLocationId_fkey"
     FOREIGN KEY ("worldLocationId") REFERENCES public."worldLocation"("id")
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT "worldInfrastructure_businessId_fkey"
+    FOREIGN KEY ("businessId") REFERENCES public.business("id")
     ON DELETE SET NULL ON UPDATE CASCADE
 );
 
@@ -32,6 +36,8 @@ CREATE INDEX IF NOT EXISTS "worldInfrastructure_kind_operationalStatus_idx"
   ON public."worldInfrastructure" ("kind", "operationalStatus");
 CREATE INDEX IF NOT EXISTS "worldInfrastructure_worldLocationId_idx"
   ON public."worldInfrastructure" ("worldLocationId");
+CREATE INDEX IF NOT EXISTS "worldInfrastructure_businessId_idx"
+  ON public."worldInfrastructure" ("businessId");
 CREATE INDEX IF NOT EXISTS "worldInfrastructure_publicationStatus_idx"
   ON public."worldInfrastructure" ("publicationStatus");
 

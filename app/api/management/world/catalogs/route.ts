@@ -52,6 +52,12 @@ export async function POST(request: Request) {
       if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: "ID inválido." }, { status: 400 });
       const entry = await Catalog.where({ id }).first();
       if (!entry) return NextResponse.json({ error: "El registro no existe." }, { status: 404 });
+      const Cohort = (db.orm.public as any).PopulationCohort;
+      const foreignKey = type === "occupation" ? "occupationId" : "socialClassId";
+      const linkedCohorts = (await Cohort.all()).filter((cohort: any) => Number(cohort[foreignKey]) === id);
+      if (linkedCohorts.length > 0) {
+        return NextResponse.json({ error: "Este registro está vinculado a " + linkedCohorts.length + " cohorte(s). Márcalo como inactivo para conservar la integridad histórica." }, { status: 409 });
+      }
       await Catalog.where({ id }).delete();
       await recordAuditEvent({ actorUserId: Number(admin.id), action: config.entity + "_DELETE", entityType: config.entity, entityId: id, details: { name: entry.name } });
       return NextResponse.json({ success: true });

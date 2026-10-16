@@ -61,14 +61,31 @@ export async function GET() {
     const Cohort = (db.orm.public as any).PopulationCohort;
     const Location = (db.orm.public as any).WorldLocation;
     const Run = (db.orm.public as any).WorldSimulationRun;
-    const [cohorts, locations, runs] = await Promise.all([Cohort.all(), Location.all(), Run.all()]);
+    const Occupation = (db.orm.public as any).WorldOccupation;
+    const SocialClass = (db.orm.public as any).WorldSocialClass;
+    const Race = (db.orm.public as any).Race;
+    const [cohorts, locations, runs, occupations, socialClasses, races] = await Promise.all([
+      Cohort.all(), Location.all(), Run.all(), Occupation.all(), SocialClass.all(), Race.all(),
+    ]);
     const locationById = new Map<number, any>(locations.map((location: any) => [Number(location.id), location]));
+    const occupationById = new Map<number, any>(occupations.map((entry: any) => [Number(entry.id), entry]));
+    const socialClassById = new Map<number, any>(socialClasses.map((entry: any) => [Number(entry.id), entry]));
+    const raceById = new Map<number, any>(races.map((entry: any) => [Number(entry.id), entry]));
     return NextResponse.json({
-      cohorts: cohorts.map((entry: any) => ({ ...serializeCohort(entry), locationName: locationById.get(Number(entry.locationId))?.name ?? "Locación desconocida" }))
+      cohorts: cohorts.map((entry: any) => ({
+        ...serializeCohort(entry),
+        race: raceById.get(Number(entry.raceId))?.name ?? entry.race ?? "Sin especificar",
+        occupation: occupationById.get(Number(entry.occupationId))?.name ?? entry.occupation ?? "Sin especificar",
+        socialClass: socialClassById.get(Number(entry.socialClassId))?.name ?? entry.socialClass ?? "Sin especificar",
+        locationName: locationById.get(Number(entry.locationId))?.name ?? "Locación desconocida",
+      }))
         .sort((a: any, b: any) => a.locationName.localeCompare(b.locationName, "es") || a.name.localeCompare(b.name, "es")),
       locations: locations.filter((entry: any) => entry.publicationStatus !== "ARCHIVED")
         .map((entry: any) => ({ id: Number(entry.id), name: entry.name, type: entry.type, publicationStatus: entry.publicationStatus }))
         .sort((a: any, b: any) => a.name.localeCompare(b.name, "es")),
+      races: races.map((entry: any) => ({ id: Number(entry.id), name: entry.name, active: entry.active !== false, lifeExpectancyYears: entry.lifeExpectancyYears ?? null })),
+      occupations: occupations.map((entry: any) => ({ id: Number(entry.id), name: entry.name, active: entry.active !== false })),
+      socialClasses: socialClasses.map((entry: any) => ({ id: Number(entry.id), name: entry.name, active: entry.active !== false })),
       runs: runs.map((entry: any) => ({ ...entry, id: Number(entry.id) }))
         .sort((a: any, b: any) => String(b.completedAt).localeCompare(String(a.completedAt))).slice(0, 20),
     });
@@ -264,13 +281,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
     const data = fields(body);
-    if (data.race !== "Sin especificar") {
-      const Race = (db.orm.public as any).Race;
-      const raceCatalog = await Race.all();
-      const selectedRace = raceCatalog.find((entry: any) => String(entry.name) === data.race);
-      if (!selectedRace) return NextResponse.json({ error: "Selecciona una raza existente del catálogo de Gestión → Razas." }, { status: 400 });
-      data.race = String(selectedRace.name);
-    }
+    const Race = (db.orm.public as any).Race;
+    const Occupation = (db.orm.public as any).WorldOccupation;
+    const SocialClass = (db.orm.public as any).WorldSocialClass;
+    const [raceCatalog, occupationCatalog, socialClassCatalog] = await Promise.all([Race.all(), Occupation.all(), SocialClass.all()]);
+    const selectedRace = data.race === "Sin especificar" ? null : raceCatalog.find((entry: any) => String(entry.name) === data.race);
+    const selectedOccupation = data.occupation === "Sin especificar" ? null : occupationCatalog.find((entry: any) => String(entry.name) === data.occupation);
+    const selectedSocialClass = data.socialClass === "Sin especificar" ? null : socialClassCatalog.find((entry: any) => String(entry.name) === data.socialClass);
+    if (data.race !== "Sin especificar" && !selectedRace) return NextResponse.json({ error: "Selecciona una raza existente del catálogo de Gestión → Razas." }, { status: 400 });
+    if (data.occupation !== "Sin especificar" && !selectedOccupation) return NextResponse.json({ error: "Selecciona una ocupación del catálogo de Mundo." }, { status: 400 });
+    if (data.socialClass !== "Sin especificar" && !selectedSocialClass) return NextResponse.json({ error: "Selecciona una clase social del catálogo de Mundo." }, { status: 400 });
+    Object.assign(data, {
+      raceId: selectedRace ? Number(selectedRace.id) : null,
+      occupationId: selectedOccupation ? Number(selectedOccupation.id) : null,
+      socialClassId: selectedSocialClass ? Number(selectedSocialClass.id) : null,
+      race: selectedRace ? String(selectedRace.name) : "Sin especificar",
+      occupation: selectedOccupation ? String(selectedOccupation.name) : "Sin especificar",
+      socialClass: selectedSocialClass ? String(selectedSocialClass.name) : "Sin especificar",
+    });
     const location = await Location.where({ id: data.locationId }).first();
     if (!location) return NextResponse.json({ error: "La locación seleccionada no existe." }, { status: 400 });
     if (location.publicationStatus === "ARCHIVED") return NextResponse.json({ error: "No puedes asignar población a una locación archivada." }, { status: 400 });

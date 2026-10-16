@@ -297,7 +297,7 @@ export default function WorldManagementPage() {
                 className={`rounded-lg px-4 py-2 text-sm font-medium ${viewMode === "list" ? "bg-cyan-300 text-zinc-950" : "text-zinc-300 hover:bg-zinc-800"}`}>Vista de lista</button>
             </div>
             {viewMode === "tree" && treeLocations.length > 0 && <div className="flex gap-2">
-              <button type="button" onClick={() => setExpandedIds(new Set(treeLocations.filter((location) => treeLocations.some((child) => child.parentId === location.id)).map((location) => location.id))}
+              <button type="button" onClick={() => setExpandedIds(new Set(treeLocations.filter((location) => treeLocations.some((child) => child.parentId === location.id)).map((location) => location.id)))}
                 className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800">Expandir todo</button>
               <button type="button" onClick={() => setExpandedIds(new Set())}
                 className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800">Contraer todo</button>

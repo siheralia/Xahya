@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Location = { id: number; name: string; type: string; publicationStatus: string };
+type RaceOption = { id: number; name: string; active: boolean };
 type Cohort = {
   id: number; locationId: number; locationName: string; name: string; race: string; occupation: string;
   socialClass: string; ageGroup: string; population: string; wealth: string; birthRate: number;
@@ -34,6 +35,7 @@ const typeLabel = (value: string) => ({
 export default function WorldCohortsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [races, setRaces] = useState<RaceOption[]>([]);
   const [runs, setRuns] = useState<SimulationRun[]>([]);
   const [simulationSaving, setSimulationSaving] = useState(false);
   const [form, setForm] = useState<FormState>(blank);
@@ -53,6 +55,10 @@ export default function WorldCohortsPage() {
       if (!response.ok) throw new Error(data?.error ?? "No se pudieron cargar las cohortes.");
       setCohorts(Array.isArray(data.cohorts) ? data.cohorts : []);
       setLocations(Array.isArray(data.locations) ? data.locations : []);
+      const raceResponse = await fetch("/api/management/races", { cache: "no-store" });
+      const raceData = await raceResponse.json().catch(() => null);
+      if (!raceResponse.ok) throw new Error(raceData?.error ?? "No se pudo cargar el catálogo de razas.");
+      setRaces(Array.isArray(raceData.races) ? raceData.races.map((race: any) => ({ id: Number(race.id), name: String(race.name), active: race.active !== false })) : []);
       setRuns(Array.isArray(data.runs) ? data.runs.filter((run: any) => ["DEMOGRAPHIC_ANNUAL", "WORLD_ECONOMY_ANNUAL"].includes(run.simulationType)) : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar las cohortes.");
@@ -190,7 +196,7 @@ export default function WorldCohortsPage() {
       <form onSubmit={save} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <label className="block"><span className="text-sm text-zinc-300">Nombre de la cohorte *</span><input required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej. Comerciantes humanos del puerto" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white" /></label>
         <label className="block"><span className="text-sm text-zinc-300">Locación *</span><select required value={String(form.locationId || "")} onChange={(e) => setForm({ ...form, locationId: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white"><option value="">Seleccionar locación</option>{locations.map((location) => <option key={location.id} value={location.id}>{location.name} · {typeLabel(location.type)}{location.publicationStatus === "DRAFT" ? " · Borrador" : ""}</option>)}</select></label>
-        <label className="block"><span className="text-sm text-zinc-300">Raza / especie</span><input maxLength={120} value={form.race} onChange={(e) => setForm({ ...form, race: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white" /></label>
+        <label className="block"><span className="text-sm text-zinc-300">Raza / especie</span><select value={form.race} onChange={(e) => setForm({ ...form, race: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white"><option value="Sin especificar">Sin especificar</option>{races.map((race) => <option key={race.id} value={race.name}>{race.name}{race.active ? "" : " · Inactiva (registro existente)"}</option>)}{form.race !== "Sin especificar" && !races.some((race) => race.name === form.race) && <option value={form.race}>{form.race} · No está en el catálogo</option>}</select><p className="mt-1 text-xs text-zinc-500">Selecciona una raza del catálogo de Gestión → Razas.</p></label>
         <label className="block"><span className="text-sm text-zinc-300">Ocupación principal</span><input maxLength={120} value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white" /></label>
         <label className="block"><span className="text-sm text-zinc-300">Clase social</span><input maxLength={120} value={form.socialClass} onChange={(e) => setForm({ ...form, socialClass: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white" /></label>
         <label className="block"><span className="text-sm text-zinc-300">Grupo de edad</span><input maxLength={120} value={form.ageGroup} onChange={(e) => setForm({ ...form, ageGroup: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white" /></label>

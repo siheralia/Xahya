@@ -39,15 +39,5 @@ CREATE INDEX IF NOT EXISTS "worldSimulationRun_type_completed_idx"
   ON public."worldSimulationRun"("simulationType", "completedAt");
 
 ALTER TABLE public."populationCohort" ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "populationCohort_admin_access" ON public."populationCohort";
-CREATE POLICY "populationCohort_admin_access" ON public."populationCohort"
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-GRANT SELECT, INSERT, UPDATE, DELETE ON public."populationCohort" TO authenticated;
-GRANT USAGE, SELECT ON SEQUENCE public."populationCohort_id_seq" TO authenticated;
 
 ALTER TABLE public."worldSimulationRun" ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "worldSimulationRun_admin_access" ON public."worldSimulationRun";
-CREATE POLICY "worldSimulationRun_admin_access" ON public."worldSimulationRun"
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-GRANT SELECT, INSERT, UPDATE, DELETE ON public."worldSimulationRun" TO authenticated;
-GRANT USAGE, SELECT ON SEQUENCE public."worldSimulationRun_id_seq" TO authenticated;

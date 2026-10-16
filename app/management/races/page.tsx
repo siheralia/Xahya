@@ -5,7 +5,7 @@ import Link from "next/link";
 import ManagementModal from "../_components/ManagementModal";
 
 type Perk = { id: number; name: string; description: string | null };
-type Race = { id: number; name: string; description: string | null; imagePath: string | null; imageUrl?: string | null; active: boolean; perkIds: number[] };
+type Race = { id: number; name: string; description: string | null; imagePath: string | null; imageUrl?: string | null; lifeExpectancyYears: number | null; active: boolean; perkIds: number[] };
 
 async function compressImage(file: File) {
   const bitmap = await createImageBitmap(file);
@@ -31,6 +31,7 @@ export default function RacesManagementPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [lifeExpectancyYears, setLifeExpectancyYears] = useState("");
   const [selectedPerks, setSelectedPerks] = useState<number[]>([]);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -52,13 +53,14 @@ export default function RacesManagementPage() {
   useEffect(() => () => { if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
   function clearForm() {
-    setEditingId(null); setName(""); setDescription(""); setSelectedPerks([]);
+    setEditingId(null); setName(""); setDescription(""); setLifeExpectancyYears(""); setSelectedPerks([]);
     setSelectedImage(null); setPreviewUrl(null); setModalOpen(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function edit(race: Race) {
     setEditingId(race.id); setName(race.name); setDescription(race.description ?? "");
+    setLifeExpectancyYears(race.lifeExpectancyYears == null ? "" : String(race.lifeExpectancyYears));
     setSelectedPerks(race.perkIds ?? []); setSelectedImage(null); setPreviewUrl(race.imageUrl ?? null);
     setError(""); setSuccess(""); setModalOpen(true);
   }
@@ -93,7 +95,7 @@ export default function RacesManagementPage() {
       const response = await fetch(url, {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), description, perkIds: selectedPerks }),
+        body: JSON.stringify({ name: name.trim(), description, lifeExpectancyYears: lifeExpectancyYears === "" ? null : Number(lifeExpectancyYears), perkIds: selectedPerks }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar la raza.");
@@ -148,6 +150,7 @@ export default function RacesManagementPage() {
               <div className="p-5">
                 <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">{race.name}</h2><span className={race.active ? "text-emerald-400" : "text-zinc-600"}>{race.active ? "Activa" : "Inactiva"}</span></div>
                 <p className="mt-2 text-sm text-zinc-500">{race.description ?? "Sin descripción."}</p>
+                <p className="mt-2 text-sm text-violet-300">{race.lifeExpectancyYears == null ? "Esperanza de vida sin definir" : `Esperanza de vida: ${race.lifeExpectancyYears.toLocaleString("es-MX")} años`}</p>
                 <p className="mt-3 text-xs text-zinc-600">{race.perkIds.length} perk{race.perkIds.length === 1 ? "" : "s"}</p>
                 <div className="mt-4 flex gap-2"><button onClick={() => edit(race)} className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm text-cyan-300">Editar</button><button onClick={() => toggleActive(race)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">{race.active ? "Desactivar" : "Activar"}</button></div>
               </div>
@@ -160,6 +163,10 @@ export default function RacesManagementPage() {
           <div className="grid gap-4">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre de la raza" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white" />
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" rows={3} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white" />
+            <label className="text-sm text-zinc-300">Esperanza de vida (años, opcional)
+              <input type="number" min={1} max={100000} step={1} value={lifeExpectancyYears} onChange={(e) => setLifeExpectancyYears(e.target.value)} placeholder="Por ejemplo, 120" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white" />
+              <span className="mt-1 block text-xs text-zinc-600">Déjala vacía si aún no está definida. Se usará después para la simulación de envejecimiento y mortalidad.</span>
+            </label>
 
             <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">

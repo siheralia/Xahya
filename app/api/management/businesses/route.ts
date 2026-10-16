@@ -27,9 +27,10 @@ export async function GET() {
   const Position = (db.orm.public as any).BusinessPosition;
   const Contract = (db.orm.public as any).EmploymentContract;
   const Character = db.orm.public.Character;
+  const Location = (db.orm.public as any).WorldLocation;
 
-  const [businesses, positions, contracts, characters] = await Promise.all([
-    Business.all(), Position.all(), Contract.all(), Character.all(),
+  const [businesses, positions, contracts, characters, locations] = await Promise.all([
+    Business.all(), Position.all(), Contract.all(), Character.all(), Location.all(),
   ]);
 
   const systemPositions = positions.filter((position: any) => position.businessId == null).map((position: any) => ({
@@ -44,6 +45,7 @@ export async function GET() {
   return NextResponse.json({
     businesses: businesses.map((business: any) => ({
       ...business,
+      locationName: locations.find((location: any) => Number(location.id) === Number(business.locationId))?.name ?? null,
       ownerCharacter: characters.find((character: any) => Number(character.id) === Number(business.ownerCharacterId)) ?? null,
       positions: positions.filter((position: any) => Number(position.businessId) === Number(business.id)).map((position: any) => ({
         ...position,
@@ -56,6 +58,7 @@ export async function GET() {
     })),
     systemPositions,
     characters: characters.map((character: any) => ({ id: Number(character.id), name: String(character.name), flair: character.flair ?? null })),
+    locations: locations.map((location: any) => ({ id: Number(location.id), name: String(location.name), type: String(location.type), publicationStatus: String(location.publicationStatus) })),
   });
 }
 
@@ -73,6 +76,13 @@ export async function POST(request: Request) {
     const passiveFrequency = String(body?.passiveFrequency ?? "WEEKLY");
     const passiveDayOfWeek = Math.trunc(Number(body?.passiveDayOfWeek ?? 0));
     const passiveTime = String(body?.passiveTime ?? "18:00");
+    const rawLocationId = body?.locationId === "" || body?.locationId == null ? null : Number(body.locationId);
+    const locationId = rawLocationId !== null && Number.isSafeInteger(rawLocationId) && rawLocationId > 0 ? rawLocationId : null;
+    if (rawLocationId !== null && locationId === null) return NextResponse.json({ error: "Ubicación inválida." }, { status: 400 });
+    if (locationId !== null) {
+      const location = await (db.orm.public as any).WorldLocation.where({ id: locationId }).first();
+      if (!location || location.publicationStatus === "ARCHIVED") return NextResponse.json({ error: "La ubicación no existe o está archivada." }, { status: 400 });
+    }
     if (!name || name.length > 100) return NextResponse.json({ error: "El nombre del negocio es obligatorio." }, { status: 400 });
     if (!Number.isInteger(ownerCharacterId) || ownerCharacterId <= 0) return NextResponse.json({ error: "Dueño inválido." }, { status: 400 });
     if (!Number.isInteger(passiveIncome) || passiveIncome < 0) return NextResponse.json({ error: "Ganancia inválida." }, { status: 400 });
@@ -87,6 +97,7 @@ export async function POST(request: Request) {
     const business = await Business.create({
       name,
       description: typeof body?.description === "string" ? body.description.trim() || null : null,
+      locationId,
       ownerCharacterId,
       passiveIncome,
       passiveFrequency,
@@ -107,6 +118,13 @@ export async function POST(request: Request) {
     const passiveFrequency = String(body?.passiveFrequency ?? "WEEKLY");
     const passiveDayOfWeek = Math.trunc(Number(body?.passiveDayOfWeek ?? 0));
     const passiveTime = String(body?.passiveTime ?? "18:00");
+    const rawLocationId = body?.locationId === "" || body?.locationId == null ? null : Number(body.locationId);
+    const locationId = rawLocationId !== null && Number.isSafeInteger(rawLocationId) && rawLocationId > 0 ? rawLocationId : null;
+    if (rawLocationId !== null && locationId === null) return NextResponse.json({ error: "Ubicación inválida." }, { status: 400 });
+    if (locationId !== null) {
+      const location = await (db.orm.public as any).WorldLocation.where({ id: locationId }).first();
+      if (!location || location.publicationStatus === "ARCHIVED") return NextResponse.json({ error: "La ubicación no existe o está archivada." }, { status: 400 });
+    }
 
     if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: "Negocio inválido." }, { status: 400 });
     if (!name || name.length > 100) return NextResponse.json({ error: "El nombre del negocio es obligatorio." }, { status: 400 });
@@ -126,6 +144,7 @@ export async function POST(request: Request) {
     const business = await Business.where({ id }).update({
       name,
       description: typeof body?.description === "string" ? body.description.trim() || null : null,
+      locationId,
       ownerCharacterId,
       passiveIncome,
       passiveFrequency,

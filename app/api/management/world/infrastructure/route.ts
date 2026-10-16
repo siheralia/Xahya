@@ -6,7 +6,7 @@ import { recordAuditEvent } from "@/lib/audit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const KINDS = ["TOWER", "ORBITAL_SATELLITE", "GLOBAL_HEADQUARTERS"] as const;
+const KINDS = ["TOWER", "ORBITAL_SATELLITE", "GLOBAL_HEADQUARTERS", "BUILDING", "WORKSHOP", "WAREHOUSE", "VEHICLE", "EQUIPMENT", "STORE", "FACILITY"] as const;
 const STATUSES = ["PLANNED", "ACTIVE", "INACTIVE", "MAINTENANCE", "DAMAGED"] as const;
 const PUBLICATION = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 const LINK_TYPES = ["TRANSMISSION", "BACKHAUL", "SATELLITE_UPLINK", "SATELLITE_DOWNLINK", "HEADQUARTERS_CONTROL"] as const;
@@ -40,6 +40,7 @@ function infrastructureFields(body: any) {
   const name = String(body?.name ?? "").trim();
   const kind = String(body?.kind ?? "");
   const worldLocationId = optionalId(body?.worldLocationId, "La locación");
+  const businessId = optionalId(body?.businessId, "El negocio");
   const description = typeof body?.description === "string" ? body.description.trim() || null : null;
   const foundingHistory = typeof body?.foundingHistory === "string" ? body.foundingHistory.trim() || null : null;
   const constructionType = typeof body?.constructionType === "string" ? body.constructionType.trim() || null : null;
@@ -54,7 +55,7 @@ function infrastructureFields(body: any) {
     if (value && value.length > max) throw new Error(`${label} supera el límite de ${max} caracteres.`);
   }
   return {
-    code, name, kind, worldLocationId, description, foundingHistory, constructionType,
+    code, name, kind, worldLocationId, businessId, description, foundingHistory, constructionType,
     operationalStatus, publicationStatus,
     coverage: objectValue(body?.coverage, "La cobertura"),
     details: objectValue(body?.details, "Los detalles"),
@@ -87,7 +88,9 @@ export async function GET() {
     const Infrastructure = (db.orm.public as any).WorldInfrastructure;
     const Link = (db.orm.public as any).WorldInfrastructureLink;
     const Location = (db.orm.public as any).WorldLocation;
-    const [nodes, links, locations] = await Promise.all([Infrastructure.all(), Link.all(), Location.all()]);
+    const Business = (db.orm.public as any).Business;
+    const [nodes, links, locations, businesses] = await Promise.all([Infrastructure.all(), Link.all(), Location.all(), Business.all()]);
+    const businessById = new Map<number, any>(businesses.map((business: any) => [Number(business.id), business]));
     const locationById = new Map<number, any>(locations.map((location: any) => [Number(location.id), location]));
     const nodeById = new Map<number, any>(nodes.map((node: any) => [Number(node.id), node]));
     return NextResponse.json({
@@ -95,6 +98,8 @@ export async function GET() {
         ...node,
         id: Number(node.id),
         worldLocationId: node.worldLocationId == null ? null : Number(node.worldLocationId),
+        businessId: node.businessId == null ? null : Number(node.businessId),
+        businessName: node.businessId == null ? null : businessById.get(Number(node.businessId))?.name ?? null,
         locationName: node.worldLocationId == null ? null : locationById.get(Number(node.worldLocationId))?.name ?? null,
       })).sort((a: any, b: any) => a.kind.localeCompare(b.kind) || a.code.localeCompare(b.code)),
       links: links.map((link: any) => ({
@@ -102,6 +107,7 @@ export async function GET() {
         sourceName: nodeById.get(Number(link.sourceId))?.name ?? "Nodo desconocido",
         targetName: nodeById.get(Number(link.targetId))?.name ?? "Nodo desconocido",
       })).sort((a: any, b: any) => a.sourceName.localeCompare(b.sourceName, "es") || a.targetName.localeCompare(b.targetName, "es")),
+      businesses: businesses.filter((business: any) => business.active !== false).map((business: any) => ({ id: Number(business.id), name: business.name, locationId: business.locationId == null ? null : Number(business.locationId) })).sort((a: any, b: any) => a.name.localeCompare(b.name, "es")),
       locations: locations.filter((location: any) => location.publicationStatus !== "ARCHIVED")
         .map((location: any) => ({ id: Number(location.id), name: location.name, type: location.type, parentId: location.parentId == null ? null : Number(location.parentId) }))
         .sort((a: any, b: any) => a.name.localeCompare(b.name, "es")),
@@ -122,6 +128,7 @@ export async function POST(request: Request) {
   const Infrastructure = (db.orm.public as any).WorldInfrastructure;
   const Link = (db.orm.public as any).WorldInfrastructureLink;
   const Location = (db.orm.public as any).WorldLocation;
+  const Business = (db.orm.public as any).Business;
 
   try {
     if (action.endsWith("-node")) {
@@ -135,6 +142,10 @@ export async function POST(request: Request) {
       }
       if (action !== "create-node" && action !== "update-node") return NextResponse.json({ error: "Acción de nodo no reconocida." }, { status: 400 });
       const fields = infrastructureFields(body);
+      if (fields.businessId !== null) {
+        const business = await Business.where({ id: fields.businessId }).first();
+        if (!business) return NextResponse.json({ error: "El negocio seleccionado no existe." }, { status: 400 });
+      }
       if (fields.worldLocationId !== null) {
         const location = await Location.where({ id: fields.worldLocationId }).first();
         if (!location) return NextResponse.json({ error: "La locación seleccionada no existe." }, { status: 400 });
@@ -148,7 +159,7 @@ export async function POST(request: Request) {
       } else {
         saved = await Infrastructure.create(fields);
       }
-      await recordAuditEvent({ actorUserId: Number(admin.id), action: action === "update-node" ? "WORLD_INFRASTRUCTURE_UPDATE" : "WORLD_INFRASTRUCTURE_CREATE", entityType: "WORLD_INFRASTRUCTURE", entityId: Number(saved.id), details: { code: fields.code, name: fields.name, kind: fields.kind, worldLocationId: fields.worldLocationId } });
+      await recordAuditEvent({ actorUserId: Number(admin.id), action: action === "update-node" ? "WORLD_INFRASTRUCTURE_UPDATE" : "WORLD_INFRASTRUCTURE_CREATE", entityType: "WORLD_INFRASTRUCTURE", entityId: Number(saved.id), details: { code: fields.code, name: fields.name, kind: fields.kind, worldLocationId: fields.worldLocationId, businessId: fields.businessId } });
       return NextResponse.json({ node: { ...saved, id: Number(saved.id) } }, { status: action === "create-node" ? 201 : 200 });
     }
 

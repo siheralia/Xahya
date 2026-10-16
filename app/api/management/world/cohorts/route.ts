@@ -85,7 +85,72 @@ export async function POST(request: Request) {
   const action = String(body?.action ?? "create");
   const Cohort = (db.orm.public as any).PopulationCohort;
   const Location = (db.orm.public as any).WorldLocation;
+  const Run = (db.orm.public as any).WorldSimulationRun;
   try {
+    if (action === "simulate-demographics") {
+      const periodKey = String(body?.periodKey ?? "").trim();
+      if (!/^population-demographic-[A-Za-z0-9-]{1,100}$/.test(periodKey)) {
+        return NextResponse.json({ error: "Clave de ciclo demográfico inválida." }, { status: 400 });
+      }
+      const previous = await Run.where({ periodKey }).first();
+      if (previous) return NextResponse.json({ alreadyRun: true, run: previous });
+
+      const result = await db.transaction(async (tx) => {
+        const TxCohort = (tx.orm.public as any).PopulationCohort;
+        const TxRun = (tx.orm.public as any).WorldSimulationRun;
+        const existingRun = await TxRun.where({ periodKey }).first();
+        if (existingRun) return { alreadyRun: true, run: existingRun, summary: existingRun.summary };
+        const activeCohorts = (await TxCohort.all()).filter((entry: any) => entry.active !== false);
+        const scale = BigInt(1_000_000);
+        let populationBefore = BigInt(0);
+        let populationAfter = BigInt(0);
+        let birthsTotal = BigInt(0);
+        let deathsTotal = BigInt(0);
+        let migrationTotal = BigInt(0);
+
+        for (const cohort of activeCohorts) {
+          const population = BigInt(cohort.population ?? 0);
+          const births = population * BigInt(Math.round(Number(cohort.birthRate ?? 0.012) * 1_000_000)) / scale;
+          const deaths = population * BigInt(Math.round(Number(cohort.deathRate ?? 0.008) * 1_000_000)) / scale;
+          const migrationRate = Number(cohort.migrationRate ?? 0);
+          const migration = population * BigInt(Math.round(migrationRate * 1_000_000)) / scale;
+          const rawPopulation = population + births - deaths + migration;
+          const nextPopulation = rawPopulation < BigInt(0) ? BigInt(0) : rawPopulation;
+          populationBefore += population;
+          populationAfter += nextPopulation;
+          birthsTotal += births;
+          deathsTotal += deaths;
+          migrationTotal += migration;
+          await TxCohort.where({ id: Number(cohort.id) }).update({ population: nextPopulation });
+        }
+
+        const summary = {
+          cohortsProcessed: activeCohorts.length,
+          populationBefore: String(populationBefore),
+          populationAfter: String(populationAfter),
+          births: String(birthsTotal),
+          deaths: String(deathsTotal),
+          netMigration: String(migrationTotal),
+          formula: "población + nacimientos - muertes + migración neta",
+        };
+        const run = await TxRun.create({
+          simulationType: "DEMOGRAPHIC_ANNUAL",
+          periodKey,
+          status: "COMPLETED",
+          summary,
+        });
+        return { alreadyRun: false, run, summary };
+      });
+      await recordAuditEvent({
+        actorUserId: Number(admin.id),
+        action: result.alreadyRun ? "WORLD_DEMOGRAPHIC_CYCLE_REPLAY" : "WORLD_DEMOGRAPHIC_CYCLE",
+        entityType: "WORLD_SIMULATION_RUN",
+        entityId: Number(result.run.id),
+        details: { periodKey, summary: result.summary ?? result.run.summary },
+      });
+      return NextResponse.json(result, { status: result.alreadyRun ? 200 : 201 });
+    }
+
     if (action === "delete") {
       const id = Number(body?.id);
       if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: "ID de cohorte inválido." }, { status: 400 });

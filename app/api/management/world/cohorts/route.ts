@@ -264,6 +264,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
     const data = fields(body);
+    if (data.race !== "Sin especificar") {
+      const Race = (db.orm.public as any).Race;
+      const raceCatalog = await Race.all();
+      const selectedRace = raceCatalog.find((entry: any) => String(entry.name) === data.race);
+      if (!selectedRace) return NextResponse.json({ error: "Selecciona una raza existente del catálogo de Gestión → Razas." }, { status: 400 });
+      data.race = String(selectedRace.name);
+    }
     const location = await Location.where({ id: data.locationId }).first();
     if (!location) return NextResponse.json({ error: "La locación seleccionada no existe." }, { status: 400 });
     if (location.publicationStatus === "ARCHIVED") return NextResponse.json({ error: "No puedes asignar población a una locación archivada." }, { status: 400 });

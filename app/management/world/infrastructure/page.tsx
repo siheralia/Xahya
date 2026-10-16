@@ -36,8 +36,11 @@ const STATUSES = [
 ];
 const PUBLICATION = [["DRAFT", "Borrador"], ["PUBLISHED", "Publicado"], ["ARCHIVED", "Archivado"]];
 const LINK_TYPES = [
-  ["TRANSMISSION", "Transmisión"], ["BACKHAUL", "Enlace troncal"], ["SATELLITE_UPLINK", "Subida al satélite"],
-  ["SATELLITE_DOWNLINK", "Bajada del satélite"], ["HEADQUARTERS_CONTROL", "Control desde sede"],
+  ["ROAD", "Carretera"], ["RAIL", "Vía ferroviaria"], ["WATER", "Conducto de agua"],
+  ["POWER", "Red eléctrica"], ["SUPPLY", "Suministro"], ["DATA", "Red de datos"],
+  ["TRANSMISSION", "Transmisión"], ["BACKHAUL", "Enlace troncal"],
+  ["SATELLITE_UPLINK", "Subida al satélite"], ["SATELLITE_DOWNLINK", "Bajada del satélite"],
+  ["HEADQUARTERS_CONTROL", "Control desde sede"], ["CUSTOM", "Otra conexión"],
 ];
 const label = (items: string[][], value: string) => items.find(([key]) => key === value)?.[1] ?? value;
 const inputClass = "mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white outline-none focus:border-cyan-400";
@@ -165,7 +168,7 @@ export default function WorldInfrastructurePage() {
     <div className="mb-7">
       <Link href="/management/world" className="text-sm text-zinc-500 hover:text-zinc-300">← Gestión del mundo</Link>
       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">Infraestructura</p>
-      <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Infraestructura de comunicación</h1>
+      <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Infraestructura del mundo</h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">Administra los 26 nodos terrestres, los 4 Ojos de Nova y la sede global adicional. Esta red transmite información arcana; no crea portales ni sustituye a Dvāra/Setu. Los registros nuevos comienzan como borrador y planeados.</p>
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[["Nodos totales", String(nodes.length)], ["Torres", String(count("TOWER"))], ["Ojos de Nova", String(count("ORBITAL_SATELLITE"))], ["Sede global", String(count("GLOBAL_HEADQUARTERS"))]].map(([title, value]) =>

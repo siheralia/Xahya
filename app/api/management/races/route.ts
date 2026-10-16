@@ -37,6 +37,10 @@ export async function POST(request: Request) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const description = typeof body?.description === "string" ? body.description.trim() : null;
   const imagePath = typeof body?.imagePath === "string" ? body.imagePath.trim() : null;
+  const lifeExpectancyYears = body?.lifeExpectancyYears == null || body.lifeExpectancyYears === "" ? null : Number(body.lifeExpectancyYears);
+  if (lifeExpectancyYears !== null && (!Number.isSafeInteger(lifeExpectancyYears) || lifeExpectancyYears < 1 || lifeExpectancyYears > 100000)) {
+    return NextResponse.json({ error: "La esperanza de vida debe ser un entero entre 1 y 100000 años, o dejarse vacía." }, { status: 400 });
+  }
   const rawPerkIds: unknown[] = Array.isArray(body?.perkIds) ? body.perkIds : [];
   const perkIds: number[] = [...new Set(rawPerkIds.map((value: unknown) => Number(value)).filter((value: number) => Number.isInteger(value)))];
 
@@ -55,6 +59,7 @@ export async function POST(request: Request) {
         name,
         description: description || null,
         imagePath: imagePath || null,
+        lifeExpectancyYears,
         active: true,
       });
       const RP = (tx.orm.public as any).RacePerk;

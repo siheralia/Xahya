@@ -209,6 +209,7 @@ export default function WorldManagementPage() {
             Prepara continentes, regiones, ciudades e islas. Publicación, actividad y reclamabilidad son estados independientes.
             No necesitas tener un mapa ni rutas para crear una locación.
           </p>
+          <Link href="/management/world/cohorts" className="mt-4 inline-flex rounded-lg border border-cyan-500/40 bg-cyan-950/20 px-4 py-2 text-sm font-medium text-cyan-200 transition hover:bg-cyan-950/40">Gestionar cohortes de población →</Link>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-400">
           <span className="block text-2xl font-semibold text-white">{locations.length}</span>

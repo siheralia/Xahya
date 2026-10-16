@@ -433,6 +433,8 @@ model Business {
   active                 Boolean   @default(true)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @default(now())
+  locationId            Int?
+  location              WorldLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   positions             BusinessPosition[]
   paymentLogs           EconomyPaymentLog[]
   products              BusinessProduct[]
@@ -647,4 +649,53 @@ model WorldSimulationRun {
 
   @@index([simulationType, completedAt])
   @@map("worldSimulationRun")
+}
+
+
+/// Instalaciones físicas y orbitales de Red Nova Link.
+/// Las torres y la sede apuntan a un WorldLocation de tipo BUILDING/POINT_OF_INTEREST.
+/// Los satélites pueden dejar worldLocationId en null y describir su órbita en details.
+model WorldInfrastructure {
+  id              Int       @id @default(autoincrement())
+  code            String    @unique
+  name            String
+  kind            String
+  worldLocationId Int?
+  worldLocation   WorldLocation? @relation(fields: [worldLocationId], references: [id], onDelete: SetNull)
+  description     String?
+  foundingHistory String?
+  constructionType String?
+  coverage        Json      @default("{}")
+  details         Json      @default("{}")
+  operationalStatus String  @default("PLANNED")
+  publicationStatus String  @default("DRAFT")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+  outgoingLinks   WorldInfrastructureLink[] @relation("InfrastructureLinkSource")
+  incomingLinks   WorldInfrastructureLink[] @relation("InfrastructureLinkTarget")
+
+  @@index([kind, operationalStatus])
+  @@index([worldLocationId])
+  @@index([publicationStatus])
+  @@map("worldInfrastructure")
+}
+
+/// Enlaces dirigidos de transmisión; no representan portales de transporte.
+model WorldInfrastructureLink {
+  id              Int       @id @default(autoincrement())
+  sourceId        Int
+  source          WorldInfrastructure @relation("InfrastructureLinkSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  targetId        Int
+  target          WorldInfrastructure @relation("InfrastructureLinkTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  linkType        String
+  operationalStatus String @default("PLANNED")
+  description     String?
+  details         Json      @default("{}")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+
+  @@unique([sourceId, targetId, linkType])
+  @@index([sourceId, operationalStatus])
+  @@index([targetId, operationalStatus])
+  @@map("worldInfrastructureLink")
 }

@@ -389,6 +389,7 @@ model Race {
   createdAt            DateTime  @default(now())
   characters           Character[]
   perks                RacePerk[]
+  populationCohorts    PopulationCohort[]
 }
 
 model RacePerk {
@@ -617,6 +618,12 @@ model PopulationCohort {
   locationId     Int
   location       WorldLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
   name           String
+  raceId         Int?
+  raceRef        Race?        @relation(fields: [raceId], references: [id], onDelete: SetNull)
+  occupationId   Int?
+  occupationRef  WorldOccupation? @relation(fields: [occupationId], references: [id], onDelete: SetNull)
+  socialClassId  Int?
+  socialClassRef WorldSocialClass? @relation(fields: [socialClassId], references: [id], onDelete: SetNull)
   race           String       @default("Sin especificar")
   occupation     String       @default("Sin especificar")
   socialClass    String       @default("Sin especificar")
@@ -702,4 +709,31 @@ model WorldInfrastructureLink {
   @@index([sourceId, operationalStatus])
   @@index([targetId, operationalStatus])
   @@map("worldInfrastructureLink")
+}
+
+
+/// Catálogo canónico de ocupaciones de la población agregada del mundo.
+model WorldOccupation {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  cohorts     PopulationCohort[]
+  @@index([active, name])
+  @@map("worldOccupation")
+}
+
+/// Catálogo canónico de clases/estratos sociales del mundo.
+model WorldSocialClass {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  cohorts     PopulationCohort[]
+  @@index([active, name])
+  @@map("worldSocialClass")
 }

@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Location = { id: number; name: string; type: string; parentId: number | null };
+type Business = { id: number; name: string; locationId: number | null };
 type Node = {
-  id: number; code: string; name: string; kind: string; worldLocationId: number | null;
-  locationName: string | null; description: string | null; foundingHistory: string | null;
+  id: number; code: string; name: string; kind: string; worldLocationId: number | null; businessId: number | null;
+  businessName: string | null; locationName: string | null; description: string | null; foundingHistory: string | null;
   constructionType: string | null; coverage: Record<string, unknown>; details: Record<string, unknown>;
   operationalStatus: string; publicationStatus: string;
 };
@@ -15,18 +16,19 @@ type LinkRecord = {
   linkType: string; operationalStatus: string; description: string | null;
 };
 type Form = {
-  id: number | null; code: string; name: string; kind: string; worldLocationId: string;
+  id: number | null; code: string; name: string; kind: string; worldLocationId: string; businessId: string;
   description: string; foundingHistory: string; constructionType: string;
   coverage: string; details: string; operationalStatus: string; publicationStatus: string;
 };
 const EMPTY: Form = {
-  id: null, code: "", name: "", kind: "TOWER", worldLocationId: "",
+  id: null, code: "", name: "", kind: "TOWER", worldLocationId: "", businessId: "",
   description: "", foundingHistory: "", constructionType: "", coverage: "{}", details: "{}",
   operationalStatus: "PLANNED", publicationStatus: "DRAFT",
 };
 const KINDS = [
   ["TOWER", "Torre terrestre"], ["ORBITAL_SATELLITE", "Ojo de Nova (satélite)"],
-  ["GLOBAL_HEADQUARTERS", "Sede global"],
+  ["GLOBAL_HEADQUARTERS", "Sede global"], ["BUILDING", "Edificio"], ["WORKSHOP", "Taller"],
+  ["WAREHOUSE", "Almacén"], ["VEHICLE", "Vehículo"], ["EQUIPMENT", "Equipo"], ["STORE", "Tienda"], ["FACILITY", "Instalación"],
 ];
 const STATUSES = [
   ["PLANNED", "Planeado"], ["ACTIVE", "Activo"], ["INACTIVE", "Inactivo"],
@@ -45,6 +47,7 @@ export default function WorldInfrastructurePage() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [links, setLinks] = useState<LinkRecord[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [form, setForm] = useState<Form>(EMPTY);
   const [linkForm, setLinkForm] = useState({ sourceId: "", targetId: "", linkType: "TRANSMISSION", operationalStatus: "PLANNED", description: "" });
   const [search, setSearch] = useState("");
@@ -59,7 +62,7 @@ export default function WorldInfrastructurePage() {
       const response = await fetch("/api/management/world/infrastructure", { cache: "no-store" });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "No se pudo cargar Red Nova Link.");
-      setNodes(data.nodes ?? []); setLinks(data.links ?? []); setLocations(data.locations ?? []);
+      setNodes(data.nodes ?? []); setLinks(data.links ?? []); setLocations(data.locations ?? []); setBusinesses(data.businesses ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar Red Nova Link.");
     } finally { setLoading(false); }
@@ -68,7 +71,7 @@ export default function WorldInfrastructurePage() {
 
   const filteredNodes = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es");
-    return nodes.filter((node) => !term || [node.code, node.name, node.locationName ?? "", node.kind, node.description ?? ""]
+    return nodes.filter((node) => !term || [node.code, node.name, node.locationName ?? "", node.businessName ?? "", node.kind, node.description ?? ""]
       .some((value) => value.toLocaleLowerCase("es").includes(term)));
   }, [nodes, search]);
 
@@ -76,6 +79,7 @@ export default function WorldInfrastructurePage() {
     setForm({
       id: node.id, code: node.code, name: node.name, kind: node.kind,
       worldLocationId: node.worldLocationId == null ? "" : String(node.worldLocationId),
+      businessId: node.businessId == null ? "" : String(node.businessId),
       description: node.description ?? "", foundingHistory: node.foundingHistory ?? "",
       constructionType: node.constructionType ?? "", coverage: JSON.stringify(node.coverage ?? {}, null, 2),
       details: JSON.stringify(node.details ?? {}, null, 2), operationalStatus: node.operationalStatus,
@@ -97,7 +101,7 @@ export default function WorldInfrastructurePage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: form.id === null ? "create-node" : "update-node", id: form.id, code: form.code, name: form.name,
-          kind: form.kind, worldLocationId: form.worldLocationId || null, description: form.description,
+          kind: form.kind, worldLocationId: form.worldLocationId || null, businessId: form.businessId || null, description: form.description,
           foundingHistory: form.foundingHistory, constructionType: form.constructionType, coverage, details,
           operationalStatus: form.operationalStatus, publicationStatus: form.publicationStatus,
         }),
@@ -179,6 +183,7 @@ export default function WorldInfrastructurePage() {
         <label className="block"><span className="text-sm text-zinc-300">Nombre *</span><input required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Torre de Agnikota" className={inputClass} /></label>
         <label className="block"><span className="text-sm text-zinc-300">Tipo de nodo</span><select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} className={inputClass}>{KINDS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
         <label className="block"><span className="text-sm text-zinc-300">Ubicación geográfica (opcional)</span><select value={form.worldLocationId} onChange={(e) => setForm({ ...form, worldLocationId: e.target.value })} className={inputClass}><option value="">Sin ubicación asignada</option>{locations.map((location) => <option key={location.id} value={location.id}>{location.name} · {location.type}</option>)}</select></label>
+        <label className="block"><span className="text-sm text-zinc-300">Negocio propietario (opcional)</span><select value={form.businessId} onChange={(e) => setForm({ ...form, businessId: e.target.value })} className={inputClass}><option value="">Sin negocio propietario</option>{businesses.map((business) => <option key={business.id} value={business.id}>{business.name}</option>)}</select><span className="mt-1 block text-xs text-zinc-500">Puedes asignar varios activos al mismo negocio; también existen instalaciones independientes.</span></label>
         <label className="block"><span className="text-sm text-zinc-300">Estado operativo</span><select value={form.operationalStatus} onChange={(e) => setForm({ ...form, operationalStatus: e.target.value })} className={inputClass}>{STATUSES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
         <label className="block"><span className="text-sm text-zinc-300">Publicación</span><select value={form.publicationStatus} onChange={(e) => setForm({ ...form, publicationStatus: e.target.value })} className={inputClass}>{PUBLICATION.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
         <label className="block"><span className="text-sm text-zinc-300">Construcción / soporte</span><input maxLength={120} value={form.constructionType} onChange={(e) => setForm({ ...form, constructionType: e.target.value })} placeholder="Piedra conductora, cristal, metal…" className={inputClass} /></label>
@@ -195,7 +200,7 @@ export default function WorldInfrastructurePage() {
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por código, nodo, ciudad o tipo…" className="mb-4 w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400" />
       {loading ? <p className="py-10 text-center text-sm text-zinc-500">Cargando infraestructura…</p> : filteredNodes.length === 0 ? <div className="rounded-xl border border-dashed border-zinc-800 p-8 text-center text-sm text-zinc-500">Todavía no hay nodos. El modelo está preparado, pero no inventamos instalaciones ni coordenadas sin registrarlas.</div> :
         <div className="grid gap-3">{filteredNodes.map((node) => <article key={node.id} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-zinc-800 px-2 py-1 font-mono text-xs text-cyan-300">{node.code}</span><h3 className="font-semibold text-white">{node.name}</h3></div><p className="mt-2 text-sm text-zinc-400">{label(KINDS, node.kind)}{node.locationName ? ` · ${node.locationName}` : " · Sin ubicación asignada"}</p><div className="mt-2 flex flex-wrap gap-2 text-xs"><span className="rounded-full border border-zinc-700 px-2 py-1 text-zinc-300">{label(STATUSES, node.operationalStatus)}</span><span className="rounded-full border border-zinc-700 px-2 py-1 text-zinc-400">{label(PUBLICATION, node.publicationStatus)}</span></div>{node.description && <p className="mt-3 max-w-3xl text-sm text-zinc-400">{node.description}</p>}</div><div className="flex gap-2"><button type="button" onClick={() => edit(node)} className={buttonClass}>Editar</button><button type="button" onClick={() => void removeNode(node)} className="rounded-lg border border-red-900/70 px-3 py-2 text-sm text-red-300 hover:bg-red-950/30">Eliminar</button></div></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-zinc-800 px-2 py-1 font-mono text-xs text-cyan-300">{node.code}</span><h3 className="font-semibold text-white">{node.name}</h3></div><p className="mt-2 text-sm text-zinc-400">{label(KINDS, node.kind)}{node.businessName ? ` · Propiedad de ${node.businessName}` : " · Sin negocio propietario"}{node.locationName ? ` · ${node.locationName}` : " · Sin ubicación asignada"}</p><div className="mt-2 flex flex-wrap gap-2 text-xs"><span className="rounded-full border border-zinc-700 px-2 py-1 text-zinc-300">{label(STATUSES, node.operationalStatus)}</span><span className="rounded-full border border-zinc-700 px-2 py-1 text-zinc-400">{label(PUBLICATION, node.publicationStatus)}</span></div>{node.description && <p className="mt-3 max-w-3xl text-sm text-zinc-400">{node.description}</p>}</div><div className="flex gap-2"><button type="button" onClick={() => edit(node)} className={buttonClass}>Editar</button><button type="button" onClick={() => void removeNode(node)} className="rounded-lg border border-red-900/70 px-3 py-2 text-sm text-red-300 hover:bg-red-950/30">Eliminar</button></div></div>
         </article>)}</div>}
     </section>
 

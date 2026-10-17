@@ -646,6 +646,107 @@ model PopulationCohort {
   @@map("populationCohort")
 }
 
+
+/// Agrupaciones sociales que pueden abarcar varias cohortes y locaciones.
+model WorldSocialGroup {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  groupType          String
+  description        String?
+  status             String   @default("ACTIVE")
+  leaderCharacterId  Int?
+  leader             Character? @relation("SocialGroupLeader", fields: [leaderCharacterId], references: [id], onDelete: SetNull)
+  foundedAt          DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now())
+  memberships        WorldSocialGroupMembership[]
+  polityLinks        WorldPolityGroup[]
+  @@index([groupType, status])
+  @@index([leaderCharacterId])
+  @@map("worldSocialGroup")
+}
+
+/// Afiliación agregada estimada. Puede solaparse entre grupos; no es un censo exclusivo.
+model WorldSocialGroupMembership {
+  id             Int      @id @default(autoincrement())
+  groupId        Int
+  group          WorldSocialGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  cohortId       Int
+  cohort         PopulationCohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  memberCount    BigInt
+  wealthShare    BigInt   @default(0)
+  role           String   @default("MEMBER")
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now())
+  @@unique([groupId, cohortId, role])
+  @@index([cohortId])
+  @@map("worldSocialGroupMembership")
+}
+
+/// Vínculos personales explícitos entre personajes; no sustituye afiliaciones agregadas.
+model WorldLeaderRelation {
+  id                Int      @id @default(autoincrement())
+  leaderCharacterId Int
+  leader             Character @relation("WorldLeaderRelationsAsLeader", fields: [leaderCharacterId], references: [id], onDelete: Cascade)
+  followerCharacterId Int
+  follower            Character @relation("WorldLeaderRelationsAsFollower", fields: [followerCharacterId], references: [id], onDelete: Cascade)
+  relationType       String   @default("FOLLOWER")
+  loyalty            Int      @default(50)
+  createdAt          DateTime @default(now())
+  @@unique([leaderCharacterId, followerCharacterId, relationType])
+  @@index([followerCharacterId])
+  @@map("worldLeaderRelation")
+}
+
+/// Entidad política separada de las agrupaciones sociales y de las locaciones.
+model WorldPolity {
+  id                Int      @id @default(autoincrement())
+  name              String   @unique
+  polityType        String   @default("KINGDOM")
+  status             String   @default("PROPOSED")
+  description        String?
+  founderCharacterId Int?
+  founder            Character? @relation("WorldPolityFounder", fields: [founderCharacterId], references: [id], onDelete: SetNull)
+  foundedAt          DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now())
+  territories        WorldPolityLocation[]
+  groups             WorldPolityGroup[]
+  @@index([status, polityType])
+  @@index([founderCharacterId])
+  @@map("worldPolity")
+}
+
+/// Un reino puede controlar/reclamar varias locaciones; una locación puede tener reclamos rivales.
+model WorldPolityLocation {
+  id          Int      @id @default(autoincrement())
+  polityId    Int
+  polity      WorldPolity @relation(fields: [polityId], references: [id], onDelete: Cascade)
+  locationId  Int
+  location    WorldLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  relationType String  @default("CLAIM")
+  isCapital   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  @@unique([polityId, locationId, relationType])
+  @@index([locationId, relationType])
+  @@map("worldPolityLocation")
+}
+
+/// Los grupos pueden apoyar, integrar o enfrentarse a entidades políticas.
+model WorldPolityGroup {
+  id          Int      @id @default(autoincrement())
+  polityId    Int
+  polity      WorldPolity @relation(fields: [polityId], references: [id], onDelete: Cascade)
+  groupId     Int
+  group       WorldSocialGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  relationType String @default("SUPPORTS")
+  createdAt   DateTime @default(now())
+  @@unique([polityId, groupId, relationType])
+  @@index([groupId])
+  @@map("worldPolityGroup")
+}
+
 model WorldSimulationRun {
   id             Int      @id @default(autoincrement())
   simulationType String

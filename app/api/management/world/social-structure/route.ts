@@ -120,7 +120,8 @@ export async function POST(request: Request) {
         if (movingPopulation <= BigInt(0) || movingPopulation >= currentPopulation) throw new Error("La población cambió: la cantidad trasladada ya no cabe en la cohorte de origen.");
         const currentMovingWealth = requestedWealth ?? (currentWealth * movingPopulation / currentPopulation);
         if (currentMovingWealth > currentWealth) throw new Error("La riqueza cambió: la cantidad solicitada ya no está disponible.");
-        await T.PopulationCohort.where({ id: sourceId }).update({ population: currentPopulation - movingPopulation, wealth: currentWealth - currentMovingWealth });
+        const reserved = await T.PopulationCohort.where({ id: sourceId, population: currentSource.population, wealth: currentSource.wealth }).update({ population: currentPopulation - movingPopulation, wealth: currentWealth - currentMovingWealth });
+        if (!reserved) throw new Error("La cohorte cambió durante la operación; vuelve a cargar los datos e inténtalo de nuevo.");
         const fragment = await T.PopulationCohort.create({
           locationId, name: text(body.name, "El nombre de la nueva cohorte"), raceId: currentSource.raceId ?? null, occupationId: currentSource.occupationId ?? null, socialClassId: currentSource.socialClassId ?? null,
           race: currentSource.race, occupation: currentSource.occupation, socialClass: currentSource.socialClass, ageGroup: currentSource.ageGroup,

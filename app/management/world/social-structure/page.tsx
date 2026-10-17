@@ -121,6 +121,37 @@ export default function WorldSocialStructurePage() {
           <div><button className={btn} disabled={saving}>Fundar entidad política</button></div>
         </form>
       </section>
+      <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-5">
+          <h2 className="text-xl font-semibold text-white">5. Vincular agrupación con una entidad política</h2>
+          <form onSubmit={(e) => void submit("link-group", e)} className="mt-4 grid gap-4">
+            {select("Entidad política", "polityId", polities)}
+            {select("Agrupación", "groupId", groups)}
+            <label><span className={label}>Relación</span><select name="relationType" className={input} defaultValue="SUPPORTS"><option value="SUPPORTS">Apoya</option><option value="MEMBER">Forma parte de</option><option value="OPPOSES">Se opone</option><option value="NEUTRAL">Neutral</option><option value="SUBJECTS">Sujeta a la entidad</option></select></label>
+            <div><button className={btn} disabled={saving}>Vincular agrupación</button></div>
+          </form>
+        </div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-5">
+          <h2 className="text-xl font-semibold text-white">6. Añadir territorio a un reino</h2>
+          <form onSubmit={(e) => void submit("assign-territory", e)} className="mt-4 grid gap-4">
+            {select("Entidad política", "polityId", polities)}
+            {select("Locación", "locationId", locations)}
+            <label><span className={label}>Relación territorial</span><select name="relationType" className={input} defaultValue="CLAIM"><option value="CAPITAL">Capital</option><option value="CONTROLS">Controla</option><option value="CLAIM">Reclama</option><option value="INFLUENCE">Zona de influencia</option></select></label>
+            <div><button className={btn} disabled={saving}>Asignar territorio</button></div>
+          </form>
+        </div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-5 lg:col-span-2">
+          <h2 className="text-xl font-semibold text-white">7. Registrar seguidores personales</h2>
+          <p className="my-2 text-sm text-zinc-500">Para personajes individuales. Los seguidores de una población agregada se registran mediante afiliaciones de cohortes, no creando un personaje por habitante.</p>
+          <form onSubmit={(e) => void submit("link-leader", e)} className="grid gap-4 md:grid-cols-2">
+            {select("Líder", "leaderCharacterId", characters)}
+            {select("Seguidor", "followerCharacterId", characters)}
+            {field("Lealtad (0–100)", "loyalty", "number", false)}
+            <label><span className={label}>Tipo de vínculo</span><select name="relationType" className={input} defaultValue="FOLLOWER"><option value="FOLLOWER">Seguidor</option><option value="VASSAL">Vasallo</option><option value="DISCIPLE">Discípulo</option><option value="ALLY">Aliado personal</option></select></label>
+            <div><button className={btn} disabled={saving}>Registrar vínculo</button></div>
+          </form>
+        </div>
+      </section>
       <section className="mt-7 grid gap-6 lg:grid-cols-2">
         <div><h2 className="mb-3 text-xl font-semibold text-white">Agrupaciones existentes</h2>{groups.length === 0 ? <p className="rounded-xl border border-dashed border-zinc-800 p-5 text-sm text-zinc-500">Todavía no hay agrupaciones.</p> : <div className="space-y-3">{groups.map(g => <article key={g.id} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-white">{g.name}</h3><p className="mt-1 text-xs text-zinc-500">{groupTypes.find(([v]) => v === g.groupType)?.[1] ?? g.groupType} · {g.status} · {g.leaderName ? "Líder: " + g.leaderName : "Sin líder registrado"}</p></div><span className="text-xs text-zinc-500">#{g.id}</span></div><div className="mt-3 space-y-2">{g.memberships.map((m: any) => <p key={m.id} className="text-xs text-zinc-400">{m.cohortName} · {m.locationName}: {fmt(m.memberCount)} integrantes estimados · rol {m.role}</p>)}</div></article>)}</div>}</div>
         <div><h2 className="mb-3 text-xl font-semibold text-white">Reinos y entidades políticas</h2>{polities.length === 0 ? <p className="rounded-xl border border-dashed border-zinc-800 p-5 text-sm text-zinc-500">Todavía no hay entidades políticas.</p> : <div className="space-y-3">{polities.map(p => <article key={p.id} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-white">{p.name}</h3><p className="mt-1 text-xs text-zinc-500">{polityTypes.find(([v]) => v === p.polityType)?.[1] ?? p.polityType} · {p.status} · {p.founderName ? "Fundador: " + p.founderName : "Sin fundador"}</p></div><span className="text-xs text-zinc-500">#{p.id}</span></div><div className="mt-3 space-y-1">{p.territories.map((t: any) => <p key={t.id} className="text-xs text-zinc-400">{t.isCapital ? "Capital" : t.relationType}: {t.locationName}</p>)}{p.groups.map((g: any) => <p key={g.id} className="text-xs text-cyan-300">Agrupación {g.groupName} · {g.relationType}</p>)}</div></article>)}</div>}</div>

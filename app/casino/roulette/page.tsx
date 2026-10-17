@@ -267,7 +267,7 @@ export default function RoulettePage() {
                   <div className="mt-6 grid grid-cols-2 gap-3">
                     <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
                       <p className="text-xs text-zinc-500">Dinero</p>
-                      <p className={`mt-1 flex min-w-0 items-center gap-1 font-bold text-emerald-300 ${selected.money >= 1_000_000 ? "text-lg" : "text-2xl"}`}><span aria-hidden="true" className="shrink-0">◈</span><span className="min-w-0 truncate">{formatMoney(selected.money)}</span></p>
+                      <p className={`mt-1 flex min-w-0 items-center gap-1 whitespace-nowrap font-bold text-emerald-300 ${selected.money >= 10_000_000 ? "text-sm" : selected.money >= 1_000_000 ? "text-base" : selected.money >= 100_000 ? "text-lg" : "text-2xl"}`}><span aria-hidden="true" className="shrink-0">◈</span><span>{formatMoney(selected.money)}</span></p>
                     </div>
                     <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
                       <p className="text-xs text-zinc-500">Karma</p>
@@ -396,10 +396,10 @@ export default function RoulettePage() {
                     {history.map((entry, index) => (
                       <tr key={entry.id} className="border-b border-zinc-900">
                         <td className="px-3 py-3 text-zinc-600">{history.length - index}</td>
-                        <td className="px-3 py-3 text-zinc-300">$ {formatMoney(entry.bet)}</td>
+                        <td className="px-3 py-3 text-zinc-300"><span className="inline-flex items-center gap-1"><span aria-hidden="true">◈</span>{formatMoney(entry.bet)}</span></td>
                         <td className="px-3 py-3 font-bold">{entry.label}</td>
-                        <td className={`px-3 py-3 font-semibold ${entry.payout >= 0 ? "text-emerald-300" : "text-red-400"}`}>{entry.payout > 0 ? "+" : ""}{formatMoney(entry.payout)}</td>
-                        <td className={`px-3 py-3 font-semibold ${entry.moneyAfter < 0 ? "text-red-400" : "text-white"}`}>$ {formatMoney(entry.moneyAfter)}</td>
+                        <td className={`px-3 py-3 font-semibold ${entry.payout >= 0 ? "text-emerald-300" : "text-red-400"}`}><span className="inline-flex items-center gap-1"><span aria-hidden="true">◈</span>{entry.payout > 0 ? "+" : ""}{formatMoney(entry.payout)}</span></td>
+                        <td className={`px-3 py-3 font-semibold ${entry.moneyAfter < 0 ? "text-red-400" : "text-white"}`}><span className="inline-flex items-center gap-1"><span aria-hidden="true">◈</span>{formatMoney(entry.moneyAfter)}</span></td>
                         <td className="px-3 py-3 text-amber-300">🪷 {entry.karmaAfter}</td>
                       </tr>
                     ))}

@@ -432,9 +432,8 @@ export default function RoulettePage() {
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-4">
-                  <span className="text-sm font-semibold text-zinc-300">Balance de las 10 tiradas</span>
-                  <span className={`flex items-center gap-2 text-lg font-black ${batchResults.reduce((total, entry) => total + entry.payout, 0) < 0 ? "text-red-400" : "text-yellow-300"}`}>
+                <div className="mt-2 flex w-[60%] items-center justify-start">
+                  <span aria-label="Balance neto de las diez tiradas" className={`flex items-center gap-2 text-lg font-black ${batchResults.reduce((total, entry) => total + entry.payout, 0) < 0 ? "text-red-400" : "text-yellow-300"}`}>
                     <span aria-hidden="true" className="text-base">◆</span>
                     {batchResults.reduce((total, entry) => total + entry.payout, 0) > 0 ? "+" : ""}{formatMoney(batchResults.reduce((total, entry) => total + entry.payout, 0))}
                   </span>

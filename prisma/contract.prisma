@@ -52,6 +52,10 @@ model Character {
   subscriptions BusinessSubscription[]
   investmentsAsSource BusinessInvestment[]
   combatSessions CombatSession[]
+  ledSocialGroups WorldSocialGroup[] @relation("SocialGroupLeader")
+  ledRelations WorldLeaderRelation[] @relation("WorldLeaderRelationsAsLeader")
+  followerRelations WorldLeaderRelation[] @relation("WorldLeaderRelationsAsFollower")
+  foundedPolities WorldPolity[] @relation("WorldPolityFounder")
 }
 
 model Skill {
@@ -608,6 +612,7 @@ model WorldLocation {
   cohorts          PopulationCohort[]
   businesses       Business[]
   infrastructure   WorldInfrastructure[]
+  polityLinks       WorldPolityLocation[]
 
   @@map("worldLocation")
 }
@@ -643,6 +648,7 @@ model PopulationCohort {
   @@index([locationId, active])
   @@index([race])
   @@index([occupation])
+  socialGroupMemberships WorldSocialGroupMembership[]
   @@map("populationCohort")
 }
 

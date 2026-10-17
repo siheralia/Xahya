@@ -12,7 +12,7 @@ const input = "w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 
 const label = "mb-1.5 block text-sm text-zinc-300";
 const btn = "rounded-lg bg-cyan-300 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-cyan-200 disabled:opacity-50";
 const groupTypes = [["CLAN","Clan"],["GUILD","Gremio"],["RELIGIOUS","Comunidad religiosa"],["CULTURAL","Comunidad cultural"],["POLITICAL_MOVEMENT","Movimiento político"],["MIGRANT_COMMUNITY","Comunidad migrante"],["MILITARY","Grupo militar"],["OTHER","Otra"]];
-const polityTypes = [["KINGDOM","Reino"],["CITY_STATE","Ciudad-Estado"],["EMPIRE","Imperio"],["REPUBLIC","República"],["CONFEDERATION","Confederación"],["TRIBE","Tribu"],["PRINCIPALITY","Principado"],["OTHER","Otra]];
+const polityTypes = [["KINGDOM","Reino"],["CITY_STATE","Ciudad-Estado"],["EMPIRE","Imperio"],["REPUBLIC","República"],["CONFEDERATION","Confederación"],["TRIBE","Tribu"],["PRINCIPALITY","Principado"],["OTHER","Otra"]];
 const field = (labelText: string, name: string, type = "text", required = true) => <label className="block"><span className={label}>{labelText}</span><input className={input} name={name} type={type} required={required} min={type === "number" ? 0 : undefined} /></label>;
 const select = (labelText: string, name: string, items: Opt[], required = true) => <label className="block"><span className={label}>{labelText}</span><select className={input} name={name} required={required} defaultValue=""><option value="">Seleccionar…</option>{items.map((x) => <option key={x.id} value={x.id}>{x.name} · #{x.id}</option>)}</select></label>;
 

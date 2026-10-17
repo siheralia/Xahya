@@ -267,7 +267,7 @@ export default function RoulettePage() {
                   <div className="mt-6 grid grid-cols-2 gap-3">
                     <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
                       <p className="text-xs text-zinc-500">Dinero</p>
-                      <p className="mt-1 text-2xl font-bold text-emerald-300">$ {formatMoney(selected.money)}</p>
+                      <p className={`mt-1 flex min-w-0 items-center gap-1 font-bold text-emerald-300 ${selected.money >= 1_000_000 ? "text-lg" : "text-2xl"}`}><span aria-hidden="true" className="shrink-0">◈</span><span className="min-w-0 truncate">{formatMoney(selected.money)}</span></p>
                     </div>
                     <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
                       <p className="text-xs text-zinc-500">Karma</p>
@@ -428,13 +428,13 @@ export default function RoulettePage() {
                 <div className="mt-4 max-h-[60vh] overflow-y-auto">
                   {batchResults.map((entry, index) => (
                     <div key={index} className="flex items-center justify-between border-b border-zinc-900 py-3 text-sm">
-                      <span className="text-zinc-600">#{index + 1}</span><span className="font-bold">{entry.label}</span><span className={entry.payout >= 0 ? "text-emerald-300" : "text-red-400"}>{entry.payout > 0 ? "+" : ""}{formatMoney(entry.payout)}</span><span className="text-zinc-400">$ {formatMoney(entry.money)}</span>
+                      <span className="text-zinc-600">#{index + 1}</span><span className="font-bold">{entry.label}</span><span className={entry.payout >= 0 ? "text-emerald-300" : "text-red-400"}>{entry.payout > 0 ? "+" : ""}{formatMoney(entry.payout)}</span><span className="flex items-center gap-1 whitespace-nowrap text-zinc-400"><span aria-hidden="true">◈</span>{formatMoney(entry.money)}</span>
                     </div>
                   ))}
                 </div>
                 <div className="mt-2 flex w-[60%] items-center justify-start">
                   <span aria-label="Balance neto de las diez tiradas" className={`flex items-center gap-2 text-lg font-black ${batchResults.reduce((total, entry) => total + entry.payout, 0) < 0 ? "text-red-400" : "text-yellow-300"}`}>
-                    <span aria-hidden="true" className="text-base">◆</span>
+                    <span aria-hidden="true" className="text-base">◈</span>
                     {batchResults.reduce((total, entry) => total + entry.payout, 0) > 0 ? "+" : ""}{formatMoney(batchResults.reduce((total, entry) => total + entry.payout, 0))}
                   </span>
                 </div>

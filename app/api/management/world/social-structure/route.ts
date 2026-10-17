@@ -41,11 +41,12 @@ export async function GET() {
       M.WorldPolityLocation.all(), M.WorldPolityGroup.all(), M.PopulationCohort.all(),
       M.WorldLocation.all(), M.Character.all(), M.WorldLeaderRelation.all(),
     ]);
-    const locById = new Map(locations.map((x: any) => [Number(x.id), x.name]));
-    const cohortById = new Map(cohorts.map((x: any) => [Number(x.id), x]));
-    const groupById = new Map(groups.map((x: any) => [Number(x.id), x]));
-    const polityById = new Map(polities.map((x: any) => [Number(x.id), x]));
-    const charById = new Map(characters.map((x: any) => [Number(x.id), x.name]));
+    // Explicit map value types prevent the ORM's {} row inference from erasing model fields.
+    const locById = new Map<number, string>(locations.map((x: any) => [Number(x.id), String(x.name)] as [number, string]));
+    const cohortById = new Map<number, any>(cohorts.map((x: any) => [Number(x.id), x] as [number, any]));
+    const groupById = new Map<number, any>(groups.map((x: any) => [Number(x.id), x] as [number, any]));
+    const polityById = new Map<number, any>(polities.map((x: any) => [Number(x.id), x] as [number, any]));
+    const charById = new Map<number, string>(characters.map((x: any) => [Number(x.id), String(x.name)] as [number, string]));
     return NextResponse.json({
       groups: groups.map((g: any) => ({ ...g, leaderName: charById.get(Number(g.leaderCharacterId)) ?? null,
         memberships: memberships.filter((m: any) => Number(m.groupId) === Number(g.id)).map((m: any) => ({

@@ -112,16 +112,24 @@ export async function POST(request: Request) {
       if (polityId && !(await M.WorldPolity.where({ id: polityId }).first())) throw new Error("La entidad política no existe.");
       result = await db.transaction(async (tx: any) => {
         const T = tx.orm.public as any;
-        await T.PopulationCohort.where({ id: sourceId }).update({ population: sourcePop - movingPopulation, wealth: sourceWealth - movingWealth });
+        // Re-read inside the transaction so a concurrent split cannot allocate the same people twice.
+        const currentSource = await T.PopulationCohort.where({ id: sourceId }).first();
+        if (!currentSource || currentSource.active === false) throw new Error("La cohorte de origen ya no está disponible.");
+        const currentPopulation = BigInt(currentSource.population);
+        const currentWealth = BigInt(currentSource.wealth);
+        if (movingPopulation <= BigInt(0) || movingPopulation >= currentPopulation) throw new Error("La población cambió: la cantidad trasladada ya no cabe en la cohorte de origen.");
+        const currentMovingWealth = requestedWealth ?? (currentWealth * movingPopulation / currentPopulation);
+        if (currentMovingWealth > currentWealth) throw new Error("La riqueza cambió: la cantidad solicitada ya no está disponible.");
+        await T.PopulationCohort.where({ id: sourceId }).update({ population: currentPopulation - movingPopulation, wealth: currentWealth - currentMovingWealth });
         const fragment = await T.PopulationCohort.create({
-          locationId, name: text(body.name, "El nombre de la nueva cohorte"), raceId: source.raceId ?? null, occupationId: source.occupationId ?? null, socialClassId: source.socialClassId ?? null,
-          race: source.race, occupation: source.occupation, socialClass: source.socialClass, ageGroup: source.ageGroup,
-          population: movingPopulation, wealth: movingWealth, birthRate: source.birthRate, deathRate: source.deathRate,
-          migrationRate: source.migrationRate, productivity: source.productivity, consumption: source.consumption,
-          behavior: { ...(source.behavior && typeof source.behavior === "object" ? source.behavior : {}), splitFromCohortId: sourceId, splitAt: new Date().toISOString(), splitReason: String(body.reason ?? "División social o migración").slice(0, 500) }, active: true,
+          locationId, name: text(body.name, "El nombre de la nueva cohorte"), raceId: currentSource.raceId ?? null, occupationId: currentSource.occupationId ?? null, socialClassId: currentSource.socialClassId ?? null,
+          race: currentSource.race, occupation: currentSource.occupation, socialClass: currentSource.socialClass, ageGroup: currentSource.ageGroup,
+          population: movingPopulation, wealth: currentMovingWealth, birthRate: currentSource.birthRate, deathRate: currentSource.deathRate,
+          migrationRate: currentSource.migrationRate, productivity: currentSource.productivity, consumption: currentSource.consumption,
+          behavior: { ...(currentSource.behavior && typeof currentSource.behavior === "object" ? currentSource.behavior : {}), splitFromCohortId: sourceId, splitAt: new Date().toISOString(), splitReason: String(body.reason ?? "División social o migración").slice(0, 500) }, active: true,
         });
         let membership = null;
-        if (groupId) membership = await T.WorldSocialGroupMembership.create({ groupId, cohortId: Number(fragment.id), memberCount: movingPopulation, wealthShare: movingWealth, role: "FOLLOWERS", notes: "Afiliación creada al dividir la cohorte." });
+        if (groupId) membership = await T.WorldSocialGroupMembership.create({ groupId, cohortId: Number(fragment.id), memberCount: movingPopulation, wealthShare: currentMovingWealth, role: "FOLLOWERS", notes: "Afiliación creada al dividir la cohorte." });
         let territory = null;
         let polityGroupLink = null;
         if (polityId) {
@@ -131,7 +139,7 @@ export async function POST(request: Request) {
             polityGroupLink = priorLink ?? await T.WorldPolityGroup.create({ polityId, groupId, relationType: "SUPPORTS" });
           }
         }
-        return { fragment: serial(fragment), sourceUpdated: { id: sourceId, population: String(sourcePop - movingPopulation), wealth: String(sourceWealth - movingWealth) }, membership, territory, polityGroupLink };
+        return { fragment: serial(fragment), sourceUpdated: { id: sourceId, population: String(currentPopulation - movingPopulation), wealth: String(currentWealth - currentMovingWealth) }, membership, territory, polityGroupLink };
       });
     } else if (action === "create-polity") {
       const polityType = String(body.polityType ?? "KINGDOM");

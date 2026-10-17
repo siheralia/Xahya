@@ -168,7 +168,7 @@ export default function WorldCohortsPage() {
 
   return <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
     <div className="mb-6">
-      <Link href="/management/world" className="text-sm text-zinc-500 hover:text-zinc-300">← Gestión del mundo</Link>
+      <div className="flex flex-wrap items-center justify-between gap-3"><Link href="/management/world" className="text-sm text-zinc-500 hover:text-zinc-300">← Gestión del mundo</Link><Link href="/management/world/social-structure" className="rounded-lg border border-cyan-900/70 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-950/40">Agrupaciones, seguidores y reinos →</Link></div>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">Población y economía territorial</p>

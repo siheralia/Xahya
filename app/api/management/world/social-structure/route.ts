@@ -89,9 +89,9 @@ export async function POST(request: Request) {
       const [group, cohort] = await Promise.all([M.WorldSocialGroup.where({ id: groupId }).first(), M.PopulationCohort.where({ id: cohortId }).first()]);
       if (!group || !cohort || cohort.active === false) throw new Error("Selecciona una agrupación y una cohorte activa.");
       if (memberCount > BigInt(cohort.population) || wealthShare > BigInt(cohort.wealth)) throw new Error("La afiliación no puede superar la población o riqueza disponible de la cohorte.");
-      const existing = await M.WorldSocialGroupMembership.where({ groupId, cohortId, role }).first();
+      const existing = await M.WorldSocialGroupMembership.where({ groupId, cohortId }).first();
       result = existing
-        ? await M.WorldSocialGroupMembership.where({ id: Number(existing.id) }).update({ memberCount, wealthShare, notes: String(body.notes ?? "").trim() || null })
+        ? await M.WorldSocialGroupMembership.where({ id: Number(existing.id) }).update({ memberCount, wealthShare, role, notes: String(body.notes ?? "").trim() || null })
         : await M.WorldSocialGroupMembership.create({ groupId, cohortId, memberCount, wealthShare, role, notes: String(body.notes ?? "").trim() || null });
     } else if (action === "split-cohort") {
       const sourceId = id(body.sourceCohortId, "Cohorte de origen");
@@ -153,7 +153,7 @@ export async function POST(request: Request) {
       if (groupId && !(await M.WorldSocialGroup.where({ id: groupId }).first())) throw new Error("La agrupación no existe.");
       result = await db.transaction(async (tx: any) => {
         const T = tx.orm.public as any;
-        const polity = await T.WorldPolity.create({ name: text(body.name, "El nombre"), polityType, status: "PROPOSED", description: String(body.description ?? "").trim() || null, founderCharacterId, foundedAt: body.foundedAt ? new Date(body.foundedAt) : new Date() });
+        const polity = await T.WorldPolity.create({ name: text(body.name, "El nombre"), polityType, status: locationId || groupId ? "ACTIVE" : "PROPOSED", description: String(body.description ?? "").trim() || null, founderCharacterId, foundedAt: body.foundedAt ? new Date(body.foundedAt) : new Date() });
         const territory = locationId ? await T.WorldPolityLocation.create({ polityId: Number(polity.id), locationId, relationType: "CAPITAL", isCapital: true }) : null;
         const link = groupId ? await T.WorldPolityGroup.create({ polityId: Number(polity.id), groupId, relationType: "SUPPORTS" }) : null;
         return { polity, territory, groupLink: link };

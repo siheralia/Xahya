@@ -123,8 +123,15 @@ export async function POST(request: Request) {
         let membership = null;
         if (groupId) membership = await T.WorldSocialGroupMembership.create({ groupId, cohortId: Number(fragment.id), memberCount: movingPopulation, wealthShare: movingWealth, role: "FOLLOWERS", notes: "Afiliación creada al dividir la cohorte." });
         let territory = null;
-        if (polityId) territory = await T.WorldPolityLocation.create({ polityId, locationId, relationType: String(body.territoryRelation ?? "CLAIM"), isCapital: body.isCapital === true });
-        return { fragment: serial(fragment), sourceUpdated: { id: sourceId, population: String(sourcePop - movingPopulation), wealth: String(sourceWealth - movingWealth) }, membership, territory };
+        let polityGroupLink = null;
+        if (polityId) {
+          territory = await T.WorldPolityLocation.create({ polityId, locationId, relationType: String(body.territoryRelation ?? "CLAIM"), isCapital: body.isCapital === true });
+          if (groupId) {
+            const priorLink = await T.WorldPolityGroup.where({ polityId, groupId, relationType: "SUPPORTS" }).first();
+            polityGroupLink = priorLink ?? await T.WorldPolityGroup.create({ polityId, groupId, relationType: "SUPPORTS" });
+          }
+        }
+        return { fragment: serial(fragment), sourceUpdated: { id: sourceId, population: String(sourcePop - movingPopulation), wealth: String(sourceWealth - movingWealth) }, membership, territory, polityGroupLink };
       });
     } else if (action === "create-polity") {
       const polityType = String(body.polityType ?? "KINGDOM");

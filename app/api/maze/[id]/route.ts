@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { DIRECTION_LABELS, OPPOSITE_DIRECTION, pickRandomDirections, pickRoomType, pickWeighted, depthMultiplier, pickEnemyFocus, pickEnemyBehavior, scaleEnemyStats, enemyMatchesMazeThemes, registerMazeEncounterRelationships } from "@/lib/maze";
 import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
+import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { getDefaultEnemyImageUrl, getEnemyImagePaths, getEnemyImageUrl } from "@/lib/enemy-image";
 import { getCharacterMazeCapabilities } from "@/lib/maze-capabilities";
 
@@ -86,7 +87,7 @@ async function getEffectiveCombatStats(tx: any, characterId: number) {
     return [key, base * (1 + multiplier + itemMultiplier) + flat + itemBonus + karma];
   })) as Record<(typeof STAT_KEYS)[number], number>;
 
-  let derived = calculateDerivedStats(effectiveStats);
+  let derived = await calculateConfiguredDerivedStats(effectiveStats as any, tx);
   derived = applyDerivedItemEffects(
     derived,
     equippedEffects.filter((e:any) => e.type === "stat_bonus" || e.type === "stat_multiplier"),

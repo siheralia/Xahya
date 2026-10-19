@@ -1,7 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/derived";
+import { applyDerivedItemEffects } from "@/lib/stats/derived";
+import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { getCombatEffects } from "@/lib/combat/effects";
 import { getPerkEffects, awardCreationPerks } from "@/lib/perks";
 import { recordAuditEvent } from "@/lib/audit";
@@ -158,7 +159,7 @@ export async function GET(
     : null;
 
   const derivedItemEffects = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" || effect.type === "stat_multiplier");
-  let derivedStats = effectiveStats ? calculateDerivedStats(effectiveStats) : null;
+  let derivedStats = effectiveStats ? await calculateConfiguredDerivedStats(effectiveStats as any) : null;
   if (derivedStats) {
     derivedStats = applyDerivedItemEffects(derivedStats, derivedItemEffects);
   }

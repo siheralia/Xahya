@@ -88,7 +88,7 @@ export async function PUT(request:Request) {
     if (removed.some(x=>protectedCombat.has(x.key))) throw new Error("Ataque físico, defensa física, ataque mágico y defensa mágica son estadísticas obligatorias y no se pueden borrar.");
     // Validate dependencies before any refund or data mutation.
     for (const removedDef of removed.filter(x=>x.kind==="derived")) {
-      if (incoming.some(x=>x.kind==="derived" && new RegExp("\\\\b"+removedDef.key+"\\\\b").test(x.formula))) {
+      if (incoming.some(x=>x.kind==="derived" && new RegExp("\\b"+removedDef.key+"\\b").test(x.formula))) {
         throw new Error("No puedes borrar "+removedDef.name+" mientras otra fórmula dependa de ella.");
       }
     }
@@ -115,7 +115,7 @@ export async function PUT(request:Request) {
       });
     }
     await writeCatalog(incoming);
-    await recordAuditEvent({actorUserId:Number(admin.id),action:"STATISTICS_CATALOG_UPDATED",entityType:"STATISTICS_CATALOG",entityId:null,details:JSON.stringify({removed:removed.map(x=>x.key),basicRefunded:basicRemoved.map(x=>x.key),count:incoming.length})});
+    await recordAuditEvent({actorUserId:Number(admin.id),action:"STATISTICS_CATALOG_UPDATED",entityType:"STATISTICS_CATALOG",entityId:null,details:{removed:removed.map(x=>x.key),basicRefunded:basicRemoved.map(x=>x.key),count:incoming.length}});
     return NextResponse.json({statistics:incoming,removed:removed.map(x=>x.key)});
   } catch(err) {
     return NextResponse.json({error:err instanceof Error?err.message:"No se pudo guardar el catálogo."},{status:400});

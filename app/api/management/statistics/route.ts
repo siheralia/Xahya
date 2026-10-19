@@ -84,6 +84,14 @@ export async function PUT(request:Request) {
     });
     if (new Set(incoming.map(x=>x.key)).size!==incoming.length) throw new Error("No puede haber claves repetidas.");
     const removed=previous.filter(old=>!incoming.some(x=>x.key===old.key));
+    const protectedCombat=new Set(["physicalAttack","physicalDefense","magicAttack","magicDefense"]);
+    if (removed.some(x=>protectedCombat.has(x.key))) throw new Error("Ataque físico, defensa física, ataque mágico y defensa mágica son estadísticas obligatorias y no se pueden borrar.");
+    // Validate dependencies before any refund or data mutation.
+    for (const removedDef of removed.filter(x=>x.kind==="derived")) {
+      if (incoming.some(x=>x.kind==="derived" && new RegExp("\\\\b"+removedDef.key+"\\\\b").test(x.formula))) {
+        throw new Error("No puedes borrar "+removedDef.name+" mientras otra fórmula dependa de ella.");
+      }
+    }
     const basicRemoved=removed.filter(x=>x.kind==="basic");
     if (basicRemoved.length) {
       const fields=new Set(["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"]);
@@ -105,12 +113,6 @@ export async function PUT(request:Request) {
           if (refund) await Resources.where({id:resources.id}).update({levelUpPoints:Number(resources.levelUpPoints??0)+refund});
         }
       });
-    }
-    // Prevent deleting a derived definition while another retained formula still references it.
-    for (const removedDef of removed.filter(x=>x.kind==="derived")) {
-      if (incoming.some(x=>x.kind==="derived" && new RegExp("\\b"+removedDef.key+"\\b").test(x.formula))) {
-        throw new Error("No puedes borrar "+removedDef.name+" mientras otra fórmula dependa de ella.");
-      }
     }
     await writeCatalog(incoming);
     await recordAuditEvent({actorUserId:Number(admin.id),action:"STATISTICS_CATALOG_UPDATED",entityType:"STATISTICS_CATALOG",entityId:null,details:JSON.stringify({removed:removed.map(x=>x.key),basicRefunded:basicRemoved.map(x=>x.key),count:incoming.length})});

@@ -557,6 +557,15 @@ export default function ManagementPage() {
             >
               Relaciones sociales
             </Link>
+            {isAdmin && (
+              <Link
+                href="/management/statistics"
+                className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30"
+              >
+                Estadísticas
+              </Link>
+            )}
+
             <Link
               href="/management/maze"
               className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"

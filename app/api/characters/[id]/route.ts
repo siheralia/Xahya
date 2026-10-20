@@ -93,7 +93,7 @@ export async function GET(
     conquest:"CONQUEST", race:"RACE", dodge:"DODGE", stealth:"STEALTH", detection:"DETECTION",
   };
 
-  const baseStats = stats
+  const baseStats: Record<string, number> | null = stats
     ? {
         strength: Number(stats.strength),
         agility: Number(stats.agility),

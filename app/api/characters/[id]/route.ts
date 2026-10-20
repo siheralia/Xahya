@@ -150,7 +150,7 @@ export async function GET(
     : null;
 
   const effectiveStats = statBreakdown
-    ? (Object.keys(statBreakdown) as StatKey[]).reduce((result, statKey) => {
+    ? Object.keys(statBreakdown).reduce((result, statKey) => {
         result[statKey] = statBreakdown[statKey].value;
         return result;
       }, {} as Record<string, number>)

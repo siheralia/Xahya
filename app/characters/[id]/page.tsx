@@ -85,6 +85,8 @@ type Character = {
   perks: { id: number; perkId: number; source: string; perk: { name: string; description: string | null } | null }[];
   derivedStats: Record<string, number> | null;
   effectiveStats: Record<string, number> | null;
+  customStats?: Record<string, number>;
+  basicStatDefinitions?: { key:string; name:string; code:string; active?:boolean; showOnSheet?:boolean; showOnPolygon?:boolean; defaultValue?:number }[];
   modifiers: { id: number; stat: string; amount: number; source: string; expiresAt?: string | null }[];
   statBreakdown: Record<string, {
     base: number;
@@ -2276,6 +2278,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     <div className="text-right"><span className="text-lg font-semibold text-white">{formatNumber(applyTemporaryEffects(key, character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats] ?? 0))}</span>{character.effectiveStats && character.effectiveStats[key] !== character.stats?.[key as keyof typeof character.stats] && <span className="ml-2 text-xs text-amber-300">({formatNumber(character.stats?.[key as keyof typeof character.stats] ?? 0)})</span>}{temporaryEffects.some((effect) => effect.target === key) && <span className="ml-2 text-xs text-violet-300">◈ temporal</span>}</div>
                   </div>
                 ))}
+                {(character.basicStatDefinitions ?? []).filter((definition) => definition.active !== false && definition.showOnSheet !== false && !statLabels[definition.key]).map((definition) => {
+                  const base = character.customStats?.[definition.key] ?? definition.defaultValue ?? 0;
+                  const value = character.effectiveStats?.[definition.key] ?? base;
+                  return <div key={definition.key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2">
+                    <p className="text-sm text-zinc-400">{definition.name}</p>
+                    <div className="text-right"><span className="text-lg font-semibold text-white">{formatNumber(applyTemporaryEffects(definition.key, value))}</span>{value !== base && <span className="ml-2 text-xs text-amber-300">({formatNumber(base)})</span>}{temporaryEffects.some((effect) => effect.target === definition.key) && <span className="ml-2 text-xs text-violet-300">◈ temporal</span>}</div>
+                  </div>;
+                })}
               </div>
             </div>
             <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 pb-12">

@@ -34,6 +34,7 @@ model Character {
   gender    String?
   height    Int?
   stats     CharacterStat?
+  dynamicStats CharacterStatValue[]
   resources CharacterResource?
   modifiers CharacterModifier[]
   perks CharacterPerk[]
@@ -136,6 +137,16 @@ model CharacterStat {
   luck         Int       @default(0)
 
   @@unique([characterId])
+}
+
+model CharacterStatValue {
+  id          Int       @id @default(autoincrement())
+  characterId Int
+  character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
+  statKey     String
+  value       Int       @default(0)
+  @@unique([characterId, statKey])
+  @@index([statKey])
 }
 
 model CharacterResource {

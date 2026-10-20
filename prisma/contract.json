@@ -147,6 +147,10 @@
     "user": {
       "model": "User",
       "namespace": "public"
+    },
+    "characterStatValue": {
+      "model": "CharacterStatValue",
+      "namespace": "public"
     }
   },
   "domain": {
@@ -1740,6 +1744,21 @@
                 },
                 "to": {
                   "model": "User",
+                  "namespace": "public"
+                }
+              },
+              "dynamicStats": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "characterId"
+                  ]
+                },
+                "to": {
+                  "model": "CharacterStatValue",
                   "namespace": "public"
                 }
               }
@@ -5334,6 +5353,74 @@
               },
               "namespaceId": "public",
               "table": "user"
+            }
+          },
+          "CharacterStatValue": {
+            "fields": {
+              "characterId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "statKey": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "value": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "character": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "characterId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Character",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "characterId": {
+                  "column": "characterId"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "statKey": {
+                  "column": "statKey"
+                },
+                "value": {
+                  "column": "value"
+                }
+              },
+              "namespaceId": "public",
+              "table": "characterStatValue"
             }
           }
         }

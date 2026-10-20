@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { getCreationRollProbability, awardCreationPerks } from "@/lib/perks";
+import { initializeCharacterCustomBasicStats } from "@/lib/stats/dynamic";
 
 async function getCurrentUser() {
   const { userId: clerkId } = await auth();
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
       charisma: body.stats?.charisma ?? 0, spirit: body.stats?.spirit ?? 0, luck: body.stats?.luck ?? 0,
     });
     await tx.orm.public.CharacterResource.create({ characterId: character.id, karma: 1, money: 1000 });
+    await initializeCharacterCustomBasicStats(Number(character.id), tx);
 
     const Item = (tx.orm.public as any).Item;
     const CharacterItem = (tx.orm.public as any).CharacterItem;

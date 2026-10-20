@@ -17,20 +17,53 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json().catch(() => null);
   if (body?.action !== "delete-and-ban") return NextResponse.json({ error: "Acción no válida." }, { status: 400 });
   const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : "";
-  const client = await clerkClient();
+  const diagnosticId = randomUUID();
+  let stage = "inicialización de Clerk";
+  let rollbackFailed = false;
 
   try {
+    const client = await clerkClient();
+
     // Keep the row as a ban record: the unique email blocks reuse and historical FK links remain valid.
+    stage = "actualización del rol en la base de datos";
     await db.orm.public.User.where({ id: targetUser.id }).update({ role: "BANNED" });
+
+    stage = "eliminación de la identidad en Clerk";
     try {
       await client.users.deleteUser(String(targetUser.clerkId));
     } catch (error) {
-      await db.orm.public.User.where({ id: targetUser.id }).update({ role: String(targetUser.role) });
+      stage = "reversión del rol tras fallar Clerk";
+      try {
+        await db.orm.public.User.where({ id: targetUser.id }).update({ role: String(targetUser.role) });
+      } catch (rollbackError) {
+        rollbackFailed = true;
+        console.error("USER DELETE/BAN ROLLBACK FAILED", {
+          diagnosticId,
+          userId: Number(targetUser.id),
+          errorName: rollbackError instanceof Error ? rollbackError.name : "UnknownError",
+          errorMessage: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+        });
+      }
+      stage = "eliminación de la identidad en Clerk";
       throw error;
     }
   } catch (error) {
-    console.error("USER DELETE/BAN FAILED", error);
-    return NextResponse.json({ error: "No se pudo completar el borrado y baneo. Revisa los registros del servidor." }, { status: 500 });
+    console.error("USER DELETE/BAN FAILED", {
+      diagnosticId,
+      stage,
+      userId: Number(targetUser.id),
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      errorMessage: error instanceof Error ? error.message : String(error),
+      rollbackFailed,
+    });
+    return NextResponse.json({
+      error: rollbackFailed
+        ? "Falló el baneo y también la reversión del rol. Comprueba el estado de la cuenta antes de volver a intentarlo."
+        : `No se pudo completar el baneo. Etapa: ${stage}.`,
+      diagnosticId,
+      stage,
+      rollbackFailed,
+    }, { status: 500 });
   }
 
   try {
@@ -50,6 +83,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 }
 
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";

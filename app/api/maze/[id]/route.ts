@@ -86,7 +86,7 @@ async function getEffectiveCombatStats(tx: any, characterId: number) {
     const itemMultiplier = equippedEffects.filter((e:any) => e.type === "stat_multiplier" && e.stat === STAT_CODES[key])
       .reduce((sum:number,e:any) => sum + Number(e.value) / 100,0);
     return [key, base * (1 + multiplier + itemMultiplier) + flat + itemBonus + karma];
-  })) as Record<(typeof STAT_KEYS)[number], number>;
+  })) as Record<string, number>;
 
   const customBasicStats = await getCharacterCustomBasicStats(characterId, tx);
   for (const definition of customBasicStats.definitions) {

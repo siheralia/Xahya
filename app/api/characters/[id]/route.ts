@@ -153,7 +153,7 @@ export async function GET(
     ? (Object.keys(statBreakdown) as StatKey[]).reduce((result, statKey) => {
         result[statKey] = statBreakdown[statKey].value;
         return result;
-      }, {} as Record<StatKey, number>)
+      }, {} as Record<string, number>)
     : null;
 
   const derivedItemEffects = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" || effect.type === "stat_multiplier");

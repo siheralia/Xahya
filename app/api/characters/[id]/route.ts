@@ -7,6 +7,7 @@ import { getCombatEffects } from "@/lib/combat/effects";
 import { getPerkEffects, awardCreationPerks } from "@/lib/perks";
 import { recordAuditEvent } from "@/lib/audit";
 import { getRaceImageUrl } from "@/lib/race-image";
+import { getCharacterCustomBasicStats } from "@/lib/stats/dynamic";
 
 export async function GET(
   request: Request,
@@ -53,6 +54,9 @@ export async function GET(
   const resources = await db.orm.public.CharacterResource
     .where({ characterId })
     .first();
+  const customBasicStats = stats
+    ? await getCharacterCustomBasicStats(characterId)
+    : { definitions: [], values: {}, rows: [] };
 
   const Race = (db.orm.public as any).Race;
   const RacePerk = (db.orm.public as any).RacePerk;
@@ -78,8 +82,11 @@ export async function GET(
     return new Date(String(modifier.expiresAt)).getTime() > now;
   });
 
-  type StatKey = "strength" | "agility" | "constitution" | "intelligence" | "wisdom" | "charisma" | "spirit" | "luck";
-  const perkBaseStatCode: Record<StatKey,string> = { strength:"STR", agility:"AGI", constitution:"CON", intelligence:"INT", wisdom:"WIS", charisma:"CHA", spirit:"SPI", luck:"LCK" };
+  const perkBaseStatCode: Record<string,string> = { strength:"STR", agility:"AGI", constitution:"CON", intelligence:"INT", wisdom:"WIS", charisma:"CHA", spirit:"SPI", luck:"LCK" };
+  const baseStatCodes: Record<string,string> = {
+    ...perkBaseStatCode,
+    ...Object.fromEntries(customBasicStats.definitions.map((definition:any) => [definition.key, definition.code || definition.key.toUpperCase()])),
+  };
   const derivedStatCode: Record<string,string> = {
     maxHp:"HP", maxMana:"MANA", physicalAttack:"PHYS_ATK", magicAttack:"MAGIC_ATK", physicalDefense:"DEF", magicDefense:"MAG_DEF",
     precision:"PRECISION", critical:"CRITICAL", discovery:"DISCOVERY", miracle:"MIRACLE", intimidation:"INTIMIDATION",
@@ -96,6 +103,7 @@ export async function GET(
         charisma: Number(stats.charisma),
         spirit: Number(stats.spirit),
         luck: Number(stats.luck),
+        ...customBasicStats.values,
       }
     : null;
 
@@ -117,21 +125,11 @@ export async function GET(
     });
 
   const statBreakdown = baseStats
-    ? (Object.keys(baseStats) as StatKey[]).reduce((result, statKey) => {
+    ? Object.keys(baseStats).reduce((result, statKey) => {
         const base = baseStats[statKey];
         const flatModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey);
         const multiplierModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey + "_multiplier");
-        const itemStatCode: Record<StatKey, string> = {
-          strength: "STR",
-          agility: "AGI",
-          constitution: "CON",
-          intelligence: "INT",
-          wisdom: "WIS",
-          charisma: "CHA",
-          spirit: "SPI",
-          luck: "LCK",
-        };
-        const itemStat = itemStatCode[statKey];
+        const itemStat = baseStatCodes[statKey] ?? statKey.toUpperCase();
         const itemStatBonuses = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" && effect.stat === itemStat).reduce((sum: number, effect: any) => sum + Number(effect.value), 0);
         const itemStatMultipliers = equippedItemEffects.filter((effect: any) => effect.type === "stat_multiplier" && effect.stat === itemStat).reduce((sum: number, effect: any) => sum + Number(effect.value) / 100, 0);
         const perkStatBonuses = perkEffects.filter((effect:any) => String(effect.type)==="STAT_BONUS" && String(effect.target)===itemStat).reduce((sum:number,effect:any)=>sum+Number(effect.value),0);
@@ -148,7 +146,7 @@ export async function GET(
           value: base * combinedMultiplier + objectFlatBonus + karmaBonus,
         };
         return result;
-      }, {} as Record<StatKey, { base: number; multipliers: number[]; combinedMultiplier: number; objectFlatBonus: number; karmaBonus: number; value: number }>)
+      }, {} as Record<string, { base: number; multipliers: number[]; combinedMultiplier: number; objectFlatBonus: number; karmaBonus: number; value: number }>)
     : null;
 
   const effectiveStats = statBreakdown
@@ -301,6 +299,8 @@ export async function GET(
   return NextResponse.json({
     ...normalizedCharacter,
     stats,
+    customStats: customBasicStats.values,
+    basicStatDefinitions: customBasicStats.definitions,
     resources,
     modifiers,
     perks,

@@ -77,6 +77,9 @@ export default function LevelUpPage({ params }: { params: Promise<{ id: string }
   const [name, setName] = useState("");
   const [current, setCurrent] = useState<Values | null>(null);
   const [values, setValues] = useState<Values | null>(null);
+  const [currentCustom, setCurrentCustom] = useState<Record<string, number>>({});
+  const [valuesCustom, setValuesCustom] = useState<Record<string, number>>({});
+  const [customDefinitions, setCustomDefinitions] = useState<{key:string;name:string;code:string;defaultValue?:number}[]>([]);
   const [available, setAvailable] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,6 +99,10 @@ export default function LevelUpPage({ params }: { params: Promise<{ id: string }
       setName(data.character.name);
       setCurrent(next);
       setValues(next);
+      const custom = (data.customStats ?? {}) as Record<string, number>;
+      setCurrentCustom(custom);
+      setValuesCustom(custom);
+      setCustomDefinitions(Array.isArray(data.basicStatDefinitions) ? data.basicStatDefinitions : []);
       setAvailable(Number(data.levelUpPoints));
     }).catch((err) => {
       setError(err instanceof Error ? err.message : "No se pudo cargar el Level Up.");
@@ -104,16 +111,23 @@ export default function LevelUpPage({ params }: { params: Promise<{ id: string }
 
   const spent = useMemo(() => {
     if (!current || !values) return 0;
-    return stats.reduce((total, stat) => total + values[stat.key] - current[stat.key], 0);
-  }, [current, values]);
+    const coreSpent = stats.reduce((total, stat) => total + values[stat.key] - current[stat.key], 0);
+    const customSpent = customDefinitions.reduce((total, stat) => total + (valuesCustom[stat.key] ?? currentCustom[stat.key] ?? 0) - (currentCustom[stat.key] ?? 0), 0);
+    return coreSpent + customSpent;
+  }, [current, values, customDefinitions, currentCustom, valuesCustom]);
 
   function updateStat(key: StatKey, value: number) {
     if (!current || !values) return;
     setValues({ ...values, [key]: Math.max(current[key], Math.round(value)) });
   }
 
+  function updateCustomStat(key: string, value: number) {
+    setValuesCustom((previous) => ({ ...previous, [key]: Math.max(currentCustom[key] ?? 0, Math.round(value)) }));
+  }
+
   function reset() {
     if (current) setValues({ ...current });
+    setValuesCustom({ ...currentCustom });
     setError("");
     setSuccess("");
   }
@@ -129,7 +143,7 @@ export default function LevelUpPage({ params }: { params: Promise<{ id: string }
       const response = await fetch(`/api/characters/${characterId}/levelup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stats: values }),
+        body: JSON.stringify({ stats: values, customStats: valuesCustom }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "No se pudo aplicar el Level Up.");
@@ -139,6 +153,9 @@ export default function LevelUpPage({ params }: { params: Promise<{ id: string }
       ) as Values;
       setCurrent(next);
       setValues(next);
+      const savedCustom = (data.nextCustom ?? valuesCustom) as Record<string, number>;
+      setCurrentCustom(savedCustom);
+      setValuesCustom(savedCustom);
       setAvailable(Number(data.updatedResources.levelUpPoints));
       setSuccess("Level Up aplicado correctamente.");
     } catch (err) {
@@ -211,6 +228,25 @@ export default function LevelUpPage({ params }: { params: Promise<{ id: string }
                   />
                 </div>
               ))}
+              {customDefinitions.filter((stat) => stat.active !== false).map((stat) => {
+                const before = currentCustom[stat.key] ?? stat.defaultValue ?? 0;
+                const value = valuesCustom[stat.key] ?? before;
+                return <div key={stat.key}>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <label htmlFor={"custom-" + stat.key} className="font-medium">
+                      <span className="text-violet-300">{stat.code}</span>{" "}
+                      <span className="text-zinc-300">{stat.name}</span>
+                    </label>
+                    <output className="min-w-16 text-right text-lg font-semibold">
+                      {value}
+                      {value !== before && <span className="ml-2 text-sm text-zinc-500">(+{value - before})</span>}
+                    </output>
+                  </div>
+                  <input id={"custom-" + stat.key} type="range" min={before} max={before + available} value={value}
+                    onChange={(event) => updateCustomStat(stat.key, Number(event.target.value))}
+                    className="w-full accent-violet-400" />
+                </div>;
+              })}
             </div>
 
             <div className="mt-8 flex flex-wrap gap-3">

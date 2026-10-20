@@ -31,10 +31,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const stats = await db.orm.public.CharacterStat.where({ characterId }).first();
   if (!stats) return NextResponse.json({ error: "Stats del personaje no encontrados" }, { status: 404 });
 
-  const updatedStats = await db.orm.public.CharacterStat.where({ id: stats.id }).update({
-    strength: body.strength, agility: body.agility, constitution: body.constitution, intelligence: body.intelligence,
-    wisdom: body.wisdom, charisma: body.charisma, spirit: body.spirit, luck: body.luck,
-  });
   const customDefinitions = await getCustomBasicDefinitions();
   const requestedCustom = body.customStats && typeof body.customStats === "object" ? body.customStats : {};
   const invalidCustomKey = Object.keys(requestedCustom).find((key) =>
@@ -42,6 +38,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     typeof requestedCustom[key] !== "number" || !Number.isInteger(requestedCustom[key]) || !Number.isFinite(requestedCustom[key])
   );
   if (invalidCustomKey) return NextResponse.json({ error: "La estadística básica personalizada «" + invalidCustomKey + "» no es válida." }, { status: 400 });
+  const updatedStats = await db.orm.public.CharacterStat.where({ id: stats.id }).update({
+    strength: body.strength, agility: body.agility, constitution: body.constitution, intelligence: body.intelligence,
+    wisdom: body.wisdom, charisma: body.charisma, spirit: body.spirit, luck: body.luck,
+  });
   const Dynamic = (db.orm.public as any).CharacterStatValue;
   const previousCustom = await getCharacterCustomBasicStats(characterId);
   if (Dynamic) {

@@ -74,13 +74,15 @@ export async function PUT(request:Request) {
       const key=String(raw.key??"").trim();
       const name=String(raw.name??"").trim();
       const kind=raw.kind==="derived"?"derived":"basic";
+      const defaultValue=Number.isFinite(Number(raw.defaultValue))?Number(raw.defaultValue):0;
       if (!/^[a-z][a-zA-Z0-9_]{1,63}$/.test(key) || !name || name.length>80) throw new Error("Cada estadística necesita una clave válida y un nombre de hasta 80 caracteres.");
+      if (kind==="basic" && !Number.isInteger(defaultValue)) throw new Error("El valor predeterminado de una estadística básica debe ser un entero.");
       const old=previous.find(x=>x.key===key);
       if (old && old.kind!==kind) throw new Error("No se puede cambiar el tipo de una estadística existente.");
       if (kind==="derived" && !validFormula(String(raw.formula??""))) throw new Error("La fórmula de "+name+" no es válida.");
       return {key,name,code:String(raw.code??key.toUpperCase()).slice(0,40),kind,active:raw.active!==false,
         showOnSheet:raw.showOnSheet!==false,showOnPolygon:raw.showOnPolygon!==false,
-        defaultValue:Number.isFinite(Number(raw.defaultValue))?Number(raw.defaultValue):0,
+        defaultValue,
         formula:kind==="derived"?String(raw.formula??""):"",order:index};
     });
     if (new Set(incoming.map(x=>x.key)).size!==incoming.length) throw new Error("No puede haber claves repetidas.");

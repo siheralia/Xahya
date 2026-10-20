@@ -7,6 +7,7 @@ import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/deri
 import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { getDefaultEnemyImageUrl, getEnemyImagePaths, getEnemyImageUrl } from "@/lib/enemy-image";
 import { getCharacterMazeCapabilities } from "@/lib/maze-capabilities";
+import { getCharacterCustomBasicStats } from "@/lib/stats/dynamic";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -87,6 +88,17 @@ async function getEffectiveCombatStats(tx: any, characterId: number) {
     return [key, base * (1 + multiplier + itemMultiplier) + flat + itemBonus + karma];
   })) as Record<(typeof STAT_KEYS)[number], number>;
 
+  const customBasicStats = await getCharacterCustomBasicStats(characterId, tx);
+  for (const definition of customBasicStats.definitions) {
+    const key=definition.key;
+    const base=Number(customBasicStats.values[key]??definition.defaultValue??0);
+    const flat=activeModifiers.filter((m:any)=>String(m.stat)===key && String(m.source)!=="KARMA_BOOST").reduce((sum:number,m:any)=>sum+Number(m.amount),0);
+    const karma=activeModifiers.filter((m:any)=>String(m.stat)===key && String(m.source)==="KARMA_BOOST").reduce((sum:number,m:any)=>sum+Number(m.amount),0);
+    const multiplier=activeModifiers.filter((m:any)=>String(m.stat)===key+"_multiplier").reduce((sum:number,m:any)=>sum+Number(m.amount)/100,0);
+    const itemBonus=equippedEffects.filter((e:any)=>e.type==="stat_bonus"&&e.stat===definition.code).reduce((sum:number,e:any)=>sum+Number(e.value),0);
+    const itemMultiplier=equippedEffects.filter((e:any)=>e.type==="stat_multiplier"&&e.stat===definition.code).reduce((sum:number,e:any)=>sum+Number(e.value)/100,0);
+    effectiveStats[key]=base*(1+multiplier+itemMultiplier)+flat+itemBonus+karma;
+  }
   let derived = await calculateConfiguredDerivedStats(effectiveStats as any, tx);
   derived = applyDerivedItemEffects(
     derived,

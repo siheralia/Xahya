@@ -57,6 +57,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const nextValues = Object.fromEntries(statNames.map((stat) => [stat, requestedStats[stat]])) as Record<StatName, number>;
     const currentCustom = await getCharacterCustomBasicStats(context.characterId, tx);
     const nextCustom = { ...currentCustom.values, ...requestedCustom } as Record<string, number>;
+    if (customDefinitions.some((definition) => nextCustom[definition.key] < currentCustom.values[definition.key])) throw new Error("LEVEL_UP_STATS_CANNOT_DECREASE");
     const spentCore = statNames.reduce((total, stat) => total + (nextValues[stat] - currentValues[stat]), 0);
     const spentCustom = customDefinitions.reduce((total, definition) => total + (nextCustom[definition.key] - currentCustom.values[definition.key]), 0);
     const spent = spentCore + spentCustom;

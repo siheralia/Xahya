@@ -31,9 +31,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email is required." }, { status: 400 });
   }
 
-  const existing = (await db.orm.public.User.all()).find(
-    (user) => user.clerkId === clerkId,
+  const allUsers = await db.orm.public.User.all();
+  const normalizedEmail = email.toLowerCase();
+  const bannedEmail = allUsers.find(
+    (user) => String(user.email).trim().toLowerCase() === normalizedEmail && String(user.role) === "BANNED",
   );
+  if (bannedEmail) {
+    return NextResponse.json({ error: "Esta cuenta está bloqueada." }, { status: 403 });
+  }
+
+  const existing = allUsers.find((user) => user.clerkId === clerkId);
 
   if (existing) {
     return NextResponse.json(existing);

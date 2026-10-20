@@ -28,6 +28,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await db.orm.public.User.where({ id: targetUser.id }).update({ role: String(targetUser.role) });
       throw error;
     }
+  } catch (error) {
+    console.error("USER DELETE/BAN FAILED", error);
+    return NextResponse.json({ error: "No se pudo completar el borrado y baneo. Revisa los registros del servidor." }, { status: 500 });
+  }
+
+  try {
     await recordAuditEvent({
       actorUserId: currentUser.id,
       action: "USER_DELETE_AND_BAN",
@@ -37,8 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       details: { email: String(targetUser.email).trim().toLowerCase(), reason: reason || null },
     });
   } catch (error) {
-    console.error("USER DELETE/BAN FAILED", error);
-    return NextResponse.json({ error: "No se pudo completar el borrado y baneo. Revisa los registros del servidor." }, { status: 500 });
+    console.error("USER DELETE/BAN AUDIT FAILED", error);
   }
 
   return NextResponse.json({ success: true, banned: true });

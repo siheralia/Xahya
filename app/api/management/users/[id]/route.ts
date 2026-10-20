@@ -1,3 +1,54 @@
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { userId: clerkId } = await auth();
+  if (!clerkId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const users = await db.orm.public.User.all();
+  const currentUser = users.find((user) => user.clerkId === clerkId);
+  if (!currentUser || String(currentUser.role) !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const userId = Number((await params).id);
+  if (!Number.isInteger(userId) || userId <= 0) return NextResponse.json({ error: "Usuario inválido." }, { status: 400 });
+  const targetUser = users.find((user) => Number(user.id) === userId);
+  if (!targetUser) return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
+  if (Number(targetUser.id) === Number(currentUser.id) || ["ADMIN", "GM", "SYSTEM"].includes(String(targetUser.role))) {
+    return NextResponse.json({ error: "No puedes borrar ni banear una cuenta protegida." }, { status: 403 });
+  }
+  if (String(targetUser.role) === "BANNED") return NextResponse.json({ error: "El usuario ya está baneado." }, { status: 409 });
+
+  const body = await request.json().catch(() => null);
+  if (body?.action !== "delete-and-ban") return NextResponse.json({ error: "Acción no válida." }, { status: 400 });
+  const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : "";
+  const client = await clerkClient();
+
+  try {
+    // Keep the row as a ban record: the unique email blocks reuse and historical FK links remain valid.
+    await db.orm.public.User.where({ id: targetUser.id }).update({ role: "BANNED" });
+    try {
+      await client.users.deleteUser(String(targetUser.clerkId));
+    } catch (error) {
+      await db.orm.public.User.where({ id: targetUser.id }).update({ role: String(targetUser.role) });
+      throw error;
+    }
+  } catch (error) {
+    console.error("USER DELETE/BAN FAILED", error);
+    return NextResponse.json({ error: "No se pudo completar el borrado y baneo. Revisa los registros del servidor." }, { status: 500 });
+  }
+
+  try {
+    await recordAuditEvent({
+      actorUserId: currentUser.id,
+      action: "USER_DELETE_AND_BAN",
+      entityType: "USER",
+      entityId: Number(targetUser.id),
+      targetUserId: Number(targetUser.id),
+      details: { email: String(targetUser.email).trim().toLowerCase(), reason: reason || null },
+    });
+  } catch (error) {
+    console.error("USER DELETE/BAN AUDIT FAILED", error);
+  }
+
+  return NextResponse.json({ success: true, banned: true });
+}
+
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -19,6 +70,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const role = body?.role;
   if (role !== "PLAYER" && role !== "GM") return NextResponse.json({ error: "El rol debe ser PLAYER o GM." }, { status: 400 });
   if (Number(targetUser.id) === Number(currentUser.id)) return NextResponse.json({ error: "No puedes cambiar tu propio rol desde aquí." }, { status: 400 });
+  if (String(targetUser.role) === "BANNED") return NextResponse.json({ error: "No puedes cambiar el rol de una cuenta baneada." }, { status: 409 });
+  if (["ADMIN", "SYSTEM"].includes(String(targetUser.role))) return NextResponse.json({ error: "Esta cuenta está protegida." }, { status: 403 });
 
   await db.orm.public.User.where({ id: targetUser.id }).update({ role });
 
@@ -46,6 +99,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const targetUser = users.find((user) => Number(user.id) === userId);
   if (!targetUser) return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
   if (Number(targetUser.id) === Number(currentUser.id)) return NextResponse.json({ error: "No puedes eliminar tu propio usuario." }, { status: 400 });
+  if (String(targetUser.role) === "BANNED") return NextResponse.json({ error: "No puedes eliminar el registro de una cuenta baneada; se conserva para mantener el bloqueo." }, { status: 409 });
+  if (["ADMIN", "GM"].includes(String(targetUser.role))) return NextResponse.json({ error: "No puedes eliminar una cuenta administrativa." }, { status: 403 });
   if (String(targetUser.role) === "SYSTEM" || targetUser.clerkId === "SYSTEM") return NextResponse.json({ error: "El usuario SYSTEM no se puede eliminar." }, { status: 400 });
 
   const systemUser = users.find((user) => user.clerkId === "SYSTEM" && String(user.role) === "SYSTEM");

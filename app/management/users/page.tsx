@@ -152,6 +152,37 @@ export default function ManagementUsersPage() {
     }
   }
 
+  async function deleteAndBanUser(user: User) {
+    if (user.role !== "PLAYER" || user.id === currentUserId) return;
+    const reason = window.prompt("Motivo del baneo (opcional):", "");
+    if (reason === null) return;
+    const confirmed = window.confirm(
+      `¿Borrar y banear a ${user.name}? Se eliminará su cuenta de acceso y su correo quedará bloqueado para futuros registros. Sus personajes y datos históricos se conservarán vinculados al registro bloqueado.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingUser(user.id);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/management/users/" + user.id, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete-and-ban", reason }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo borrar y banear al usuario.");
+      setUsers((current) =>
+        current.map((item) => item.id === user.id ? { ...item, role: "BANNED" } : item),
+      );
+      setMessage("Cuenta eliminada y correo bloqueado. Los datos históricos se conservaron.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo borrar y banear al usuario.");
+    } finally {
+      setDeletingUser(null);
+    }
+  }
+
   async function deleteUser(user: User) {
     if (user.role === "SYSTEM" || user.id === currentUserId) return;
 
@@ -249,7 +280,17 @@ export default function ManagementUsersPage() {
                       Quitar GM
                     </button>
                   ) : null}
-                  {user.role !== "SYSTEM" && user.id !== currentUserId && (
+                  {user.role === "PLAYER" && user.id !== currentUserId && (
+                    <button
+                      type="button"
+                      onClick={() => deleteAndBanUser(user)}
+                      disabled={deletingUser === user.id}
+                      className="rounded-lg border border-amber-800/70 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-950/40 disabled:opacity-40"
+                    >
+                      {deletingUser === user.id ? "Procesando..." : "Borrar y banear"}
+                    </button>
+                  )}
+                  {user.role !== "SYSTEM" && user.role !== "BANNED" && user.id !== currentUserId && (
                     <button
                       type="button"
                       onClick={() => deleteUser(user)}

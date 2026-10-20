@@ -25,10 +25,27 @@ export async function POST(request: NextRequest) {
     }
 
     const users = await db.orm.public.User.all();
+    const normalizedEmail = primaryEmail.email_address.trim().toLowerCase();
     const existingUser = users.find((user) => user.clerkId === clerkUser.id);
 
     if (existingUser) {
+      if (String(existingUser.role) === "BANNED") {
+        const client = await (await import("@clerk/nextjs/server")).clerkClient();
+        await client.users.deleteUser(clerkUser.id).catch(() => undefined);
+        return new Response("Blocked account", { status: 200 });
+      }
       return new Response("User already exists", { status: 200 });
+    }
+
+    const bannedEmail = users.find(
+      (user) => String(user.email).trim().toLowerCase() === normalizedEmail && String(user.role) === "BANNED",
+    );
+    if (bannedEmail) {
+      const client = await (await import("@clerk/nextjs/server")).clerkClient();
+      await client.users.deleteUser(clerkUser.id).catch((error) => {
+        console.error("CLERK WEBHOOK: failed to delete blocked account", error);
+      });
+      return new Response("Blocked email", { status: 200 });
     }
 
     await db.orm.public.User.create({

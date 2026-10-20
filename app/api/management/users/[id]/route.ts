@@ -65,6 +65,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const role = body?.role;
   if (role !== "PLAYER" && role !== "GM") return NextResponse.json({ error: "El rol debe ser PLAYER o GM." }, { status: 400 });
   if (Number(targetUser.id) === Number(currentUser.id)) return NextResponse.json({ error: "No puedes cambiar tu propio rol desde aquí." }, { status: 400 });
+  if (String(targetUser.role) === "BANNED") return NextResponse.json({ error: "No puedes cambiar el rol de una cuenta baneada." }, { status: 409 });
+  if (["ADMIN", "SYSTEM"].includes(String(targetUser.role))) return NextResponse.json({ error: "Esta cuenta está protegida." }, { status: 403 });
 
   await db.orm.public.User.where({ id: targetUser.id }).update({ role });
 
@@ -92,6 +94,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const targetUser = users.find((user) => Number(user.id) === userId);
   if (!targetUser) return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
   if (Number(targetUser.id) === Number(currentUser.id)) return NextResponse.json({ error: "No puedes eliminar tu propio usuario." }, { status: 400 });
+  if (String(targetUser.role) === "BANNED") return NextResponse.json({ error: "No puedes eliminar el registro de una cuenta baneada; se conserva para mantener el bloqueo." }, { status: 409 });
+  if (["ADMIN", "GM"].includes(String(targetUser.role))) return NextResponse.json({ error: "No puedes eliminar una cuenta administrativa." }, { status: 403 });
   if (String(targetUser.role) === "SYSTEM" || targetUser.clerkId === "SYSTEM") return NextResponse.json({ error: "El usuario SYSTEM no se puede eliminar." }, { status: 400 });
 
   const systemUser = users.find((user) => user.clerkId === "SYSTEM" && String(user.role) === "SYSTEM");

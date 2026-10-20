@@ -171,7 +171,11 @@ export default function ManagementUsersPage() {
         body: JSON.stringify({ action: "delete-and-ban", reason }),
       });
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error ?? "No se pudo borrar y banear al usuario.");
+      if (!response.ok) {
+        const detail = typeof data?.error === "string" ? data.error : "No se pudo borrar y banear al usuario.";
+        const reference = typeof data?.diagnosticId === "string" ? ` Referencia de diagnóstico: ${data.diagnosticId}.` : "";
+        throw new Error(detail + reference);
+      }
       setUsers((current) =>
         current.map((item) => item.id === user.id ? { ...item, role: "BANNED" } : item),
       );

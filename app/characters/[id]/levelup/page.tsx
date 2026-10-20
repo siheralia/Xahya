@@ -79,7 +79,7 @@ export default function LevelUpPage({ params }: { params: Promise<{ id: string }
   const [values, setValues] = useState<Values | null>(null);
   const [currentCustom, setCurrentCustom] = useState<Record<string, number>>({});
   const [valuesCustom, setValuesCustom] = useState<Record<string, number>>({});
-  const [customDefinitions, setCustomDefinitions] = useState<{key:string;name:string;code:string;defaultValue?:number}[]>([]);
+  const [customDefinitions, setCustomDefinitions] = useState<{key:string;name:string;code:string;active?:boolean;defaultValue?:number}[]>([]);
   const [available, setAvailable] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

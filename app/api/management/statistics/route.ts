@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { CORE_BASIC_STAT_KEYS, initializeCharacterCustomBasicStats } from "@/lib/stats/dynamic";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,27 +95,36 @@ export async function PUT(request:Request) {
     }
     const basicRemoved=removed.filter(x=>x.kind==="basic");
     if (basicRemoved.length) {
-      const fields=new Set(["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"]);
       const characters=await (db.orm.public as any).Character.all();
-      const statsModel=(db.orm.public as any).CharacterStat;
-      const resourcesModel=(db.orm.public as any).CharacterResource;
-      for (const statDef of basicRemoved) {
-        if (!fields.has(statDef.key)) throw new Error("La estadística básica "+statDef.name+" aún no tiene almacenamiento dinámico por personaje; desactívala en lugar de borrarla hasta completar esa migración.");
-      }
       await db.transaction(async(tx:any)=>{
         const Stats=tx.orm.public.CharacterStat, Resources=tx.orm.public.CharacterResource;
+        const Dynamic=(tx.orm.public as any).CharacterStatValue;
         for (const character of characters) {
-          const stats=await Stats.where({characterId:Number(character.id)}).first();
-          const resources=await Resources.where({characterId:Number(character.id)}).first();
-          if (!stats || !resources) continue;
-          const refund=basicRemoved.reduce((sum,def)=>sum+Math.max(0,Number(stats[def.key]??0)),0);
-          const changes=Object.fromEntries(basicRemoved.map(def=>[def.key,0]));
-          await Stats.where({id:stats.id}).update(changes);
-          if (refund) await Resources.where({id:resources.id}).update({levelUpPoints:Number(resources.levelUpPoints??0)+refund});
+          const characterId=Number(character.id);
+          const stats=await Stats.where({characterId}).first();
+          const resources=await Resources.where({characterId}).first();
+          let refund=0;
+          const coreChanges:Record<string,number>={};
+          for (const definition of basicRemoved) {
+            if (CORE_BASIC_STAT_KEYS.has(definition.key)) {
+              refund+=Math.max(0,Number(stats?.[definition.key]??0));
+              coreChanges[definition.key]=0;
+            } else if (Dynamic) {
+              const row=await Dynamic.where({characterId,statKey:definition.key}).first();
+              refund+=Math.max(0,Number(row?.value??0));
+              if (row) await Dynamic.where({id:Number(row.id)}).delete();
+            }
+          }
+          if (stats && Object.keys(coreChanges).length) await Stats.where({id:stats.id}).update(coreChanges);
+          if (resources && refund>0) await Resources.where({id:resources.id}).update({levelUpPoints:Number(resources.levelUpPoints??0)+refund});
         }
       });
     }
     await writeCatalog(incoming);
+    const charactersToInitialize=await (db.orm.public as any).Character.all();
+    await db.transaction(async(tx:any)=>{
+      for (const character of charactersToInitialize) await initializeCharacterCustomBasicStats(Number(character.id),tx);
+    });
     await recordAuditEvent({actorUserId:Number(admin.id),action:"STATISTICS_CATALOG_UPDATED",entityType:"STATISTICS_CATALOG",entityId:null,details:{removed:removed.map(x=>x.key),basicRefunded:basicRemoved.map(x=>x.key),count:incoming.length}});
     return NextResponse.json({statistics:incoming,removed:removed.map(x=>x.key)});
   } catch(err) {

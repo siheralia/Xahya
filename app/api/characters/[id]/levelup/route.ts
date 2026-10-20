@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { getCustomBasicDefinitions, getCharacterCustomBasicStats } from "@/lib/stats/dynamic";
 
 const statNames = ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"] as const;
 type StatName = (typeof statNames)[number];
@@ -27,7 +28,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const stats = await db.orm.public.CharacterStat.where({ characterId: context.characterId }).first();
   const resources = await db.orm.public.CharacterResource.where({ characterId: context.characterId }).first();
   if (!stats || !resources) return NextResponse.json({ error: "Datos del personaje incompletos" }, { status: 500 });
-  return NextResponse.json({ character: { id: context.character.id, name: context.character.name }, stats, levelUpPoints: Number(resources.levelUpPoints) });
+  const custom = await getCharacterCustomBasicStats(context.characterId);
+  return NextResponse.json({ character: { id: context.character.id, name: context.character.name }, stats, customStats: custom.values, basicStatDefinitions: custom.definitions, levelUpPoints: Number(resources.levelUpPoints) });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -38,6 +40,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   for (const stat of statNames) {
     if (!isValidInteger(requestedStats[stat])) return NextResponse.json({ error: `El stat ${stat} debe ser un entero válido` }, { status: 400 });
   }
+  const customDefinitions = await getCustomBasicDefinitions();
+  const requestedCustom = body?.customStats && typeof body.customStats === "object" ? body.customStats : {};
+  for (const key of Object.keys(requestedCustom)) {
+    if (!customDefinitions.some((definition) => definition.key === key) || !isValidInteger(requestedCustom[key])) {
+      return NextResponse.json({ error: `La estadística personalizada ${key} debe ser un entero válido` }, { status: 400 });
+    }
+  }
 
   const result = await db.transaction(async (tx) => {
     const currentStats = await tx.orm.public.CharacterStat.where({ characterId: context.characterId }).first();
@@ -46,7 +55,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const currentValues = Object.fromEntries(statNames.map((stat) => [stat, Number(currentStats[stat])])) as Record<StatName, number>;
     const nextValues = Object.fromEntries(statNames.map((stat) => [stat, requestedStats[stat]])) as Record<StatName, number>;
-    const spent = statNames.reduce((total, stat) => total + (nextValues[stat] - currentValues[stat]), 0);
+    const currentCustom = await getCharacterCustomBasicStats(context.characterId, tx);
+    const nextCustom = { ...currentCustom.values, ...requestedCustom } as Record<string, number>;
+    const spentCore = statNames.reduce((total, stat) => total + (nextValues[stat] - currentValues[stat]), 0);
+    const spentCustom = customDefinitions.reduce((total, definition) => total + (nextCustom[definition.key] - currentCustom.values[definition.key]), 0);
+    const spent = spentCore + spentCustom;
 
     if (spent < 0) throw new Error("LEVEL_UP_STATS_CANNOT_DECREASE");
     if (spent === 0) throw new Error("LEVEL_UP_NO_CHANGES");
@@ -54,8 +67,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (spent > availablePoints) throw new Error("LEVEL_UP_NOT_ENOUGH_POINTS");
 
     const updatedStats = await tx.orm.public.CharacterStat.where({ id: currentStats.id }).update(nextValues);
+    const Dynamic = (tx.orm.public as any).CharacterStatValue;
+    if (Dynamic) {
+      for (const definition of customDefinitions) {
+        if (!Object.prototype.hasOwnProperty.call(requestedCustom, definition.key)) continue;
+        const row = currentCustom.rows.find((entry: any) => String(entry.statKey) === definition.key);
+        if (row) await Dynamic.where({ id: Number(row.id) }).update({ value: nextCustom[definition.key] });
+        else await Dynamic.create({ characterId: context.characterId, statKey: definition.key, value: nextCustom[definition.key] });
+      }
+    }
     const updatedResources = await tx.orm.public.CharacterResource.where({ id: resources.id }).update({ levelUpPoints: availablePoints - spent });
-    return { updatedStats, updatedResources, spent, currentValues, nextValues };
+    return { updatedStats, updatedResources, spent, currentValues, nextValues, currentCustom: currentCustom.values, nextCustom };
   }).catch((error) => {
     if (error instanceof Error) {
       if (error.message === "LEVEL_UP_STATS_CANNOT_DECREASE") return { error: "No puedes reducir una estadística por debajo de su valor actual." };
@@ -73,7 +95,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     entityType: "CHARACTER",
     entityId: context.characterId,
     characterId: context.characterId,
-    details: { spent: result.spent, before: result.currentValues, after: result.nextValues },
+    details: { spent: result.spent, before: result.currentValues, after: result.nextValues, customBefore: result.currentCustom, customAfter: result.nextCustom },
   });
 
   return NextResponse.json(result);

@@ -62,3 +62,21 @@ export async function initializeCharacterCustomBasicStats(characterId: number, s
     });
   }
 }
+
+/** Keep the normalized table synchronized while legacy readers still use CharacterStat. */
+export async function syncCharacterCoreBasicStats(
+  characterId: number,
+  values: Record<string, number>,
+  source: any = db
+) {
+  const Model = (source.orm.public as any).CharacterStatValue;
+  if (!Model) throw new Error("CharacterStatValue model unavailable");
+  const rows = await Model.where({ characterId }).all();
+  for (const key of CORE_BASIC_STAT_KEYS) {
+    const value = values[key];
+    if (!Number.isInteger(value)) throw new Error(`Invalid basic stat: ${key}`);
+    const existing = rows.find((row: any) => String(row.statKey) === key);
+    if (existing) await Model.where({ id: Number(existing.id) }).update({ value });
+    else await Model.create({ characterId, statKey: key, value });
+  }
+}

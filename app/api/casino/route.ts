@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { readMechanics, getCharacterMechanicValue } from "@/lib/stats/mechanics";
 import { getCasinoLuckAdjustedWeights, type CasinoSet } from "@/lib/casino";
 import { getActiveCasinoSet as getScheduledActiveCasinoSet } from "@/lib/casino-schedule";
 
@@ -132,8 +133,8 @@ export async function POST(request: Request) {
       if (karma < count) throw new Error("No tienes suficiente karma para completar las tiradas.");
       if (bet > money) throw new Error("La apuesta no puede superar el dinero disponible.");
 
-      const stats = await tx.orm.public.CharacterStat.where({ characterId }).first();
-      const luck = Number(stats?.luck ?? 0);
+      const mechanics = await readMechanics(tx);
+      const luck = await getCharacterMechanicValue(characterId, mechanics.casinoInfluence, tx);
       const activeSet = await getActiveCasinoSet();
       const segments = activeSet.segments;
       const adjustedWeights = getCasinoLuckAdjustedWeights(segments, luck);

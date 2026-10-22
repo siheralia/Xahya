@@ -54,7 +54,8 @@ export async function POST(request: Request) {
       constitution: body.stats?.constitution ?? 0, intelligence: body.stats?.intelligence ?? 0, wisdom: body.stats?.wisdom ?? 0,
       charisma: body.stats?.charisma ?? 0, spirit: body.stats?.spirit ?? 0, luck: body.stats?.luck ?? 0,
     });
-    await syncCharacterCoreBasicStats(Number(character.id), Object.fromEntries(["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"].map((key) => [key, Number(body.stats?.[key] ?? 0)])), tx);\n    await tx.orm.public.CharacterResource.create({ characterId: character.id, karma: 1, money: 1000 });
+    await syncCharacterCoreBasicStats(Number(character.id), Object.fromEntries(["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"].map((key) => [key, Number(body.stats?.[key] ?? 0)])), tx);
+    await tx.orm.public.CharacterResource.create({ characterId: character.id, karma: 1, money: 1000 });
     await initializeCharacterCustomBasicStats(Number(character.id), tx);
 
     const Item = (tx.orm.public as any).Item;

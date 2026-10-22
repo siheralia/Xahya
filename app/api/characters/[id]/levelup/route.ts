@@ -68,7 +68,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const availablePoints = Number(resources.levelUpPoints);
     if (spent > availablePoints) throw new Error("LEVEL_UP_NOT_ENOUGH_POINTS");
 
-    const updatedStats = await tx.orm.public.CharacterStat.where({ id: currentStats.id }).update(nextValues);\n    await syncCharacterCoreBasicStats(context.characterId, nextValues, tx);
+    const updatedStats = await tx.orm.public.CharacterStat.where({ id: currentStats.id }).update(nextValues);
+    await syncCharacterCoreBasicStats(context.characterId, nextValues, tx);
     const Dynamic = (tx.orm.public as any).CharacterStatValue;
     if (Dynamic) {
       for (const definition of customDefinitions) {

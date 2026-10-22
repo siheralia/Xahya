@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { syncCharacterCoreBasicStats } from "@/lib/stats/dynamic";
 
 const statNames = ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"] as const;
 type StatName = (typeof statNames)[number];
@@ -101,9 +102,9 @@ export async function POST(request: Request) {
     if (!currentStats || !currentResources) throw new Error("Datos del personaje incompletos");
 
     if (role === "ADMIN") {
-      await tx.orm.public.CharacterStat.where({ id: currentStats.id }).update(
-        Object.fromEntries(statNames.map((stat) => [stat, Number(currentStats[stat]) + (stats[stat] ?? 0)])) as Record<StatName, number>,
-      );
+      const nextCore = Object.fromEntries(statNames.map((stat) => [stat, Number(currentStats[stat]) + (stats[stat] ?? 0)])) as Record<StatName, number>;
+      await tx.orm.public.CharacterStat.where({ id: currentStats.id }).update(nextCore);
+      await syncCharacterCoreBasicStats(characterId, nextCore, tx);
     }
 
     await tx.orm.public.CharacterResource.where({ id: currentResources.id }).update({

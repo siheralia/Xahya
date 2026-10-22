@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import MechanicStatSettings from "@/components/MechanicStatSettings";
 import { useEffect, useMemo, useState } from "react";
 
 type Schedule = { id: string; setId: string; dayOfWeek: number; startTime: string; endTime: string; active: boolean };
@@ -264,6 +265,7 @@ export default function CasinoManagementPage() {
           </button>
         </div>
 
+        <MechanicStatSettings mode="casino" />
         {error && <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
         {success && <div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
 

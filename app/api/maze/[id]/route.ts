@@ -1,3 +1,5 @@
+import { readMechanics, getCharacterMechanicValue } from "@/lib/stats/mechanics";
+import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -824,14 +826,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!capabilities.invisibility) throw new Error("INVISIBILITY_UNAVAILABLE");
     }
     if (activeEnemies.length > 0 && exploreStealth) {
+      const mechanics = await readMechanics(tx);
       const stealthCombat = await getEffectiveCombatStats(tx, characterId);
-      const characterStealth = Number(stealthCombat?.derived?.stealth ?? 0);
-      const detectedBy = activeEnemies.find((encounter:any) => {
+      const configuredStealth = await getCharacterMechanicValue(characterId, mechanics.mazeStealth, tx);
+      const characterStealth = Number(stealthCombat?.derived?.[mechanics.mazeStealth] ?? configuredStealth);
+      let detected = false;
+      for (const encounter of activeEnemies) {
         const enemyStats = normalizeEnemyStats(encounter.generatedStats ?? {});
-        const enemyDetection = Number(calculateDerivedStats(enemyStats).detection);
-        return enemyDetection >= characterStealth;
-      });
-      if (detectedBy) throw new Error("STEALTH_DETECTED");
+        const enemyDerived = await calculateConfiguredDerivedStats(enemyStats, tx);
+        const enemyDetection = Number(enemyDerived[mechanics.mazeDetection] ?? (enemyStats as any)[mechanics.mazeDetection] ?? 0);
+        if (enemyDetection >= characterStealth) { detected = true; break; }
+      }
+      if (detected) throw new Error("STEALTH_DETECTED");
     }
 
     // In PLANAR_2D, reuse an existing room at the target grid coordinate.

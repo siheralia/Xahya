@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { CORE_BASIC_STAT_KEYS, readStatisticsCatalog } from "@/lib/stats/dynamic";
 
 export const MECHANIC_DEFAULTS = { mazeStealth: "stealth", mazeDetection: "detection", casinoInfluence: "luck" } as const;
@@ -45,5 +46,8 @@ export async function getCharacterMechanicValue(characterId: number, key: string
   const value = rows.find((row: any) => String(row.statKey) === key);
   if (value) return Number(value.value) || 0;
   const legacy = await source.orm.public.CharacterStat.where({ characterId }).first();
-  return Number(legacy?.[key] ?? 0) || 0;
+  const base = Object.fromEntries([...CORE_BASIC_STAT_KEYS].map((stat) => [stat, Number(rows.find((row: any) => String(row.statKey) === stat)?.value ?? legacy?.[stat] ?? 0)]));
+  for (const row of rows) base[String(row.statKey)] = Number(row.value);
+  const derived = await calculateConfiguredDerivedStats(base as any, source);
+  return Number(derived[key] ?? base[key] ?? 0) || 0;
 }

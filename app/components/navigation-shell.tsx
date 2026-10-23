@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import DiceLauncher from "@/app/components/dice-launcher";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -204,6 +205,7 @@ export default function NavigationShell({
       </header>
 
       <div className="xahya-page-content">{children}</div>
+      <DiceLauncher characters={characters} />
 
     </>
   );

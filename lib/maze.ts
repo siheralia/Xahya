@@ -76,15 +76,15 @@ export function pickRandomDirections(count = 2, mode: MazeGenerationMode = "FREE
   return [...MAZE_DIRECTIONS].sort(() => Math.random() - 0.5).slice(0, Math.max(2, Math.min(4, count)));
 }
 
-export function pickRoomType(luck = 0, disabledTypes: string[] = []) {
+export function pickRoomType(luck = 0, disabledTypes: string[] = [], balance = {mazeTrapRate:0.01,mazeTrapMax:0.75,mazeTreasureShare:2/3}) {
   const normalizedLuck = Math.max(0, Number(luck) || 0);
   // La Suerte desplaza parte del peso de TRAP hacia TREASURE y BOSS.
   // Cada 100 puntos de LCK reduce TRAP hasta un 75% de su peso.
-  const trapReduction = Math.min(0.75, normalizedLuck * 0.01);
+  const trapReduction = Math.min(balance.mazeTrapMax, normalizedLuck * balance.mazeTrapRate);
   const trapWeight = 20 * (1 - trapReduction);
   const removedTrapWeight = 20 - trapWeight;
-  const treasureBonus = removedTrapWeight * (2 / 3);
-  const bossBonus = removedTrapWeight * (1 / 3);
+  const treasureBonus = removedTrapWeight * balance.mazeTreasureShare;
+  const bossBonus = removedTrapWeight * (1 - balance.mazeTreasureShare);
 
   const weights = ROOM_WEIGHTS.map((entry) => {
     if (entry.type === "TRAP") return { ...entry, weight: trapWeight };

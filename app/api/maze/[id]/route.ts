@@ -1,3 +1,4 @@
+import { getEffectiveCharacterStats } from "@/lib/stats/effective";
 import { readBalance } from "@/lib/stats/balance";
 import { readMechanics, getCharacterMechanicValue } from "@/lib/stats/mechanics";
 import { auth } from "@clerk/nextjs/server";
@@ -54,63 +55,9 @@ const STAT_CODES: Record<(typeof STAT_KEYS)[number], string> = {
 };
 
 async function getEffectiveCombatStats(tx: any, characterId: number) {
-  const stats = await (tx.orm.public as any).CharacterStat.where({ characterId }).first();
-  if (!stats) return null;
-  const modifiers = await (tx.orm.public as any).CharacterModifier.where({ characterId }).all();
-  const now = Date.now();
-  const activeModifiers = modifiers.filter((modifier:any) =>
-    !modifier.expiresAt || new Date(String(modifier.expiresAt)).getTime() > now
-  );
-  const CharacterItem = (tx.orm.public as any).CharacterItem;
-  const Item = (tx.orm.public as any).Item;
-  const ownedItems = CharacterItem ? await CharacterItem.where({ characterId }).all() : [];
-  const itemDefinitions = Item ? await Item.all() : [];
-  const equippedEffects = ownedItems
-    .filter((owned:any) => Boolean(owned.equipped))
-    .flatMap((owned:any) => {
-      const item = itemDefinitions.find((candidate:any) => Number(candidate.id) === Number(owned.itemId));
-      return (Array.isArray(item?.effects) ? item.effects : []).map((effect:any) => ({
-        type:String(effect.type), stat:String(effect.stat ?? ""), value:Number(effect.value),
-      }));
-    });
-
-  const effectiveStats = Object.fromEntries(STAT_KEYS.map((key) => {
-    const base = Number(stats[key] ?? 0);
-    const flat = activeModifiers.filter((m:any) => String(m.stat) === key && String(m.source) !== "KARMA_BOOST")
-      .reduce((sum:number,m:any) => sum + Number(m.amount),0);
-    const karma = activeModifiers.filter((m:any) => String(m.stat) === key && String(m.source) === "KARMA_BOOST")
-      .reduce((sum:number,m:any) => sum + Number(m.amount),0);
-    const multiplier = activeModifiers.filter((m:any) => String(m.stat) === key + "_multiplier")
-      .reduce((sum:number,m:any) => sum + Number(m.amount) / 100,0);
-    const itemBonus = equippedEffects.filter((e:any) => e.type === "stat_bonus" && e.stat === STAT_CODES[key])
-      .reduce((sum:number,e:any) => sum + Number(e.value),0);
-    const itemMultiplier = equippedEffects.filter((e:any) => e.type === "stat_multiplier" && e.stat === STAT_CODES[key])
-      .reduce((sum:number,e:any) => sum + Number(e.value) / 100,0);
-    return [key, base * (1 + multiplier + itemMultiplier) + flat + itemBonus + karma];
-  })) as Record<string, number>;
-
-  const customBasicStats = await getCharacterCustomBasicStats(characterId, tx);
-  for (const definition of customBasicStats.definitions) {
-    const key=definition.key;
-    const base=Number(customBasicStats.values[key]??definition.defaultValue??0);
-    const flat=activeModifiers.filter((m:any)=>String(m.stat)===key && String(m.source)!=="KARMA_BOOST").reduce((sum:number,m:any)=>sum+Number(m.amount),0);
-    const karma=activeModifiers.filter((m:any)=>String(m.stat)===key && String(m.source)==="KARMA_BOOST").reduce((sum:number,m:any)=>sum+Number(m.amount),0);
-    const multiplier=activeModifiers.filter((m:any)=>String(m.stat)===key+"_multiplier").reduce((sum:number,m:any)=>sum+Number(m.amount)/100,0);
-    const itemBonus=equippedEffects.filter((e:any)=>e.type==="stat_bonus"&&e.stat===definition.code).reduce((sum:number,e:any)=>sum+Number(e.value),0);
-    const itemMultiplier=equippedEffects.filter((e:any)=>e.type==="stat_multiplier"&&e.stat===definition.code).reduce((sum:number,e:any)=>sum+Number(e.value)/100,0);
-    effectiveStats[key]=base*(1+multiplier+itemMultiplier)+flat+itemBonus+karma;
-  }
-  let derived = await calculateConfiguredDerivedStats(effectiveStats as any, tx);
-  derived = applyDerivedItemEffects(
-    derived,
-    equippedEffects.filter((e:any) => e.type === "stat_bonus" || e.type === "stat_multiplier"),
-  );
-  const attackMultiplier = 1 + equippedEffects
-    .filter((e:any) => e.type === "stat_multiplier" && e.stat === "ATTACK_TOTAL")
-    .reduce((sum:number,e:any) => sum + Number(e.value) / 100, 0);
-  derived.physicalAttack *= attackMultiplier;
-  derived.magicAttack *= attackMultiplier;
-
+  const result = await getEffectiveCharacterStats(characterId, tx);
+  if (!result) return null;
+  const { effectiveStats, derived } = result;
   return { effectiveStats, derived };
 }
 

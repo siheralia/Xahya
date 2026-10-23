@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import MechanicStatSettings from "@/components/MechanicStatSettings";
 
 type Stat={key:string;name:string;code:string;kind:"basic"|"derived";active:boolean;showOnSheet:boolean;showOnPolygon:boolean;defaultValue:number;formula:string;order:number};
 export default function StatisticsManagementPage(){
@@ -23,5 +24,6 @@ export default function StatisticsManagementPage(){
  <div className="mt-3 flex flex-wrap gap-5 text-sm text-zinc-300"><label className="flex items-center gap-2"><input type="checkbox" checked={s.showOnSheet} onChange={e=>change(i,{showOnSheet:e.target.checked})}/> Mostrar en ficha</label><label className="flex items-center gap-2"><input type="checkbox" checked={s.showOnPolygon} onChange={e=>change(i,{showOnPolygon:e.target.checked})}/> Mostrar en polígono</label></div>
  </section>)}</div>
  <div className="mt-6 rounded-xl border border-amber-900/70 bg-amber-950/20 p-4 text-sm text-amber-100"><strong>Motor conectado:</strong> las fórmulas guardadas se aplican al calcular estadísticas derivadas de personajes y al calcular las estadísticas efectivas del personaje en el laberinto. Las claves técnicas son las referencias reales; los nombres visibles son solo etiquetas. Las estadísticas básicas nuevas todavía no tienen columnas propias en el almacenamiento del personaje, así que por ahora funcionan con su valor predeterminado hasta completar esa migración.</div>
+ <MechanicStatSettings mode="combat" />
  </div></main>
 }

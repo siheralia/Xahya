@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { readMechanics, getCharacterMechanicValue } from "@/lib/stats/mechanics";
+import { readBalance, type BalanceSettings } from "@/lib/stats/balance";
 
 type Mode = "exact" | "highlow" | "evenodd" | "range";
 
@@ -9,14 +11,14 @@ function isValidInteger(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && Number.isFinite(value);
 }
 
-function rollD20(luck: number, preferred: number[]) {
+function rollD20(luck: number, preferred: number[], balance: BalanceSettings) {
   const clampedLuck = Math.max(1, luck);
   let bonus = 0;
 
-  if (clampedLuck > 20) {
-    bonus = Math.min(0.08, (clampedLuck - 20) * 0.008);
-  } else if (clampedLuck < 10) {
-    bonus = -Math.min(0.2, (10 - clampedLuck) * 0.02);
+  if (clampedLuck > balance.casinoHigh) {
+    bonus = Math.min(balance.casinoBonusMax, (clampedLuck - balance.casinoHigh) * balance.casinoBonusRate);
+  } else if (clampedLuck < balance.casinoLow) {
+    bonus = -Math.min(balance.casinoPenaltyMax, (balance.casinoLow - clampedLuck) * balance.casinoPenaltyRate);
   }
 
   const weights = Array.from({ length: 20 }, (_, index) => {
@@ -56,6 +58,7 @@ export async function GET() {
     .all();
 
   const result = [];
+  const mechanics = await readMechanics();
 
   for (const character of characters) {
     const resources = await db.orm.public.CharacterResource
@@ -72,7 +75,7 @@ export async function GET() {
       name: character.name,
       money: Number(resources.money),
       karma: Number(resources.karma),
-      luck: Number(stats.luck),
+      luck: await getCharacterMechanicValue(Number(character.id), mechanics.casinoInfluence),
     });
   }
 
@@ -151,7 +154,10 @@ export async function POST(request: Request) {
           ? target === 1 ? [2,4,6,8,10,12,14,16,18,20] : [1,3,5,7,9,11,13,15,17,19]
           : [15,16,17,18,19,20];
 
-  const roll = rollD20(Number(stats.luck), preferred);
+  const mechanics = await readMechanics();
+  const balance = await readBalance();
+  const influence = await getCharacterMechanicValue(characterId, mechanics.casinoInfluence);
+  const roll = rollD20(influence, preferred, balance);
 
   let won = false;
   let multiplier = -1;

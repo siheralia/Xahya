@@ -18,7 +18,7 @@ type Log = {
   createdAt: string;
 };
 
-const eventTypes = ["Todos","Personajes","Estadísticas","Recursos","Level Up","Karma","Negocios","Casino","Objetos","Habilidades","Laberintos","Perks","Equipo","Sistema","Otros"];
+const eventTypes = ["Todos","Personajes","Estadísticas","Recursos","Level Up","Karma","Negocios","Casino","Dados","Objetos","Habilidades","Laberintos","Perks","Equipo","Sistema","Otros"];
 const ranges = [
   ["today","Hoy"],
   ["7d","Últimos 7 días"],
@@ -33,7 +33,7 @@ const actionLabels: Record<string,string> = {
   GLOBAL_REWARD:"Entrega global", LEVEL_UP:"Gastó Level Up",
   KARMA_BOOST:"Aplicó boost de Karma", USER_ROLE_CHANGE:"Cambió rol",
   USER_DELETE:"Eliminó usuario",
-  CASINO_ROULETTE:"Jugó ruleta", CASINO_BLACKJACK:"Jugó Blackjack", CASINO_DICE:"Jugó dados",
+  DICE_ROLL:"Lanzó dados", CASINO_ROULETTE:"Jugó ruleta", CASINO_BLACKJACK:"Jugó Blackjack", CASINO_DICE:"Jugó dados",
   EMPLOYMENT_CREATE:"Contrató personaje", EMPLOYMENT_END:"Terminó contrato",
   BUSINESS_CREATE:"Creó negocio", BUSINESS_UPDATE:"Modificó negocio",
   BUSINESS_POSITION_CREATE:"Creó puesto", BUSINESS_POSITION_UPDATE:"Modificó puesto",
@@ -101,6 +101,7 @@ function skillChangesText(before: unknown, after: unknown) {
 function detailText(log: Log) {
   const d = log.details;
   if (!d) return "";
+  if (log.action === "DICE_ROLL") return `Modo: ${d.mode === "probability" ? "Probabilidad" : "Libre"} · ${String(d.count)}d${String(d.sides)} · Dados: ${Array.isArray(d.rolls) ? d.rolls.join(", ") : "—"} · Total: ${String(d.total)} · Slider: ${String(d.chance)}% · Límites: ${String(d.min)}–${String(d.max)}% · Probabilidad efectiva: ${String(d.effectiveChance)}%${d.success === null ? "" : d.success ? " · Éxito" : " · Fallo"}`;
   if (log.action === "EMPLOYMENT_CREATE" && log.position) {
     const salary = `${money(log.position.salary)} / ${log.position.salaryFrequency === "WEEKLY" ? "semana" : "día"}`;
     const payer = log.position.payerType === "CHARACTER" ? "personaje" : "negocio/sistema";

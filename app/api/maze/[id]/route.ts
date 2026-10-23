@@ -42,9 +42,8 @@ async function getMazeThemeSlugs(tx:any, mazeId:number) {
   return links.map((link:any)=>themes.find((theme:any)=>Number(theme.id)===Number(link.themeId))?.slug).filter(Boolean);
 }
 
-async function getCharacterLuck(tx: any, characterId: number) {
-  const stat = await (tx.orm.public as any).CharacterStat.where({ characterId }).first();
-  return Math.max(0, Number(stat?.luck ?? 0));
+async function getCharacterLuck(tx: any, characterId: number, key = "luck") {
+  return Math.max(0, await getCharacterMechanicValue(characterId, key, tx));
 }
 
 const STAT_KEYS = ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"] as const;
@@ -199,7 +198,7 @@ function hasActiveEnemies(room: any, enemies: any[]) {
   return enemies.some((enemy: any) => Number(enemy.roomId) === Number(room.id) && String(enemy.status) === "ACTIVE");
 }
 
-async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = false, reservedDirection?: string, luck = 0) {
+async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = false, reservedDirection?: string, luck = 0, itemLuck = luck, moneyLuck = luck) {
   const disabledTypes = [
     !Boolean(maze.allowTraps) ? "TRAP" : null,
     !Boolean(maze.allowDeath) ? "DEATH" : null,
@@ -218,10 +217,10 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
   if (roomType === "TREASURE") {
     const items = await tx.orm.public.Item.all();
     const normalizedLuck = Math.max(0, Number(luck) || 0);
-    const itemChance = Math.min(0.75, 0.35 + normalizedLuck * 0.004);
+    const itemChance = Math.min(0.75, 0.35 + Math.max(0, Number(itemLuck) || 0) * 0.004);
     const item = items.length && Math.random() < itemChance ? items[Math.floor(Math.random() * items.length)] : null;
     const baseMoney = (Math.floor(Math.random() * 901) + 100) * 10;
-    const moneyMultiplier = 1 + Math.min(1, normalizedLuck / 100);
+    const moneyMultiplier = 1 + Math.min(1, Math.max(0, Number(moneyLuck) || 0) / 100);
     const money = Math.round(baseMoney * moneyMultiplier);
     treasureRewards = { money, itemId: item ? Number(item.id) : null, quantity: item ? 1 : 0 };
     contentName = "Tesoro";
@@ -915,8 +914,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (String(maze.mazeType) === "FINITE" && roomCount >= Number(maze.maxRooms)) throw new Error("MAZE_LIMIT");
     const nextNumber = roomCount + 1;
     const returnDirection = OPPOSITE_DIRECTION[direction as keyof typeof OPPOSITE_DIRECTION];
-    const characterLuck = await getCharacterLuck(tx, characterId);
-    const destination = await generateRoom(tx, maze, nextNumber, String(maze.mazeType) === "FINITE" && nextNumber === Number(maze.maxRooms), returnDirection, characterLuck);
+    const mechanics = await readMechanics(tx);
+    const [characterLuck, itemLuck, moneyLuck] = await Promise.all([getCharacterLuck(tx, characterId, mechanics.mazeRoomGeneration), getCharacterLuck(tx, characterId, mechanics.mazeItemChance), getCharacterLuck(tx, characterId, mechanics.mazeTreasureMoney)]);
+    const destination = await generateRoom(tx, maze, nextNumber, String(maze.mazeType) === "FINITE" && nextNumber === Number(maze.maxRooms), returnDirection, characterLuck, itemLuck, moneyLuck);
 
     await TxExit.where({ id:requestedExit.id }).update({ toRoomId:destination.id });
 

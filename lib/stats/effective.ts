@@ -56,7 +56,11 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     breakdown[key]={base:original,value:base[key],karmaBonus:karma,objectFlatBonus:flat+bonus,combinedMultiplier};
   }
   let derived=await calculateConfiguredDerivedStats(base as any,source);
-  derived=applyDerivedItemEffects(derived,validEffects.filter((entry:any)=>entry.type==="stat_bonus"||entry.type==="stat_multiplier"),aliases);
+  // Resolve only active derived targets; do not fall back to legacy aliases for disabled stats.
+  const derivedItemEffects = validEffects.filter((entry:any)=>
+    (entry.type==="stat_bonus"||entry.type==="stat_multiplier") && Boolean(aliases[entry.stat])
+  ).map((entry:any)=>({...entry,stat:aliases[entry.stat]}));
+  derived=applyDerivedItemEffects(derived,derivedItemEffects,aliases);
   for(const effect of validPerks){
     const type=String(effect.type), target=String(effect.target??""), amount=Number(effect.value);
     if(!Number.isFinite(amount)) continue;

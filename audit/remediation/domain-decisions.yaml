@@ -1,0 +1,150 @@
+schema_version: "1.0.0"
+document:
+  id: "XAHYA-W02-DOMAIN-DECISIONS"
+  title: "Xahya — Casino payout and disclosure domain decisions"
+  workflow_id: "W02"
+  workflow_mode: "decision-only"
+  status: "DRAFT_PENDING_OWNER_APPROVAL"
+  created_at: "2026-10-23"
+  repository:
+    full_name: "siheralia/Xahya"
+    target_branch: "main"
+    source_revision_observed: "bb5dcc44824b67e5e411d4f71443a289dd120b21"
+    source_revision_observed_at: "2026-10-23T08:17:28Z"
+    source_revision_note: "Observed via recent commit listing; not independently certified as the current HEAD at execution time."
+  execution:
+    scope: "Record policy decisions only; do not change gameplay, API behavior, database state, or production configuration."
+    dependency:
+      workflow_id: "W00"
+      user_reported_artifacts_generated: true
+      dependency_artifacts_independently_verified: false
+      note: "The requester stated that files were generated. The generated W00 artifacts were not independently located in the repository during this run."
+    tests_run: []
+    production_writes: false
+    gameplay_changes: false
+    repository_changes: "Created this draft on a dedicated branch only."
+    approval_rule: "No item is approved until the domain owner supplies an explicit decision and rationale."
+  owner:
+    name: null
+    role: "Casino/domain owner"
+    approval_status: "PENDING"
+    approved_at: null
+  decisions:
+    - id: "D-01"
+      topic: "D20 expected value and house edge"
+      status: "PENDING_OWNER_DECISION"
+      decision: null
+      rationale: null
+      evidence:
+        - path: "app/api/casino/dice/route.ts"
+          url: "https://github.com/siheralia/Xahya/blob/main/app/api/casino/dice/route.ts"
+          observation: "The D20 route applies luck-adjusted outcome weights and payout multipliers; the exact approved expected-return target is not encoded as an owner decision."
+      options:
+        - "Define and approve target expected value / house edge separately for each mode and luck state."
+        - "Define a single target and explicitly document how luck modifies outcome probabilities and expected value."
+      proposed_default: "Calculate and document expected value for every supported mode and luck boundary before approving any odds or payout change."
+      proposed_default_is_approved: false
+      acceptance_criteria:
+        - "Every mode has a written probability table and payout table."
+        - "Expected value is independently calculated for baseline and luck-adjusted cases."
+        - "The owner explicitly approves the target and permitted luck impact."
+    - id: "D-02"
+      topic: "Roulette displayed weights versus effective sampling weights"
+      status: "PENDING_OWNER_DECISION"
+      decision: null
+      rationale: null
+      evidence:
+        - path: "app/api/casino/route.ts"
+          url: "https://github.com/siheralia/Xahya/blob/main/app/api/casino/route.ts"
+          observation: "GET exposes segment weights while POST sampling uses luck-adjusted weights; the displayed and effective values may therefore differ."
+        - path: "lib/casino.ts"
+          url: "https://github.com/siheralia/Xahya/blob/main/lib/casino.ts"
+          observation: "Roulette base weights and payout multipliers are defined in the shared casino module."
+      options:
+        - "Display the effective weights used for the current player's roll."
+        - "Display base weights and clearly label them as base weights, with a separate explanation of luck adjustment."
+        - "Remove numeric weight disclosure and provide another owner-approved disclosure."
+      proposed_default: "Disclose both base weights and effective weights, clearly labeled, whenever luck changes the sampling distribution."
+      proposed_default_is_approved: false
+      acceptance_criteria:
+        - "The chosen disclosure corresponds exactly to the probabilities used by the sampler."
+        - "Any base/effective distinction is explicit in the user-facing explanation."
+        - "Tests cover at least baseline luck and a non-baseline luck value."
+    - id: "D-03"
+      topic: "Payout rounding and fractional currency"
+      status: "PENDING_OWNER_DECISION"
+      decision: null
+      rationale: null
+      evidence:
+        - path: "app/api/casino/blackjack/route.ts"
+          url: "https://github.com/siheralia/Xahya/blob/main/app/api/casino/blackjack/route.ts"
+          observation: "Blackjack payout logic includes a natural-win multiplier of 1.5x stake; rounding policy must be explicit for stakes that produce fractional units."
+      options:
+        - "Round half up to the smallest supported currency unit."
+        - "Floor payouts to the smallest supported currency unit."
+        - "Preserve fractional balances if the ledger and UI formally support them."
+      proposed_default: "Round half up at a single documented settlement boundary, after computing the gross payout; apply consistently across games."
+      proposed_default_is_approved: false
+      acceptance_criteria:
+        - "The smallest supported currency unit is documented."
+        - "Gross payout, net gain/loss, and returned stake semantics are specified separately."
+        - "Boundary tests cover whole, half-unit, and fractional payouts."
+    - id: "D-04"
+      topic: "Debt, karma constraints, and insufficient balances"
+      status: "PENDING_OWNER_DECISION"
+      decision: null
+      rationale: null
+      evidence:
+        - path: "app/api/casino/route.ts"
+          url: "https://github.com/siheralia/Xahya/blob/main/app/api/casino/route.ts"
+          observation: "The roulette route deducts karma per roll and currently permits a negative balance; whether debt is an intentional game rule requires owner approval."
+        - path: "lib/stats/balance.ts"
+          url: "https://github.com/siheralia/Xahya/blob/main/lib/stats/balance.ts"
+          observation: "Casino-related balance and penalty constants exist, but constants alone do not establish an approved debt policy."
+      options:
+        - "Disallow a wager when available balance is insufficient."
+        - "Allow negative balance with an explicit debt limit and recovery policy."
+        - "Allow negative balance without a limit (requires explicit owner rationale and risk acceptance)."
+      proposed_default: "Reject wagers that exceed available balance unless the owner approves a bounded debt policy."
+      proposed_default_is_approved: false
+      acceptance_criteria:
+        - "The owner chooses whether debt is allowed and defines any cap."
+        - "Insufficient-balance behavior is consistent across all casino games."
+        - "The policy defines how losses, penalties, and recovery interact with debt."
+    - id: "D-05"
+      topic: "Virtual economy and fairness claims"
+      status: "PENDING_OWNER_DECISION"
+      decision: null
+      rationale: null
+      evidence:
+        - path: "lib/casino.ts"
+          url: "https://github.com/siheralia/Xahya/blob/main/lib/casino.ts"
+          observation: "The module defines roulette weights and payout multipliers; these can support mathematical disclosure but do not by themselves prove fairness claims."
+      options:
+        - "Classify casino balances and wagers as virtual, non-redeemable game resources."
+        - "Document another owner-approved economy classification."
+      proposed_default: "Describe the economy as virtual and non-redeemable only if that is factually correct; do not claim 'fair', 'provably fair', or equivalent without a defined and verified mechanism."
+      proposed_default_is_approved: false
+      acceptance_criteria:
+        - "The owner confirms whether resources are redeemable, transferable, or have external value."
+        - "Permitted fairness language is enumerated."
+        - "Any stronger fairness claim has a specified mechanism and verifiable evidence."
+  release_gates:
+    - id: "G-W02-01"
+      condition: "Owner explicitly approves D-01 and D-03."
+      blocks: "Any gameplay payout, odds, or settlement changes."
+    - id: "G-W02-02"
+      condition: "Owner explicitly approves D-02."
+      blocks: "Any roulette odds/disclosure response changes."
+    - id: "G-W02-03"
+      condition: "Owner explicitly approves D-04 and D-05."
+      blocks: "Any debt-policy, economy-classification, or fairness-claim changes."
+  audit_trail:
+    - timestamp: "2026-10-23"
+      actor: "ChatGPT execution session"
+      action: "Created decision draft from source inspection and requester statement that dependency files were generated."
+      result: "Draft only; no owner decisions inferred; no gameplay changes."
+  closure:
+    completed: false
+    reason: "Domain owner decisions and rationale are still required for D-01 through D-05."
+    next_action: "Owner reviews each decision, supplies the selected policy and rationale, then W02 can produce an approved decision record."

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
-import { EFFECT_CATALOG, EFFECT_TARGETS } from "@/lib/effects/catalog";
+import { EFFECT_CATALOG, EFFECT_TARGETS, resolveEffectTargets } from "@/lib/effects/catalog";
 
 type Effect = { type: string; target?: string; value?: number; description?: string };
 type Skill = {
@@ -18,6 +18,8 @@ const blankForm=()=>({characterId:"",name:"",cost:0,accumulationCost:0,accumulat
 
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
+  const [statDefinitions,setStatDefinitions]=useState<{key:string;name:string;kind:"basic"|"derived";active?:boolean}[]>([]);
+  useEffect(() => { fetch("/api/management/effect-targets").then((r) => r.ok ? r.json() : null).then((data) => { if (data?.statistics) setStatDefinitions(data.statistics); }).catch(() => {}); }, []);
   const [characters,setCharacters]=useState<{id:number;name:string}[]>([]);
   const [filter,setFilter]=useState("PENDING");
   const [search,setSearch]=useState("");
@@ -133,10 +135,10 @@ export default function SkillsManagementPage(){
           <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">Efecto</h3><p className="text-xs text-zinc-500">Los ofensivos pueden usar × sobre el ataque actual; soporte/pasiva pueden mostrar buffs.</p></div><button type="button" onClick={addEffect} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">+ Añadir</button></div>
           <div className="mt-4 space-y-3">{form.effect.map((effect,i)=>{
             const narrative=effect.type==="NARRATIVE";
-            const targets=EFFECT_TARGETS[effect.type as keyof typeof EFFECT_TARGETS]??[];
+            const targets=resolveEffectTargets(effect.type,statDefinitions).map((entry)=>entry.key);
             return <div key={i} className="grid gap-2 sm:grid-cols-[170px_1fr_110px_auto]">
               <select value={effect.type==="MAZE_UTILITY"&&effect.target==="INVISIBILITY"?"MAZE_UTILITY_INVISIBILITY":effect.type==="MAZE_UTILITY"&&effect.target==="FLOATING"?"MAZE_UTILITY_FLOATING":(effect.type??"STAT_BONUS")} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{effectTypes.map(t=><option key={t[0]} value={t[0]}>{t[1]}</option>)}</select>
-              {!narrative?(targets.length?<select value={effect.target??targets[0]} onChange={e=>updateEffect(i,"target",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{targets.map(t=><option key={t} value={t}>{t}</option>)}</select>:<div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-2 py-2 text-sm text-zinc-400">Sin objetivo adicional</div>):<input value={effect.description??""} onChange={e=>updateEffect(i,"description",e.target.value)} placeholder="Descripción del efecto" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm"/>}
+              {!narrative?(targets.length?<select value={effect.target??targets[0]} onChange={e=>updateEffect(i,"target",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{targets.map(t=><option key={t} value={t}>{statDefinitions.find((stat)=>stat.key===t)?.name??t}</option>)}</select>:<div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-2 py-2 text-sm text-zinc-400">Sin objetivo adicional</div>):<input value={effect.description??""} onChange={e=>updateEffect(i,"description",e.target.value)} placeholder="Descripción del efecto" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm"/>}
               {!narrative?<input type="number" step="0.01" value={effect.value??0} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" placeholder="Valor"/>:<span/>}
               <button type="button" onClick={()=>setForm(f=>({...f,effect:f.effect.filter((_,idx)=>idx!==i)}))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
             </div>;

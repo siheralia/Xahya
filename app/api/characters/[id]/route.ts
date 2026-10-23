@@ -7,7 +7,7 @@ import { getCombatEffects } from "@/lib/combat/effects";
 import { getPerkEffects, awardCreationPerks } from "@/lib/perks";
 import { recordAuditEvent } from "@/lib/audit";
 import { getRaceImageUrl } from "@/lib/race-image";
-import { getCharacterCustomBasicStats } from "@/lib/stats/dynamic";
+import { getCharacterCustomBasicStats, readStatisticsCatalog } from "@/lib/stats/dynamic";
 
 export async function GET(
   request: Request,
@@ -300,7 +300,7 @@ export async function GET(
     ...normalizedCharacter,
     stats,
     customStats: customBasicStats.values,
-    basicStatDefinitions: customBasicStats.definitions,
+    basicStatDefinitions: await readStatisticsCatalog(),
     resources,
     modifiers,
     perks,

@@ -86,7 +86,7 @@ type Character = {
   derivedStats: Record<string, number> | null;
   effectiveStats: Record<string, number> | null;
   customStats?: Record<string, number>;
-  basicStatDefinitions?: { key:string; name:string; code:string; active?:boolean; showOnSheet?:boolean; showOnPolygon?:boolean; defaultValue?:number }[];
+  basicStatDefinitions?: { key:string; name:string; code:string; kind?:"basic"|"derived"; active?:boolean; showOnSheet?:boolean; showOnPolygon?:boolean; defaultValue?:number }[];
   modifiers: { id: number; stat: string; amount: number; source: string; expiresAt?: string | null }[];
   statBreakdown: Record<string, {
     base: number;
@@ -2285,8 +2285,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     <div className="text-right"><span className="text-lg font-semibold text-white">{formatNumber(applyTemporaryEffects(key, character.effectiveStats?.[key] ?? character.stats?.[key as keyof typeof character.stats] ?? 0))}</span>{character.effectiveStats && character.effectiveStats[key] !== character.stats?.[key as keyof typeof character.stats] && <span className="ml-2 text-xs text-amber-300">({formatNumber(character.stats?.[key as keyof typeof character.stats] ?? 0)})</span>}{temporaryEffects.some((effect) => effect.target === key) && <span className="ml-2 text-xs text-violet-300">◈ temporal</span>}</div>
                   </div>
                 ))}
-                {(character.basicStatDefinitions ?? []).filter((definition) => definition.active !== false && definition.showOnSheet !== false && !statLabels[definition.key]).map((definition) => {
-                  const base = character.customStats?.[definition.key] ?? definition.defaultValue ?? 0;
+                {(character.basicStatDefinitions ?? []).filter((definition) => definition.kind === "basic" && definition.active !== false && definition.showOnSheet !== false && !statLabels[definition.key]).map((definition) => {
+                  const base = character.customStats?.[definition.key] ?? character.stats?.[definition.key as keyof typeof character.stats] ?? definition.defaultValue ?? 0;
                   const value = character.effectiveStats?.[definition.key] ?? base;
                   return <div key={definition.key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2">
                     <p className="text-sm text-zinc-400">{definition.name}</p>
@@ -2334,11 +2334,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Estadísticas derivadas</h2>
             <div className="mt-4 grid gap-x-8 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(character.derivedStats).map(([key, value]) => {
+              {Object.entries(character.derivedStats).filter(([key]) => !character.basicStatDefinitions?.some((definition) => definition.key === key && definition.kind === "basic") && !statLabels[key]).map(([key, value]) => {
                 const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
                 const displayedValue = applyTemporaryEffects(key, affectedByAttackMultiplier ? value * allAttackMultiplier : value);
                 return <div key={key} className="flex items-baseline justify-between gap-3 border-b border-zinc-800/80 py-2">
-                  <p className="text-sm text-zinc-400">{derivedLabels[key] ?? key}</p>
+                  <p className="text-sm text-zinc-400">{character.basicStatDefinitions?.find((definition) => definition.key === key)?.name ?? derivedLabels[key] ?? key}</p>
                   <p className="text-lg font-semibold">{formatNumber(displayedValue)}{affectedByAttackMultiplier && allAttackMultiplier !== 1 && <span className="ml-2 text-xs text-amber-300">(base {formatNumber(value)} · ×{formatNumber(allAttackMultiplier)})</span>}{temporaryEffects.some((effect) => effect.target === key) && <span className="ml-2 text-xs text-violet-300">◈ temporal</span>}</p>
                 </div>;
               })}

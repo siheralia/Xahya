@@ -1,3 +1,4 @@
+import { readBalance } from "@/lib/stats/balance";
 import { readMechanics, getCharacterMechanicValue } from "@/lib/stats/mechanics";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
@@ -166,14 +167,16 @@ function canAutoDefeat(combat:any, enemyStats:any, quantity:number) {
 async function getGroupPower(tx: any, mazeId: number) {
   const positions = await (tx.orm.public as any).MazeCharacterPosition.where({ mazeId }).all();
   if (positions.length === 0) return 0;
-  const stats = await Promise.all(positions.map(async (position: any) =>
-    (tx.orm.public as any).CharacterStat.where({ characterId: Number(position.characterId) }).first()
-  ));
-  const totals = stats.map((stat:any) => stat
-    ? ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"]
-      .reduce((sum,key) => sum + Number(stat[key] ?? 0), 0)
-    : 0
-  );
+  const { readStatisticsCatalog } = await import("@/lib/stats/dynamic");
+  const catalog = await readStatisticsCatalog(tx);
+  const keys = [...new Set(catalog.filter((stat) => stat.kind === "basic" && stat.active !== false).map((stat) => stat.key))];
+  const totals = await Promise.all(positions.map(async (position: any) => {
+    const characterId = Number(position.characterId);
+    const rows = await (tx.orm.public as any).CharacterStatValue.where({ characterId }).all();
+    const legacy = await (tx.orm.public as any).CharacterStat.where({ characterId }).first();
+    const values = new Map(rows.map((row: any) => [String(row.statKey), Number(row.value)]));
+    return keys.reduce((sum, key) => sum + Number(values.get(key) ?? legacy?.[key] ?? 0), 0);
+  }));
   return totals.reduce((sum,n) => sum + n, 0) / totals.length;
 }
 
@@ -204,7 +207,8 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
     !Boolean(maze.allowDeath) ? "DEATH" : null,
     !Boolean(maze.allowTreasures) ? "TREASURE" : null,
   ].filter(Boolean) as string[];
-  let roomType = forceBoss ? "BOSS" : pickRoomType(luck, disabledTypes);
+  const balance = await readBalance(tx);
+  let roomType = forceBoss ? "BOSS" : pickRoomType(luck, disabledTypes, balance);
   if (maze.mazeType === "FINITE" && Number(maze.maxRooms) === roomNumber) roomType = "BOSS";
 
   let contentName: string | null = null;
@@ -216,10 +220,10 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
 
   if (roomType === "TREASURE") {
     const items = await tx.orm.public.Item.all();
-    const itemChance = Math.min(0.75, 0.35 + Math.max(0, Number(itemLuck) || 0) * 0.004);
+    const itemChance = Math.min(balance.mazeItemMax, balance.mazeItemBase + Math.max(0, Number(itemLuck) || 0) * balance.mazeItemRate);
     const item = items.length && Math.random() < itemChance ? items[Math.floor(Math.random() * items.length)] : null;
     const baseMoney = (Math.floor(Math.random() * 901) + 100) * 10;
-    const moneyMultiplier = 1 + Math.min(1, Math.max(0, Number(moneyLuck) || 0) / 100);
+    const moneyMultiplier = 1 + Math.min(balance.mazeMoneyMax, Math.max(0, Number(moneyLuck) || 0) * balance.mazeMoneyRate);
     const money = Math.round(baseMoney * moneyMultiplier);
     treasureRewards = { money, itemId: item ? Number(item.id) : null, quantity: item ? 1 : 0 };
     contentName = "Tesoro";

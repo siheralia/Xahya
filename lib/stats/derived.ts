@@ -105,13 +105,15 @@ const DERIVED_STAT_ALIASES: Record<string, keyof ReturnType<typeof calculateDeri
 };
 
 export function applyDerivedItemEffects(
-  derivedStats: ReturnType<typeof calculateDerivedStats>,
+  derivedStats: ReturnType<typeof calculateDerivedStats> & Record<string, number>,
   effects: ItemStatEffect[],
+  aliases: Record<string, string> = {},
 ) {
   const result = { ...derivedStats };
 
   for (const effect of effects) {
-    const target = DERIVED_STAT_ALIASES[String(effect.stat ?? "").trim().toUpperCase()];
+    const rawTarget = String(effect.stat ?? "").trim();
+    const target = aliases[rawTarget] ?? aliases[rawTarget.toUpperCase()] ?? DERIVED_STAT_ALIASES[rawTarget.toUpperCase()] ?? (rawTarget in result ? rawTarget : undefined);
     if (!target) continue;
 
     const value = Number(effect.value);

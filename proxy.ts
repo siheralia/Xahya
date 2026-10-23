@@ -5,6 +5,7 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/api/webhooks/clerk(.*)",
   "/api/cron/economy",
+  "/api/dice", // La ruta devuelve errores JSON 401; evita redirecciones HTML de Clerk.
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

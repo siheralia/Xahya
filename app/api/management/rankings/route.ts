@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { readStatisticsCatalog, CORE_BASIC_STAT_KEYS } from "@/lib/stats/dynamic";
 
 const STAT_KEYS = ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"] as const;
 const CASINO_ACTIONS = new Set(["CASINO_ROULETTE","CASINO_DICE","CASINO_BLACKJACK"]);
@@ -25,6 +26,10 @@ export async function GET() {
   const resources = await db.orm.public.CharacterResource.all();
   const stats = await db.orm.public.CharacterStat.all();
   const auditLogs = await db.orm.public.AuditLog.all();
+  const catalog = await readStatisticsCatalog();
+  const basicKeys = catalog.length ? catalog.filter((entry) => entry.kind === "basic" && entry.active !== false).map((entry) => entry.key) : [...CORE_BASIC_STAT_KEYS];
+  const dynamicModel = (db.orm.public as any).CharacterStatValue;
+  const dynamicRows: any[] = dynamicModel ? await dynamicModel.all() : [];
 
   const rows = characters.flatMap((character) => {
     const owner = users.find((user) => Number(user.id) === Number(character.userId));
@@ -32,7 +37,12 @@ export async function GET() {
 
     const resource = resources.find((r) => Number(r.characterId) === Number(character.id));
     const stat = stats.find((s) => Number(s.characterId) === Number(character.id));
-    const pointsTotal = STAT_KEYS.reduce((sum, key) => sum + Number((stat as Record<string, unknown> | null)?.[key] ?? 0), 0);
+    const pointsTotal = basicKeys.reduce((sum, key) => {
+      const normalized = dynamicRows.find((row) => Number(row.characterId) === Number(character.id) && String(row.statKey) === key);
+      const legacy = CORE_BASIC_STAT_KEYS.has(key) ? (stat as Record<string, unknown> | null)?.[key] : undefined;
+      const value = Number(normalized?.value ?? legacy ?? catalog.find((entry) => entry.key === key)?.defaultValue ?? 0);
+      return sum + (Number.isFinite(value) ? value : 0);
+    }, 0);
 
     let casinoWon = 0;
     let casinoSpent = 0;

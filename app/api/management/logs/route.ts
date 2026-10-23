@@ -10,6 +10,7 @@ function eventCategory(action: string) {
   if (action === "KARMA_BOOST") return "Karma";
   if (action.startsWith("BUSINESS_") || action.startsWith("EMPLOYMENT_")) return "Negocios";
   if (action.startsWith("CASINO_")) return "Casino";
+  if (action === "DICE_ROLL") return "Dados";
   if (action.startsWith("ITEM_")) return "Objetos";
   if (action.startsWith("SKILL_")) return "Habilidades";
   if (action.startsWith("MAZE_") || action.startsWith("ESCAPE_MAZE") || action.includes("MAZE")) return "Laberintos";

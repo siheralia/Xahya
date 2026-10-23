@@ -7,7 +7,7 @@ import { recordAuditEvent } from "@/lib/audit";
 const SIDES = [4, 6, 8, 10, 12, 20, 100];
 const integer = (v: unknown) => typeof v === "number" && Number.isInteger(v);
 
-export async function POST(request: Request) {
+async function handleRoll(request: Request) {
   const { userId: clerkId } = await auth();
   if (!clerkId) return NextResponse.json({ error: "Inicia sesión para tirar dados." }, { status: 401 });
   let body: Record<string, unknown>;
@@ -58,4 +58,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No se pudo registrar la tirada en el auditor." }, { status: 500 });
   }
   return NextResponse.json({ rolls, total, effectiveChance, success });
+}
+
+export async function POST(request: Request) {
+  try { return await handleRoll(request); }
+  catch (error) {
+    console.error("DICE_ROLL_API_ERROR", error);
+    return NextResponse.json({ error: "Error interno al procesar la tirada. Revisa los registros del servidor." }, { status: 500 });
+  }
 }

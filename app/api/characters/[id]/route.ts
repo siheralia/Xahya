@@ -5,7 +5,7 @@ import { getCombatEffects } from "@/lib/combat/effects";
 import { getPerkEffects, awardCreationPerks } from "@/lib/perks";
 import { recordAuditEvent } from "@/lib/audit";
 import { getRaceImageUrl } from "@/lib/race-image";
-import { getCharacterCustomBasicStats } from "@/lib/stats/dynamic";
+import { getCharacterCustomBasicStats, readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { getEffectiveCharacterStats } from "@/lib/stats/effective";
 
 export async function GET(

@@ -1,3 +1,4 @@
+import { readMechanics, getCharacterMechanicValue } from "@/lib/stats/mechanics";
 import { NextResponse } from "next/server";
 import { Temporal } from "@js-temporal/polyfill";
 import { auth } from "@clerk/nextjs/server";
@@ -56,9 +57,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const playerAgility = Math.max(1, Number(stats.agility ?? 1));
+  const mechanics = await readMechanics();
+  const playerAgility = Math.max(1, await getCharacterMechanicValue(Number(session.playerCharacterId), mechanics.combatSpeed));
   const npcStats = session.npcStats && typeof session.npcStats === "object" ? session.npcStats as Record<string, unknown> : {};
-  const npcAgility = Math.max(1, Number(npcStats.agility ?? npcStats.AGI ?? 1));
+  const npcAgility = Math.max(1, Number(npcStats[mechanics.combatSpeed] ?? (mechanics.combatSpeed === "agility" ? npcStats.AGI : undefined) ?? npcStats.agility ?? npcStats.AGI ?? 1));
   const npcAttackType = ATTACK_TYPES.has(String(npcStats.attackType ?? "CUT").toUpperCase())
     ? String(npcStats.attackType ?? "CUT").toUpperCase() as CombatAttackType
     : "CUT";

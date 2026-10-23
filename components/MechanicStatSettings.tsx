@@ -2,15 +2,20 @@
 
 import { useEffect, useState } from "react";
 
-type MechanicKey = "mazeStealth" | "mazeDetection" | "casinoInfluence";
+type MechanicKey = "mazeStealth" | "mazeDetection" | "casinoInfluence" | "blackjackInfluence" | "mazeRoomGeneration" | "mazeItemChance" | "mazeTreasureMoney" | "combatSpeed";
 type Option = { key: string; name: string; kind: string };
 const labels: Record<MechanicKey, string> = {
   mazeStealth: "Estadística de sigilo",
   mazeDetection: "Estadística de detección",
-  casinoInfluence: "Estadística que influye en las tiradas",
+  casinoInfluence: "Influencia en ruleta",
+  blackjackInfluence: "Influencia en Blackjack",
+  mazeRoomGeneration: "Generación de habitaciones",
+  mazeItemChance: "Probabilidad de encontrar objetos",
+  mazeTreasureMoney: "Dinero encontrado en tesoros",
+  combatSpeed: "Velocidad de ataques",
 };
 export default function MechanicStatSettings({ mode }: { mode: "maze" | "casino" }) {
-  const [values, setValues] = useState<Record<MechanicKey, string>>({ mazeStealth: "stealth", mazeDetection: "detection", casinoInfluence: "luck" });
+  const [values, setValues] = useState<Record<MechanicKey, string>>({ mazeStealth: "stealth", mazeDetection: "detection", casinoInfluence: "luck", blackjackInfluence: "luck", mazeRoomGeneration: "luck", mazeItemChance: "luck", mazeTreasureMoney: "luck", combatSpeed: "agility" });
   const [options, setOptions] = useState<Option[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,7 +39,7 @@ export default function MechanicStatSettings({ mode }: { mode: "maze" | "casino"
     } catch (error) { setMessage(error instanceof Error ? error.message : "No se pudo guardar."); }
     finally { setBusy(false); }
   }
-  const keys: MechanicKey[] = mode === "maze" ? ["mazeStealth", "mazeDetection"] : ["casinoInfluence"];
+  const keys: MechanicKey[] = mode === "maze" ? ["mazeStealth", "mazeDetection", "mazeRoomGeneration", "mazeItemChance", "mazeTreasureMoney"] : ["casinoInfluence", "blackjackInfluence"];
   return <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
     <h2 className="text-xl font-semibold">Estadísticas de las mecánicas</h2>
     <p className="mt-2 text-sm text-zinc-400">Selecciona qué estadística utiliza cada mecánica. Los cambios se aplican a futuras acciones; no modifican resultados anteriores.</p>

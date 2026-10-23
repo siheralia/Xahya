@@ -87,11 +87,14 @@ export async function GET(
     ...perkBaseStatCode,
     ...Object.fromEntries(customBasicStats.definitions.map((definition:any) => [definition.key, definition.code || definition.key.toUpperCase()])),
   };
+  const statisticsCatalog = await readStatisticsCatalog();
   const derivedStatCode: Record<string,string> = {
     maxHp:"HP", maxMana:"MANA", physicalAttack:"PHYS_ATK", magicAttack:"MAGIC_ATK", physicalDefense:"DEF", magicDefense:"MAG_DEF",
     precision:"PRECISION", critical:"CRITICAL", discovery:"DISCOVERY", miracle:"MIRACLE", intimidation:"INTIMIDATION",
     conquest:"CONQUEST", race:"RACE", dodge:"DODGE", stealth:"STEALTH", detection:"DETECTION",
+    ...Object.fromEntries(statisticsCatalog.filter((entry) => entry.kind === "derived" && entry.active !== false).map((entry) => [entry.key, entry.code || entry.key])),
   };
+  const derivedAliases = Object.fromEntries(Object.entries(derivedStatCode).flatMap(([key, code]) => [[code, key], [key, key]]));
 
   const baseStats: Record<string, number> | null = stats
     ? {
@@ -130,9 +133,9 @@ export async function GET(
         const flatModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey);
         const multiplierModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey + "_multiplier");
         const itemStat = baseStatCodes[statKey] ?? statKey.toUpperCase();
-        const itemStatBonuses = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" && effect.stat === itemStat).reduce((sum: number, effect: any) => sum + Number(effect.value), 0);
+        const itemStatBonuses = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" && (effect.stat === itemStat || effect.stat === statKey)).reduce((sum: number, effect: any) => sum + Number(effect.value), 0);
         const itemStatMultipliers = equippedItemEffects.filter((effect: any) => effect.type === "stat_multiplier" && effect.stat === itemStat).reduce((sum: number, effect: any) => sum + Number(effect.value) / 100, 0);
-        const perkStatBonuses = perkEffects.filter((effect:any) => String(effect.type)==="STAT_BONUS" && String(effect.target)===itemStat).reduce((sum:number,effect:any)=>sum+Number(effect.value),0);
+        const perkStatBonuses = perkEffects.filter((effect:any) => String(effect.type)==="STAT_BONUS" && (String(effect.target)===itemStat || String(effect.target)===statKey)).reduce((sum:number,effect:any)=>sum+Number(effect.value),0);
         const perkStatMultipliers = perkEffects.filter((effect:any) => String(effect.type)==="STAT_MULTIPLIER" && String(effect.target)===itemStat).reduce((sum:number,effect:any)=>sum+Number(effect.value)/100,0);
         const objectFlatBonus = flatModifiers.filter((modifier) => String(modifier.source).startsWith("ITEM:")).reduce((sum, modifier) => sum + Number(modifier.amount), 0) + itemStatBonuses + perkStatBonuses;
         const karmaBonus = flatModifiers.filter((modifier) => String(modifier.source) === "KARMA_BOOST").reduce((sum, modifier) => sum + Number(modifier.amount), 0);
@@ -159,7 +162,7 @@ export async function GET(
   const derivedItemEffects = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" || effect.type === "stat_multiplier");
   let derivedStats = effectiveStats ? await calculateConfiguredDerivedStats(effectiveStats as any) : null;
   if (derivedStats) {
-    derivedStats = applyDerivedItemEffects(derivedStats, derivedItemEffects);
+    derivedStats = applyDerivedItemEffects(derivedStats, derivedItemEffects, derivedAliases);
   }
   if (derivedStats) {
     for (const effect of perkEffects) {
@@ -169,7 +172,7 @@ export async function GET(
       if (type === "RESOURCE_BONUS" && target === "HP") derivedStats.maxHp += value;
       if (type === "RESOURCE_BONUS" && target === "MANA") derivedStats.maxMana += value;
       if (type === "STAT_BONUS" || type === "STAT_MULTIPLIER") {
-        const key = Object.keys(derivedStatCode).find((candidate) => derivedStatCode[candidate] === target);
+        const key = derivedAliases[target] ?? derivedAliases[target.toUpperCase()];
         if (key) {
           if (type === "STAT_BONUS") (derivedStats as any)[key] += value;
           else (derivedStats as any)[key] *= 1 + value / 100;

@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { CORE_BASIC_STAT_KEYS, readStatisticsCatalog } from "@/lib/stats/dynamic";
 
-export const MECHANIC_DEFAULTS = { mazeStealth: "stealth", mazeDetection: "detection", casinoInfluence: "luck" } as const;
+export const MECHANIC_DEFAULTS = { mazeStealth: "stealth", mazeDetection: "detection", casinoInfluence: "luck", blackjackInfluence: "luck", mazeRoomGeneration: "luck", mazeItemChance: "luck", mazeTreasureMoney: "luck", combatSpeed: "agility" } as const;
 export type MechanicKey = keyof typeof MECHANIC_DEFAULTS;
 const SETTING_KEY = "statistics.mechanics.v1";
 

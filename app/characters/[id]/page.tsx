@@ -142,7 +142,7 @@ const defaultRadarStats = [
   { key: "luck", short: "LCK" },
 ] as const;
 
-type RadarStat = { key: string; short: string };
+type RadarStat = { key: string; short: string; name?: string };
 type RadarValues = Record<string, number>;
 
 
@@ -772,10 +772,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }, [character?.id, maxHp, maxMana]);
 
   const radarStats: RadarStat[] = character?.basicStatDefinitions?.length
-    ? character.basicStatDefinitions.filter((stat) => stat.active !== false && stat.showOnPolygon === true).map((stat) => ({ key: stat.key, short: stat.code || stat.name.slice(0, 3).toUpperCase() }))
+    ? character.basicStatDefinitions.filter((stat) => stat.active !== false && stat.showOnPolygon === true).map((stat) => ({ key: stat.key, short: stat.name }))
     : defaultRadarStats.map((stat) => ({ ...stat }));
-  const radarSourceValue = (key: string) => Number(character?.stats?.[key as keyof NonNullable<typeof character.stats>] ?? character?.customStats?.[key] ?? character?.derivedStats?.[key] ?? 0);
-  const radarEffectiveValue = (key: string) => Number(character?.effectiveStats?.[key] ?? character?.customStats?.[key] ?? character?.derivedStats?.[key] ?? radarSourceValue(key));
+  const radarSourceValue = (key: string) => Number(character?.stats?.[key as keyof NonNullable<typeof character.stats>] ?? character?.customStats?.[key] ?? character?.derivedStats?.[key] ?? character?.basicStatDefinitions?.find((stat) => stat.key === key)?.defaultValue ?? 0);
+  const radarEffectiveValue = (key: string) => Number(character?.effectiveStats?.[key] ?? character?.derivedStats?.[key] ?? character?.customStats?.[key] ?? radarSourceValue(key));
   const radarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
         const base = radarEffectiveValue(stat.key);

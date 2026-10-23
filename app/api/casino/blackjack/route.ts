@@ -1,3 +1,4 @@
+import { readMechanics, getCharacterMechanicValue } from "@/lib/stats/mechanics";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -186,8 +187,8 @@ export async function POST(request: Request) {
         if (bet > money) throw new Error("La apuesta no puede superar el dinero disponible.");
         if (karma < 1) throw new Error("Necesitas al menos 1 karma para jugar.");
 
-        const stats = await tx.orm.public.CharacterStat.where({ characterId }).first();
-        const luck = Number(stats?.luck ?? 0);
+        const mechanics = await readMechanics(tx);
+        const luck = await getCharacterMechanicValue(characterId, mechanics.blackjackInfluence, tx);
         const dealt = dealInitial(createDeck(), luck);
         const state: GameState = { bet, luck, deck: dealt.deck, player: dealt.player, dealer: dealt.dealer };
 

@@ -2266,7 +2266,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             </div>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row">
               <select value={boostStat} onChange={(event) => setBoostStat(event.target.value)} disabled={boosting} className="h-12 min-w-0 flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-white outline-none focus:border-amber-400">
-                {Object.entries(statLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                {(character.basicStatDefinitions?.length ? character.basicStatDefinitions.filter((definition) => definition.kind === "basic" && definition.active !== false).map((definition) => [definition.key, definition.name] as const) : Object.entries(statLabels)).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
               </select>
               <button type="button" onClick={applyKarmaBoost} disabled={boosting || (character.resources?.karma ?? 0) < 20} className="rounded-xl bg-amber-400 px-5 py-3 font-bold text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40">{boosting ? "Aplicando..." : "Aplicar boost"}</button>
             </div>

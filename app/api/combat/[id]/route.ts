@@ -1,4 +1,5 @@
 import { readMechanics, getCharacterMechanicValue } from "@/lib/stats/mechanics";
+import { getEffectiveCharacterStats } from "@/lib/stats/effective";
 import { NextResponse } from "next/server";
 import { Temporal } from "@js-temporal/polyfill";
 import { auth } from "@clerk/nextjs/server";
@@ -49,7 +50,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (String(session.status) !== "ACTIVE") return NextResponse.json({ error: "El combate ya terminó." }, { status: 400 });
 
   const character = await db.orm.public.Character.where({ id: Number(session.playerCharacterId) }).first();
-  const stats = await (db.orm.public as any).CharacterStat.where({ characterId: Number(session.playerCharacterId) }).first();
+  const stats = await getEffectiveCharacterStats(Number(session.playerCharacterId));
   if (!character || !stats) return NextResponse.json({ error: "Datos del personaje incompletos." }, { status: 400 });
 
   const management = ["GM", "ADMIN"].includes(String(user.role));

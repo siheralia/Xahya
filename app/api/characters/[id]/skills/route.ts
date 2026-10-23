@@ -2,16 +2,10 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { EFFECT_TYPES, EFFECT_TARGETS } from "@/lib/effects/catalog";
+import { EFFECT_TYPES, resolveEffectTargets } from "@/lib/effects/catalog";
+import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
-const STAT_TARGETS = [
-  "STR","AGI","CON","INT","WIS","CHA","SPI","LCK",
-  "HP","MANA","PHYS_ATK","MAGIC_ATK","DEF","MAG_DEF",
-  "PRECISION","CRITICAL","DISCOVERY","MIRACLE","INTIMIDATION",
-  "CONQUEST","RACE","DODGE","STEALTH","DETECTION","ATTACK_TOTAL",
-] as const;
-
 async function getUser() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
@@ -19,7 +13,7 @@ async function getUser() {
   return users.find((user) => user.clerkId === clerkId) ?? null;
 }
 
-function validate(body: any) {
+function validate(body: any, statistics: Awaited<ReturnType<typeof readStatisticsCatalog>>) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : "";
   const category = String(body.category ?? "UTILITY");
@@ -43,8 +37,8 @@ function validate(body: any) {
       if (!String(row.description ?? "").trim()) return "Los efectos narrativos necesitan una descripción.";
       continue;
     }
-    const allowedTargets = EFFECT_TARGETS[type as keyof typeof EFFECT_TARGETS] ?? [];
-    if (!allowedTargets.includes(target as any)) return "Objetivo de efecto inválido.";
+    const allowedTargets = resolveEffectTargets(type, statistics);
+    if (!allowedTargets.some((option) => option.key === target)) return "Objetivo de efecto inválido.";
     const value = Number(row.value);
     if (!Number.isFinite(value) || value <= 0) return "Valor de efecto inválido.";
     if (type === "DAMAGE_MULTIPLIER" && !["PHYS_ATK","MAGIC_ATK","ATTACK_TOTAL"].includes(target)) {
@@ -103,7 +97,7 @@ export async function POST(
   if (!character || (Number(character.userId) !== Number(user.id) && !["GM", "ADMIN"].includes(String(user.role)))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await request.json().catch(() => null);
-  const validationError = validate(body);
+  const validationError = validate(body, await readStatisticsCatalog());
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
   const Skill = (db.orm.public as any).Skill;

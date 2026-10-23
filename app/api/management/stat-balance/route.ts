@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { readBalance, writeBalance } from "@/lib/stats/balance";
 async function admin(){
  const {userId}=await auth();if(!userId)return false;
- const user=(await db.orm.public.User.where({clerkId:userId}).first());
+ const user=(await db.orm.public.User.all()).find((entry)=>entry.clerkId===userId);
  return String(user?.role)==="ADMIN";
 }
 export async function GET(){

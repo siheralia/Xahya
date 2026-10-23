@@ -1,13 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { applyDerivedItemEffects } from "@/lib/stats/derived";
-import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { getCombatEffects } from "@/lib/combat/effects";
 import { getPerkEffects, awardCreationPerks } from "@/lib/perks";
 import { recordAuditEvent } from "@/lib/audit";
 import { getRaceImageUrl } from "@/lib/race-image";
-import { getCharacterCustomBasicStats, readStatisticsCatalog } from "@/lib/stats/dynamic";
+import { getCharacterCustomBasicStats } from "@/lib/stats/dynamic";
+import { getEffectiveCharacterStats } from "@/lib/stats/effective";
 
 export async function GET(
   request: Request,
@@ -82,104 +81,26 @@ export async function GET(
     return new Date(String(modifier.expiresAt)).getTime() > now;
   });
 
-  const perkBaseStatCode: Record<string,string> = { strength:"STR", agility:"AGI", constitution:"CON", intelligence:"INT", wisdom:"WIS", charisma:"CHA", spirit:"SPI", luck:"LCK" };
-  const baseStatCodes: Record<string,string> = {
-    ...perkBaseStatCode,
-    ...Object.fromEntries(customBasicStats.definitions.map((definition:any) => [definition.key, definition.code || definition.key.toUpperCase()])),
-  };
-  const statisticsCatalog = await readStatisticsCatalog();
-  const derivedStatCode: Record<string,string> = {
-    maxHp:"HP", maxMana:"MANA", physicalAttack:"PHYS_ATK", magicAttack:"MAGIC_ATK", physicalDefense:"DEF", magicDefense:"MAG_DEF",
-    precision:"PRECISION", critical:"CRITICAL", discovery:"DISCOVERY", miracle:"MIRACLE", intimidation:"INTIMIDATION",
-    conquest:"CONQUEST", race:"RACE", dodge:"DODGE", stealth:"STEALTH", detection:"DETECTION",
-    ...Object.fromEntries(statisticsCatalog.filter((entry) => entry.kind === "derived" && entry.active !== false).map((entry) => [entry.key, entry.code || entry.key])),
-  };
-  const derivedAliases: Record<string, string> = Object.fromEntries(Object.entries(derivedStatCode).flatMap(([key, code]) => [[code, key], [key, key]]));
-
   const baseStats: Record<string, number> | null = stats
     ? {
-        strength: Number(stats.strength),
-        agility: Number(stats.agility),
-        constitution: Number(stats.constitution),
-        intelligence: Number(stats.intelligence),
-        wisdom: Number(stats.wisdom),
-        charisma: Number(stats.charisma),
-        spirit: Number(stats.spirit),
-        luck: Number(stats.luck),
+        strength: Number(stats.strength), agility: Number(stats.agility),
+        constitution: Number(stats.constitution), intelligence: Number(stats.intelligence),
+        wisdom: Number(stats.wisdom), charisma: Number(stats.charisma),
+        spirit: Number(stats.spirit), luck: Number(stats.luck),
         ...customBasicStats.values,
       }
     : null;
 
   const CharacterItem = (db.orm.public as any).CharacterItem;
-  const ownedItems = CharacterItem
-    ? await CharacterItem.where({ characterId }).all()
-    : [];
+  const ownedItems = CharacterItem ? await CharacterItem.where({ characterId }).all() : [];
   const Item = (db.orm.public as any).Item;
   const itemDefinitions = Item ? await Item.all() : [];
 
-  const equippedItemEffects = ownedItems
-    .filter((owned: any) => Boolean(owned.equipped))
-    .flatMap((owned: any) => {
-      const item = itemDefinitions.find((candidate: any) => Number(candidate.id) === Number(owned.itemId));
-      const effects = Array.isArray(item?.effects) ? item.effects : [];
-      return effects.map((effect: any) => ({
-        type: String(effect.type), stat: String(effect.stat ?? ""), value: Number(effect.value), source: "ITEM:" + String(item.name),
-      }));
-    });
-
-  const statBreakdown = baseStats
-    ? Object.keys(baseStats).reduce((result, statKey) => {
-        const base = baseStats[statKey];
-        const flatModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey);
-        const multiplierModifiers = modifiers.filter((modifier) => String(modifier.stat) === statKey + "_multiplier");
-        const itemStat = baseStatCodes[statKey] ?? statKey.toUpperCase();
-        const itemStatBonuses = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" && (effect.stat === itemStat || effect.stat === statKey)).reduce((sum: number, effect: any) => sum + Number(effect.value), 0);
-        const itemStatMultipliers = equippedItemEffects.filter((effect: any) => effect.type === "stat_multiplier" && effect.stat === itemStat).reduce((sum: number, effect: any) => sum + Number(effect.value) / 100, 0);
-        const perkStatBonuses = perkEffects.filter((effect:any) => String(effect.type)==="STAT_BONUS" && (String(effect.target)===itemStat || String(effect.target)===statKey)).reduce((sum:number,effect:any)=>sum+Number(effect.value),0);
-        const perkStatMultipliers = perkEffects.filter((effect:any) => String(effect.type)==="STAT_MULTIPLIER" && String(effect.target)===itemStat).reduce((sum:number,effect:any)=>sum+Number(effect.value)/100,0);
-        const objectFlatBonus = flatModifiers.filter((modifier) => String(modifier.source).startsWith("ITEM:")).reduce((sum, modifier) => sum + Number(modifier.amount), 0) + itemStatBonuses + perkStatBonuses;
-        const karmaBonus = flatModifiers.filter((modifier) => String(modifier.source) === "KARMA_BOOST").reduce((sum, modifier) => sum + Number(modifier.amount), 0);
-        const combinedMultiplier = 1 + multiplierModifiers.reduce((sum, modifier) => sum + Number(modifier.amount) / 100, 0) + itemStatMultipliers + perkStatMultipliers;
-        result[statKey] = {
-          base,
-          multipliers: multiplierModifiers.map((modifier) => 1 + Number(modifier.amount) / 100),
-          combinedMultiplier,
-          objectFlatBonus,
-          karmaBonus,
-          value: base * combinedMultiplier + objectFlatBonus + karmaBonus,
-        };
-        return result;
-      }, {} as Record<string, { base: number; multipliers: number[]; combinedMultiplier: number; objectFlatBonus: number; karmaBonus: number; value: number }>)
-    : null;
-
-  const effectiveStats = statBreakdown
-    ? Object.keys(statBreakdown).reduce((result, statKey) => {
-        result[statKey] = statBreakdown[statKey].value;
-        return result;
-      }, {} as Record<string, number>)
-    : null;
-
-  const derivedItemEffects = equippedItemEffects.filter((effect: any) => effect.type === "stat_bonus" || effect.type === "stat_multiplier");
-  let derivedStats = effectiveStats ? await calculateConfiguredDerivedStats(effectiveStats as any) : null;
-  if (derivedStats) {
-    derivedStats = applyDerivedItemEffects(derivedStats, derivedItemEffects, derivedAliases);
-  }
-  if (derivedStats) {
-    for (const effect of perkEffects) {
-      const type = String(effect.type);
-      const target = String(effect.target ?? "");
-      const value = Number(effect.value ?? 0);
-      if (type === "RESOURCE_BONUS" && target === "HP") derivedStats.maxHp += value;
-      if (type === "RESOURCE_BONUS" && target === "MANA") derivedStats.maxMana += value;
-      if (type === "STAT_BONUS" || type === "STAT_MULTIPLIER") {
-        const key = derivedAliases[target] ?? derivedAliases[target.toUpperCase()];
-        if (key) {
-          if (type === "STAT_BONUS") (derivedStats as any)[key] += value;
-          else (derivedStats as any)[key] *= 1 + value / 100;
-        }
-      }
-    }
-  }
+  // The character sheet and mechanics must use the same effective-stat resolver.
+  const resolvedStats = stats ? await getEffectiveCharacterStats(characterId, db) : null;
+  const effectiveStats = resolvedStats?.effectiveStats ?? null;
+  const derivedStats = resolvedStats?.derived ?? null;
+  const statBreakdown = resolvedStats?.statBreakdown ?? null;
   const itemEffects = ownedItems
     .filter((owned: any) => Boolean(owned.equipped))
     .flatMap((owned: any) => {

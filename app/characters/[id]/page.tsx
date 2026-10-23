@@ -131,7 +131,7 @@ const genderOptions = [
   { value: "indefinido", label: "Indefinido" },
 ] as const;
 
-const radarStats = [
+const defaultRadarStats = [
   { key: "strength", short: "STR" },
   { key: "agility", short: "AGI" },
   { key: "constitution", short: "CON" },
@@ -142,7 +142,8 @@ const radarStats = [
   { key: "luck", short: "LCK" },
 ] as const;
 
-type RadarValues = Record<(typeof radarStats)[number]["key"], number>;
+type RadarStat = { key: string; short: string };
+type RadarValues = Record<string, number>;
 
 
 
@@ -363,7 +364,8 @@ async function paletteFromSource(source: string | File, flair: string | null = n
   };
 }
 
-function StatsRadar({ baseValues, values, palette }: { baseValues: RadarValues; values: RadarValues; palette: ThemePalette }) {
+function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: RadarValues; values: RadarValues; palette: ThemePalette; radarStats: RadarStat[] }) {
+  if (radarStats.length < 3) return <p className="text-center text-xs" style={{ color: palette.muted }}>Selecciona al menos tres estadísticas para el polígono.</p>;
   const center = 150;
   const radius = 105;
   const maxValue = Math.max(20, ...Object.values(values));
@@ -769,9 +771,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     setCurrentMana(maxMana);
   }, [character?.id, maxHp, maxMana]);
 
+  const radarStats: RadarStat[] = character?.basicStatDefinitions?.length
+    ? character.basicStatDefinitions.filter((stat) => stat.active !== false && stat.showOnPolygon === true).map((stat) => ({ key: stat.key, short: stat.code || stat.name.slice(0, 3).toUpperCase() }))
+    : defaultRadarStats.map((stat) => ({ ...stat }));
+  const radarSourceValue = (key: string) => Number(character?.stats?.[key as keyof NonNullable<typeof character.stats>] ?? character?.customStats?.[key] ?? character?.derivedStats?.[key] ?? 0);
+  const radarEffectiveValue = (key: string) => Number(character?.effectiveStats?.[key] ?? character?.customStats?.[key] ?? character?.derivedStats?.[key] ?? radarSourceValue(key));
   const radarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
-        const base = character.effectiveStats?.[stat.key] ?? character.stats?.[stat.key] ?? 0;
+        const base = radarEffectiveValue(stat.key);
         result[stat.key] = applyTemporaryEffects(stat.key, base);
         return result;
       }, {} as RadarValues)
@@ -782,7 +789,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   const baseRadarValues = character?.stats
     ? radarStats.reduce((result, stat) => {
-        result[stat.key] = character.stats?.[stat.key] ?? 0;
+        result[stat.key] = radarSourceValue(stat.key);
         return result;
       }, {} as RadarValues)
     : null;
@@ -2313,7 +2320,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   </span>
                   <span className="text-lg font-semibold tracking-tight">Xahya</span>
                 </div>
-                <div className="mt-3"><StatsRadar baseValues={baseRadarValues!} values={radarValues} palette={themePalette} /></div>
+                <div className="mt-3"><StatsRadar baseValues={baseRadarValues!} values={radarValues} palette={themePalette} radarStats={radarStats} /></div>
               </div>
               <div className="absolute bottom-3 left-5 right-5 z-20 flex items-center justify-between gap-4">
                 <p className="text-xl font-semibold italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" style={{ fontFamily: '"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive' }}>{character.name}</p>

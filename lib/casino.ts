@@ -75,19 +75,20 @@ export function getCasinoSet(id: string | null | undefined): CasinoSet {
 export function getCasinoLuckAdjustedWeights(
   segments: readonly { multiplier: number; weight: number }[],
   luck = 10,
+  balance = {casinoLow:10,casinoHigh:20,casinoPenaltyRate:0.02,casinoPenaltyMax:0.2,casinoBonusRate:0.008,casinoBonusMax:0.08},
 ) {
   const safeLuck = Number.isFinite(luck) ? Math.max(0, luck) : 0;
 
   return segments.map((segment) => {
     let weight = segment.weight;
 
-    if (safeLuck < 10) {
-      const penalty = Math.min(0.2, (10 - safeLuck) * 0.02);
+    if (safeLuck < balance.casinoLow) {
+      const penalty = Math.min(balance.casinoPenaltyMax, (balance.casinoLow - safeLuck) * balance.casinoPenaltyRate);
       if (segment.multiplier === -1) weight *= 1 + penalty;
       else if (segment.multiplier > 0) weight *= 1 - penalty;
-    } else if (safeLuck > 20) {
+    } else if (safeLuck > balance.casinoHigh) {
       // Suerte 30 alcanza el máximo bonus positivo actual (+8%).
-      const bonus = Math.min(0.08, (safeLuck - 20) * 0.008);
+      const bonus = Math.min(balance.casinoBonusMax, (safeLuck - balance.casinoHigh) * balance.casinoBonusRate);
       if (segment.multiplier > 0) weight *= 1 + bonus;
       else if (segment.multiplier === -1) weight *= 1 - bonus;
     }

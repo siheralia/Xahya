@@ -28,7 +28,7 @@ export async function POST(
   }
 
   const character = await db.orm.public.Character.where({ id: characterId }).first();
-  if (!character || Number(character.userId) !== Number(user.id)) {
+  if (!character || (Number(character.userId) !== Number(user.id) && !["GM", "ADMIN"].includes(String(user.role)))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

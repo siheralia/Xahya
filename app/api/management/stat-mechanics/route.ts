@@ -19,7 +19,7 @@ export async function PUT(request: Request) {
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json().catch(() => null);
   const input = body?.mechanics;
-  const keys: MechanicKey[] = ["mazeStealth", "mazeDetection", "casinoInfluence"];
+  const keys: MechanicKey[] = ["mazeStealth", "mazeDetection", "casinoInfluence", "blackjackInfluence", "mazeRoomGeneration", "mazeItemChance", "mazeTreasureMoney", "combatSpeed"];
   if (!input || keys.some((key) => typeof input[key] !== "string")) return NextResponse.json({ error: "Configuración incompleta." }, { status: 400 });
   try {
     const before = await readMechanics();

@@ -784,7 +784,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       }, {} as RadarValues)
     : null;
 
-  const allAttackMultiplier = character?.combatEffects?.filter((effect) => effect.type === "attack_multiplier_all").reduce((multiplier, effect) => multiplier * (effect.value / 100), 1) ?? 1;
+  // Item ATTACK_TOTAL multipliers are already included in derivedStats by the shared resolver.
+  // Only apply other combat-only multipliers when rendering the sheet.
+  const allAttackMultiplier = character?.combatEffects?.filter((effect) => effect.type === "attack_multiplier_all" && !effect.source.startsWith("ITEM:")).reduce((multiplier, effect) => multiplier * (effect.value / 100), 1) ?? 1;
   const allDamageMultiplier = character?.combatEffects?.filter((effect) => effect.type === "damage_reduction_all").reduce((multiplier, effect) => multiplier * (effect.value / 100), 1) ?? 1;
 
   const baseRadarValues = character?.stats

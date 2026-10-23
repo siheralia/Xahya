@@ -368,12 +368,12 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
   if (radarStats.length < 3) return <p className="text-center text-xs" style={{ color: palette.muted }}>Selecciona al menos tres estadísticas para el polígono.</p>;
   const center = 150;
   const radius = 105;
-  const maxValue = Math.max(20, ...Object.values(values));
+  const maxValue = Math.max(20, ...Object.values(values), ...Object.values(baseValues));
 
   const getPoints = (source: RadarValues) =>
     radarStats.map((stat, index) => {
       const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
-      const r = radius * Math.max(0, source[stat.key]) / maxValue;
+      const r = radius * Math.max(0, Number(source[stat.key] ?? 0)) / maxValue;
       return {
         x: center + Math.cos(angle) * r,
         y: center + Math.sin(angle) * r,

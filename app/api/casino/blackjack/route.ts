@@ -1,3 +1,4 @@
+import { readBalance, BALANCE_DEFAULTS, type BalanceSettings } from "@/lib/stats/balance";
 import { readMechanics, getCharacterMechanicValue } from "@/lib/stats/mechanics";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
@@ -8,6 +9,7 @@ type Card = { rank: string; suit: string; value: number };
 type GameState = {
   bet: number;
   luck: number;
+  balance?: BalanceSettings;
   deck: Card[];
   player: Card[];
   dealer: Card[];
@@ -39,14 +41,14 @@ function isBlackjack(hand: Card[]) {
   return hand.length === 2 && handValue(hand) === 21;
 }
 
-function draw(deck: Card[], luck: number, favorable: boolean) {
+function draw(deck: Card[], luck: number, favorable: boolean, balance: BalanceSettings = BALANCE_DEFAULTS) {
   if (deck.length === 0) throw new Error("La baraja se agotó.");
 
   const safeLuck = Number.isFinite(luck) ? Math.max(0, luck) : 0;
   let bias = 0;
 
-  if (safeLuck < 10) bias = -Math.min(0.08, (10 - safeLuck) * 0.008);
-  else if (safeLuck > 20) bias = Math.min(0.08, (safeLuck - 20) * 0.008);
+  if (safeLuck < balance.blackjackLow) bias = -Math.min(balance.blackjackMax, (balance.blackjackLow - safeLuck) * balance.blackjackRate);
+  else if (safeLuck > balance.blackjackHigh) bias = Math.min(0.08, (safeLuck - balance.blackjackHigh) * balance.blackjackRate);
 
   const effectiveBias = favorable ? bias : -bias;
   const weighted = deck.map((card) => {
@@ -65,17 +67,17 @@ function draw(deck: Card[], luck: number, favorable: boolean) {
   return { card: deck[deck.length - 1], deck: deck.slice(0, -1) };
 }
 
-function dealInitial(deck: Card[], luck: number) {
+function dealInitial(deck: Card[], luck: number, balance: BalanceSettings = BALANCE_DEFAULTS) {
   const player: Card[] = [];
   const dealer: Card[] = [];
   let remaining = deck;
 
   for (let i = 0; i < 2; i += 1) {
-    const playerDraw = draw(remaining, luck, true);
+    const playerDraw = draw(remaining, luck, true, balance);
     player.push(playerDraw.card);
     remaining = playerDraw.deck;
 
-    const dealerDraw = draw(remaining, luck, false);
+    const dealerDraw = draw(remaining, luck, false, balance);
     dealer.push(dealerDraw.card);
     remaining = dealerDraw.deck;
   }
@@ -88,7 +90,7 @@ function dealerPlay(state: GameState) {
   let deck = [...state.deck];
 
   while (handValue(dealer) < 17) {
-    const next = draw(deck, state.luck, false);
+    const next = draw(deck, state.luck, false, state.balance ?? BALANCE_DEFAULTS);
     dealer.push(next.card);
     deck = next.deck;
   }
@@ -189,8 +191,9 @@ export async function POST(request: Request) {
 
         const mechanics = await readMechanics(tx);
         const luck = await getCharacterMechanicValue(characterId, mechanics.blackjackInfluence, tx);
-        const dealt = dealInitial(createDeck(), luck);
-        const state: GameState = { bet, luck, deck: dealt.deck, player: dealt.player, dealer: dealt.dealer };
+        const balance = await readBalance(tx);
+        const dealt = dealInitial(createDeck(), luck, balance);
+        const state: GameState = { bet, luck, balance, deck: dealt.deck, player: dealt.player, dealer: dealt.dealer };
 
         let finalState: GameState | null = state;
         let outcome = "playing";
@@ -236,7 +239,7 @@ export async function POST(request: Request) {
       if (!activeState) throw new Error("No tienes una partida activa.");
 
       if (action === "hit") {
-        const next = draw(activeState.deck, activeState.luck, true);
+        const next = draw(activeState.deck, activeState.luck, true, activeState.balance ?? BALANCE_DEFAULTS);
         const player = [...activeState.player, next.card];
         const nextState = { ...activeState, deck: next.deck, player };
 

@@ -29,8 +29,15 @@ export default function DiceLauncher({ characters }: { characters: { id: number;
           count: mode === "probability" ? 1 : count, modifier: mode === "probability" ? 0 : modifier,
           chance, min, max, characterId: characterId ? Number(characterId) : null })
       });
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(response.redirected
+          ? "La sesión expiró. Recarga la página e inicia sesión nuevamente."
+          : `El servidor devolvió HTML en lugar de JSON (HTTP ${response.status}). Revisa los registros del despliegue.`);
+      }
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "No se pudo tirar el dado.");
+      if (!response.ok) throw new Error(data.error || `No se pudo tirar el dado (HTTP ${response.status}).`);
+      if (!Array.isArray(data.rolls) || typeof data.total !== "number") throw new Error("Respuesta de tirada inválida.");
       setResult(data as Result);
       setHistory(h => [{ total: data.total, sides: mode === "probability" ? 100 : sides, when: new Date().toLocaleTimeString("es-MX") }, ...h].slice(0, 8));
     } catch (e) { setError(e instanceof Error ? e.message : "Error de tirada"); }

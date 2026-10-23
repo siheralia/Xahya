@@ -23,3 +23,21 @@ export type SkillEffectType = typeof EFFECT_CATALOG[number]["type"];
 export const EFFECT_TYPES = EFFECT_CATALOG.map(e => e.type) as readonly SkillEffectType[];
 export const EFFECT_LABELS = Object.fromEntries(EFFECT_CATALOG.map(e => [e.type, e.label])) as Record<SkillEffectType, string>;
 export const EFFECT_TARGETS = Object.fromEntries(EFFECT_CATALOG.map(e => [e.type, e.targets])) as unknown as Record<SkillEffectType, readonly string[]>;
+
+/** Targets for configurable statistics; legacy codes remain valid for existing effects. */
+export type EffectTargetOption = { key: string; label: string };
+export function resolveEffectTargets(
+  type: string,
+  statistics: ReadonlyArray<{ key: string; name: string; kind: "basic" | "derived"; active?: boolean; code?: string }>,
+): EffectTargetOption[] {
+  const legacy = (EFFECT_TARGETS as Record<string, readonly string[]>)[type] ?? [];
+  const configurable = type === "STAT_BONUS" || type === "STAT_MULTIPLIER";
+  const result = legacy.map((key) => ({ key, label: key }));
+  if (configurable) {
+    for (const stat of statistics) {
+      if (stat.active === false || !stat.key) continue;
+      if (!result.some((entry) => entry.key === stat.key)) result.push({ key: stat.key, label: stat.name || stat.key });
+    }
+  }
+  return result;
+}

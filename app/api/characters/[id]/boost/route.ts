@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { Temporal } from "@js-temporal/polyfill";
 import { recordAuditEvent } from "@/lib/audit";
+import { readStatisticsCatalog, CORE_BASIC_STAT_KEYS } from "@/lib/stats/dynamic";
 
 const statNames = ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"] as const;
 
@@ -22,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const body = await request.json().catch(() => null);
   const stat = body?.stat;
-  if (!statNames.includes(stat)) return NextResponse.json({ error: "Estadística inválida." }, { status: 400 });
+  if (!(await readStatisticsCatalog()).some((entry) => entry.key === stat && entry.kind === "basic" && entry.active !== false) && !(await readStatisticsCatalog()).length && !CORE_BASIC_STAT_KEYS.has(String(stat))) return NextResponse.json({ error: "Estadística inválida." }, { status: 400 });
 
   const result = await db.transaction(async (tx) => {
     const resources = await tx.orm.public.CharacterResource.where({ characterId }).first();

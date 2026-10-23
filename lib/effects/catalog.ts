@@ -32,7 +32,9 @@ export function resolveEffectTargets(
 ): EffectTargetOption[] {
   const legacy = (EFFECT_TARGETS as Record<string, readonly string[]>)[type] ?? [];
   const configurable = type === "STAT_BONUS" || type === "STAT_MULTIPLIER";
-  const result = legacy.map((key) => ({ key, label: key }));
+  const result = legacy
+    .filter((key) => !configurable || !statistics.some((stat) => stat.active === false && (stat.key === key || stat.code === key)))
+    .map((key) => ({ key, label: key }));
   if (configurable) {
     for (const stat of statistics) {
       if (stat.active === false || !stat.key) continue;

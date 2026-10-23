@@ -94,7 +94,7 @@ export async function GET(
     conquest:"CONQUEST", race:"RACE", dodge:"DODGE", stealth:"STEALTH", detection:"DETECTION",
     ...Object.fromEntries(statisticsCatalog.filter((entry) => entry.kind === "derived" && entry.active !== false).map((entry) => [entry.key, entry.code || entry.key])),
   };
-  const derivedAliases = Object.fromEntries(Object.entries(derivedStatCode).flatMap(([key, code]) => [[code, key], [key, key]]));
+  const derivedAliases: Record<string, string> = Object.fromEntries(Object.entries(derivedStatCode).flatMap(([key, code]) => [[code, key], [key, key]]));
 
   const baseStats: Record<string, number> | null = stats
     ? {

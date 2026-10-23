@@ -1,3 +1,4 @@
+import { readBalance } from "@/lib/stats/balance";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -137,7 +138,7 @@ export async function POST(request: Request) {
       const luck = await getCharacterMechanicValue(characterId, mechanics.casinoInfluence, tx);
       const activeSet = await getActiveCasinoSet();
       const segments = activeSet.segments;
-      const adjustedWeights = getCasinoLuckAdjustedWeights(segments, luck);
+      const adjustedWeights = getCasinoLuckAdjustedWeights(segments, luck, await readBalance(tx));
       const adjustedTotalWeight = adjustedWeights.reduce((sum, weight) => sum + weight, 0);
       const results = [];
 

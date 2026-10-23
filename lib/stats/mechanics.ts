@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
+import { getEffectiveCharacterStats } from "@/lib/stats/effective";
 import { CORE_BASIC_STAT_KEYS, readStatisticsCatalog } from "@/lib/stats/dynamic";
 
 export const MECHANIC_DEFAULTS = { mazeStealth: "stealth", mazeDetection: "detection", casinoInfluence: "luck", blackjackInfluence: "luck", mazeRoomGeneration: "luck", mazeItemChance: "luck", mazeTreasureMoney: "luck", combatSpeed: "agility" } as const;
@@ -42,12 +42,8 @@ export async function writeMechanics(input: Record<MechanicKey, string>, source:
 }
 
 export async function getCharacterMechanicValue(characterId: number, key: string, source: any = db): Promise<number> {
-  const rows = await (source.orm.public as any).CharacterStatValue.where({ characterId }).all();
-  const value = rows.find((row: any) => String(row.statKey) === key);
-  if (value) return Number(value.value) || 0;
-  const legacy = await source.orm.public.CharacterStat.where({ characterId }).first();
-  const base = Object.fromEntries([...CORE_BASIC_STAT_KEYS].map((stat) => [stat, Number(rows.find((row: any) => String(row.statKey) === stat)?.value ?? legacy?.[stat] ?? 0)]));
-  for (const row of rows) base[String(row.statKey)] = Number(row.value);
-  const derived = await calculateConfiguredDerivedStats(base as any, source);
-  return Number(derived[key] ?? base[key] ?? 0) || 0;
+  const stats = await getEffectiveCharacterStats(characterId, source);
+  if (!stats) return 0;
+  const value = stats.effectiveStats[key] ?? stats.derived[key] ?? 0;
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
 }

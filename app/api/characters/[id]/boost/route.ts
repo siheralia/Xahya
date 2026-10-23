@@ -23,7 +23,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const body = await request.json().catch(() => null);
   const stat = body?.stat;
-  if (!(await readStatisticsCatalog()).some((entry) => entry.key === stat && entry.kind === "basic" && entry.active !== false) && !(await readStatisticsCatalog()).length && !CORE_BASIC_STAT_KEYS.has(String(stat))) return NextResponse.json({ error: "Estadística inválida." }, { status: 400 });
+  const catalog = await readStatisticsCatalog();
+  const allowed = catalog.length > 0
+    ? catalog.some((entry) => entry.key === stat && entry.kind === "basic" && entry.active !== false)
+    : CORE_BASIC_STAT_KEYS.has(String(stat));
+  if (!allowed) return NextResponse.json({ error: "Estadística inválida." }, { status: 400 });
 
   const result = await db.transaction(async (tx) => {
     const resources = await tx.orm.public.CharacterResource.where({ characterId }).first();

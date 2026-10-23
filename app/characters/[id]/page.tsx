@@ -1545,7 +1545,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       }
     }
 
-    const maxValue = Math.max(20, ...Object.values(effectiveStats));
+    const maxValue = Math.max(20, ...radarStats.map((stat) => radarEffectiveValue(stat.key)));
     const point = (index: number, value: number) => {
       const angle = -Math.PI / 2 + (index * Math.PI * 2) / radarStats.length;
       const r = radius * value / maxValue;
@@ -1580,9 +1580,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       ctx.fillText(stat.short, label.x, label.y);
     });
 
-    const basePoints = radarStats.map((stat, index) => point(index, character.stats?.[stat.key] ?? 0));
-    const effectivePoints = radarStats.map((stat, index) => point(index, effectiveStats?.[stat.key] ?? 0));
-    const hasBoost = radarStats.some((stat) => (effectiveStats?.[stat.key] ?? 0) > (character.stats?.[stat.key] ?? 0));
+    const basePoints = radarStats.map((stat, index) => point(index, radarSourceValue(stat.key)));
+    const effectivePoints = radarStats.map((stat, index) => point(index, radarEffectiveValue(stat.key)));
+    const hasBoost = radarStats.some((stat) => radarEffectiveValue(stat.key) > radarSourceValue(stat.key));
 
     ctx.beginPath();
     basePoints.forEach((p, index) => { if (index === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
@@ -1603,8 +1603,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       ctx.restore();
 
       radarStats.forEach((stat, index) => {
-        const base = character.stats?.[stat.key] ?? 0;
-        const effective = effectiveStats?.[stat.key] ?? base;
+        const base = radarSourceValue(stat.key);
+        const effective = radarEffectiveValue(stat.key);
         if (effective <= base) return;
         const from = basePoints[index];
         const to = effectivePoints[index];

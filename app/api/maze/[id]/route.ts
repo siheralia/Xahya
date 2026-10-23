@@ -216,7 +216,6 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
 
   if (roomType === "TREASURE") {
     const items = await tx.orm.public.Item.all();
-    const normalizedLuck = Math.max(0, Number(luck) || 0);
     const itemChance = Math.min(0.75, 0.35 + Math.max(0, Number(itemLuck) || 0) * 0.004);
     const item = items.length && Math.random() < itemChance ? items[Math.floor(Math.random() * items.length)] : null;
     const baseMoney = (Math.floor(Math.random() * 901) + 100) * 10;

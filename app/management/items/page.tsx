@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
-import { EFFECT_CATALOG } from "@/lib/effects/catalog";
+import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
 
 type Effect = { type: string; stat: string; action?: string; value: number; description: string };
 type Item = {
@@ -27,7 +27,7 @@ const EFFECT_TYPES = [...EFFECT_CATALOG.map(effect => [effect.type.toLowerCase()
 const DAMAGE_TARGETS = [["ALL","Todo"],["PHYSICAL","Físico"],["MAGICAL","Mágico"]] as const;
 const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_TRAP", "Romper una trampa y liberarte"], ["RELEASE_MAZE_TRAPPED", "Liberarte de una trampa"], ["CREATE_SKILL", "Permitir crear una habilidad"]] as const;
 
-const EFFECT_TARGETS = [
+const LEGACY_EFFECT_TARGETS = [
   ["STR", "Fuerza (STR)"], ["AGI", "Agilidad (AGI)"], ["CON", "Constitución (CON)"],
   ["INT", "Inteligencia (INT)"], ["WIS", "Sabiduría (WIS)"], ["CHA", "Carisma (CHA)"],
   ["SPI", "Espíritu (SPI)"], ["LCK", "Suerte (LCK)"], ["HP", "Vida (HP)"], ["MANA", "Maná"],
@@ -44,6 +44,9 @@ const noEffects = (effects: Effect[]) => !Array.isArray(effects) || effects.leng
 
 export default function ItemsManagementPage() {
   const [items,setItems]=useState<Item[]>([]);
+  const [statDefinitions,setStatDefinitions]=useState<{key:string;name:string;kind:"basic"|"derived";active?:boolean}[]>([]);
+  const EFFECT_TARGETS: [string,string][] = [...LEGACY_EFFECT_TARGETS.map(([key,label])=>[key,label] as [string,string]), ...resolveEffectTargets("STAT_BONUS",statDefinitions).filter((entry)=>!LEGACY_EFFECT_TARGETS.some(([key])=>key===entry.key)).map((entry)=>[entry.key,entry.label] as [string,string])];
+  useEffect(() => { fetch("/api/management/effect-targets").then((r)=>r.ok?r.json():null).then((data)=>{if(data?.statistics)setStatDefinitions(data.statistics);}).catch(()=>{}); }, []);
   const [businesses,setBusinesses]=useState<{id:number;name:string}[]>([]);
   const [selected,setSelected]=useState<number|null>(null);
   const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",attackType:"CUT",acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[emptyEffect()],allowedSlots:defaultSlots});

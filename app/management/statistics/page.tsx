@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import MechanicStatSettings from "@/components/MechanicStatSettings";
+import ProbabilityBalanceSettings from "@/components/ProbabilityBalanceSettings";
 
 type Stat={key:string;name:string;code:string;kind:"basic"|"derived";active:boolean;showOnSheet:boolean;showOnPolygon:boolean;defaultValue:number;formula:string;order:number};
 export default function StatisticsManagementPage(){
@@ -25,5 +26,6 @@ export default function StatisticsManagementPage(){
  </section>)}</div>
  <div className="mt-6 rounded-xl border border-amber-900/70 bg-amber-950/20 p-4 text-sm text-amber-100"><strong>Motor conectado:</strong> las fórmulas guardadas se aplican al calcular estadísticas derivadas de personajes y al calcular las estadísticas efectivas del personaje en el laberinto. Las claves técnicas son las referencias reales; los nombres visibles son solo etiquetas. Las estadísticas básicas nuevas todavía no tienen columnas propias en el almacenamiento del personaje, así que por ahora funcionan con su valor predeterminado hasta completar esa migración.</div>
  <MechanicStatSettings mode="combat" />
+ <ProbabilityBalanceSettings />
  </div></main>
 }

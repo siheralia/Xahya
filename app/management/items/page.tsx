@@ -80,7 +80,7 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",attackType:item.attackType??"CUT",acquisitionType:item.acquisitionType,price:Number(item.price),propertyBusinessId:item.propertyBusinessId==null?"":String(item.propertyBusinessId),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:["stat_bonus","system_action","ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus","maze_utility"].includes(String(effect.type))?String(effect.type):"stat_multiplier",stat:EFFECT_TARGETS.some(x=>x[0]===String(effect.stat))?String(effect.stat):String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":"OTHER",action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",attackType:item.attackType??"CUT",acquisitionType:item.acquisitionType,price:Number(item.price),propertyBusinessId:item.propertyBusinessId==null?"":String(item.propertyBusinessId),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:["stat_bonus","system_action","ignore_phys_def_multiplier","ignore_phys_def_bonus","ignore_magic_def_multiplier","ignore_magic_def_bonus","ignore_all_def_multiplier","ignore_all_def_bonus","final_damage_multiplier","final_damage_bonus","maze_utility"].includes(String(effect.type))?String(effect.type):"stat_multiplier",stat:String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":String(effect.stat??"OTHER"),action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??"")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
     setSuccess(""); setError(""); setImageFile(null); setImagePreview(item.imageUrl ?? null);
     setModalOpen(true);
   }
@@ -188,6 +188,7 @@ export default function ItemsManagementPage() {
                 <input value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Objetivo personalizado"/>
               ) : (
                 <select value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+                  {!EFFECT_TARGETS.some(([value])=>value===effect.stat)&&<option value={effect.stat}>{effect.stat} (efecto inactivo: estadística no disponible)</option>}
                   {EFFECT_TARGETS.map(([value,label])=><option key={value} value={value}>{label}</option>)}
                   <option value="OTHER">Otro</option>
                 </select>

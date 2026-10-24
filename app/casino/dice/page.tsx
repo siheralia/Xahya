@@ -206,7 +206,7 @@ export default function DicePage() {
                   disabled={rolling}
                   className="mt-2 h-12 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-white outline-none focus:border-amber-400"
                 >
-                  <option value="exact">🎯 Número exacto — x15</option>
+                  <option value="exact">🎯 Número exacto — x19</option>
                   <option value="highlow">⬆️ Alto / Bajo — x1</option>
                   <option value="evenodd">⚖️ Par / Impar — x1</option>
                   <option value="range">🔥 16–20 — x3</option>

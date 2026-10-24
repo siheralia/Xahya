@@ -17,12 +17,12 @@ test('high means 11–20, low means 1–10 for target 2 and 1', () => {
     assert.equal(roll<=10, [1,10].includes(roll));
   }
 });
-test('even means target 2, odd means target 1', () => {
-  assert.match(route, /won = target === 2 \? roll % 2 === 0 : roll % 2 !== 0/);
+test('even means target 1, odd means target 2', () => {
+  assert.match(route, /won = target === 1 \? roll % 2 === 0 : roll % 2 !== 0/);
   assert.equal(10%2===0,true);
   assert.equal(10%2!==0,false);
 });
 test('preferred weights align with win outcomes', () => {
   assert.match(route, /target === 2 \? Array\.from\(\{ length: 10 \}, \(_, index\) => index \+ 11\)/);
-  assert.match(route, /target === 2 \? \[2,4,6,8,10,12,14,16,18,20\]/);
+  assert.match(route, /target === 1 \? \[2,4,6,8,10,12,14,16,18,20\]/);
 });

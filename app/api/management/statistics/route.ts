@@ -86,6 +86,20 @@ export async function PUT(request:Request) {
         formula:kind==="derived"?String(raw.formula??""):"",order:index};
     });
     if (new Set(incoming.map(x=>x.key)).size!==incoming.length) throw new Error("No puede haber claves repetidas.");
+    // Reject direct and transitive formula dependency cycles before any mutations.
+    const byKey=new Map(incoming.map(stat=>[stat.key,stat]));
+    const visited=new Set<string>(),visiting=new Set<string>();
+    function checkCycle(key:string):void {
+      if(visiting.has(key)) throw new Error("Referencia circular detectada en la fórmula de "+(byKey.get(key)?.name??key)+".");
+      if(visited.has(key))return;
+      visiting.add(key);
+      const stat=byKey.get(key);
+      if(stat?.kind==="derived")for(const token of stat.formula.match(/[A-Za-z_][A-Za-z0-9_]*/g)??[]){
+        if(byKey.has(token))checkCycle(token);
+      }
+      visiting.delete(key);visited.add(key);
+    }
+    for(const stat of incoming)checkCycle(stat.key);
     const removed=previous.filter(old=>!incoming.some(x=>x.key===old.key));
     const protectedCombat=new Set(["physicalAttack","physicalDefense","magicAttack","magicDefense"]);
     if (removed.some(x=>protectedCombat.has(x.key))) throw new Error("Ataque físico, defensa física, ataque mágico y defensa mágica son estadísticas obligatorias y no se pueden borrar.");

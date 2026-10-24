@@ -149,9 +149,9 @@ export async function POST(request: Request) {
     mode === "exact"
       ? [target]
       : mode === "highlow"
-        ? target === 1 ? Array.from({ length: 10 }, (_, index) => index + 11) : Array.from({ length: 10 }, (_, index) => index + 1)
+        ? target === 2 ? Array.from({ length: 10 }, (_, index) => index + 11) : Array.from({ length: 10 }, (_, index) => index + 1)
         : mode === "evenodd"
-          ? target === 1 ? [2,4,6,8,10,12,14,16,18,20] : [1,3,5,7,9,11,13,15,17,19]
+          ? target === 2 ? [2,4,6,8,10,12,14,16,18,20] : [1,3,5,7,9,11,13,15,17,19]
           : [16,17,18,19,20];
 
   const mechanics = await readMechanics();
@@ -166,10 +166,10 @@ export async function POST(request: Request) {
     won = roll === target;
     multiplier = won ? 19 : -1;
   } else if (mode === "highlow") {
-    won = target === 1 ? roll >= 11 : roll <= 10;
+    won = target === 2 ? roll >= 11 : roll <= 10;
     multiplier = won ? 1 : -1;
   } else if (mode === "evenodd") {
-    won = target === 1 ? roll % 2 === 0 : roll % 2 !== 0;
+    won = target === 2 ? roll % 2 === 0 : roll % 2 !== 0;
     multiplier = won ? 1 : -1;
   } else {
     won = roll >= 16;

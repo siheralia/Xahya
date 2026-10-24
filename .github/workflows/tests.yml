@@ -22,3 +22,11 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Run tests
         run: npm test
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jb20k
+          CLERK_SECRET_KEY: sk_test_placeholder

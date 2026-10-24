@@ -152,7 +152,7 @@ export async function POST(request: Request) {
         ? target === 1 ? Array.from({ length: 10 }, (_, index) => index + 11) : Array.from({ length: 10 }, (_, index) => index + 1)
         : mode === "evenodd"
           ? target === 1 ? [2,4,6,8,10,12,14,16,18,20] : [1,3,5,7,9,11,13,15,17,19]
-          : [15,16,17,18,19,20];
+          : [16,17,18,19,20];
 
   const mechanics = await readMechanics();
   const balance = await readBalance();
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
 
   if (mode === "exact") {
     won = roll === target;
-    multiplier = won ? 15 : -1;
+    multiplier = won ? 19 : -1;
   } else if (mode === "highlow") {
     won = target === 1 ? roll >= 11 : roll <= 10;
     multiplier = won ? 1 : -1;
@@ -172,7 +172,7 @@ export async function POST(request: Request) {
     won = target === 1 ? roll % 2 === 0 : roll % 2 !== 0;
     multiplier = won ? 1 : -1;
   } else {
-    won = roll >= 15;
+    won = roll >= 16;
     multiplier = won ? 3 : -1;
   }
 

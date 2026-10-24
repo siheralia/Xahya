@@ -209,7 +209,7 @@ export default function DicePage() {
                   <option value="exact">🎯 Número exacto — x15</option>
                   <option value="highlow">⬆️ Alto / Bajo — x1</option>
                   <option value="evenodd">⚖️ Par / Impar — x1</option>
-                  <option value="range">🔥 15–20 — x3</option>
+                  <option value="range">🔥 16–20 — x3</option>
                 </select>
 
                 {mode === "exact" && (

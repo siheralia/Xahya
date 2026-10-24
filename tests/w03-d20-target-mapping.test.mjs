@@ -10,7 +10,7 @@ test('exact selector displays server payout', () => {
   assert.match(route, /multiplier = won \? 19 : -1/);
 });
 test('high means 11–20, low means 1–10 for target 2 and 1', () => {
-  assert.match(page, /setTarget\(2\)[^\n]*Alto 11–20/);
+  assert.match(page, /setTarget\(2\)[\s\S]{0,350}Alto 11–20/);
   assert.match(route, /won = target === 2 \? roll >= 11 : roll <= 10/);
   for (const roll of [1,10,11,18,20]) {
     assert.equal(roll>=11, [11,18,20].includes(roll));

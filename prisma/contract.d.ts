@@ -34,9 +34,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'4aea78ae58e112ae2247d3133a10b4859725da2a1fac9a69d3f8b36613602439'>;
+  StorageHashBase<'736325bdad178fd4830ca6fa824fc823c58ec94901d440696d3b5a3f4d0390c1'>;
 export type ExecutionHash =
-  ExecutionHashBase<'413d2a20ec0c876dd7b1ba023efcb6c339a0ec1893b44d1eb709e4c8610d6eaa'>;
+  ExecutionHashBase<'c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -264,6 +264,7 @@ export type FieldOutputTypes = {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly locationId: CodecTypes['pg/int4@1']['output'] | null;
       readonly ownerCharacterId: CodecTypes['pg/int4@1']['output'];
       readonly passiveIncome: CodecTypes['pg/int4@1']['output'];
       readonly passiveFrequency: CodecTypes['pg/text@1']['output'];
@@ -421,6 +422,12 @@ export type FieldOutputTypes = {
       readonly spirit: CodecTypes['pg/int4@1']['output'];
       readonly luck: CodecTypes['pg/int4@1']['output'];
     };
+    readonly CharacterStatValue: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly characterId: CodecTypes['pg/int4@1']['output'];
+      readonly statKey: CodecTypes['pg/text@1']['output'];
+      readonly value: CodecTypes['pg/int4@1']['output'];
+    };
     readonly CombatSession: {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly playerCharacterId: CodecTypes['pg/int4@1']['output'];
@@ -567,11 +574,35 @@ export type FieldOutputTypes = {
       readonly active: CodecTypes['pg/bool@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
+    readonly PopulationCohort: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly locationId: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly raceId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly occupationId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly socialClassId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly race: CodecTypes['pg/text@1']['output'];
+      readonly occupation: CodecTypes['pg/text@1']['output'];
+      readonly socialClass: CodecTypes['pg/text@1']['output'];
+      readonly ageGroup: CodecTypes['pg/text@1']['output'];
+      readonly population: CodecTypes['pg/int8@1']['output'];
+      readonly wealth: CodecTypes['pg/int8@1']['output'];
+      readonly birthRate: CodecTypes['pg/float8@1']['output'];
+      readonly deathRate: CodecTypes['pg/float8@1']['output'];
+      readonly migrationRate: CodecTypes['pg/float8@1']['output'];
+      readonly productivity: CodecTypes['pg/float8@1']['output'];
+      readonly consumption: CodecTypes['pg/float8@1']['output'];
+      readonly behavior: CodecTypes['pg/json@1']['output'];
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
     readonly Race: {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly imagePath: CodecTypes['pg/text@1']['output'] | null;
+      readonly lifeExpectancyYears: CodecTypes['pg/int4@1']['output'] | null;
       readonly active: CodecTypes['pg/bool@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
@@ -634,6 +665,127 @@ export type FieldOutputTypes = {
       readonly lastLoginSessionId: CodecTypes['pg/text@1']['output'] | null;
       readonly lastNotificationReadAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     };
+    readonly WorldInfrastructure: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly code: CodecTypes['pg/text@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly kind: CodecTypes['pg/text@1']['output'];
+      readonly worldLocationId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly businessId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly foundingHistory: CodecTypes['pg/text@1']['output'] | null;
+      readonly constructionType: CodecTypes['pg/text@1']['output'] | null;
+      readonly coverage: CodecTypes['pg/json@1']['output'];
+      readonly details: CodecTypes['pg/json@1']['output'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['output'];
+      readonly publicationStatus: CodecTypes['pg/text@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly WorldInfrastructureLink: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly sourceId: CodecTypes['pg/int4@1']['output'];
+      readonly targetId: CodecTypes['pg/int4@1']['output'];
+      readonly linkType: CodecTypes['pg/text@1']['output'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly details: CodecTypes['pg/json@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly WorldLeaderRelation: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly leaderCharacterId: CodecTypes['pg/int4@1']['output'];
+      readonly followerCharacterId: CodecTypes['pg/int4@1']['output'];
+      readonly relationType: CodecTypes['pg/text@1']['output'];
+      readonly loyalty: CodecTypes['pg/int4@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly WorldLocation: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly type: CodecTypes['pg/text@1']['output'];
+      readonly parentId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly publicationStatus: CodecTypes['pg/text@1']['output'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['output'];
+      readonly claimability: CodecTypes['pg/text@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly WorldOccupation: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly WorldPolity: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly polityType: CodecTypes['pg/text@1']['output'];
+      readonly status: CodecTypes['pg/text@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly founderCharacterId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly foundedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly WorldPolityGroup: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly polityId: CodecTypes['pg/int4@1']['output'];
+      readonly groupId: CodecTypes['pg/int4@1']['output'];
+      readonly relationType: CodecTypes['pg/text@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly WorldPolityLocation: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly polityId: CodecTypes['pg/int4@1']['output'];
+      readonly locationId: CodecTypes['pg/int4@1']['output'];
+      readonly relationType: CodecTypes['pg/text@1']['output'];
+      readonly isCapital: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly WorldSimulationRun: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly simulationType: CodecTypes['pg/text@1']['output'];
+      readonly periodKey: CodecTypes['pg/text@1']['output'];
+      readonly status: CodecTypes['pg/text@1']['output'];
+      readonly startedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly completedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly summary: CodecTypes['pg/json@1']['output'];
+    };
+    readonly WorldSocialClass: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly WorldSocialGroup: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly groupType: CodecTypes['pg/text@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly status: CodecTypes['pg/text@1']['output'];
+      readonly leaderCharacterId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly foundedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly WorldSocialGroupMembership: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly groupId: CodecTypes['pg/int4@1']['output'];
+      readonly cohortId: CodecTypes['pg/int4@1']['output'];
+      readonly memberCount: CodecTypes['pg/int8@1']['output'];
+      readonly wealthShare: CodecTypes['pg/int8@1']['output'];
+      readonly role: CodecTypes['pg/text@1']['output'];
+      readonly notes: CodecTypes['pg/text@1']['output'] | null;
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
   };
 };
 export type FieldInputTypes = {
@@ -660,6 +812,7 @@ export type FieldInputTypes = {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly locationId: CodecTypes['pg/int4@1']['input'] | null;
       readonly ownerCharacterId: CodecTypes['pg/int4@1']['input'];
       readonly passiveIncome: CodecTypes['pg/int4@1']['input'];
       readonly passiveFrequency: CodecTypes['pg/text@1']['input'];
@@ -817,6 +970,12 @@ export type FieldInputTypes = {
       readonly spirit: CodecTypes['pg/int4@1']['input'];
       readonly luck: CodecTypes['pg/int4@1']['input'];
     };
+    readonly CharacterStatValue: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly characterId: CodecTypes['pg/int4@1']['input'];
+      readonly statKey: CodecTypes['pg/text@1']['input'];
+      readonly value: CodecTypes['pg/int4@1']['input'];
+    };
     readonly CombatSession: {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly playerCharacterId: CodecTypes['pg/int4@1']['input'];
@@ -963,11 +1122,35 @@ export type FieldInputTypes = {
       readonly active: CodecTypes['pg/bool@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
+    readonly PopulationCohort: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly locationId: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly raceId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly occupationId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly socialClassId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly race: CodecTypes['pg/text@1']['input'];
+      readonly occupation: CodecTypes['pg/text@1']['input'];
+      readonly socialClass: CodecTypes['pg/text@1']['input'];
+      readonly ageGroup: CodecTypes['pg/text@1']['input'];
+      readonly population: CodecTypes['pg/int8@1']['input'];
+      readonly wealth: CodecTypes['pg/int8@1']['input'];
+      readonly birthRate: CodecTypes['pg/float8@1']['input'];
+      readonly deathRate: CodecTypes['pg/float8@1']['input'];
+      readonly migrationRate: CodecTypes['pg/float8@1']['input'];
+      readonly productivity: CodecTypes['pg/float8@1']['input'];
+      readonly consumption: CodecTypes['pg/float8@1']['input'];
+      readonly behavior: CodecTypes['pg/json@1']['input'];
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
     readonly Race: {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly imagePath: CodecTypes['pg/text@1']['input'] | null;
+      readonly lifeExpectancyYears: CodecTypes['pg/int4@1']['input'] | null;
       readonly active: CodecTypes['pg/bool@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
@@ -1029,6 +1212,127 @@ export type FieldInputTypes = {
       readonly lastLoginAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly lastLoginSessionId: CodecTypes['pg/text@1']['input'] | null;
       readonly lastNotificationReadAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+    };
+    readonly WorldInfrastructure: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly code: CodecTypes['pg/text@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly kind: CodecTypes['pg/text@1']['input'];
+      readonly worldLocationId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly businessId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly foundingHistory: CodecTypes['pg/text@1']['input'] | null;
+      readonly constructionType: CodecTypes['pg/text@1']['input'] | null;
+      readonly coverage: CodecTypes['pg/json@1']['input'];
+      readonly details: CodecTypes['pg/json@1']['input'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['input'];
+      readonly publicationStatus: CodecTypes['pg/text@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly WorldInfrastructureLink: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly sourceId: CodecTypes['pg/int4@1']['input'];
+      readonly targetId: CodecTypes['pg/int4@1']['input'];
+      readonly linkType: CodecTypes['pg/text@1']['input'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly details: CodecTypes['pg/json@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly WorldLeaderRelation: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly leaderCharacterId: CodecTypes['pg/int4@1']['input'];
+      readonly followerCharacterId: CodecTypes['pg/int4@1']['input'];
+      readonly relationType: CodecTypes['pg/text@1']['input'];
+      readonly loyalty: CodecTypes['pg/int4@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly WorldLocation: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly type: CodecTypes['pg/text@1']['input'];
+      readonly parentId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly publicationStatus: CodecTypes['pg/text@1']['input'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['input'];
+      readonly claimability: CodecTypes['pg/text@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly WorldOccupation: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly WorldPolity: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly polityType: CodecTypes['pg/text@1']['input'];
+      readonly status: CodecTypes['pg/text@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly founderCharacterId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly foundedAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly WorldPolityGroup: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly polityId: CodecTypes['pg/int4@1']['input'];
+      readonly groupId: CodecTypes['pg/int4@1']['input'];
+      readonly relationType: CodecTypes['pg/text@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly WorldPolityLocation: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly polityId: CodecTypes['pg/int4@1']['input'];
+      readonly locationId: CodecTypes['pg/int4@1']['input'];
+      readonly relationType: CodecTypes['pg/text@1']['input'];
+      readonly isCapital: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly WorldSimulationRun: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly simulationType: CodecTypes['pg/text@1']['input'];
+      readonly periodKey: CodecTypes['pg/text@1']['input'];
+      readonly status: CodecTypes['pg/text@1']['input'];
+      readonly startedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly completedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly summary: CodecTypes['pg/json@1']['input'];
+    };
+    readonly WorldSocialClass: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly WorldSocialGroup: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly groupType: CodecTypes['pg/text@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly status: CodecTypes['pg/text@1']['input'];
+      readonly leaderCharacterId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly foundedAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly WorldSocialGroupMembership: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly groupId: CodecTypes['pg/int4@1']['input'];
+      readonly cohortId: CodecTypes['pg/int4@1']['input'];
+      readonly memberCount: CodecTypes['pg/int8@1']['input'];
+      readonly wealthShare: CodecTypes['pg/int8@1']['input'];
+      readonly role: CodecTypes['pg/text@1']['input'];
+      readonly notes: CodecTypes['pg/text@1']['input'] | null;
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
   };
 };
@@ -1059,6 +1363,7 @@ export type StorageColumnTypes = {
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly growthInvestment: CodecTypes['pg/int4@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly locationId: CodecTypes['pg/int4@1']['output'] | null;
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly ownerCharacterId: CodecTypes['pg/int4@1']['output'];
       readonly passiveDayOfWeek: CodecTypes['pg/int4@1']['output'];
@@ -1213,6 +1518,12 @@ export type StorageColumnTypes = {
       readonly strength: CodecTypes['pg/int4@1']['output'];
       readonly wisdom: CodecTypes['pg/int4@1']['output'];
     };
+    readonly characterStatValue: {
+      readonly characterId: CodecTypes['pg/int4@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly statKey: CodecTypes['pg/text@1']['output'];
+      readonly value: CodecTypes['pg/int4@1']['output'];
+    };
     readonly combatSession: {
       readonly activeActor: CodecTypes['pg/text@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -1359,12 +1670,36 @@ export type StorageColumnTypes = {
       readonly probability: CodecTypes['pg/float8@1']['output'];
       readonly stackable: CodecTypes['pg/bool@1']['output'];
     };
+    readonly populationCohort: {
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly ageGroup: CodecTypes['pg/text@1']['output'];
+      readonly behavior: CodecTypes['pg/json@1']['output'];
+      readonly birthRate: CodecTypes['pg/float8@1']['output'];
+      readonly consumption: CodecTypes['pg/float8@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly deathRate: CodecTypes['pg/float8@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly locationId: CodecTypes['pg/int4@1']['output'];
+      readonly migrationRate: CodecTypes['pg/float8@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly occupation: CodecTypes['pg/text@1']['output'];
+      readonly occupationId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly population: CodecTypes['pg/int8@1']['output'];
+      readonly productivity: CodecTypes['pg/float8@1']['output'];
+      readonly race: CodecTypes['pg/text@1']['output'];
+      readonly raceId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly socialClass: CodecTypes['pg/text@1']['output'];
+      readonly socialClassId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly wealth: CodecTypes['pg/int8@1']['output'];
+    };
     readonly race: {
       readonly active: CodecTypes['pg/bool@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly imagePath: CodecTypes['pg/text@1']['output'] | null;
+      readonly lifeExpectancyYears: CodecTypes['pg/int4@1']['output'] | null;
       readonly name: CodecTypes['pg/text@1']['output'];
     };
     readonly racePerk: {
@@ -1426,6 +1761,127 @@ export type StorageColumnTypes = {
       readonly name: CodecTypes['pg/text@1']['output'] | null;
       readonly role: CodecTypes['pg/text@1']['output'];
     };
+    readonly worldInfrastructure: {
+      readonly businessId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly code: CodecTypes['pg/text@1']['output'];
+      readonly constructionType: CodecTypes['pg/text@1']['output'] | null;
+      readonly coverage: CodecTypes['pg/json@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly details: CodecTypes['pg/json@1']['output'];
+      readonly foundingHistory: CodecTypes['pg/text@1']['output'] | null;
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly kind: CodecTypes['pg/text@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['output'];
+      readonly publicationStatus: CodecTypes['pg/text@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly worldLocationId: CodecTypes['pg/int4@1']['output'] | null;
+    };
+    readonly worldInfrastructureLink: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly details: CodecTypes['pg/json@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly linkType: CodecTypes['pg/text@1']['output'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['output'];
+      readonly sourceId: CodecTypes['pg/int4@1']['output'];
+      readonly targetId: CodecTypes['pg/int4@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly worldLeaderRelation: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly followerCharacterId: CodecTypes['pg/int4@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly leaderCharacterId: CodecTypes['pg/int4@1']['output'];
+      readonly loyalty: CodecTypes['pg/int4@1']['output'];
+      readonly relationType: CodecTypes['pg/text@1']['output'];
+    };
+    readonly worldLocation: {
+      readonly claimability: CodecTypes['pg/text@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['output'];
+      readonly parentId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly publicationStatus: CodecTypes['pg/text@1']['output'];
+      readonly type: CodecTypes['pg/text@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly worldOccupation: {
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly worldPolity: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly foundedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly founderCharacterId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly polityType: CodecTypes['pg/text@1']['output'];
+      readonly status: CodecTypes['pg/text@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly worldPolityGroup: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly groupId: CodecTypes['pg/int4@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly polityId: CodecTypes['pg/int4@1']['output'];
+      readonly relationType: CodecTypes['pg/text@1']['output'];
+    };
+    readonly worldPolityLocation: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly isCapital: CodecTypes['pg/bool@1']['output'];
+      readonly locationId: CodecTypes['pg/int4@1']['output'];
+      readonly polityId: CodecTypes['pg/int4@1']['output'];
+      readonly relationType: CodecTypes['pg/text@1']['output'];
+    };
+    readonly worldSimulationRun: {
+      readonly completedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly periodKey: CodecTypes['pg/text@1']['output'];
+      readonly simulationType: CodecTypes['pg/text@1']['output'];
+      readonly startedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly status: CodecTypes['pg/text@1']['output'];
+      readonly summary: CodecTypes['pg/json@1']['output'];
+    };
+    readonly worldSocialClass: {
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly worldSocialGroup: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly foundedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly groupType: CodecTypes['pg/text@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly leaderCharacterId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly status: CodecTypes['pg/text@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly worldSocialGroupMembership: {
+      readonly cohortId: CodecTypes['pg/int4@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly groupId: CodecTypes['pg/int4@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly memberCount: CodecTypes['pg/int8@1']['output'];
+      readonly notes: CodecTypes['pg/text@1']['output'] | null;
+      readonly role: CodecTypes['pg/text@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly wealthShare: CodecTypes['pg/int8@1']['output'];
+    };
   };
 };
 export type StorageColumnInputTypes = {
@@ -1455,6 +1911,7 @@ export type StorageColumnInputTypes = {
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly growthInvestment: CodecTypes['pg/int4@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly locationId: CodecTypes['pg/int4@1']['input'] | null;
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly ownerCharacterId: CodecTypes['pg/int4@1']['input'];
       readonly passiveDayOfWeek: CodecTypes['pg/int4@1']['input'];
@@ -1609,6 +2066,12 @@ export type StorageColumnInputTypes = {
       readonly strength: CodecTypes['pg/int4@1']['input'];
       readonly wisdom: CodecTypes['pg/int4@1']['input'];
     };
+    readonly characterStatValue: {
+      readonly characterId: CodecTypes['pg/int4@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly statKey: CodecTypes['pg/text@1']['input'];
+      readonly value: CodecTypes['pg/int4@1']['input'];
+    };
     readonly combatSession: {
       readonly activeActor: CodecTypes['pg/text@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
@@ -1755,12 +2218,36 @@ export type StorageColumnInputTypes = {
       readonly probability: CodecTypes['pg/float8@1']['input'];
       readonly stackable: CodecTypes['pg/bool@1']['input'];
     };
+    readonly populationCohort: {
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly ageGroup: CodecTypes['pg/text@1']['input'];
+      readonly behavior: CodecTypes['pg/json@1']['input'];
+      readonly birthRate: CodecTypes['pg/float8@1']['input'];
+      readonly consumption: CodecTypes['pg/float8@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly deathRate: CodecTypes['pg/float8@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly locationId: CodecTypes['pg/int4@1']['input'];
+      readonly migrationRate: CodecTypes['pg/float8@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly occupation: CodecTypes['pg/text@1']['input'];
+      readonly occupationId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly population: CodecTypes['pg/int8@1']['input'];
+      readonly productivity: CodecTypes['pg/float8@1']['input'];
+      readonly race: CodecTypes['pg/text@1']['input'];
+      readonly raceId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly socialClass: CodecTypes['pg/text@1']['input'];
+      readonly socialClassId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly wealth: CodecTypes['pg/int8@1']['input'];
+    };
     readonly race: {
       readonly active: CodecTypes['pg/bool@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly imagePath: CodecTypes['pg/text@1']['input'] | null;
+      readonly lifeExpectancyYears: CodecTypes['pg/int4@1']['input'] | null;
       readonly name: CodecTypes['pg/text@1']['input'];
     };
     readonly racePerk: {
@@ -1821,6 +2308,127 @@ export type StorageColumnInputTypes = {
       readonly lastNotificationReadAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly name: CodecTypes['pg/text@1']['input'] | null;
       readonly role: CodecTypes['pg/text@1']['input'];
+    };
+    readonly worldInfrastructure: {
+      readonly businessId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly code: CodecTypes['pg/text@1']['input'];
+      readonly constructionType: CodecTypes['pg/text@1']['input'] | null;
+      readonly coverage: CodecTypes['pg/json@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly details: CodecTypes['pg/json@1']['input'];
+      readonly foundingHistory: CodecTypes['pg/text@1']['input'] | null;
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly kind: CodecTypes['pg/text@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['input'];
+      readonly publicationStatus: CodecTypes['pg/text@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly worldLocationId: CodecTypes['pg/int4@1']['input'] | null;
+    };
+    readonly worldInfrastructureLink: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly details: CodecTypes['pg/json@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly linkType: CodecTypes['pg/text@1']['input'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['input'];
+      readonly sourceId: CodecTypes['pg/int4@1']['input'];
+      readonly targetId: CodecTypes['pg/int4@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly worldLeaderRelation: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly followerCharacterId: CodecTypes['pg/int4@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly leaderCharacterId: CodecTypes['pg/int4@1']['input'];
+      readonly loyalty: CodecTypes['pg/int4@1']['input'];
+      readonly relationType: CodecTypes['pg/text@1']['input'];
+    };
+    readonly worldLocation: {
+      readonly claimability: CodecTypes['pg/text@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly operationalStatus: CodecTypes['pg/text@1']['input'];
+      readonly parentId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly publicationStatus: CodecTypes['pg/text@1']['input'];
+      readonly type: CodecTypes['pg/text@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly worldOccupation: {
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly worldPolity: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly foundedAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly founderCharacterId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly polityType: CodecTypes['pg/text@1']['input'];
+      readonly status: CodecTypes['pg/text@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly worldPolityGroup: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly groupId: CodecTypes['pg/int4@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly polityId: CodecTypes['pg/int4@1']['input'];
+      readonly relationType: CodecTypes['pg/text@1']['input'];
+    };
+    readonly worldPolityLocation: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly isCapital: CodecTypes['pg/bool@1']['input'];
+      readonly locationId: CodecTypes['pg/int4@1']['input'];
+      readonly polityId: CodecTypes['pg/int4@1']['input'];
+      readonly relationType: CodecTypes['pg/text@1']['input'];
+    };
+    readonly worldSimulationRun: {
+      readonly completedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly periodKey: CodecTypes['pg/text@1']['input'];
+      readonly simulationType: CodecTypes['pg/text@1']['input'];
+      readonly startedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly status: CodecTypes['pg/text@1']['input'];
+      readonly summary: CodecTypes['pg/json@1']['input'];
+    };
+    readonly worldSocialClass: {
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly worldSocialGroup: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly foundedAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly groupType: CodecTypes['pg/text@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly leaderCharacterId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly status: CodecTypes['pg/text@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly worldSocialGroupMembership: {
+      readonly cohortId: CodecTypes['pg/int4@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly groupId: CodecTypes['pg/int4@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly memberCount: CodecTypes['pg/int8@1']['input'];
+      readonly notes: CodecTypes['pg/text@1']['input'] | null;
+      readonly role: CodecTypes['pg/text@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly wealthShare: CodecTypes['pg/int8@1']['input'];
     };
   };
 };
@@ -1862,11 +2470,16 @@ export namespace Models {
     auditLogs: public_AuditLog[];
     businessesOwned: public_Business[];
     combatSessions: public_CombatSession[];
+    dynamicStats: public_CharacterStatValue[];
     economyPaymentsReceived: public_EconomyPaymentLog[];
     employmentContracts: public_EmploymentContract[];
+    followerRelations: public_WorldLeaderRelation[];
+    foundedPolities: public_WorldPolity[];
     investmentsAsSource: public_BusinessInvestment[];
     knownByCharacters: public_CharacterRelationship[];
     knownCharacters: public_CharacterRelationship[];
+    ledRelations: public_WorldLeaderRelation[];
+    ledSocialGroups: public_WorldSocialGroup[];
     mazePositions: public_MazeCharacterPosition[];
     modifiers: public_CharacterModifier[];
     perks: public_CharacterPerk[];
@@ -1883,11 +2496,16 @@ export namespace Models {
       | 'auditLogs'
       | 'businessesOwned'
       | 'combatSessions'
+      | 'dynamicStats'
       | 'economyPaymentsReceived'
       | 'employmentContracts'
+      | 'followerRelations'
+      | 'foundedPolities'
       | 'investmentsAsSource'
       | 'knownByCharacters'
       | 'knownCharacters'
+      | 'ledRelations'
+      | 'ledSocialGroups'
       | 'mazePositions'
       | 'modifiers'
       | 'perks'
@@ -1970,6 +2588,14 @@ export namespace Models {
     charisma: CodecTypes['pg/int4@1']['output'];
     spirit: CodecTypes['pg/int4@1']['output'];
     luck: CodecTypes['pg/int4@1']['output'];
+    character: public_Character;
+    readonly [RelationKeys]?: 'character';
+  };
+  export type public_CharacterStatValue = {
+    id: CodecTypes['pg/int4@1']['output'];
+    characterId: CodecTypes['pg/int4@1']['output'];
+    statKey: CodecTypes['pg/text@1']['output'];
+    value: CodecTypes['pg/int4@1']['output'];
     character: public_Character;
     readonly [RelationKeys]?: 'character';
   };
@@ -2205,11 +2831,13 @@ export namespace Models {
     name: CodecTypes['pg/text@1']['output'];
     description: CodecTypes['pg/text@1']['output'] | null;
     imagePath: CodecTypes['pg/text@1']['output'] | null;
+    lifeExpectancyYears: CodecTypes['pg/int4@1']['output'] | null;
     active: CodecTypes['pg/bool@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     characters: public_Character[];
     perks: public_RacePerk[];
-    readonly [RelationKeys]?: 'characters' | 'perks';
+    populationCohorts: public_PopulationCohort[];
+    readonly [RelationKeys]?: 'characters' | 'perks' | 'populationCohorts';
   };
   export type public_RacePerk = {
     raceId: CodecTypes['pg/int4@1']['output'];
@@ -2233,6 +2861,7 @@ export namespace Models {
     id: CodecTypes['pg/int4@1']['output'];
     name: CodecTypes['pg/text@1']['output'];
     description: CodecTypes['pg/text@1']['output'] | null;
+    locationId: CodecTypes['pg/int4@1']['output'] | null;
     ownerCharacterId: CodecTypes['pg/int4@1']['output'];
     passiveIncome: CodecTypes['pg/int4@1']['output'];
     passiveFrequency: CodecTypes['pg/text@1']['output'];
@@ -2244,7 +2873,9 @@ export namespace Models {
     active: CodecTypes['pg/bool@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    infrastructure: public_WorldInfrastructure[];
     investments: public_BusinessInvestment[];
+    location: public_WorldLocation | null;
     ownerCharacter: public_Character;
     paymentLogs: public_EconomyPaymentLog[];
     positions: public_BusinessPosition[];
@@ -2252,7 +2883,9 @@ export namespace Models {
     propertySales: public_CharacterProperty[];
     subscriptionPlans: public_BusinessSubscriptionPlan[];
     readonly [RelationKeys]?:
+      | 'infrastructure'
       | 'investments'
+      | 'location'
       | 'ownerCharacter'
       | 'paymentLogs'
       | 'positions'
@@ -2382,6 +3015,198 @@ export namespace Models {
     sourceCharacter: public_Character | null;
     readonly [RelationKeys]?: 'business' | 'sourceCharacter';
   };
+  export type public_WorldLocation = {
+    id: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    type: CodecTypes['pg/text@1']['output'];
+    parentId: CodecTypes['pg/int4@1']['output'] | null;
+    description: CodecTypes['pg/text@1']['output'] | null;
+    publicationStatus: CodecTypes['pg/text@1']['output'];
+    operationalStatus: CodecTypes['pg/text@1']['output'];
+    claimability: CodecTypes['pg/text@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    businesses: public_Business[];
+    children: public_WorldLocation[];
+    cohorts: public_PopulationCohort[];
+    infrastructure: public_WorldInfrastructure[];
+    parent: public_WorldLocation | null;
+    polityLinks: public_WorldPolityLocation[];
+    readonly [RelationKeys]?:
+      'businesses' | 'children' | 'cohorts' | 'infrastructure' | 'parent' | 'polityLinks';
+  };
+  export type public_PopulationCohort = {
+    id: CodecTypes['pg/int4@1']['output'];
+    locationId: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    raceId: CodecTypes['pg/int4@1']['output'] | null;
+    occupationId: CodecTypes['pg/int4@1']['output'] | null;
+    socialClassId: CodecTypes['pg/int4@1']['output'] | null;
+    race: CodecTypes['pg/text@1']['output'];
+    occupation: CodecTypes['pg/text@1']['output'];
+    socialClass: CodecTypes['pg/text@1']['output'];
+    ageGroup: CodecTypes['pg/text@1']['output'];
+    population: CodecTypes['pg/int8@1']['output'];
+    wealth: CodecTypes['pg/int8@1']['output'];
+    birthRate: CodecTypes['pg/float8@1']['output'];
+    deathRate: CodecTypes['pg/float8@1']['output'];
+    migrationRate: CodecTypes['pg/float8@1']['output'];
+    productivity: CodecTypes['pg/float8@1']['output'];
+    consumption: CodecTypes['pg/float8@1']['output'];
+    behavior: CodecTypes['pg/json@1']['output'];
+    active: CodecTypes['pg/bool@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    location: public_WorldLocation;
+    occupationRef: public_WorldOccupation | null;
+    raceRef: public_Race | null;
+    socialClassRef: public_WorldSocialClass | null;
+    socialGroupMemberships: public_WorldSocialGroupMembership[];
+    readonly [RelationKeys]?:
+      'location' | 'occupationRef' | 'raceRef' | 'socialClassRef' | 'socialGroupMemberships';
+  };
+  export type public_WorldSocialGroup = {
+    id: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    groupType: CodecTypes['pg/text@1']['output'];
+    description: CodecTypes['pg/text@1']['output'] | null;
+    status: CodecTypes['pg/text@1']['output'];
+    leaderCharacterId: CodecTypes['pg/int4@1']['output'] | null;
+    foundedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    leader: public_Character | null;
+    memberships: public_WorldSocialGroupMembership[];
+    polityLinks: public_WorldPolityGroup[];
+    readonly [RelationKeys]?: 'leader' | 'memberships' | 'polityLinks';
+  };
+  export type public_WorldSocialGroupMembership = {
+    id: CodecTypes['pg/int4@1']['output'];
+    groupId: CodecTypes['pg/int4@1']['output'];
+    cohortId: CodecTypes['pg/int4@1']['output'];
+    memberCount: CodecTypes['pg/int8@1']['output'];
+    wealthShare: CodecTypes['pg/int8@1']['output'];
+    role: CodecTypes['pg/text@1']['output'];
+    notes: CodecTypes['pg/text@1']['output'] | null;
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    cohort: public_PopulationCohort;
+    group: public_WorldSocialGroup;
+    readonly [RelationKeys]?: 'cohort' | 'group';
+  };
+  export type public_WorldLeaderRelation = {
+    id: CodecTypes['pg/int4@1']['output'];
+    leaderCharacterId: CodecTypes['pg/int4@1']['output'];
+    followerCharacterId: CodecTypes['pg/int4@1']['output'];
+    relationType: CodecTypes['pg/text@1']['output'];
+    loyalty: CodecTypes['pg/int4@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    follower: public_Character;
+    leader: public_Character;
+    readonly [RelationKeys]?: 'follower' | 'leader';
+  };
+  export type public_WorldPolity = {
+    id: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    polityType: CodecTypes['pg/text@1']['output'];
+    status: CodecTypes['pg/text@1']['output'];
+    description: CodecTypes['pg/text@1']['output'] | null;
+    founderCharacterId: CodecTypes['pg/int4@1']['output'] | null;
+    foundedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    founder: public_Character | null;
+    groups: public_WorldPolityGroup[];
+    territories: public_WorldPolityLocation[];
+    readonly [RelationKeys]?: 'founder' | 'groups' | 'territories';
+  };
+  export type public_WorldPolityLocation = {
+    id: CodecTypes['pg/int4@1']['output'];
+    polityId: CodecTypes['pg/int4@1']['output'];
+    locationId: CodecTypes['pg/int4@1']['output'];
+    relationType: CodecTypes['pg/text@1']['output'];
+    isCapital: CodecTypes['pg/bool@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    location: public_WorldLocation;
+    polity: public_WorldPolity;
+    readonly [RelationKeys]?: 'location' | 'polity';
+  };
+  export type public_WorldPolityGroup = {
+    id: CodecTypes['pg/int4@1']['output'];
+    polityId: CodecTypes['pg/int4@1']['output'];
+    groupId: CodecTypes['pg/int4@1']['output'];
+    relationType: CodecTypes['pg/text@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    group: public_WorldSocialGroup;
+    polity: public_WorldPolity;
+    readonly [RelationKeys]?: 'group' | 'polity';
+  };
+  export type public_WorldSimulationRun = {
+    id: CodecTypes['pg/int4@1']['output'];
+    simulationType: CodecTypes['pg/text@1']['output'];
+    periodKey: CodecTypes['pg/text@1']['output'];
+    status: CodecTypes['pg/text@1']['output'];
+    startedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    completedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    summary: CodecTypes['pg/json@1']['output'];
+    readonly [RelationKeys]?: never;
+  };
+  export type public_WorldInfrastructure = {
+    id: CodecTypes['pg/int4@1']['output'];
+    code: CodecTypes['pg/text@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    kind: CodecTypes['pg/text@1']['output'];
+    worldLocationId: CodecTypes['pg/int4@1']['output'] | null;
+    businessId: CodecTypes['pg/int4@1']['output'] | null;
+    description: CodecTypes['pg/text@1']['output'] | null;
+    foundingHistory: CodecTypes['pg/text@1']['output'] | null;
+    constructionType: CodecTypes['pg/text@1']['output'] | null;
+    coverage: CodecTypes['pg/json@1']['output'];
+    details: CodecTypes['pg/json@1']['output'];
+    operationalStatus: CodecTypes['pg/text@1']['output'];
+    publicationStatus: CodecTypes['pg/text@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    business: public_Business | null;
+    incomingLinks: public_WorldInfrastructureLink[];
+    outgoingLinks: public_WorldInfrastructureLink[];
+    worldLocation: public_WorldLocation | null;
+    readonly [RelationKeys]?: 'business' | 'incomingLinks' | 'outgoingLinks' | 'worldLocation';
+  };
+  export type public_WorldInfrastructureLink = {
+    id: CodecTypes['pg/int4@1']['output'];
+    sourceId: CodecTypes['pg/int4@1']['output'];
+    targetId: CodecTypes['pg/int4@1']['output'];
+    linkType: CodecTypes['pg/text@1']['output'];
+    operationalStatus: CodecTypes['pg/text@1']['output'];
+    description: CodecTypes['pg/text@1']['output'] | null;
+    details: CodecTypes['pg/json@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    source: public_WorldInfrastructure;
+    target: public_WorldInfrastructure;
+    readonly [RelationKeys]?: 'source' | 'target';
+  };
+  export type public_WorldOccupation = {
+    id: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    description: CodecTypes['pg/text@1']['output'] | null;
+    active: CodecTypes['pg/bool@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    cohorts: public_PopulationCohort[];
+    readonly [RelationKeys]?: 'cohorts';
+  };
+  export type public_WorldSocialClass = {
+    id: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    description: CodecTypes['pg/text@1']['output'] | null;
+    active: CodecTypes['pg/bool@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    cohorts: public_PopulationCohort[];
+    readonly [RelationKeys]?: 'cohorts';
+  };
 }
 
 export declare const models: {
@@ -2392,6 +3217,7 @@ export declare const models: {
     CharacterSkillState: Models.public_CharacterSkillState;
     CombatSession: Models.public_CombatSession;
     CharacterStat: Models.public_CharacterStat;
+    CharacterStatValue: Models.public_CharacterStatValue;
     CharacterResource: Models.public_CharacterResource;
     CharacterModifier: Models.public_CharacterModifier;
     AuditLog: Models.public_AuditLog;
@@ -2422,6 +3248,19 @@ export declare const models: {
     BusinessSubscriptionPlan: Models.public_BusinessSubscriptionPlan;
     BusinessSubscription: Models.public_BusinessSubscription;
     BusinessInvestment: Models.public_BusinessInvestment;
+    WorldLocation: Models.public_WorldLocation;
+    PopulationCohort: Models.public_PopulationCohort;
+    WorldSocialGroup: Models.public_WorldSocialGroup;
+    WorldSocialGroupMembership: Models.public_WorldSocialGroupMembership;
+    WorldLeaderRelation: Models.public_WorldLeaderRelation;
+    WorldPolity: Models.public_WorldPolity;
+    WorldPolityLocation: Models.public_WorldPolityLocation;
+    WorldPolityGroup: Models.public_WorldPolityGroup;
+    WorldSimulationRun: Models.public_WorldSimulationRun;
+    WorldInfrastructure: Models.public_WorldInfrastructure;
+    WorldInfrastructureLink: Models.public_WorldInfrastructureLink;
+    WorldOccupation: Models.public_WorldOccupation;
+    WorldSocialClass: Models.public_WorldSocialClass;
   };
 };
 
@@ -2635,6 +3474,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
                 };
+                readonly locationId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
                 readonly ownerCharacterId: {
                   readonly nativeType: 'int4';
                   readonly codecId: 'pg/int4@1';
@@ -2734,8 +3578,26 @@ type ContractBase = Omit<
                   readonly columns: readonly ['ownerCharacterId'];
                   readonly unique: false;
                 },
+                {
+                  readonly name: 'business_locationId_idx_7aae3038';
+                  readonly prefix: 'business_locationId_idx';
+                  readonly columns: readonly ['locationId'];
+                  readonly unique: false;
+                },
               ];
               foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'business';
+                    readonly columns: readonly ['locationId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldLocation';
+                    readonly columns: readonly ['id'];
+                  };
+                },
                 {
                   readonly source: {
                     readonly namespaceId: 'public' & NamespaceId;
@@ -4181,6 +5043,68 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly characterStatValue: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly characterId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly statKey: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly value: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['characterId', 'statKey'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'characterStatValue_statKey_idx_03563969';
+                  readonly prefix: 'characterStatValue_statKey_idx';
+                  readonly columns: readonly ['statKey'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'characterStatValue_characterId_idx_2423fe9d';
+                  readonly prefix: 'characterStatValue_characterId_idx';
+                  readonly columns: readonly ['characterId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'characterStatValue';
+                    readonly columns: readonly ['characterId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'character';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
             readonly combatSession: {
               columns: {
                 readonly id: {
@@ -5496,6 +6420,269 @@ type ContractBase = Omit<
               indexes: readonly [];
               foreignKeys: readonly [];
             };
+            readonly populationCohort: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly locationId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly raceId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly occupationId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly socialClassId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly race: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'Sin especificar'>;
+                  };
+                };
+                readonly occupation: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'Sin especificar'>;
+                  };
+                };
+                readonly socialClass: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'Sin especificar'>;
+                  };
+                };
+                readonly ageGroup: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'Mixta'>;
+                  };
+                };
+                readonly population: {
+                  readonly nativeType: 'int8';
+                  readonly codecId: 'pg/int8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int8@1', '0'>;
+                  };
+                };
+                readonly wealth: {
+                  readonly nativeType: 'int8';
+                  readonly codecId: 'pg/int8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int8@1', '0'>;
+                  };
+                };
+                readonly birthRate: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/float8@1', 0.012>;
+                  };
+                };
+                readonly deathRate: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/float8@1', 0.008>;
+                  };
+                };
+                readonly migrationRate: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/float8@1', 0>;
+                  };
+                };
+                readonly productivity: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/float8@1', 1>;
+                  };
+                };
+                readonly consumption: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/float8@1', 1>;
+                  };
+                };
+                readonly behavior: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
+                readonly active: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'populationCohort_locationId_active_idx_60123345';
+                  readonly prefix: 'populationCohort_locationId_active_idx';
+                  readonly columns: readonly ['locationId', 'active'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'populationCohort_race_idx_f1473e55';
+                  readonly prefix: 'populationCohort_race_idx';
+                  readonly columns: readonly ['race'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'populationCohort_occupation_idx_37c3e03d';
+                  readonly prefix: 'populationCohort_occupation_idx';
+                  readonly columns: readonly ['occupation'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'populationCohort_locationId_idx_7aae3038';
+                  readonly prefix: 'populationCohort_locationId_idx';
+                  readonly columns: readonly ['locationId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'populationCohort_raceId_idx_723e6d41';
+                  readonly prefix: 'populationCohort_raceId_idx';
+                  readonly columns: readonly ['raceId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'populationCohort_occupationId_idx_284d45f8';
+                  readonly prefix: 'populationCohort_occupationId_idx';
+                  readonly columns: readonly ['occupationId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'populationCohort_socialClassId_idx_f3daf507';
+                  readonly prefix: 'populationCohort_socialClassId_idx';
+                  readonly columns: readonly ['socialClassId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'populationCohort';
+                    readonly columns: readonly ['locationId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldLocation';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'populationCohort';
+                    readonly columns: readonly ['raceId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'race';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'populationCohort';
+                    readonly columns: readonly ['occupationId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldOccupation';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'populationCohort';
+                    readonly columns: readonly ['socialClassId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldSocialClass';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
             readonly race: {
               columns: {
                 readonly id: {
@@ -5520,6 +6707,11 @@ type ContractBase = Omit<
                 readonly imagePath: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly lifeExpectancyYears: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
                   readonly nullable: true;
                 };
                 readonly active: {
@@ -5809,7 +7001,6 @@ type ContractBase = Omit<
                   readonly nativeType: 'timestamptz';
                   readonly codecId: 'pg/timestamptz-temporal@1';
                   readonly nullable: false;
-                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
                 };
                 readonly approvedAt: {
                   readonly nativeType: 'timestamptz';
@@ -5968,6 +7159,1125 @@ type ContractBase = Omit<
               indexes: readonly [];
               foreignKeys: readonly [];
             };
+            readonly worldInfrastructure: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly code: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly kind: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly worldLocationId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly businessId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly foundingHistory: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly constructionType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly coverage: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
+                readonly details: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
+                readonly operationalStatus: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'PLANNED'>;
+                  };
+                };
+                readonly publicationStatus: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'DRAFT'>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['code'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'worldInfrastructure_kind_operationalStatus_idx_6948bc17';
+                  readonly prefix: 'worldInfrastructure_kind_operationalStatus_idx';
+                  readonly columns: readonly ['kind', 'operationalStatus'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldInfrastructure_worldLocationId_idx_44dd1346';
+                  readonly prefix: 'worldInfrastructure_worldLocationId_idx';
+                  readonly columns: readonly ['worldLocationId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldInfrastructure_businessId_idx_ae0ed511';
+                  readonly prefix: 'worldInfrastructure_businessId_idx';
+                  readonly columns: readonly ['businessId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldInfrastructure_publicationStatus_idx_b9e8738a';
+                  readonly prefix: 'worldInfrastructure_publicationStatus_idx';
+                  readonly columns: readonly ['publicationStatus'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldInfrastructure';
+                    readonly columns: readonly ['worldLocationId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldLocation';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldInfrastructure';
+                    readonly columns: readonly ['businessId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'business';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly worldInfrastructureLink: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly sourceId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly targetId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly linkType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly operationalStatus: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'PLANNED'>;
+                  };
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly details: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [
+                { readonly columns: readonly ['sourceId', 'targetId', 'linkType'] },
+              ];
+              indexes: readonly [
+                {
+                  readonly name: 'worldInfrastructureLink_sourceId_operationalStatus_idx_19585931';
+                  readonly prefix: 'worldInfrastructureLink_sourceId_operationalStatus_idx';
+                  readonly columns: readonly ['sourceId', 'operationalStatus'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldInfrastructureLink_targetId_operationalStatus_idx_9bd8518c';
+                  readonly prefix: 'worldInfrastructureLink_targetId_operationalStatus_idx';
+                  readonly columns: readonly ['targetId', 'operationalStatus'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldInfrastructureLink_sourceId_idx_d92a2571';
+                  readonly prefix: 'worldInfrastructureLink_sourceId_idx';
+                  readonly columns: readonly ['sourceId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldInfrastructureLink_targetId_idx_9852d518';
+                  readonly prefix: 'worldInfrastructureLink_targetId_idx';
+                  readonly columns: readonly ['targetId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldInfrastructureLink';
+                    readonly columns: readonly ['sourceId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldInfrastructure';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldInfrastructureLink';
+                    readonly columns: readonly ['targetId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldInfrastructure';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly worldLeaderRelation: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly leaderCharacterId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly followerCharacterId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly relationType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'FOLLOWER'>;
+                  };
+                };
+                readonly loyalty: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 50>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [
+                {
+                  readonly columns: readonly [
+                    'leaderCharacterId',
+                    'followerCharacterId',
+                    'relationType',
+                  ];
+                },
+              ];
+              indexes: readonly [
+                {
+                  readonly name: 'worldLeaderRelation_followerCharacterId_idx_e01b259e';
+                  readonly prefix: 'worldLeaderRelation_followerCharacterId_idx';
+                  readonly columns: readonly ['followerCharacterId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldLeaderRelation_leaderCharacterId_idx_09da4ebd';
+                  readonly prefix: 'worldLeaderRelation_leaderCharacterId_idx';
+                  readonly columns: readonly ['leaderCharacterId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldLeaderRelation';
+                    readonly columns: readonly ['leaderCharacterId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'character';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldLeaderRelation';
+                    readonly columns: readonly ['followerCharacterId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'character';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly worldLocation: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly type: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly parentId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly publicationStatus: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'DRAFT'>;
+                  };
+                };
+                readonly operationalStatus: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'ACTIVE'>;
+                  };
+                };
+                readonly claimability: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'NOT_CLAIMABLE'>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'worldLocation_parentId_idx_6a68f597';
+                  readonly prefix: 'worldLocation_parentId_idx';
+                  readonly columns: readonly ['parentId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldLocation_type_idx_b6b604ea';
+                  readonly prefix: 'worldLocation_type_idx';
+                  readonly columns: readonly ['type'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldLocation_publicationStatus_idx_b9e8738a';
+                  readonly prefix: 'worldLocation_publicationStatus_idx';
+                  readonly columns: readonly ['publicationStatus'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldLocation';
+                    readonly columns: readonly ['parentId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldLocation';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly worldOccupation: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly active: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['name'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'worldOccupation_active_name_idx_3b62e3dc';
+                  readonly prefix: 'worldOccupation_active_name_idx';
+                  readonly columns: readonly ['active', 'name'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [];
+            };
+            readonly worldPolity: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly polityType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'KINGDOM'>;
+                  };
+                };
+                readonly status: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'PROPOSED'>;
+                  };
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly founderCharacterId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly foundedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['name'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'worldPolity_status_polityType_idx_de2c8066';
+                  readonly prefix: 'worldPolity_status_polityType_idx';
+                  readonly columns: readonly ['status', 'polityType'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldPolity_founderCharacterId_idx_d431910b';
+                  readonly prefix: 'worldPolity_founderCharacterId_idx';
+                  readonly columns: readonly ['founderCharacterId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldPolity';
+                    readonly columns: readonly ['founderCharacterId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'character';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly worldPolityGroup: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly polityId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly groupId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly relationType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'SUPPORTS'>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [
+                { readonly columns: readonly ['polityId', 'groupId', 'relationType'] },
+              ];
+              indexes: readonly [
+                {
+                  readonly name: 'worldPolityGroup_groupId_idx_e2fb5578';
+                  readonly prefix: 'worldPolityGroup_groupId_idx';
+                  readonly columns: readonly ['groupId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldPolityGroup_polityId_idx_f360987e';
+                  readonly prefix: 'worldPolityGroup_polityId_idx';
+                  readonly columns: readonly ['polityId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldPolityGroup';
+                    readonly columns: readonly ['polityId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldPolity';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldPolityGroup';
+                    readonly columns: readonly ['groupId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldSocialGroup';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly worldPolityLocation: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly polityId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly locationId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly relationType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'CLAIM'>;
+                  };
+                };
+                readonly isCapital: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [
+                { readonly columns: readonly ['polityId', 'locationId', 'relationType'] },
+              ];
+              indexes: readonly [
+                {
+                  readonly name: 'worldPolityLocation_locationId_relationType_idx_5661b3e4';
+                  readonly prefix: 'worldPolityLocation_locationId_relationType_idx';
+                  readonly columns: readonly ['locationId', 'relationType'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldPolityLocation_polityId_idx_f360987e';
+                  readonly prefix: 'worldPolityLocation_polityId_idx';
+                  readonly columns: readonly ['polityId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldPolityLocation_locationId_idx_7aae3038';
+                  readonly prefix: 'worldPolityLocation_locationId_idx';
+                  readonly columns: readonly ['locationId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldPolityLocation';
+                    readonly columns: readonly ['polityId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldPolity';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldPolityLocation';
+                    readonly columns: readonly ['locationId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldLocation';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly worldSimulationRun: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly simulationType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly periodKey: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly status: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'COMPLETED'>;
+                  };
+                };
+                readonly startedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly completedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly summary: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['periodKey'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'worldSimulationRun_simulationType_completedAt_idx_0de2cb79';
+                  readonly prefix: 'worldSimulationRun_simulationType_completedAt_idx';
+                  readonly columns: readonly ['simulationType', 'completedAt'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [];
+            };
+            readonly worldSocialClass: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly active: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['name'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'worldSocialClass_active_name_idx_3b62e3dc';
+                  readonly prefix: 'worldSocialClass_active_name_idx';
+                  readonly columns: readonly ['active', 'name'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [];
+            };
+            readonly worldSocialGroup: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly groupType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly status: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'ACTIVE'>;
+                  };
+                };
+                readonly leaderCharacterId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly foundedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'worldSocialGroup_groupType_status_idx_4f0a906b';
+                  readonly prefix: 'worldSocialGroup_groupType_status_idx';
+                  readonly columns: readonly ['groupType', 'status'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldSocialGroup_leaderCharacterId_idx_09da4ebd';
+                  readonly prefix: 'worldSocialGroup_leaderCharacterId_idx';
+                  readonly columns: readonly ['leaderCharacterId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldSocialGroup';
+                    readonly columns: readonly ['leaderCharacterId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'character';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly worldSocialGroupMembership: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly groupId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly cohortId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly memberCount: {
+                  readonly nativeType: 'int8';
+                  readonly codecId: 'pg/int8@1';
+                  readonly nullable: false;
+                };
+                readonly wealthShare: {
+                  readonly nativeType: 'int8';
+                  readonly codecId: 'pg/int8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int8@1', '0'>;
+                  };
+                };
+                readonly role: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'MEMBER'>;
+                  };
+                };
+                readonly notes: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['groupId', 'cohortId', 'role'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'worldSocialGroupMembership_cohortId_idx_0e18e6b5';
+                  readonly prefix: 'worldSocialGroupMembership_cohortId_idx';
+                  readonly columns: readonly ['cohortId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'worldSocialGroupMembership_groupId_idx_e2fb5578';
+                  readonly prefix: 'worldSocialGroupMembership_groupId_idx';
+                  readonly columns: readonly ['groupId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldSocialGroupMembership';
+                    readonly columns: readonly ['groupId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldSocialGroup';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'worldSocialGroupMembership';
+                    readonly columns: readonly ['cohortId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'populationCohort';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
           };
         };
       };
@@ -5993,6 +8303,10 @@ type ContractBase = Omit<
     readonly characterStat: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'CharacterStat';
+    };
+    readonly characterStatValue: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'CharacterStatValue';
     };
     readonly characterResource: {
       readonly namespace: 'public' & NamespaceId;
@@ -6077,6 +8391,58 @@ type ContractBase = Omit<
     readonly businessInvestment: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'BusinessInvestment';
+    };
+    readonly worldLocation: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldLocation';
+    };
+    readonly populationCohort: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'PopulationCohort';
+    };
+    readonly worldSocialGroup: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldSocialGroup';
+    };
+    readonly worldSocialGroupMembership: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldSocialGroupMembership';
+    };
+    readonly worldLeaderRelation: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldLeaderRelation';
+    };
+    readonly worldPolity: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldPolity';
+    };
+    readonly worldPolityLocation: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldPolityLocation';
+    };
+    readonly worldPolityGroup: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldPolityGroup';
+    };
+    readonly worldSimulationRun: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldSimulationRun';
+    };
+    readonly worldInfrastructure: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldInfrastructure';
+    };
+    readonly worldInfrastructureLink: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldInfrastructureLink';
+    };
+    readonly worldOccupation: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldOccupation';
+    };
+    readonly worldSocialClass: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'WorldSocialClass';
     };
   };
   readonly domain: {
@@ -6229,6 +8595,10 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly locationId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly ownerCharacterId: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
@@ -6281,6 +8651,17 @@ type ContractBase = Omit<
               };
             };
             readonly relations: {
+              readonly infrastructure: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldInfrastructure';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['businessId'];
+                };
+              };
               readonly investments: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -6290,6 +8671,18 @@ type ContractBase = Omit<
                 readonly on: {
                   readonly localFields: readonly ['id'];
                   readonly targetFields: readonly ['businessId'];
+                };
+              };
+              readonly location: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldLocation';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['locationId'];
+                  readonly targetFields: readonly ['id'];
                 };
               };
               readonly ownerCharacter: {
@@ -6367,6 +8760,7 @@ type ContractBase = Omit<
                 readonly id: { readonly column: 'id' };
                 readonly name: { readonly column: 'name' };
                 readonly description: { readonly column: 'description' };
+                readonly locationId: { readonly column: 'locationId' };
                 readonly ownerCharacterId: { readonly column: 'ownerCharacterId' };
                 readonly passiveIncome: { readonly column: 'passiveIncome' };
                 readonly passiveFrequency: { readonly column: 'passiveFrequency' };
@@ -6927,6 +9321,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['playerCharacterId'];
                 };
               };
+              readonly dynamicStats: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'CharacterStatValue';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['characterId'];
+                };
+              };
               readonly economyPaymentsReceived: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -6947,6 +9352,28 @@ type ContractBase = Omit<
                 readonly on: {
                   readonly localFields: readonly ['id'];
                   readonly targetFields: readonly ['characterId'];
+                };
+              };
+              readonly followerRelations: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldLeaderRelation';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['followerCharacterId'];
+                };
+              };
+              readonly foundedPolities: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldPolity';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['founderCharacterId'];
                 };
               };
               readonly investmentsAsSource: {
@@ -6980,6 +9407,28 @@ type ContractBase = Omit<
                 readonly on: {
                   readonly localFields: readonly ['id'];
                   readonly targetFields: readonly ['characterId'];
+                };
+              };
+              readonly ledRelations: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldLeaderRelation';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['leaderCharacterId'];
+                };
+              };
+              readonly ledSocialGroups: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldSocialGroup';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['leaderCharacterId'];
                 };
               };
               readonly mazePositions: {
@@ -7683,6 +10132,50 @@ type ContractBase = Omit<
                 readonly charisma: { readonly column: 'charisma' };
                 readonly spirit: { readonly column: 'spirit' };
                 readonly luck: { readonly column: 'luck' };
+              };
+            };
+          };
+          readonly CharacterStatValue: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly characterId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly statKey: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly value: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+            };
+            readonly relations: {
+              readonly character: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Character';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['characterId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'characterStatValue';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly characterId: { readonly column: 'characterId' };
+                readonly statKey: { readonly column: 'statKey' };
+                readonly value: { readonly column: 'value' };
               };
             };
           };
@@ -8868,6 +11361,185 @@ type ContractBase = Omit<
               };
             };
           };
+          readonly PopulationCohort: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly locationId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly raceId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly occupationId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly socialClassId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly race: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly occupation: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly socialClass: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly ageGroup: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly population: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int8@1' };
+              };
+              readonly wealth: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int8@1' };
+              };
+              readonly birthRate: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly deathRate: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly migrationRate: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly productivity: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly consumption: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly behavior: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
+              readonly active: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly location: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldLocation';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['locationId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly occupationRef: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldOccupation';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['occupationId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly raceRef: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'Race' };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['raceId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly socialClassRef: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldSocialClass';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['socialClassId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly socialGroupMemberships: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldSocialGroupMembership';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['cohortId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'populationCohort';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly locationId: { readonly column: 'locationId' };
+                readonly name: { readonly column: 'name' };
+                readonly raceId: { readonly column: 'raceId' };
+                readonly occupationId: { readonly column: 'occupationId' };
+                readonly socialClassId: { readonly column: 'socialClassId' };
+                readonly race: { readonly column: 'race' };
+                readonly occupation: { readonly column: 'occupation' };
+                readonly socialClass: { readonly column: 'socialClass' };
+                readonly ageGroup: { readonly column: 'ageGroup' };
+                readonly population: { readonly column: 'population' };
+                readonly wealth: { readonly column: 'wealth' };
+                readonly birthRate: { readonly column: 'birthRate' };
+                readonly deathRate: { readonly column: 'deathRate' };
+                readonly migrationRate: { readonly column: 'migrationRate' };
+                readonly productivity: { readonly column: 'productivity' };
+                readonly consumption: { readonly column: 'consumption' };
+                readonly behavior: { readonly column: 'behavior' };
+                readonly active: { readonly column: 'active' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
           readonly Race: {
             readonly fields: {
               readonly id: {
@@ -8885,6 +11557,10 @@ type ContractBase = Omit<
               readonly imagePath: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly lifeExpectancyYears: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
               readonly active: {
                 readonly nullable: false;
@@ -8921,6 +11597,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['raceId'];
                 };
               };
+              readonly populationCohorts: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'PopulationCohort';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['raceId'];
+                };
+              };
             };
             readonly storage: {
               readonly table: 'race';
@@ -8930,6 +11617,7 @@ type ContractBase = Omit<
                 readonly name: { readonly column: 'name' };
                 readonly description: { readonly column: 'description' };
                 readonly imagePath: { readonly column: 'imagePath' };
+                readonly lifeExpectancyYears: { readonly column: 'lifeExpectancyYears' };
                 readonly active: { readonly column: 'active' };
                 readonly createdAt: { readonly column: 'createdAt' };
               };
@@ -9365,6 +12053,1026 @@ type ContractBase = Omit<
               };
             };
           };
+          readonly WorldInfrastructure: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly code: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly kind: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly worldLocationId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly businessId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly foundingHistory: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly constructionType: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly coverage: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
+              readonly details: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
+              readonly operationalStatus: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly publicationStatus: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly business: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Business';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['businessId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly incomingLinks: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldInfrastructureLink';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['targetId'];
+                };
+              };
+              readonly outgoingLinks: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldInfrastructureLink';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['sourceId'];
+                };
+              };
+              readonly worldLocation: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldLocation';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['worldLocationId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldInfrastructure';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly code: { readonly column: 'code' };
+                readonly name: { readonly column: 'name' };
+                readonly kind: { readonly column: 'kind' };
+                readonly worldLocationId: { readonly column: 'worldLocationId' };
+                readonly businessId: { readonly column: 'businessId' };
+                readonly description: { readonly column: 'description' };
+                readonly foundingHistory: { readonly column: 'foundingHistory' };
+                readonly constructionType: { readonly column: 'constructionType' };
+                readonly coverage: { readonly column: 'coverage' };
+                readonly details: { readonly column: 'details' };
+                readonly operationalStatus: { readonly column: 'operationalStatus' };
+                readonly publicationStatus: { readonly column: 'publicationStatus' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly WorldInfrastructureLink: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly sourceId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly targetId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly linkType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly operationalStatus: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly details: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly source: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldInfrastructure';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['sourceId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly target: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldInfrastructure';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['targetId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldInfrastructureLink';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly sourceId: { readonly column: 'sourceId' };
+                readonly targetId: { readonly column: 'targetId' };
+                readonly linkType: { readonly column: 'linkType' };
+                readonly operationalStatus: { readonly column: 'operationalStatus' };
+                readonly description: { readonly column: 'description' };
+                readonly details: { readonly column: 'details' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly WorldLeaderRelation: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly leaderCharacterId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly followerCharacterId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly relationType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly loyalty: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly follower: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Character';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['followerCharacterId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly leader: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Character';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['leaderCharacterId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldLeaderRelation';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly leaderCharacterId: { readonly column: 'leaderCharacterId' };
+                readonly followerCharacterId: { readonly column: 'followerCharacterId' };
+                readonly relationType: { readonly column: 'relationType' };
+                readonly loyalty: { readonly column: 'loyalty' };
+                readonly createdAt: { readonly column: 'createdAt' };
+              };
+            };
+          };
+          readonly WorldLocation: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly type: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly parentId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly publicationStatus: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly operationalStatus: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly claimability: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly businesses: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Business';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['locationId'];
+                };
+              };
+              readonly children: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldLocation';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['parentId'];
+                };
+              };
+              readonly cohorts: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'PopulationCohort';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['locationId'];
+                };
+              };
+              readonly infrastructure: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldInfrastructure';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['worldLocationId'];
+                };
+              };
+              readonly parent: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldLocation';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['parentId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly polityLinks: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldPolityLocation';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['locationId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldLocation';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+                readonly type: { readonly column: 'type' };
+                readonly parentId: { readonly column: 'parentId' };
+                readonly description: { readonly column: 'description' };
+                readonly publicationStatus: { readonly column: 'publicationStatus' };
+                readonly operationalStatus: { readonly column: 'operationalStatus' };
+                readonly claimability: { readonly column: 'claimability' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly WorldOccupation: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly active: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly cohorts: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'PopulationCohort';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['occupationId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldOccupation';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+                readonly description: { readonly column: 'description' };
+                readonly active: { readonly column: 'active' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly WorldPolity: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly polityType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly founderCharacterId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly foundedAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly founder: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Character';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['founderCharacterId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly groups: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldPolityGroup';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['polityId'];
+                };
+              };
+              readonly territories: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldPolityLocation';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['polityId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldPolity';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+                readonly polityType: { readonly column: 'polityType' };
+                readonly status: { readonly column: 'status' };
+                readonly description: { readonly column: 'description' };
+                readonly founderCharacterId: { readonly column: 'founderCharacterId' };
+                readonly foundedAt: { readonly column: 'foundedAt' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly WorldPolityGroup: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly polityId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly groupId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly relationType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly group: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldSocialGroup';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['groupId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly polity: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldPolity';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['polityId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldPolityGroup';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly polityId: { readonly column: 'polityId' };
+                readonly groupId: { readonly column: 'groupId' };
+                readonly relationType: { readonly column: 'relationType' };
+                readonly createdAt: { readonly column: 'createdAt' };
+              };
+            };
+          };
+          readonly WorldPolityLocation: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly polityId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly locationId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly relationType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly isCapital: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly location: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldLocation';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['locationId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly polity: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldPolity';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['polityId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldPolityLocation';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly polityId: { readonly column: 'polityId' };
+                readonly locationId: { readonly column: 'locationId' };
+                readonly relationType: { readonly column: 'relationType' };
+                readonly isCapital: { readonly column: 'isCapital' };
+                readonly createdAt: { readonly column: 'createdAt' };
+              };
+            };
+          };
+          readonly WorldSimulationRun: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly simulationType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly periodKey: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly startedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly completedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly summary: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
+            };
+            readonly relations: Record<string, never>;
+            readonly storage: {
+              readonly table: 'worldSimulationRun';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly simulationType: { readonly column: 'simulationType' };
+                readonly periodKey: { readonly column: 'periodKey' };
+                readonly status: { readonly column: 'status' };
+                readonly startedAt: { readonly column: 'startedAt' };
+                readonly completedAt: { readonly column: 'completedAt' };
+                readonly summary: { readonly column: 'summary' };
+              };
+            };
+          };
+          readonly WorldSocialClass: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly active: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly cohorts: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'PopulationCohort';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['socialClassId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldSocialClass';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+                readonly description: { readonly column: 'description' };
+                readonly active: { readonly column: 'active' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly WorldSocialGroup: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly groupType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly leaderCharacterId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly foundedAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly leader: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Character';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['leaderCharacterId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly memberships: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldSocialGroupMembership';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['groupId'];
+                };
+              };
+              readonly polityLinks: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldPolityGroup';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['groupId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldSocialGroup';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+                readonly groupType: { readonly column: 'groupType' };
+                readonly description: { readonly column: 'description' };
+                readonly status: { readonly column: 'status' };
+                readonly leaderCharacterId: { readonly column: 'leaderCharacterId' };
+                readonly foundedAt: { readonly column: 'foundedAt' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly WorldSocialGroupMembership: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly groupId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly cohortId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly memberCount: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int8@1' };
+              };
+              readonly wealthShare: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int8@1' };
+              };
+              readonly role: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly notes: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly cohort: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'PopulationCohort';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['cohortId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly group: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'WorldSocialGroup';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['groupId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'worldSocialGroupMembership';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly groupId: { readonly column: 'groupId' };
+                readonly cohortId: { readonly column: 'cohortId' };
+                readonly memberCount: { readonly column: 'memberCount' };
+                readonly wealthShare: { readonly column: 'wealthShare' };
+                readonly role: { readonly column: 'role' };
+                readonly notes: { readonly column: 'notes' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
         };
       };
     };
@@ -9405,6 +13113,15 @@ type ContractBase = Omit<
           readonly ref: {
             readonly namespace: 'public';
             readonly table: 'mazeCharacterPosition';
+            readonly column: 'updatedAt';
+          };
+          readonly onCreate: { readonly kind: 'generator'; readonly id: 'instantNow' };
+          readonly onUpdate: { readonly kind: 'generator'; readonly id: 'instantNow' };
+        },
+        {
+          readonly ref: {
+            readonly namespace: 'public';
+            readonly table: 'skill';
             readonly column: 'updatedAt';
           };
           readonly onCreate: { readonly kind: 'generator'; readonly id: 'instantNow' };

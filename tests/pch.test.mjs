@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {estimateSkillPch,normalizeItemEffect,legacyItemMultiplier,statMultiplierFactor,applyStatOperation} from "../lib/effects/pch.mjs";
-test("Ispātatalavāra value 200 doubles ATTACK_TOTAL",()=>{
- const sword=normalizeItemEffect({type:"stat_multiplier",stat:"ATTACK_TOTAL",value:200});
- assert.equal(sword.type,"ATTACK_TOTAL_MULTIPLIER_LEGACY");
- assert.equal(legacyItemMultiplier(sword.value, sword.target),2);
- assert.equal(legacyItemMultiplier(200,"PHYS_ATK"),3);
+import {estimateSkillPch,normalizeItemEffect,statMultiplierFactor,applyStatOperation} from "../lib/effects/pch.mjs";
+test("Ispātatalavāra value 2 doubles ATTACK_TOTAL",()=>{
+ const sword=normalizeItemEffect({type:"stat_multiplier",stat:"ATTACK_TOTAL",value:2});
+ assert.equal(sword.type,"STAT_MULTIPLIER");
+ assert.equal(statMultiplierFactor(sword.value),2);
+
 });
 test("Omega gets a provisional effect-only cost, not a definitive skill price",()=>{
- const result=estimateSkillPch({effect:[{type:"DAMAGE_MULTIPLIER",value:100,target:"PHYS_ATK"},{type:"IGNORE_PHYS_DEF_MULTIPLIER",value:50},{type:"FINAL_DAMAGE_MULTIPLIER",value:300}],areaOfEffect:"Objetivo único"});
+ const result=estimateSkillPch({effect:[{type:"DAMAGE_MULTIPLIER",value:1,target:"PHYS_ATK"},{type:"IGNORE_PHYS_DEF_MULTIPLIER",value:0.5},{type:"FINAL_DAMAGE_MULTIPLIER",value:3}],areaOfEffect:"Objetivo único"});
  assert.equal(result.effectPch,18);
  assert.ok(result.warnings.includes("RANGE_NOT_PRICED"));
 });
@@ -23,12 +23,9 @@ test("unknown effects are never assigned definitive costs",()=>{
 
 test("stat + is additive; stat x uses direct factors",()=>{
  assert.equal(applyStatOperation(40,{type:"STAT_BONUS",value:10}),50);
- assert.equal(applyStatOperation(40,{type:"STAT_MULTIPLIER",value:200}),80);
- assert.equal(statMultiplierFactor(100),1);
- assert.equal(statMultiplierFactor(150),1.5);
- assert.equal(statMultiplierFactor(300),3);
+ assert.equal(applyStatOperation(40,{type:"STAT_MULTIPLIER",value:2}),80);
+ assert.equal(statMultiplierFactor(1),1);
+ assert.equal(statMultiplierFactor(1.5),1.5);
+ assert.equal(statMultiplierFactor(3),3);
 });
-test("old additive percent items can retain original values explicitly",()=>{
- assert.equal(applyStatOperation(40,{type:"STAT_MULTIPLIER",value:200},"legacy_additive_percent"),120);
- assert.throws(()=>statMultiplierFactor(200,"unknown"));
-});
+test("invalid factors are rejected",()=>{ assert.throws(()=>statMultiplierFactor(-1)); });\n

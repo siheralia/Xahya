@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {estimateSkillPch,normalizeItemEffect,legacyItemMultiplier} from "../lib/effects/pch.mjs";
-test("legacy sword multiplier value 200 resolves to x3 in existing item arithmetic",()=>{
+test("Ispātatalavāra value 200 doubles ATTACK_TOTAL",()=>{
  const sword=normalizeItemEffect({type:"stat_multiplier",stat:"ATTACK_TOTAL",value:200});
  assert.equal(sword.type,"ATTACK_TOTAL_MULTIPLIER_LEGACY");
- assert.equal(legacyItemMultiplier(sword.value),3);
+ assert.equal(legacyItemMultiplier(sword.value, sword.target),2);
+ assert.equal(legacyItemMultiplier(200,"PHYS_ATK"),3);
 });
 test("Omega gets a provisional effect-only cost, not a definitive skill price",()=>{
  const result=estimateSkillPch({effect:[{type:"DAMAGE_MULTIPLIER",value:100,target:"PHYS_ATK"},{type:"IGNORE_PHYS_DEF_MULTIPLIER",value:50},{type:"FINAL_DAMAGE_MULTIPLIER",value:300}],areaOfEffect:"Objetivo único"});

@@ -48,11 +48,11 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     const matches=(target:string)=>target===key||target===codeByKey[key];
     const flat=active.filter((entry:any)=>String(entry.stat)===key&&String(entry.source)!=="KARMA_BOOST").reduce((sum:number,entry:any)=>sum+Number(entry.amount),0);
     const karma=active.filter((entry:any)=>String(entry.stat)===key&&String(entry.source)==="KARMA_BOOST").reduce((sum:number,entry:any)=>sum+Number(entry.amount),0);
-    const multiplier=active.filter((entry:any)=>String(entry.stat)===key+"_multiplier").reduce((sum:number,entry:any)=>sum+Number(entry.amount)/100,0);
+    const multiplier=active.filter((entry:any)=>String(entry.stat)===key+"_multiplier").reduce((product:number,entry:any)=>product*Number(entry.amount),1);
     const bonus=validEffects.filter((entry:any)=>entry.type==="stat_bonus"&&matches(entry.stat)).reduce((sum:number,entry:any)=>sum+entry.value,0)+validPerks.filter((entry:any)=>entry.type==="STAT_BONUS"&&matches(String(entry.target))).reduce((sum:number,entry:any)=>sum+Number(entry.value),0);
-    const itemFactors=validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&matches(entry.stat)).map((entry:any)=>entry.value/100);
-    const perkFactors=validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&matches(String(entry.target))).map((entry:any)=>Number(entry.value)/100);
-    const combinedMultiplier=(1+multiplier)*[...itemFactors,...perkFactors].reduce((product:number,factor:number)=>product*factor,1);
+    const itemFactors=validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&matches(entry.stat)).map((entry:any)=>entry.value);
+    const perkFactors=validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&matches(String(entry.target))).map((entry:any)=>Number(entry.value));
+    const combinedMultiplier=multiplier*[...itemFactors,...perkFactors].reduce((product:number,factor:number)=>product*factor,1);
     base[key]=original*combinedMultiplier+flat+bonus+karma;
     breakdown[key]={base:original,value:base[key],karmaBonus:karma,objectFlatBonus:flat+bonus,combinedMultiplier};
   }
@@ -69,9 +69,9 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     if(type==="RESOURCE_BONUS"&&target==="HP") derived.maxHp+=amount;
     else if(type==="RESOURCE_BONUS"&&target==="MANA") derived.maxMana+=amount;
     else if(key&&type==="STAT_BONUS") derived[key]=(derived[key]??0)+amount;
-    else if(key&&type==="STAT_MULTIPLIER") derived[key]=(derived[key]??0)*(amount/100);
+    else if(key&&type==="STAT_MULTIPLIER") derived[key]=(derived[key]??0)*(amount);
   }
-  const attackMultiplier=validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").reduce((factor:number,entry:any)=>factor*(entry.value/100),1);
+  const attackMultiplier=validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").reduce((factor:number,entry:any)=>factor*(entry.value),1);
   derived.physicalAttack*=attackMultiplier;
   derived.magicAttack*=attackMultiplier;
   return {effectiveStats:base,derived,statBreakdown:breakdown};

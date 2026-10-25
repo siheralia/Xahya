@@ -51,7 +51,7 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     const multiplier=active.filter((entry:any)=>String(entry.stat)===key+"_multiplier").reduce((sum:number,entry:any)=>sum+Number(entry.amount)/100,0);
     const bonus=validEffects.filter((entry:any)=>entry.type==="stat_bonus"&&matches(entry.stat)).reduce((sum:number,entry:any)=>sum+entry.value,0)+validPerks.filter((entry:any)=>entry.type==="STAT_BONUS"&&matches(String(entry.target))).reduce((sum:number,entry:any)=>sum+Number(entry.value),0);
     const scale=validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&matches(entry.stat)).reduce((sum:number,entry:any)=>sum+entry.value/100,0)+validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&matches(String(entry.target))).reduce((sum:number,entry:any)=>sum+Number(entry.value)/100,0);
-    const combinedMultiplier=1+multiplier+scale;
+    const combinedMultiplier=(1+multiplier)*Math.max(0, 1 + scale - validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&matches(entry.stat)).length - validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&matches(String(entry.target))).length);
     base[key]=original*combinedMultiplier+flat+bonus+karma;
     breakdown[key]={base:original,value:base[key],karmaBonus:karma,objectFlatBonus:flat+bonus,combinedMultiplier};
   }
@@ -68,9 +68,9 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     if(type==="RESOURCE_BONUS"&&target==="HP") derived.maxHp+=amount;
     else if(type==="RESOURCE_BONUS"&&target==="MANA") derived.maxMana+=amount;
     else if(key&&type==="STAT_BONUS") derived[key]=(derived[key]??0)+amount;
-    else if(key&&type==="STAT_MULTIPLIER") derived[key]=(derived[key]??0)*(1+amount/100);
+    else if(key&&type==="STAT_MULTIPLIER") derived[key]=(derived[key]??0)*(amount/100);
   }
-  const attackMultiplier=1+validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").reduce((sum:number,entry:any)=>sum+entry.value/100,0);
+  const attackMultiplier=validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").reduce((factor:number,entry:any)=>factor*(entry.value/100),1);
   derived.physicalAttack*=attackMultiplier;
   derived.magicAttack*=attackMultiplier;
   return {effectiveStats:base,derived,statBreakdown:breakdown};

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {estimateSkillPch,normalizeItemEffect,legacyItemMultiplier} from "../lib/effects/pch.mjs";
+import {estimateSkillPch,normalizeItemEffect,legacyItemMultiplier,statMultiplierFactor,applyStatOperation} from "../lib/effects/pch.mjs";
 test("Ispātatalavāra value 200 doubles ATTACK_TOTAL",()=>{
  const sword=normalizeItemEffect({type:"stat_multiplier",stat:"ATTACK_TOTAL",value:200});
  assert.equal(sword.type,"ATTACK_TOTAL_MULTIPLIER_LEGACY");
@@ -19,4 +19,16 @@ test("narrative effects require review",()=>{
 });
 test("unknown effects are never assigned definitive costs",()=>{
  assert.equal(estimateSkillPch({effect:[{type:"UNLISTED",value:10}]}).totalPch,null);
+});
+
+test("stat + is additive; stat x uses direct factors",()=>{
+ assert.equal(applyStatOperation(40,{type:"STAT_BONUS",value:10}),50);
+ assert.equal(applyStatOperation(40,{type:"STAT_MULTIPLIER",value:200}),80);
+ assert.equal(statMultiplierFactor(100),1);
+ assert.equal(statMultiplierFactor(150),1.5);
+ assert.equal(statMultiplierFactor(300),3);
+});
+test("old additive percent items can retain original values explicitly",()=>{
+ assert.equal(applyStatOperation(40,{type:"STAT_MULTIPLIER",value:200},"legacy_additive_percent"),120);
+ assert.throws(()=>statMultiplierFactor(200,"unknown"));
 });

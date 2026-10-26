@@ -27,16 +27,10 @@ const EFFECT_TYPES = [...EFFECT_CATALOG.map(effect => [effect.type.toLowerCase()
 const DAMAGE_TARGETS = [["ALL","Todo"],["PHYSICAL","Físico"],["MAGICAL","Mágico"]] as const;
 const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_TRAP", "Romper una trampa y liberarte"], ["RELEASE_MAZE_TRAPPED", "Liberarte de una trampa"], ["CREATE_SKILL", "Permitir crear una habilidad"]] as const;
 
-const LEGACY_EFFECT_TARGETS = [
-  ["STR", "Fuerza (STR)"], ["AGI", "Agilidad (AGI)"], ["CON", "Constitución (CON)"],
-  ["INT", "Inteligencia (INT)"], ["WIS", "Sabiduría (WIS)"], ["CHA", "Carisma (CHA)"],
-  ["SPI", "Espíritu (SPI)"], ["LCK", "Suerte (LCK)"], ["HP", "Vida (HP)"], ["MANA", "Maná"],
-  ["PHYS_ATK", "Ataque físico"], ["MAGIC_ATK", "Ataque mágico"], ["DEF", "Defensa física"],
-  ["MAG_DEF", "Defensa mágica"], ["PRECISION", "Precisión"], ["CRITICAL", "Crítico"], ["DISCOVERY", "Hallazgo"],
-  ["MIRACLE", "Milagro"], ["INTIMIDATION", "Intimidación"], ["CONQUEST", "Conquista"], ["RACE", "Carrera"],
-  ["DODGE", "Evasión"], ["STEALTH", "Sigilo"], ["DETECTION", "Detección"], ["ATTACK_TOTAL", "Ataque total"],
+const NON_STAT_EFFECT_TARGETS: [string, string][] = [
+  ["ATTACK_TOTAL", "Ataque total"], ["DAMAGE_REDUCTION_ALL", "Reducción de daño"],
   ["INVISIBILITY", "Invisibilidad"], ["FLOATING", "Flotar"], ["OTHER", "Otro"],
-] as const;
+];
 
 const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", action: "ESCAPE_MAZE", value: 1, description: "" });
 const defaultSlots: string[] = [];
@@ -44,8 +38,8 @@ const noEffects = (effects: Effect[]) => !Array.isArray(effects) || effects.leng
 
 export default function ItemsManagementPage() {
   const [items,setItems]=useState<Item[]>([]);
-  const [statDefinitions,setStatDefinitions]=useState<{key:string;name:string;kind:"basic"|"derived";active?:boolean}[]>([]);
-  const EFFECT_TARGETS: [string,string][] = [...LEGACY_EFFECT_TARGETS.map(([key,label])=>[key,label] as [string,string]), ...resolveEffectTargets("STAT_BONUS",statDefinitions).filter((entry)=>!LEGACY_EFFECT_TARGETS.some(([key])=>key===entry.key)).map((entry)=>[entry.key,entry.label] as [string,string])];
+  const [statDefinitions,setStatDefinitions]=useState<{key:string;name:string;code:string;kind:"basic"|"derived";active?:boolean}[]>([]);
+  const EFFECT_TARGETS: [string,string][] = [...statDefinitions.filter((entry)=>entry.active!==false).map((entry)=>[entry.code || entry.key, entry.name] as [string,string]), ...NON_STAT_EFFECT_TARGETS];
   useEffect(() => { fetch("/api/management/effect-targets").then((r)=>r.ok?r.json():null).then((data)=>{if(data?.statistics)setStatDefinitions(data.statistics);}).catch(()=>{}); }, []);
   const [businesses,setBusinesses]=useState<{id:number;name:string}[]>([]);
   const [selected,setSelected]=useState<number|null>(null);

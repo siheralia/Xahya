@@ -835,7 +835,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       if (!factors.length && karma === 0 && flat === 0) return "";
       // Los factores se acumulan como incrementos sobre el 1 base:
       // ×2 + ×2 + +30% = 1 + (2-1) + (2-1) + (1.3-1) = 4.3.
-      const combinedMultiplier = 1 + factors.reduce((sum, value) => sum + (value - 1), 0);
+      const combinedMultiplier = factors.reduce((product, value) => product * value, 1);
       const multiplierText = factors.length
         ? formatNumber(base) + " × " + formatNumber(combinedMultiplier)
         : formatNumber(base);
@@ -1083,7 +1083,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       const attackMultipliers = (key === "physicalAttack" || key === "magicAttack")
         ? equippedEffects
             .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value !== 1)
-            .map((effect) => effect.value / 100)
+            .map((effect) => effect.value)
         : [];
       const flat = directFlat + perkFlat;
       if ((key === "physicalAttack" || key === "magicAttack") && attackMultipliers.length) {
@@ -1127,7 +1127,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           const equipmentAttackFactors = affectedByAttackMultiplier
             ? equippedEffects
                 .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value !== 1)
-                .map((effect) => effect.value / 100)
+                .map((effect) => effect.value)
             : [];
           const combinedExportAttackMultiplier = affectedByAttackMultiplier
             ? (equipmentAttackFactors.length

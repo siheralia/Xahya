@@ -9,7 +9,7 @@ import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/deri
 type PropertyItem = { id:number; itemId:number; businessId:number|null; purchasePrice:number; item:{ id:number; name:string; description:string|null; imageUrl:string|null }|null };
 type EquipmentItem = {
   id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null; flair: string | null;
-  item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; value: number; description?: string; action?: string }[] } | null;
+  item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; stat?: string; value: number; description?: string; action?: string }[] } | null;
 };
 
 type SkillEffect = { type: "DAMAGE_MULTIPLIER" | "STAT_MULTIPLIER" | "STAT_BONUS" | "NARRATIVE" | "MAZE_UTILITY"; target?: string; value?: number; description?: string };
@@ -914,10 +914,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               (entry.item?.effects ?? []).filter((effect) => {
                 const target = String((effect as { stat?: string }).stat ?? "").toUpperCase();
                 const aliases: Record<string,string> = {
-                  HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",MAX_MANA:"maxMana",MAX_MANA:"maxMana",
-                  PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",MAGIC_ATTACK:"magicAttack",
-                  PHYSICAL_DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEFENSE:"physicalDefense",
-                  MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",
+                  HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",
+                  PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",MAGIC_ATTACK:"magicAttack",
+                  PHYSICAL_DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEF:"physicalDefense",DEFENSE:"physicalDefense",
+                  MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",
                   CRITICAL:"critical",DISCOVERY:"discovery",MIRACLE:"miracle",INTIMIDATION:"intimidation",
                   CONQUEST:"conquest",RACE:"race",DODGE:"dodge",STEALTH:"stealth",DETECTION:"detection"
                 };
@@ -1005,7 +1005,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       "",
       "*BONOS DE EQUIPO*",
       character.equipment.filter((entry) => entry.equipped && (entry.item?.effects?.length ?? 0) > 0).flatMap((entry) =>
-        (entry.item?.effects ?? []).map((effect) => "• " + (entry.item?.name ?? "Objeto") + ": " + (effect.description?.trim() || (effect.type === "stat_multiplier" ? "×" + formatNumber(Number(effect.value)) : effect.type === "stat_bonus" ? signed(Number(effect.value)) : effect.type + " " + formatNumber(Number(effect.value))) + (effect.stat ? " " + ({ LCK: "Suerte", INT: "Inteligencia", STR: "Fuerza", AGI: "Agilidad", CON: "Constitución", WIS: "Sabiduría", CHA: "Carisma", SPI: "Espíritu" } as Record<string, string>)[String(effect.stat).toUpperCase()] ?? "" : "")))
+        (entry.item?.effects ?? []).map((effect) => "• " + (entry.item?.name ?? "Objeto") + ": " + (effect.description?.trim() || (effect.type === "stat_multiplier" ? "×" + formatNumber(Number(effect.value)) : effect.type === "stat_bonus" ? signed(Number(effect.value)) : effect.type + " " + formatNumber(Number(effect.value))) + (effect.stat ? " " + (({ LCK: "Suerte", INT: "Inteligencia", STR: "Fuerza", AGI: "Agilidad", CON: "Constitución", WIS: "Sabiduría", CHA: "Carisma", SPI: "Espíritu" } as Record<string, string>)[String(effect.stat).toUpperCase()] ?? String(effect.stat)) : "")))
       ).join("\n") || "• Ninguno",
       "",
       "*RECURSOS PERMANENTES*",
@@ -1051,10 +1051,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       wisdom: "WIS", charisma: "CHA", spirit: "SPI", luck: "LCK",
     };
     const derivedAliases: Record<string,string> = {
-      HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",MAX_MANA:"maxMana",MAX_MANA:"maxMana",
-      PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",MAGIC_ATTACK:"magicAttack",
-      PHYSICAL_DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEFENSE:"physicalDefense",
-      MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",
+      HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",
+      PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",MAGIC_ATTACK:"magicAttack",
+      PHYSICAL_DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEF:"physicalDefense",DEFENSE:"physicalDefense",
+      MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",
       CRITICAL:"critical",DISCOVERY:"discovery",MIRACLE:"miracle",INTIMIDATION:"intimidation",
       CONQUEST:"conquest",RACE:"race",DODGE:"dodge",STEALTH:"stealth",DETECTION:"detection"
     };

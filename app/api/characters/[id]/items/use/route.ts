@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { PCH_PER_COIN } from "@/lib/skills/pch";
 
 const SYSTEM_ACTIONS = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL"] as const;
 
@@ -119,18 +120,26 @@ export async function POST(
   }
 
   if (action === "CREATE_SKILL") {
-    await db.transaction(async (tx) => {
+    const balance = await db.transaction(async (tx) => {
       const TxCharacter = tx.orm.public.Character as any;
       const TxCharacterItem = (tx.orm.public as any).CharacterItem;
+      const freshOwned = await TxCharacterItem.where({ id: characterItemId, characterId }).first();
+      if (!freshOwned || Number(freshOwned.quantity) < 1) throw new Error("ITEM_NOT_AVAILABLE");
       const freshCharacter = await TxCharacter.where({ id: characterId }).first();
-      const credits = Number(freshCharacter?.skillCreationCredits ?? 0);
-      await TxCharacter.where({ id: characterId }).update({ skillCreationCredits: credits + 1 });
-      if (quantity === 1) {
+      if (!freshCharacter) throw new Error("CHARACTER_NOT_FOUND");
+      const next = Number(freshCharacter.pchBalance ?? 0) + PCH_PER_COIN;
+      await TxCharacter.where({ id: characterId }).update({ pchBalance: next });
+      if (Number(freshOwned.quantity) === 1) {
         await TxCharacterItem.where({ id: characterItemId }).delete();
       } else {
-        await TxCharacterItem.where({ id: characterItemId }).update({ quantity: quantity - 1 });
+        await TxCharacterItem.where({ id: characterItemId }).update({ quantity: Number(freshOwned.quantity) - 1 });
       }
+      return next;
+    }).catch((error) => {
+      if (error instanceof Error && error.message === "ITEM_NOT_AVAILABLE") return null;
+      throw error;
     });
+    if (balance === null) return NextResponse.json({ error: "La moneda ya fue consumida." }, { status: 409 });
 
     await recordAuditEvent({
       actorUserId: user.id,
@@ -138,15 +147,9 @@ export async function POST(
       entityType: "ITEM",
       entityId: Number(item.id),
       characterId,
-      details: { characterItemId, itemName: item.name, action },
+      details: { characterItemId, itemName: item.name, action, pchGranted: PCH_PER_COIN, pchBalance: balance },
     });
-
-    return NextResponse.json({
-      success: true,
-      action,
-      consumed: 1,
-      skillCreationCredits: Number((character as any).skillCreationCredits ?? 0) + 1,
-    });
+    return NextResponse.json({ success: true, action, consumed: 1, pchGranted: PCH_PER_COIN, pchBalance: balance });
   }
 
   if (action === "ESCAPE_MAZE") {

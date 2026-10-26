@@ -142,7 +142,7 @@ export async function POST(
     if (!fresh) throw new Error("CHARACTER_NOT_FOUND");
     await tx.orm.public.AuditLog.create({
       actorUserId: user.id,
-      action: "SKILL_CREATE",
+      action: "SKILL_SUBMIT",
       entityType: "SKILL",
       entityId: Number(skill.id),
       characterId,
@@ -157,14 +157,6 @@ export async function POST(
 
   if (!created) return NextResponse.json({ error: "PCH insuficientes para crear esta habilidad." }, { status: 400 });
 
-  await recordAuditEvent({
-    actorUserId: user.id,
-    action: "SKILL_SUBMIT",
-    entityType: "SKILL",
-    entityId: Number(created.skill.id),
-    characterId,
-    details: { name: created.skill.name, category: created.skill.category, pchCost },
-  });
 
   return NextResponse.json({ skill: created.skill, status: "PENDING", pchBalance: created.balance, pchCost }, { status: 201 });
 }

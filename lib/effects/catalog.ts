@@ -40,3 +40,9 @@ export function resolveEffectTargets(
   }
   return fixed.map((key) => ({ key, label: key }));
 }
+
+/** Shared validation for perk and skill effect targets. */
+export function validateEffectTarget(type: string, target: string, statistics: Parameters<typeof resolveEffectTargets>[1]): boolean {
+  const allowed = resolveEffectTargets(type, statistics);
+  return allowed.length === 0 || allowed.some((entry) => entry.key === target);
+}

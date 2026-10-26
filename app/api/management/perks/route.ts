@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
+import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -34,8 +36,8 @@ export async function POST(request: Request) {
   const probability = Number(body?.probability);
   const effects = Array.isArray(body?.effects) ? body.effects : [];
   const stackable = body?.stackable !== false;
-  const validCombatTypes = ["IGNORE_PHYS_DEF_MULTIPLIER","IGNORE_PHYS_DEF_BONUS","IGNORE_MAGIC_DEF_MULTIPLIER","IGNORE_MAGIC_DEF_BONUS","IGNORE_ALL_DEF_MULTIPLIER","IGNORE_ALL_DEF_BONUS","FINAL_DAMAGE_MULTIPLIER","FINAL_DAMAGE_BONUS"];
-  if (effects.some((e:any) => !e || typeof e.type !== "string" || (!["STAT_BONUS","STAT_MULTIPLIER","RESOURCE_BONUS","COMBAT_MULTIPLIER","EQUIPMENT_SLOT_CAP","DAMAGE_MULTIPLIER","DAMAGE_REDUCTION","DAMAGE_INCREASE","NARRATIVE","MAZE_UTILITY"].includes(e.type) && !validCombatTypes.includes(e.type)) || !Number.isFinite(Number(e.value)))) return NextResponse.json({ error: "Efecto de perk inválido." }, { status: 400 });
+  const statistics = await readStatisticsCatalog();
+  if (effects.some((effect: any) => !effect || !EFFECT_TYPES.includes(String(effect.type) as typeof EFFECT_TYPES[number]) || !Number.isFinite(Number(effect.value)) || (effect.target != null && !validateEffectTarget(String(effect.type), String(effect.target), statistics)))) return NextResponse.json({ error: "Efecto de perk inválido o fuera del catálogo." }, { status: 400 });
   const maxStacks = body?.maxStacks == null || body.maxStacks === "" ? null : Math.max(1, Math.trunc(Number(body.maxStacks)));
   if (!name || name.length > 100) return NextResponse.json({ error: "El nombre es obligatorio y no puede superar 100 caracteres." }, { status: 400 });
   if (!Number.isFinite(probability) || probability < 0) return NextResponse.json({ error: "La probabilidad debe ser un número mayor o igual a 0." }, { status: 400 });

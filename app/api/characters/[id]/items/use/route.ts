@@ -123,17 +123,33 @@ export async function POST(
     const balance = await db.transaction(async (tx) => {
       const TxCharacter = tx.orm.public.Character as any;
       const TxCharacterItem = (tx.orm.public as any).CharacterItem;
-      const freshOwned = await TxCharacterItem.where({ id: characterItemId, characterId }).first();
-      if (!freshOwned || Number(freshOwned.quantity) < 1) throw new Error("ITEM_NOT_AVAILABLE");
+      const consume = db.raw.sql`
+        UPDATE public."characterItem"
+        SET "quantity" = "quantity" - 1
+        WHERE id = ${characterItemId} AND "characterId" = ${characterId} AND "quantity" >= 1
+      `.affectedCount().build();
+      const { affectedRows } = await tx.execute(consume);
+      if (affectedRows !== 1) throw new Error("ITEM_NOT_AVAILABLE");
+      const grant = db.raw.sql`
+        UPDATE public."character"
+        SET "pchBalance" = "pchBalance" + ${PCH_PER_COIN}
+        WHERE id = ${characterId} AND "pchBalance" <= ${2147483647 - PCH_PER_COIN}
+      `.affectedCount().build();
+      const { affectedRows: granted } = await tx.execute(grant);
+      if (granted !== 1) throw new Error("PCH_GRANT_CONFLICT");
+      await TxCharacterItem.where({ id: characterItemId, quantity: 0 }).delete();
       const freshCharacter = await TxCharacter.where({ id: characterId }).first();
       if (!freshCharacter) throw new Error("CHARACTER_NOT_FOUND");
-      const next = Number(freshCharacter.pchBalance ?? 0) + PCH_PER_COIN;
-      await TxCharacter.where({ id: characterId }).update({ pchBalance: next });
-      if (Number(freshOwned.quantity) === 1) {
-        await TxCharacterItem.where({ id: characterItemId }).delete();
-      } else {
-        await TxCharacterItem.where({ id: characterItemId }).update({ quantity: Number(freshOwned.quantity) - 1 });
-      }
+      const next = Number(freshCharacter.pchBalance);
+      await tx.orm.public.AuditLog.create({
+        actorUserId: user.id,
+        action: "ITEM_USE_SYSTEM",
+        entityType: "ITEM",
+        entityId: Number(item.id),
+        characterId,
+        targetUserId: null,
+        details: JSON.stringify({ characterItemId, action, pchGranted: PCH_PER_COIN, pchBalance: next }),
+      });
       return next;
     }).catch((error) => {
       if (error instanceof Error && error.message === "ITEM_NOT_AVAILABLE") return null;
@@ -141,14 +157,6 @@ export async function POST(
     });
     if (balance === null) return NextResponse.json({ error: "La moneda ya fue consumida." }, { status: 409 });
 
-    await recordAuditEvent({
-      actorUserId: user.id,
-      action: "ITEM_USE_SYSTEM",
-      entityType: "ITEM",
-      entityId: Number(item.id),
-      characterId,
-      details: { characterItemId, itemName: item.name, action, pchGranted: PCH_PER_COIN, pchBalance: balance },
-    });
     return NextResponse.json({ success: true, action, consumed: 1, pchGranted: PCH_PER_COIN, pchBalance: balance });
   }
 

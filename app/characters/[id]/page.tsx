@@ -1136,9 +1136,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 : 1 + temporaryAttackPercentages.reduce((sum, percent) => sum + percent / 100, 0))
             : 1;
 
-          const valueWithEquipment = affectedByAttackMultiplier
-            ? value * combinedExportAttackMultiplier
-            : value;
+          const valueWithEquipment = value;
           // Los porcentajes temporales del ataque ya están incluidos arriba;
           // no deben volver a pasar por applyTemporaryEffects.
           const effectiveValue = affectedByAttackMultiplier

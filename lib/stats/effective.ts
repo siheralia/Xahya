@@ -5,7 +5,7 @@ import { applyDerivedItemEffects } from "@/lib/stats/derived";
 import { getPerkEffects } from "@/lib/perks";
 
 const CORE_CODES: Record<string,string> = {strength:"STR",agility:"AGI",constitution:"CON",intelligence:"INT",wisdom:"WIS",charisma:"CHA",spirit:"SPI",luck:"LCK"};
-const DERIVED_CODES: Record<string,string> = {maxHp:"HP",maxMana:"MANA",physicalAttack:"PHYS_ATK",magicAttack:"MAGIC_ATK",physicalDefense:"DEF",magicDefense:"MAG_DEF",precision:"PRECISION",critical:"CRITICAL",discovery:"DISCOVERY",miracle:"MIRACLE",intimidation:"INTIMIDATION",conquest:"CONQUEST",race:"RACE",dodge:"DODGE",stealth:"STEALTH",detection:"DETECTION"};
+
 
 export async function getEffectiveCharacterStats(characterId:number, source:any=db) {
   const legacy = await source.orm.public.CharacterStat.where({characterId}).first();
@@ -17,15 +17,10 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
   const basicKeys = new Set([...CORE_BASIC_STAT_KEYS].filter((key)=>!catalog.some((entry)=>entry.key===key&&entry.active===false)).concat(basicDefinitions.map((entry)=>entry.key)));
   const codeByKey:Record<string,string> = {...CORE_CODES,...Object.fromEntries(basicDefinitions.map((entry)=>[entry.key,entry.code||entry.key]))};
   const activeDerived = catalog.filter((entry)=>entry.kind==="derived"&&entry.active!==false);
-  const derivedCodes = {...Object.fromEntries(Object.entries(DERIVED_CODES).filter(([key])=>!catalog.some((entry)=>entry.key===key&&entry.active===false))),...Object.fromEntries(activeDerived.map((entry)=>[entry.key,entry.code||entry.key]))};
+  const derivedCodes = Object.fromEntries(activeDerived.map((entry)=>[entry.key,entry.code||entry.key]));
   const aliases:Record<string,string> = Object.fromEntries(Object.entries(derivedCodes).flatMap(([key,code])=>[[key,key],[code,key]]));
-  // Preserve legacy item codes even when the configurable catalog renames a stat code.
-  for (const [key, legacyCode] of Object.entries(DERIVED_CODES)) {
-    if (key in derivedCodes && !(legacyCode in aliases)) aliases[legacyCode] = key;
-  }
-  if ("physicalDefense" in derivedCodes) aliases.PHYS_DEF = "physicalDefense";
   const activeTargets = new Set([...Object.keys(codeByKey).filter((key)=>basicKeys.has(key)).flatMap((key)=>[key,codeByKey[key]]),...Object.entries(derivedCodes).flatMap(([key,code])=>[key,code])]);
-  const validStatTarget = (target:string)=>activeTargets.has(target)||Boolean(aliases[target]);
+  const validStatTarget = (target:string)=>activeTargets.has(target);
   const modifiers = await source.orm.public.CharacterModifier.where({characterId}).all();
   const active = modifiers.filter((entry:any)=>!entry.expiresAt || new Date(String(entry.expiresAt)).getTime()>Date.now());
   const CharacterItem = source.orm.public.CharacterItem;

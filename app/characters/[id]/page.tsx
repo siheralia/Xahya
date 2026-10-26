@@ -936,14 +936,18 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   (entry.item?.effects ?? [])
                     .filter((effect) =>
                       ((effect as { stat?: string }).stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") &&
-                      Number(effect.value) / 100 !== 1
+                      Number(effect.value) !== 1
                     )
-                    .map((effect) => Number(effect.value) / 100)
+                    .map((effect) => Number(effect.value))
                 )
               : [];
             const multipliers = [...directMultipliers, ...attackMultipliers];
             const flat = directFlat + perkFlat;
-            const formula = buffFormula(value - flat, multipliers, 0, flat);
+            const attackFactors = attackMultipliers.filter((factor) => factor !== 1);
+            const attackTotal = attackFactors.reduce((sum, factor) => sum + factor, 0);
+            const formula = attackFactors.length && attackTotal !== 0
+              ? formatNumber((value - flat) / attackTotal) + " ×(" + attackFactors.map(formatNumber).join("+") + ")" + (flat ? " " + signed(flat) : "")
+              : buffFormula(value - flat, multipliers, 0, flat);
             const displayed = value;
             return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(displayed) + (formula ? " [" + formula + "]" : "");
           }).join("\n")

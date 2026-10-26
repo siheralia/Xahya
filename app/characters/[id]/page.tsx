@@ -909,7 +909,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         : "",
       "*ESTADÍSTICAS DERIVADAS*",
       character.derivedStats
-        ? Object.entries(character.derivedStats).map(([key, value]) => {
+        ? Object.entries(character.derivedStats).filter(([key]) => !(key in statLabels)).map(([key, value]) => {
             const directEffects = character.equipment.filter((entry) => entry.equipped).flatMap((entry) =>
               (entry.item?.effects ?? []).filter((effect) => {
                 const target = String((effect as { stat?: string }).stat ?? "").toUpperCase();
@@ -945,9 +945,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             const flat = directFlat + perkFlat;
             const attackFactors = attackMultipliers.filter((factor) => factor !== 1);
             const attackTotal = attackFactors.reduce((sum, factor) => sum + factor, 0);
+            const computedBase = calculateDerivedStats(temporaryBaseStats)[key as keyof ReturnType<typeof calculateDerivedStats>];
             const formula = attackFactors.length && attackTotal !== 0
               ? formatNumber((value - flat) / attackTotal) + " ×(" + attackFactors.map(formatNumber).join("+") + ")" + (flat ? " " + signed(flat) : "")
-              : buffFormula(value - flat, multipliers, 0, flat);
+              : flat !== 0 && typeof computedBase === "number" && Math.abs(value - computedBase) < 0.011
+                ? "" // El servidor no aplicó el bono: no mostrar una base negativa ficticia.
+                : buffFormula(value - flat, multipliers, 0, flat);
             const displayed = value;
             return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(displayed) + (formula ? " [" + formula + "]" : "");
           }).join("\n")
@@ -1002,7 +1005,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       "",
       "*BONOS DE EQUIPO*",
       character.equipment.filter((entry) => entry.equipped && (entry.item?.effects?.length ?? 0) > 0).flatMap((entry) =>
-        (entry.item?.effects ?? []).map((effect) => "• " + (entry.item?.name ?? "Objeto") + ": " + (effect.description ?? effect.type + " " + effect.value))
+        (entry.item?.effects ?? []).map((effect) => "• " + (entry.item?.name ?? "Objeto") + ": " + (effect.description?.trim() || (effect.type === "stat_multiplier" ? "×" + formatNumber(Number(effect.value)) : effect.type === "stat_bonus" ? signed(Number(effect.value)) : effect.type + " " + formatNumber(Number(effect.value))) + (effect.stat ? " " + ({ LCK: "Suerte", INT: "Inteligencia", STR: "Fuerza", AGI: "Agilidad", CON: "Constitución", WIS: "Sabiduría", CHA: "Carisma", SPI: "Espíritu" } as Record<string, string>)[String(effect.stat).toUpperCase()] ?? "" : "")))
       ).join("\n") || "• Ninguno",
       "",
       "*RECURSOS PERMANENTES*",

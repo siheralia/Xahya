@@ -10,6 +10,19 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: xahya_w04
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd 'pg_isready -U postgres'
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,6 +35,28 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Run tests
         run: npm test
+      - name: Initialize isolated W04 test tables
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d xahya_w04 <<'SQL'
+          CREATE TABLE public."characterResource" (
+            id integer PRIMARY KEY,
+            "characterId" integer UNIQUE NOT NULL,
+            money integer NOT NULL,
+            karma integer NOT NULL
+          );
+          CREATE TABLE public."w04Audit" (
+            id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            "characterId" integer NOT NULL
+          );
+          INSERT INTO public."characterResource" (id, "characterId", money, karma)
+          VALUES (1,1,100,1),(2,2,100,1);
+          SQL
+      - name: W04 PostgreSQL ORM integration
+        run: node --test tests/w04-postgres.integration.mjs
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/xahya_w04
       - name: Generate Next.js route types
         run: npx next typegen
       - name: TypeScript typecheck

@@ -37,7 +37,7 @@ function resolver({ catalog = [], legacy = { strength: 100, agility: 20, constit
       for (const effect of effects) {
         if (!(effect.stat in result)) continue;
         if (effect.type === "stat_bonus") result[effect.stat] += effect.value;
-        if (effect.type === "stat_multiplier") result[effect.stat] *= effect.value / 100;
+        if (effect.type === "stat_multiplier") result[effect.stat] *= effect.value;
       }
       return result;
     } },
@@ -86,7 +86,7 @@ test("inactive stat targets remain stored but do not affect derived values", asy
 
 test("attack-total object multiplier is applied once in resolver", async () => {
   const result = await resolver({
-    items: [{ id: 1, effects: [{ type: "stat_multiplier", stat: "ATTACK_TOTAL", value: 30 }] }],
+    items: [{ id: 1, effects: [{ type: "stat_multiplier", stat: "ATTACK_TOTAL", value: 2 }] }],
     owned: [{ characterId: 1, itemId: 1, equipped: true }],
   });
   assert.equal(result.derived.physicalAttack, 130);
@@ -100,4 +100,10 @@ test("derived item bonus does not reapply a basic stat bonus", async () => {
   });
   assert.equal(result.effectiveStats.strength, 110);
   assert.equal(result.derived.physicalAttack, 115);
+});
+
+test("literal x2 basic and x1.5 derived factors", async () => {
+ const result = await resolver({items:[{id:1,effects:[{type:"stat_multiplier",stat:"STR",value:2},{type:"stat_multiplier",stat:"PHYS_ATK",value:1.5}]}],owned:[{characterId:1,itemId:1,equipped:true}]});
+ assert.equal(result.effectiveStats.strength,200);
+ assert.equal(result.derived.physicalAttack,300);
 });

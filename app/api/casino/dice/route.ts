@@ -162,7 +162,7 @@ export async function POST(request: Request) {
   // update lock. Concurrent wagers cannot both spend the same starting funds.
   try {
     const result = await db.transaction(async (tx) => {
-      const plan = tx.raw.sql`
+      const plan = db.raw.sql`
         UPDATE public."characterResource"
         SET "money" = "money" + ${payout}, "karma" = "karma" - 1
         WHERE "characterId" = ${characterId}

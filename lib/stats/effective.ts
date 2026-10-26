@@ -1,7 +1,6 @@
 import { db } from "@/lib/db";
 import { readStatisticsCatalog, CORE_BASIC_STAT_KEYS } from "@/lib/stats/dynamic";
 import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
-import { applyDerivedItemEffects } from "@/lib/stats/derived";
 import { getPerkEffects } from "@/lib/perks";
 
 const CORE_CODES: Record<string,string> = {strength:"STR",agility:"AGI",constitution:"CON",intelligence:"INT",wisdom:"WIS",charisma:"CHA",spirit:"SPI",luck:"LCK"};
@@ -58,18 +57,29 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
   }
   let derived=await calculateConfiguredDerivedStats(base as any,source);
   // Resolve only active derived targets; do not fall back to legacy aliases for disabled stats.
-  const derivedItemEffects = validEffects.filter((entry:any)=>
-    (entry.type==="stat_bonus"||entry.type==="stat_multiplier") && Boolean(aliases[entry.stat])
-  ).map((entry:any)=>({...entry,stat:aliases[entry.stat]}));
-  derived=applyDerivedItemEffects(derived,derivedItemEffects,aliases);
-  for(const effect of validPerks){
-    const type=String(effect.type), target=String(effect.target??""), amount=Number(effect.value);
-    if(!Number.isFinite(amount)) continue;
-    const key=aliases[target]??aliases[target.toUpperCase()];
-    if(type==="RESOURCE_BONUS"&&target==="HP") derived.maxHp+=amount;
-    else if(type==="RESOURCE_BONUS"&&target==="MANA") derived.maxMana+=amount;
-    else if(key&&type==="STAT_BONUS") derived[key]=(derived[key]??0)+amount;
-    else if(key&&type==="STAT_MULTIPLIER") derived[key]=(derived[key]??0)*amount;
+  // Combine item and perk factors per derived stat before applying them.
+  // Xahya rule: ×2 + ×3 = ×5, not ×6. Flat bonuses are added afterward.
+  const derivedModifiers = new Map<string, { factors: number[]; bonus: number }>();
+  const addDerived = (type: string, target: string, amount: number) => {
+    const key = aliases[target] ?? aliases[target.toUpperCase()];
+    if (!key || !Number.isFinite(amount)) return;
+    const entry = derivedModifiers.get(key) ?? { factors: [], bonus: 0 };
+    if (type === "STAT_MULTIPLIER") entry.factors.push(amount);
+    if (type === "STAT_BONUS") entry.bonus += amount;
+    derivedModifiers.set(key, entry);
+  };
+  for (const effect of validEffects) {
+    addDerived(String(effect.type).toUpperCase(), String(effect.stat), Number(effect.value));
+  }
+  for (const effect of validPerks) {
+    const type = String(effect.type), target = String(effect.target ?? ""), amount = Number(effect.value);
+    if (type === "RESOURCE_BONUS" && target === "HP" && Number.isFinite(amount)) derived.maxHp += amount;
+    else if (type === "RESOURCE_BONUS" && target === "MANA" && Number.isFinite(amount)) derived.maxMana += amount;
+    else addDerived(type, target, amount);
+  }
+  for (const [key, modifier] of derivedModifiers) {
+    const factor = modifier.factors.length ? modifier.factors.reduce((sum, value) => sum + value, 0) : 1;
+    derived[key] = Number(derived[key] ?? 0) * factor + modifier.bonus;
   }
   const attackFactors=[...validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").map((entry:any)=>entry.value),...validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&entry.target==="ATTACK_TOTAL").map((entry:any)=>Number(entry.value))];
   const attackMultiplier=attackFactors.length?attackFactors.reduce((sum:number,factor:number)=>sum+factor,0):1;

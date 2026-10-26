@@ -6,7 +6,7 @@ import { EFFECT_CATALOG, EFFECT_TARGETS, resolveEffectTargets } from "@/lib/effe
 
 type Effect = { type: string; target?: string; value?: number; description?: string };
 type Skill = {
-  id:number; characterId:number; name:string; cost:number; accumulationCost:number; accumulationPerTick:number; maintenanceCost:number; description:string|null; duration:string|null;
+  id:number; characterId:number; name:string; cost:number; pchCost:number; accumulationCost:number; accumulationPerTick:number; maintenanceCost:number; description:string|null; duration:string|null;
   category:string; basicType:string|null; attackType:string|null; defenseType:string|null; areaOfEffect:string|null; speed:string|null; cooldown:string|null; effect:Effect[];
   condition:string|null; status:string; approvedAt:string|null; character?: { id:number; name:string }|null;
 };
@@ -14,7 +14,7 @@ type Skill = {
 const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
 const effectTypes=[...EFFECT_CATALOG.filter(e=>e.type!=="MAZE_UTILITY").map(e=>[e.type,e.label] as const),["MAZE_UTILITY_INVISIBILITY","Invisibilidad"],["MAZE_UTILITY_FLOATING","Flotar"]] as const;
 const blankEffect=():Effect=>({type:"STAT_BONUS",target:"STR",value:10,description:""});
-const blankForm=()=>({characterId:"",name:"",cost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"",category:"UTILITY",areaOfEffect:"",speed:"",cooldown:"",condition:"",effect:[] as Effect[]});
+const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"",category:"UTILITY",areaOfEffect:"",speed:"",cooldown:"",condition:"",effect:[] as Effect[]});
 
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
@@ -50,7 +50,7 @@ export default function SkillsManagementPage(){
   function edit(skill:Skill){
     setSelected(skill.id);
     setForm({
-      characterId:String(skill.characterId),name:skill.name,cost:Number(skill.cost),accumulationCost:Number(skill.accumulationCost??0),accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),description:skill.description??"",
+      characterId:String(skill.characterId),name:skill.name,cost:Number(skill.cost),pchCost:Number(skill.pchCost??0),accumulationCost:Number(skill.accumulationCost??0),accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),description:skill.description??"",
       duration:skill.duration??"",category:skill.category,areaOfEffect:skill.areaOfEffect??"",speed:skill.speed??"",
       cooldown:skill.cooldown??"",condition:skill.condition??"",effect:Array.isArray(skill.effect)?skill.effect:[],
     });

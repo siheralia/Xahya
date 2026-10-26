@@ -914,10 +914,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               (entry.item?.effects ?? []).filter((effect) => {
                 const target = String((effect as { stat?: string }).stat ?? "").toUpperCase();
                 const aliases: Record<string,string> = {
-                  HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",
-                  PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",
-                  PHYSICAL_DEF:"physicalDefense",DEF:"physicalDefense",DEFENSE:"physicalDefense",
-                  MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",
+                  HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",MAX_MANA:"maxMana",MAX_MANA:"maxMana",
+                  PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",MAGIC_ATTACK:"magicAttack",
+                  PHYSICAL_DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEFENSE:"physicalDefense",
+                  MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",
                   CRITICAL:"critical",DISCOVERY:"discovery",MIRACLE:"miracle",INTIMIDATION:"intimidation",
                   CONQUEST:"conquest",RACE:"race",DODGE:"dodge",STEALTH:"stealth",DETECTION:"detection"
                 };
@@ -1051,10 +1051,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       wisdom: "WIS", charisma: "CHA", spirit: "SPI", luck: "LCK",
     };
     const derivedAliases: Record<string,string> = {
-      HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",
-      PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",
-      PHYSICAL_DEF:"physicalDefense",DEF:"physicalDefense",DEFENSE:"physicalDefense",
-      MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",
+      HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",MAX_MANA:"maxMana",MAX_MANA:"maxMana",
+      PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",MAGIC_ATTACK:"magicAttack",
+      PHYSICAL_DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEFENSE:"physicalDefense",
+      MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",
       CRITICAL:"critical",DISCOVERY:"discovery",MIRACLE:"miracle",INTIMIDATION:"intimidation",
       CONQUEST:"conquest",RACE:"race",DODGE:"dodge",STEALTH:"stealth",DETECTION:"detection"
     };

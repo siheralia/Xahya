@@ -1067,7 +1067,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       // Para ataques: los multiplicadores de ataque se SUMAN (×2 + ×2 = ×4)
       // y los porcentajes aportan solo su incremento (+30% = +0.3).
       const combinedMultiplier = equipmentFactors.length
-        ? equipmentFactors.reduce((sum, factor) => sum + factor, 0) +
+        ? equipmentFactors.reduce((product, factor) => product * factor, 1) +
           temporaryPercentages.reduce((sum, percent) => sum + percent / 100, 0)
         : 1 + temporaryPercentages.reduce((sum, percent) => sum + percent / 100, 0);
       return formatNumber(base) + " × " + formatNumber(combinedMultiplier);
@@ -1105,7 +1105,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         const base = breakdown?.base ?? character.stats?.[key as keyof typeof character.stats] ?? 0;
         const permanentValue = breakdown?.value ?? character.effectiveStats?.[key] ?? base;
         const temporaryValue = applyTemporaryEffects(key, permanentValue);
-        const formula = buffFormula(base, breakdown?.multipliers ?? [], breakdown?.karmaBonus ?? 0, breakdown?.objectFlatBonus ?? 0);
+        const formula = breakdown && (breakdown.combinedMultiplier !== 1 || breakdown.karmaBonus !== 0 || breakdown.objectFlatBonus !== 0)\n          ? formatNumber(base) + (breakdown.combinedMultiplier !== 1 ? " × " + formatNumber(breakdown.combinedMultiplier) : "") + (breakdown.objectFlatBonus ? " " + signed(breakdown.objectFlatBonus) : "") + (breakdown.karmaBonus ? " " + signed(breakdown.karmaBonus) + " 🪷" : "")\n          : "";
         const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
         const temporaryText = temporaryEffectsForStat.length
           ? " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"
@@ -1118,7 +1118,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
           // Recalculamos desde las estadísticas base temporales en vez de partir
           // del valor derivado permanente del servidor.
-          const value = recalculatedDerived[key as keyof typeof recalculatedDerived] ?? serverValue;
+          const value = Number(serverValue);
           const temporaryAttackPercentages = affectedByAttackMultiplier
             ? temporaryEffects
                 .filter((effect) => effect.target === key && effect.mode === "percent")
@@ -1131,7 +1131,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             : [];
           const combinedExportAttackMultiplier = affectedByAttackMultiplier
             ? (equipmentAttackFactors.length
-                ? equipmentAttackFactors.reduce((sum, factor) => sum + factor, 0) +
+                ? equipmentAttackFactors.reduce((product, factor) => product * factor, 1) +
                   temporaryAttackPercentages.reduce((sum, percent) => sum + percent / 100, 0)
                 : 1 + temporaryAttackPercentages.reduce((sum, percent) => sum + percent / 100, 0))
             : 1;
@@ -1145,7 +1145,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             ? valueWithEquipment
             : applyTemporaryEffects(key, valueWithEquipment);
           const formula = affectedByAttackMultiplier && (equipmentAttackFactors.length || temporaryAttackPercentages.length)
-            ? getAttackExportFormula(value, equipmentAttackFactors, temporaryAttackPercentages)
+            ? getAttackExportFormula(combinedExportAttackMultiplier !== 0 ? value / combinedExportAttackMultiplier : value, equipmentAttackFactors, temporaryAttackPercentages)
             : getDerivedFormula(key, value);
           const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
           const temporaryText = temporaryEffectsForStat.length

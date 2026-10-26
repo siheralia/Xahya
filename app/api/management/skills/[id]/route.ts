@@ -48,6 +48,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const TxSkill = (tx.orm.public as any).Skill;
       const TxCharacter = tx.orm.public.Character as any;
 
+      // Lock the skill row before reading its charge/status to serialize approvals.
+      const lock = db.raw.sql`
+        UPDATE public."skill" SET "pchCost" = "pchCost" WHERE id = ${id}
+      `.affectedCount().build();
+      const { affectedRows: locked } = await tx.execute(lock);
+      if (locked !== 1) throw new Error("SKILL_NOT_FOUND");
       const freshSkill = await TxSkill.where({ id }).first();
       if (!freshSkill) throw new Error("SKILL_NOT_FOUND");
 

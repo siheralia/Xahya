@@ -33,10 +33,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
   }
 
+  const requestedPchCost = body.pchCost === undefined ? Number((skill as any).pchCost ?? 0) : Number(body.pchCost);
+  if (!Number.isInteger(requestedPchCost) || requestedPchCost < 0) return NextResponse.json({ error: "Costo PCH inválido." }, { status: 400 });
+
   const approve = body.approve === true;
   const reject = body.reject === true;
   let updated: any;
   let refundedCredit = false;
+  let pchBalance: number | null = null;
   let skillCreationCredits: number | null = null;
 
   try {
@@ -47,11 +51,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const freshSkill = await TxSkill.where({ id }).first();
       if (!freshSkill) throw new Error("SKILL_NOT_FOUND");
 
+      const oldPchCost = Number(freshSkill.pchCost ?? 0);
       const shouldRefund = reject && String(freshSkill.status) !== "REJECTED";
+      const previousCharge = String(freshSkill.status) === "REJECTED" ? 0 : oldPchCost;
+      const newCharge = reject ? 0 : requestedPchCost;
+      const difference = previousCharge - newCharge;
+      if (difference !== 0) {
+        const character = await TxCharacter.where({ id: Number(freshSkill.characterId) }).first();
+        if (!character) throw new Error("CHARACTER_NOT_FOUND");
+        pchBalance = Number(character.pchBalance ?? 0) + difference;
+        await TxCharacter.where({ id: Number(freshSkill.characterId) }).update({ pchBalance });
+      }
 
       await TxSkill.where({ id }).update({
         name,
         cost,
+        pchCost: requestedPchCost,
         maintenanceCost,
         accumulationCost,
       accumulationPerTick,
@@ -72,18 +87,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         updatedAt: Temporal.Instant.fromEpochMilliseconds(Date.now()),
       });
 
-      if (shouldRefund) {
-        const character = await TxCharacter.where({ id: Number(freshSkill.characterId) }).first();
-        if (!character) throw new Error("CHARACTER_NOT_FOUND");
-
-        const credits = Number(character.skillCreationCredits ?? 0);
-        skillCreationCredits = credits + 1;
-        refundedCredit = true;
-
-        await TxCharacter.where({ id: Number(freshSkill.characterId) }).update({
-          skillCreationCredits: credits + 1,
-        });
-      }
 
       const refreshed = await TxSkill.where({ id }).first();
       if (!refreshed) throw new Error("SKILL_UPDATE_NOT_FOUND");
@@ -117,7 +120,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       details: {
         before: skill,
         after: updated,
-        refundedSkillCrystal: refundedCredit,
+        refundedSkillCrystal: false,
+        pchCostBefore: Number((skill as any).pchCost ?? 0),
+        pchCostAfter: requestedPchCost,
+        pchBalance,
         skillCreationCredits,
       },
     });
@@ -127,7 +133,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   return NextResponse.json({
     skill: updated,
-    refundedSkillCrystal: refundedCredit,
+    refundedSkillCrystal: false,
+    pchBalance,
     ...(skillCreationCredits !== null ? { skillCreationCredits } : {}),
   });
 }

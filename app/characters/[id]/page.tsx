@@ -24,9 +24,8 @@ const skillCategories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT
 const skillEffectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["DAMAGE_REDUCTION","Daño recibido reducido ×"],["DAMAGE_INCREASE","Daño recibido aumentado ×"],["NARRATIVE","Narrativo"],["MAZE_UTILITY_FLOATING","Flotar"],["MAZE_UTILITY_INVISIBILITY","Invisibilidad"]] as const;
 const skillTargets = [
   ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
-  ["HP","HP"],["MANA","Mana"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],
-  ["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],
-  ["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],["ALL","Todo"],["PHYSICAL","Físico"],["MAGICAL","Mágico"],
+  ["MAX_HP","HP"],["MAX_MANA","Maná"],["PHYSICAL_ATTACK","Ataque físico"],["MAGIC_ATTACK","Ataque mágico"],["PHYSICAL_DEFENSE","Defensa física"],["MAGIC_DEFENSE","Defensa mágica"],
+  ["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],["ALL","Todo"],["PHYSICAL","Físico"],["MAGICAL","Mágico"],
 ] as const;
 
 type ThemePalette = {
@@ -1912,7 +1911,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       <select value={effect.type} onChange={(e) => updateSkillEffect(index, "type", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{skillEffectTypes.map((type) => <option key={type[0]} value={type[0]}>{type[1]}</option>)}</select>
                       {narrative
                         ? <input value={effect.description ?? ""} onChange={(e) => updateSkillEffect(index, "description", e.target.value)} placeholder="Qué ocurre en rol" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" />
-                        : <select value={mazeUtility ? (effect.target ?? "INVISIBILITY") : (effect.target ?? "MAGIC_ATK")} disabled={mazeUtility} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{(mazeUtility ? [["INVISIBILITY","Invisibilidad"],["FLOATING","Flotar"]] as const : skillTargets).map((target) => <option key={target[0]} value={target[0]}>{target[1]}</option>)}</select>}
+                        : <select value={mazeUtility ? (effect.target ?? "INVISIBILITY") : (effect.target ?? "MAGIC_ATTACK")} disabled={mazeUtility} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{(mazeUtility ? [["INVISIBILITY","Invisibilidad"],["FLOATING","Flotar"]] as const : skillTargets).map((target) => <option key={target[0]} value={target[0]}>{target[1]}</option>)}</select>}
                       {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "2 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
                       <button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
                     </div>;

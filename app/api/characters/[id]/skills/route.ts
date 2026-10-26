@@ -97,6 +97,7 @@ export async function POST(
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const characterId = Number((await params).id);
+  if (!Number.isInteger(characterId) || characterId <= 0) return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });
   const character = await db.orm.public.Character.where({ id: characterId }).first();
   if (!character || (Number(character.userId) !== Number(user.id) && !["GM", "ADMIN"].includes(String(user.role)))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

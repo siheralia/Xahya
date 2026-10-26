@@ -113,9 +113,13 @@ export async function POST(
 
   const created = await db.transaction(async (tx) => {
     const TxCharacter = tx.orm.public.Character as any;
-    const fresh = await TxCharacter.where({ id: characterId }).first();
-    const balance = Number(fresh?.pchBalance ?? 0);
-    if (balance < pchCost) throw new Error("NOT_ENOUGH_PCH");
+    const debit = db.raw.sql`
+      UPDATE public."character"
+      SET "pchBalance" = "pchBalance" - ${pchCost}
+      WHERE id = ${characterId} AND "pchBalance" >= ${pchCost}
+    `.affectedCount().build();
+    const { affectedRows } = await tx.execute(debit);
+    if (affectedRows !== 1) throw new Error("NOT_ENOUGH_PCH");
     const skill = await (tx.orm.public as any).Skill.create({
       characterId,
       name: body.name.trim(),
@@ -134,8 +138,18 @@ export async function POST(
       condition: typeof body.condition === "string" ? body.condition.trim() || null : null,
       status: "PENDING",
     });
-    await TxCharacter.where({ id: characterId }).update({ pchBalance: balance - pchCost });
-    return { skill, balance: balance - pchCost };
+    const fresh = await TxCharacter.where({ id: characterId }).first();
+    if (!fresh) throw new Error("CHARACTER_NOT_FOUND");
+    await tx.orm.public.AuditLog.create({
+      actorUserId: user.id,
+      action: "SKILL_CREATE",
+      entityType: "SKILL",
+      entityId: Number(skill.id),
+      characterId,
+      targetUserId: null,
+      details: JSON.stringify({ pchCost, pchBalance: Number(fresh.pchBalance), name: skill.name }),
+    });
+    return { skill, balance: Number(fresh.pchBalance) };
   }).catch((error) => {
     if (error instanceof Error && error.message === "NOT_ENOUGH_PCH") return null;
     throw error;

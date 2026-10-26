@@ -835,7 +835,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       if (!factors.length && karma === 0 && flat === 0) return "";
       // Los factores se acumulan como incrementos sobre el 1 base:
       // ×2 + ×2 + +30% = 1 + (2-1) + (2-1) + (1.3-1) = 4.3.
-      const combinedMultiplier = factors.reduce((product, value) => product * value, 1);
+      const combinedMultiplier = factors.reduce((sum, value) => sum + value, 0);
       const multiplierText = factors.length
         ? formatNumber(base) + " × " + formatNumber(combinedMultiplier)
         : formatNumber(base);
@@ -1067,10 +1067,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       // Para ataques: los multiplicadores de ataque se SUMAN (×2 + ×2 = ×4)
       // y los porcentajes aportan solo su incremento (+30% = +0.3).
       const combinedMultiplier = equipmentFactors.length
-        ? equipmentFactors.reduce((product, factor) => product * factor, 1) +
+        ? equipmentFactors.reduce((sum, factor) => sum + factor, 0) +
           temporaryPercentages.reduce((sum, percent) => sum + percent / 100, 0)
         : 1 + temporaryPercentages.reduce((sum, percent) => sum + percent / 100, 0);
-      return formatNumber(base) + " × " + formatNumber(combinedMultiplier);
+      return formatNumber(base) + " ×(" + equipmentFactors.map(formatNumber).join("+") + (temporaryPercentages.length ? "+" + formatNumber(temporaryPercentages.reduce((sum, percent) => sum + percent / 100, 0)) : "") + ")";
     };
 
     const getDerivedFormula = (key: string, value: number) => {
@@ -1131,7 +1131,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             : [];
           const combinedExportAttackMultiplier = affectedByAttackMultiplier
             ? (equipmentAttackFactors.length
-                ? equipmentAttackFactors.reduce((product, factor) => product * factor, 1) +
+                ? equipmentAttackFactors.reduce((sum, factor) => sum + factor, 0) +
                   temporaryAttackPercentages.reduce((sum, percent) => sum + percent / 100, 0)
                 : 1 + temporaryAttackPercentages.reduce((sum, percent) => sum + percent / 100, 0))
             : 1;

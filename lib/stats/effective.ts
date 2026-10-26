@@ -68,7 +68,7 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     if(type==="RESOURCE_BONUS"&&target==="HP") derived.maxHp+=amount;
     else if(type==="RESOURCE_BONUS"&&target==="MANA") derived.maxMana+=amount;
     else if(key&&type==="STAT_BONUS") derived[key]=(derived[key]??0)+amount;
-    else if(key&&type==="STAT_MULTIPLIER") derived[key]=(derived[key]??0)*(1+amount/100);
+    else if(key&&type==="STAT_MULTIPLIER") derived[key]=(derived[key]??0)*amount;
   }
   const attackMultiplier=1+validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").reduce((sum:number,entry:any)=>sum+entry.value/100,0);
   derived.physicalAttack*=attackMultiplier;

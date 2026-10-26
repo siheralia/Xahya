@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { recordAuditEvent } from "@/lib/audit";
 import { readMechanics, getCharacterMechanicValue } from "@/lib/stats/mechanics";
 import { readBalance, type BalanceSettings } from "@/lib/stats/balance";
 
@@ -122,25 +121,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No tienes acceso a este personaje." }, { status: 403 });
   }
 
-  const resources = await db.orm.public.CharacterResource
-    .where({ characterId })
-    .first();
-  const stats = await db.orm.public.CharacterStat
-    .where({ characterId })
-    .first();
-
-  if (!resources || !stats) {
-    return NextResponse.json({ error: "Datos del personaje incompletos." }, { status: 500 });
-  }
-
-  if (Number(resources.karma) < 1) {
-    return NextResponse.json({ error: "Necesitas al menos 1 karma para jugar." }, { status: 400 });
-  }
-
-  if (bet > Number(resources.money)) {
-    return NextResponse.json({ error: "No puedes apostar más dinero del que tienes." }, { status: 400 });
-  }
-
   if (mode === "exact" && (!isValidInteger(target) || target < 1 || target > 20)) {
     return NextResponse.json({ error: "Elige un número del 1 al 20." }, { status: 400 });
   }
@@ -177,24 +157,55 @@ export async function POST(request: Request) {
   }
 
   const payout = Math.round(bet * multiplier);
-  const finalMoney = Number(resources.money) + payout;
-  const finalKarma = Number(resources.karma) - 1;
 
-  await db.orm.public.CharacterResource
-    .where({ id: resources.id })
-    .update({
-      money: finalMoney,
-      karma: finalKarma,
+  // The WHERE predicate is evaluated by PostgreSQL while it holds the row
+  // update lock. Concurrent wagers cannot both spend the same starting funds.
+  try {
+    const result = await db.transaction(async (tx) => {
+      const plan = db.raw.sql`
+        UPDATE public."characterResource"
+        SET "money" = "money" + ${payout}, "karma" = "karma" - 1
+        WHERE "characterId" = ${characterId}
+          AND "money" >= ${bet}
+          AND "karma" >= 1
+          AND "money" + ${payout} BETWEEN -2147483648 AND 2147483647
+      `.affectedCount().build();
+      const { affectedRows } = await tx.execute(plan);
+      if (affectedRows !== 1) {
+        throw new Error("WAGER_CONFLICT");
+      }
+
+      const resources = await tx.orm.public.CharacterResource
+        .where({ characterId }).first();
+      if (!resources) throw new Error("WAGER_CONFLICT");
+
+      const finalMoney = Number(resources.money);
+      const finalKarma = Number(resources.karma);
+
+      // Required audit is committed or rolled back with the resource update.
+      await tx.orm.public.AuditLog.create({
+        actorUserId: currentUser.id,
+        action: "CASINO_DICE",
+        entityType: "CHARACTER",
+        entityId: characterId,
+        characterId,
+        targetUserId: null,
+        details: JSON.stringify({
+          mode, target, bet, roll, won, payout,
+          moneyAfter: finalMoney, karmaAfter: finalKarma,
+        }),
+      });
+
+      return { roll, won, payout, money: finalMoney, karma: finalKarma };
     });
 
-  await recordAuditEvent({
-    actorUserId: currentUser.id,
-    action: "CASINO_DICE",
-    entityType: "CHARACTER",
-    entityId: characterId,
-    characterId,
-    details: { mode, target, bet, roll, won, payout, moneyAfter: finalMoney, karmaAfter: finalKarma },
-  });
-
-  return NextResponse.json({ roll, won, payout, money: finalMoney, karma: finalKarma });
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "WAGER_CONFLICT") {
+      return NextResponse.json({
+        error: "Saldo o karma insuficiente, o apuesta concurrente. Actualiza tus recursos e inténtalo de nuevo.",
+      }, { status: 409 });
+    }
+    return NextResponse.json({ error: "No se pudo completar la tirada." }, { status: 500 });
+  }
 }

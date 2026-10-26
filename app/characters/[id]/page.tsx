@@ -797,10 +797,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   type TemporaryEffect = { id: number; target: string; mode: "percent" | "flat"; value: number; label: string };
 
   function applyTemporaryEffects(target: string, value: number) {
-    return temporaryEffects.filter((effect) => effect.target === target).reduce(
-      (result, effect) => effect.mode === "percent" ? result * (effect.value) : result + effect.value,
-      value,
-    );
+    const effects = temporaryEffects.filter((effect) => effect.target === target);
+    const percentTotal = effects.filter((effect) => effect.mode === "percent")
+      .reduce((sum, effect) => sum + effect.value, 0);
+    const flatTotal = effects.filter((effect) => effect.mode === "flat")
+      .reduce((sum, effect) => sum + effect.value, 0);
+    return value * (1 + percentTotal / 100) + flatTotal;
   }
 
   function addTemporaryEffect() {

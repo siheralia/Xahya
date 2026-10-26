@@ -38,7 +38,7 @@ const LEGACY_EFFECT_TARGETS = [
   ["INVISIBILITY", "Invisibilidad"], ["FLOATING", "Flotar"], ["OTHER", "Otro"],
 ] as const;
 
-const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", action: "ESCAPE_MAZE", value: 100, description: "" });
+const emptyEffect = (): Effect => ({ type: "stat_multiplier", stat: "STR", action: "ESCAPE_MAZE", value: 1, description: "" });
 const defaultSlots: string[] = [];
 const noEffects = (effects: Effect[]) => !Array.isArray(effects) || effects.length === 0;
 

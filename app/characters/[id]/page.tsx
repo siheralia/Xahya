@@ -786,7 +786,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   // Item ATTACK_TOTAL multipliers are already included in derivedStats by the shared resolver.
   // Only apply other combat-only multipliers when rendering the sheet.
-  const allAttackMultiplier = character?.combatEffects?.filter((effect) => effect.type === "attack_multiplier_all" && !effect.source.startsWith("ITEM:")).reduce((multiplier, effect) => multiplier * (effect.value / 100), 1) ?? 1;
+  const allAttackMultiplier = character?.combatEffects?.filter((effect) => effect.type === "attack_multiplier_all" && !effect.source.startsWith("ITEM:")).reduce((multiplier, effect) => multiplier * effect.value, 1) ?? 1;
   const allDamageMultiplier = character?.combatEffects?.filter((effect) => effect.type === "damage_reduction_all").reduce((multiplier, effect) => multiplier * (effect.value / 100), 1) ?? 1;
 
   const baseRadarValues = character?.stats
@@ -800,7 +800,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   function applyTemporaryEffects(target: string, value: number) {
     return temporaryEffects.filter((effect) => effect.target === target).reduce(
-      (result, effect) => effect.mode === "percent" ? result * (1 + effect.value / 100) : result + effect.value,
+      (result, effect) => effect.mode === "percent" ? result * (effect.value) : result + effect.value,
       value,
     );
   }
@@ -835,7 +835,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       if (!factors.length && karma === 0 && flat === 0) return "";
       // Los factores se acumulan como incrementos sobre el 1 base:
       // ×2 + ×2 + +30% = 1 + (2-1) + (2-1) + (1.3-1) = 4.3.
-      const combinedMultiplier = 1 + factors.reduce((sum, value) => sum + (value - 1), 0);
+      const combinedMultiplier = factors.reduce((product, value) => product * value, 1);
       const multiplierText = factors.length
         ? formatNumber(base) + " × " + formatNumber(combinedMultiplier)
         : formatNumber(base);
@@ -897,7 +897,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             const base = breakdown?.base ?? character.stats?.[key as keyof typeof character.stats] ?? 0;
             const effective = breakdown?.value ?? character.effectiveStats?.[key] ?? base;
             const effects = equippedStatEffects(key);
-            const itemMultipliers = effects.filter((effect) => effect.type === "stat_multiplier").map((effect) => 1 + Number(effect.value) / 100);
+            const itemMultipliers = effects.filter((effect) => effect.type === "stat_multiplier").map((effect) => Number(effect.value));
             const formula = buffFormula(
               base,
               [...(breakdown?.multipliers ?? []), ...itemMultipliers],
@@ -925,7 +925,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               })
             );
             const directFlat = directEffects.filter((effect) => effect.type === "stat_bonus").reduce((sum, effect) => sum + Number(effect.value), 0);
-            const directMultipliers = directEffects.filter((effect) => effect.type === "stat_multiplier").map((effect) => 1 + Number(effect.value) / 100);
+            const directMultipliers = directEffects.filter((effect) => effect.type === "stat_multiplier").map((effect) => Number(effect.value));
             const perkEffects = (character.perkEffects ?? []).filter((effect) =>
               String(effect.type) === "RESOURCE_BONUS" &&
               ((key === "maxHp" && String(effect.target) === "HP") || (key === "maxMana" && String(effect.target) === "MANA"))
@@ -964,10 +964,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 return effect.description ? "  " + effect.description : "";
               }
               if (effect.type === "DAMAGE_MULTIPLIER") {
-                return "  Daño: " + target + " ×" + formatNumber(Number(effect.value ?? 100) / 100);
+                return "  Daño: " + target + " ×" + formatNumber(Number(effect.value ?? 1));
               }
               if (effect.type === "STAT_MULTIPLIER") {
-                return "  " + target + " ×" + formatNumber(Number(effect.value ?? 100) / 100);
+                return "  " + target + " ×" + formatNumber(Number(effect.value ?? 1));
               }
               if (effect.type === "STAT_BONUS") {
                 return "  " + target + " " + (Number(effect.value ?? 0) >= 0 ? "+" : "") + formatNumber(Number(effect.value ?? 0));
@@ -1076,14 +1076,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     const getDerivedFormula = (key: string, value: number) => {
       const direct = directEffectsForExport(key);
       const directFlat = direct.filter((effect) => effect.type === "stat_bonus").reduce((sum, effect) => sum + effect.value, 0);
-      const directMultipliers = direct.filter((effect) => effect.type === "stat_multiplier").map((effect) => 1 + effect.value / 100);
+      const directMultipliers = direct.filter((effect) => effect.type === "stat_multiplier").map((effect) => effect.value);
       const perkFlat = (character.perkEffects ?? [])
         .filter((effect) => String(effect.type) === "RESOURCE_BONUS" && ((key === "maxHp" && String(effect.target) === "HP") || (key === "maxMana" && String(effect.target) === "MANA")))
         .reduce((sum, effect) => sum + Number(effect.value ?? 0), 0);
       const attackMultipliers = (key === "physicalAttack" || key === "magicAttack")
         ? equippedEffects
-            .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value / 100 !== 1)
-            .map((effect) => effect.value / 100)
+            .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value !== 1)
+            .map((effect) => effect.value)
         : [];
       const flat = directFlat + perkFlat;
       if ((key === "physicalAttack" || key === "magicAttack") && attackMultipliers.length) {
@@ -1126,8 +1126,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             : [];
           const equipmentAttackFactors = affectedByAttackMultiplier
             ? equippedEffects
-                .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value / 100 !== 1)
-                .map((effect) => effect.value / 100)
+                .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value !== 1)
+                .map((effect) => effect.value)
             : [];
           const combinedExportAttackMultiplier = affectedByAttackMultiplier
             ? (equipmentAttackFactors.length
@@ -1906,7 +1906,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       {narrative
                         ? <input value={effect.description ?? ""} onChange={(e) => updateSkillEffect(index, "description", e.target.value)} placeholder="Qué ocurre en rol" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" />
                         : <select value={mazeUtility ? (effect.target ?? "INVISIBILITY") : (effect.target ?? "MAGIC_ATK")} disabled={mazeUtility} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{(mazeUtility ? [["INVISIBILITY","Invisibilidad"],["FLOATING","Flotar"]] as const : skillTargets).map((target) => <option key={target[0]} value={target[0]}>{target[1]}</option>)}</select>}
-                      {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "200 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
+                      {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "2 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
                       <button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
                     </div>;
                   })}
@@ -2414,7 +2414,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   <p className="font-semibold">{effect.source.replace(/^ITEM:/, "")}</p>
                   <p className="mt-1 text-sm text-zinc-400">
                     {effect.type === "attack_multiplier_all"
-                      ? `×${effect.value / 100} a todos los ataques`
+                      ? `×${effect.value} a todos los ataques`
                       : effect.type === "damage_reduction_all"
                         ? `×${effect.value / 100} al daño recibido`
                         : effect.type === "damage_reduction_physical"

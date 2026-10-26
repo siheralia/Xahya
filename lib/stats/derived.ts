@@ -122,7 +122,7 @@ export function applyDerivedItemEffects(
     if (effect.type === "stat_bonus") {
       result[target] += value;
     } else if (effect.type === "stat_multiplier") {
-      result[target] *= value / 100;
+      result[target] *= value;
     }
   }
 

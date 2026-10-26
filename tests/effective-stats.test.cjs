@@ -107,3 +107,34 @@ test("literal x2 basic and x1.5 derived factors", async () => {
  assert.equal(result.effectiveStats.strength,200);
  assert.equal(result.derived.physicalAttack,300);
 });
+
+test("active karma boost applies +20 until its seven-day expiration", async () => {
+  const startedAt = Date.now();
+  const expiresAt = new Date(startedAt + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const result = await resolver({
+    modifiers: [{ characterId: 1, stat: "strength", amount: 20, source: "KARMA_BOOST", expiresAt }],
+  });
+  assert.equal(result.effectiveStats.strength, 120);
+  assert.equal(result.statBreakdown.strength.karmaBonus, 20);
+});
+
+test("karma boost at its expiration boundary is no longer applied", async () => {
+  const result = await resolver({
+    modifiers: [{ characterId: 1, stat: "strength", amount: 20, source: "KARMA_BOOST", expiresAt: new Date(Date.now() - 1000).toISOString() }],
+  });
+  assert.equal(result.effectiveStats.strength, 100);
+  assert.equal(result.statBreakdown.strength.karmaBonus, 0);
+});
+
+test("two overlapping active karma boosts accumulate without affecting expired boosts", async () => {
+  const future = new Date(Date.now() + 86400000).toISOString();
+  const result = await resolver({
+    modifiers: [
+      { characterId: 1, stat: "strength", amount: 20, source: "KARMA_BOOST", expiresAt: future },
+      { characterId: 1, stat: "strength", amount: 20, source: "KARMA_BOOST", expiresAt: future },
+      { characterId: 1, stat: "strength", amount: 20, source: "KARMA_BOOST", expiresAt: "2000-01-01T00:00:00.000Z" },
+    ],
+  });
+  assert.equal(result.effectiveStats.strength, 140);
+  assert.equal(result.statBreakdown.strength.karmaBonus, 40);
+});

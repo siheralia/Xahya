@@ -1,3 +1,4 @@
+import { calculateSkillPch } from "@/lib/skills/pch";
 "use client";
 
 import Link from "next/link";
@@ -514,6 +515,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [pendingSkills, setPendingSkills] = useState<Skill[]>([]);
   const [skillStates, setSkillStates] = useState<SkillState[]>([]);
   const [skillCreationCredits, setSkillCreationCredits] = useState(0);
+  const [pchBalance, setPchBalance] = useState(0);
   const [effectDefinitions, setEffectDefinitions] = useState<EffectDefinition[]>([]);
   const skillTargets = effectDefinitions.flatMap((definition) => definition.targets.map((target) => [target.key, target.label] as const));
   const [skillsOpen, setSkillsOpen] = useState(false);
@@ -524,6 +526,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     areaOfEffect: "", speed: "", cooldown: "", condition: "",
     effect: [] as SkillEffect[],
   });
+  const skillPchCost = calculateSkillPch(skillForm.effect);
   const themePalette = character?.themePalette ?? DEFAULT_THEME;
 
   useEffect(() => {
@@ -535,6 +538,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setSkills(data.skills ?? []);
         setPendingSkills(data.pendingSkills ?? []);
         setSkillCreationCredits(Number(data.skillCreationCredits ?? 0));
+        setPchBalance(Number(data.pchBalance ?? 0));
         setSkillStates(data.skillStates ?? []);
         setEffectDefinitions(data.effectDefinitions ?? []);
       })
@@ -1273,10 +1277,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       if (!refreshed.ok) throw new Error("El consumible se usó, pero no se pudo actualizar el inventario.");
       setCharacter(await refreshed.json());
       if (data.action === "CREATE_SKILL") {
-        setSkillCreationCredits(Number(data.skillCreationCredits ?? skillCreationCredits + 1));
+        setPchBalance(Number(data.pchBalance ?? pchBalance + 10));
         setSkillModalOpen(true);
         setSkillsOpen(true);
-        setSuccess("Cristal consumido. Ahora puedes crear una habilidad y enviarla a aprobación.");
+        setSuccess("Moneda consumida. Recibiste 10 PCH para crear habilidades.");
       } else {
         setSuccess(data.action === "ESCAPE_MAZE" ? "Consumible usado. Has regresado a la habitación inicial del laberinto." : "Consumible usado.");
       }
@@ -1306,7 +1310,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
   async function submitSkill() {
-    if (!character || skillSaving || skillCreationCredits <= 0) return;
+    if (!character || skillSaving || pchBalance < skillPchCost) return;
     setSkillSaving(true); setError(""); setSuccess("");
     try {
       const response = await fetch("/api/characters/" + character.id + "/skills", {
@@ -1316,7 +1320,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "No se pudo enviar la habilidad.");
-      setSkillCreationCredits((value) => Math.max(0, value - 1));
+      setPchBalance(Number(data.pchBalance ?? pchBalance - skillPchCost));
       setPendingSkills((current) => [data.skill, ...current]);
       setSkillModalOpen(false);
       setSkillForm({ name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
@@ -1336,7 +1340,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
   function openSkillCreator() {
-    if (skillCreationCredits <= 0) return;
+    if (pchBalance <= 0) return;
     setSkillForm({ name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "", category: "OFFENSIVE", areaOfEffect: "", speed: "", cooldown: "", condition: "", effect: [] });
     setSkillModalOpen(true);
   }
@@ -1927,7 +1931,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   {!skillForm.effect.length && <p className="text-sm text-zinc-600">Sin efectos estructurados.</p>}
                 </div>
               </div>
-              <button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || skillCreationCredits <= 0} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">
+              <p className="mt-3 text-sm text-cyan-300">Costo estimado: {skillPchCost} PCH · Saldo: {pchBalance} PCH · Restante: {pchBalance - skillPchCost} PCH</p>
+              <button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || pchBalance < skillPchCost} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">
                 {skillSaving ? "Enviando..." : "Enviar para aprobación"}
               </button>
             </div>
@@ -2118,9 +2123,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               <p className="mt-1 text-sm" style={{ color: themePalette.muted }}>Abre el menú para consultar tus habilidades sin ocupar espacio permanente en la ficha.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {skillCreationCredits > 0 && (
+              {pchBalance > 0 && (
                 <button type="button" onClick={openSkillCreator} className="rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-zinc-950">
-                  Crear habilidad · {skillCreationCredits}
+                  Crear habilidad · {pchBalance} PCH
                 </button>
               )}
               <button type="button" onClick={() => setSkillsOpen((value) => !value)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200">

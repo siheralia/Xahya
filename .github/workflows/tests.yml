@@ -44,7 +44,9 @@ jobs:
             id integer PRIMARY KEY,
             "characterId" integer UNIQUE NOT NULL,
             money integer NOT NULL,
-            karma integer NOT NULL
+            karma integer NOT NULL,
+            "blackjackState" jsonb,
+            "levelUpPoints" integer NOT NULL DEFAULT 0
           );
           CREATE TABLE public."w04Audit" (
             id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

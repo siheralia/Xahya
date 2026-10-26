@@ -952,7 +952,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 ? "" // El servidor no aplicó el bono: no mostrar una base negativa ficticia.
                 : buffFormula(value - flat, multipliers, 0, flat);
             const displayed = value;
-            return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(displayed) + (formula ? " [" + formula + "]" : "");
+            return "• " + (character.basicStatDefinitions?.find((stat) => stat.key === key)?.name ?? derivedLabels[key] ?? key) + ": " + formatNumber(displayed) + (formula ? " [" + formula + "]" : "");
           }).join("\n")
         : "",
       "*PERKS*",
@@ -1107,7 +1107,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       "• 🔷 Mana: " + formatNumber(currentMana) + "/" + formatNumber(maxMana),
       "",
       "*ESTADÍSTICAS EFECTIVAS*",
-      ...Object.entries(statLabels).map(([key, label]) => {
+      ...(character.basicStatDefinitions?.length
+        ? character.basicStatDefinitions.filter((stat) => stat.active !== false && stat.kind !== "derived" && stat.showOnSheet !== false)
+            .map((stat) => [stat.key, stat.name] as const)
+        : Object.entries(statLabels)).map(([key, label]) => {
         const breakdown = character.statBreakdown?.[key];
         const base = breakdown?.base ?? character.stats?.[key as keyof typeof character.stats] ?? 0;
         const permanentValue = breakdown?.value ?? character.effectiveStats?.[key] ?? base;
@@ -1123,7 +1126,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       }),
       ...(character.derivedStats ? [
         "",
-        ...Object.entries(character.derivedStats).map(([key, serverValue]) => {
+        ...Object.entries(character.derivedStats)
+          .filter(([key]) => !Object.prototype.hasOwnProperty.call(character.effectiveStats ?? {}, key))
+          .map(([key, serverValue]) => {
           const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
           // Recalculamos desde las estadísticas base temporales en vez de partir
           // del valor derivado permanente del servidor.

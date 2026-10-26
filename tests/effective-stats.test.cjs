@@ -11,6 +11,7 @@ const js = ts.transpileModule(resolverSource, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
+// Test fixture: these entries model an active catalog; production definitions remain in AppSetting.
 const ACTIVE_ATTACK_CATALOG = [
   { key: "physicalAttack", code: "PHYS_ATK", kind: "derived", active: true },
   { key: "magicAttack", code: "MAG_ATK", kind: "derived", active: true },
@@ -48,12 +49,12 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
     } },
     "@/lib/perks": { getPerkEffects: (entries) => entries.flatMap((entry) => entry.perk?.effects ?? []) },
   };
-  const exports = {};
-  vm.runInNewContext(js, { exports, require: (id) => {
+  const moduleExports = {};
+  vm.runInNewContext(js, { exports: moduleExports, require: (id) => {
     if (!(id in dependencies)) throw new Error("Unexpected import: " + id);
     return dependencies[id];
   }, Date, Set, Number, Object, Array, String });
-  return exports.getEffectiveCharacterStats(1, source);
+  return moduleExports.getEffectiveCharacterStats(1, source);
 }
 
 test("karma and equipped item bonuses are each applied once", async () => {

@@ -38,7 +38,7 @@ test("W04: real ORM concurrent wagers never double-spend", async () => {
   assert.equal(Number(resources.karma), 0);
   const audits = await db.execute(db.raw.sql`
     SELECT count(*)::integer AS count FROM public."w04Audit" WHERE "characterId" = 1
-  `.rows().build());
+  `.build());
   assert.equal(Number(audits.rows[0].count), 1);
 });
 

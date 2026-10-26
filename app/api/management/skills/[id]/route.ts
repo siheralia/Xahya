@@ -57,10 +57,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const newCharge = reject ? 0 : requestedPchCost;
       const difference = previousCharge - newCharge;
       if (difference !== 0) {
+        const adjust = db.raw.sql`
+          UPDATE public."character"
+          SET "pchBalance" = "pchBalance" + ${difference}
+          WHERE id = ${Number(freshSkill.characterId)}
+            AND "pchBalance" + ${difference} BETWEEN -2147483648 AND 2147483647
+        `.affectedCount().build();
+        const { affectedRows } = await tx.execute(adjust);
+        if (affectedRows !== 1) throw new Error("PCH_ADJUST_CONFLICT");
         const character = await TxCharacter.where({ id: Number(freshSkill.characterId) }).first();
-        if (!character) throw new Error("CHARACTER_NOT_FOUND");
-        pchBalance = Number(character.pchBalance ?? 0) + difference;
-        await TxCharacter.where({ id: Number(freshSkill.characterId) }).update({ pchBalance });
+        pchBalance = Number(character?.pchBalance ?? 0);
       }
 
       await TxSkill.where({ id }).update({

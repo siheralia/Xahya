@@ -25,6 +25,7 @@ model Character {
   raceId    Int?
   race      Race?               @relation(fields:[raceId], references:[id], onDelete:SetNull)
   skillCreationCredits Int     @default(0)
+  pchBalance Int @default(0)
   magicAttackType String @default("CUT")
   magicAttackDescription String?
   blockDefenseType String @default("CONCENTRATED")
@@ -65,6 +66,7 @@ model Skill {
   character   Character @relation(fields:[characterId], references:[id], onDelete:Cascade)
   name        String
   cost        Int       @default(0)
+  pchCost Int @default(0)
   accumulationCost Int   @default(0)
   accumulationPerTick Int @default(0)
   basicType   String?

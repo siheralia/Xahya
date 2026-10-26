@@ -41,7 +41,7 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
     if (!allowedTargets.some((option) => option.key === target)) return "Objetivo de efecto inválido.";
     const value = Number(row.value);
     if (!Number.isFinite(value) || value <= 0) return "Valor de efecto inválido.";
-    if (type === "DAMAGE_MULTIPLIER" && !["PHYS_ATK","MAGIC_ATK","ATTACK_TOTAL"].includes(target)) {
+    if (type === "DAMAGE_MULTIPLIER" && !resolveEffectTargets("DAMAGE_MULTIPLIER", statistics).some((option) => option.key === target)) {
       return "Un multiplicador de daño debe apuntar a un tipo de ataque.";
     }
     if (type === "STAT_MULTIPLIER" && !Number.isFinite(value)) return "Multiplicador de estadística inválido.";

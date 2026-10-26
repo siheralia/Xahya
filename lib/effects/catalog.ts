@@ -30,16 +30,13 @@ export function resolveEffectTargets(
   type: string,
   statistics: ReadonlyArray<{ key: string; name: string; kind: "basic" | "derived"; active?: boolean; code?: string }>,
 ): EffectTargetOption[] {
-  const legacy = (EFFECT_TARGETS as Record<string, readonly string[]>)[type] ?? [];
+  const fixed = (EFFECT_TARGETS as Record<string, readonly string[]>)[type] ?? [];
   const configurable = type === "STAT_BONUS" || type === "STAT_MULTIPLIER";
-  const result = legacy
-    .filter((key) => !configurable || !statistics.some((stat) => stat.active === false && (stat.key === key || stat.code === key)))
-    .map((key) => ({ key, label: key }));
-  if (configurable) {
-    for (const stat of statistics) {
-      if (stat.active === false || !stat.key) continue;
-      if (!result.some((entry) => entry.key === stat.key)) result.push({ key: stat.key, label: stat.name || stat.key });
-    }
+  if (configurable) return statistics.filter((stat) => stat.active !== false && Boolean(stat.key)).map((stat) => ({ key: stat.code || stat.key, label: stat.name || stat.key }));
+  const combat = type === "DAMAGE_MULTIPLIER" || type === "COMBAT_MULTIPLIER";
+  if (combat) {
+    const derived = statistics.filter((stat) => stat.active !== false && ["physicalAttack","magicAttack"].includes(stat.key)).map((stat) => ({ key: stat.code || stat.key, label: stat.name || stat.key }));
+    return [...derived, { key: "ATTACK_TOTAL", label: "Ataque total" }];
   }
-  return result;
+  return fixed.map((key) => ({ key, label: key }));
 }

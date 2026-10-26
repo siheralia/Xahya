@@ -71,7 +71,7 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     else if(key&&type==="STAT_BONUS") derived[key]=(derived[key]??0)+amount;
     else if(key&&type==="STAT_MULTIPLIER") derived[key]=(derived[key]??0)*amount;
   }
-  const attackMultiplier=validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").reduce((sum:number,entry:any)=>sum+entry.value,0) || 1;
+  const attackMultiplier=validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").reduce((product:number,entry:any)=>product*entry.value,1) * validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&entry.target==="ATTACK_TOTAL").reduce((product:number,entry:any)=>product*Number(entry.value),1);
   derived.physicalAttack*=attackMultiplier;
   derived.magicAttack*=attackMultiplier;
   return {effectiveStats:base,derived,statBreakdown:breakdown};

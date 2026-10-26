@@ -1,5 +1,6 @@
-import { calculateSkillPch } from "@/lib/skills/pch";
 "use client";
+
+import { calculateSkillPch } from "@/lib/skills/pch";
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";

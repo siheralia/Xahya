@@ -36,10 +36,15 @@ test("W04: real ORM concurrent wagers never double-spend", async () => {
   const resources = await db.orm.public.CharacterResource.where({ characterId: 1 }).first();
   assert.equal(Number(resources.money), 20);
   assert.equal(Number(resources.karma), 0);
-  const audits = await db.execute(db.raw.sql`
-    SELECT count(*)::integer AS count FROM public."w04Audit" WHERE "characterId" = 1
-  `.build());
-  assert.equal(Number(audits.rows[0].count), 1);
+  // Query the independent audit table through PostgreSQL's psql client.
+  // This avoids relying on an undocumented raw SELECT result builder.
+  const { execFileSync } = await import("node:child_process");
+  const auditCount = execFileSync("psql", [
+    process.env.DATABASE_URL,
+    "-At", "-c",
+    'SELECT count(*) FROM public."w04Audit" WHERE "characterId" = 1',
+  ], { encoding: "utf8" }).trim();
+  assert.equal(Number(auditCount), 1);
 });
 
 test("W04: transaction rollback on audit failure", async () => {

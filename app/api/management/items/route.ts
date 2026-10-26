@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { EQUIPMENT_SLOTS } from "@/lib/equipment";
-import { EFFECT_TYPES } from "@/lib/effects/catalog";
+import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
+import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 
 const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","PROPERTY","OTHER"] as const;
 const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","SYSTEM","OTHER"] as const;
@@ -26,7 +27,7 @@ async function getAdmin() {
   return user && String(user.role) === "ADMIN" ? user : null;
 }
 
-function validate(body: any) {
+function validate(body: any, statistics: Awaited<ReturnType<typeof readStatisticsCatalog>>) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : null;
   const itemType = String(body.itemType ?? "OTHER");
@@ -55,7 +56,7 @@ function validate(body: any) {
       if (itemType !== "CONSUMABLE" || !systemActions.includes(String(effect.action))) return "Acción del sistema inválida.";
     } else {
       const effectType = String(effect.type).toUpperCase();
-      if (!EFFECT_TYPES.includes(effectType as (typeof EFFECT_TYPES)[number]) || typeof effect.stat !== "string" || !effect.stat.trim()) return "Efecto de objeto inválido.";
+      if (!EFFECT_TYPES.includes(effectType as (typeof EFFECT_TYPES)[number]) || typeof effect.stat !== "string" || !effect.stat.trim() || (["STAT_BONUS","STAT_MULTIPLIER"].includes(effectType) && !validateEffectTarget(effectType, effect.stat, statistics))) return "Efecto de objeto inválido.";
     }
     if (!Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return "Valor de efecto inválido.";
   }
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json();
-  const error = validate(body);
+  const error = validate(body, await readStatisticsCatalog());
   if (error) return NextResponse.json({ error }, { status: 400 });
   const Item = (db.orm.public as any).Item;
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : [];

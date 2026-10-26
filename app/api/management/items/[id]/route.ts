@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { EQUIPMENT_SLOTS } from "@/lib/equipment";
-import { EFFECT_TYPES } from "@/lib/effects/catalog";
+import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
+import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 
 const ATTACK_TYPES = ["CUT", "BLUNT", "PIERCE"] as const;
 const ITEM_TYPES = ["WEAPON", "ARMOR", "ACCESSORY", "CONSUMABLE", "MATERIAL", "PROPERTY", "OTHER"] as const;
@@ -48,11 +49,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!business) return NextResponse.json({ error: "El negocio exclusivo no existe." }, { status: 404 });
   }
   if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return NextResponse.json({ error: "Slots de equipo inválidos." }, { status: 400 });
+  const statistics = await readStatisticsCatalog();
   for (const effect of effects) {
     if (!effect || typeof effect !== "object" || typeof effect.type !== "string" || !effect.type.trim() || !Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     if (effect.type === "system_action") {
       if (itemType !== "CONSUMABLE" || !systemActions.includes(String(effect.action))) return NextResponse.json({ error: "Acción del sistema inválida para este objeto." }, { status: 400 });
-    } else if (!EFFECT_TYPES.includes(String(effect.type).toUpperCase() as (typeof EFFECT_TYPES)[number]) || typeof effect.stat !== "string" || !effect.stat.trim()) {
+    } else if (!EFFECT_TYPES.includes(String(effect.type).toUpperCase() as (typeof EFFECT_TYPES)[number]) || typeof effect.stat !== "string" || !effect.stat.trim() || (["STAT_BONUS","STAT_MULTIPLIER"].includes(String(effect.type).toUpperCase()) && !validateEffectTarget(String(effect.type).toUpperCase(), effect.stat, statistics))) {
       return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     }
   }

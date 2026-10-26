@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { EFFECT_TYPES, resolveEffectTargets } from "@/lib/effects/catalog";
+import { EFFECT_CATALOG, EFFECT_TYPES, resolveEffectTargets } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
@@ -41,7 +41,7 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
     if (!allowedTargets.some((option) => option.key === target)) return "Objetivo de efecto inválido.";
     const value = Number(row.value);
     if (!Number.isFinite(value) || value <= 0) return "Valor de efecto inválido.";
-    if (type === "DAMAGE_MULTIPLIER" && !["PHYS_ATK","MAGIC_ATK","ATTACK_TOTAL"].includes(target)) {
+    if (type === "DAMAGE_MULTIPLIER" && !resolveEffectTargets("DAMAGE_MULTIPLIER", statistics).some((option) => option.key === target)) {
       return "Un multiplicador de daño debe apuntar a un tipo de ataque.";
     }
     if (type === "STAT_MULTIPLIER" && !Number.isFinite(value)) return "Multiplicador de estadística inválido.";
@@ -78,11 +78,13 @@ export async function GET(
   const State = (db.orm.public as any).CharacterSkillState;
   const states = State ? await State.where({ characterId }).all() : [];
 
+  const statistics = await readStatisticsCatalog();
   return NextResponse.json({
     skills,
     pendingSkills,
     skillStates: states,
     skillCreationCredits: Number((character as any).skillCreationCredits ?? 0),
+    effectDefinitions: EFFECT_CATALOG.map(({type,label}) => ({type,label,targets:resolveEffectTargets(type, statistics)})),
   });
 }
 

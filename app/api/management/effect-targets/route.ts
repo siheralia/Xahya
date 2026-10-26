@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 
 export async function GET() {
@@ -10,5 +11,5 @@ export async function GET() {
   const user = users.find((entry) => entry.clerkId === userId);
   if (!user || !["ADMIN", "GM"].includes(String(user.role))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const statistics = (await readStatisticsCatalog()).filter((stat) => stat.active !== false);
-  return NextResponse.json({ statistics });
+  return NextResponse.json({ statistics, effects: EFFECT_CATALOG.map(({type,label,mode}) => ({ type, label, mode, targets: resolveEffectTargets(type, statistics) })) });
 }

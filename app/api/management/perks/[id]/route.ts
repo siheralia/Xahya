@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
+import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -27,8 +29,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     data.probability = probability;
   }
   if (Array.isArray(body?.effects)) {
-    const validCombatTypes = ["IGNORE_PHYS_DEF_MULTIPLIER","IGNORE_PHYS_DEF_BONUS","IGNORE_MAGIC_DEF_MULTIPLIER","IGNORE_MAGIC_DEF_BONUS","IGNORE_ALL_DEF_MULTIPLIER","IGNORE_ALL_DEF_BONUS","FINAL_DAMAGE_MULTIPLIER","FINAL_DAMAGE_BONUS"];
-    if (body.effects.some((e:any) => !e || typeof e.type !== "string" || (!["STAT_BONUS","STAT_MULTIPLIER","RESOURCE_BONUS","COMBAT_MULTIPLIER","EQUIPMENT_SLOT_CAP","DAMAGE_MULTIPLIER","DAMAGE_REDUCTION","DAMAGE_INCREASE","NARRATIVE","MAZE_UTILITY"].includes(e.type) && !validCombatTypes.includes(e.type)) || !Number.isFinite(Number(e.value)))) return NextResponse.json({ error: "Efecto de perk inválido." }, { status: 400 });
+    const statistics = await readStatisticsCatalog();
+    if (body.effects.some((effect: any) => !effect || !EFFECT_TYPES.includes(String(effect.type) as typeof EFFECT_TYPES[number]) || !Number.isFinite(Number(effect.value)) || (effect.target != null && !validateEffectTarget(String(effect.type), String(effect.target), statistics)))) return NextResponse.json({ error: "Efecto de perk inválido o fuera del catálogo." }, { status: 400 });
     data.effects = body.effects;
   }
   if (typeof body?.stackable === "boolean") data.stackable = body.stackable;

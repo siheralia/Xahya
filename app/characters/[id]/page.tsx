@@ -9,10 +9,10 @@ import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/deri
 type PropertyItem = { id:number; itemId:number; businessId:number|null; purchasePrice:number; item:{ id:number; name:string; description:string|null; imageUrl:string|null }|null };
 type EquipmentItem = {
   id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null; flair: string | null;
-  item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; value: number; description?: string; action?: string }[] } | null;
+  item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; stat?: string; value: number; description?: string; action?: string }[] } | null;
 };
 
-type SkillEffect = { type: "DAMAGE_MULTIPLIER" | "STAT_MULTIPLIER" | "STAT_BONUS" | "NARRATIVE" | "MAZE_UTILITY"; target?: string; value?: number; description?: string };
+type SkillEffect = { type: string; target?: string; value?: number; description?: string };
 type SkillState = { id:number; characterId:number; skillId:number; active:boolean; accumulations:number; totalTicks:number; lastTickAt:string|null; };
 type Skill = {
   id: number; characterId: number; name: string; cost: number; accumulationCost: number; accumulationPerTick: number; maintenanceCost: number; description: string | null; duration: string | null;
@@ -21,13 +21,7 @@ type Skill = {
 };
 
 const skillCategories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]] as const;
-const skillEffectTypes = [["DAMAGE_MULTIPLIER","Daño ×"],["STAT_MULTIPLIER","Estadística ×"],["STAT_BONUS","Estadística +"],["DAMAGE_REDUCTION","Daño recibido reducido ×"],["DAMAGE_INCREASE","Daño recibido aumentado ×"],["NARRATIVE","Narrativo"],["MAZE_UTILITY_FLOATING","Flotar"],["MAZE_UTILITY_INVISIBILITY","Invisibilidad"]] as const;
-const skillTargets = [
-  ["STR","Fuerza"],["AGI","Agilidad"],["CON","Constitución"],["INT","Inteligencia"],["WIS","Sabiduría"],["CHA","Carisma"],["SPI","Espíritu"],["LCK","Suerte"],
-  ["HP","HP"],["MANA","Mana"],["PHYS_ATK","Ataque físico"],["MAGIC_ATK","Ataque mágico"],["DEF","Defensa física"],["MAG_DEF","Defensa mágica"],
-  ["PRECISION","Precisión"],["CRITICAL","Crítico"],["DISCOVERY","Hallazgo"],["MIRACLE","Milagro"],["INTIMIDATION","Intimidación"],["CONQUEST","Conquista"],
-  ["RACE","Carrera"],["DODGE","Evasión"],["STEALTH","Sigilo"],["DETECTION","Detección"],["ATTACK_TOTAL","Ataque total"],["ALL","Todo"],["PHYSICAL","Físico"],["MAGICAL","Mágico"],
-] as const;
+type EffectDefinition = { type: string; label: string; targets: { key: string; label: string }[] };
 
 type ThemePalette = {
   primary: string;
@@ -520,6 +514,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [pendingSkills, setPendingSkills] = useState<Skill[]>([]);
   const [skillStates, setSkillStates] = useState<SkillState[]>([]);
   const [skillCreationCredits, setSkillCreationCredits] = useState(0);
+  const [effectDefinitions, setEffectDefinitions] = useState<EffectDefinition[]>([]);
+  const skillTargets = effectDefinitions.flatMap((definition) => definition.targets.map((target) => [target.key, target.label] as const));
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [skillModalOpen, setSkillModalOpen] = useState(false);
   const [skillSaving, setSkillSaving] = useState(false);
@@ -540,12 +536,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setPendingSkills(data.pendingSkills ?? []);
         setSkillCreationCredits(Number(data.skillCreationCredits ?? 0));
         setSkillStates(data.skillStates ?? []);
+        setEffectDefinitions(data.effectDefinitions ?? []);
       })
       .catch(() => {
         setSkills([]);
         setPendingSkills([]);
         setSkillCreationCredits(0);
         setSkillStates([]);
+        setEffectDefinitions([]);
       });
   }, [character?.id]);
 
@@ -786,7 +784,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   // Item ATTACK_TOTAL multipliers are already included in derivedStats by the shared resolver.
   // Only apply other combat-only multipliers when rendering the sheet.
-  const allAttackMultiplier = character?.combatEffects?.filter((effect) => effect.type === "attack_multiplier_all" && !effect.source.startsWith("ITEM:")).reduce((multiplier, effect) => multiplier * (effect.value / 100), 1) ?? 1;
+  const allAttackMultiplier = character?.combatEffects?.filter((effect) => effect.type === "attack_multiplier_all" && !effect.source.startsWith("ITEM:")).reduce((multiplier, effect) => multiplier * effect.value, 1) ?? 1;
   const allDamageMultiplier = character?.combatEffects?.filter((effect) => effect.type === "damage_reduction_all").reduce((multiplier, effect) => multiplier * (effect.value / 100), 1) ?? 1;
 
   const baseRadarValues = character?.stats
@@ -799,10 +797,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   type TemporaryEffect = { id: number; target: string; mode: "percent" | "flat"; value: number; label: string };
 
   function applyTemporaryEffects(target: string, value: number) {
-    return temporaryEffects.filter((effect) => effect.target === target).reduce(
-      (result, effect) => effect.mode === "percent" ? result * (1 + effect.value / 100) : result + effect.value,
-      value,
-    );
+    const effects = temporaryEffects.filter((effect) => effect.target === target);
+    const percentTotal = effects.filter((effect) => effect.mode === "percent")
+      .reduce((sum, effect) => sum + effect.value, 0);
+    const flatTotal = effects.filter((effect) => effect.mode === "flat")
+      .reduce((sum, effect) => sum + effect.value, 0);
+    return value * (1 + percentTotal / 100) + flatTotal;
   }
 
   function addTemporaryEffect() {
@@ -835,7 +835,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       if (!factors.length && karma === 0 && flat === 0) return "";
       // Los factores se acumulan como incrementos sobre el 1 base:
       // ×2 + ×2 + +30% = 1 + (2-1) + (2-1) + (1.3-1) = 4.3.
-      const combinedMultiplier = 1 + factors.reduce((sum, value) => sum + (value - 1), 0);
+      const combinedMultiplier = factors.reduce((sum, value) => sum + value, 0);
       const multiplierText = factors.length
         ? formatNumber(base) + " × " + formatNumber(combinedMultiplier)
         : formatNumber(base);
@@ -897,7 +897,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             const base = breakdown?.base ?? character.stats?.[key as keyof typeof character.stats] ?? 0;
             const effective = breakdown?.value ?? character.effectiveStats?.[key] ?? base;
             const effects = equippedStatEffects(key);
-            const itemMultipliers = effects.filter((effect) => effect.type === "stat_multiplier").map((effect) => 1 + Number(effect.value) / 100);
+            const itemMultipliers = effects.filter((effect) => effect.type === "stat_multiplier").map((effect) => Number(effect.value));
             const formula = buffFormula(
               base,
               [...(breakdown?.multipliers ?? []), ...itemMultipliers],
@@ -909,14 +909,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         : "",
       "*ESTADÍSTICAS DERIVADAS*",
       character.derivedStats
-        ? Object.entries(character.derivedStats).map(([key, value]) => {
+        ? Object.entries(character.derivedStats).filter(([key]) => !(key in statLabels)).map(([key, value]) => {
             const directEffects = character.equipment.filter((entry) => entry.equipped).flatMap((entry) =>
               (entry.item?.effects ?? []).filter((effect) => {
                 const target = String((effect as { stat?: string }).stat ?? "").toUpperCase();
                 const aliases: Record<string,string> = {
                   HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",
-                  PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",
-                  PHYSICAL_DEF:"physicalDefense",DEF:"physicalDefense",DEFENSE:"physicalDefense",
+                  PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",MAGIC_ATTACK:"magicAttack",
+                  PHYSICAL_DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEF:"physicalDefense",DEFENSE:"physicalDefense",
                   MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",
                   CRITICAL:"critical",DISCOVERY:"discovery",MIRACLE:"miracle",INTIMIDATION:"intimidation",
                   CONQUEST:"conquest",RACE:"race",DODGE:"dodge",STEALTH:"stealth",DETECTION:"detection"
@@ -925,7 +925,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               })
             );
             const directFlat = directEffects.filter((effect) => effect.type === "stat_bonus").reduce((sum, effect) => sum + Number(effect.value), 0);
-            const directMultipliers = directEffects.filter((effect) => effect.type === "stat_multiplier").map((effect) => 1 + Number(effect.value) / 100);
+            const directMultipliers = directEffects.filter((effect) => effect.type === "stat_multiplier").map((effect) => Number(effect.value));
             const perkEffects = (character.perkEffects ?? []).filter((effect) =>
               String(effect.type) === "RESOURCE_BONUS" &&
               ((key === "maxHp" && String(effect.target) === "HP") || (key === "maxMana" && String(effect.target) === "MANA"))
@@ -936,16 +936,23 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   (entry.item?.effects ?? [])
                     .filter((effect) =>
                       ((effect as { stat?: string }).stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") &&
-                      Number(effect.value) / 100 !== 1
+                      Number(effect.value) !== 1
                     )
-                    .map((effect) => Number(effect.value) / 100)
+                    .map((effect) => Number(effect.value))
                 )
               : [];
             const multipliers = [...directMultipliers, ...attackMultipliers];
             const flat = directFlat + perkFlat;
-            const formula = buffFormula(value - flat, multipliers, 0, flat);
+            const attackFactors = attackMultipliers.filter((factor) => factor !== 1);
+            const attackTotal = attackFactors.reduce((sum, factor) => sum + factor, 0);
+            const computedBase = calculateDerivedStats(temporaryBaseStats)[key as keyof ReturnType<typeof calculateDerivedStats>];
+            const formula = attackFactors.length && attackTotal !== 0
+              ? formatNumber((value - flat) / attackTotal) + " ×(" + attackFactors.map(formatNumber).join("+") + ")" + (flat ? " " + signed(flat) : "")
+              : flat !== 0 && typeof computedBase === "number" && Math.abs(value - computedBase) < 0.011
+                ? "" // El servidor no aplicó el bono: no mostrar una base negativa ficticia.
+                : buffFormula(value - flat, multipliers, 0, flat);
             const displayed = value;
-            return "• " + (derivedLabels[key] ?? key) + ": " + formatNumber(displayed) + (formula ? " [" + formula + "]" : "");
+            return "• " + (character.basicStatDefinitions?.find((stat) => stat.key === key)?.name ?? derivedLabels[key] ?? key) + ": " + formatNumber(displayed) + (formula ? " [" + formula + "]" : "");
           }).join("\n")
         : "",
       "*PERKS*",
@@ -964,10 +971,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 return effect.description ? "  " + effect.description : "";
               }
               if (effect.type === "DAMAGE_MULTIPLIER") {
-                return "  Daño: " + target + " ×" + formatNumber(Number(effect.value ?? 100) / 100);
+                return "  Daño: " + target + " ×" + formatNumber(Number(effect.value ?? 1));
               }
               if (effect.type === "STAT_MULTIPLIER") {
-                return "  " + target + " ×" + formatNumber(Number(effect.value ?? 100) / 100);
+                return "  " + target + " ×" + formatNumber(Number(effect.value ?? 1));
               }
               if (effect.type === "STAT_BONUS") {
                 return "  " + target + " " + (Number(effect.value ?? 0) >= 0 ? "+" : "") + formatNumber(Number(effect.value ?? 0));
@@ -998,7 +1005,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       "",
       "*BONOS DE EQUIPO*",
       character.equipment.filter((entry) => entry.equipped && (entry.item?.effects?.length ?? 0) > 0).flatMap((entry) =>
-        (entry.item?.effects ?? []).map((effect) => "• " + (entry.item?.name ?? "Objeto") + ": " + (effect.description ?? effect.type + " " + effect.value))
+        (entry.item?.effects ?? []).map((effect) => "• " + (entry.item?.name ?? "Objeto") + ": " + (effect.description?.trim() || (effect.type === "stat_multiplier" ? "×" + formatNumber(Number(effect.value)) : effect.type === "stat_bonus" ? signed(Number(effect.value)) : effect.type + " " + formatNumber(Number(effect.value))) + (effect.stat ? " " + (({ LCK: "Suerte", INT: "Inteligencia", STR: "Fuerza", AGI: "Agilidad", CON: "Constitución", WIS: "Sabiduría", CHA: "Carisma", SPI: "Espíritu" } as Record<string, string>)[String(effect.stat).toUpperCase()] ?? String(effect.stat)) : "")))
       ).join("\n") || "• Ninguno",
       "",
       "*RECURSOS PERMANENTES*",
@@ -1045,8 +1052,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     };
     const derivedAliases: Record<string,string> = {
       HP:"maxHp",MAX_HP:"maxHp",MANA:"maxMana",MAX_MANA:"maxMana",
-      PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",
-      PHYSICAL_DEF:"physicalDefense",DEF:"physicalDefense",DEFENSE:"physicalDefense",
+      PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",MAGIC_ATK:"magicAttack",MAGIC_ATTACK:"magicAttack",
+      PHYSICAL_DEF:"physicalDefense",PHYSICAL_DEFENSE:"physicalDefense",DEF:"physicalDefense",DEFENSE:"physicalDefense",
       MAG_DEF:"magicDefense",MAGIC_DEFENSE:"magicDefense",PRECISION:"precision",
       CRITICAL:"critical",DISCOVERY:"discovery",MIRACLE:"miracle",INTIMIDATION:"intimidation",
       CONQUEST:"conquest",RACE:"race",DODGE:"dodge",STEALTH:"stealth",DETECTION:"detection"
@@ -1070,20 +1077,20 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         ? equipmentFactors.reduce((sum, factor) => sum + factor, 0) +
           temporaryPercentages.reduce((sum, percent) => sum + percent / 100, 0)
         : 1 + temporaryPercentages.reduce((sum, percent) => sum + percent / 100, 0);
-      return formatNumber(base) + " × " + formatNumber(combinedMultiplier);
+      return formatNumber(base) + " ×(" + equipmentFactors.map(formatNumber).join("+") + (temporaryPercentages.length ? "+" + formatNumber(temporaryPercentages.reduce((sum, percent) => sum + percent / 100, 0)) : "") + ")";
     };
 
     const getDerivedFormula = (key: string, value: number) => {
       const direct = directEffectsForExport(key);
       const directFlat = direct.filter((effect) => effect.type === "stat_bonus").reduce((sum, effect) => sum + effect.value, 0);
-      const directMultipliers = direct.filter((effect) => effect.type === "stat_multiplier").map((effect) => 1 + effect.value / 100);
+      const directMultipliers = direct.filter((effect) => effect.type === "stat_multiplier").map((effect) => effect.value);
       const perkFlat = (character.perkEffects ?? [])
         .filter((effect) => String(effect.type) === "RESOURCE_BONUS" && ((key === "maxHp" && String(effect.target) === "HP") || (key === "maxMana" && String(effect.target) === "MANA")))
         .reduce((sum, effect) => sum + Number(effect.value ?? 0), 0);
       const attackMultipliers = (key === "physicalAttack" || key === "magicAttack")
         ? equippedEffects
-            .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value / 100 !== 1)
-            .map((effect) => effect.value / 100)
+            .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value !== 1)
+            .map((effect) => effect.value)
         : [];
       const flat = directFlat + perkFlat;
       if ((key === "physicalAttack" || key === "magicAttack") && attackMultipliers.length) {
@@ -1100,12 +1107,17 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       "• 🔷 Mana: " + formatNumber(currentMana) + "/" + formatNumber(maxMana),
       "",
       "*ESTADÍSTICAS EFECTIVAS*",
-      ...Object.entries(statLabels).map(([key, label]) => {
+      ...(character.basicStatDefinitions?.length
+        ? character.basicStatDefinitions.filter((stat) => stat.active !== false && stat.kind !== "derived" && stat.showOnSheet !== false)
+            .map((stat) => [stat.key, stat.name] as const)
+        : Object.entries(statLabels)).map(([key, label]) => {
         const breakdown = character.statBreakdown?.[key];
         const base = breakdown?.base ?? character.stats?.[key as keyof typeof character.stats] ?? 0;
         const permanentValue = breakdown?.value ?? character.effectiveStats?.[key] ?? base;
         const temporaryValue = applyTemporaryEffects(key, permanentValue);
-        const formula = buffFormula(base, breakdown?.multipliers ?? [], breakdown?.karmaBonus ?? 0, breakdown?.objectFlatBonus ?? 0);
+        const formula = breakdown && (breakdown.combinedMultiplier !== 1 || breakdown.karmaBonus !== 0 || breakdown.objectFlatBonus !== 0)
+          ? formatNumber(base) + (breakdown.combinedMultiplier !== 1 ? " × " + formatNumber(breakdown.combinedMultiplier) : "") + (breakdown.objectFlatBonus ? " " + signed(breakdown.objectFlatBonus) : "") + (breakdown.karmaBonus ? " " + signed(breakdown.karmaBonus) + " 🪷" : "")
+          : "";
         const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
         const temporaryText = temporaryEffectsForStat.length
           ? " (" + temporaryEffectsForStat.map((effect) => effect.label + ": " + (effect.mode === "percent" ? (effect.value > 0 ? "+" : "") + formatNumber(effect.value) + "%" : (effect.value > 0 ? "+" : "") + formatNumber(effect.value))).join(", ") + ")"
@@ -1114,11 +1126,13 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       }),
       ...(character.derivedStats ? [
         "",
-        ...Object.entries(character.derivedStats).map(([key, serverValue]) => {
+        ...Object.entries(character.derivedStats)
+          .filter(([key]) => !Object.prototype.hasOwnProperty.call(character.effectiveStats ?? {}, key))
+          .map(([key, serverValue]) => {
           const affectedByAttackMultiplier = key === "physicalAttack" || key === "magicAttack";
           // Recalculamos desde las estadísticas base temporales en vez de partir
           // del valor derivado permanente del servidor.
-          const value = recalculatedDerived[key as keyof typeof recalculatedDerived] ?? serverValue;
+          const value = Number(serverValue);
           const temporaryAttackPercentages = affectedByAttackMultiplier
             ? temporaryEffects
                 .filter((effect) => effect.target === key && effect.mode === "percent")
@@ -1126,8 +1140,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             : [];
           const equipmentAttackFactors = affectedByAttackMultiplier
             ? equippedEffects
-                .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value / 100 !== 1)
-                .map((effect) => effect.value / 100)
+                .filter((effect) => (effect.stat === "ATTACK_TOTAL" || effect.type === "attack_multiplier_all") && effect.value !== 1)
+                .map((effect) => effect.value)
             : [];
           const combinedExportAttackMultiplier = affectedByAttackMultiplier
             ? (equipmentAttackFactors.length
@@ -1136,16 +1150,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 : 1 + temporaryAttackPercentages.reduce((sum, percent) => sum + percent / 100, 0))
             : 1;
 
-          const valueWithEquipment = affectedByAttackMultiplier
-            ? value * combinedExportAttackMultiplier
-            : value;
+          const valueWithEquipment = value;
           // Los porcentajes temporales del ataque ya están incluidos arriba;
           // no deben volver a pasar por applyTemporaryEffects.
           const effectiveValue = affectedByAttackMultiplier
             ? valueWithEquipment
             : applyTemporaryEffects(key, valueWithEquipment);
           const formula = affectedByAttackMultiplier && (equipmentAttackFactors.length || temporaryAttackPercentages.length)
-            ? getAttackExportFormula(value, equipmentAttackFactors, temporaryAttackPercentages)
+            ? getAttackExportFormula(combinedExportAttackMultiplier !== 0 ? value / combinedExportAttackMultiplier : value, equipmentAttackFactors, temporaryAttackPercentages)
             : getDerivedFormula(key, value);
           const temporaryEffectsForStat = temporaryEffects.filter((effect) => effect.target === key);
           const temporaryText = temporaryEffectsForStat.length
@@ -1276,7 +1288,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
   function addSkillEffect() {
-    setSkillForm((current) => ({ ...current, effect: [...current.effect, { type: "STAT_BONUS", target: "STR", value: 10, description: "" }] }));
+    const definition = effectDefinitions.find((entry) => entry.type === "STAT_BONUS");
+    setSkillForm((current) => ({ ...current, effect: [...current.effect, { type: "STAT_BONUS", target: definition?.targets[0]?.key, value: 10, description: "" }] }));
   }
 
   function updateSkillEffect(index: number, key: keyof SkillEffect, value: string) {
@@ -1286,6 +1299,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         if (effectIndex !== index) return effect;
         if (key === "type" && value === "MAZE_UTILITY_FLOATING") return { ...effect, type: "MAZE_UTILITY", target: "FLOATING", value: 1 };
         if (key === "type" && value === "MAZE_UTILITY_INVISIBILITY") return { ...effect, type: "MAZE_UTILITY", target: "INVISIBILITY", value: 1 };
+        if (key === "type") return { ...effect, type: value, target: effectDefinitions.find((entry) => entry.type === value)?.targets[0]?.key, value: 1 };
         return { ...effect, [key]: key === "value" ? Number(value) : value };
       }),
     }));
@@ -1902,11 +1916,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     const narrative = effect.type === "NARRATIVE";
                     const mazeUtility = effect.type === "MAZE_UTILITY";
                     return <div key={index} className="grid gap-2 sm:grid-cols-[170px_1fr_100px_auto]">
-                      <select value={effect.type} onChange={(e) => updateSkillEffect(index, "type", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{skillEffectTypes.map((type) => <option key={type[0]} value={type[0]}>{type[1]}</option>)}</select>
+                      <select value={effect.type} onChange={(e) => updateSkillEffect(index, "type", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{effectDefinitions.map((definition) => <option key={definition.type} value={definition.type}>{definition.label}</option>)}</select>
                       {narrative
                         ? <input value={effect.description ?? ""} onChange={(e) => updateSkillEffect(index, "description", e.target.value)} placeholder="Qué ocurre en rol" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" />
-                        : <select value={mazeUtility ? (effect.target ?? "INVISIBILITY") : (effect.target ?? "MAGIC_ATK")} disabled={mazeUtility} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{(mazeUtility ? [["INVISIBILITY","Invisibilidad"],["FLOATING","Flotar"]] as const : skillTargets).map((target) => <option key={target[0]} value={target[0]}>{target[1]}</option>)}</select>}
-                      {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "200 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
+                        : <select value={effect.target ?? ""} disabled={mazeUtility} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{(effectDefinitions.find((definition) => definition.type === effect.type)?.targets ?? []).map((target) => <option key={target.key} value={target.key}>{target.label}</option>)}</select>}
+                      {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "2 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
                       <button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
                     </div>;
                   })}
@@ -2414,7 +2428,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   <p className="font-semibold">{effect.source.replace(/^ITEM:/, "")}</p>
                   <p className="mt-1 text-sm text-zinc-400">
                     {effect.type === "attack_multiplier_all"
-                      ? `×${effect.value / 100} a todos los ataques`
+                      ? `×${effect.value} a todos los ataques`
                       : effect.type === "damage_reduction_all"
                         ? `×${effect.value / 100} al daño recibido`
                         : effect.type === "damage_reduction_physical"

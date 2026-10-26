@@ -82,9 +82,9 @@ export type ItemStatEffect = {
 // Canonical derived targets are resolved by the active statistics catalog.
 // The legacy calculator also accepts canonical codes when used standalone.
 const DERIVED_STAT_ALIASES: Record<string, keyof ReturnType<typeof calculateDerivedStats>> = {
-  MAX_HP: "maxHp", MAX_MANA: "maxMana",
-  PHYSICAL_ATTACK: "physicalAttack", MAGIC_ATTACK: "magicAttack",
-  PHYSICAL_DEFENSE: "physicalDefense", MAGIC_DEFENSE: "magicDefense",
+  HP: "maxHp", MAX_HP: "maxHp", MANA: "maxMana", MAX_MANA: "maxMana",
+  PHYS_ATK: "physicalAttack", PHYSICAL_ATTACK: "physicalAttack", MAGIC_ATK: "magicAttack", MAGIC_ATTACK: "magicAttack",
+  DEF: "physicalDefense", PHYSICAL_DEFENSE: "physicalDefense", MAG_DEF: "magicDefense", MAGIC_DEFENSE: "magicDefense",
   PRECISION: "precision", CRITICAL: "critical", DISCOVERY: "discovery",
   MIRACLE: "miracle", INTIMIDATION: "intimidation", CONQUEST: "conquest",
   RACE: "race", DODGE: "dodge", STEALTH: "stealth", DETECTION: "detection",

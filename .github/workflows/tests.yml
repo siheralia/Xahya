@@ -22,6 +22,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Run tests
         run: npm test
+      - name: Generate Next.js route types
+        run: npx next typegen
       - name: TypeScript typecheck
         run: npx tsc --noEmit
       - name: Production build

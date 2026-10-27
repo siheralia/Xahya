@@ -8,6 +8,7 @@ import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { calculateSkillPch, defaultEffectPricing } from "@/lib/skills/pch";
 import { readEffectPricing } from "@/lib/effects/pricing";
 import { readNarrativeEffectCards } from "@/lib/effects/narrative-cards";
+import { durationPchCost } from "@/lib/effects/duration-pricing";
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
 async function getUser() {
@@ -35,6 +36,7 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (effect.length > 20) return "Una habilidad no puede tener más de 20 efectos.";
   for (const row of effect) {
     if (!row || typeof row !== "object" || !EFFECT_TYPES.includes(String(row.type) as any)) return "Efecto de habilidad inválido.";
+    if (row.durationTurns !== undefined && (!Number.isSafeInteger(row.durationTurns) || row.durationTurns < 0 || row.durationTurns > 20)) return "Duración de efecto inválida.";
     const type = String(row.type);
     const target = String(row.target ?? "");
     if (type === "NARRATIVE") {
@@ -123,9 +125,10 @@ export async function POST(
       const card = narrativeCards.find(c => c.id === String(effect.target).slice(5));
       if (!card || !card.enabled || String(effect.description ?? "") !== card.name + ": " + card.description)
         return NextResponse.json({ error: "Tarjeta narrativa inválida o modificada." }, { status: 400 });
-      pchCost += card.pch;
+      pchCost += effect.durationTurns ? durationPchCost(card.pch,{kind:"TURNS",turns:effect.durationTurns}) : card.pch;
     } else {
-      pchCost += calculateSkillPch([effect], pricing);
+      const base = calculateSkillPch([effect], pricing);
+      pchCost += effect.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:effect.durationTurns}) : base;
     }
   }
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });

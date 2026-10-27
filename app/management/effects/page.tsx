@@ -1,5 +1,6 @@
-import type { EffectPricingMap } from "@/lib/skills/pch";
 "use client";
+
+import type { EffectPricingMap } from "@/lib/skills/pch";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";

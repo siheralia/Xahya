@@ -25,12 +25,18 @@ export const BASE_COST: Record<string, number> = {
   DAMAGE: 3,
 };
 
+/** Skill multiplier values are stored as percentages: 100 means x1, 150 means x1.5. */
+export function skillEffectMultiplier(type: string, value: number): number {
+  return type.endsWith("_MULTIPLIER") ? value / 100 : value;
+}
+
 export function effectPchCost(effect: PricedEffect): number {
   const type = String(effect?.type ?? "");
   const base = BASE_COST[type];
   if (base === undefined) throw new Error(`Tipo de efecto sin precio PCH: ${type}`);
   if (type === "NARRATIVE") return base;
-  const power = Number(effect?.value ?? 1);
+  const raw = Number(effect?.value ?? (type.endsWith("_MULTIPLIER") ? 100 : 1));
+  const power = skillEffectMultiplier(type, raw);
   if (!Number.isFinite(power) || power < 0) throw new Error("Potencia de efecto inválida");
   return base + (power > 1 ? Math.ceil(Math.log2(power)) : 0);
 }

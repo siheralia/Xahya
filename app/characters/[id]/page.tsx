@@ -1,6 +1,6 @@
 "use client";
 
-import { calculateSkillPch, effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
+import { calculateSkillPch, effectPchCost, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
@@ -518,10 +518,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [skillCreationCredits, setSkillCreationCredits] = useState(0);
   const [pchBalance, setPchBalance] = useState(0);
   const [effectDefinitions, setEffectDefinitions] = useState<EffectDefinition[]>([]);
+  const [effectPricing, setEffectPricing] = useState<EffectPricingMap>({});
   const [effectPickerOpen, setEffectPickerOpen] = useState(false);
   const [effectSearch, setEffectSearch] = useState("");
   const [effectCategory, setEffectCategory] = useState("Todos");
-  const effectOptions = effectDefinitions.flatMap((definition) => (definition.targets.length ? definition.targets : [{ key: "", label: "" }]).map((target) => ({
+  const effectOptions = effectDefinitions.filter(definition => effectPricing[definition.type]?.enabled !== false).flatMap((definition) => (definition.targets.length ? definition.targets : [{ key: "", label: "" }]).map((target) => ({
     type: definition.type, target: target.key,
     label: target.label ? `${definition.label} · ${target.label}` : definition.label,
     category: /STAT/.test(definition.type) ? "Estadísticas" : /DAMAGE|DEF|COMBAT|IGNORE/.test(definition.type) ? "Combate" : /RESOURCE/.test(definition.type) ? "Recursos" : /MAZE/.test(definition.type) ? "Exploración" : "Especiales",
@@ -536,7 +537,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     areaOfEffect: "", speed: "", cooldown: "", condition: "",
     effect: [] as SkillEffect[],
   });
-  const skillPchCost = calculateSkillPch(skillForm.effect);
+  const skillPchCost = calculateSkillPch(skillForm.effect, effectPricing);
   const themePalette = character?.themePalette ?? DEFAULT_THEME;
 
   useEffect(() => {
@@ -551,6 +552,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setPchBalance(Number(data.pchBalance ?? 0));
         setSkillStates(data.skillStates ?? []);
         setEffectDefinitions(data.effectDefinitions ?? []);
+        setEffectPricing(data.effectPricing ?? {});
       })
       .catch(() => {
         setSkills([]);
@@ -558,6 +560,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setSkillCreationCredits(0);
         setSkillStates([]);
         setEffectDefinitions([]);
+        setEffectPricing({});
       });
   }, [character?.id]);
 
@@ -1929,7 +1932,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   <input aria-label="Buscar efectos" value={effectSearch} onChange={(event) => setEffectSearch(event.target.value)} placeholder="Buscar por nombre o estadística…" className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm" />
                   <div className="flex flex-wrap gap-2">{["Todos","Combate","Estadísticas","Recursos","Exploración","Especiales"].map((category) => <button type="button" key={category} onClick={() => setEffectCategory(category)} aria-pressed={effectCategory === category} className={`rounded-full border px-3 py-2 text-xs ${effectCategory === category ? "border-cyan-400 bg-cyan-950 text-cyan-200" : "border-zinc-700 text-zinc-300"}`}>{category}</button>)}</div>
                   <p className="text-xs text-zinc-400">{filteredEffectOptions.length} opciones de {effectOptions.length}</p>
-                  <div className="max-h-64 space-y-2 overflow-y-auto overscroll-contain">{filteredEffectOptions.map((option) => <button type="button" key={`${option.type}:${option.target}`} onClick={() => { setSkillForm((current) => ({ ...current, effect: [...current.effect, { type: option.type, target: option.target, value: option.type.endsWith("_MULTIPLIER") ? 100 : 1, description: "" }] })); setEffectPickerOpen(false); setEffectSearch(""); }} className="flex w-full items-center justify-between gap-3 rounded-lg border border-zinc-800 p-3 text-left text-sm hover:border-cyan-600"><span>{option.label}</span><span className="shrink-0 text-cyan-300">{effectPchCost({type:option.type,value:option.type.endsWith("_MULTIPLIER") ? 100 : 1})} PCH +</span></button>)}</div>
+                  <div className="max-h-64 space-y-2 overflow-y-auto overscroll-contain">{filteredEffectOptions.map((option) => <button type="button" key={`${option.type}:${option.target}`} onClick={() => { setSkillForm((current) => ({ ...current, effect: [...current.effect, { type: option.type, target: option.target, value: option.type.endsWith("_MULTIPLIER") ? 100 : 1, description: "" }] })); setEffectPickerOpen(false); setEffectSearch(""); }} className="flex w-full items-center justify-between gap-3 rounded-lg border border-zinc-800 p-3 text-left text-sm hover:border-cyan-600"><span>{option.label}</span><span className="shrink-0 text-cyan-300">{effectPchCost({type:option.type,value:option.type.endsWith("_MULTIPLIER") ? 100 : 1}, effectPricing)} PCH +</span></button>)}</div>
                 </div>}
                 <div className="mt-4 space-y-3">
                   {skillForm.effect.map((effect, index) => {

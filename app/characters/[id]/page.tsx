@@ -1,6 +1,6 @@
 "use client";
 
-import { calculateSkillPch } from "@/lib/skills/pch";
+import { calculateSkillPch, effectPchCost } from "@/lib/skills/pch";
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
@@ -518,6 +518,15 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [skillCreationCredits, setSkillCreationCredits] = useState(0);
   const [pchBalance, setPchBalance] = useState(0);
   const [effectDefinitions, setEffectDefinitions] = useState<EffectDefinition[]>([]);
+  const [effectPickerOpen, setEffectPickerOpen] = useState(false);
+  const [effectSearch, setEffectSearch] = useState("");
+  const [effectCategory, setEffectCategory] = useState("Todos");
+  const effectOptions = effectDefinitions.flatMap((definition) => (definition.targets.length ? definition.targets : [{ key: "", label: "" }]).map((target) => ({
+    type: definition.type, target: target.key,
+    label: target.label ? `${definition.label} · ${target.label}` : definition.label,
+    category: /STAT/.test(definition.type) ? "Estadísticas" : /DAMAGE|DEF|COMBAT|IGNORE/.test(definition.type) ? "Combate" : /RESOURCE/.test(definition.type) ? "Recursos" : /MAZE/.test(definition.type) ? "Exploración" : "Especiales",
+  })));
+  const filteredEffectOptions = effectOptions.filter((option) => (effectCategory === "Todos" || option.category === effectCategory) && `${option.label} ${option.type}`.toLocaleLowerCase().includes(effectSearch.toLocaleLowerCase()));
   const skillTargets = effectDefinitions.flatMap((definition) => definition.targets.map((target) => [target.key, target.label] as const));
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [skillModalOpen, setSkillModalOpen] = useState(false);
@@ -1915,7 +1924,13 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               <label className="mt-4 block text-sm text-zinc-400">Descripción<textarea rows={4} value={skillForm.description} onChange={(e) => setSkillForm({ ...skillForm, description: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
 
               <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-                <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">Efecto</h3><p className="text-xs text-zinc-500">Ej. ofensiva: Ataque mágico ×2. Soporte: Fuerza ×1.5.</p></div><button type="button" onClick={addSkillEffect} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">+ Añadir</button></div>
+                <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">Efecto</h3><p className="text-xs text-zinc-500">Ej. ofensiva: Ataque mágico ×2. Soporte: Fuerza ×1.5.</p></div><button type="button" onClick={() => setEffectPickerOpen((open) => !open)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">+ Buscar efecto</button></div>
+                {effectPickerOpen && <div className="mt-3 space-y-3 rounded-xl border border-cyan-800/50 bg-zinc-950 p-3">
+                  <input aria-label="Buscar efectos" value={effectSearch} onChange={(event) => setEffectSearch(event.target.value)} placeholder="Buscar por nombre o estadística…" className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm" />
+                  <div className="flex flex-wrap gap-2">{["Todos","Combate","Estadísticas","Recursos","Exploración","Especiales"].map((category) => <button type="button" key={category} onClick={() => setEffectCategory(category)} aria-pressed={effectCategory === category} className={`rounded-full border px-3 py-2 text-xs ${effectCategory === category ? "border-cyan-400 bg-cyan-950 text-cyan-200" : "border-zinc-700 text-zinc-300"}`}>{category}</button>)}</div>
+                  <p className="text-xs text-zinc-400">{filteredEffectOptions.length} opciones de {effectOptions.length}</p>
+                  <div className="max-h-64 space-y-2 overflow-y-auto overscroll-contain">{filteredEffectOptions.map((option) => <button type="button" key={`${option.type}:${option.target}`} onClick={() => { setSkillForm((current) => ({ ...current, effect: [...current.effect, { type: option.type, target: option.target, value: 1, description: "" }] })); setEffectPickerOpen(false); setEffectSearch(""); }} className="flex w-full items-center justify-between gap-3 rounded-lg border border-zinc-800 p-3 text-left text-sm hover:border-cyan-600"><span>{option.label}</span><span className="shrink-0 text-cyan-300">{effectPchCost({type:option.type,value:1})} PCH +</span></button>)}</div>
+                </div>}
                 <div className="mt-4 space-y-3">
                   {skillForm.effect.map((effect, index) => {
                     const narrative = effect.type === "NARRATIVE";
@@ -1926,7 +1941,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                         ? <input value={effect.description ?? ""} onChange={(e) => updateSkillEffect(index, "description", e.target.value)} placeholder="Qué ocurre en rol" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" />
                         : <select value={effect.target ?? ""} disabled={mazeUtility} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{(effectDefinitions.find((definition) => definition.type === effect.type)?.targets ?? []).map((target) => <option key={target.key} value={target.key}>{target.label}</option>)}</select>}
                       {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "2 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
-                      <button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
+                      <span className="text-xs text-cyan-300">{effectPchCost(effect)} PCH</span><button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
                     </div>;
                   })}
                   {!skillForm.effect.length && <p className="text-sm text-zinc-600">Sin efectos estructurados.</p>}

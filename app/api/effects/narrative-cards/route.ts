@@ -31,3 +31,22 @@ export async function POST(request: Request) {
   await writeNarrativeEffectCards([...cards, card]);
   return NextResponse.json({ card }, { status: 201 });
 }
+
+export async function PUT(request: Request) {
+  const user = await currentUser();
+  if (!user || String(user.role) !== "ADMIN") return NextResponse.json({error:"Forbidden"},{status:403});
+  const body = await request.json().catch(()=>null);
+  const cards = await readNarrativeEffectCards();
+  const index = cards.findIndex(c=>c.id===body?.id);
+  if(index<0)return NextResponse.json({error:"Tarjeta no encontrada"},{status:404});
+  const old = cards[index];
+  const name = typeof body.name==="string"?body.name.trim():"";
+  const description = typeof body.description==="string"?body.description.trim():"";
+  const pch = body.pch;
+  if(!name || name.length>100 || !description || description.length>2000 || !Number.isSafeInteger(pch) || pch<0 || pch>100000 || typeof body.enabled!=="boolean")
+    return NextResponse.json({error:"Datos inválidos"},{status:400});
+  const updated={...old,name,description,pch,enabled:body.enabled};
+  cards[index]=updated;
+  await writeNarrativeEffectCards(cards);
+  return NextResponse.json({card:updated});
+}

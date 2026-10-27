@@ -6,6 +6,7 @@ import { EFFECT_CATALOG, EFFECT_TYPES, resolveEffectTargets } from "@/lib/effect
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { calculateSkillPch, defaultEffectPricing } from "@/lib/skills/pch";
 import { readEffectPricing } from "@/lib/effects/pricing";
+import { readNarrativeEffectCards } from "@/lib/effects/narrative-cards";
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
 async function getUser() {
@@ -112,7 +113,18 @@ export async function POST(
 
   const pricing = { ...defaultEffectPricing(), ...await readEffectPricing() };
   if (body.effect.some((effect: { type: string }) => pricing[effect.type]?.enabled === false)) return NextResponse.json({ error: "Uno de los efectos ya no está disponible para habilidades nuevas." }, { status: 400 });
-  const pchCost = calculateSkillPch(body.effect, pricing);
+  const narrativeCards = await readNarrativeEffectCards();
+  let pchCost = 0;
+  for (const effect of body.effect) {
+    if (effect.type === "NARRATIVE" && String(effect.target ?? "").startsWith("CARD:")) {
+      const card = narrativeCards.find(c => c.id === String(effect.target).slice(5));
+      if (!card || !card.enabled || String(effect.description ?? "") !== card.name + ": " + card.description)
+        return NextResponse.json({ error: "Tarjeta narrativa inválida o modificada." }, { status: 400 });
+      pchCost += card.pch;
+    } else {
+      pchCost += calculateSkillPch([effect], pricing);
+    }
+  }
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {

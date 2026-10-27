@@ -31,7 +31,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Configuración inválida." }, { status: 400 });
   }
   const before: EffectPricingMap = { ...defaultEffectPricing(), ...await readEffectPricing() };
-  const after = { ...before, [type]: { base, step, enabled } };
+  const after: EffectPricingMap = { ...before, [type]: { base: Number(base), step: Number(step), enabled: Boolean(enabled) } };
   await writeEffectPricing(after);
   await recordAuditEvent({ actorUserId: Number(user.id), action: "UPDATE_EFFECT_PRICING", entityType: "EFFECT_PRICING", details: { type, before: before[type], after: after[type] } });
   return NextResponse.json({ pricing: after });

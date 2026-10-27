@@ -89,6 +89,7 @@ export async function GET(
     skillCreationCredits: Number((character as any).skillCreationCredits ?? 0),
     pchBalance: Number((character as any).pchBalance ?? 0),
     effectDefinitions: EFFECT_CATALOG.map(({type,label}) => ({type,label,targets:resolveEffectTargets(type, statistics)})),
+    narrativeCards: (await readNarrativeEffectCards()).filter(card => card.enabled),
     effectPricing: { ...defaultEffectPricing(), ...await readEffectPricing() },
   });
 }

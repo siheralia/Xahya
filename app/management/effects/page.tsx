@@ -15,11 +15,20 @@ const modes: Record<string, string> = {
 
 export default function EffectsManagementPage() {
   const [effects, setEffects] = useState<EffectDefinition[]>([]);
-  const [cards,setCards] = useState<{id:string;name:string;description:string;category:string;pch:number}[]>([]);
+  const [cards,setCards] = useState<{id:string;name:string;description:string;category:string;pch:number;enabled:boolean}[]>([]);
   const [cardName,setCardName] = useState("");
   const [cardDescription,setCardDescription] = useState("");
   const [cardPch,setCardPch] = useState(5);
   useEffect(()=>{fetch("/api/effects/narrative-cards").then(r=>r.json()).then(d=>setCards(d.cards??[])).catch(()=>{});},[]);
+  async function saveCard(card:{id:string;name:string;description:string;pch:number;enabled:boolean}) {
+    setSaving(card.id);
+    try {
+      const response=await fetch("/api/effects/narrative-cards",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(card)});
+      const data=await response.json();
+      if(!response.ok)throw Error(data.error??"Error");
+      setCards(old=>old.map(c=>c.id===card.id?data.card:c));setNotice("Tarjeta actualizada");
+    }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
+  }
   async function createCard(){
     setSaving("new-card");
     try {
@@ -74,7 +83,7 @@ export default function EffectsManagementPage() {
         <textarea aria-label="Descripción" placeholder="Describe el efecto narrativo" value={cardDescription} onChange={e=>setCardDescription(e.target.value)} className="w-full rounded-lg bg-zinc-950 p-3" />
         <label className="block text-sm">Costo PCH propuesto<input type="number" min={0} value={cardPch} onChange={e=>setCardPch(Number(e.target.value))} className="mt-1 w-full rounded-lg bg-zinc-950 p-3"/></label>
         <button type="button" disabled={saving!==null || !cardName.trim() || !cardDescription.trim()} onClick={createCard} className="rounded-lg bg-cyan-700 px-4 py-2 disabled:opacity-50">Crear efecto</button>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards.map(card=><article key={card.id} className="rounded-xl border border-zinc-700 bg-zinc-950 p-4"><div className="text-2xl">✦</div><h3 className="font-semibold">{card.name}</h3><p className="mt-2 whitespace-pre-wrap text-sm text-zinc-400">{card.description}</p><p className="mt-3 text-cyan-300">{card.pch} PCH propuestos</p></article>)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards.map(card=><article key={card.id} className="rounded-xl border border-zinc-700 bg-zinc-950 p-4"><div className="text-2xl">✦</div><input aria-label="Nombre" value={card.name} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,name:e.target.value}:c))} className="w-full bg-zinc-900 p-2 font-semibold"/><textarea aria-label="Descripción" value={card.description} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,description:e.target.value}:c))} className="mt-2 w-full bg-zinc-900 p-2 text-sm"/><input aria-label="Precio PCH" type="number" min={0} value={card.pch} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,pch:Number(e.target.value)}:c))} className="mt-2 w-full bg-zinc-900 p-2 text-cyan-300"/><label className="mt-2 flex gap-2 text-sm"><input type="checkbox" checked={card.enabled} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,enabled:e.target.checked}:c))}/>Disponible</label><button type="button" disabled={saving!==null} onClick={()=>saveCard(card)} className="mt-2 rounded-lg bg-cyan-700 px-3 py-2 text-sm disabled:opacity-50">Guardar cambios</button></article>)}</div>
       </section>
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Precios PCH por efecto</h2>

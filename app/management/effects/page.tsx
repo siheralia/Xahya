@@ -15,6 +15,21 @@ const modes: Record<string, string> = {
 
 export default function EffectsManagementPage() {
   const [effects, setEffects] = useState<EffectDefinition[]>([]);
+  const [cards,setCards] = useState<{id:string;name:string;description:string;category:string;pch:number}[]>([]);
+  const [cardName,setCardName] = useState("");
+  const [cardDescription,setCardDescription] = useState("");
+  const [cardPch,setCardPch] = useState(5);
+  useEffect(()=>{fetch("/api/effects/narrative-cards").then(r=>r.json()).then(d=>setCards(d.cards??[])).catch(()=>{});},[]);
+  async function createCard(){
+    setSaving("new-card");
+    try {
+      const response=await fetch("/api/effects/narrative-cards",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:cardName,description:cardDescription,category:"Narrativo",icon:"sparkles",pch:cardPch})});
+      const data=await response.json();
+      if(!response.ok)throw Error(data.error??"Error");
+      setCards(old=>[...old,data.card]);setCardName("");setCardDescription("");setNotice("Tarjeta creada");
+    }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
+  }
+
   const [pricing,setPricing] = useState<EffectPricingMap>({});
   const [saving,setSaving] = useState<string|null>(null);
   const [notice,setNotice] = useState("");
@@ -52,6 +67,15 @@ export default function EffectsManagementPage() {
         <p className="text-sm text-zinc-400">Catálogo central de tipos, operaciones y objetivos para habilidades, perks y objetos. Los precios se pueden editar aquí; las habilidades existentes conservan su costo histórico.</p>
       </div>
       {notice && <p role="status" className="text-sm text-cyan-300">{notice}</p>}
+      <section className="space-y-4 rounded-2xl border border-cyan-900 bg-zinc-900 p-5">
+        <h2 className="text-xl font-semibold">Constructor de tarjetas narrativas</h2>
+        <p className="text-sm text-zinc-400">Crea efectos originales para rol escrito. PCH editorial, aún no descontado automáticamente.</p>
+        <input aria-label="Nombre del efecto" placeholder="Nombre del efecto" value={cardName} onChange={e=>setCardName(e.target.value)} className="w-full rounded-lg bg-zinc-950 p-3" />
+        <textarea aria-label="Descripción" placeholder="Describe el efecto narrativo" value={cardDescription} onChange={e=>setCardDescription(e.target.value)} className="w-full rounded-lg bg-zinc-950 p-3" />
+        <label className="block text-sm">Costo PCH propuesto<input type="number" min={0} value={cardPch} onChange={e=>setCardPch(Number(e.target.value))} className="mt-1 w-full rounded-lg bg-zinc-950 p-3"/></label>
+        <button type="button" disabled={saving!==null || !cardName.trim() || !cardDescription.trim()} onClick={createCard} className="rounded-lg bg-cyan-700 px-4 py-2 disabled:opacity-50">Crear efecto</button>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards.map(card=><article key={card.id} className="rounded-xl border border-zinc-700 bg-zinc-950 p-4"><div className="text-2xl">✦</div><h3 className="font-semibold">{card.name}</h3><p className="mt-2 whitespace-pre-wrap text-sm text-zinc-400">{card.description}</p><p className="mt-3 text-cyan-300">{card.pch} PCH propuestos</p></article>)}</div>
+      </section>
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Precios PCH por efecto</h2>
         <div className="grid gap-3 sm:grid-cols-2">{effects.filter(e=>(e.label+" "+e.type).toLowerCase().includes(search.toLowerCase())).map(e=>{const p=pricing[e.type];if(!p)return null;return <div key={e.type} className="space-y-3 rounded-xl border border-zinc-700 p-4">

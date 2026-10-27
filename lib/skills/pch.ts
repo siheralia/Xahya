@@ -44,7 +44,10 @@ export function effectPchCost(effect: PricedEffect, pricing?: EffectPricingMap):
   const raw = Number(effect?.value ?? (type.endsWith("_MULTIPLIER") ? 100 : 1));
   const power = skillEffectMultiplier(type, raw);
   if (!Number.isFinite(power) || power < 0) throw new Error("Potencia de efecto inválida");
-  return base + (power > 1 ? Math.ceil(Math.log2(power)) * (pricing?.[type]?.step ?? 1) : 0);
+  const steps = type.endsWith("_MULTIPLIER")
+    ? Math.max(0, Math.ceil((power - 1) / 0.5 - 1e-9))
+    : (power > 1 ? Math.ceil(Math.log2(power)) : 0);
+  return base + steps * (pricing?.[type]?.step ?? 1);
 }
 
 export function calculateSkillPch(effects: PricedEffect[], pricing?: EffectPricingMap): number {

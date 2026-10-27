@@ -30,20 +30,26 @@ export function skillEffectMultiplier(type: string, value: number): number {
   return type.endsWith("_MULTIPLIER") ? value / 100 : value;
 }
 
-export function effectPchCost(effect: PricedEffect): number {
+export type EffectPricing = { base: number; step: number; enabled: boolean };
+export type EffectPricingMap = Record<string, EffectPricing>;
+export function defaultEffectPricing(): EffectPricingMap {
+  return Object.fromEntries(Object.entries(BASE_COST).map(([type, base]) => [type, { base, step: 1, enabled: true }]));
+}
+
+export function effectPchCost(effect: PricedEffect, pricing?: EffectPricingMap): number {
   const type = String(effect?.type ?? "");
-  const base = BASE_COST[type];
+  const base = pricing?.[type]?.base ?? BASE_COST[type];
   if (base === undefined) throw new Error(`Tipo de efecto sin precio PCH: ${type}`);
   if (type === "NARRATIVE") return base;
   const raw = Number(effect?.value ?? (type.endsWith("_MULTIPLIER") ? 100 : 1));
   const power = skillEffectMultiplier(type, raw);
   if (!Number.isFinite(power) || power < 0) throw new Error("Potencia de efecto inválida");
-  return base + (power > 1 ? Math.ceil(Math.log2(power)) : 0);
+  return base + (power > 1 ? Math.ceil(Math.log2(power)) * (pricing?.[type]?.step ?? 1) : 0);
 }
 
-export function calculateSkillPch(effects: PricedEffect[]): number {
+export function calculateSkillPch(effects: PricedEffect[], pricing?: EffectPricingMap): number {
   if (!Array.isArray(effects)) return 0;
-  return effects.reduce((total, effect) => total + effectPchCost(effect), 0);
+  return effects.reduce((total, effect) => total + effectPchCost(effect, pricing), 0);
 }
 
 export const PCH_PER_COIN = 10;

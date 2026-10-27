@@ -30,3 +30,12 @@ test("higher power does not decrease a supported effect's price", () => {
     assert.ok(values.every((value, i) => i === 0 || value >= values[i - 1]), definition.type);
   }
 });
+
+test("skill damage multipliers interpret 100 percent as x1 and 150 as x1.5", () => {
+  assert.equal(pchExports.skillEffectMultiplier("DAMAGE_MULTIPLIER", 100), 1);
+  assert.equal(pchExports.skillEffectMultiplier("DAMAGE_MULTIPLIER", 150), 1.5);
+  assert.equal(pchExports.skillEffectMultiplier("DAMAGE_MULTIPLIER", 200), 2);
+  assert.equal(pchExports.skillEffectMultiplier("DAMAGE_MULTIPLIER", 50), 0.5);
+  assert.equal(pchExports.effectPchCost({ type: "DAMAGE_MULTIPLIER", value: 100 }), 6);
+  assert.equal(pchExports.effectPchCost({ type: "DAMAGE_MULTIPLIER", value: 200 }), 7);
+});

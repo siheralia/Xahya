@@ -19,6 +19,7 @@ export default function EffectsManagementPage() {
   const [cardName,setCardName] = useState("");
   const [cardDescription,setCardDescription] = useState("");
   const [cardPch,setCardPch] = useState(5);
+  const [showCreator,setShowCreator] = useState(false);
   useEffect(()=>{fetch("/api/effects/narrative-cards",{cache:"no-store"}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error??"No se pudo cargar el catálogo");return d;}).then(d=>setCards(d.cards??[])).catch(e=>setNotice(e instanceof Error?e.message:"Error al cargar tarjetas"));},[]);
   async function saveCard(card:{id:string;name:string;description:string;pch:number;enabled:boolean}) {
     setSaving(card.id);
@@ -35,7 +36,7 @@ export default function EffectsManagementPage() {
       const response=await fetch("/api/effects/narrative-cards",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:cardName,description:cardDescription,category:"Narrativo",icon:"sparkles",pch:cardPch})});
       const data=await response.json();
       if(!response.ok)throw Error(data.error??"Error");
-      setCards(old=>[...old,data.card]);setCardName("");setCardDescription("");setNotice("Tarjeta creada y guardada correctamente.");
+      setCards(old=>[...old,data.card]);setCardName("");setCardDescription("");setNotice("Tarjeta creada y guardada correctamente.");setShowCreator(false);document.getElementById("custom-effect-catalog")?.scrollIntoView({behavior:"smooth",block:"start"});
     }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
   }
 
@@ -77,16 +78,23 @@ export default function EffectsManagementPage() {
       </div>
       {notice && <p role="status" className="text-sm text-cyan-300">{notice}</p>}
       <section className="space-y-4 rounded-2xl border border-cyan-900 bg-zinc-900 p-5">
-        <h2 className="text-xl font-semibold">Constructor de tarjetas narrativas</h2><p className="text-sm text-cyan-300">Catálogo guardado: {cards.length} efecto(s)</p>
-        <p className="text-sm text-zinc-400">Crea efectos originales para rol escrito. PCH editorial, aún no descontado automáticamente.</p>
+        <h2 className="text-xl font-semibold">Crear efecto personalizado</h2>
+        <p className="text-sm text-zinc-400">Los efectos nuevos son narrativos por defecto. Su costo PCH se cobra al crear habilidades.</p>
+        <button type="button" onClick={()=>setShowCreator(v=>!v)} className="rounded-lg border border-cyan-700 px-4 py-2">{showCreator?"Cerrar formulario":"+ Nuevo efecto"}</button>
+        {showCreator && <div className="space-y-3">
         <input aria-label="Nombre del efecto" placeholder="Nombre del efecto" value={cardName} onChange={e=>setCardName(e.target.value)} className="w-full rounded-lg bg-zinc-950 p-3" />
         <textarea aria-label="Descripción" placeholder="Describe el efecto narrativo" value={cardDescription} onChange={e=>setCardDescription(e.target.value)} className="w-full rounded-lg bg-zinc-950 p-3" />
         <label className="block text-sm">Costo PCH propuesto<input type="number" min={0} value={cardPch} onChange={e=>setCardPch(Number(e.target.value))} className="mt-1 w-full rounded-lg bg-zinc-950 p-3"/></label>
         <button type="button" disabled={saving!==null || !cardName.trim() || !cardDescription.trim()} onClick={createCard} className="rounded-lg bg-cyan-700 px-4 py-2 disabled:opacity-50">Crear efecto</button>
+        </div>
+      </section>
+      <section id="custom-effect-catalog" className="space-y-4 rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
+        <h2 className="text-xl font-semibold">Catálogo de efectos personalizados ({cards.length})</h2>
+        <p className="text-sm text-zinc-400">Efectos narrativos disponibles para crear habilidades. Edita su costo o desactívalos aquí.</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards.map(card=><article key={card.id} className="rounded-xl border border-zinc-700 bg-zinc-950 p-4"><div className="text-2xl">✦</div><input aria-label="Nombre" value={card.name} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,name:e.target.value}:c))} className="w-full bg-zinc-900 p-2 font-semibold"/><textarea aria-label="Descripción" value={card.description} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,description:e.target.value}:c))} className="mt-2 w-full bg-zinc-900 p-2 text-sm"/><input aria-label="Precio PCH" type="number" min={0} value={card.pch} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,pch:Number(e.target.value)}:c))} className="mt-2 w-full bg-zinc-900 p-2 text-cyan-300"/><label className="mt-2 flex gap-2 text-sm"><input type="checkbox" checked={card.enabled} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,enabled:e.target.checked}:c))}/>Disponible</label><button type="button" disabled={saving!==null} onClick={()=>saveCard(card)} className="mt-2 rounded-lg bg-cyan-700 px-3 py-2 text-sm disabled:opacity-50">Guardar cambios</button></article>)}</div>
       </section>
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Precios PCH por efecto</h2>
+        <h2 className="text-xl font-semibold">Efectos mecánicos del sistema y precios PCH</h2>
         <div className="grid gap-3 sm:grid-cols-2">{effects.filter(e=>(e.label+" "+e.type).toLowerCase().includes(search.toLowerCase())).map(e=>{const p=pricing[e.type];if(!p)return null;return <div key={e.type} className="space-y-3 rounded-xl border border-zinc-700 p-4">
           <strong>{e.label}</strong><p className="text-xs text-zinc-500">{e.type}</p>
           <div className="grid grid-cols-2 gap-2">

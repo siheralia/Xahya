@@ -519,7 +519,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [pchBalance, setPchBalance] = useState(0);
   const [effectDefinitions, setEffectDefinitions] = useState<EffectDefinition[]>([]);
   const [narrativeCards,setNarrativeCards] = useState<Array<{id:string;name:string;description:string;category:string;pch:number;icon:string}>>([]);
-  useEffect(()=>{fetch("/api/effects/narrative-cards").then(r=>r.ok?r.json():null).then(d=>setNarrativeCards(d?.cards??[])).catch(()=>{});},[]);
+
   const [effectPricing, setEffectPricing] = useState<EffectPricingMap>({});
   const [effectPickerOpen, setEffectPickerOpen] = useState(false);
   const [effectSearch, setEffectSearch] = useState("");
@@ -555,6 +555,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setPchBalance(Number(data.pchBalance ?? 0));
         setSkillStates(data.skillStates ?? []);
         setEffectDefinitions(data.effectDefinitions ?? []);
+        setNarrativeCards(data.narrativeCards ?? []);
         setEffectPricing(data.effectPricing ?? {});
       })
       .catch(() => {
@@ -563,6 +564,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setSkillCreationCredits(0);
         setSkillStates([]);
         setEffectDefinitions([]);
+        setNarrativeCards([]);
         setEffectPricing({});
       });
   }, [character?.id]);

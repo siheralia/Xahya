@@ -54,9 +54,19 @@ jobs:
           );
           INSERT INTO public."characterResource" (id, "characterId", money, karma)
           VALUES (1,1,100,1),(2,2,100,1);
+          CREATE TABLE public."pchTestCharacter" (id integer PRIMARY KEY, "pchBalance" integer NOT NULL DEFAULT 0);
+          CREATE TABLE public."pchTestCoin" (id integer PRIMARY KEY, "characterId" integer NOT NULL, quantity integer NOT NULL CHECK (quantity >= 0));
+          CREATE TABLE public."pchTestSkill" (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "characterId" integer NOT NULL, "pchCost" integer NOT NULL);
+          CREATE TABLE public."pchTestAudit" (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, action text NOT NULL, "characterId" integer NOT NULL);
+          INSERT INTO public."pchTestCharacter" (id,"pchBalance") VALUES (1,0),(2,10),(3,10),(4,0);
+          INSERT INTO public."pchTestCoin" (id,"characterId",quantity) VALUES (1,1,1),(2,4,1);
           SQL
       - name: W04 PostgreSQL ORM integration
         run: node --test tests/w04-postgres.integration.mjs
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/xahya_w04
+      - name: PCH PostgreSQL transaction integration
+        run: node --test tests/pch-postgres.integration.mjs
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/xahya_w04
       - name: Generate Next.js route types

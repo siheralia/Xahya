@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { EFFECT_CATALOG, EFFECT_TYPES, resolveEffectTargets } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
+import { calculateSkillPch } from "@/lib/skills/pch";
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
 async function getUser() {
@@ -84,6 +85,7 @@ export async function GET(
     pendingSkills,
     skillStates: states,
     skillCreationCredits: Number((character as any).skillCreationCredits ?? 0),
+    pchBalance: Number((character as any).pchBalance ?? 0),
     effectDefinitions: EFFECT_CATALOG.map(({type,label}) => ({type,label,targets:resolveEffectTargets(type, statistics)})),
   });
 }
@@ -95,6 +97,7 @@ export async function POST(
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const characterId = Number((await params).id);
+  if (!Number.isInteger(characterId) || characterId <= 0) return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });
   const character = await db.orm.public.Character.where({ id: characterId }).first();
   if (!character || (Number(character.userId) !== Number(user.id) && !["GM", "ADMIN"].includes(String(user.role)))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -105,22 +108,23 @@ export async function POST(
   const Skill = (db.orm.public as any).Skill;
   if (!Skill) return NextResponse.json({ error: "El sistema de habilidades aún no está disponible." }, { status: 500 });
 
-  const Character = db.orm.public.Character as any;
-  const currentCredits = Number((character as any).skillCreationCredits ?? 0);
-  if (currentCredits <= 0) {
-    return NextResponse.json({ error: "Necesitas usar un Cristal de habilidad antes de crear una habilidad." }, { status: 400 });
-  }
+  const pchCost = calculateSkillPch(body.effect);
+  if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {
     const TxCharacter = tx.orm.public.Character as any;
-    const fresh = await TxCharacter.where({ id: characterId }).first();
-    const credits = Number(fresh?.skillCreationCredits ?? 0);
-    if (credits <= 0) throw new Error("NO_SKILL_CREDIT");
-
+    const debit = db.raw.sql`
+      UPDATE public."character"
+      SET "pchBalance" = "pchBalance" - ${pchCost}
+      WHERE id = ${characterId} AND "pchBalance" >= ${pchCost}
+    `.affectedCount().build();
+    const { affectedRows } = await tx.execute(debit);
+    if (affectedRows !== 1) throw new Error("NOT_ENOUGH_PCH");
     const skill = await (tx.orm.public as any).Skill.create({
       characterId,
       name: body.name.trim(),
       cost: Number(body.cost),
+      pchCost,
       maintenanceCost: Number(body.maintenanceCost ?? 0),
       accumulationCost: Number(body.accumulationCost ?? 0),
       accumulationPerTick: Number(body.accumulationPerTick ?? 0),
@@ -134,23 +138,25 @@ export async function POST(
       condition: typeof body.condition === "string" ? body.condition.trim() || null : null,
       status: "PENDING",
     });
-    await TxCharacter.where({ id: characterId }).update({ skillCreationCredits: credits - 1 });
-    return skill;
+    const fresh = await TxCharacter.where({ id: characterId }).first();
+    if (!fresh) throw new Error("CHARACTER_NOT_FOUND");
+    await tx.orm.public.AuditLog.create({
+      actorUserId: user.id,
+      action: "SKILL_SUBMIT",
+      entityType: "SKILL",
+      entityId: Number(skill.id),
+      characterId,
+      targetUserId: null,
+      details: JSON.stringify({ pchCost, pchBalance: Number(fresh.pchBalance), name: skill.name }),
+    });
+    return { skill, balance: Number(fresh.pchBalance) };
   }).catch((error) => {
-    if (error instanceof Error && error.message === "NO_SKILL_CREDIT") return null;
+    if (error instanceof Error && error.message === "NOT_ENOUGH_PCH") return null;
     throw error;
   });
 
-  if (!created) return NextResponse.json({ error: "Ya no tienes un permiso disponible para crear habilidades." }, { status: 400 });
+  if (!created) return NextResponse.json({ error: "PCH insuficientes para crear esta habilidad." }, { status: 400 });
 
-  await recordAuditEvent({
-    actorUserId: user.id,
-    action: "SKILL_SUBMIT",
-    entityType: "SKILL",
-    entityId: Number(created.id),
-    characterId,
-    details: { name: created.name, category: created.category },
-  });
 
-  return NextResponse.json({ skill: created, status: "PENDING" }, { status: 201 });
+  return NextResponse.json({ skill: created.skill, status: "PENDING", pchBalance: created.balance, pchCost }, { status: 201 });
 }

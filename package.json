@@ -9,7 +9,7 @@
     "lint": "eslint",
     "postinstall": "prisma contract emit && (prisma skills sync || true)",
     "prebuild": "prisma contract emit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs tests/*.test.cjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.7",

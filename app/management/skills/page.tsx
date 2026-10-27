@@ -6,7 +6,7 @@ import { EFFECT_CATALOG, EFFECT_TARGETS, resolveEffectTargets } from "@/lib/effe
 
 type Effect = { type: string; target?: string; value?: number; description?: string };
 type Skill = {
-  id:number; characterId:number; name:string; cost:number; accumulationCost:number; accumulationPerTick:number; maintenanceCost:number; description:string|null; duration:string|null;
+  id:number; characterId:number; name:string; cost:number; pchCost:number; accumulationCost:number; accumulationPerTick:number; maintenanceCost:number; description:string|null; duration:string|null;
   category:string; basicType:string|null; attackType:string|null; defenseType:string|null; areaOfEffect:string|null; speed:string|null; cooldown:string|null; effect:Effect[];
   condition:string|null; status:string; approvedAt:string|null; character?: { id:number; name:string }|null;
 };
@@ -14,7 +14,7 @@ type Skill = {
 const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
 const effectTypes=[...EFFECT_CATALOG.filter(e=>e.type!=="MAZE_UTILITY").map(e=>[e.type,e.label] as const),["MAZE_UTILITY_INVISIBILITY","Invisibilidad"],["MAZE_UTILITY_FLOATING","Flotar"]] as const;
 const blankEffect=():Effect=>({type:"STAT_BONUS",target:"STR",value:10,description:""});
-const blankForm=()=>({characterId:"",name:"",cost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"",category:"UTILITY",areaOfEffect:"",speed:"",cooldown:"",condition:"",effect:[] as Effect[]});
+const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"",category:"UTILITY",areaOfEffect:"",speed:"",cooldown:"",condition:"",effect:[] as Effect[]});
 
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
@@ -50,7 +50,7 @@ export default function SkillsManagementPage(){
   function edit(skill:Skill){
     setSelected(skill.id);
     setForm({
-      characterId:String(skill.characterId),name:skill.name,cost:Number(skill.cost),accumulationCost:Number(skill.accumulationCost??0),accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),description:skill.description??"",
+      characterId:String(skill.characterId),name:skill.name,cost:Number(skill.cost),pchCost:Number(skill.pchCost??0),accumulationCost:Number(skill.accumulationCost??0),accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),description:skill.description??"",
       duration:skill.duration??"",category:skill.category,areaOfEffect:skill.areaOfEffect??"",speed:skill.speed??"",
       cooldown:skill.cooldown??"",condition:skill.condition??"",effect:Array.isArray(skill.effect)?skill.effect:[],
     });
@@ -120,6 +120,7 @@ export default function SkillsManagementPage(){
           <label className="text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="">Selecciona...</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>
           <label className="text-sm text-zinc-400">Nombre<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           <label className="text-sm text-zinc-400">Coste<input type="number" min="0" value={form.cost} onChange={e=>setForm({...form,cost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
+          <label className="text-sm text-zinc-400">Costo PCH (ajustable por administración)<input type="number" min="0" value={form.pchCost} onChange={e=>setForm({...form,pchCost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           <label className="text-sm text-zinc-400">Costo por acumulación<input type="number" min="0" value={form.accumulationCost} onChange={e=>setForm({...form,accumulationCost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           <label className="text-sm text-zinc-400">Acumulaciones por tick<input type="number" min="0" value={form.accumulationPerTick} onChange={e=>setForm({...form,accumulationPerTick:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           <label className="text-sm text-zinc-400">Costo por turno (mantenimiento)<input type="number" min="0" value={form.maintenanceCost} onChange={e=>setForm({...form,maintenanceCost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>

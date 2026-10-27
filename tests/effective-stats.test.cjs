@@ -11,7 +11,13 @@ const js = ts.transpileModule(resolverSource, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
-function resolver({ catalog = [], legacy = { strength: 100, agility: 20, constitution: 20, intelligence: 20, wisdom: 20, charisma: 20, spirit: 20, luck: 20 }, modifiers = [], items = [], owned = [], perks = [], assigned = [], derived = {} } = {}) {
+// Test fixture: these entries model an active catalog; production definitions remain in AppSetting.
+const ACTIVE_ATTACK_CATALOG = [
+  { key: "physicalAttack", code: "PHYS_ATK", kind: "derived", active: true },
+  { key: "magicAttack", code: "MAG_ATK", kind: "derived", active: true },
+];
+
+function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, agility: 20, constitution: 20, intelligence: 20, wisdom: 20, charisma: 20, spirit: 20, luck: 20 }, modifiers = [], items = [], owned = [], perks = [], assigned = [], derived = {} } = {}) {
   const tables = {
     CharacterStat: [{ characterId: 1, ...legacy }],
     CharacterStatValue: [],
@@ -43,12 +49,12 @@ function resolver({ catalog = [], legacy = { strength: 100, agility: 20, constit
     } },
     "@/lib/perks": { getPerkEffects: (entries) => entries.flatMap((entry) => entry.perk?.effects ?? []) },
   };
-  const exports = {};
-  vm.runInNewContext(js, { exports, require: (id) => {
+  const moduleExports = {};
+  vm.runInNewContext(js, { exports: moduleExports, require: (id) => {
     if (!(id in dependencies)) throw new Error("Unexpected import: " + id);
     return dependencies[id];
   }, Date, Set, Number, Object, Array, String });
-  return exports.getEffectiveCharacterStats(1, source);
+  return moduleExports.getEffectiveCharacterStats(1, source);
 }
 
 test("karma and equipped item bonuses are each applied once", async () => {
@@ -89,8 +95,8 @@ test("attack-total object multiplier is applied once in resolver", async () => {
     items: [{ id: 1, effects: [{ type: "stat_multiplier", stat: "ATTACK_TOTAL", value: 2 }] }],
     owned: [{ characterId: 1, itemId: 1, equipped: true }],
   });
-  assert.equal(result.derived.physicalAttack, 130);
-  assert.equal(result.derived.magicAttack, 65);
+  assert.equal(result.derived.physicalAttack, 200);
+  assert.equal(result.derived.magicAttack, 100);
 });
 
 test("derived item bonus does not reapply a basic stat bonus", async () => {

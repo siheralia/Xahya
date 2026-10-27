@@ -1,0 +1,13 @@
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+const ts = require("typescript");
+const source = fs.readFileSync(path.join(__dirname, "../lib/skills/pch.ts"), "utf8");
+const pchExports = {};
+vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: pchExports, require });
+test("each skill coin represents ten PCH", () => assert.equal(pchExports.PCH_PER_COIN, 10));
+test("narrative effect has a fixed starting price", () => assert.equal(pchExports.calculateSkillPch([{ type: "NARRATIVE", description: "A narrative effect" }]), 5));
+test("effects sum and power raises their cost", () => assert.equal(pchExports.calculateSkillPch([{ type: "STAT_BONUS", value: 1 }, { type: "STAT_BONUS", value: 4 }]), 6));
+test("empty skills cannot be priced", () => assert.equal(pchExports.calculateSkillPch([]), 0));

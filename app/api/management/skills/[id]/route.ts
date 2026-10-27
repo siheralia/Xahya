@@ -33,10 +33,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
   }
 
+  const requestedPchCost = body.pchCost === undefined ? Number((skill as any).pchCost ?? 0) : Number(body.pchCost);
+  if (!Number.isInteger(requestedPchCost) || requestedPchCost < 0) return NextResponse.json({ error: "Costo PCH inválido." }, { status: 400 });
+
   const approve = body.approve === true;
   const reject = body.reject === true;
   let updated: any;
   let refundedCredit = false;
+  let pchBalance: number | null = null;
   let skillCreationCredits: number | null = null;
 
   try {
@@ -44,14 +48,37 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const TxSkill = (tx.orm.public as any).Skill;
       const TxCharacter = tx.orm.public.Character as any;
 
+      // Lock the skill row before reading its charge/status to serialize approvals.
+      const lock = db.raw.sql`
+        UPDATE public."skill" SET "pchCost" = "pchCost" WHERE id = ${id}
+      `.affectedCount().build();
+      const { affectedRows: locked } = await tx.execute(lock);
+      if (locked !== 1) throw new Error("SKILL_NOT_FOUND");
       const freshSkill = await TxSkill.where({ id }).first();
       if (!freshSkill) throw new Error("SKILL_NOT_FOUND");
 
+      const oldPchCost = Number(freshSkill.pchCost ?? 0);
       const shouldRefund = reject && String(freshSkill.status) !== "REJECTED";
+      const previousCharge = String(freshSkill.status) === "REJECTED" ? 0 : oldPchCost;
+      const newCharge = reject ? 0 : requestedPchCost;
+      const difference = previousCharge - newCharge;
+      if (difference !== 0) {
+        const adjust = db.raw.sql`
+          UPDATE public."character"
+          SET "pchBalance" = "pchBalance" + ${difference}
+          WHERE id = ${Number(freshSkill.characterId)}
+            AND "pchBalance" + ${difference} BETWEEN -2147483648 AND 2147483647
+        `.affectedCount().build();
+        const { affectedRows } = await tx.execute(adjust);
+        if (affectedRows !== 1) throw new Error("PCH_ADJUST_CONFLICT");
+        const character = await TxCharacter.where({ id: Number(freshSkill.characterId) }).first();
+        pchBalance = Number(character?.pchBalance ?? 0);
+      }
 
       await TxSkill.where({ id }).update({
         name,
         cost,
+        pchCost: requestedPchCost,
         maintenanceCost,
         accumulationCost,
       accumulationPerTick,
@@ -72,18 +99,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         updatedAt: Temporal.Instant.fromEpochMilliseconds(Date.now()),
       });
 
-      if (shouldRefund) {
-        const character = await TxCharacter.where({ id: Number(freshSkill.characterId) }).first();
-        if (!character) throw new Error("CHARACTER_NOT_FOUND");
-
-        const credits = Number(character.skillCreationCredits ?? 0);
-        skillCreationCredits = credits + 1;
-        refundedCredit = true;
-
-        await TxCharacter.where({ id: Number(freshSkill.characterId) }).update({
-          skillCreationCredits: credits + 1,
-        });
-      }
 
       const refreshed = await TxSkill.where({ id }).first();
       if (!refreshed) throw new Error("SKILL_UPDATE_NOT_FOUND");
@@ -117,7 +132,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       details: {
         before: skill,
         after: updated,
-        refundedSkillCrystal: refundedCredit,
+        refundedSkillCrystal: false,
+        pchCostBefore: Number((skill as any).pchCost ?? 0),
+        pchCostAfter: requestedPchCost,
+        pchBalance,
         skillCreationCredits,
       },
     });
@@ -127,7 +145,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   return NextResponse.json({
     skill: updated,
-    refundedSkillCrystal: refundedCredit,
+    refundedSkillCrystal: false,
+    pchBalance,
     ...(skillCreationCredits !== null ? { skillCreationCredits } : {}),
   });
 }

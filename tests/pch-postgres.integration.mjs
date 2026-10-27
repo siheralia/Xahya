@@ -37,13 +37,13 @@ COMMIT;`);
 }
 test("PCH PostgreSQL: parallel coin grants cannot double-spend", async () => {
  const results = await Promise.all([coin(1,1),coin(1,1)]);
- assert.deepEqual(results.map(x=>Number(x.split("\n")[1])).sort(),[0,1]);
+ assert.deepEqual(results.map(x=>Number(x.split("\n").find(y=>/^[01]$/.test(y)))).sort(),[0,1]);
  assert.equal(await sql('SELECT "pchBalance" FROM public."pchTestCharacter" WHERE id=1'),"10");
  assert.equal(await sql('SELECT quantity FROM public."pchTestCoin" WHERE id=1'),"0");
 });
 test("PCH PostgreSQL: parallel skill creation cannot overdraw", async () => {
  const results=await Promise.all([skill(2),skill(2)]);
- assert.deepEqual(results.map(x=>Number(x.split("\n")[1])).sort(),[0,1]);
+ assert.deepEqual(results.map(x=>Number(x.split("\n").find(y=>/^[01]$/.test(y)))).sort(),[0,1]);
  assert.equal(await sql('SELECT "pchBalance" FROM public."pchTestCharacter" WHERE id=2'),"0");
  assert.equal(await sql('SELECT count(*) FROM public."pchTestSkill" WHERE "characterId"=2'),"1");
 });

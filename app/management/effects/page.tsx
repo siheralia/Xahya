@@ -19,7 +19,7 @@ export default function EffectsManagementPage() {
   const [cardName,setCardName] = useState("");
   const [cardDescription,setCardDescription] = useState("");
   const [cardPch,setCardPch] = useState(5);
-  useEffect(()=>{fetch("/api/effects/narrative-cards").then(r=>r.json()).then(d=>setCards(d.cards??[])).catch(()=>{});},[]);
+  useEffect(()=>{fetch("/api/effects/narrative-cards",{cache:"no-store"}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error??"No se pudo cargar el catálogo");return d;}).then(d=>setCards(d.cards??[])).catch(e=>setNotice(e instanceof Error?e.message:"Error al cargar tarjetas"));},[]);
   async function saveCard(card:{id:string;name:string;description:string;pch:number;enabled:boolean}) {
     setSaving(card.id);
     try {
@@ -35,7 +35,7 @@ export default function EffectsManagementPage() {
       const response=await fetch("/api/effects/narrative-cards",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:cardName,description:cardDescription,category:"Narrativo",icon:"sparkles",pch:cardPch})});
       const data=await response.json();
       if(!response.ok)throw Error(data.error??"Error");
-      setCards(old=>[...old,data.card]);setCardName("");setCardDescription("");setNotice("Tarjeta creada");
+      setCards(old=>[...old,data.card]);setCardName("");setCardDescription("");setNotice("Tarjeta creada y guardada correctamente.");
     }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
   }
 
@@ -77,7 +77,7 @@ export default function EffectsManagementPage() {
       </div>
       {notice && <p role="status" className="text-sm text-cyan-300">{notice}</p>}
       <section className="space-y-4 rounded-2xl border border-cyan-900 bg-zinc-900 p-5">
-        <h2 className="text-xl font-semibold">Constructor de tarjetas narrativas</h2>
+        <h2 className="text-xl font-semibold">Constructor de tarjetas narrativas</h2><p className="text-sm text-cyan-300">Catálogo guardado: {cards.length} efecto(s)</p>
         <p className="text-sm text-zinc-400">Crea efectos originales para rol escrito. PCH editorial, aún no descontado automáticamente.</p>
         <input aria-label="Nombre del efecto" placeholder="Nombre del efecto" value={cardName} onChange={e=>setCardName(e.target.value)} className="w-full rounded-lg bg-zinc-950 p-3" />
         <textarea aria-label="Descripción" placeholder="Describe el efecto narrativo" value={cardDescription} onChange={e=>setCardDescription(e.target.value)} className="w-full rounded-lg bg-zinc-950 p-3" />

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type Target = { key: string; label: string };
-type EffectDefinition = { type: string; label: string; mode: string; targets: Target[] };
+type EffectDefinition = { type: string; label: string; description: string; mode: string; targets: Target[] };
 type Statistic = { key: string; code?: string; name: string; kind: string };
 
 const modes: Record<string, string> = {
@@ -40,6 +40,14 @@ export default function EffectsManagementPage() {
     }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
   }
 
+  async function saveMetadata(effect:EffectDefinition) {
+    setSaving("metadata:"+effect.type);setNotice("");
+    try {
+      const response=await fetch("/api/management/effects",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"metadata",type:effect.type,label:effect.label,description:effect.description})});
+      const data=await response.json();if(!response.ok)throw Error(data.error??"No se pudo guardar");
+      setNotice("Datos del efecto actualizados.");
+    }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
+  }
   const [pricing,setPricing] = useState<EffectPricingMap>({});
   const [saving,setSaving] = useState<string|null>(null);
   const [notice,setNotice] = useState("");
@@ -96,7 +104,9 @@ export default function EffectsManagementPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Efectos mecánicos del sistema y precios PCH</h2>
         <div className="grid gap-3 sm:grid-cols-2">{effects.filter(e=>(e.label+" "+e.type).toLowerCase().includes(search.toLowerCase())).map(e=>{const p=pricing[e.type];if(!p)return null;return <div key={e.type} className="space-y-3 rounded-xl border border-zinc-700 p-4">
-          <strong>{e.label}</strong><p className="text-xs text-zinc-500">{e.type}</p>
+          <label className="block text-sm">Nombre<input aria-label={`Nombre de ${e.type}`} value={e.label} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,label:event.target.value}:item))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2 font-semibold"/></label><p className="text-xs text-zinc-500">{e.type} · Mecánica implementada</p>
+          <label className="block text-sm">Descripción<textarea value={e.description??""} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,description:event.target.value}:item))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2"/></label>
+          <button type="button" disabled={saving!==null} onClick={()=>saveMetadata(e)} className="rounded border border-cyan-700 px-3 py-2 text-sm disabled:opacity-50">Guardar nombre y descripción</button>
           <div className="grid grid-cols-2 gap-2">
             <label className="text-sm">Precio base<input type="number" min={0} step={1} value={p.base} onChange={event=>setPricing(old=>({...old,[e.type]:{...old[e.type],base:Number(event.target.value)}}))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2"/></label>
             <label className="text-sm">PCH por escalón<input type="number" min={0} step={1} value={p.step} onChange={event=>setPricing(old=>({...old,[e.type]:{...old[e.type],step:Number(event.target.value)}}))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2"/></label>

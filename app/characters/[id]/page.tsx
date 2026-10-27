@@ -1,6 +1,7 @@
 "use client";
 
 import { calculateSkillPch, effectPchCost, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
+import { SKILL_EFFECT_PRESETS } from "@/lib/effects/presets";
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
@@ -529,14 +530,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   })));
   // Presets use existing server-validated effect types and pricing, never synthetic effect IDs.
   // The catalog shows at least 90 concrete choices while retaining the underlying mechanics.
-  const effectPresets = effectOptions.flatMap((option) => {
-    const multiplier = option.type.endsWith("_MULTIPLIER");
-    const values = multiplier ? [100, 150, 200] : option.type === "NARRATIVE" ? [1] : [1, 2, 4];
-    return values.map((value) => ({
-      ...option,
-      value,
-      label: `${option.label} · ${multiplier ? `×${value / 100}` : `+${value}`}`,
-    }));
+  const effectPresets = SKILL_EFFECT_PRESETS.flatMap((preset) => {
+    const option = effectOptions.find((entry) => entry.type === preset.type && entry.target === preset.target);
+    return option ? [{ ...option, label: preset.name, value: preset.value }] : [];
   });
   const filteredEffectOptions = effectPresets.filter((option) => (effectCategory === "Todos" || option.category === effectCategory) && `${option.label} ${option.type}`.toLocaleLowerCase().includes(effectSearch.toLocaleLowerCase()));
   const skillTargets = effectDefinitions.flatMap((definition) => definition.targets.map((target) => [target.key, target.label] as const));
@@ -1942,7 +1938,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 {effectPickerOpen && <div className="mt-3 space-y-3 rounded-xl border border-cyan-800/50 bg-zinc-950 p-3">
                   <input aria-label="Buscar efectos" value={effectSearch} onChange={(event) => setEffectSearch(event.target.value)} placeholder="Buscar por nombre o estadística…" className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm" />
                   <div className="flex flex-wrap gap-2">{["Todos","Combate","Estadísticas","Recursos","Exploración","Especiales"].map((category) => <button type="button" key={category} onClick={() => setEffectCategory(category)} aria-pressed={effectCategory === category} className={`rounded-full border px-3 py-2 text-xs ${effectCategory === category ? "border-cyan-400 bg-cyan-950 text-cyan-200" : "border-zinc-700 text-zinc-300"}`}>{category}</button>)}</div>
-                  <p className="text-xs text-zinc-400">{filteredEffectOptions.length} variantes de {effectPresets.length} (basadas en {effectDefinitions.length} tipos de efectos)</p>
+                  <p className="text-xs text-zinc-400">{filteredEffectOptions.length} efectos disponibles de {SKILL_EFFECT_PRESETS.length} del catálogo (basados en {effectDefinitions.length} tipos de mecánica)</p>
                   <div className="grid max-h-[28rem] grid-cols-1 gap-3 overflow-y-auto overscroll-contain sm:grid-cols-2 lg:grid-cols-3">{filteredEffectOptions.map((option) => <button type="button" key={`${option.type}:${option.target}:${option.value}`} onClick={() => { setSkillForm((current) => ({ ...current, effect: [...current.effect, { type: option.type, target: option.target, value: option.value, description: "" }] })); setEffectPickerOpen(false); setEffectSearch(""); }} className="group flex min-h-36 w-full flex-col justify-between gap-3 rounded-2xl border border-zinc-700/80 bg-gradient-to-br from-zinc-900 via-zinc-900 to-cyan-950/30 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-400 hover:shadow-cyan-900/20 focus-visible:outline-2 focus-visible:outline-cyan-400"><span className="flex items-start justify-between gap-2"><span aria-hidden="true" className="flex size-10 items-center justify-center rounded-xl bg-cyan-500/10 text-xl">{option.category === "Combate" ? "⚔️" : option.category === "Estadísticas" ? "✦" : option.category === "Recursos" ? "💠" : option.category === "Exploración" ? "🧭" : "✨"}</span><span className="rounded-full border border-zinc-700 px-2 py-1 text-[10px] text-zinc-400">{option.category}</span></span><span className="font-semibold leading-snug text-white">{option.label}</span><span className="flex items-center justify-between gap-2 border-t border-zinc-700/60 pt-2 text-xs"><span className="text-zinc-400">{option.type.endsWith("_MULTIPLIER") ? `Potencia ${option.value}%` : `Potencia ${option.value}`}</span><span className="font-semibold text-cyan-300">{effectPchCost({type:option.type,value:option.value}, effectPricing)} PCH</span></span></button>)}</div>
                 </div>}
                 <div className="mt-4 space-y-3">

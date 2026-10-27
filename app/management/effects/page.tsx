@@ -1,5 +1,7 @@
 "use client";
 
+import type { EffectPricingMap } from "@/lib/skills/pch";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -13,6 +15,12 @@ const modes: Record<string, string> = {
 
 export default function EffectsManagementPage() {
   const [effects, setEffects] = useState<EffectDefinition[]>([]);
+  const [pricing,setPricing] = useState<EffectPricingMap>({});
+  const [saving,setSaving] = useState<string|null>(null);
+  const [notice,setNotice] = useState("");
+  useEffect(()=>{ fetch("/api/management/effects").then(r=>r.ok?r.json():null).then(data=>{if(data?.pricing)setPricing(data.pricing);}).catch(()=>{});},[]);
+  async function savePricing(type:string){setSaving(type);setNotice("");try{const response=await fetch("/api/management/effects",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({type,...pricing[type]})});const data=await response.json();if(!response.ok)throw Error(data.error??"No se pudo guardar");setPricing(data.pricing);setNotice("Precio actualizado.");}catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}}
+
   const [statistics, setStatistics] = useState<Statistic[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -41,8 +49,21 @@ export default function EffectsManagementPage() {
       <div className="space-y-2">
         <Link href="/management" className="text-sm text-cyan-300 hover:underline">← Administración</Link>
         <h1 className="text-3xl font-bold">Gestión de efectos</h1>
-        <p className="text-sm text-zinc-400">Catálogo central de tipos, operaciones y objetivos para habilidades, perks y objetos. Esta vista es de consulta: las reglas se mantienen en el catálogo del sistema.</p>
+        <p className="text-sm text-zinc-400">Catálogo central de tipos, operaciones y objetivos para habilidades, perks y objetos. Los precios se pueden editar aquí; las habilidades existentes conservan su costo histórico.</p>
       </div>
+      {notice && <p role="status" className="text-sm text-cyan-300">{notice}</p>}
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">Precios PCH por efecto</h2>
+        <div className="grid gap-3 sm:grid-cols-2">{effects.filter(e=>(e.label+" "+e.type).toLowerCase().includes(search.toLowerCase())).map(e=>{const p=pricing[e.type];if(!p)return null;return <div key={e.type} className="space-y-3 rounded-xl border border-zinc-700 p-4">
+          <strong>{e.label}</strong><p className="text-xs text-zinc-500">{e.type}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-sm">Precio base<input type="number" min={0} step={1} value={p.base} onChange={event=>setPricing(old=>({...old,[e.type]:{...old[e.type],base:Number(event.target.value)}}))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2"/></label>
+            <label className="text-sm">PCH por escalón<input type="number" min={0} step={1} value={p.step} onChange={event=>setPricing(old=>({...old,[e.type]:{...old[e.type],step:Number(event.target.value)}}))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2"/></label>
+          </div>
+          <label className="flex gap-2 text-sm"><input type="checkbox" checked={p.enabled} onChange={event=>setPricing(old=>({...old,[e.type]:{...old[e.type],enabled:event.target.checked}}))}/>Disponible para nuevas habilidades</label>
+          <button type="button" disabled={saving!==null} onClick={()=>savePricing(e.type)} className="rounded bg-cyan-700 px-3 py-2 text-sm disabled:opacity-50">Guardar precio</button>
+        </div>})}</div>
+      </section>
       {error && <p role="alert" className="rounded-lg border border-red-800 p-3 text-red-300">{error}</p>}
       {loading ? <p className="text-zinc-400">Cargando efectos…</p> : (
         <>

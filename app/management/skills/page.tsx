@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
 import { EFFECT_CATALOG, EFFECT_TARGETS, resolveEffectTargets } from "@/lib/effects/catalog";
+import { effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
 
 type Effect = { type: string; target?: string; value?: number; description?: string };
 type Skill = {
@@ -140,7 +141,8 @@ export default function SkillsManagementPage(){
             return <div key={i} className="grid gap-2 sm:grid-cols-[170px_1fr_110px_auto]">
               <select value={effect.type==="MAZE_UTILITY"&&effect.target==="INVISIBILITY"?"MAZE_UTILITY_INVISIBILITY":effect.type==="MAZE_UTILITY"&&effect.target==="FLOATING"?"MAZE_UTILITY_FLOATING":(effect.type??"STAT_BONUS")} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{effectTypes.map(t=><option key={t[0]} value={t[0]}>{t[1]}</option>)}</select>
               {!narrative?(targets.length?<select value={effect.target??targets[0]} onChange={e=>updateEffect(i,"target",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{effect.target&&!targets.includes(effect.target)&&<option value={effect.target}>{effect.target} (efecto inactivo: estadística no disponible)</option>}{targets.map(t=><option key={t} value={t}>{statDefinitions.find((stat)=>stat.key===t)?.name??t}</option>)}</select>:<div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-2 py-2 text-sm text-zinc-400">Sin objetivo adicional</div>):<input value={effect.description??""} onChange={e=>updateEffect(i,"description",e.target.value)} placeholder="Descripción del efecto" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm"/>}
-              {!narrative?<input type="number" step="0.01" value={effect.value??0} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" placeholder="Valor"/>:<span/>}
+              {!narrative?<input type="number" step="0.01" value={effect.value??0} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" placeholder={effect.type.endsWith("_MULTIPLIER")?"Porcentaje (100 = ×1)":"Valor"}/>:<span/>}
+              <span className="text-xs text-cyan-300">{effect.type.endsWith("_MULTIPLIER")?`${effect.value??0}% = ×${skillEffectMultiplier(effect.type,Number(effect.value??0))} · `:""}{effectPchCost(effect)} PCH</span>
               <button type="button" onClick={()=>setForm(f=>({...f,effect:f.effect.filter((_,idx)=>idx!==i)}))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
             </div>;
           })}{!form.effect.length&&<p className="text-sm text-zinc-600">Sin efectos estructurados.</p>}</div>

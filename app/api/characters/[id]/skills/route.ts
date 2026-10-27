@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { EFFECT_CATALOG, EFFECT_TYPES, resolveEffectTargets } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
-import { calculateSkillPch } from "@/lib/skills/pch";
+import { calculateSkillPch, defaultEffectPricing } from "@/lib/skills/pch";
+import { readEffectPricing } from "@/lib/effects/pricing";
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
 async function getUser() {
@@ -39,10 +40,10 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
       continue;
     }
     const allowedTargets = resolveEffectTargets(type, statistics);
-    if (!allowedTargets.some((option) => option.key === target)) return "Objetivo de efecto inválido.";
+    if (allowedTargets.length > 0 && !allowedTargets.some((option) => option.key === target) && !(type === "DAMAGE_MULTIPLIER" && ["MAGIC_ATTACK", "PHYSICAL_ATTACK"].includes(target))) return "Objetivo de efecto inválido.";
     const value = Number(row.value);
     if (!Number.isFinite(value) || value <= 0) return "Valor de efecto inválido.";
-    if (type === "DAMAGE_MULTIPLIER" && !resolveEffectTargets("DAMAGE_MULTIPLIER", statistics).some((option) => option.key === target)) {
+    if (type === "DAMAGE_MULTIPLIER" && !resolveEffectTargets("DAMAGE_MULTIPLIER", statistics).some((option) => option.key === target) && !["MAGIC_ATTACK", "PHYSICAL_ATTACK"].includes(target)) {
       return "Un multiplicador de daño debe apuntar a un tipo de ataque.";
     }
     if (type === "STAT_MULTIPLIER" && !Number.isFinite(value)) return "Multiplicador de estadística inválido.";
@@ -87,6 +88,7 @@ export async function GET(
     skillCreationCredits: Number((character as any).skillCreationCredits ?? 0),
     pchBalance: Number((character as any).pchBalance ?? 0),
     effectDefinitions: EFFECT_CATALOG.map(({type,label}) => ({type,label,targets:resolveEffectTargets(type, statistics)})),
+    effectPricing: { ...defaultEffectPricing(), ...await readEffectPricing() },
   });
 }
 
@@ -108,7 +110,9 @@ export async function POST(
   const Skill = (db.orm.public as any).Skill;
   if (!Skill) return NextResponse.json({ error: "El sistema de habilidades aún no está disponible." }, { status: 500 });
 
-  const pchCost = calculateSkillPch(body.effect);
+  const pricing = { ...defaultEffectPricing(), ...await readEffectPricing() };
+  if (body.effect.some((effect: { type: string }) => pricing[effect.type]?.enabled === false)) return NextResponse.json({ error: "Uno de los efectos ya no está disponible para habilidades nuevas." }, { status: 400 });
+  const pchCost = calculateSkillPch(body.effect, pricing);
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {

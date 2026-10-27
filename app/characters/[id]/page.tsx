@@ -1,6 +1,6 @@
 "use client";
 
-import { calculateSkillPch, effectPchCost } from "@/lib/skills/pch";
+import { calculateSkillPch, effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
@@ -1313,7 +1313,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         if (effectIndex !== index) return effect;
         if (key === "type" && value === "MAZE_UTILITY_FLOATING") return { ...effect, type: "MAZE_UTILITY", target: "FLOATING", value: 1 };
         if (key === "type" && value === "MAZE_UTILITY_INVISIBILITY") return { ...effect, type: "MAZE_UTILITY", target: "INVISIBILITY", value: 1 };
-        if (key === "type") return { ...effect, type: value, target: effectDefinitions.find((entry) => entry.type === value)?.targets[0]?.key, value: 1 };
+        if (key === "type") return { ...effect, type: value, target: effectDefinitions.find((entry) => entry.type === value)?.targets[0]?.key, value: value.endsWith("_MULTIPLIER") ? 100 : 1 };
         return { ...effect, [key]: key === "value" ? Number(value) : value };
       }),
     }));
@@ -1929,7 +1929,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   <input aria-label="Buscar efectos" value={effectSearch} onChange={(event) => setEffectSearch(event.target.value)} placeholder="Buscar por nombre o estadística…" className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm" />
                   <div className="flex flex-wrap gap-2">{["Todos","Combate","Estadísticas","Recursos","Exploración","Especiales"].map((category) => <button type="button" key={category} onClick={() => setEffectCategory(category)} aria-pressed={effectCategory === category} className={`rounded-full border px-3 py-2 text-xs ${effectCategory === category ? "border-cyan-400 bg-cyan-950 text-cyan-200" : "border-zinc-700 text-zinc-300"}`}>{category}</button>)}</div>
                   <p className="text-xs text-zinc-400">{filteredEffectOptions.length} opciones de {effectOptions.length}</p>
-                  <div className="max-h-64 space-y-2 overflow-y-auto overscroll-contain">{filteredEffectOptions.map((option) => <button type="button" key={`${option.type}:${option.target}`} onClick={() => { setSkillForm((current) => ({ ...current, effect: [...current.effect, { type: option.type, target: option.target, value: 1, description: "" }] })); setEffectPickerOpen(false); setEffectSearch(""); }} className="flex w-full items-center justify-between gap-3 rounded-lg border border-zinc-800 p-3 text-left text-sm hover:border-cyan-600"><span>{option.label}</span><span className="shrink-0 text-cyan-300">{effectPchCost({type:option.type,value:1})} PCH +</span></button>)}</div>
+                  <div className="max-h-64 space-y-2 overflow-y-auto overscroll-contain">{filteredEffectOptions.map((option) => <button type="button" key={`${option.type}:${option.target}`} onClick={() => { setSkillForm((current) => ({ ...current, effect: [...current.effect, { type: option.type, target: option.target, value: option.type.endsWith("_MULTIPLIER") ? 100 : 1, description: "" }] })); setEffectPickerOpen(false); setEffectSearch(""); }} className="flex w-full items-center justify-between gap-3 rounded-lg border border-zinc-800 p-3 text-left text-sm hover:border-cyan-600"><span>{option.label}</span><span className="shrink-0 text-cyan-300">{effectPchCost({type:option.type,value:option.type.endsWith("_MULTIPLIER") ? 100 : 1})} PCH +</span></button>)}</div>
                 </div>}
                 <div className="mt-4 space-y-3">
                   {skillForm.effect.map((effect, index) => {
@@ -1940,8 +1940,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       {narrative
                         ? <input value={effect.description ?? ""} onChange={(e) => updateSkillEffect(index, "description", e.target.value)} placeholder="Qué ocurre en rol" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" />
                         : <select value={effect.target ?? ""} disabled={mazeUtility} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{(effectDefinitions.find((definition) => definition.type === effect.type)?.targets ?? []).map((target) => <option key={target.key} value={target.key}>{target.label}</option>)}</select>}
-                      {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type === "DAMAGE_MULTIPLIER" ? "2 = ×2" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
-                      <span className="text-xs text-cyan-300">{effectPchCost(effect)} PCH</span><button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
+                      {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type.endsWith("_MULTIPLIER") ? "100% = ×1" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
+                      <span className="text-xs text-cyan-300">{effect.type.endsWith("_MULTIPLIER") ? `${effect.value ?? 0}% = ×${skillEffectMultiplier(effect.type, Number(effect.value ?? 0))} · ` : ""}{effectPchCost(effect)} PCH</span><button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
                     </div>;
                   })}
                   {!skillForm.effect.length && <p className="text-sm text-zinc-600">Sin efectos estructurados.</p>}

@@ -39,7 +39,7 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
       continue;
     }
     const allowedTargets = resolveEffectTargets(type, statistics);
-    if (!allowedTargets.some((option) => option.key === target)) return "Objetivo de efecto inválido.";
+    if (allowedTargets.length > 0 && !allowedTargets.some((option) => option.key === target)) return "Objetivo de efecto inválido.";
     const value = Number(row.value);
     if (!Number.isFinite(value) || value <= 0) return "Valor de efecto inválido.";
     if (type === "DAMAGE_MULTIPLIER" && !resolveEffectTargets("DAMAGE_MULTIPLIER", statistics).some((option) => option.key === target)) {

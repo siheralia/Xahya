@@ -529,4 +529,7 @@ export const SKILL_EFFECT_PRESETS: readonly SkillEffectPreset[] = [
     "target": "MAGIC_ATK",
     "value": 150
   }
+,
+  { "name": "Invisibilidad en laberinto", "type": "MAZE_UTILITY", "target": "INVISIBILITY", "value": 1 },
+  { "name": "Levitación en laberinto", "type": "MAZE_UTILITY", "target": "FLOATING", "value": 1 }
 ];

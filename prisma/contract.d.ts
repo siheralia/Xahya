@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'736325bdad178fd4830ca6fa824fc823c58ec94901d440696d3b5a3f4d0390c1'>;
+  StorageHashBase<'1389370df17f320fb8d516c5a8cca99dfb6cbfe83500a64cb611bec98848ba4c'>;
 export type ExecutionHash =
   ExecutionHashBase<'c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96'>;
 export type ProfileHash =
@@ -342,6 +342,7 @@ export type FieldOutputTypes = {
       readonly userId: CodecTypes['pg/int4@1']['output'];
       readonly raceId: CodecTypes['pg/int4@1']['output'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['output'];
+      readonly pchBalance: CodecTypes['pg/int4@1']['output'];
       readonly magicAttackType: CodecTypes['pg/text@1']['output'];
       readonly magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
       readonly blockDefenseType: CodecTypes['pg/text@1']['output'];
@@ -626,6 +627,7 @@ export type FieldOutputTypes = {
       readonly characterId: CodecTypes['pg/int4@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly cost: CodecTypes['pg/int4@1']['output'];
+      readonly pchCost: CodecTypes['pg/int4@1']['output'];
       readonly accumulationCost: CodecTypes['pg/int4@1']['output'];
       readonly accumulationPerTick: CodecTypes['pg/int4@1']['output'];
       readonly basicType: CodecTypes['pg/text@1']['output'] | null;
@@ -890,6 +892,7 @@ export type FieldInputTypes = {
       readonly userId: CodecTypes['pg/int4@1']['input'];
       readonly raceId: CodecTypes['pg/int4@1']['input'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['input'];
+      readonly pchBalance: CodecTypes['pg/int4@1']['input'];
       readonly magicAttackType: CodecTypes['pg/text@1']['input'];
       readonly magicAttackDescription: CodecTypes['pg/text@1']['input'] | null;
       readonly blockDefenseType: CodecTypes['pg/text@1']['input'];
@@ -1174,6 +1177,7 @@ export type FieldInputTypes = {
       readonly characterId: CodecTypes['pg/int4@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly cost: CodecTypes['pg/int4@1']['input'];
+      readonly pchCost: CodecTypes['pg/int4@1']['input'];
       readonly accumulationCost: CodecTypes['pg/int4@1']['input'];
       readonly accumulationPerTick: CodecTypes['pg/int4@1']['input'];
       readonly basicType: CodecTypes['pg/text@1']['input'] | null;
@@ -1443,6 +1447,7 @@ export type StorageColumnTypes = {
       readonly magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
       readonly magicAttackType: CodecTypes['pg/text@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
+      readonly pchBalance: CodecTypes['pg/int4@1']['output'];
       readonly raceId: CodecTypes['pg/int4@1']['output'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['output'];
       readonly themePalette: CodecTypes['pg/json@1']['output'] | null;
@@ -1737,6 +1742,7 @@ export type StorageColumnTypes = {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly maintenanceCost: CodecTypes['pg/int4@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
+      readonly pchCost: CodecTypes['pg/int4@1']['output'];
       readonly speed: CodecTypes['pg/text@1']['output'] | null;
       readonly status: CodecTypes['pg/text@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -1991,6 +1997,7 @@ export type StorageColumnInputTypes = {
       readonly magicAttackDescription: CodecTypes['pg/text@1']['input'] | null;
       readonly magicAttackType: CodecTypes['pg/text@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
+      readonly pchBalance: CodecTypes['pg/int4@1']['input'];
       readonly raceId: CodecTypes['pg/int4@1']['input'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['input'];
       readonly themePalette: CodecTypes['pg/json@1']['input'] | null;
@@ -2285,6 +2292,7 @@ export type StorageColumnInputTypes = {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly maintenanceCost: CodecTypes['pg/int4@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
+      readonly pchCost: CodecTypes['pg/int4@1']['input'];
       readonly speed: CodecTypes['pg/text@1']['input'] | null;
       readonly status: CodecTypes['pg/text@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
@@ -2458,6 +2466,7 @@ export namespace Models {
     userId: CodecTypes['pg/int4@1']['output'];
     raceId: CodecTypes['pg/int4@1']['output'] | null;
     skillCreationCredits: CodecTypes['pg/int4@1']['output'];
+    pchBalance: CodecTypes['pg/int4@1']['output'];
     magicAttackType: CodecTypes['pg/text@1']['output'];
     magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
     blockDefenseType: CodecTypes['pg/text@1']['output'];
@@ -2524,6 +2533,7 @@ export namespace Models {
     characterId: CodecTypes['pg/int4@1']['output'];
     name: CodecTypes['pg/text@1']['output'];
     cost: CodecTypes['pg/int4@1']['output'];
+    pchCost: CodecTypes['pg/int4@1']['output'];
     accumulationCost: CodecTypes['pg/int4@1']['output'];
     accumulationPerTick: CodecTypes['pg/int4@1']['output'];
     basicType: CodecTypes['pg/text@1']['output'] | null;
@@ -4221,6 +4231,15 @@ type ContractBase = Omit<
                   readonly nullable: true;
                 };
                 readonly skillCreationCredits: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly pchBalance: {
                   readonly nativeType: 'int4';
                   readonly codecId: 'pg/int4@1';
                   readonly nullable: false;
@@ -6892,6 +6911,15 @@ type ContractBase = Omit<
                     readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
                   };
                 };
+                readonly pchCost: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
                 readonly accumulationCost: {
                   readonly nativeType: 'int4';
                   readonly codecId: 'pg/int4@1';
@@ -9247,6 +9275,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
+              readonly pchBalance: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly magicAttackType: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -9574,6 +9606,7 @@ type ContractBase = Omit<
                 readonly userId: { readonly column: 'userId' };
                 readonly raceId: { readonly column: 'raceId' };
                 readonly skillCreationCredits: { readonly column: 'skillCreationCredits' };
+                readonly pchBalance: { readonly column: 'pchBalance' };
                 readonly magicAttackType: { readonly column: 'magicAttackType' };
                 readonly magicAttackDescription: { readonly column: 'magicAttackDescription' };
                 readonly blockDefenseType: { readonly column: 'blockDefenseType' };
@@ -11746,6 +11779,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
+              readonly pchCost: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly accumulationCost: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
@@ -11861,6 +11898,7 @@ type ContractBase = Omit<
                 readonly characterId: { readonly column: 'characterId' };
                 readonly name: { readonly column: 'name' };
                 readonly cost: { readonly column: 'cost' };
+                readonly pchCost: { readonly column: 'pchCost' };
                 readonly accumulationCost: { readonly column: 'accumulationCost' };
                 readonly accumulationPerTick: { readonly column: 'accumulationPerTick' };
                 readonly basicType: { readonly column: 'basicType' };

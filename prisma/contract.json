@@ -1506,6 +1506,13 @@
                   "kind": "scalar"
                 }
               },
+              "pchBalance": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "raceId": {
                 "nullable": true,
                 "type": {
@@ -1956,6 +1963,9 @@
                 },
                 "name": {
                   "column": "name"
+                },
+                "pchBalance": {
+                  "column": "pchBalance"
                 },
                 "raceId": {
                   "column": "raceId"
@@ -5515,6 +5525,13 @@
                   "kind": "scalar"
                 }
               },
+              "pchCost": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "speed": {
                 "nullable": true,
                 "type": {
@@ -5628,6 +5645,9 @@
                 },
                 "name": {
                   "column": "name"
+                },
+                "pchCost": {
+                  "column": "pchCost"
                 },
                 "speed": {
                   "column": "speed"
@@ -8640,6 +8660,15 @@
                 "name": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
+                  "nullable": false
+                },
+                "pchBalance": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
                   "nullable": false
                 },
                 "raceId": {
@@ -11937,6 +11966,15 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "pchCost": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
                 "speed": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -13581,7 +13619,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "736325bdad178fd4830ca6fa824fc823c58ec94901d440696d3b5a3f4d0390c1"
+    "storageHash": "1389370df17f320fb8d516c5a8cca99dfb6cbfe83500a64cb611bec98848ba4c"
   },
   "execution": {
     "executionHash": "c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96",

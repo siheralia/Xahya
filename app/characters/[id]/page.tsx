@@ -2,6 +2,7 @@
 
 import { calculateSkillPch, effectPchCost, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
 
+import { durationPchCost } from "@/lib/effects/duration-pricing";
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
@@ -14,7 +15,7 @@ type EquipmentItem = {
   item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; stat?: string; value: number; description?: string; action?: string }[] } | null;
 };
 
-type SkillEffect = { type: string; target?: string; value?: number; description?: string };
+type SkillEffect = { type: string; target?: string; value?: number; description?: string; durationTurns?: number };
 type SkillState = { id:number; characterId:number; skillId:number; active:boolean; accumulations:number; totalTicks:number; lastTickAt:string|null; };
 type Skill = {
   id: number; characterId: number; name: string; cost: number; accumulationCost: number; accumulationPerTick: number; maintenanceCost: number; description: string | null; duration: string | null;
@@ -540,7 +541,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     areaOfEffect: "", speed: "", cooldown: "", condition: "",
     effect: [] as SkillEffect[],
   });
-  const skillPchCost = skillForm.effect.reduce((sum,e)=>sum+(e.type==="NARRATIVE" && e.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===e.target?.slice(5))?.pch??0) : effectPchCost(e,effectPricing)),0);
+  const priceSkillEffect = (e: SkillEffect) => { const base = e.type==="NARRATIVE" && e.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===e.target?.slice(5))?.pch??0) : effectPchCost(e,effectPricing); return e.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:e.durationTurns}) : base; };
+  const skillPchCost = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0);
   const themePalette = character?.themePalette ?? DEFAULT_THEME;
 
   useEffect(() => {
@@ -1322,7 +1324,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         if (key === "type" && value === "MAZE_UTILITY_FLOATING") return { ...effect, type: "MAZE_UTILITY", target: "FLOATING", value: 1 };
         if (key === "type" && value === "MAZE_UTILITY_INVISIBILITY") return { ...effect, type: "MAZE_UTILITY", target: "INVISIBILITY", value: 1 };
         if (key === "type") return { ...effect, type: value, target: effectDefinitions.find((entry) => entry.type === value)?.targets[0]?.key, value: value.endsWith("_MULTIPLIER") ? 100 : 1 };
-        return { ...effect, [key]: key === "value" ? Number(value) : value };
+        return { ...effect, [key]: key === "value" || key === "durationTurns" ? Number(value) : value };
       }),
     }));
   }
@@ -1950,7 +1952,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                         ? <input value={effect.description ?? ""} onChange={(e) => updateSkillEffect(index, "description", e.target.value)} placeholder="Qué ocurre en rol" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" />
                         : <select value={effect.target ?? ""} disabled={mazeUtility} onChange={(e) => updateSkillEffect(index, "target", e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{(effectDefinitions.find((definition) => definition.type === effect.type)?.targets ?? []).map((target) => <option key={target.key} value={target.key}>{target.label}</option>)}</select>}
                       {!narrative ? <input type="number" step="0.01" value={effect.value ?? 0} onChange={(e) => updateSkillEffect(index, "value", e.target.value)} placeholder={effect.type.endsWith("_MULTIPLIER") ? "100% = ×1" : "Valor"} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" /> : <span />}
-                      <span className="text-xs text-cyan-300">{effect.type.endsWith("_MULTIPLIER") ? `${effect.value ?? 0}% = ×${skillEffectMultiplier(effect.type, Number(effect.value ?? 0))} · ` : ""}{effect.type==="NARRATIVE" && effect.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===effect.target?.slice(5))?.pch??0) : effectPchCost(effect,effectPricing)} PCH</span><button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
+                      <label className="text-xs text-zinc-400">Duración<select aria-label="Duración del efecto" value={effect.durationTurns ?? 0} onChange={e=>updateSkillEffect(index,"durationTurns",e.target.value)} className="mt-1 w-full rounded bg-zinc-900 p-2"><option value={0}>Instantáneo</option>{[1,2,3,4,5,10,20].map(turns=><option key={turns} value={turns}>{turns} turno{turns===1?"":"s"}</option>)}</select></label><span className="text-xs text-cyan-300">{effect.type.endsWith("_MULTIPLIER") ? `${effect.value ?? 0}% = ×${skillEffectMultiplier(effect.type, Number(effect.value ?? 0))} · ` : ""}{priceSkillEffect(effect)} PCH</span><button type="button" onClick={() => setSkillForm((current) => ({ ...current, effect: current.effect.filter((_, effectIndex) => effectIndex !== index) }))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
                     </div>;
                   })}
                   {!skillForm.effect.length && <p className="text-sm text-zinc-600">Sin efectos estructurados.</p>}

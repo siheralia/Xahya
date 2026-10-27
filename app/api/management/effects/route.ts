@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { EFFECT_CATALOG } from "@/lib/effects/catalog";
+import { readManagedEffectCatalog, readMechanicalMetadata, writeMechanicalMetadata } from "@/lib/effects/managed-catalog";
 import { readEffectPricing, writeEffectPricing } from "@/lib/effects/pricing";
 import { defaultEffectPricing, type EffectPricingMap } from "@/lib/skills/pch";
 
@@ -16,8 +17,7 @@ async function admin() {
 export async function GET() {
   const user = await admin();
   if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const pricing = { ...defaultEffectPricing(), ...await readEffectPricing() };
-  return NextResponse.json({ effects: EFFECT_CATALOG, pricing });
+  return NextResponse.json(await readManagedEffectCatalog());
 }
 
 export async function PUT(request: Request) {
@@ -25,6 +25,18 @@ export async function PUT(request: Request) {
   if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json().catch(() => null);
   const type = typeof body?.type === "string" ? body.type : "";
+  if (body?.action === "metadata") {
+    const entry = EFFECT_CATALOG.find(effect => effect.type === type);
+    const label = typeof body.label === "string" ? body.label.trim() : "";
+    const description = typeof body.description === "string" ? body.description.trim() : "";
+    if (!entry || !label || label.length > 100 || description.length > 2000) return NextResponse.json({ error: "Datos de efecto inválidos." }, { status: 400 });
+    const metadata = await readMechanicalMetadata();
+    const before = metadata[type] ?? { label: entry.label, description: "" };
+    metadata[type] = { label, description };
+    await writeMechanicalMetadata(metadata);
+    await recordAuditEvent({ actorUserId: Number(user.id), action: "UPDATE_EFFECT_METADATA", entityType: "EFFECT", details: { type, before, after: metadata[type] } });
+    return NextResponse.json({ metadata: metadata[type] });
+  }
   const base = body?.base, step = body?.step, enabled = body?.enabled;
   if (!(type in defaultEffectPricing()) || !Number.isSafeInteger(base) || base < 0 || base > 100000 ||
       !Number.isSafeInteger(step) || step < 0 || step > 100000 || typeof enabled !== "boolean") {

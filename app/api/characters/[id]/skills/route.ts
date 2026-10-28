@@ -1,3 +1,4 @@
+import { readDefaultAttackSpeedStat, speedSurcharge } from "@/lib/skills/speed-settings";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { validateSkillParameters } from "@/lib/effects/skill-conditions";
 import { auth } from "@clerk/nextjs/server";
@@ -35,9 +36,9 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (!CATEGORIES.includes(category as any)) return "Categoría de habilidad inválida.";
   if (!Number.isSafeInteger(cost) || cost < 0 || cost > 1000000) return "El coste debe ser un entero no negativo.";
   if (!Number.isInteger(maintenanceCost) || maintenanceCost < 0 || !Number.isInteger(accumulationCost) || accumulationCost < 0 || !Number.isInteger(accumulationPerTick) || accumulationPerTick < 0) return "El costo de mantenimiento por turno debe ser un entero no negativo.";
-  if (body.duration && !/^(Instantánea|[1-9]\\d* turnos?|Permanente)$/.test(String(body.duration))) return "Duración inválida.";
-  if (body.speed && !["Instantánea","1 turno","2 turnos","3 turnos"].includes(String(body.speed))) return "Velocidad inválida.";
-  if (body.cooldown && !["Sin cooldown","1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(String(body.cooldown))) return "Cooldown inválido.";
+  if (body.duration && !/^(Instantánea|No termina|[1-9]\\d* turnos?)$/.test(String(body.duration))) return "Duración inválida.";
+  if (body.speed && !["DEFAULT","Instantánea","1 turno","2 turnos","3 turnos","No requiere"].includes(String(body.speed))) return "Velocidad inválida.";
+  if (body.cooldown && !["Sin cooldown","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","Una vez por combate","Igual a duración"].includes(String(body.cooldown))) return "Cooldown inválido.";
   if (category === "PASSIVE" && !String(body.condition ?? "").trim()) return "Las habilidades pasivas deben indicar una condición.";
   if (effect.length > 20) return "Una habilidad no puede tener más de 20 efectos.";
   for (const row of effect) {
@@ -104,6 +105,7 @@ export async function GET(
     narrativeCards: catalog.narrativeCards.filter(card => card.enabled),
     effectPricing: catalog.pricing,
     durationPricing: await readDurationPricing(),
+    defaultAttackSpeedStat: await readDefaultAttackSpeedStat(),
   });
 }
 
@@ -142,7 +144,7 @@ export async function POST(
       pchCost += effect.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:effect.durationTurns},durationPricing) : durationPchCost(base,{kind:"INSTANT"},durationPricing);
     }
   }
-  pchCost = manaAdjustedPch(pchCost, Number(body.cost ?? 0));
+  pchCost = manaAdjustedPch(pchCost, Number(body.cost ?? 0)) + speedSurcharge(body.speed);
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {
@@ -166,7 +168,7 @@ export async function POST(
       duration: typeof body.duration === "string" ? body.duration.trim() || null : null,
       category: String(body.category),
       areaOfEffect: typeof body.areaOfEffect === "string" ? body.areaOfEffect.trim() || null : null,
-      speed: typeof body.speed === "string" ? body.speed.trim() || null : null,
+      speed: typeof body.speed === "string" ? body.speed.trim() || "DEFAULT" : "DEFAULT",
       cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : null,
       effect: body.effect,
       condition: typeof body.condition === "string" ? body.condition.trim() || null : null,

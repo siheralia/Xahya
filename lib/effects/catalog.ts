@@ -4,7 +4,7 @@ export const EFFECT_CATALOG = [
   { type: "STAT_BONUS", label: "Estadística +", mode: "bonus", targets: ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK","HP","MANA","PHYS_ATK","MAGIC_ATK","DEF","MAG_DEF","PRECISION","CRITICAL","DISCOVERY","MIRACLE","INTIMIDATION","CONQUEST","RACE","DODGE","STEALTH","DETECTION","ATTACK_TOTAL"] },
   { type: "DAMAGE_REDUCTION", label: "Daño recibido reducido ×", mode: "multiplier", targets: ["ALL","PHYSICAL","MAGICAL"] },
   { type: "DAMAGE_INCREASE", label: "Daño recibido aumentado ×", mode: "multiplier", targets: ["ALL","PHYSICAL","MAGICAL"] },
-  { type: "RESOURCE_BONUS", label: "Recurso +", mode: "bonus", targets: ["HP","MANA","MONEY","KARMA","LEVEL_UP_POINTS"] },
+  { type: "RESOURCE_BONUS", label: "Recurso +", mode: "bonus", targets: ["HP","MANA","MONEY","LEVEL_UP_POINTS"] },
   { type: "COMBAT_MULTIPLIER", label: "Combate ×", mode: "multiplier", targets: ["PHYS_ATK","MAGIC_ATK","ATTACK_TOTAL"] },
   { type: "EQUIPMENT_SLOT_CAP", label: "Límite de equipo +", mode: "bonus", targets: [] },
   { type: "NARRATIVE", label: "Narrativo", mode: "text", targets: ["OTHER"] },

@@ -10,8 +10,8 @@ export type AuditEvent = {
   details?: Record<string, unknown> | null;
 };
 
-export async function recordAuditEvent(event: AuditEvent) {
-  return db.orm.public.AuditLog.create({
+export async function recordAuditEvent(event: AuditEvent, source: Pick<typeof db, "orm"> = db) {
+  return source.orm.public.AuditLog.create({
     actorUserId: event.actorUserId ?? null,
     action: event.action,
     entityType: event.entityType,

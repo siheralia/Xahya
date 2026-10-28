@@ -60,6 +60,22 @@ export async function POST(request: Request) {
       await TxCharacterItem.where({ id: characterItemId }).update({ quantity: ownedQuantity - quantity });
     }
 
+    await recordAuditEvent({
+        actorUserId: user.id,
+        action: "ITEM_SELL",
+        entityType: "ITEM",
+        entityId: Number(item.id),
+        characterId: Number(character.id),
+        details: {
+          itemName: item.name,
+          characterItemId,
+          quantity,
+          unitValue: storeValue,
+          total,
+          moneyBefore: Number(resources.money),
+          moneyAfter: Number(updatedResources?.money ?? 0),
+        },
+        }, tx);
     return {
       updatedResources,
       moneyBefore: Number(resources.money),
@@ -73,23 +89,6 @@ export async function POST(request: Request) {
   });
 
   if ("error" in result) return NextResponse.json(result, { status: 400 });
-
-  await recordAuditEvent({
-    actorUserId: user.id,
-    action: "ITEM_SELL",
-    entityType: "ITEM",
-    entityId: Number(item.id),
-    characterId: Number(character.id),
-    details: {
-      itemName: item.name,
-      characterItemId,
-      quantity,
-      unitValue: storeValue,
-      total,
-      moneyBefore: result.moneyBefore,
-      moneyAfter: Number(result.updatedResources?.money ?? 0),
-    },
-  });
 
   return NextResponse.json({
     money: Number(result.updatedResources?.money ?? 0),

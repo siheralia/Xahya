@@ -171,6 +171,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await db.transaction(async (tx) => {
+      const play = async () => {
       const resource = await tx.orm.public.CharacterResource
         .where({ characterId })
         .first();
@@ -304,9 +305,9 @@ export async function POST(request: Request) {
         karma,
         active: false,
       };
-    });
-
-    await recordAuditEvent({
+      };
+      const result = await play();
+      await recordAuditEvent({
       actorUserId: user.id,
       action: "CASINO_BLACKJACK",
       entityType: "CHARACTER",
@@ -321,6 +322,8 @@ export async function POST(request: Request) {
         karmaAfter: result.karma,
         active: result.active,
       },
+      }, tx);
+      return result;
     });
 
     return NextResponse.json(result);

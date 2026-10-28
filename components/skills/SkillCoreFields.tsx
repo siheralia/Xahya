@@ -7,9 +7,9 @@ export type SkillCore = {
   name: string; description: string; category: string; cost: number; duration: string; cooldown: string; speed: string;
   areaOfEffect: string; maxRangeMeters?: number; maintenanceCost: number; accumulationPerTick: number; accumulationCost: number; condition: string;
 };
-const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
+const categories: [string,string][] = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
 const durations = ["Instantánea","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","20 turnos","No termina"];
-const speeds = [["DEFAULT","Predeterminada"],["Instantánea","Instantánea (+5 PCH)"],["1 turno","1 turno (+5 PCH)"],["2 turnos","2 turnos (+5 PCH)"],["3 turnos","3 turnos (+5 PCH)"],["No requiere","No requiere (+5 PCH)"]];
+const speeds: [string,string][] = [["DEFAULT","Predeterminada"],["Instantánea","Instantánea (+5 PCH)"],["1 turno","1 turno (+5 PCH)"],["2 turnos","2 turnos (+5 PCH)"],["3 turnos","3 turnos (+5 PCH)"],["No requiere","No requiere (+5 PCH)"]];
 const cooldowns = ["Sin cooldown","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","Una vez por combate","Igual a duración"];
 export function SkillCoreFields<T extends SkillCore>({form,onChange}:{form:T;onChange:(next:T)=>void}) {
   const set = <K extends keyof SkillCore>(key:K,value:SkillCore[K]) => onChange({...form,[key]:value});

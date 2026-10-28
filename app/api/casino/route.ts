@@ -162,6 +162,23 @@ export async function POST(request: Request) {
       }
 
       await tx.orm.public.CharacterResource.where({ id: resource.id }).update({ money, karma });
+      // All roll audit rows must commit together with the batch resource mutation.
+      for (const roll of results) {
+        await recordAuditEvent({
+          actorUserId: user.id,
+          action: "CASINO_ROULETTE",
+          entityType: "CHARACTER",
+          entityId: characterId,
+          characterId,
+          details: {
+            bet,
+            result: roll.label,
+            payout: roll.payout,
+            moneyAfter: roll.money,
+            karmaAfter: roll.karma,
+          },
+        }, tx);
+      }
       return {
         ...results[results.length - 1],
         results,
@@ -182,23 +199,6 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: "No se pudo completar el giro." }, { status: 500 });
-  }
-
-  for (const roll of result.results) {
-    await recordAuditEvent({
-      actorUserId: user.id,
-      action: "CASINO_ROULETTE",
-      entityType: "CHARACTER",
-      entityId: characterId,
-      characterId,
-      details: {
-        bet,
-        result: roll.label,
-        payout: roll.payout,
-        moneyAfter: roll.money,
-        karmaAfter: roll.karma,
-      },
-    });
   }
 
   return NextResponse.json(result);

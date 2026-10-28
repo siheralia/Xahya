@@ -542,7 +542,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     areaOfEffect: "", speed: "", cooldown: "", condition: "",
     effect: [] as SkillEffect[],
   });
-  const priceSkillEffect = (e: SkillEffect) => { const base = e.type==="NARRATIVE" && e.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===e.target?.slice(5))?.pch??0) : effectPchCost(e,effectPricing); return e.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:e.durationTurns},durationPricing) : base; };
+  const priceSkillEffect = (e: SkillEffect) => { const base = e.type==="NARRATIVE" && e.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===e.target?.slice(5))?.pch??0) : effectPchCost(e,effectPricing); return durationPchCost(base,e.durationTurns ? {kind:"TURNS",turns:e.durationTurns} : {kind:"INSTANT"},durationPricing); };
   const skillPchCost = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0);
   const themePalette = character?.themePalette ?? DEFAULT_THEME;
 

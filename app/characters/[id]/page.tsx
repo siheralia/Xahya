@@ -1962,7 +1962,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   {!skillForm.effect.length && <p className="text-sm text-zinc-600">Sin efectos estructurados.</p>}
                 </div>
               </div>
-              <p className="mt-3 text-sm text-cyan-300">Costo estimado: {skillPchCost} PCH (sin descuentos por condiciones hasta que puedan verificarse en combate) · Saldo: {pchBalance} PCH · Restante: {pchBalance - skillPchCost} PCH</p>
+              <p className="mt-3 text-sm text-cyan-300">Costo estimado: {skillPchCost} PCH · Base: {skillBasePch} PCH · Maná neutral: {skillBasePch * 5} (sin descuentos por condiciones hasta que puedan verificarse en combate) · Saldo: {pchBalance} PCH · Restante: {pchBalance - skillPchCost} PCH</p>
               <button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || pchBalance < skillPchCost} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">
                 {skillSaving ? "Enviando..." : "Enviar para aprobación"}
               </button>

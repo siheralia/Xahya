@@ -2,7 +2,7 @@
 
 import { calculateSkillPch, effectPchCost, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
 
-import { durationPchCost } from "@/lib/effects/duration-pricing";
+import { durationPchCost, DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
@@ -522,6 +522,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [narrativeCards,setNarrativeCards] = useState<Array<{id:string;name:string;description:string;category:string;pch:number;icon:string}>>([]);
 
   const [effectPricing, setEffectPricing] = useState<EffectPricingMap>({});
+  const [durationPricing,setDurationPricing] = useState<DurationPricing>(DEFAULT_DURATION_PRICING);
   const [effectPickerOpen, setEffectPickerOpen] = useState(false);
   const [effectSearch, setEffectSearch] = useState("");
   const [effectCategory, setEffectCategory] = useState("Todos");
@@ -541,7 +542,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     areaOfEffect: "", speed: "", cooldown: "", condition: "",
     effect: [] as SkillEffect[],
   });
-  const priceSkillEffect = (e: SkillEffect) => { const base = e.type==="NARRATIVE" && e.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===e.target?.slice(5))?.pch??0) : effectPchCost(e,effectPricing); return e.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:e.durationTurns}) : base; };
+  const priceSkillEffect = (e: SkillEffect) => { const base = e.type==="NARRATIVE" && e.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===e.target?.slice(5))?.pch??0) : effectPchCost(e,effectPricing); return e.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:e.durationTurns},durationPricing) : base; };
   const skillPchCost = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0);
   const themePalette = character?.themePalette ?? DEFAULT_THEME;
 
@@ -559,6 +560,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setEffectDefinitions(data.effectDefinitions ?? []);
         setNarrativeCards(data.narrativeCards ?? []);
         setEffectPricing(data.effectPricing ?? {});
+        setDurationPricing(data.durationPricing ?? DEFAULT_DURATION_PRICING);
       })
       .catch(() => {
         setSkills([]);

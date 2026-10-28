@@ -45,6 +45,8 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
     if (!row || typeof row !== "object" || !EFFECT_TYPES.includes(String(row.type) as any)) return "Efecto de habilidad inválido.";
     const parameterError = validateSkillParameters(row);
     if (parameterError) return parameterError;
+    if (row.durationMovements !== undefined && (!Number.isSafeInteger(row.durationMovements) || row.durationMovements < 1 || row.durationMovements > 100)) return "Movimientos inválidos.";
+    if (row.durationMovements !== undefined && row.durationTurns) return "Elige movimientos o turnos, no ambos.";
     if (row.durationTurns !== undefined && (!Number.isSafeInteger(row.durationTurns) || row.durationTurns < 0 || row.durationTurns > 20)) return "Duración de efecto inválida.";
     const type = String(row.type);
     const target = String(row.target ?? "");
@@ -131,17 +133,17 @@ export async function POST(
   if (body.effect.some((effect: { type: string }) => pricing[effect.type]?.enabled === false)) return NextResponse.json({ error: "Uno de los efectos ya no está disponible para habilidades nuevas." }, { status: 400 });
   const narrativeCards = await readNarrativeEffectCards();
   const durationPricing = await readDurationPricing();
-  if (body.effect.some((effect: {durationTurns?:number}) => effect.durationTurns && effect.durationTurns > durationPricing.maxTurns)) return NextResponse.json({error:"La duración supera el máximo configurado."},{status:400});
+  if (body.effect.some((effect: {durationTurns?:number;durationMovements?:number}) => (effect.durationTurns && effect.durationTurns > durationPricing.maxTurns) || (effect.durationMovements && effect.durationMovements > (durationPricing.maxMovements ?? 20)))) return NextResponse.json({error:"La duración supera el máximo configurado."},{status:400});
   let pchCost = 0;
   for (const effect of body.effect) {
     if (effect.type === "NARRATIVE" && String(effect.target ?? "").startsWith("CARD:")) {
       const card = narrativeCards.find(c => c.id === String(effect.target).slice(5));
       if (!card || !card.enabled || String(effect.description ?? "") !== card.name + ": " + card.description)
         return NextResponse.json({ error: "Tarjeta narrativa inválida o modificada." }, { status: 400 });
-      pchCost += effect.durationTurns ? durationPchCost(card.pch,{kind:"TURNS",turns:effect.durationTurns},durationPricing) : durationPchCost(card.pch,{kind:"INSTANT"},durationPricing);
+      pchCost += durationPchCost(card.pch,effect.durationMovements ? {kind:"MOVEMENTS",movements:effect.durationMovements} : effect.durationTurns ? {kind:"TURNS",turns:effect.durationTurns} : {kind:"INSTANT"},durationPricing);
     } else {
       const base = calculateSkillPch([effect], pricing);
-      pchCost += effect.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:effect.durationTurns},durationPricing) : durationPchCost(base,{kind:"INSTANT"},durationPricing);
+      pchCost += durationPchCost(base,effect.durationMovements ? {kind:"MOVEMENTS",movements:effect.durationMovements} : effect.durationTurns ? {kind:"TURNS",turns:effect.durationTurns} : {kind:"INSTANT"},durationPricing);
     }
   }
   pchCost = manaAdjustedPch(pchCost, Number(body.cost ?? 0)) + speedSurcharge(body.speed);

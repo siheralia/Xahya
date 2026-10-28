@@ -1,9 +1,11 @@
 "use client";
+import { SkillFormModal } from "@/components/skills/SkillFormModal";
+
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
 
 import { useEffect, useMemo, useState } from "react";
-import ManagementModal from "../_components/ManagementModal";
+
 import { EFFECT_CATALOG, EFFECT_TARGETS, resolveEffectTargets } from "@/lib/effects/catalog";
 import { effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
 
@@ -117,17 +119,6 @@ export default function SkillsManagementPage(){
       </div>
     </section>
 
-    <ManagementModal open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} maxWidth="max-w-4xl">
-      <div className="space-y-5">
-        <label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>
-        <SkillCoreFields form={form} onChange={setForm} />
-        <SkillEffectsEditor effects={form.effect} onChange={effect => setForm(current => ({...current,effect}))} statistics={statDefinitions} />
-        <div className="flex flex-wrap gap-2">
-          <button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button>
-          <button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button>
-          <button onClick={()=>save(true,false)} disabled={busy} className="rounded-lg bg-emerald-400 px-4 py-3 font-semibold text-zinc-950">Guardar y aprobar</button>
-        </div>
-      </div>
-    </ManagementModal>
+    <SkillFormModal open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} form={form} onChange={setForm} statistics={statDefinitions} characterSelector={<label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>} actions={<div className="flex flex-wrap gap-2"><button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button><button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button><button onClick={()=>save(true,false)} disabled={busy} className="rounded-lg bg-emerald-400 px-4 py-3 font-semibold text-zinc-950">Guardar y aprobar</button></div>} />
   </div></main>;
 }

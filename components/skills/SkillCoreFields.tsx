@@ -11,7 +11,7 @@ const categories: [string,string][] = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasi
 const durations = ["Instantánea","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","20 turnos","No termina"];
 const speeds: [string,string][] = [["DEFAULT","Predeterminada"],["Instantánea","Instantánea (+5 PCH)"],["1 turno","1 turno (+5 PCH)"],["2 turnos","2 turnos (+5 PCH)"],["3 turnos","3 turnos (+5 PCH)"],["No requiere","No requiere (+5 PCH)"]];
 const cooldowns = ["Sin cooldown","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","Una vez por combate","Igual a duración"];
-export function SkillCoreFields<T extends SkillCore>({form,onChange}:{form:T;onChange:(next:T)=>void}) {
+export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor}:{form:T;onChange:(next:T)=>void;effectEditor?:ReactNode}) {
   const set = <K extends keyof SkillCore>(key:K,value:SkillCore[K]) => onChange({...form,[key]:value});
   const cls = "mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white";
   const wrap=(label:string,key:SkillHelpKey,control:ReactNode)=><label className="block text-sm text-zinc-400">{label}<SkillFieldHelp field={key}/>{control}</label>;
@@ -21,6 +21,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange}:{form:T;onC
     {wrap("Nombre","name",<input value={form.name} onChange={e=>set("name",e.target.value)} className={cls}/>)}
     {wrap("Descripción","description",<textarea rows={3} value={form.description} onChange={e=>set("description",e.target.value)} className={cls}/>)}
     {wrap("Categoría","category",select("category",categories))}
+    {effectEditor && <div className="sm:col-span-2">{effectEditor}</div>}
     {wrap("Maná por uso","cost",number("cost"))}
     {wrap("Duración","duration",select("duration",durations.map(x=>[x,x] as const)))}
     {wrap("Cooldown","cooldown",select("cooldown",cooldowns.map(x=>[x,x] as const)))}

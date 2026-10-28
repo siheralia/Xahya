@@ -1,3 +1,4 @@
+import { SkillFormModal } from "@/components/skills/SkillFormModal";
 "use client";
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
@@ -542,7 +543,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const skillTargets = effectDefinitions.flatMap((definition) => definition.targets.map((target) => [target.key, target.label] as const));
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [skillModalOpen, setSkillModalOpen] = useState(false);
-  const [skillPchBreakdownOpen, setSkillPchBreakdownOpen] = useState(false);
+  
   const [skillSaving, setSkillSaving] = useState(false);
   const [skillForm, setSkillForm] = useState({
     name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "Instantánea", category: "OFFENSIVE",
@@ -1921,26 +1922,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <div><h2 className="text-xl font-semibold">Equipamiento</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">Objetos activos y sus ranuras.</p></div>
             <span className="text-xs text-zinc-600">{character.equipment.filter((entry) => entry.equipped).length} equipados</span>
           </div>
-        {skillModalOpen && (
-          <div className="xahya-modal-overlay flex items-center justify-center bg-black/75 p-4">
-            <div className="xahya-modal-panel max-h-[90vh] overflow-y-auto w-full max-w-3xl rounded-2xl border border-cyan-400/30 bg-zinc-950 p-6 shadow-2xl">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold">Crear habilidad</h2>
-                  <p className="mt-1 text-sm text-zinc-500">Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise.</p>
-                </div>
-                <button type="button" onClick={() => setSkillModalOpen(false)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">Cerrar</button>
-              </div>
-              <div className="sticky top-0 z-20 -mx-2 mt-4 flex justify-end bg-zinc-950/95 px-2 py-3 backdrop-blur"><button type="button" onClick={() => setSkillPchBreakdownOpen(true)} className="rounded-full border border-cyan-400 bg-cyan-950 px-4 py-2 text-sm font-bold text-cyan-100 shadow-lg shadow-black/50" aria-label="Ver desglose del costo de PCH">Costo: {skillPchCost} PCH · Detalles</button></div>
-              <div className="mt-6"><SkillCoreFields form={skillForm} onChange={setSkillForm} effectEditor={<SkillEffectsEditor effects={skillForm.effect} onChange={effect => setSkillForm(current => ({...current,effect}))} narrativeCards={narrativeCards} priceEffect={priceSkillEffect} />} /></div>
-
-              {skillPchBreakdownOpen && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" role="presentation" onClick={() => setSkillPchBreakdownOpen(false)}><div role="dialog" aria-modal="true" aria-label="Desglose del costo de PCH" onClick={e => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-cyan-500/50 bg-zinc-950 p-5 text-sm text-zinc-200 shadow-2xl"><div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold text-cyan-200">Costo: {skillPchCost} PCH</h3><button type="button" onClick={() => setSkillPchBreakdownOpen(false)} className="rounded-lg border border-zinc-700 px-3 py-2">Cerrar</button></div><div className="mt-4 space-y-2"><p>Efectos: {skillBasePch} PCH</p><p>Tras ajuste por maná ({skillForm.cost}): {manaAdjustedPch(skillBasePch,skillForm.cost)} PCH</p><p>Velocidad: {!skillForm.speed || skillForm.speed==="DEFAULT" ? 0 : 5} PCH</p><p>Distancia ({skillForm.maxRangeMeters} m): {skillForm.maxRangeMeters - 5 > 0 ? "+" : ""}{skillForm.maxRangeMeters - 5} PCH (mínimo total 1)</p><p>Saldo: {pchBalance} PCH · Restante: {pchBalance - skillPchCost} PCH</p><p className="text-xs text-zinc-500">No se aplican descuentos por condiciones no verificables en combate.</p></div></div></div>}
-              <button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || pchBalance < skillPchCost} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">
-                {skillSaving ? "Enviando..." : "Enviar para aprobación"}
-              </button>
-            </div>
-          </div>
-        )}
+        <SkillFormModal open={skillModalOpen} title="Crear habilidad" description="Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise." onClose={() => setSkillModalOpen(false)} form={skillForm} onChange={setSkillForm} narrativeCards={narrativeCards} priceEffect={priceSkillEffect} pch={{total:skillPchCost,base:skillBasePch,manaAdjusted:manaAdjustedPch(skillBasePch,skillForm.cost),balance:pchBalance}} actions={<button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || pchBalance < skillPchCost} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">{skillSaving ? "Enviando..." : "Enviar para aprobación"}</button>} />
 
         {character.equipment.some((entry) => entry.equipped) ? (
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

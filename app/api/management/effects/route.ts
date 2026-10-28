@@ -1,3 +1,4 @@
+import { availableAttackSpeedStats, readDefaultAttackSpeedStat, writeDefaultAttackSpeedStat } from "@/lib/skills/speed-settings";
 import { readDurationPricing, writeDurationPricing } from "@/lib/effects/duration-pricing-settings";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
@@ -18,13 +19,21 @@ async function admin() {
 export async function GET() {
   const user = await admin();
   if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  return NextResponse.json({ ...await readManagedEffectCatalog(), durationPricing: await readDurationPricing() });
+  return NextResponse.json({ ...await readManagedEffectCatalog(), durationPricing: await readDurationPricing(), defaultAttackSpeedStat: await readDefaultAttackSpeedStat(), attackSpeedStats: await availableAttackSpeedStats() });
 }
 
 export async function PUT(request: Request) {
   const user = await admin();
   if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json().catch(() => null);
+  if (body?.action === "default-attack-speed") {
+    try {
+      const before = await readDefaultAttackSpeedStat();
+      await writeDefaultAttackSpeedStat(String(body.statKey ?? ""));
+      await recordAuditEvent({ actorUserId: Number(user.id), action: "UPDATE_DEFAULT_ATTACK_SPEED", entityType: "SKILL_SETTINGS", details: { before, after: body.statKey } });
+      return NextResponse.json({ defaultAttackSpeedStat: body.statKey });
+    } catch { return NextResponse.json({ error: "Estadística de velocidad inválida." }, { status: 400 }); }
+  }
   if (body?.action === "duration-pricing") {
     try {
       const before = await readDurationPricing();

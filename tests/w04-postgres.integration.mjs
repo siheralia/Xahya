@@ -53,3 +53,43 @@ test("W04: transaction rollback on audit failure", async () => {
   assert.equal(Number(resources.money), 100);
   assert.equal(Number(resources.karma), 1);
 });
+
+
+test("W05: audit insert failure rolls back a consequential money mutation", async () => {
+  await assert.rejects(
+    db.transaction(async (tx) => {
+      await tx.execute(db.raw.sql`
+        UPDATE public."characterResource"
+        SET "money" = "money" - 25
+        WHERE "characterId" = 2
+      `.affectedCount().build());
+      // This is a real PostgreSQL constraint failure, not a mocked exception.
+      await tx.execute(db.raw.sql`
+        INSERT INTO public."w04Audit" ("characterId") VALUES (NULL)
+      `.affectedCount().build());
+    }),
+  );
+  const resources = await db.orm.public.CharacterResource.where({ characterId: 2 }).first();
+  assert.equal(Number(resources.money), 100);
+  assert.equal(Number(resources.karma), 1);
+});
+
+test("W05: successful mutation and its required audit row commit together", async () => {
+  await db.transaction(async (tx) => {
+    await tx.execute(db.raw.sql`
+      UPDATE public."characterResource"
+      SET "money" = "money" - 25
+      WHERE "characterId" = 2
+    `.affectedCount().build());
+    await tx.execute(db.raw.sql`
+      INSERT INTO public."w04Audit" ("characterId") VALUES (2)
+    `.affectedCount().build());
+  });
+  const resources = await db.orm.public.CharacterResource.where({ characterId: 2 }).first();
+  assert.equal(Number(resources.money), 75);
+  const { execFileSync } = await import("node:child_process");
+  const count = execFileSync("psql", [process.env.DATABASE_URL, "-At", "-c",
+    'SELECT count(*) FROM public."w04Audit" WHERE "characterId" = 2',
+  ], { encoding: "utf8" }).trim();
+  assert.equal(Number(count), 1);
+});

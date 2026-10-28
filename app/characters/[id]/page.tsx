@@ -1,6 +1,5 @@
 "use client";
 
-import { speedSurcharge } from "@/lib/skills/speed-settings";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { calculateSkillPch, effectPchCost, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
 
@@ -547,7 +546,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   });
   const priceSkillEffect = (e: SkillEffect) => { const base = e.type==="NARRATIVE" && e.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===e.target?.slice(5))?.pch??0) : effectPchCost(e,effectPricing); return durationPchCost(base,e.durationMovements ? {kind:"MOVEMENTS",movements:e.durationMovements} : e.durationTurns ? {kind:"TURNS",turns:e.durationTurns} : {kind:"INSTANT"},durationPricing); };
   const skillBasePch = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0);
-  const skillPchCost = manaAdjustedPch(skillBasePch, skillForm.cost) + speedSurcharge(skillForm.speed);
+  const skillPchCost = manaAdjustedPch(skillBasePch, skillForm.cost) + (!skillForm.speed || skillForm.speed === "DEFAULT" ? 0 : 5);
   const themePalette = character?.themePalette ?? DEFAULT_THEME;
 
   useEffect(() => {

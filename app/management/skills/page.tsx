@@ -1,5 +1,5 @@
 "use client";
-import { SkillEffectPicker } from "@/components/skills/SkillEffectPicker";
+import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
 
 import { useEffect, useMemo, useState } from "react";
@@ -121,21 +121,7 @@ export default function SkillsManagementPage(){
       <div className="space-y-5">
         <label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>
         <SkillCoreFields form={form} onChange={setForm} />
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-          <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">Efecto</h3><p className="text-xs text-zinc-500">Los ofensivos pueden usar × sobre el ataque actual; soporte/pasiva pueden mostrar buffs.</p></div><button type="button" onClick={addEffect} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">+ Añadir</button></div>
-          <SkillEffectPicker onPick={effect => setForm(current => ({...current,effect:[...current.effect,effect]}))} />
-          <div className="mt-4 space-y-3">{form.effect.map((effect,i)=>{
-            const narrative=effect.type==="NARRATIVE";
-            const targets=resolveEffectTargets(effect.type,statDefinitions).map((entry)=>entry.key);
-            return <div key={i} className="grid gap-2 sm:grid-cols-[170px_1fr_110px_auto]">
-              <select value={effect.type==="MAZE_UTILITY"&&effect.target==="INVISIBILITY"?"MAZE_UTILITY_INVISIBILITY":effect.type==="MAZE_UTILITY"&&effect.target==="FLOATING"?"MAZE_UTILITY_FLOATING":(effect.type??"STAT_BONUS")} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{effectTypes.map(t=><option key={t[0]} value={t[0]}>{t[1]}</option>)}</select>
-              {!narrative?(targets.length?<select value={effect.target??targets[0]} onChange={e=>updateEffect(i,"target",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm">{effect.target&&!targets.includes(effect.target)&&<option value={effect.target}>{effect.target} (efecto inactivo: estadística no disponible)</option>}{targets.map(t=><option key={t} value={t}>{statDefinitions.find((stat)=>stat.key===t)?.name??t}</option>)}</select>:<div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-2 py-2 text-sm text-zinc-400">Sin objetivo adicional</div>):<input value={effect.description??""} onChange={e=>updateEffect(i,"description",e.target.value)} placeholder="Descripción del efecto" className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm"/>}
-              {!narrative?<input type="number" step="0.01" value={effect.value??0} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm" placeholder={effect.type.endsWith("_MULTIPLIER")?"Porcentaje (100 = ×1)":"Valor"}/>:<span/>}
-              <span className="text-xs text-cyan-300">{effect.type.endsWith("_MULTIPLIER")?`${effect.value??0}% = ×${skillEffectMultiplier(effect.type,Number(effect.value??0))} · `:""}{effectPchCost(effect)} PCH</span>
-              <button type="button" onClick={()=>setForm(f=>({...f,effect:f.effect.filter((_,idx)=>idx!==i)}))} className="rounded-lg border border-red-900/60 px-2 py-2 text-sm text-red-300">Quitar</button>
-            </div>;
-          })}{!form.effect.length&&<p className="text-sm text-zinc-600">Sin efectos estructurados.</p>}</div>
-        </div>
+        <SkillEffectsEditor effects={form.effect} onChange={effect => setForm(current => ({...current,effect}))} statistics={statDefinitions} />
         <div className="flex flex-wrap gap-2">
           <button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button>
           <button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button>

@@ -4,7 +4,7 @@ import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
 import { effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
 import { SkillFieldHelp } from "./SkillFieldHelp";
 export type EditableEffect = {type:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT"};
-export type NarrativeCard = {id:number;name:string;description:string;category?:string;pch?:number};
+export type NarrativeCard = {id:string|number;name:string;description:string;category?:string;pch?:number};
 type Props<E extends EditableEffect>={effects:E[];onChange:(effects:E[])=>void;statistics?:{key:string;name:string;kind:"basic"|"derived";active?:boolean}[];narrativeCards?:NarrativeCard[];priceEffect?:(effect:E)=>number};
 const types=[...EFFECT_CATALOG.map(x=>[x.type,x.label] as const),["MAZE_UTILITY","Utilidad de laberinto"]] as const;
 const cls="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm";

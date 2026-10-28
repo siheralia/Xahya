@@ -1,3 +1,4 @@
+import { readDurationPricing, writeDurationPricing } from "@/lib/effects/duration-pricing-settings";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -17,13 +18,21 @@ async function admin() {
 export async function GET() {
   const user = await admin();
   if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  return NextResponse.json(await readManagedEffectCatalog());
+  return NextResponse.json({ ...await readManagedEffectCatalog(), durationPricing: await readDurationPricing() });
 }
 
 export async function PUT(request: Request) {
   const user = await admin();
   if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json().catch(() => null);
+  if (body?.action === "duration-pricing") {
+    try {
+      const before = await readDurationPricing();
+      await writeDurationPricing(body.pricing);
+      await recordAuditEvent({ actorUserId: Number(user.id), action: "UPDATE_DURATION_PRICING", entityType: "EFFECT_PRICING", details: { before, after: body.pricing } });
+      return NextResponse.json({ durationPricing: body.pricing });
+    } catch { return NextResponse.json({error:"Multiplicadores de duración inválidos."},{status:400}); }
+  }
   const type = typeof body?.type === "string" ? body.type : "";
   if (body?.action === "metadata") {
     const entry = EFFECT_CATALOG.find(effect => effect.type === type);

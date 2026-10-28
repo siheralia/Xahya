@@ -8,6 +8,7 @@ import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { calculateSkillPch, defaultEffectPricing } from "@/lib/skills/pch";
 import { readEffectPricing } from "@/lib/effects/pricing";
 import { readNarrativeEffectCards } from "@/lib/effects/narrative-cards";
+import { readDurationPricing } from "@/lib/effects/duration-pricing-settings";
 import { durationPchCost } from "@/lib/effects/duration-pricing";
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
@@ -95,6 +96,7 @@ export async function GET(
     effectDefinitions: catalog.effects.filter(effect => effect.enabled).map(({type,label}) => ({type,label,targets:resolveEffectTargets(type, statistics)})),
     narrativeCards: catalog.narrativeCards.filter(card => card.enabled),
     effectPricing: catalog.pricing,
+    durationPricing: await readDurationPricing(),
   });
 }
 
@@ -119,16 +121,17 @@ export async function POST(
   const pricing = { ...defaultEffectPricing(), ...await readEffectPricing() };
   if (body.effect.some((effect: { type: string }) => pricing[effect.type]?.enabled === false)) return NextResponse.json({ error: "Uno de los efectos ya no está disponible para habilidades nuevas." }, { status: 400 });
   const narrativeCards = await readNarrativeEffectCards();
+  const durationPricing = await readDurationPricing();
   let pchCost = 0;
   for (const effect of body.effect) {
     if (effect.type === "NARRATIVE" && String(effect.target ?? "").startsWith("CARD:")) {
       const card = narrativeCards.find(c => c.id === String(effect.target).slice(5));
       if (!card || !card.enabled || String(effect.description ?? "") !== card.name + ": " + card.description)
         return NextResponse.json({ error: "Tarjeta narrativa inválida o modificada." }, { status: 400 });
-      pchCost += effect.durationTurns ? durationPchCost(card.pch,{kind:"TURNS",turns:effect.durationTurns}) : card.pch;
+      pchCost += effect.durationTurns ? durationPchCost(card.pch,{kind:"TURNS",turns:effect.durationTurns},durationPricing) : card.pch;
     } else {
       const base = calculateSkillPch([effect], pricing);
-      pchCost += effect.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:effect.durationTurns}) : base;
+      pchCost += effect.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:effect.durationTurns},durationPricing) : base;
     }
   }
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });

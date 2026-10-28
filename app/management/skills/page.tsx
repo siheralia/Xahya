@@ -120,8 +120,7 @@ export default function SkillsManagementPage(){
     <ManagementModal open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} maxWidth="max-w-4xl">
       <div className="space-y-5">
         <label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>
-        <SkillCoreFields form={form} onChange={setForm} />
-        <SkillEffectsEditor effects={form.effect} onChange={effect => setForm(current => ({...current,effect}))} statistics={statDefinitions} />
+        <SkillCoreFields form={form} onChange={setForm} effectEditor={<SkillEffectsEditor effects={form.effect} onChange={effect => setForm(current => ({...current,effect}))} statistics={statDefinitions} />} />
         <div className="flex flex-wrap gap-2">
           <button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button>
           <button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button>

@@ -6,13 +6,13 @@ import { SkillFieldHelp } from "./SkillFieldHelp";
 export type EditableEffect = {type:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT"};
 export type NarrativeCard = {id:string|number;name:string;description:string;category?:string;pch?:number};
 type Props<E extends EditableEffect>={effects:E[];onChange:(effects:E[])=>void;statistics?:{key:string;name:string;kind:"basic"|"derived";active?:boolean}[];narrativeCards?:NarrativeCard[];priceEffect?:(effect:E)=>number};
-const types=[...EFFECT_CATALOG.map(x=>[x.type,x.label] as const),["MAZE_UTILITY","Utilidad de laberinto"]] as const;
+const types=EFFECT_CATALOG.filter(x=>x.type!=="COMBAT_MULTIPLIER").map(x=>[x.type,x.label] as const);
 const cls="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm";
 export function SkillEffectsEditor<E extends EditableEffect>({effects,onChange,statistics=[],narrativeCards=[],priceEffect}:Props<E>){
  const [search,setSearch]=useState("");const [open,setOpen]=useState(false);const [category,setCategory]=useState("Todos");
  const update=(index:number,patch:Partial<E>)=>onChange(effects.map((e,i)=>i===index?{...e,...patch}:e));
  const add=(effect:EditableEffect)=>{onChange([...effects,effect as E]);setOpen(false);};
- const catalog=EFFECT_CATALOG.filter(e=>(e.label+" "+e.type).toLowerCase().includes(search.toLowerCase()) && (category==="Todos" || (category==="Estadísticas"&&/STAT|BONUS/.test(e.type)) || (category==="Combate"&&/DAMAGE|COMBAT|DEF/.test(e.type)) || (category==="Recursos"&&/RESOURCE|HEAL/.test(e.type)) || category==="Especiales"));
+ const catalog=EFFECT_CATALOG.filter(e=>e.type!=="COMBAT_MULTIPLIER" && (e.label+" "+e.type).toLowerCase().includes(search.toLowerCase()) && (category==="Todos" || (category==="Estadísticas"&&/STAT|BONUS/.test(e.type)) || (category==="Combate"&&/DAMAGE|COMBAT|DEF/.test(e.type)) || (category==="Recursos"&&/RESOURCE|HEAL/.test(e.type)) || category==="Especiales"));
  return <section className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
   <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">Efectos <SkillFieldHelp field="effects"/></h3><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open} className={cls}>+ Buscar efecto</button></div>
   {open&&<div className="mt-3 space-y-3 rounded-xl border border-cyan-800/50 bg-zinc-950 p-3"><input aria-label="Buscar efectos" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar efectos…" className={"w-full "+cls}/><div className="flex flex-wrap gap-2">{["Todos","Combate","Estadísticas","Recursos","Especiales"].map(c=><button key={c} type="button" onClick={()=>setCategory(c)} aria-pressed={category===c} className={"rounded-full border px-3 py-1 text-xs "+(category===c?"border-cyan-400 text-cyan-200":"border-zinc-700")}>{c}</button>)}</div>

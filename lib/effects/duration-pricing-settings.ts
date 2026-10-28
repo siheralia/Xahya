@@ -7,6 +7,7 @@ export async function readDurationPricing(): Promise<DurationPricing> {
   if (!row?.value) return DEFAULT_DURATION_PRICING;
   try {
     const value = JSON.parse(String(row.value)) as DurationPricing;
+    if (!value || typeof value !== "object") throw new Error("Invalid pricing");
     validateDurationPricing(value);
     return value;
   } catch { return DEFAULT_DURATION_PRICING; }

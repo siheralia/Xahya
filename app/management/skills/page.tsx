@@ -1,4 +1,5 @@
 "use client";
+import { SkillEffectPicker } from "@/components/skills/SkillEffectPicker";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
 
 import { useEffect, useMemo, useState } from "react";
@@ -122,6 +123,7 @@ export default function SkillsManagementPage(){
         <SkillCoreFields form={form} onChange={setForm} />
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
           <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">Efecto</h3><p className="text-xs text-zinc-500">Los ofensivos pueden usar × sobre el ataque actual; soporte/pasiva pueden mostrar buffs.</p></div><button type="button" onClick={addEffect} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">+ Añadir</button></div>
+          <SkillEffectPicker onPick={effect => setForm(current => ({...current,effect:[...current.effect,effect]}))} />
           <div className="mt-4 space-y-3">{form.effect.map((effect,i)=>{
             const narrative=effect.type==="NARRATIVE";
             const targets=resolveEffectTargets(effect.type,statDefinitions).map((entry)=>entry.key);

@@ -1,6 +1,6 @@
 "use client";
 
-import { applyRangePch, rangePchAdjustment } from "@/lib/skills/range-pricing";
+import { applyRangePch } from "@/lib/skills/range-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { calculateSkillPch, effectPchCost, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
 

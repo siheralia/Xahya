@@ -1,3 +1,4 @@
+import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { validateSkillParameters } from "@/lib/effects/skill-conditions";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
@@ -32,8 +33,11 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (!name || name.length > 120) return "El nombre debe tener entre 1 y 120 caracteres.";
   if (!description || description.length > 5000) return "La descripción es obligatoria y no puede superar 5000 caracteres.";
   if (!CATEGORIES.includes(category as any)) return "Categoría de habilidad inválida.";
-  if (!Number.isInteger(cost) || cost < 0) return "El coste debe ser un entero no negativo.";
+  if (!Number.isSafeInteger(cost) || cost < 0 || cost > 1000000) return "El coste debe ser un entero no negativo.";
   if (!Number.isInteger(maintenanceCost) || maintenanceCost < 0 || !Number.isInteger(accumulationCost) || accumulationCost < 0 || !Number.isInteger(accumulationPerTick) || accumulationPerTick < 0) return "El costo de mantenimiento por turno debe ser un entero no negativo.";
+  if (body.duration && !/^(Instantánea|[1-9]\\d* turnos?|Permanente)$/.test(String(body.duration))) return "Duración inválida.";
+  if (body.speed && !["Instantánea","1 turno","2 turnos","3 turnos"].includes(String(body.speed))) return "Velocidad inválida.";
+  if (body.cooldown && !["Sin cooldown","1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(String(body.cooldown))) return "Cooldown inválido.";
   if (category === "PASSIVE" && !String(body.condition ?? "").trim()) return "Las habilidades pasivas deben indicar una condición.";
   if (effect.length > 20) return "Una habilidad no puede tener más de 20 efectos.";
   for (const row of effect) {
@@ -138,6 +142,7 @@ export async function POST(
       pchCost += effect.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:effect.durationTurns},durationPricing) : durationPchCost(base,{kind:"INSTANT"},durationPricing);
     }
   }
+  pchCost = manaAdjustedPch(pchCost, Number(body.cost ?? 0));
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {

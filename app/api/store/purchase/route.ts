@@ -44,6 +44,23 @@ export async function POST(request: Request) {
     const CharacterItem = (tx.orm.public as any).CharacterItem;
     const owned = await CharacterItem.create({ characterId, itemId, quantity, equipped: false, equippedSlot: null });
 
+    await recordAuditEvent({
+        actorUserId: user.id,
+        action: "ITEM_PURCHASE",
+        entityType: "ITEM",
+        entityId: itemId,
+        characterId,
+        details: {
+          itemName: item.name,
+          quantity,
+          baseUnitPrice: pricing.basePrice,
+          unitPrice: price,
+          total,
+          appliedPromotions: pricing.appliedPromotions.map((promotion) => promotion.name),
+          moneyBefore: money,
+          moneyAfter: Number(updatedResources?.money ?? 0),
+        },
+        }, tx);
     return { updatedResources, owned, moneyBefore: money };
   }).catch((error) => {
     if (error instanceof Error && error.message === "NOT_ENOUGH_MONEY") return { error: "No tienes suficiente dinero." };
@@ -52,24 +69,6 @@ export async function POST(request: Request) {
   });
 
   if ("error" in result) return NextResponse.json(result, { status: 400 });
-
-  await recordAuditEvent({
-    actorUserId: user.id,
-    action: "ITEM_PURCHASE",
-    entityType: "ITEM",
-    entityId: itemId,
-    characterId,
-    details: {
-      itemName: item.name,
-      quantity,
-      baseUnitPrice: pricing.basePrice,
-      unitPrice: price,
-      total,
-      appliedPromotions: pricing.appliedPromotions.map((promotion) => promotion.name),
-      moneyBefore: result.moneyBefore,
-      moneyAfter: Number(result.updatedResources?.money ?? 0),
-    },
-  });
 
   return NextResponse.json({
     money: Number(result.updatedResources?.money ?? 0),

@@ -1,5 +1,6 @@
 "use client";
 
+import { EFFECT_WISHLIST } from "@/lib/effects/wishlist";
 import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
 import type { EffectPricingMap } from "@/lib/skills/pch";
 
@@ -60,6 +61,8 @@ export default function EffectsManagementPage() {
 
   const [statistics, setStatistics] = useState<Statistic[]>([]);
   const [search, setSearch] = useState("");
+  const [wishlistSearch,setWishlistSearch] = useState("");
+  const [wishlistCategory,setWishlistCategory] = useState("Todas");
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -101,6 +104,7 @@ export default function EffectsManagementPage() {
         <button type="button" disabled={saving!==null || !cardName.trim() || !cardDescription.trim()} onClick={createCard} className="rounded-lg bg-cyan-700 px-4 py-2 disabled:opacity-50">Crear efecto</button>
         </div>}
       </section>
+      <section className="space-y-4 rounded-2xl border border-zinc-700 bg-zinc-900 p-5" aria-label="Wishlist de efectos"><div><h2 className="text-xl font-semibold">Wishlist de efectos · 90 propuestas</h2><p className="text-sm text-zinc-400">Ideas para futuras mecánicas. No son efectos ejecutables ni tarjetas duplicadas del catálogo. Por defecto son narrativas y todavía no tienen precio PCH aprobado.</p></div><div className="flex flex-wrap gap-2"><input aria-label="Buscar wishlist" placeholder="Buscar propuesta..." value={wishlistSearch} onChange={e=>setWishlistSearch(e.target.value)} className="min-w-48 flex-1 rounded bg-zinc-950 p-2"/><select aria-label="Categoría wishlist" value={wishlistCategory} onChange={e=>setWishlistCategory(e.target.value)} className="rounded bg-zinc-950 p-2"><option value="Todas">Todas las categorías</option>{[...new Set(EFFECT_WISHLIST.map(x=>x.category))].map(c=><option key={c} value={c}>{c}</option>)}</select></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{EFFECT_WISHLIST.filter(x=>(wishlistCategory==="Todas"||x.category===wishlistCategory)&&`${x.name} ${x.description}`.toLocaleLowerCase().includes(wishlistSearch.toLocaleLowerCase())).map(x=><article key={x.id} className="rounded-xl border border-zinc-700 bg-zinc-950 p-3"><div className="flex items-center justify-between gap-2"><h3 className="font-medium">{x.name}</h3><span className="text-xs text-amber-300">Wishlist</span></div><p className="mt-1 text-xs text-zinc-400">{x.category} · {x.id}</p><p className="mt-2 text-sm text-zinc-300">{x.description}</p><p className="mt-2 text-xs text-zinc-500">Narrativo por defecto · PCH por definir</p></article>)}</div></section>
       <section id="custom-effect-catalog" className="space-y-4 rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
         <h2 className="text-xl font-semibold">Catálogo de efectos personalizados ({cards.length})</h2>
         <p className="text-sm text-zinc-400">Efectos narrativos disponibles para crear habilidades. Edita su costo o desactívalos aquí.</p>

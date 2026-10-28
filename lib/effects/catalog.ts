@@ -26,19 +26,28 @@ export const EFFECT_TARGETS = Object.fromEntries(EFFECT_CATALOG.map(e => [e.type
 
 /** Targets for configurable statistics; legacy codes remain valid for existing effects. */
 export type EffectTargetOption = { key: string; label: string };
+const TARGET_LABELS: Record<string,string> = {
+ STR:"Fuerza",AGI:"Agilidad",CON:"Constitución",INT:"Inteligencia",WIS:"Sabiduría",CHA:"Carisma",SPI:"Espíritu",LCK:"Suerte",
+ HP:"Vida",MANA:"Maná",MONEY:"Dinero",KARMA:"Karma",LEVEL_UP_POINTS:"Puntos de nivel",
+ PHYS_ATK:"Ataque físico",MAGIC_ATK:"Ataque mágico",ATTACK_TOTAL:"Ataque total",DEF:"Defensa física",MAG_DEF:"Defensa mágica",
+ PRECISION:"Precisión",CRITICAL:"Crítico",DISCOVERY:"Descubrimiento",MIRACLE:"Milagro",INTIMIDATION:"Intimidación",CONQUEST:"Conquista",
+ RACE:"Raza",DODGE:"Evasión",STEALTH:"Sigilo",DETECTION:"Detección",ALL:"Todo el daño",PHYSICAL:"Daño físico",MAGICAL:"Daño mágico",
+ INVISIBILITY:"Invisibilidad",FLOATING:"Flotar",OTHER:"Otro"
+};
 export function resolveEffectTargets(
-  type: string,
-  statistics: ReadonlyArray<{ key: string; name: string; kind: "basic" | "derived"; active?: boolean; code?: string }>,
-): EffectTargetOption[] {
-  const fixed = (EFFECT_TARGETS as Record<string, readonly string[]>)[type] ?? [];
-  const configurable = type === "STAT_BONUS" || type === "STAT_MULTIPLIER";
-  if (configurable) return statistics.filter((stat) => stat.active !== false && Boolean(stat.key)).map((stat) => ({ key: stat.code || stat.key, label: stat.name || stat.key }));
-  const combat = type === "DAMAGE_MULTIPLIER" || type === "COMBAT_MULTIPLIER";
-  if (combat) {
-    const derived = statistics.filter((stat) => stat.active !== false && ["physicalAttack","magicAttack"].includes(stat.key)).map((stat) => ({ key: stat.code || stat.key, label: stat.name || stat.key }));
-    return [...derived, { key: "ATTACK_TOTAL", label: "Ataque total" }];
-  }
-  return fixed.map((key) => ({ key, label: key }));
+ type:string,
+ statistics:ReadonlyArray<{key:string;name:string;kind:"basic"|"derived";active?:boolean;code?:string}>,
+):EffectTargetOption[] {
+ const fixed=(EFFECT_TARGETS as Record<string,readonly string[]>)[type]??[];
+ const configured=statistics.filter(s=>s.active!==false&&Boolean(s.key)).map(s=>({key:s.code||s.key,label:s.name||TARGET_LABELS[s.code||s.key]||s.key}));
+ if(type==="STAT_BONUS"||type==="STAT_MULTIPLIER"){
+   return configured.length?configured:fixed.map(key=>({key,label:TARGET_LABELS[key]??key}));
+ }
+ if(type==="DAMAGE_MULTIPLIER"||type==="COMBAT_MULTIPLIER"){
+   const derived=configured.filter(s=>["physicalAttack","magicAttack","PHYS_ATK","MAGIC_ATK"].includes(s.key));
+   return derived.length?[...derived,{key:"ATTACK_TOTAL",label:"Ataque total"}]:fixed.map(key=>({key,label:TARGET_LABELS[key]??key}));
+ }
+ return fixed.map(key=>({key,label:TARGET_LABELS[key]??key}));
 }
 
 /** Shared validation for perk and skill effect targets. */

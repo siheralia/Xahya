@@ -1,5 +1,6 @@
 "use client";
 
+import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { calculateSkillPch, effectPchCost, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
 
 import { durationPchCost, DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
@@ -543,7 +544,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     effect: [] as SkillEffect[],
   });
   const priceSkillEffect = (e: SkillEffect) => { const base = e.type==="NARRATIVE" && e.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===e.target?.slice(5))?.pch??0) : effectPchCost(e,effectPricing); return durationPchCost(base,e.durationTurns ? {kind:"TURNS",turns:e.durationTurns} : {kind:"INSTANT"},durationPricing); };
-  const skillPchCost = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0);
+  const skillBasePch = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0);
+  const skillPchCost = manaAdjustedPch(skillBasePch, skillForm.cost);
   const themePalette = character?.themePalette ?? DEFAULT_THEME;
 
   useEffect(() => {
@@ -1922,15 +1924,15 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               </div>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <label className="text-sm text-zinc-400">Nombre<input value={skillForm.name} onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Coste<input type="number" min="0" value={skillForm.cost} onChange={(e) => setSkillForm({ ...skillForm, cost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Maná por uso<input type="number" min="0" value={skillForm.cost} onChange={(e) => setSkillForm({ ...skillForm, cost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Costo por acumulación<input type="number" min="0" value={skillForm.accumulationCost} onChange={(e) => setSkillForm({ ...skillForm, accumulationCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Acumulaciones por tick<input type="number" min="0" value={skillForm.accumulationPerTick} onChange={(e) => setSkillForm({ ...skillForm, accumulationPerTick: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Costo por turno (mantenimiento)<input type="number" min="0" value={skillForm.maintenanceCost} onChange={(e) => setSkillForm({ ...skillForm, maintenanceCost: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-zinc-400">Categoría<select value={skillForm.category} onChange={(e) => setSkillForm({ ...skillForm, category: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">{skillCategories.map((category) => <option key={category[0]} value={category[0]}>{category[1]}</option>)}</select></label>
-                <label className="text-sm text-zinc-400">Duración<input value={skillForm.duration} onChange={(e) => setSkillForm({ ...skillForm, duration: e.target.value })} placeholder="Ej. 3 turnos / Instantánea" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Duración<select value={skillForm.duration} onChange={(e) => setSkillForm({ ...skillForm, duration: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"><option value="">Sin especificar</option><option value="Instantánea">Instantánea</option><option value="1 turno">1 turno</option><option value="2 turnos">2 turnos</option><option value="3 turnos">3 turnos</option><option value="5 turnos">5 turnos</option><option value="10 turnos">10 turnos</option><option value="20 turnos">20 turnos</option><option value="Permanente">Permanente</option></select></label>
                 <label className="text-sm text-zinc-400">Área de efecto<input value={skillForm.areaOfEffect} onChange={(e) => setSkillForm({ ...skillForm, areaOfEffect: e.target.value })} placeholder="Ej. Objetivo único / 5 m" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Velocidad<input value={skillForm.speed} onChange={(e) => setSkillForm({ ...skillForm, speed: e.target.value })} placeholder="Ej. Instantánea / 1 turno" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-zinc-400">Cooldown<input value={skillForm.cooldown} onChange={(e) => setSkillForm({ ...skillForm, cooldown: e.target.value })} placeholder="Ej. 2 turnos" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-zinc-400">Velocidad<select value={skillForm.speed} onChange={(e) => setSkillForm({ ...skillForm, speed: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"><option value="">Sin especificar</option><option value="Instantánea">Instantánea</option><option value="1 turno">1 turno</option><option value="2 turnos">2 turnos</option><option value="3 turnos">3 turnos</option></select></label>
+                <label className="text-sm text-zinc-400">Cooldown<select value={skillForm.cooldown} onChange={(e) => setSkillForm({ ...skillForm, cooldown: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"><option value="">Sin especificar</option><option value="Sin cooldown">Sin cooldown</option><option value="1 turno">1 turno</option><option value="2 turnos">2 turnos</option><option value="3 turnos">3 turnos</option><option value="5 turnos">5 turnos</option><option value="10 turnos">10 turnos</option></select></label>
                 {skillForm.category === "PASSIVE" && <label className="text-sm text-zinc-400">Condición<input value={skillForm.condition} onChange={(e) => setSkillForm({ ...skillForm, condition: e.target.value })} placeholder="Ej. Mientras tenga más de 50% de HP" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>}
               </div>
               <label className="mt-4 block text-sm text-zinc-400">Descripción<textarea rows={4} value={skillForm.description} onChange={(e) => setSkillForm({ ...skillForm, description: e.target.value })} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>

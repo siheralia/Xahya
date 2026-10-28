@@ -125,16 +125,17 @@ export async function POST(
   if (body.effect.some((effect: { type: string }) => pricing[effect.type]?.enabled === false)) return NextResponse.json({ error: "Uno de los efectos ya no está disponible para habilidades nuevas." }, { status: 400 });
   const narrativeCards = await readNarrativeEffectCards();
   const durationPricing = await readDurationPricing();
+  if (body.effect.some((effect: {durationTurns?:number}) => effect.durationTurns && effect.durationTurns > durationPricing.maxTurns)) return NextResponse.json({error:"La duración supera el máximo configurado."},{status:400});
   let pchCost = 0;
   for (const effect of body.effect) {
     if (effect.type === "NARRATIVE" && String(effect.target ?? "").startsWith("CARD:")) {
       const card = narrativeCards.find(c => c.id === String(effect.target).slice(5));
       if (!card || !card.enabled || String(effect.description ?? "") !== card.name + ": " + card.description)
         return NextResponse.json({ error: "Tarjeta narrativa inválida o modificada." }, { status: 400 });
-      pchCost += effect.durationTurns ? durationPchCost(card.pch,{kind:"TURNS",turns:effect.durationTurns},durationPricing) : card.pch;
+      pchCost += effect.durationTurns ? durationPchCost(card.pch,{kind:"TURNS",turns:effect.durationTurns},durationPricing) : durationPchCost(card.pch,{kind:"INSTANT"},durationPricing);
     } else {
       const base = calculateSkillPch([effect], pricing);
-      pchCost += effect.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:effect.durationTurns},durationPricing) : base;
+      pchCost += effect.durationTurns ? durationPchCost(base,{kind:"TURNS",turns:effect.durationTurns},durationPricing) : durationPchCost(base,{kind:"INSTANT"},durationPricing);
     }
   }
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });

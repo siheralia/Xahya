@@ -1,4 +1,5 @@
 "use client";
+import { SkillEffectPicker } from "@/components/skills/SkillEffectPicker";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
 
 import { applyRangePch } from "@/lib/skills/range-pricing";
@@ -1932,6 +1933,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               <div className="mt-6"><SkillCoreFields form={skillForm} onChange={setSkillForm} /></div>
               <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
                 <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">Efecto</h3><p className="text-xs text-zinc-500">Ej. ofensiva: Ataque mágico ×2. Soporte: Fuerza ×1.5.</p></div><button type="button" onClick={() => setEffectPickerOpen((open) => !open)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">+ Buscar efecto</button></div>
+                <SkillEffectPicker onPick={effect => setSkillForm(current => ({...current,effect:[...current.effect,effect]}))} />
                 {effectPickerOpen && <div className="mt-3 space-y-3 rounded-xl border border-cyan-800/50 bg-zinc-950 p-3">
                   <input aria-label="Buscar efectos" value={effectSearch} onChange={(event) => setEffectSearch(event.target.value)} placeholder="Buscar por nombre o estadística…" className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm" />
                   <div className="flex flex-wrap gap-2">{["Todos","Combate","Estadísticas","Recursos","Exploración","Especiales"].map((category) => <button type="button" key={category} onClick={() => setEffectCategory(category)} aria-pressed={effectCategory === category} className={`rounded-full border px-3 py-2 text-xs ${effectCategory === category ? "border-cyan-400 bg-cyan-950 text-cyan-200" : "border-zinc-700 text-zinc-300"}`}>{category}</button>)}</div>

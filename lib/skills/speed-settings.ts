@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { readStatisticsCatalog, CORE_BASIC_STAT_KEYS } from "@/lib/stats/dynamic";
+import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 const KEY = "skills.default-attack-speed-stat.v1";
 export const DEFAULT_ATTACK_SPEED_STAT = "agility";
 export async function availableAttackSpeedStats() {

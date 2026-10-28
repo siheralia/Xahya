@@ -1,5 +1,6 @@
-import { SkillFormModal } from "@/components/skills/SkillFormModal";
 "use client";
+import { SkillFormModal } from "@/components/skills/SkillFormModal";
+
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
 

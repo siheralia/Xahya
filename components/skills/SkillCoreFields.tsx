@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { SkillFieldHelp, type SkillHelpKey } from "./SkillFieldHelp";
 
 export type SkillCore = {
@@ -13,7 +14,7 @@ const cooldowns = ["Sin cooldown","1 turno","2 turnos","3 turnos","5 turnos","10
 export function SkillCoreFields<T extends SkillCore>({form,onChange}:{form:T;onChange:(next:T)=>void}) {
   const set = <K extends keyof SkillCore>(key:K,value:SkillCore[K]) => onChange({...form,[key]:value});
   const cls = "mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white";
-  const wrap=(label:string,key:SkillHelpKey,control:React.ReactNode)=><label className="block text-sm text-zinc-400">{label}<SkillFieldHelp field={key}/>{control}</label>;
+  const wrap=(label:string,key:SkillHelpKey,control:ReactNode)=><label className="block text-sm text-zinc-400">{label}<SkillFieldHelp field={key}/>{control}</label>;
   const number=(key:"cost"|"maintenanceCost"|"accumulationPerTick"|"accumulationCost"|"maxRangeMeters",min=0,max?:number)=><input type="number" min={min} max={max} step="1" value={form[key]??5} onChange={e=>set(key,Number(e.target.value))} className={cls}/>;
   const select=(key:"category"|"duration"|"cooldown"|"speed"|"areaOfEffect",values:readonly (readonly [string,string])[])=><select value={form[key]} onChange={e=>set(key,e.target.value)} className={cls}>{values.map(([v,label])=><option key={v} value={v}>{label}</option>)}</select>;
   return <div className="grid gap-4 sm:grid-cols-2">

@@ -1,4 +1,5 @@
 "use client";
+import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
 
 import { useEffect, useMemo, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
@@ -15,7 +16,7 @@ type Skill = {
 const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
 const effectTypes=[...EFFECT_CATALOG.filter(e=>e.type!=="MAZE_UTILITY").map(e=>[e.type,e.label] as const),["MAZE_UTILITY_INVISIBILITY","Invisibilidad"],["MAZE_UTILITY_FLOATING","Flotar"]] as const;
 const blankEffect=():Effect=>({type:"STAT_BONUS",target:"STR",value:10,description:""});
-const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"",category:"UTILITY",areaOfEffect:"",speed:"",cooldown:"",condition:"",effect:[] as Effect[]});
+const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"Instantánea",category:"UTILITY",areaOfEffect:"Objetivo único",maxRangeMeters:5,speed:"DEFAULT",cooldown:"Sin cooldown",condition:"",effect:[] as Effect[]});
 
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
@@ -52,7 +53,7 @@ export default function SkillsManagementPage(){
     setSelected(skill.id);
     setForm({
       characterId:String(skill.characterId),name:skill.name,cost:Number(skill.cost),pchCost:Number(skill.pchCost??0),accumulationCost:Number(skill.accumulationCost??0),accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),description:skill.description??"",
-      duration:skill.duration??"",category:skill.category,areaOfEffect:skill.areaOfEffect??"",speed:skill.speed??"",
+      duration:skill.duration??"",category:skill.category,areaOfEffect:skill.areaOfEffect??"",maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\d+) m/)?.[1]??5),speed:skill.speed??"DEFAULT",
       cooldown:skill.cooldown??"",condition:skill.condition??"",effect:Array.isArray(skill.effect)?skill.effect:[],
     });
     setModal(true);setError("");setSuccess("");
@@ -117,22 +118,8 @@ export default function SkillsManagementPage(){
 
     <ManagementModal open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} maxWidth="max-w-4xl">
       <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="">Selecciona...</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>
-          <label className="text-sm text-zinc-400">Nombre<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-          <label className="text-sm text-zinc-400">Coste<input type="number" min="0" value={form.cost} onChange={e=>setForm({...form,cost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-          <label className="text-sm text-zinc-400">Costo PCH (ajustable por administración)<input type="number" min="0" value={form.pchCost} onChange={e=>setForm({...form,pchCost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-          <label className="text-sm text-zinc-400">Costo por acumulación<input type="number" min="0" value={form.accumulationCost} onChange={e=>setForm({...form,accumulationCost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-          <label className="text-sm text-zinc-400">Acumulaciones por tick<input type="number" min="0" value={form.accumulationPerTick} onChange={e=>setForm({...form,accumulationPerTick:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-          <label className="text-sm text-zinc-400">Costo por turno (mantenimiento)<input type="number" min="0" value={form.maintenanceCost} onChange={e=>setForm({...form,maintenanceCost:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-          <label className="text-sm text-zinc-400">Categoría<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{categories.map(c=><option key={c[0]} value={c[0]}>{c[1]}</option>)}</select></label>
-          <label className="text-sm text-zinc-400">Duración<input value={form.duration} onChange={e=>setForm({...form,duration:e.target.value})} placeholder="Ej. 3 turnos / Instantánea" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-          <label className="text-sm text-zinc-400">Velocidad<input value={form.speed} onChange={e=>setForm({...form,speed:e.target.value})} placeholder="Ej. 1 turno / Instantánea" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-          <label className="text-sm text-zinc-400">Cooldown<input value={form.cooldown} onChange={e=>setForm({...form,cooldown:e.target.value})} placeholder="Ej. 2 turnos" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-          <label className="text-sm text-zinc-400">Área de efecto<input value={form.areaOfEffect} onChange={e=>setForm({...form,areaOfEffect:e.target.value})} placeholder="Ej. 5 m / Objetivo único" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-        </div>
-        <label className="block text-sm text-zinc-400">Descripción<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={4} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-        {form.category==="PASSIVE"&&<label className="block text-sm text-zinc-400">Condición de la pasiva<input value={form.condition} onChange={e=>setForm({...form,condition:e.target.value})} placeholder="Ej. Mientras tenga más de 50% de HP" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>}
+        <label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>
+        <SkillCoreFields form={form} onChange={setForm} />
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
           <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">Efecto</h3><p className="text-xs text-zinc-500">Los ofensivos pueden usar × sobre el ataque actual; soporte/pasiva pueden mostrar buffs.</p></div><button type="button" onClick={addEffect} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">+ Añadir</button></div>
           <div className="mt-4 space-y-3">{form.effect.map((effect,i)=>{

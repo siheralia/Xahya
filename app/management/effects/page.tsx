@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
 import type { EffectPricingMap } from "@/lib/skills/pch";
 
 import Link from "next/link";
@@ -49,10 +50,13 @@ export default function EffectsManagementPage() {
     }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
   }
   const [pricing,setPricing] = useState<EffectPricingMap>({});
+  const [durationPricing,setDurationPricing] = useState<DurationPricing>(DEFAULT_DURATION_PRICING);
   const [saving,setSaving] = useState<string|null>(null);
   const [notice,setNotice] = useState("");
-  useEffect(()=>{ fetch("/api/management/effects").then(r=>r.ok?r.json():null).then(data=>{if(data?.pricing)setPricing(data.pricing);}).catch(()=>{});},[]);
+  useEffect(()=>{ fetch("/api/management/effects").then(r=>r.ok?r.json():null).then(data=>{if(data?.pricing)setPricing(data.pricing);if(data?.durationPricing)setDurationPricing(data.durationPricing);}).catch(()=>{});},[]);
   async function savePricing(type:string){setSaving(type);setNotice("");try{const response=await fetch("/api/management/effects",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({type,...pricing[type]})});const data=await response.json();if(!response.ok)throw Error(data.error??"No se pudo guardar");setPricing(data.pricing);setNotice("Precio actualizado.");}catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}}
+
+  async function saveDurationPricing(){setSaving("duration");setNotice("");try{const response=await fetch("/api/management/effects",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"duration-pricing",pricing:durationPricing})});const data=await response.json();if(!response.ok)throw Error(data.error??"Error al guardar");setDurationPricing(data.durationPricing);setNotice("Reglas de duración guardadas.");}catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}}
 
   const [statistics, setStatistics] = useState<Statistic[]>([]);
   const [search, setSearch] = useState("");
@@ -85,6 +89,7 @@ export default function EffectsManagementPage() {
         <p className="text-sm text-zinc-400">Catálogo central de tipos, operaciones y objetivos para habilidades, perks y objetos. Los precios se pueden editar aquí; las habilidades existentes conservan su costo histórico.</p>
       </div>
       {notice && <p role="status" className="text-sm text-cyan-300">{notice}</p>}
+      <section className="space-y-3 rounded-2xl border border-zinc-700 bg-zinc-900 p-5"><h2 className="text-xl font-semibold">Costo PCH por duración</h2><p className="text-sm text-zinc-400">Los turnos aumentan el costo de cada efecto. La duración se registra en la habilidad; su contador se implementará después en combate.</p><div className="grid gap-3 sm:grid-cols-3">{([["instant","Multiplicador instantáneo"],["oneTurn","Multiplicador de 1 turno"],["perExtraTurn","Incremento por turno extra"]] as const).map(([key,label])=><label key={key} className="text-sm">{label}<input type="number" min="0" max="10" step="0.05" value={durationPricing[key]} onChange={e=>setDurationPricing(p=>({...p,[key]:Number(e.target.value)}))} className="mt-1 w-full rounded bg-zinc-950 p-2"/></label>)}</div><button type="button" disabled={saving!==null} onClick={saveDurationPricing} className="rounded bg-cyan-700 px-4 py-2 disabled:opacity-40">Guardar reglas de duración</button></section>
       <section className="space-y-4 rounded-2xl border border-cyan-900 bg-zinc-900 p-5">
         <h2 className="text-xl font-semibold">Crear efecto personalizado</h2>
         <p className="text-sm text-zinc-400">Los efectos nuevos son narrativos por defecto. Su costo PCH se cobra al crear habilidades.</p>

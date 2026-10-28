@@ -1,3 +1,4 @@
+import { validateSkillParameters } from "@/lib/effects/skill-conditions";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -37,6 +38,8 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (effect.length > 20) return "Una habilidad no puede tener más de 20 efectos.";
   for (const row of effect) {
     if (!row || typeof row !== "object" || !EFFECT_TYPES.includes(String(row.type) as any)) return "Efecto de habilidad inválido.";
+    const parameterError = validateSkillParameters(row);
+    if (parameterError) return parameterError;
     if (row.durationTurns !== undefined && (!Number.isSafeInteger(row.durationTurns) || row.durationTurns < 0 || row.durationTurns > 20)) return "Duración de efecto inválida.";
     const type = String(row.type);
     const target = String(row.target ?? "");

@@ -29,7 +29,7 @@ export async function PATCH(request:Request) {
  if (!/^[0-9a-f-]{36}$/i.test(String(body?.id))) return NextResponse.json({error:"ID inválido"},{status:400});
  const layers = body.layers;
  const storageOrigin=process.env.SUPABASE_URL;
- const validImage=(value:unknown)=>{if(typeof value!=="string")return false;if(/^\/ambientations\/[a-z-]+\.svg$/.test(value))return true;if(!storageOrigin)return false;return value.startsWith(storageOrigin.replace(/\/$/,"")+"/storage/v1/object/public/seasonal-ambientations/") && /^https:\/\/[^?#]+\.webp$/.test(value);};
+ const validImage=(value:unknown)=>{if(typeof value!=="string")return false;if(/^\/ambientations\/[a-z-]+\.svg$/.test(value))return true;if(!storageOrigin)return false;return value.startsWith(storageOrigin.replace(/\/$/,"")+"/storage/v1/object/public/seasonal-ambientations/") && /^https:\/\/[^?#]+\.(?:webp|gif)$/.test(value);};
  if (!Array.isArray(layers) || layers.length>20 || layers.some(l => !l || typeof l.id!=="string" || !validImage(l.imageUrl) || !["top-left","top-right","bottom-left","bottom-right"].includes(l.position) || !["none","float","swing","pulse","fall"].includes(l.animation) || !Number.isFinite(l.width) || l.width<30 || l.width>360 || !Number.isFinite(l.opacity) || l.opacity<0 || l.opacity>100)) return NextResponse.json({error:"Capas inválidas"},{status:400});
  const enabled = body.enabled === true;
  const starts_at = body.starts_at || null, ends_at = body.ends_at || null;

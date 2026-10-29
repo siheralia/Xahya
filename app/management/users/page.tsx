@@ -234,6 +234,7 @@ export default function ManagementUsersPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-5xl px-6 py-6">
+        <div className="mb-5 flex flex-wrap gap-3"><Link href="/management/roles" className="inline-flex rounded-lg border border-cyan-700 px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-950">Gestionar roles</Link></div>
         <h1 className="text-4xl font-bold">Usuarios</h1>
         <p className="mt-2 text-zinc-500">
           Usuarios registrados en Xahya y sus personajes.

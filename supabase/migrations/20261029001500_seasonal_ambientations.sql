@@ -13,5 +13,5 @@ create table if not exists public.seasonal_ambientations (
 create unique index if not exists seasonal_only_one_enabled on public.seasonal_ambientations(enabled) where enabled = true;
 alter table public.seasonal_ambientations enable row level security;
 insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
-values ('seasonal-ambientations','seasonal-ambientations',true,5242880,array['image/png','image/jpeg','image/webp','image/gif'])
+values ('seasonal-ambientations','seasonal-ambientations',true,5242880,array['image/webp','image/gif'])
 on conflict (id) do nothing;

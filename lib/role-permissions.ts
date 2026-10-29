@@ -47,8 +47,6 @@ export function validPermissions(value:unknown):value is Record<string,string[]>
 export async function hasRolePermission(actor:Actor|null,page:string,action:string):Promise<boolean>{
  if(!actor||["SYSTEM","BANNED"].includes(String(actor.role)))return false;
  if(actor.role==="ADMIN")return true;
- // Existing GM abilities remain valid during migration to configurable permissions.
- if(actor.role==="GM"&&page==="management.characters"&&action==="view")return true;
  const [assignments,roles]=await Promise.all([
   salaryRest("UserManagedRole?userId=eq."+actor.id+"&select=roleId") as Promise<Assignment[]>,
   salaryRest("ManagedRole?select=id,permissions") as Promise<Role[]>,

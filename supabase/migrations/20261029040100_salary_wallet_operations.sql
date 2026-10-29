@@ -62,7 +62,12 @@ BEGIN
  SELECT * INTO w FROM "UserSalaryWallet" WHERE "userId"=p_user_id FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'WALLET_MISSING'; END IF;
  SELECT * INTO existing FROM "SalaryTransfer" WHERE "requestKey"=p_request_key;
- IF FOUND THEN RETURN existing.id; END IF;
+ IF FOUND THEN
+   IF existing."userId"<>p_user_id OR existing."characterId"<>p_character_id
+     OR existing.pts<>p_pts OR existing.karma<>p_karma OR existing.money<>p_money
+   THEN RAISE EXCEPTION 'IDEMPOTENCY_KEY_CONFLICT'; END IF;
+   RETURN existing.id;
+ END IF;
  IF w.pts<p_pts OR w.karma<p_karma OR w.money<p_money THEN RAISE EXCEPTION 'INSUFFICIENT_WALLET'; END IF;
  PERFORM 1 FROM "Character" WHERE id=p_character_id AND "userId"=p_user_id FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'CHARACTER_NOT_OWNED'; END IF;

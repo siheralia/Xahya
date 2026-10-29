@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import DiceLauncher from "@/app/components/dice-launcher";
+import SeasonalAmbientation from "@/app/components/seasonal-ambientation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -167,6 +168,7 @@ export default function NavigationShell({
               <Link href="/casino" className={pathname.startsWith("/casino") ? "xahya-nav-active" : ""}>
                 Casino
               </Link>
+              {canManage && <Link href="/management/ambientations">Ambientaciones</Link>}
               {canManage && (
                 <Link href="/management" className={pathname.startsWith("/management") ? "xahya-nav-active" : ""}>
                   Gestión
@@ -206,6 +208,7 @@ export default function NavigationShell({
 
       <div className="xahya-page-content">{children}</div>
       <DiceLauncher characters={characters} />
+      <SeasonalAmbientation />
 
     </>
   );

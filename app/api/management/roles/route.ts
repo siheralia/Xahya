@@ -43,7 +43,7 @@ export async function PATCH(request:Request) {
  try {
   const rows=await salaryRest("ManagedRole?id=eq."+id+"&select=*");
   const old=rows[0];
-  if (!old || old.protected) return NextResponse.json({error:"Rol protegido o inexistente"},{status:403});
+  if (!old) return NextResponse.json({error:"Rol inexistente"},{status:404});
   const update:Record<string,unknown>={};
   if (b.name!==undefined) {if(typeof b.name!=="string"||!b.name.trim()||b.name.length>80)return NextResponse.json({error:"Nombre inválido"},{status:400});update.name=b.name.trim();}
   if (b.color!==undefined) {if(typeof b.color!=="string"||!/^#[a-fA-F0-9]{6}$/.test(b.color))return NextResponse.json({error:"Color inválido"},{status:400});update.color=b.color;}

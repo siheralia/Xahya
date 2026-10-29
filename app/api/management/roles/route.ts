@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { amount, badRequest, currentUser, isAdmin, salaryRest } from "@/lib/role-salary";
 import { recordAuditEvent } from "@/lib/audit";
-import { validPermissions } from "@/lib/role-permissions";
+import { validPermissions, hasRolePermission } from "@/lib/role-permissions";
 
 export async function GET() {
  const actor = await currentUser();
- if (!isAdmin(actor)) return NextResponse.json({error:"Forbidden"},{status:403});
+ if (!actor || !(await hasRolePermission(actor,"management.roles","view"))) return NextResponse.json({error:"Forbidden"},{status:403});
  try {
   const [roles, assignments] = await Promise.all([
    salaryRest("ManagedRole?select=*&order=id.asc"),

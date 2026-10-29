@@ -2,7 +2,7 @@ import { salaryRest } from "@/lib/role-salary";
 
 export const ROLE_PERMISSIONS = {
  "management.characters": ["view", "edit"],
- "management.users": ["view", "edit"],
+ "management.users": ["view", "view-email", "edit"],
  "management.roles": ["view", "edit"],
  "management.global-delivery": ["view", "grant"],
  "management.character-details": ["view", "edit"],

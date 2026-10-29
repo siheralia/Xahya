@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { hasRolePermission } from "@/lib/role-permissions";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId: clerkId } = await auth();
@@ -9,7 +10,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const users = await db.orm.public.User.all();
   const currentUser = users.find((user) => user.clerkId === clerkId);
-  if (!currentUser || String(currentUser.role) !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!currentUser || !(await hasRolePermission(currentUser, "management.characters", "transfer"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const characterId = Number((await params).id);
   if (!Number.isInteger(characterId) || characterId <= 0) return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });

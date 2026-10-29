@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { hasRolePermission } from "@/lib/role-permissions";
 
 export async function GET() {
   const { userId: clerkId } = await auth();
@@ -12,7 +13,7 @@ export async function GET() {
   const users = await db.orm.public.User.all();
   const currentUser = users.find((user) => user.clerkId === clerkId);
 
-  if (!currentUser || !["GM", "ADMIN"].includes(String(currentUser.role))) {
+  if (!currentUser || !(await hasRolePermission(currentUser, "management.characters", "view"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

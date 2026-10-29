@@ -36,7 +36,7 @@ async function selectRace(request: Request, context: { params: Promise<{ id: str
   const character = await Character.where({ id: characterId }).first();
   if (!character) return NextResponse.json({ error: "Personaje no encontrado." }, { status: 404 });
 
-  const isManagement = ["GM", "ADMIN"].includes(String(user.role)) || await hasRolePermission(user, "management.character-details", "edit");
+  const isManagement = String(user.role) === "ADMIN" || await hasRolePermission(user, "management.character-details", "edit");
   if (managementOnly && !isManagement) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   if (!managementOnly && Number(character.userId) !== Number(user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   if (!managementOnly && character.raceId != null) return NextResponse.json({ error: "La raza de este personaje ya fue elegida." }, { status: 409 });

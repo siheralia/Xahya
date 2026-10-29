@@ -2,9 +2,11 @@ import { salaryRest } from "@/lib/role-salary";
 
 const TIME_ZONE = "America/Chihuahua";
 function dayInChihuahua(date: Date) {
- return new Intl.DateTimeFormat("en-CA", {
+ const parts = new Intl.DateTimeFormat("en-US", {
   timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
- }).format(date);
+ }).formatToParts(date);
+ const part = (key: string) => parts.find(item => item.type === key)?.value ?? "";
+ return `${part("year")}-${part("month")}-${part("day")}`;
 }
 /**
  * Credit each local calendar day exactly once per assigned role.

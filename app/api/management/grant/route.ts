@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   const hasStatChanges = statNames.some((stat) => (stats[stat] ?? 0) !== 0);
   const hasResourceChanges = karma !== 0 || money !== 0 || levelUpPoints !== 0;
   if (!allCharacters && hasStatChanges && !(await hasRolePermission(currentUser, "management.character-details", "edit"))) return NextResponse.json({ error: "Sin permiso para editar estadísticas." }, { status: 403 });
-  if (!allCharacters && hasResourceChanges && !(await hasRolePermission(currentUser, "management.character-resources", "grant")) && role !== "GM") return NextResponse.json({ error: "Sin permiso para entregar recursos individuales." }, { status: 403 });
+  if (!allCharacters && hasResourceChanges && !(await hasRolePermission(currentUser, "management.character-resources", "grant"))) return NextResponse.json({ error: "Sin permiso para entregar recursos individuales." }, { status: 403 });
   const hasChanges = hasStatChanges || hasResourceChanges;
   if (!hasChanges) return NextResponse.json({ error: "No hay cambios para aplicar" }, { status: 400 });
 

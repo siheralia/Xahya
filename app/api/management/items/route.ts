@@ -70,7 +70,9 @@ export async function GET() {
   const Item = (db.orm.public as any).Item;
   const items = await Item.all();
   const [canViewProperties, canViewSystem, canViewEvent, canViewQuest, canViewAbility] = await Promise.all(["view-properties","view-system","view-event","view-quest","view-ability"].map(action => hasRolePermission(admin, "management.items", action)));
-  return NextResponse.json({ items: items.filter((item: any) => (canViewProperties || item.itemType !== "PROPERTY") && (canViewSystem || item.acquisitionType !== "SYSTEM") && (canViewEvent || item.acquisitionType !== "EVENT") && (canViewQuest || item.acquisitionType !== "QUEST") && (canViewAbility || item.acquisitionType !== "ABILITY_GENERATED")) });
+  const actions = ["create","edit","delete","grant","create-event","edit-event","delete-event","grant-event","create-quest","edit-quest","delete-quest","grant-quest","create-ability","edit-ability","delete-ability","grant-ability"];
+  const capabilities = Object.fromEntries(await Promise.all(actions.map(async action => [action, await hasRolePermission(admin, "management.items", action)])));
+  return NextResponse.json({ capabilities, items: items.filter((item: any) => (canViewProperties || item.itemType !== "PROPERTY") && (canViewSystem || item.acquisitionType !== "SYSTEM") && (canViewEvent || item.acquisitionType !== "EVENT") && (canViewQuest || item.acquisitionType !== "QUEST") && (canViewAbility || item.acquisitionType !== "ABILITY_GENERATED")) });
 }
 
 export async function POST(request: Request) {

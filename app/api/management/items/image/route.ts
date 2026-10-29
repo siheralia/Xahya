@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { hasRolePermission, canManageItemOrigin } from "@/lib/role-permissions";
 
 const BUCKET = "item-images";
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -10,7 +11,7 @@ async function getAdmin() {
   if (!clerkId) return null;
   const users = await db.orm.public.User.all();
   const user = users.find((u) => u.clerkId === clerkId);
-  return user && String(user.role) === "ADMIN" ? user : null;
+  return user && await hasRolePermission(user, "management.items", "view") ? user : null;
 }
 
 function config() {
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
   const item = await Item.where({ id: itemId }).first();
   if (!item) return NextResponse.json({ error: "Objeto no encontrado." }, { status: 404 });
 
+  if (!(await canManageItemOrigin(admin, item.acquisitionType, "edit"))) return NextResponse.json({ error: "Sin permiso para editar la imagen de este objeto." }, { status: 403 });
   const ext = ({ "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" } as Record<string, string>)[String(file.type)] ?? "webp";
   const path = "items/" + itemId + "." + ext;
   const { url, key } = config();

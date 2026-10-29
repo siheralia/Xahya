@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
 import { amount, badRequest, currentUser, salaryRest } from "@/lib/role-salary";
 import { db } from "@/lib/db";
 

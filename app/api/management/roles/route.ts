@@ -9,7 +9,7 @@ export async function GET() {
  try {
   const [roles, assignments] = await Promise.all([
    salaryRest("ManagedRole?select=*&order=id.asc"),
-   salaryRest("UserManagedRole?select=*&order=userId.asc"),
+   salaryRest(isAdmin(actor) ? "UserManagedRole?select=*&order=userId.asc" : `UserManagedRole?userId=eq.${actor.id}&select=*&order=userId.asc`),
   ]);
   return NextResponse.json({roles,assignments});
  } catch(e) { return badRequest(e); }

@@ -1,3 +1,4 @@
+import SalaryWallet from "./SalaryWallet";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -90,6 +91,8 @@ export default function ProfilePage() {
             {saving ? "Guardando..." : "Guardar nombre"}
           </button>
         </section>
+
+        <SalaryWallet />
 
         <section className="mt-8 rounded-2xl border border-emerald-900/40 bg-emerald-950/10 p-6">
           <h2 className="text-2xl font-bold">Mis negocios</h2>

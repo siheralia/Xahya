@@ -56,3 +56,25 @@ export async function PATCH(request:Request) {
   return NextResponse.json({role:changed[0]});
  } catch(e){return badRequest(e);}
 }
+
+export async function DELETE(request:Request) {
+ const actor=await currentUser();
+ if(!isAdmin(actor))return NextResponse.json({error:"Forbidden"},{status:403});
+ const b=await request.json().catch(()=>null);
+ const id=Number(b?.id);
+ if(!Number.isSafeInteger(id)||id<1)return NextResponse.json({error:"ID inválido"},{status:400});
+ try {
+  const roles=await salaryRest("ManagedRole?id=eq."+id+"&select=*");
+  const role=roles[0];
+  if(!role)return NextResponse.json({error:"Rol inexistente"},{status:404});
+  if(role.protected)return NextResponse.json({error:"No puedes eliminar un rol protegido"},{status:403});
+  const [assigned,accrued]=await Promise.all([
+   salaryRest("UserManagedRole?roleId=eq."+id+"&select=roleId&limit=1"),
+   salaryRest("RoleSalaryAccrual?roleId=eq."+id+"&select=id&limit=1"),
+  ]);
+  if(assigned.length||accrued.length)return NextResponse.json({error:assigned.length?"Primero retira este rol de todos los usuarios.":"Este rol tiene historial de salarios y no puede eliminarse; puedes dejar de asignarlo."},{status:409});
+  await salaryRest("ManagedRole?id=eq."+id,{method:"DELETE"});
+  await recordAuditEvent({actorUserId:actor!.id,action:"MANAGED_ROLE_DELETE",entityType:"MANAGED_ROLE",entityId:id,details:{role}});
+  return NextResponse.json({success:true});
+ }catch(e){return badRequest(e);}
+}

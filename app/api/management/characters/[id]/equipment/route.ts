@@ -2,13 +2,14 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { hasRolePermission } from "@/lib/role-permissions";
 
-async function getUserByRole(roles: string[]) {
+async function getUserByRole(roles: string[], permission?: "edit" | "delete") {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
   const users = await db.orm.public.User.all();
   const user = users.find((candidate) => candidate.clerkId === clerkId);
-  return user && roles.includes(String(user.role)) ? user : null;
+  return user && (roles.includes(String(user.role)) || (permission && await hasRolePermission(user, "management.items", permission))) ? user : null;
 }
 
 export async function PATCH(
@@ -20,7 +21,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });
   }
 
-  const admin = await getUserByRole(["ADMIN"]);
+  const admin = await getUserByRole(["ADMIN"], "edit");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await request.json();
@@ -67,7 +68,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });
   }
 
-  const admin = await getUserByRole(["ADMIN","GM"]);
+  const admin = await getUserByRole(["ADMIN","GM"], "delete");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await request.json().catch(() => null);

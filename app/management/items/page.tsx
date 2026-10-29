@@ -51,7 +51,7 @@ export default function ItemsManagementPage() {
 
   async function load(){
     setLoading(true); setError("");
-    try { const [itemsResponse,businessesResponse]=await Promise.all([fetch("/api/management/items"),fetch("/api/management/businesses")]); const d=await itemsResponse.json(); const bd=await businessesResponse.json(); if(!itemsResponse.ok) throw new Error(d.error); if(!businessesResponse.ok) throw new Error(bd.error); setItems(d.items??[]); setBusinesses((bd.businesses??[]).map((b:any)=>({id:Number(b.id),name:String(b.name)}))); }
+    try { const [itemsResponse,businessesResponse]=await Promise.all([fetch("/api/management/items"),fetch("/api/management/businesses")]); const d=await itemsResponse.json(); const bd=await businessesResponse.json(); if(!itemsResponse.ok) throw new Error(d.error); setItems(d.items??[]); setBusinesses(businessesResponse.ok ? (bd.businesses??[]).map((b:any)=>({id:Number(b.id),name:String(b.name)})) : []); }
     catch(e){setError(e instanceof Error?e.message:"No se pudieron cargar los objetos.");}
     finally{setLoading(false);}
   }

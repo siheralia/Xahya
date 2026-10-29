@@ -57,7 +57,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Karma, dinero y puntos de Level Up deben ser enteros válidos" }, { status: 400 });
   }
 
-  const hasChanges = statNames.some((stat) => (stats[stat] ?? 0) !== 0) || karma !== 0 || money !== 0 || levelUpPoints !== 0;
+  const hasStatChanges = statNames.some((stat) => (stats[stat] ?? 0) !== 0);
+  const hasResourceChanges = karma !== 0 || money !== 0 || levelUpPoints !== 0;
+  if (!allCharacters && hasStatChanges && !(await hasRolePermission(currentUser, "management.character-details", "edit"))) return NextResponse.json({ error: "Sin permiso para editar estadísticas." }, { status: 403 });
+  if (!allCharacters && hasResourceChanges && !(await hasRolePermission(currentUser, "management.character-resources", "grant")) && role !== "GM") return NextResponse.json({ error: "Sin permiso para entregar recursos individuales." }, { status: 403 });
+  const hasChanges = hasStatChanges || hasResourceChanges;
   if (!hasChanges) return NextResponse.json({ error: "No hay cambios para aplicar" }, { status: 400 });
 
   const result = await db.transaction(async (tx) => {

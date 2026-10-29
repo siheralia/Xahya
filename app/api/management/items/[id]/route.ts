@@ -5,7 +5,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
-import { hasRolePermission } from "@/lib/role-permissions";
+import { hasRolePermission, canManageItemOrigin } from "@/lib/role-permissions";
 
 const ATTACK_TYPES = ["CUT", "BLUNT", "PIERCE"] as const;
 const ITEM_TYPES = ["WEAPON", "ARMOR", "ACCESSORY", "CONSUMABLE", "MATERIAL", "PROPERTY", "OTHER"] as const;
@@ -19,7 +19,7 @@ async function getAdmin(action: "edit" | "delete") {
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await getAdmin("edit");
+  const admin = await getAdmin("view");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: "Objeto inválido." }, { status: 400 });
@@ -65,7 +65,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await getAdmin("delete");
+  const admin = await getAdmin("view");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: "Objeto inválido." }, { status: 400 });

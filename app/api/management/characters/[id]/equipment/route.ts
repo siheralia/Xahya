@@ -68,7 +68,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Personaje inválido." }, { status: 400 });
   }
 
-  const admin = await getUserByRole(["ADMIN","GM"], "delete");
+  const admin = await getUserByRole(["ADMIN"], "delete");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await request.json().catch(() => null);

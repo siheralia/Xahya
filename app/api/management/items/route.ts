@@ -5,6 +5,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
+import { hasRolePermission } from "@/lib/role-permissions";
 
 const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","PROPERTY","OTHER"] as const;
 const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","SYSTEM","OTHER"] as const;
@@ -19,12 +20,12 @@ async function getItemImageUrl(path: unknown) {
   return data?.signedURL ? process.env.SUPABASE_URL + "/storage/v1" + data.signedURL : null;
 }
 
-async function getAdmin() {
+async function getAdmin(action: "view" | "create") {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
   const users = await db.orm.public.User.all();
   const user = users.find((user) => user.clerkId === clerkId);
-  return user && String(user.role) === "ADMIN" ? user : null;
+  return user && await hasRolePermission(user, "management.items", action) ? user : null;
 }
 
 function validate(body: any, statistics: Awaited<ReturnType<typeof readStatisticsCatalog>>) {
@@ -64,7 +65,7 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
 }
 
 export async function GET() {
-  const admin = await getAdmin();
+  const admin = await getAdmin("view");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const Item = (db.orm.public as any).Item;
   const items = await Item.all();
@@ -72,7 +73,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const admin = await getAdmin();
+  const admin = await getAdmin("create");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json();
   const error = validate(body, await readStatisticsCatalog());

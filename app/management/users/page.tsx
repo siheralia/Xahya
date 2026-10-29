@@ -225,6 +225,7 @@ export default function ManagementUsersPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-zinc-950 p-12 text-white">
+      <div className="mx-auto max-w-5xl px-6 pt-4"><Link href="/management/roles" className="inline-flex rounded-lg border border-cyan-700 px-4 py-2 text-cyan-300 hover:bg-cyan-950">Gestión de roles →</Link></div>
         <p className="text-zinc-500">Cargando usuarios...</p>
       </main>
     );

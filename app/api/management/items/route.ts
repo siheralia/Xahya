@@ -74,7 +74,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const admin = await getAdmin("create");
+  const admin = await getAdmin("view");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json();
   const error = validate(body, await readStatisticsCatalog());

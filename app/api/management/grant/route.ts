@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     const currentResources = await tx.orm.public.CharacterResource.where({ characterId }).first();
     if (!currentStats || !currentResources) throw new Error("Datos del personaje incompletos");
 
-    if (role === "ADMIN") {
+    if (role === "ADMIN" || await hasRolePermission(currentUser, "management.character-details", "edit")) {
       const nextCore = Object.fromEntries(statNames.map((stat) => [stat, Number(currentStats[stat]) + (stats[stat] ?? 0)])) as Record<StatName, number>;
       await tx.orm.public.CharacterStat.where({ id: currentStats.id }).update(nextCore);
       await syncCharacterCoreBasicStats(characterId, nextCore, tx);

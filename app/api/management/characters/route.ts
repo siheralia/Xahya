@@ -13,7 +13,14 @@ export async function GET() {
   const users = await db.orm.public.User.all();
   const currentUser = users.find((user) => user.clerkId === clerkId);
 
-  if (!currentUser || !(await hasRolePermission(currentUser, "management.characters", "view"))) {
+  if (!currentUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const capabilities = {
+    global: await hasRolePermission(currentUser, "management.global-delivery", "grant"),
+    resources: await hasRolePermission(currentUser, "management.character-resources", "grant") || String(currentUser.role) === "GM",
+    details: await hasRolePermission(currentUser, "management.character-details", "edit"),
+    characters: await hasRolePermission(currentUser, "management.characters", "view"),
+  };
+  if (!Object.values(capabilities).some(Boolean)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -25,6 +32,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
+    capabilities,
     isAdmin: String(currentUser.role) === "ADMIN",
     isGM: String(currentUser.role) === "GM",
     characters: manageableCharacters.map((character) => {

@@ -20,8 +20,8 @@ export default function RolesPage(){
  const [busy,setBusy]=useState(false);
  const load=useCallback(async()=>{
   const [r,u]=await Promise.all([fetch("/api/management/roles"),fetch("/api/management/users")]);
-  if(!r.ok||!u.ok)throw new Error("No tienes acceso a la gestión de roles.");
-  const [rolesData,usersData]=await Promise.all([r.json(),u.json()]);
+  if(!r.ok)throw new Error("No tienes acceso a la gestión de roles.");
+  const [rolesData,usersData]=await Promise.all([r.json(),u.ok?u.json():Promise.resolve({users:[]})]);
   setRoles(rolesData.roles??[]);setAssignments(rolesData.assignments??[]);setUsers(usersData.users??[]);
  },[]);
  useEffect(()=>{load().catch(e=>setError(String(e.message)));},[load]);

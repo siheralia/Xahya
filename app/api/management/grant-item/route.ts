@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { hasRolePermission } from "@/lib/role-permissions";
+import { hasRolePermission, canManageItemOrigin } from "@/lib/role-permissions";
 
 async function getManager() {
   const { userId: clerkId } = await auth();
@@ -10,7 +10,7 @@ async function getManager() {
 
   const users = await db.orm.public.User.all();
   const user = users.find((candidate) => candidate.clerkId === clerkId);
-  if (!user || !(await hasRolePermission(user, "management.character-resources", "grant") || await hasRolePermission(user, "management.items", "grant"))) return null;
+  if (!user || !(await hasRolePermission(user, "management.character-resources", "grant") || await hasRolePermission(user, "management.items", "view"))) return null;
 
   return user;
 }

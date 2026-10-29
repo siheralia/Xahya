@@ -1,5 +1,5 @@
-import SalaryWallet from "./SalaryWallet";
 "use client";
+import SalaryWallet from "./SalaryWallet";
 
 import { useEffect, useState } from "react";
 

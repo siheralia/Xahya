@@ -49,6 +49,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isGM, setIsGM] = useState(false);
+  const [capabilities, setCapabilities] = useState({global:false,resources:false,details:false,characters:false});
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteCountdown, setDeleteCountdown] = useState(5);
   const [deleting, setDeleting] = useState(false);
@@ -100,6 +101,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
         setCharacters(data.characters ?? data);
         setIsAdmin(Boolean(data.isAdmin));
         setIsGM(Boolean(data.isGM));
+        setCapabilities(data.capabilities ?? {global:false,resources:false,details:false,characters:false});
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar personajes."))
       .finally(() => setLoading(false));
@@ -620,7 +622,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
         )}
 
         {toolsMode && <>
-        {isAdmin && (
+        {capabilities.global && (
           <section className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-950/10 p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -634,7 +636,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
           </section>
         )}
 
-        {(isAdmin || isGM) && characterId && (
+        {capabilities.details && characterId && (
           <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-950/10 p-6">
             <h2 className="text-xl font-semibold">Raza del personaje</h2>
             <p className="mt-1 text-sm text-zinc-500">Cambiar la raza elimina solo las perks cuyo origen sea la raza anterior y conserva las obtenidas por creación u otras fuentes.</p>
@@ -667,7 +669,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
           </select>
         </section>
 
-        {characterId && (
+        {capabilities.resources && characterId && (
           <section className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-6">
             <h2 className="text-xl font-semibold">Entregar objeto</h2>
             <p className="mt-1 text-sm text-zinc-500">GM y ADMIN pueden entregar directamente objetos del catálogo. No se cobra dinero.</p>
@@ -943,7 +945,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
           )}
         </div>
 
-        {globalOpen && isAdmin && (
+        {globalOpen && capabilities.global && (
           <div className="xahya-modal-overlay flex items-center justify-center bg-black/70 p-6">
             <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
               <h2 className="text-xl font-semibold">Dar recursos a todos</h2>

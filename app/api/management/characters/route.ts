@@ -16,7 +16,7 @@ export async function GET() {
   if (!currentUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const capabilities = {
     global: await hasRolePermission(currentUser, "management.global-delivery", "grant"),
-    resources: await hasRolePermission(currentUser, "management.character-resources", "grant") || String(currentUser.role) === "GM",
+    resources: await hasRolePermission(currentUser, "management.character-resources", "grant"),
     details: await hasRolePermission(currentUser, "management.character-details", "edit"),
     characters: await hasRolePermission(currentUser, "management.characters", "view"),
   };

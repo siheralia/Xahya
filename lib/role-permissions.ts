@@ -54,5 +54,5 @@ export async function hasRolePermission(actor:Actor|null,page:string,action:stri
   salaryRest("ManagedRole?select=id,permissions") as Promise<Role[]>,
  ]);
  const assigned=new Set(assignments.map(a=>a.roleId));
- return roles.some(role=>assigned.has(role.id)&&permits(role.permissions,page,action));
+ return roles.some(role=>assigned.has(role.id)&&permits(role.permissions,page,action)) && (action==="view" || roles.some(role=>assigned.has(role.id)&&permits(role.permissions,page,"view")));
 }

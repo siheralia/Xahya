@@ -904,7 +904,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
             </section>
           )}
 
-          <section className={isAdmin ? "mt-8 border-t border-zinc-800 pt-6" : ""}>
+          {capabilities.resources && <section className={capabilities.details ? "mt-8 border-t border-zinc-800 pt-6" : ""}>
             <h3 className="text-lg font-semibold">Recursos</h3>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="block">
@@ -920,7 +920,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
                 <input type="number" value={levelUpPoints} onChange={(event) => setLevelUpPoints(Math.trunc(Number(event.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500" />
               </label>
             </div>
-          </section>
+          </section>}
 
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button type="button" onClick={() => setStatsModalOpen(false)} disabled={saving} className="rounded-lg border border-zinc-700 px-5 py-3 text-zinc-300 hover:bg-zinc-900 disabled:opacity-40">

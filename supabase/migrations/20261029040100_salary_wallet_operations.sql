@@ -89,3 +89,7 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.accrue_role_salary(date) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.transfer_role_salary(integer,integer,bigint,bigint,bigint,uuid) FROM PUBLIC;
+
+-- PostgREST service-role calls must retain EXECUTE after PUBLIC revocation.
+GRANT EXECUTE ON FUNCTION public.accrue_role_salary(date) TO service_role;
+GRANT EXECUTE ON FUNCTION public.transfer_role_salary(integer,integer,bigint,bigint,bigint,uuid) TO service_role;

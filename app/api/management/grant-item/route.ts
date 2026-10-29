@@ -22,8 +22,9 @@ export async function GET() {
   const Item = (db.orm.public as any).Item;
   const items = await Item.all();
 
+  const permitted = await Promise.all(items.map(async (item: any) => ({ item, allowed: await canManageItemOrigin(manager, item.acquisitionType, "grant") || (!["EVENT","QUEST","ABILITY_GENERATED","SYSTEM"].includes(String(item.acquisitionType)) && await hasRolePermission(manager, "management.character-resources", "grant")) })));
   return NextResponse.json({
-    items: items.map((item: any) => ({
+    items: permitted.filter(entry => entry.allowed).map(({item}: {item:any}) => ({
       id: Number(item.id),
       name: String(item.name),
       description: item.description == null ? null : String(item.description),

@@ -17,7 +17,7 @@ export async function POST(request:Request) {
   const roles=await salaryRest("ManagedRole?id=eq."+roleId+"&select=*");
   const role=roles[0];
   if(!user||!role)return NextResponse.json({error:"Usuario o rol inexistente"},{status:404});
-  if(["BANNED","SYSTEM"].includes(String(user.role))||role.protected)
+  if(["ADMIN","BANNED","SYSTEM"].includes(String(user.role))||role.protected)
    return NextResponse.json({error:"Rol o usuario protegido"},{status:403});
   const query="UserManagedRole?userId=eq."+userId+"&roleId=eq."+roleId;
   const existing=await salaryRest(query+"&select=*");

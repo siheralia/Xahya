@@ -2,13 +2,14 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { hasRolePermission } from "@/lib/role-permissions";
 
-async function getAdmin() {
+async function getAdmin(action: "view" | "edit") {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
   const users = await db.orm.public.User.all();
   const user = users.find((candidate) => candidate.clerkId === clerkId);
-  return user && String(user.role) === "ADMIN" ? user : null;
+  return user && await hasRolePermission(user, "management.skills", action) ? user : null;
 }
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
@@ -32,7 +33,7 @@ function validate(body: any) {
 }
 
 export async function GET() {
-  const admin = await getAdmin();
+  const admin = await getAdmin("view");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const Skill = (db.orm.public as any).Skill;
   if (!Skill) return NextResponse.json({ skills: [] });
@@ -47,7 +48,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const admin = await getAdmin();
+  const admin = await getAdmin("edit");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json().catch(() => null);
   const error = validate(body);

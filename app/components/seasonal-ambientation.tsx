@@ -35,7 +35,7 @@ export default function SeasonalAmbientation() {
       window.removeEventListener("ambientations-updated", onFocus);
     };
   }, []);
-  return <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[60] overflow-hidden">
+  return <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[1100] overflow-hidden">
     {layers.filter(l => /^(https:\/\/|\/ambientations\/)/.test(l.imageUrl) && positions[l.position]).map(layer =>
       <img key={layer.id} src={layer.imageUrl} alt="" draggable={false}
         className={"absolute select-none seasonal-" + (["float","swing","pulse","fall"].includes(layer.animation) ? layer.animation : "none")}

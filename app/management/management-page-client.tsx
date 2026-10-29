@@ -502,62 +502,48 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
             )}
 
 
-            {isAdmin && (
-              {canSee("world") && (<Link
+            {canSee("world") && (<Link
                 href="/management/world"
                 className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30"
               >
                 Mundo
               </Link>)}
-            )}
 
-            {isAdmin && (
-              {canSee("businesses") && (<Link
+            {canSee("businesses") && (<Link
                 href="/management/businesses"
                 className="rounded-lg border border-emerald-500/30 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-950/30"
               >
                 Negocios y empleos
               </Link>)}
-            )}
 
-            {isAdmin && (
-              {canSee("perks") && (<Link
+            {canSee("perks") && (<Link
                 href="/management/perks"
                 className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
               >
                 Perks
               </Link>)}
-            )}
-            {isAdmin && (
-              {canSee("races") && (<Link
+            {canSee("races") && (<Link
                 href="/management/races"
                 className="rounded-lg border border-violet-500/30 px-4 py-2 text-sm font-medium text-violet-300 transition hover:bg-violet-950/30"
               >
                 Razas
               </Link>)}
-            )}
 
-            {isAdmin && (
-              {canSee("skills") && (<Link
+            {canSee("skills") && (<Link
                 href="/management/skills"
                 className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
               >
                 Habilidades
               </Link>)}
-            )}
 
-            {isAdmin && (
-              {canSee("roles") && (<Link href="/management/roles" className="rounded-lg border border-cyan-700 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950">Gestionar roles</Link>)}
-            )}
+            {canSee("roles") && (<Link href="/management/roles" className="rounded-lg border border-cyan-700 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950">Gestionar roles</Link>)}
 
-            {isAdmin && (
-              {canSee("users") && (<Link
+            {canSee("users") && (<Link
                 href="/management/users"
                 className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
               >
                 Ver usuarios
               </Link>)}
-            )}
 
             {canSee("social") && (<Link
               href="/management/social"
@@ -565,18 +551,14 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
             >
               Relaciones sociales
             </Link>)}
-            {isAdmin && (
-              {canSee("statistics") && (<Link
+            {canSee("statistics") && (<Link
                 href="/management/statistics"
                 className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30"
               >
                 Estadísticas
               </Link>)}
-            )}
 
-            {(isAdmin || isGM) && (
-              {canSee("effects") && (<Link href="/management/effects" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de efectos</Link>)}
-            )}
+            {canSee("effects") && (<Link href="/management/effects" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de efectos</Link>)}
 
             {canSee("labyrinth") && (<Link
               href="/management/maze"

@@ -8,7 +8,7 @@ BEGIN
     INSERT INTO "RoleSalaryAccrual" ("userId","roleId","salaryDate",pts,karma,money)
     SELECT a."userId", a."roleId", p_day, r."dailyPts",r."dailyKarma",r."dailyMoney"
     FROM "UserManagedRole" a JOIN "ManagedRole" r ON r.id=a."roleId"
-    JOIN "User" u ON u.id=a."userId"
+    JOIN "user" u ON u.id=a."userId"
     WHERE u.role NOT IN ('BANNED','SYSTEM') AND (a."assignedAt" AT TIME ZONE 'America/Chihuahua')::date <= p_day
     ON CONFLICT ("userId","roleId","salaryDate") DO NOTHING
     RETURNING *
@@ -26,7 +26,7 @@ BEGIN
     RETURNING "userId"
   )
   , audited AS (
-    INSERT INTO "AuditLog" ("actorUserId",action,"entityType","entityId","targetUserId",details,"createdAt")
+    INSERT INTO "auditLog" ("actorUserId",action,"entityType","entityId","targetUserId",details,"createdAt")
     SELECT NULL,'ROLE_SALARY_ACCRUAL','USER',i."userId",i."userId",
       jsonb_build_object('roleId',i."roleId",'salaryDate',i."salaryDate",
       'pts',i.pts,'karma',i.karma,'money',i.money)::text,now()
@@ -43,7 +43,7 @@ CREATE OR REPLACE FUNCTION public.transfer_role_salary(
  p_user_id integer, p_character_id integer, p_pts bigint, p_karma bigint,
  p_money bigint, p_request_key uuid
 ) RETURNS bigint LANGUAGE plpgsql SECURITY INVOKER AS $$
-DECLARE w "UserSalaryWallet"%ROWTYPE; c "CharacterResource"%ROWTYPE;
+DECLARE w "UserSalaryWallet"%ROWTYPE; c "characterResource"%ROWTYPE;
  t_id bigint; existing "SalaryTransfer"%ROWTYPE;
 BEGIN
  IF p_request_key IS NULL OR p_pts IS NULL OR p_karma IS NULL OR p_money IS NULL
@@ -69,21 +69,21 @@ BEGIN
    RETURN existing.id;
  END IF;
  IF w.pts<p_pts OR w.karma<p_karma OR w.money<p_money THEN RAISE EXCEPTION 'INSUFFICIENT_WALLET'; END IF;
- PERFORM 1 FROM "Character" WHERE id=p_character_id AND "userId"=p_user_id FOR UPDATE;
+ PERFORM 1 FROM "character" WHERE id=p_character_id AND "userId"=p_user_id FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'CHARACTER_NOT_OWNED'; END IF;
- SELECT * INTO c FROM "CharacterResource" WHERE "characterId"=p_character_id FOR UPDATE;
+ SELECT * INTO c FROM "characterResource" WHERE "characterId"=p_character_id FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'CHARACTER_RESOURCE_MISSING'; END IF;
  IF c."levelUpPoints"::bigint+p_pts>2147483647 OR c.karma::bigint+p_karma>2147483647
  OR c.money::bigint+p_money>2147483647 THEN RAISE EXCEPTION 'RESOURCE_OVERFLOW'; END IF;
  UPDATE "UserSalaryWallet" SET pts=pts-p_pts,karma=karma-p_karma,money=money-p_money,"updatedAt"=now() WHERE "userId"=p_user_id;
- UPDATE "CharacterResource" SET "levelUpPoints"="levelUpPoints"+p_pts::integer,
+ UPDATE "characterResource" SET "levelUpPoints"="levelUpPoints"+p_pts::integer,
  karma=karma+p_karma::integer,money=money+p_money::integer WHERE id=c.id;
  INSERT INTO "SalaryTransfer" ("requestKey","userId","characterId",pts,karma,money,"balanceBefore","balanceAfter")
  VALUES (p_request_key,p_user_id,p_character_id,p_pts,p_karma,p_money,
  jsonb_build_object('pts',w.pts,'karma',w.karma,'money',w.money),
  jsonb_build_object('pts',w.pts-p_pts,'karma',w.karma-p_karma,'money',w.money-p_money))
  RETURNING id INTO t_id;
- INSERT INTO "AuditLog" ("actorUserId",action,"entityType","entityId","characterId","targetUserId",details,"createdAt")
+ INSERT INTO "auditLog" ("actorUserId",action,"entityType","entityId","characterId","targetUserId",details,"createdAt")
  VALUES (p_user_id,'ROLE_SALARY_TRANSFER','SALARY_TRANSFER',NULL,p_character_id,p_user_id,
  jsonb_build_object('transferId',t_id,'requestKey',p_request_key,'pts',p_pts,'karma',p_karma,'money',p_money,
  'walletBefore',jsonb_build_object('pts',w.pts,'karma',w.karma,'money',w.money),

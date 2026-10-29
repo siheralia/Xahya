@@ -90,7 +90,7 @@ export default function ItemsManagementPage() {
     })}));
   }
   async function save(){
-    if(!canAction(selected?"edit":"create",form.acquisitionType)){setError("No tienes permiso para guardar objetos de este origen.");return;}
+    if(!canAction(selected?"edit":"create",form.acquisitionType) || (selected && !canAction("edit",items.find(item=>item.id===selected)?.acquisitionType??""))){setError("No tienes permiso para guardar objetos de este origen.");return;}
     setSaving(true);setError("");setSuccess("");
     try{
       const url=selected?"/api/management/items/"+selected:"/api/management/items";

@@ -17,14 +17,16 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const canViewEmail = await hasRolePermission(currentUser, "management.users", "view-email");
   const characters = await db.orm.public.Character.all();
 
   return NextResponse.json({
     currentUserId: currentUser.id,
+    canViewEmail,
     users: users.map((user) => ({
       id: user.id,
       name: user.name ?? "Sin nombre",
-      email: user.email,
+      email: canViewEmail ? user.email : null,
       role: user.role,
       characters: characters
         .filter((character) => character.userId === user.id)

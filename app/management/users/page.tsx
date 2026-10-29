@@ -6,7 +6,7 @@ import Link from "next/link";
 type User = {
   id: number;
   name: string;
-  email: string;
+  email: string | null;
   role: string;
   characters: {
     id: number;
@@ -257,7 +257,7 @@ export default function ManagementUsersPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-semibold">{user.name}</h2>
-                  <p className="mt-1 text-sm text-zinc-500">{user.email}</p>
+                  <p className="mt-1 text-sm text-zinc-500">{user.email ?? "Correo privado"}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400">

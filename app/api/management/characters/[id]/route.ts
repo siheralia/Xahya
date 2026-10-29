@@ -51,7 +51,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const users = await db.orm.public.User.all();
   const currentUser = users.find((user) => user.clerkId === clerkId);
-  if (!currentUser || String(currentUser.role) !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!currentUser || !(await hasRolePermission(currentUser, "management.characters", "delete"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const characterId = await getCharacterId(params);
   if (!characterId) return NextResponse.json({ error: "Personaje inválido" }, { status: 400 });

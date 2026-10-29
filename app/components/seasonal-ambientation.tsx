@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type Layer = { id: string; imageUrl: string; position: string; width: number; opacity: number; animation: string; mirror?: boolean };
 const positions: Record<string, React.CSSProperties> = {
@@ -11,6 +12,7 @@ const positions: Record<string, React.CSSProperties> = {
 };
 export default function SeasonalAmbientation() {
   const [layers, setLayers] = useState<Layer[]>([]);
+  const pathname = usePathname();
   useEffect(() => {
     let active = true;
     const refresh = async () => {
@@ -24,17 +26,13 @@ export default function SeasonalAmbientation() {
       }
     };
     void refresh();
-    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 15000);
-    const onFocus = () => { void refresh(); };
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("ambientations-updated", onFocus);
+    const onUpdated = () => { void refresh(); };
+    window.addEventListener("ambientations-updated", onUpdated);
     return () => {
       active = false;
-      window.clearInterval(timer);
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("ambientations-updated", onFocus);
+      window.removeEventListener("ambientations-updated", onUpdated);
     };
-  }, []);
+  }, [pathname]);
   return <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[1100] overflow-hidden">
     {layers.filter(l => /^(https:\/\/|\/ambientations\/)/.test(l.imageUrl) && positions[l.position]).map(layer =>
       <img key={layer.id} src={layer.imageUrl} alt="" draggable={false}

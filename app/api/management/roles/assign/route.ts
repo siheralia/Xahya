@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { badRequest, currentUser, isAdmin, salaryRest } from "@/lib/role-salary";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { hasRolePermission } from "@/lib/role-permissions";
 
 export async function POST(request:Request) {
  const actor=await currentUser();
- if(!isAdmin(actor))return NextResponse.json({error:"Forbidden"},{status:403});
+ if(!actor || !(await hasRolePermission(actor,"management.users","assign-roles")))return NextResponse.json({error:"Forbidden"},{status:403});
  const b=await request.json().catch(()=>null);
  const userId=Number(b?.userId), roleId=Number(b?.roleId);
  if(!Number.isSafeInteger(userId)||userId<1||!Number.isSafeInteger(roleId)||roleId<1||typeof b?.assigned!=="boolean")

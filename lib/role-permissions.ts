@@ -41,7 +41,7 @@ export function validPermissions(value:unknown):value is Record<string,string[]>
  if(!value||typeof value!=="object"||Array.isArray(value))return false;
  return Object.entries(value).every(([page,actions])=>
   (page==="*" || Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS,page)) &&
-  Array.isArray(actions) && actions.length<=10 &&
+  Array.isArray(actions) && actions.length<=20 &&
   actions.every(action=>typeof action==="string" && (action==="*" || (page!=="*" && (ROLE_PERMISSIONS[page as keyof typeof ROLE_PERMISSIONS] as readonly string[]).includes(action)))));
 }
 export async function hasRolePermission(actor:Actor|null,page:string,action:string):Promise<boolean>{

@@ -14,6 +14,10 @@
     {
       "path": "/api/cron/maze-reset",
       "schedule": "0 12 * * 1"
+    },
+    {
+      "path": "/api/cron/role-salaries",
+      "schedule": "10 2 * * *"
     }
   ]
 }

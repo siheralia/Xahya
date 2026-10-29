@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { syncCharacterRacePerks } from "@/lib/races";
+import { hasRolePermission } from "@/lib/role-permissions";
 
 async function getCurrentUser() {
   const { userId: clerkId } = await auth();
@@ -35,7 +36,7 @@ async function selectRace(request: Request, context: { params: Promise<{ id: str
   const character = await Character.where({ id: characterId }).first();
   if (!character) return NextResponse.json({ error: "Personaje no encontrado." }, { status: 404 });
 
-  const isManagement = ["GM", "ADMIN"].includes(String(user.role));
+  const isManagement = ["GM", "ADMIN"].includes(String(user.role)) || await hasRolePermission(user, "management.character-details", "edit");
   if (managementOnly && !isManagement) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   if (!managementOnly && Number(character.userId) !== Number(user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   if (!managementOnly && character.raceId != null) return NextResponse.json({ error: "La raza de este personaje ya fue elegida." }, { status: 409 });

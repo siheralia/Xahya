@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { amount, badRequest, currentUser, isAdmin, salaryRest } from "@/lib/role-salary";
 import { recordAuditEvent } from "@/lib/audit";
+import { validPermissions } from "@/lib/role-permissions";
 
 export async function GET() {
  const actor = await currentUser();
@@ -23,7 +24,7 @@ export async function POST(request:Request) {
  const pts=amount(b?.dailyPts), karma=amount(b?.dailyKarma), money=amount(b?.dailyMoney);
  if (!name || name.length>80 || !/^[a-z][a-z0-9_-]{1,39}$/.test(slug) ||
  !/^#[a-fA-F0-9]{6}$/.test(color) || pts===null || karma===null || money===null ||
- !b.permissions || typeof b.permissions!=="object" || Array.isArray(b.permissions) ||
+ !validPermissions(b.permissions) ||
  JSON.stringify(b.permissions).length>8000 || ["admin","gm","player","system","banned"].includes(slug))
  return NextResponse.json({error:"Datos de rol inválidos"},{status:400});
  try {
@@ -47,7 +48,7 @@ export async function PATCH(request:Request) {
   if (b.name!==undefined) {if(typeof b.name!=="string"||!b.name.trim()||b.name.length>80)return NextResponse.json({error:"Nombre inválido"},{status:400});update.name=b.name.trim();}
   if (b.color!==undefined) {if(typeof b.color!=="string"||!/^#[a-fA-F0-9]{6}$/.test(b.color))return NextResponse.json({error:"Color inválido"},{status:400});update.color=b.color;}
   for(const key of ["dailyPts","dailyKarma","dailyMoney"]) if(b[key]!==undefined){const n=amount(b[key]);if(n===null)return NextResponse.json({error:"Salario inválido"},{status:400});update[key]=n;}
-  if(b.permissions!==undefined){if(!b.permissions||typeof b.permissions!=="object"||Array.isArray(b.permissions)||JSON.stringify(b.permissions).length>8000)return NextResponse.json({error:"Permisos inválidos"},{status:400});update.permissions=b.permissions;}
+  if(b.permissions!==undefined){if(!validPermissions(b.permissions)||JSON.stringify(b.permissions).length>8000)return NextResponse.json({error:"Permisos inválidos"},{status:400});update.permissions=b.permissions;}
   if(!Object.keys(update).length)return NextResponse.json({error:"Sin cambios"},{status:400});
   update.updatedAt=new Date().toISOString();
   const changed=await salaryRest("ManagedRole?id=eq."+id,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify(update)});

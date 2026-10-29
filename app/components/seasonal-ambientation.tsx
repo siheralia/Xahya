@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type Layer = { id: string; imageUrl: string; position: string; width: number; opacity: number; animation: string; mirror?: boolean };
 const positions: Record<string, React.CSSProperties> = {
-  "top-left": { top: "var(--xahya-nav-height, 110px)", left: 0 },
+  "top-left": { top: 0, left: 0 },
   "top-right": { top: "var(--xahya-nav-height, 110px)", right: 0 },
   "bottom-left": { bottom: 0, left: 0 },
   "bottom-right": { bottom: 0, right: 0 },

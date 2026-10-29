@@ -585,6 +585,12 @@ export default function ManagementPage() {
                   Enemigos
                 </Link>
                 <Link
+                  href="/management/ambientations"
+                  className="rounded-lg border border-fuchsia-500/30 px-4 py-2 text-sm font-medium text-fuchsia-300 transition hover:bg-fuchsia-950/30"
+                >
+                  Ambientaciones
+                </Link>
+                <Link
                   href="/management/themes"
                   className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
                 >

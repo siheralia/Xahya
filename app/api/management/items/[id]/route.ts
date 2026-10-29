@@ -27,6 +27,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const item = await Item.where({ id }).first();
   if (!item) return NextResponse.json({ error: "Objeto no encontrado." }, { status: 404 });
   const body = await request.json();
+  if (!(await canManageItemOrigin(admin, item.acquisitionType, "edit")) || !(await canManageItemOrigin(admin, body?.acquisitionType ?? item.acquisitionType, "edit"))) return NextResponse.json({error:"Sin permiso para editar objetos de este origen."},{status:403});
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() || null : null;
   const itemType = String(body.itemType ?? item.itemType);

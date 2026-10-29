@@ -18,13 +18,15 @@ export default function RolesPage(){
  const [error,setError]=useState("");
  const [message,setMessage]=useState("");
  const [busy,setBusy]=useState(false);
+ const [allowedActions,setAllowedActions]=useState<string[]>([]);
+ const can=(action:string)=>allowedActions.includes(action);
  const load=useCallback(async()=>{
   const [r,u]=await Promise.all([fetch("/api/management/roles"),fetch("/api/management/users")]);
   if(!r.ok)throw new Error("No tienes acceso a la gestión de roles.");
   const [rolesData,usersData]=await Promise.all([r.json(),u.ok?u.json():Promise.resolve({users:[]})]);
   setRoles(rolesData.roles??[]);setAssignments(rolesData.assignments??[]);setUsers(usersData.users??[]);
  },[]);
- useEffect(()=>{load().catch(e=>setError(String(e.message)));},[load]);
+ useEffect(()=>{load().catch(e=>setError(String(e.message)));fetch("/api/management/capabilities").then(r=>r.json()).then(d=>setAllowedActions(d.actions?.["management.roles"]??[])).catch(()=>{});},[load]);
  function edit(role:Role){setEditId(role.id);setDraft({name:role.name,slug:role.slug,color:role.color,dailyPts:role.dailyPts,dailyKarma:role.dailyKarma,dailyMoney:role.dailyMoney,permissions:role.permissions});setPermissionsText(JSON.stringify(role.permissions,null,2));}
  async function save(){
   setBusy(true);setError("");setMessage("");
@@ -61,7 +63,7 @@ export default function RolesPage(){
   <h1 className="mt-4 text-3xl font-bold">Gestión de roles</h1>
   <p className="mt-2 text-zinc-400">Los salarios diarios de todos los roles asignados se suman en la billetera del usuario. Los roles protegidos conservan sus permisos existentes.</p>
   {error&&<p role="alert" className="mt-4 text-red-400">{error}</p>}{message&&<p className="mt-4 text-emerald-400">{message}</p>}
-  <section className="mt-6 rounded-xl border border-zinc-800 p-5">
+  {(can("create")||can("edit")) && <section className="mt-6 rounded-xl border border-zinc-800 p-5">
    <h2 className="text-xl font-semibold">{editId?"Editar rol":"Crear rol"}</h2>
    <div className="mt-4 grid gap-3 sm:grid-cols-2">
     <label>Nombre<input className={input} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
@@ -77,9 +79,9 @@ export default function RolesPage(){
     <details className="mt-4 border-t border-zinc-800 pt-3"><summary className="cursor-pointer text-sm text-zinc-400">Configuración avanzada (JSON)</summary><textarea className={input} rows={5} value={permissionsText} onChange={e=>setPermissionsText(e.target.value)}/></details>
    </div>
    <p className="mt-2 text-xs text-amber-300">Algunas secciones siguen en integración. Asignar un permiso no habilita automáticamente las rutas que todavía requieren autorización específica.</p>
-   <div className="mt-4 flex gap-3"><button disabled={busy} onClick={save} className="rounded-lg bg-cyan-600 px-5 py-2 disabled:opacity-50">Guardar rol</button>{editId!==null&&<button onClick={()=>{setEditId(null);setDraft(blank);setPermissionsText("{}");}} className="rounded-lg border border-zinc-700 px-4 py-2">Cancelar</button>}</div>
-  </section>
-  <section className="mt-6 rounded-xl border border-zinc-800 p-5"><h2 className="text-xl font-semibold">Roles existentes</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{roles.map(role=><div key={role.id} className="rounded-lg border border-zinc-800 p-4"><span className="rounded px-2 py-1 text-sm font-semibold" style={{backgroundColor:role.color,color:"#111"}}>{role.name}</span><p className="mt-3 text-sm text-zinc-400">{role.dailyPts} PTS · {role.dailyKarma} karma · {role.dailyMoney} dinero / día</p><div className="mt-3 flex gap-4"><button disabled={busy} onClick={()=>{edit(role);window.scrollTo({top:0,behavior:"smooth"});}} className="text-cyan-400 disabled:opacity-50">Editar</button>{!role.protected&&<button disabled={busy} onClick={()=>remove(role)} className="text-red-400 disabled:opacity-50">Eliminar</button>}</div></div>)}</div></section>
-  <section className="mt-6 rounded-xl border border-zinc-800 p-5"><h2 className="text-xl font-semibold">Asignaciones</h2><div className="mt-4 space-y-4">{users.map(user=><div key={user.id} className="border-b border-zinc-800 pb-4"><p className="font-medium">{user.name} <span className="text-sm text-zinc-500">({user.email})</span></p><div className="mt-2 flex flex-wrap gap-4">{roles.filter(role=>!role.protected).map(role=><label key={role.id} className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={busy||user.role==="BANNED"||user.role==="SYSTEM"} checked={assignments.some(a=>a.userId===user.id&&a.roleId===role.id)} onChange={e=>toggle(user.id,role.id,e.target.checked)}/>{role.name}</label>)}</div></div>)}</div></section>
+   <div className="mt-4 flex gap-3"><button disabled={busy||!(editId?can("edit"):can("create"))} onClick={save} className="rounded-lg bg-cyan-600 px-5 py-2 disabled:opacity-50">Guardar rol</button>{editId!==null&&<button onClick={()=>{setEditId(null);setDraft(blank);setPermissionsText("{}");}} className="rounded-lg border border-zinc-700 px-4 py-2">Cancelar</button>}</div>
+  </section>}
+  <section className="mt-6 rounded-xl border border-zinc-800 p-5"><h2 className="text-xl font-semibold">Roles existentes</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{roles.map(role=><div key={role.id} className="rounded-lg border border-zinc-800 p-4"><span className="rounded px-2 py-1 text-sm font-semibold" style={{backgroundColor:role.color,color:"#111"}}>{role.name}</span><p className="mt-3 text-sm text-zinc-400">{role.dailyPts} PTS · {role.dailyKarma} karma · {role.dailyMoney} dinero / día</p><div className="mt-3 flex gap-4">{can("edit")&&<button disabled={busy} onClick={()=>{edit(role);window.scrollTo({top:0,behavior:"smooth"});}} className="text-cyan-400 disabled:opacity-50">Editar</button>}{can("delete")&&!role.protected&&<button disabled={busy} onClick={()=>remove(role)} className="text-red-400 disabled:opacity-50">Eliminar</button>}</div></div>)}</div></section>
+  {can("view")&&<section className="mt-6 rounded-xl border border-zinc-800 p-5"><h2 className="text-xl font-semibold">Asignaciones</h2><div className="mt-4 space-y-4">{users.map(user=><div key={user.id} className="border-b border-zinc-800 pb-4"><p className="font-medium">{user.name} <span className="text-sm text-zinc-500">({user.email})</span></p><div className="mt-2 flex flex-wrap gap-4">{roles.filter(role=>!role.protected).map(role=><label key={role.id} className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={busy||user.role==="BANNED"||user.role==="SYSTEM"} checked={assignments.some(a=>a.userId===user.id&&a.roleId===role.id)} onChange={e=>toggle(user.id,role.id,e.target.checked)}/>{role.name}</label>)}</div></div>)}</div></section>
  </div></main>;
 }

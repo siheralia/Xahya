@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { syncCharacterCoreBasicStats } from "@/lib/stats/dynamic";
+import { hasRolePermission } from "@/lib/role-permissions";
 
 const statNames = ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"] as const;
 type StatName = (typeof statNames)[number];
@@ -17,16 +18,13 @@ export async function POST(request: Request) {
   const users = await db.orm.public.User.all();
   const currentUser = users.find((user) => user.clerkId === clerkId);
   const role = String(currentUser?.role);
-  if (!currentUser || !["GM","ADMIN"].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  if (!currentUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await request.json();
   const allCharacters = body.allCharacters === true;
 
-  if (allCharacters && role !== "ADMIN") {
-    return NextResponse.json({ error: "Solo el ADMIN puede hacer entregas globales." }, { status: 403 });
-  }
+  if (allCharacters && !(await hasRolePermission(currentUser, "management.global-delivery", "grant"))) return NextResponse.json({ error: "Sin permiso para entregas globales." }, { status: 403 });
+  if (!allCharacters && !(await hasRolePermission(currentUser, "management.character-resources", "grant")) && !["GM","ADMIN"].includes(role)) return NextResponse.json({ error: "Sin permiso para entregar recursos individuales." }, { status: 403 });
 
   let targetCharacter = null;
   if (!allCharacters) {
@@ -48,7 +46,7 @@ export async function POST(request: Request) {
   if (allCharacters && statNames.some((stat) => (stats[stat] ?? 0) !== 0)) {
     return NextResponse.json({ error: "La entrega global solo puede modificar recursos." }, { status: 400 });
   }
-  if (role === "GM" && statNames.some((stat) => (stats[stat] ?? 0) !== 0)) {
+  if (role !== "ADMIN" && !(await hasRolePermission(currentUser, "management.character-details", "edit")) && statNames.some((stat) => (stats[stat] ?? 0) !== 0)) {
     return NextResponse.json({ error: "Los GM no pueden modificar las estadísticas base." }, { status: 403 });
   }
 

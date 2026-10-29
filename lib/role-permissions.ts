@@ -18,7 +18,7 @@ export function permits(permissions:unknown, page:string, action:string):boolean
 export function validPermissions(value:unknown):value is Record<string,string[]>{
  if(!value||typeof value!=="object"||Array.isArray(value))return false;
  return Object.entries(value).every(([page,actions])=>
-  page in ROLE_PERMISSIONS &&
+  Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS,page) &&
   Array.isArray(actions) && actions.length<=10 &&
   actions.every(action=>typeof action==="string" && (ROLE_PERMISSIONS[page as keyof typeof ROLE_PERMISSIONS] as readonly string[]).includes(action)));
 }

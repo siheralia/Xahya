@@ -1,5 +1,5 @@
-import ManagementPage from "../page";
+import ManagementPageClient from "../management-page-client";
 
 export default function CharacterToolsPage() {
-  return <ManagementPage toolsMode />;
+  return <ManagementPageClient toolsMode />;
 }

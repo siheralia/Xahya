@@ -6,6 +6,7 @@ type Layer={id:string;imageUrl:string;position:string;width:number;opacity:numbe
 type Ambient={id:string;name:string;enabled:boolean;starts_at:string|null;ends_at:string|null;layers:Layer[]};
 async function optimizeWebp(file:File):Promise<File> {
  if(file.size>5*1024*1024) throw Error("La imagen original supera 5 MB.");
+ if(file.type==="image/gif" || file.type==="image/webp") return file;
  const bitmap=await createImageBitmap(file);
  try {
   const scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height));
@@ -47,7 +48,7 @@ export default function Ambientaciones() {
  <label className="block">Nombre<input className="mt-1 w-full rounded bg-zinc-800 p-2" value={current.name} onChange={e=>edit({name:e.target.value})}/></label>
  <label className="flex items-center gap-2"><input type="checkbox" checked={current.enabled} onChange={e=>edit({enabled:e.target.checked})}/>Activar esta ambientación (desactiva la anterior)</label>
  <div className="grid gap-3 sm:grid-cols-2">{(["starts_at","ends_at"] as const).map(k=><label key={k}>{k==="starts_at"?"Comienza":"Termina"}<input type="datetime-local" className="mt-1 w-full rounded bg-zinc-800 p-2" value={current[k]?.slice(0,16)||""} onChange={e=>edit({[k]:e.target.value?new Date(e.target.value).toISOString():null})}/></label>)}</div>
- <label className="block rounded border border-dashed border-zinc-600 p-4">Añadir imagen (PNG, JPG, WebP o GIF; 5 MB). Se reduce a 1600 px y convierte a WebP; los GIF pierden su animación.<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="mt-2 block w-full text-sm" disabled={busy||current.layers.length>=20} onChange={e=>{const f=e.target.files?.[0];if(f)void upload(f);e.target.value="";}}/></label>
+ <label className="block rounded border border-dashed border-zinc-600 p-4">Añadir imagen (PNG, JPG, WebP o GIF; 5 MB). PNG/JPG se convierten a WebP optimizado. GIF y WebP conservan su animación.<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="mt-2 block w-full text-sm" disabled={busy||current.layers.length>=20} onChange={e=>{const f=e.target.files?.[0];if(f)void upload(f);e.target.value="";}}/></label>
  {current.layers.map(l=><div key={l.id} className="grid gap-3 rounded border border-zinc-700 p-3 sm:grid-cols-2">
  <img src={l.imageUrl} alt="Vista previa de capa" className="max-h-28 max-w-36 object-contain"/>
  <div className="flex justify-end"><button className="text-red-300" onClick={()=>edit({layers:current.layers.filter(x=>x.id!==l.id)})}>Quitar imagen</button></div>

@@ -1,0 +1,65 @@
+"use client";
+import { useCallback, useEffect, useState } from "react";
+
+type Role={id:number;name:string;slug:string;color:string;protected:boolean;dailyPts:number;dailyKarma:number;dailyMoney:number;permissions:Record<string,string[]>};
+type Assignment={userId:number;roleId:number};
+type User={id:number;name:string;email:string;role:string};
+const blank={name:"",slug:"",color:"#a1a1aa",dailyPts:0,dailyKarma:0,dailyMoney:0,permissions:{} as Record<string,string[]>};
+export default function RolesPage(){
+ const [roles,setRoles]=useState<Role[]>([]);
+ const [assignments,setAssignments]=useState<Assignment[]>([]);
+ const [users,setUsers]=useState<User[]>([]);
+ const [draft,setDraft]=useState(blank);
+ const [editId,setEditId]=useState<number|null>(null);
+ const [permissionsText,setPermissionsText]=useState("{}");
+ const [error,setError]=useState("");
+ const [message,setMessage]=useState("");
+ const [busy,setBusy]=useState(false);
+ const load=useCallback(async()=>{
+  const [r,u]=await Promise.all([fetch("/api/management/roles"),fetch("/api/management/users")]);
+  if(!r.ok||!u.ok)throw new Error("No tienes acceso a la gestión de roles.");
+  const [rolesData,usersData]=await Promise.all([r.json(),u.json()]);
+  setRoles(rolesData.roles??[]);setAssignments(rolesData.assignments??[]);setUsers(usersData.users??[]);
+ },[]);
+ useEffect(()=>{load().catch(e=>setError(String(e.message)));},[load]);
+ function edit(role:Role){setEditId(role.id);setDraft({name:role.name,slug:role.slug,color:role.color,dailyPts:role.dailyPts,dailyKarma:role.dailyKarma,dailyMoney:role.dailyMoney,permissions:role.permissions});setPermissionsText(JSON.stringify(role.permissions,null,2));}
+ async function save(){
+  setBusy(true);setError("");setMessage("");
+  try{
+   const permissions=JSON.parse(permissionsText);
+   if(!permissions||typeof permissions!=="object"||Array.isArray(permissions)||Object.values(permissions).some(v=>!Array.isArray(v)||v.some(x=>typeof x!=="string")))throw new Error("Permisos: usa un objeto JSON con listas de acciones.");
+   const response=await fetch("/api/management/roles",{method:editId?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...draft,permissions,...(editId?{id:editId}:{})})});
+   const data=await response.json();if(!response.ok)throw new Error(data.error??"Error al guardar");
+   setMessage("Rol guardado.");setEditId(null);setDraft(blank);setPermissionsText("{}");await load();
+  }catch(e){setError(e instanceof Error?e.message:"Error inesperado");}finally{setBusy(false);}
+ }
+ async function toggle(userId:number,roleId:number,assigned:boolean){
+  setBusy(true);setError("");setMessage("");
+  try{
+   const response=await fetch("/api/management/roles/assign",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId,roleId,assigned})});
+   const data=await response.json();if(!response.ok)throw new Error(data.error??"Error al asignar");
+   setMessage("Asignación actualizada.");await load();
+  }catch(e){setError(e instanceof Error?e.message:"Error inesperado");}finally{setBusy(false);}
+ }
+ const input="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2 text-white";
+ return <main className="min-h-screen bg-zinc-950 px-5 py-8 text-white"><div className="mx-auto max-w-5xl">
+  <a href="/management/users" className="text-sm text-cyan-400">← Gestión de usuarios</a>
+  <h1 className="mt-4 text-3xl font-bold">Gestión de roles</h1>
+  <p className="mt-2 text-zinc-400">Los salarios diarios de todos los roles asignados se suman en la billetera del usuario. Los roles protegidos conservan sus permisos existentes.</p>
+  {error&&<p role="alert" className="mt-4 text-red-400">{error}</p>}{message&&<p className="mt-4 text-emerald-400">{message}</p>}
+  <section className="mt-6 rounded-xl border border-zinc-800 p-5">
+   <h2 className="text-xl font-semibold">{editId?"Editar rol":"Crear rol"}</h2>
+   <div className="mt-4 grid gap-3 sm:grid-cols-2">
+    <label>Nombre<input className={input} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
+    <label>Identificador<input className={input} disabled={editId!==null} value={draft.slug} onChange={e=>setDraft({...draft,slug:e.target.value})}/></label>
+    <label>Color del tag<input className={input} type="color" value={draft.color} onChange={e=>setDraft({...draft,color:e.target.value})}/></label>
+    {(["dailyPts","dailyKarma","dailyMoney"] as const).map((key)=><label key={key}>{({dailyPts:"PTS diarios",dailyKarma:"Karma diario",dailyMoney:"Dinero diario"})[key]}<input className={input} type="number" min={0} step={1} value={draft[key]} onChange={e=>setDraft({...draft,[key]:Number(e.target.value)})}/></label>)}
+   </div>
+   <label className="mt-4 block">Permisos por página y acción (JSON)<textarea className={input} rows={4} value={permissionsText} onChange={e=>setPermissionsText(e.target.value)}/></label>
+   <p className="mt-2 text-xs text-amber-300">Los permisos configurables requieren integración adicional con cada ruta protegida antes de conceder acceso efectivo.</p>
+   <div className="mt-4 flex gap-3"><button disabled={busy} onClick={save} className="rounded-lg bg-cyan-600 px-5 py-2 disabled:opacity-50">Guardar rol</button>{editId!==null&&<button onClick={()=>{setEditId(null);setDraft(blank);setPermissionsText("{}");}} className="rounded-lg border border-zinc-700 px-4 py-2">Cancelar</button>}</div>
+  </section>
+  <section className="mt-6 rounded-xl border border-zinc-800 p-5"><h2 className="text-xl font-semibold">Roles existentes</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{roles.map(role=><div key={role.id} className="rounded-lg border border-zinc-800 p-4"><span className="rounded px-2 py-1 text-sm font-semibold" style={{backgroundColor:role.color,color:"#111"}}>{role.name}</span><p className="mt-3 text-sm text-zinc-400">{role.dailyPts} PTS · {role.dailyKarma} karma · {role.dailyMoney} dinero / día</p>{!role.protected&&<button onClick={()=>edit(role)} className="mt-3 text-cyan-400">Editar</button>}</div>)}</div></section>
+  <section className="mt-6 rounded-xl border border-zinc-800 p-5"><h2 className="text-xl font-semibold">Asignaciones</h2><div className="mt-4 space-y-4">{users.map(user=><div key={user.id} className="border-b border-zinc-800 pb-4"><p className="font-medium">{user.name} <span className="text-sm text-zinc-500">({user.email})</span></p><div className="mt-2 flex flex-wrap gap-4">{roles.filter(role=>!role.protected).map(role=><label key={role.id} className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={busy||user.role==="BANNED"||user.role==="SYSTEM"} checked={assignments.some(a=>a.userId===user.id&&a.roleId===role.id)} onChange={e=>toggle(user.id,role.id,e.target.checked)}/>{role.name}</label>)}</div></div>)}</div></section>
+ </div></main>;
+}

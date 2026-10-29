@@ -168,7 +168,6 @@ export default function NavigationShell({
               <Link href="/casino" className={pathname.startsWith("/casino") ? "xahya-nav-active" : ""}>
                 Casino
               </Link>
-              {canManage && <Link href="/management/ambientations">Ambientaciones</Link>}
               {canManage && (
                 <Link href="/management" className={pathname.startsWith("/management") ? "xahya-nav-active" : ""}>
                   Gestión

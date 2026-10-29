@@ -16,7 +16,7 @@ export async function GET() {
 }
 export async function POST(request:Request) {
  const actor = await currentUser();
- if (!isAdmin(actor)) return NextResponse.json({error:"Forbidden"},{status:403});
+ if (!actor || !(await hasRolePermission(actor,"management.roles","create"))) return NextResponse.json({error:"Forbidden"},{status:403});
  const b = await request.json().catch(()=>null);
  const name = typeof b?.name === "string" ? b.name.trim() : "";
  const slug = typeof b?.slug === "string" ? b.slug.trim().toLowerCase() : "";
@@ -36,7 +36,7 @@ export async function POST(request:Request) {
 }
 export async function PATCH(request:Request) {
  const actor=await currentUser();
- if (!isAdmin(actor)) return NextResponse.json({error:"Forbidden"},{status:403});
+ if (!actor || !(await hasRolePermission(actor,"management.roles","edit"))) return NextResponse.json({error:"Forbidden"},{status:403});
  const b=await request.json().catch(()=>null);
  const id=Number(b?.id);
  if (!Number.isSafeInteger(id)||id<1) return NextResponse.json({error:"ID inválido"},{status:400});
@@ -59,7 +59,7 @@ export async function PATCH(request:Request) {
 
 export async function DELETE(request:Request) {
  const actor=await currentUser();
- if(!isAdmin(actor))return NextResponse.json({error:"Forbidden"},{status:403});
+ if(!actor || !(await hasRolePermission(actor,"management.roles","delete")))return NextResponse.json({error:"Forbidden"},{status:403});
  const b=await request.json().catch(()=>null);
  const id=Number(b?.id);
  if(!Number.isSafeInteger(id)||id<1)return NextResponse.json({error:"ID inválido"},{status:400});

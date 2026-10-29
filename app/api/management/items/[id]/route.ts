@@ -73,6 +73,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const Item = (db.orm.public as any).Item;
   const item = await Item.where({ id }).first();
   if (!item) return NextResponse.json({ error: "Objeto no encontrado." }, { status: 404 });
+  if (!(await canManageItemOrigin(admin, item.acquisitionType, "delete"))) return NextResponse.json({error:"Sin permiso para eliminar objetos de este origen."},{status:403});
   await Item.where({ id }).delete();
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_DELETE", entityType: "ITEM", entityId: id, details: { name: item.name } });
   return NextResponse.json({ success: true });

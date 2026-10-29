@@ -38,6 +38,8 @@ const noEffects = (effects: Effect[]) => !Array.isArray(effects) || effects.leng
 
 export default function ItemsManagementPage() {
   const [items,setItems]=useState<Item[]>([]);
+  const [capabilities,setCapabilities]=useState<Record<string,boolean>>({});
+  const canAction=(action:"create"|"edit"|"delete",origin:string)=>Boolean(capabilities[action] || capabilities[action+"-"+({EVENT:"event",QUEST:"quest",ABILITY_GENERATED:"ability"} as Record<string,string>)[origin]]);
   const [statDefinitions,setStatDefinitions]=useState<{key:string;name:string;code:string;kind:"basic"|"derived";active?:boolean}[]>([]);
   const EFFECT_TARGETS: [string,string][] = [...statDefinitions.filter((entry)=>entry.active!==false).map((entry)=>[entry.code || entry.key, entry.name] as [string,string]), ...NON_STAT_EFFECT_TARGETS];
   useEffect(() => { fetch("/api/management/effect-targets").then((r)=>r.ok?r.json():null).then((data)=>{if(data?.statistics)setStatDefinitions(data.statistics);}).catch(()=>{}); }, []);
@@ -51,7 +53,7 @@ export default function ItemsManagementPage() {
 
   async function load(){
     setLoading(true); setError("");
-    try { const [itemsResponse,businessesResponse]=await Promise.all([fetch("/api/management/items"),fetch("/api/management/businesses")]); const d=await itemsResponse.json(); const bd=await businessesResponse.json(); if(!itemsResponse.ok) throw new Error(d.error); setItems(d.items??[]); setBusinesses(businessesResponse.ok ? (bd.businesses??[]).map((b:any)=>({id:Number(b.id),name:String(b.name)})) : []); }
+    try { const [itemsResponse,businessesResponse]=await Promise.all([fetch("/api/management/items"),fetch("/api/management/businesses")]); const d=await itemsResponse.json(); const bd=await businessesResponse.json(); if(!itemsResponse.ok) throw new Error(d.error); setItems(d.items??[]); setCapabilities(d.capabilities??{}); setBusinesses(businessesResponse.ok ? (bd.businesses??[]).map((b:any)=>({id:Number(b.id),name:String(b.name)})) : []); }
     catch(e){setError(e instanceof Error?e.message:"No se pudieron cargar los objetos.");}
     finally{setLoading(false);}
   }
@@ -114,8 +116,8 @@ export default function ItemsManagementPage() {
 
   return <main className="min-h-screen bg-zinc-950 text-white"><div className="mx-auto max-w-6xl px-6 py-6">
     <div className="flex flex-wrap items-end justify-between gap-4">
-      <div><h1 className="text-4xl font-bold">Objetos</h1><p className="mt-2 text-zinc-500">Catálogo y fabricación de objetos. Solo ADMIN.</p></div>
-      <button onClick={newItem} className="rounded-lg bg-white px-5 py-3 font-medium text-black">Nuevo objeto</button>
+      <div><h1 className="text-4xl font-bold">Objetos</h1><p className="mt-2 text-zinc-500">Catálogo de objetos según los permisos de tu rol.</p></div>
+      {Object.keys(capabilities).some(key=>key==="create"&&capabilities[key] || key.startsWith("create-")&&capabilities[key]) && <button onClick={newItem} className="rounded-lg bg-white px-5 py-3 font-medium text-black">Nuevo objeto</button>}
     </div>
     {error&&<div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
     {success&&<div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
@@ -133,7 +135,7 @@ export default function ItemsManagementPage() {
             <select value={filterSlot} onChange={e=>setFilterSlot(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm sm:col-span-2"><option value="ALL">Todos los slots</option>{equipmentSlots.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
           </div>
           <div className="flex items-center justify-between text-xs text-zinc-500"><span>{filteredItems.length} de {items.length} objetos</span><button type="button" onClick={()=>{setSearch("");setFilterType("ALL");setFilterSubtype("ALL");setFilterSlot("ALL");setFilterAcquisition("ALL");setFilterStat("ALL");setFilterMinValue("");}} className="text-zinc-300">Limpiar filtros</button></div>
-          <div className="space-y-2">{filteredItems.map(item=><button key={item.id} onClick={()=>edit(item)} className={"w-full rounded-xl border p-4 text-left transition "+(selected===item.id?"border-amber-400/50 bg-amber-950/20":"border-zinc-800 hover:bg-zinc-900")}>
+          <div className="space-y-2">{filteredItems.map(item=><button key={item.id} onClick={()=>edit(item)} disabled={!canAction("edit",item.acquisitionType)} className={"w-full rounded-xl border p-4 text-left transition "+(selected===item.id?"border-amber-400/50 bg-amber-950/20":"border-zinc-800 hover:bg-zinc-900")}>
           <div className="flex items-center gap-3">{item.imageUrl&&<img src={item.imageUrl} alt="" className="h-12 w-16 rounded-lg object-cover"/>}<div><div className="font-medium">{item.name}</div><div className="mt-1 text-xs text-zinc-500">{itemTypes.find(x=>x[0]===item.itemType)?.[1]??item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""} · {acquisitionTypes.find(x=>x[0]===item.acquisitionType)?.[1]??item.acquisitionType}</div></div></div>
         </button>)}</div></div>
       </section>
@@ -196,7 +198,7 @@ export default function ItemsManagementPage() {
             <input value={effect.description} onChange={e=>updateEffect(i,"description",e.target.value)} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Descripción del efecto"/>
             <button type="button" onClick={() => setForm(f => ({ ...f, effects: f.effects.filter((_, j) => j !== i) }))} className="mt-2 text-sm text-red-300">Quitar efecto</button>
           </div>)}</div></div>
-          <div className="flex flex-wrap gap-3"><button onClick={save} disabled={saving} className="rounded-lg bg-white px-5 py-3 font-medium text-black">{saving?"Guardando...":selected?"Guardar cambios":"Fabricar objeto"}</button>{selected&&<button onClick={remove} className="rounded-lg border border-red-900/70 px-5 py-3 text-red-300">Eliminar</button>}</div>
+          <div className="flex flex-wrap gap-3"><button onClick={save} disabled={saving} className="rounded-lg bg-white px-5 py-3 font-medium text-black">{saving?"Guardando...":selected?"Guardar cambios":"Fabricar objeto"}</button>{selected&&canAction("delete",items.find(item=>item.id===selected)?.acquisitionType??"")&&<button onClick={remove} className="rounded-lg border border-red-900/70 px-5 py-3 text-red-300">Eliminar</button>}</div>
         </div>
       </section>
       </ManagementModal>

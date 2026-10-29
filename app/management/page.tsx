@@ -45,7 +45,7 @@ function emptyStats() {
   return Object.fromEntries(statNames.map((stat) => [stat, 0])) as Record<string, number>;
 }
 
-export default function ManagementPage() {
+export default function ManagementPage({ toolsMode = false }: { toolsMode?: boolean }) {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isGM, setIsGM] = useState(false);
@@ -447,8 +447,8 @@ export default function ManagementPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-5xl px-6 py-6">
-        <h1 className="text-4xl font-bold">Gestión de personajes</h1>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-4xl font-bold">{toolsMode ? "Herramientas de gestión" : "Gestión"}</h1>
+        {!toolsMode && <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="text-zinc-500">{isAdmin ? "Otorga cambios permanentes a las estadísticas base y recursos." : "Otorga recursos y puntos de Level Up a los personajes."}</p>
           <div className="flex flex-wrap gap-3">
             <Link
@@ -605,6 +605,8 @@ export default function ManagementPage() {
           </div>
         </div>
 
+        {!toolsMode && <div className="mt-5"><Link href="/management/character-tools" className="inline-flex rounded-lg border border-cyan-600 bg-cyan-950/30 px-5 py-3 font-semibold text-cyan-300">Entregas y edición de personajes</Link></div>}
+        {toolsMode && <div className="mb-4"><Link href="/management" className="text-cyan-300">← Volver a Gestión</Link></div>}
         {error && (
           <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">
             {error}
@@ -617,6 +619,7 @@ export default function ManagementPage() {
           </div>
         )}
 
+        {toolsMode && <>
         {isAdmin && (
           <section className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-950/10 p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -994,6 +997,7 @@ export default function ManagementPage() {
             </div>
           </div>
         )}
+        </>}
       </div>
     </main>
   );

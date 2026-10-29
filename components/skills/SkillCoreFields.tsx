@@ -27,7 +27,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {wrap("Cooldown","cooldown",select("cooldown",cooldowns.map(x=>[x,x] as const)))}
     {wrap("Velocidad","speed",select("speed",speeds))}
     {wrap("Área de efecto","areaOfEffect",<input value={form.areaOfEffect} onChange={e=>set("areaOfEffect",e.target.value)} placeholder="Objetivo único / Área circular de 3 m" className={cls}/>)}
-    {wrap("Distancia máxima (m)","maxRangeMeters",number("maxRangeMeters",1,100))}
+    {wrap("Distancia máxima (m)","maxRangeMeters",number("maxRangeMeters",0,100))}
     {form.duration !== "Instantánea" && wrap("Costo por turno","maintenanceCost",number("maintenanceCost"))}
     {wrap("Acumulaciones por tick","accumulationPerTick",number("accumulationPerTick"))}
     {form.accumulationPerTick>0 && wrap("Costo de acumulaciones","accumulationCost",number("accumulationCost"))}

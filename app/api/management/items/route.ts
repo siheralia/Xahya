@@ -69,8 +69,8 @@ export async function GET() {
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const Item = (db.orm.public as any).Item;
   const items = await Item.all();
-  const [canViewProperties, canViewSystem] = await Promise.all([hasRolePermission(admin, "management.items", "view-properties"), hasRolePermission(admin, "management.items", "view-system")]);
-  return NextResponse.json({ items: items.filter((item: any) => (canViewProperties || item.itemType !== "PROPERTY") && (canViewSystem || item.acquisitionType !== "SYSTEM")) });
+  const [canViewProperties, canViewSystem, canViewEvent, canViewQuest, canViewAbility] = await Promise.all(["view-properties","view-system","view-event","view-quest","view-ability"].map(action => hasRolePermission(admin, "management.items", action)));
+  return NextResponse.json({ items: items.filter((item: any) => (canViewProperties || item.itemType !== "PROPERTY") && (canViewSystem || item.acquisitionType !== "SYSTEM") && (canViewEvent || item.acquisitionType !== "EVENT") && (canViewQuest || item.acquisitionType !== "QUEST") && (canViewAbility || item.acquisitionType !== "ABILITY_GENERATED")) });
 }
 
 export async function POST(request: Request) {

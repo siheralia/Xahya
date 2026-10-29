@@ -10,7 +10,7 @@ import { hasRolePermission, canManageItemOrigin } from "@/lib/role-permissions";
 const ATTACK_TYPES = ["CUT", "BLUNT", "PIERCE"] as const;
 const ITEM_TYPES = ["WEAPON", "ARMOR", "ACCESSORY", "CONSUMABLE", "MATERIAL", "PROPERTY", "OTHER"] as const;
 
-async function getAdmin(action: "edit" | "delete") {
+async function getAdmin(action: "view" | "edit" | "delete") {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
   const users = await db.orm.public.User.all();

@@ -28,7 +28,7 @@ export async function PATCH(request:Request) {
  const body = await request.json().catch(()=>null);
  if (!/^[0-9a-f-]{36}$/i.test(String(body?.id))) return NextResponse.json({error:"ID inválido"},{status:400});
  const layers = body.layers;
- if (!Array.isArray(layers) || layers.length>20 || layers.some(l => !l || typeof l.id!=="string" || !/^https:\/\/[\w.-]+\//.test(String(l.imageUrl)) || !["top-left","top-right","bottom-left","bottom-right"].includes(l.position) || !["none","float","swing","pulse","fall"].includes(l.animation) || !Number.isFinite(l.width) || l.width<30 || l.width>360 || !Number.isFinite(l.opacity) || l.opacity<0 || l.opacity>100)) return NextResponse.json({error:"Capas inválidas"},{status:400});
+ if (!Array.isArray(layers) || layers.length>20 || layers.some(l => !l || typeof l.id!=="string" || !(/^(https:\/\/[\w.-]+\/|\/ambientations\/[a-z-]+\.svg$)/.test(String(l.imageUrl))) || !["top-left","top-right","bottom-left","bottom-right"].includes(l.position) || !["none","float","swing","pulse","fall"].includes(l.animation) || !Number.isFinite(l.width) || l.width<30 || l.width>360 || !Number.isFinite(l.opacity) || l.opacity<0 || l.opacity>100)) return NextResponse.json({error:"Capas inválidas"},{status:400});
  const enabled = body.enabled === true;
  const starts_at = body.starts_at || null, ends_at = body.ends_at || null;
  if ((starts_at && !Number.isFinite(Date.parse(starts_at))) || (ends_at && !Number.isFinite(Date.parse(ends_at))) || (starts_at && ends_at && Date.parse(starts_at)>=Date.parse(ends_at))) return NextResponse.json({error:"Fechas inválidas"},{status:400});

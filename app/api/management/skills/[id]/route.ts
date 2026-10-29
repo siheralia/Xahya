@@ -3,18 +3,24 @@ import { NextResponse } from "next/server";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { hasRolePermission } from "@/lib/role-permissions";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
   const users = await db.orm.public.User.all();
   const user = users.find((candidate) => candidate.clerkId === clerkId);
-  return user && String(user.role) === "ADMIN" ? user : null;
+  return user ?? null;
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const authorizationBody = await request.clone().json().catch(() => null);
+  const requestedAction = authorizationBody?.approve === true ? "approve" : authorizationBody?.reject === true ? "reject" : "edit";
+  if (authorizationBody?.approve === true && authorizationBody?.reject === true) return NextResponse.json({ error: "Acciones incompatibles." }, { status: 400 });
+  if (!(await hasRolePermission(admin, "management.skills", requestedAction))) return NextResponse.json({ error: "Sin permiso para esta acción." }, { status: 403 });
+  if (requestedAction !== "edit" && !(await hasRolePermission(admin, "management.skills", "edit"))) return NextResponse.json({ error: "Aprobar o rechazar con cambios requiere también permiso de edición." }, { status: 403 });
   const id = Number((await params).id);
   const Skill = (db.orm.public as any).Skill;
   const skill = await Skill.where({ id }).first();

@@ -2,13 +2,14 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { hasRolePermission } from "@/lib/role-permissions";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
   const users = await db.orm.public.User.all();
   const currentUser = users.find((user) => user.clerkId === clerkId);
-  return currentUser && String(currentUser.role) === "ADMIN" ? currentUser : null;
+  return currentUser && await hasRolePermission(currentUser, "management.character-details", "edit") ? currentUser : null;
 }
 async function getCharacterId(params: Promise<{ id: string }>) {
   const { id } = await params;

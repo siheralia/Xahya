@@ -4,6 +4,13 @@ export const ROLE_PERMISSIONS = {
  "management.characters": ["view", "edit"],
  "management.users": ["view", "edit"],
  "management.roles": ["view", "edit"],
+ "management.global-delivery": ["view", "grant"],
+ "management.character-details": ["view", "edit"],
+ "management.character-resources": ["view", "grant"],
+ "management.skills": ["view", "approve", "reject", "edit"],
+ "management.items": ["view", "create", "edit", "delete", "grant"],
+ "management.labyrinth": ["view", "edit", "operate"],
+ "management.finances": ["view", "adjust", "audit"],
 } as const;
 
 type Actor={id:number;role:string};

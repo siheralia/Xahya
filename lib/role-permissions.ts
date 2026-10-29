@@ -1,16 +1,31 @@
 import { salaryRest } from "@/lib/role-salary";
 
 export const ROLE_PERMISSIONS = {
- "management.characters": ["view", "edit"],
- "management.users": ["view", "view-email", "edit"],
- "management.roles": ["view", "edit"],
+ "management.characters": ["view", "edit", "delete", "transfer"],
+ "management.users": ["view", "view-email", "edit", "assign-roles", "delete"],
+ "management.roles": ["view", "create", "edit", "delete"],
  "management.global-delivery": ["view", "grant"],
- "management.character-details": ["view", "edit"],
+ "management.character-details": ["view", "edit", "change-race"],
  "management.character-resources": ["view", "grant"],
  "management.skills": ["view", "approve", "reject", "edit"],
  "management.items": ["view", "create", "edit", "delete", "grant"],
  "management.labyrinth": ["view", "edit", "operate"],
  "management.finances": ["view", "adjust", "audit"],
+ "management.statistics": ["view", "edit"],
+ "management.effects": ["view", "create", "edit", "delete"],
+ "management.races": ["view", "create", "edit", "delete"],
+ "management.enemies": ["view", "create", "edit", "delete"],
+ "management.ambientations": ["view", "edit"],
+ "management.themes": ["view", "edit"],
+ "management.store": ["view", "edit"],
+ "management.businesses": ["view", "edit"],
+ "management.world": ["view", "edit"],
+ "management.perks": ["view", "edit"],
+ "management.rules": ["view", "edit"],
+ "management.rankings": ["view", "edit"],
+ "management.casino": ["view", "edit"],
+ "management.social": ["view", "edit"],
+ "management.logs": ["view"],
 } as const;
 
 type Actor={id:number;role:string};

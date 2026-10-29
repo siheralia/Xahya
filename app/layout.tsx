@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import NavigationShell from "@/app/components/navigation-shell";
 import { db } from "@/lib/db";
+import { ROLE_PERMISSIONS, hasRolePermission } from "@/lib/role-permissions";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,7 +29,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   if (clerkId) {
     const users = await db.orm.public.User.all();
     const currentUser = users.find((user) => user.clerkId === clerkId);
-    canManage = ["GM", "ADMIN"].includes(String(currentUser?.role ?? ""));
+    canManage = Boolean(currentUser && (["GM", "ADMIN"].includes(String(currentUser.role)) || (await Promise.all(Object.keys(ROLE_PERMISSIONS).map(page => hasRolePermission(currentUser, page, "view")))).some(Boolean)));
   }
 
   return (

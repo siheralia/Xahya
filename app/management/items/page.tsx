@@ -80,7 +80,7 @@ export default function ItemsManagementPage() {
     setSuccess(""); setError(""); setImageFile(null); setImagePreview(item.imageUrl ?? null);
     setModalOpen(true);
   }
-  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",attackType:"CUT",acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
+  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",attackType:"CUT",acquisitionType:acquisitionTypes.find(([origin])=>canAction("create",origin))?.[0]??"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
@@ -90,6 +90,7 @@ export default function ItemsManagementPage() {
     })}));
   }
   async function save(){
+    if(!canAction(selected?"edit":"create",form.acquisitionType)){setError("No tienes permiso para guardar objetos de este origen.");return;}
     setSaving(true);setError("");setSuccess("");
     try{
       const url=selected?"/api/management/items/"+selected:"/api/management/items";
@@ -128,7 +129,7 @@ export default function ItemsManagementPage() {
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por nombre o descripción..." className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/>
           <div className="grid gap-2 sm:grid-cols-2">
             <select value={filterType} onChange={e=>setFilterType(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Todos los tipos</option>{itemTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
-            <select value={filterAcquisition} onChange={e=>setFilterAcquisition(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Toda obtención</option>{acquisitionTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
+            <select value={filterAcquisition} onChange={e=>setFilterAcquisition(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Toda obtención</option>{acquisitionTypes.filter(([origin])=>canAction(selected?"edit":"create",origin)).map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
             <select value={filterSubtype} onChange={e=>setFilterSubtype(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Todos los tipos específicos</option>{subtypeOptions.map(value=><option key={value} value={value}>{value}</option>)}</select>
             <select value={filterStat} onChange={e=>setFilterStat(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"><option value="ALL">Todas las estadísticas</option>{EFFECT_TARGETS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
             <input type="number" value={filterMinValue} onChange={e=>setFilterMinValue(e.target.value)} placeholder="Valor mínimo" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"/>

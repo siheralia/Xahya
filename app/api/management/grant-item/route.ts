@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   if (!character) return NextResponse.json({ error: "Personaje no encontrado." }, { status: 404 });
 
   const users = await db.orm.public.User.all();
-  if (String(manager.role) === "GM") {
+  if (String(manager.role) !== "ADMIN") {
     const owner = users.find((user) => user.id === character.userId);
     if (String(owner?.role) === "SYSTEM") {
       return NextResponse.json({ error: "No puedes entregar objetos a personajes del sistema." }, { status: 403 });

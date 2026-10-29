@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processEconomyPayments } from "@/lib/economy";
+import { processRoleSalaryAccrual } from "@/lib/role-salary-cron";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,5 +13,6 @@ export async function GET(request: NextRequest) {
   }
 
   const result = await processEconomyPayments();
-  return NextResponse.json({ ok: true, ...result });
+  const salary = await processRoleSalaryAccrual();
+  return NextResponse.json({ ok: true, ...result, salary });
 }

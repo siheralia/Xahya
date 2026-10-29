@@ -16,6 +16,8 @@ type User = {
 
 export default function ManagementUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [allowedActions,setAllowedActions]=useState<Record<string,string[]>>({});
+  const can=(page:string,action:string)=>Boolean(allowedActions["management."+page]?.includes(action));
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -25,6 +27,8 @@ export default function ManagementUsersPage() {
   const [transferTargetId, setTransferTargetId] = useState("");
   const [transferring, setTransferring] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {fetch("/api/management/capabilities").then(r=>r.json()).then(d=>setAllowedActions(d.actions??{})).catch(()=>{});},[]);
 
   useEffect(() => {
     fetch("/api/management/users")
@@ -267,7 +271,7 @@ export default function ManagementUsersPage() {
                     <span className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-500">
                       Usuario protegido
                     </span>
-                  ) : user.role === "PLAYER" ? (
+                  ) : can("users","edit") && user.role === "PLAYER" ? (
                     <button
                       type="button"
                       onClick={() => changeRole(user.id, "GM")}
@@ -276,7 +280,7 @@ export default function ManagementUsersPage() {
                     >
                       Dar GM
                     </button>
-                  ) : user.role === "GM" ? (
+                  ) : can("users","edit") && user.role === "GM" ? (
                     <button
                       type="button"
                       onClick={() => changeRole(user.id, "PLAYER")}
@@ -286,7 +290,7 @@ export default function ManagementUsersPage() {
                       Quitar GM
                     </button>
                   ) : null}
-                  {user.role === "PLAYER" && user.id !== currentUserId && (
+                  {can("users","delete") && user.role === "PLAYER" && user.id !== currentUserId && (
                     <button
                       type="button"
                       onClick={() => deleteAndBanUser(user)}
@@ -296,7 +300,7 @@ export default function ManagementUsersPage() {
                       {deletingUser === user.id ? "Procesando..." : "Borrar y banear"}
                     </button>
                   )}
-                  {user.role !== "SYSTEM" && user.role !== "BANNED" && user.id !== currentUserId && (
+                  {can("users","delete") && user.role !== "SYSTEM" && user.role !== "BANNED" && user.id !== currentUserId && (
                     <button
                       type="button"
                       onClick={() => deleteUser(user)}
@@ -328,19 +332,19 @@ export default function ManagementUsersPage() {
                           {character.name}
                         </Link>
                         <div className="flex shrink-0 items-center gap-3">
-                          <button
+                          {can("characters","transfer") && <button
                             type="button"
                             onClick={() => openTransfer(character, user.id)}
                             className="text-sm text-cyan-400 hover:text-cyan-300"
                           >
                             Transferir
-                          </button>
-                          <Link
+                          </button>}
+                          {can("characters","view") && <Link
                             href={"/management?characterId=" + character.id}
                             className="text-sm text-zinc-500 hover:text-white"
                           >
                             Gestionar →
-                          </Link>
+                          </Link>}
                         </div>
                       </div>
                     ))}

@@ -69,6 +69,7 @@ export async function POST(request: Request) {
   const item = await Item.where({ id: itemId }).first();
   if (!item) return NextResponse.json({ error: "Objeto no encontrado en el catálogo." }, { status: 404 });
 
+  if (!(await canManageItemOrigin(manager, item.acquisitionType, "grant")) && !(await hasRolePermission(manager, "management.character-resources", "grant"))) return NextResponse.json({error:"Sin permiso para entregar objetos de este origen."},{status:403});
   const owned = await db.transaction(async (tx) => {
     return await (tx.orm.public as any).CharacterItem.create({
       characterId,

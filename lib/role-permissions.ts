@@ -8,7 +8,7 @@ export const ROLE_PERMISSIONS = {
  "management.character-details": ["view", "edit", "change-race"],
  "management.character-resources": ["view", "grant"],
  "management.skills": ["view", "approve", "reject", "edit"],
- "management.items": ["view", "view-properties", "view-system", "create", "edit", "delete", "grant"],
+ "management.items": ["view", "view-properties", "view-system", "view-event", "view-quest", "view-ability", "create", "edit", "delete", "grant", "create-event", "edit-event", "delete-event", "grant-event", "create-quest", "edit-quest", "delete-quest", "grant-quest", "create-ability", "edit-ability", "delete-ability", "grant-ability"],
  "management.labyrinth": ["view", "edit", "operate"],
  "management.finances": ["view", "adjust", "audit"],
  "management.statistics": ["view", "edit"],
@@ -55,4 +55,15 @@ export async function hasRolePermission(actor:Actor|null,page:string,action:stri
  ]);
  const assigned=new Set(assignments.map(a=>a.roleId));
  return roles.some(role=>assigned.has(role.id)&&permits(role.permissions,page,action)) && (action==="view" || roles.some(role=>assigned.has(role.id)&&permits(role.permissions,page,"view")));
+}
+
+export function itemOriginPermission(acquisitionType: unknown, action: "create" | "edit" | "delete" | "grant"): string | null {
+ const suffix: Record<string,string> = { EVENT: "event", QUEST: "quest", ABILITY_GENERATED: "ability" };
+ const origin = suffix[String(acquisitionType)];
+ return origin ? action + "-" + origin : null;
+}
+
+export async function canManageItemOrigin(actor: Actor | null, acquisitionType: unknown, action: "create" | "edit" | "delete" | "grant"): Promise<boolean> {
+ const scoped = itemOriginPermission(acquisitionType, action);
+ return await hasRolePermission(actor, "management.items", action) || (scoped !== null && await hasRolePermission(actor, "management.items", scoped));
 }

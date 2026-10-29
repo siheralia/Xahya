@@ -10,7 +10,7 @@ async function getManager() {
 
   const users = await db.orm.public.User.all();
   const user = users.find((candidate) => candidate.clerkId === clerkId);
-  if (!user || !(["GM", "ADMIN"].includes(String(user.role)) || await hasRolePermission(user, "management.character-resources", "grant") || await hasRolePermission(user, "management.items", "grant"))) return null;
+  if (!user || !(await hasRolePermission(user, "management.character-resources", "grant") || await hasRolePermission(user, "management.items", "grant"))) return null;
 
   return user;
 }

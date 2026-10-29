@@ -831,7 +831,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
           </section>
         )}
 
-        {isAdmin && characterId && (
+        {capabilities.details && characterId && (
           <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
             <h2 className="text-xl font-semibold">Nombre del personaje</h2>
             <p className="mt-1 text-sm text-zinc-500">
@@ -858,7 +858,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
           </section>
         )}
 
-        {characterId && (
+        {(capabilities.resources || capabilities.details) && characterId && (
           <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -884,7 +884,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
           }}
           maxWidth="max-w-3xl"
         >
-          {isAdmin && (
+          {capabilities.details && (
             <section>
               <h3 className="text-lg font-semibold">Estadísticas base</h3>
               <p className="mt-1 text-sm text-zinc-500">Escribe cuánto quieres sumar o restar.</p>

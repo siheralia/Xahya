@@ -24,7 +24,6 @@ export async function POST(request: Request) {
   const allCharacters = body.allCharacters === true;
 
   if (allCharacters && !(await hasRolePermission(currentUser, "management.global-delivery", "grant"))) return NextResponse.json({ error: "Sin permiso para entregas globales." }, { status: 403 });
-  if (!allCharacters && !(await hasRolePermission(currentUser, "management.character-resources", "grant")) && !["GM","ADMIN"].includes(role)) return NextResponse.json({ error: "Sin permiso para entregar recursos individuales." }, { status: 403 });
 
   let targetCharacter = null;
   if (!allCharacters) {
@@ -45,9 +44,6 @@ export async function POST(request: Request) {
 
   if (allCharacters && statNames.some((stat) => (stats[stat] ?? 0) !== 0)) {
     return NextResponse.json({ error: "La entrega global solo puede modificar recursos." }, { status: 400 });
-  }
-  if (role !== "ADMIN" && !(await hasRolePermission(currentUser, "management.character-details", "edit")) && statNames.some((stat) => (stats[stat] ?? 0) !== 0)) {
-    return NextResponse.json({ error: "Los GM no pueden modificar las estadísticas base." }, { status: 403 });
   }
 
   const karma = body.karma ?? 0;

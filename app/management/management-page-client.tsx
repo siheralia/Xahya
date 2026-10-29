@@ -48,6 +48,8 @@ function emptyStats() {
 export default function ManagementPage({ toolsMode = false }: { toolsMode?: boolean }) {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [allowedPages,setAllowedPages]=useState<string[]>([]);
+  const canSee=(page:string)=>allowedPages.includes("management."+page);
   const [isGM, setIsGM] = useState(false);
   const [capabilities, setCapabilities] = useState({global:false,resources:false,details:false,characters:false});
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -83,6 +85,8 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
   const [characterRaceId, setCharacterRaceId] = useState("");
   const [raceSaving, setRaceSaving] = useState(false);
 
+  useEffect(() => { fetch("/api/management/capabilities").then(r=>r.ok?r.json():{pages:[]}).then(d=>setAllowedPages(d.pages??[])).catch(()=>{}); }, []);
+
   useEffect(() => {
     fetch("/api/management/characters")
       .then(async (response) => {
@@ -103,7 +107,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
         setIsGM(Boolean(data.isGM));
         setCapabilities(data.capabilities ?? {global:false,resources:false,details:false,characters:false});
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar personajes."))
+      .catch((err) => setError(toolsMode ? (err instanceof Error ? err.message : "Error al cargar personajes.") : ""))
       .finally(() => setLoading(false));
   }, []);
 
@@ -453,161 +457,161 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
         {!toolsMode && <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="text-zinc-500">{isAdmin ? "Otorga cambios permanentes a las estadísticas base y recursos." : "Otorga recursos y puntos de Level Up a los personajes."}</p>
           <div className="flex flex-wrap gap-3">
-            <Link
+            {canSee("logs") && (<Link
               href="/management/logs"
               className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
             >
               Ver logs
-            </Link>
-            <Link
+            </Link>)}
+            {canSee("rankings") && (<Link
               href="/management/rankings"
               className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
             >
               Rankings
-            </Link>
+            </Link>)}
 
-            <Link
+            {canSee("rules") && (<Link
               href="/management/rules"
               className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
             >
               Reglas
-            </Link>
+            </Link>)}
 
             {isAdmin && (
-              <Link
+              {canSee("casino") && (<Link
                 href="/management/casino"
                 className="rounded-lg border border-amber-500/30 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-950/30"
               >
                 Casino
-              </Link>
+              </Link>)}
             )}
 
             {isAdmin && (
               <>
-                <Link
+                {canSee("items") && (<Link
                   href="/management/items"
                   className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
                 >
                   Objetos
-                </Link>
-                <Link
+                </Link>)}
+                {canSee("store") && (<Link
                   href="/management/store"
                   className="rounded-lg border border-emerald-500/30 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-950/30"
                 >
                   Tienda
-                </Link>
+                </Link>)}
               </>
             )}
 
 
             {isAdmin && (
-              <Link
+              {canSee("world") && (<Link
                 href="/management/world"
                 className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30"
               >
                 Mundo
-              </Link>
+              </Link>)}
             )}
 
             {isAdmin && (
-              <Link
+              {canSee("businesses") && (<Link
                 href="/management/businesses"
                 className="rounded-lg border border-emerald-500/30 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-950/30"
               >
                 Negocios y empleos
-              </Link>
+              </Link>)}
             )}
 
             {isAdmin && (
-              <Link
+              {canSee("perks") && (<Link
                 href="/management/perks"
                 className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
               >
                 Perks
-              </Link>
+              </Link>)}
             )}
             {isAdmin && (
-              <Link
+              {canSee("races") && (<Link
                 href="/management/races"
                 className="rounded-lg border border-violet-500/30 px-4 py-2 text-sm font-medium text-violet-300 transition hover:bg-violet-950/30"
               >
                 Razas
-              </Link>
+              </Link>)}
             )}
 
             {isAdmin && (
-              <Link
+              {canSee("skills") && (<Link
                 href="/management/skills"
                 className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
               >
                 Habilidades
-              </Link>
+              </Link>)}
             )}
 
             {isAdmin && (
-              <Link href="/management/roles" className="rounded-lg border border-cyan-700 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950">Gestionar roles</Link>
+              {canSee("roles") && (<Link href="/management/roles" className="rounded-lg border border-cyan-700 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950">Gestionar roles</Link>)}
             )}
 
             {isAdmin && (
-              <Link
+              {canSee("users") && (<Link
                 href="/management/users"
                 className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
               >
                 Ver usuarios
-              </Link>
+              </Link>)}
             )}
 
-            <Link
+            {canSee("social") && (<Link
               href="/management/social"
               className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
             >
               Relaciones sociales
-            </Link>
+            </Link>)}
             {isAdmin && (
-              <Link
+              {canSee("statistics") && (<Link
                 href="/management/statistics"
                 className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30"
               >
                 Estadísticas
-              </Link>
+              </Link>)}
             )}
 
             {(isAdmin || isGM) && (
-              <Link href="/management/effects" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de efectos</Link>
+              {canSee("effects") && (<Link href="/management/effects" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de efectos</Link>)}
             )}
 
-            <Link
+            {canSee("labyrinth") && (<Link
               href="/management/maze"
               className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
             >
               Laberintos
-            </Link>
+            </Link>)}
             {(isGM || isAdmin) && (
               <>
-                <Link
+                {canSee("enemies") && (<Link
                   href="/management/enemies"
                   className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
                 >
                   Enemigos
-                </Link>
-                <Link
+                </Link>)}
+                {canSee("ambientations") && (<Link
                   href="/management/ambientations"
                   className="rounded-lg border border-fuchsia-500/30 px-4 py-2 text-sm font-medium text-fuchsia-300 transition hover:bg-fuchsia-950/30"
                 >
                   Ambientaciones
-                </Link>
-                <Link
+                </Link>)}
+                {canSee("themes") && (<Link
                   href="/management/themes"
                   className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
                 >
                   Temáticas
-                </Link>
+                </Link>)}
               </>
             )}
           </div>
         </div>}
 
-        {!toolsMode && <div className="mt-5"><Link href="/management/character-tools" className="inline-flex rounded-lg border border-cyan-600 bg-cyan-950/30 px-5 py-3 font-semibold text-cyan-300">Entregas y edición de personajes</Link></div>}
+        {!toolsMode && (canSee("characters")||canSee("character-resources")||canSee("character-details")||canSee("global-delivery")) && <div className="mt-5"><Link href="/management/character-tools" className="inline-flex rounded-lg border border-cyan-600 bg-cyan-950/30 px-5 py-3 font-semibold text-cyan-300">Entregas y edición de personajes</Link></div>}
         {toolsMode && <div className="mb-4"><Link href="/management" className="text-cyan-300">← Volver a Gestión</Link></div>}
         {error && (
           <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">

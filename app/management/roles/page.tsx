@@ -34,6 +34,17 @@ export default function RolesPage(){
    setMessage("Rol guardado.");setEditId(null);setDraft(blank);setPermissionsText("{}");await load();
   }catch(e){setError(e instanceof Error?e.message:"Error inesperado");}finally{setBusy(false);}
  }
+ async function remove(role:Role){
+  if(busy||role.protected||!window.confirm(`¿Eliminar el rol «${role.name}»? Esta acción no se puede deshacer.`))return;
+  setBusy(true);setError("");setMessage("");
+  try{
+   const response=await fetch("/api/management/roles",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:role.id})});
+   const data=await response.json().catch(()=>null);
+   if(!response.ok)throw new Error(data?.error??"No se pudo eliminar el rol.");
+   if(editId===role.id){setEditId(null);setDraft(blank);setPermissionsText("{}");}
+   setMessage("Rol eliminado.");await load();
+  }catch(e){setError(e instanceof Error?e.message:"Error inesperado");}finally{setBusy(false);}
+ }
  async function toggle(userId:number,roleId:number,assigned:boolean){
   setBusy(true);setError("");setMessage("");
   try{
@@ -60,7 +71,7 @@ export default function RolesPage(){
    <p className="mt-2 text-xs text-amber-300">Los permisos configurables requieren integración adicional con cada ruta protegida antes de conceder acceso efectivo.</p>
    <div className="mt-4 flex gap-3"><button disabled={busy} onClick={save} className="rounded-lg bg-cyan-600 px-5 py-2 disabled:opacity-50">Guardar rol</button>{editId!==null&&<button onClick={()=>{setEditId(null);setDraft(blank);setPermissionsText("{}");}} className="rounded-lg border border-zinc-700 px-4 py-2">Cancelar</button>}</div>
   </section>
-  <section className="mt-6 rounded-xl border border-zinc-800 p-5"><h2 className="text-xl font-semibold">Roles existentes</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{roles.map(role=><div key={role.id} className="rounded-lg border border-zinc-800 p-4"><span className="rounded px-2 py-1 text-sm font-semibold" style={{backgroundColor:role.color,color:"#111"}}>{role.name}</span><p className="mt-3 text-sm text-zinc-400">{role.dailyPts} PTS · {role.dailyKarma} karma · {role.dailyMoney} dinero / día</p>{!role.protected&&<button onClick={()=>edit(role)} className="mt-3 text-cyan-400">Editar</button>}</div>)}</div></section>
+  <section className="mt-6 rounded-xl border border-zinc-800 p-5"><h2 className="text-xl font-semibold">Roles existentes</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{roles.map(role=><div key={role.id} className="rounded-lg border border-zinc-800 p-4"><span className="rounded px-2 py-1 text-sm font-semibold" style={{backgroundColor:role.color,color:"#111"}}>{role.name}</span><p className="mt-3 text-sm text-zinc-400">{role.dailyPts} PTS · {role.dailyKarma} karma · {role.dailyMoney} dinero / día</p>{!role.protected&&<div className="mt-3 flex gap-4"><button disabled={busy} onClick={()=>edit(role)} className="text-cyan-400 disabled:opacity-50">Editar</button><button disabled={busy} onClick={()=>remove(role)} className="text-red-400 disabled:opacity-50">Eliminar</button></div>}</div>)}</div></section>
   <section className="mt-6 rounded-xl border border-zinc-800 p-5"><h2 className="text-xl font-semibold">Asignaciones</h2><div className="mt-4 space-y-4">{users.map(user=><div key={user.id} className="border-b border-zinc-800 pb-4"><p className="font-medium">{user.name} <span className="text-sm text-zinc-500">({user.email})</span></p><div className="mt-2 flex flex-wrap gap-4">{roles.filter(role=>!role.protected).map(role=><label key={role.id} className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={busy||user.role==="BANNED"||user.role==="SYSTEM"} checked={assignments.some(a=>a.userId===user.id&&a.roleId===role.id)} onChange={e=>toggle(user.id,role.id,e.target.checked)}/>{role.name}</label>)}</div></div>)}</div></section>
  </div></main>;
 }

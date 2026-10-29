@@ -3,12 +3,13 @@ CREATE OR REPLACE FUNCTION public.accrue_role_salary(p_day date)
 RETURNS integer LANGUAGE plpgsql SECURITY INVOKER AS $$
 DECLARE n integer;
 BEGIN
+  IF p_day > (now() AT TIME ZONE 'America/Chihuahua')::date THEN RAISE EXCEPTION 'FUTURE_SALARY_DATE'; END IF;
   WITH inserted AS (
     INSERT INTO "RoleSalaryAccrual" ("userId","roleId","salaryDate",pts,karma,money)
     SELECT a."userId", a."roleId", p_day, r."dailyPts",r."dailyKarma",r."dailyMoney"
     FROM "UserManagedRole" a JOIN "ManagedRole" r ON r.id=a."roleId"
     JOIN "User" u ON u.id=a."userId"
-    WHERE u.role NOT IN ('BANNED','SYSTEM') AND a."assignedAt"::date <= p_day
+    WHERE u.role NOT IN ('BANNED','SYSTEM') AND (a."assignedAt" AT TIME ZONE 'America/Chihuahua')::date <= p_day
     ON CONFLICT ("userId","roleId","salaryDate") DO NOTHING
     RETURNING *
   ), sums AS (
@@ -24,7 +25,15 @@ BEGIN
       "updatedAt"=now()
     RETURNING "userId"
   )
-  SELECT count(*) INTO n FROM credited;
+  , audited AS (
+    INSERT INTO "AuditLog" ("actorUserId",action,"entityType","entityId","targetUserId",details,"createdAt")
+    SELECT NULL,'ROLE_SALARY_ACCRUAL','USER',i."userId",i."userId",
+      jsonb_build_object('roleId',i."roleId",'salaryDate',i."salaryDate",
+      'pts',i.pts,'karma',i.karma,'money',i.money)::text,now()
+    FROM inserted i
+    RETURNING id
+  )
+  SELECT (SELECT count(*) FROM audited) INTO n;
   RETURN n;
 END $$;
 

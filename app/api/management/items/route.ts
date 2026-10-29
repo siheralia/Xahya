@@ -77,6 +77,7 @@ export async function POST(request: Request) {
   const admin = await getAdmin("view");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json();
+  if (!(await canManageItemOrigin(admin, body?.acquisitionType ?? "PURCHASABLE", "create"))) return NextResponse.json({error:"Sin permiso para crear objetos de este origen."},{status:403});
   const error = validate(body, await readStatisticsCatalog());
   if (error) return NextResponse.json({ error }, { status: 400 });
   const Item = (db.orm.public as any).Item;

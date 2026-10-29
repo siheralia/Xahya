@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type Layer={id:string;imageUrl:string;position:string;width:number;opacity:number;animation:string};
+type Layer={id:string;imageUrl:string;position:string;width:number;opacity:number;animation:string;mirror?:boolean};
 type Ambient={id:string;name:string;enabled:boolean;starts_at:string|null;ends_at:string|null;layers:Layer[]};
 async function optimizeWebp(file:File):Promise<File> {
  if(file.size>5*1024*1024) throw Error("La imagen original supera 5 MB.");
@@ -35,7 +35,7 @@ export default function Ambientaciones() {
  function edit(patch:Partial<Ambient>){setItems(v=>v.map(i=>i.id===selected?{...i,...patch}:i));}
  function editLayer(id:string,patch:Partial<Layer>){if(current)edit({layers:current.layers.map(l=>l.id===id?{...l,...patch}:l)});}
  async function create(){setBusy(true);setError("");try{const r=await fetch("/api/management/ambientations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name})});if(!r.ok)throw Error("No se pudo crear");const data=await r.json();setName("");await reload();setSelected(data[0].id);}catch(e){setError(String(e));}finally{setBusy(false);}}
- async function upload(file:File){setBusy(true);setError("");try{const form=new FormData();form.set("file",await optimizeWebp(file));const r=await fetch("/api/management/ambientations/upload",{method:"POST",body:form});const data=await r.json();if(!r.ok)throw Error(data.error||"Error al subir");if(current)edit({layers:[...current.layers,{id:crypto.randomUUID(),imageUrl:data.imageUrl,position:"top-right",width:140,opacity:85,animation:"float"}]});}catch(e){setError(String(e));}finally{setBusy(false);}}
+ async function upload(file:File){setBusy(true);setError("");try{const form=new FormData();form.set("file",await optimizeWebp(file));const r=await fetch("/api/management/ambientations/upload",{method:"POST",body:form});const data=await r.json();if(!r.ok)throw Error(data.error||"Error al subir");if(current)edit({layers:[...current.layers,{id:crypto.randomUUID(),imageUrl:data.imageUrl,position:"top-right",width:140,opacity:85,animation:"float",mirror:false}]});}catch(e){setError(String(e));}finally{setBusy(false);}}
  async function save(){if(!current)return;setBusy(true);setError("");setNotice("");try{const r=await fetch("/api/management/ambientations",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(current)});const data=await r.json();if(!r.ok)throw Error(data.error||"Error al guardar");await reload();setNotice("Ambientación guardada.");}catch(e){setError(String(e));}finally{setBusy(false);}}
  return <main className="mx-auto max-w-4xl space-y-5 p-5 text-zinc-100">
  <Link href="/management" className="text-sm text-cyan-300">← Gestión</Link>
@@ -53,6 +53,7 @@ export default function Ambientaciones() {
  <img src={l.imageUrl} alt="Vista previa de capa" className="max-h-28 max-w-36 object-contain"/>
  <div className="flex justify-end"><button className="text-red-300" onClick={()=>edit({layers:current.layers.filter(x=>x.id!==l.id)})}>Quitar imagen</button></div>
  <label>Posición<select className="block w-full rounded bg-zinc-800 p-2" value={l.position} onChange={e=>editLayer(l.id,{position:e.target.value})}>{["top-left","top-right","bottom-left","bottom-right"].map(p=><option key={p} value={p}>{({"top-left":"Superior izquierda","top-right":"Superior derecha","bottom-left":"Inferior izquierda","bottom-right":"Inferior derecha"} as Record<string,string>)[p]}</option>)}</select></label>
+ <label className="flex items-center gap-2"><input type="checkbox" checked={Boolean(l.mirror)} onChange={e=>editLayer(l.id,{mirror:e.target.checked})}/>Efecto espejo (voltear horizontalmente)</label>
  <label>Animación<select className="block w-full rounded bg-zinc-800 p-2" value={l.animation} onChange={e=>editLayer(l.id,{animation:e.target.value})}>{["none","float","swing","pulse","fall"].map(p=><option key={p} value={p}>{({"none":"Ninguna","float":"Flotar","swing":"Balancearse","pulse":"Brillar","fall":"Caer"} as Record<string,string>)[p]}</option>)}</select></label>
  <label>Ancho: {l.width}px<input type="range" min="30" max="360" value={l.width} className="block w-full" onChange={e=>editLayer(l.id,{width:Number(e.target.value)})}/></label>
  <label>Opacidad: {l.opacity}%<input type="range" min="0" max="100" value={l.opacity} className="block w-full" onChange={e=>editLayer(l.id,{opacity:Number(e.target.value)})}/></label>

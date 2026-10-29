@@ -477,14 +477,12 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
               Reglas
             </Link>)}
 
-            {isAdmin && (
-              {canSee("casino") && (<Link
+            {canSee("casino") && (<Link
                 href="/management/casino"
                 className="rounded-lg border border-amber-500/30 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-950/30"
               >
                 Casino
               </Link>)}
-            )}
 
             {isAdmin && (
               <>

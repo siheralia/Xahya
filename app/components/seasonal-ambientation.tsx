@@ -13,10 +13,27 @@ export default function SeasonalAmbientation() {
   const [layers, setLayers] = useState<Layer[]>([]);
   useEffect(() => {
     let active = true;
-    fetch("/api/ambientations", { cache: "no-store" }).then(r => r.json())
-      .then(data => { if (active) setLayers(Array.isArray(data.layers) ? data.layers : []); })
-      .catch(() => {});
-    return () => { active = false; };
+    const refresh = async () => {
+      try {
+        const response = await fetch("/api/ambientations", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (active) setLayers(Array.isArray(data.layers) ? data.layers : []);
+      } catch {
+        // Keep the last known decoration if the network is temporarily unavailable.
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 15000);
+    const onFocus = () => { void refresh(); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("ambientations-updated", onFocus);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("ambientations-updated", onFocus);
+    };
   }, []);
   return <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-20 overflow-hidden">
     {layers.filter(l => /^(https:\/\/|\/ambientations\/)/.test(l.imageUrl) && positions[l.position]).map(layer =>

@@ -19,7 +19,7 @@ export default function SeasonalAmbientation() {
     return () => { active = false; };
   }, []);
   return <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-20 overflow-hidden">
-    {layers.filter(l => /^https:\/\//.test(l.imageUrl) && positions[l.position]).map(layer =>
+    {layers.filter(l => /^(https:\/\/|\/ambientations\/)/.test(l.imageUrl) && positions[l.position]).map(layer =>
       <img key={layer.id} src={layer.imageUrl} alt="" draggable={false}
         className={"absolute select-none seasonal-" + (["float","swing","pulse","fall"].includes(layer.animation) ? layer.animation : "none")}
         style={{ ...positions[layer.position], width: Math.min(360, Math.max(30, Number(layer.width) || 120)), maxWidth: "35vw", opacity: Math.min(1, Math.max(0, Number(layer.opacity) / 100 || 0.8)) }} />

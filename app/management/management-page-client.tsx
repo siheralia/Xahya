@@ -1,0 +1,1006 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import ManagementModal from "./_components/ManagementModal";
+
+type Character = {
+  id: number;
+  name: string;
+  ownerName: string;
+};
+
+type CharacterEquipment = {
+  id: number;
+  item?: { name: string; itemType?: string; description?: string | null } | null;
+  flair: string | null;
+  itemType?: string;
+  equipped: boolean;
+  equippedSlot: string | null;
+  quantity?: number;
+};
+
+type GrantableItem = {
+  id: number;
+  name: string;
+  description: string | null;
+  itemType: string;
+  acquisitionType: string;
+};
+
+const statLabels: Record<string, string> = {
+  strength: "Fuerza",
+  agility: "Agilidad",
+  constitution: "Constitución",
+  intelligence: "Inteligencia",
+  wisdom: "Sabiduría",
+  charisma: "Carisma",
+  spirit: "Espíritu",
+  luck: "Suerte",
+};
+
+const statNames = Object.keys(statLabels);
+
+function emptyStats() {
+  return Object.fromEntries(statNames.map((stat) => [stat, 0])) as Record<string, number>;
+}
+
+export default function ManagementPage({ toolsMode = false }: { toolsMode?: boolean }) {
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isGM, setIsGM] = useState(false);
+  const [capabilities, setCapabilities] = useState({global:false,resources:false,details:false,characters:false});
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteCountdown, setDeleteCountdown] = useState(5);
+  const [deleting, setDeleting] = useState(false);
+  const [characterId, setCharacterId] = useState("");
+  const [characterName, setCharacterName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [stats, setStats] = useState<Record<string, number>>(emptyStats);
+  const [karma, setKarma] = useState(0);
+  const [money, setMoney] = useState(0);
+  const [levelUpPoints, setLevelUpPoints] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [globalOpen, setGlobalOpen] = useState(false);
+  const [globalKarma, setGlobalKarma] = useState(0);
+  const [globalMoney, setGlobalMoney] = useState(0);
+  const [globalLevelUpPoints, setGlobalLevelUpPoints] = useState(0);
+  const [globalSaving, setGlobalSaving] = useState(false);
+  const [equipment, setEquipment] = useState<CharacterEquipment[]>([]);
+  const [equipmentLoading, setEquipmentLoading] = useState(false);
+  const [flairSaving, setFlairSaving] = useState<number | null>(null);
+  const [equipmentDeleting, setEquipmentDeleting] = useState<number | null>(null);
+  const [grantableItems, setGrantableItems] = useState<GrantableItem[]>([]);
+  const [grantItemId, setGrantItemId] = useState("");
+  const [grantQuantity, setGrantQuantity] = useState(1);
+  const [grantFlair, setGrantFlair] = useState("");
+  const [grantSaving, setGrantSaving] = useState(false);
+  const [statsModalOpen, setStatsModalOpen] = useState(false);
+  const [raceOptions, setRaceOptions] = useState<Array<{id:number;name:string}>>([]);
+  const [characterRaceId, setCharacterRaceId] = useState("");
+  const [raceSaving, setRaceSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/management/characters")
+      .then(async (response) => {
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(
+            data?.error === "Forbidden"
+              ? "No tienes permisos para acceder a esta pantalla."
+              : "No se pudieron cargar los personajes.",
+          );
+        }
+
+        return response.json();
+      })
+      .then((data) => {
+        setCharacters(data.characters ?? data);
+        setIsAdmin(Boolean(data.isAdmin));
+        setIsGM(Boolean(data.isGM));
+        setCapabilities(data.capabilities ?? {global:false,resources:false,details:false,characters:false});
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar personajes."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!deleteOpen) return;
+    setDeleteCountdown(5);
+    const timer = window.setInterval(() => {
+      setDeleteCountdown((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [deleteOpen]);
+
+  useEffect(() => {
+    const requestedCharacterId = new URLSearchParams(window.location.search).get("characterId");
+    if (requestedCharacterId && characters.some((character) => String(character.id) === requestedCharacterId)) {
+      selectCharacter(requestedCharacterId);
+    }
+  }, [characters]);
+
+  function selectCharacter(value: string) {
+    setCharacterId(value);
+    const selected = characters.find((character) => String(character.id) === value);
+    setCharacterName(selected?.name ?? "");
+  }
+
+  useEffect(() => {
+    fetch("/api/races", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setRaceOptions((data.races ?? []).map((race: any) => ({ id: Number(race.id), name: String(race.name) })));
+      })
+      .catch(() => setRaceOptions([]));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/management/grant-item")
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setGrantableItems(Array.isArray(data.items) ? data.items : []);
+      })
+      .catch(() => setGrantableItems([]));
+  }, []);
+
+  useEffect(() => {
+    if (!(isAdmin || isGM) || !characterId) {
+      setEquipment([]);
+      return;
+    }
+
+    setEquipmentLoading(true);
+    fetch("/api/characters/" + characterId)
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setEquipment((data.equipment ?? []).map((entry: CharacterEquipment) => ({ ...entry, itemType: entry.item?.itemType })));
+      })
+      .catch(() => setEquipment([]))
+      .finally(() => setEquipmentLoading(false));
+  }, [characterId, isAdmin, isGM]);
+
+  useEffect(() => {
+    if (!(isAdmin || isGM) || !characterId) {
+      setCharacterRaceId("");
+      return;
+    }
+    fetch("/api/characters/" + characterId, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setCharacterRaceId(data.race?.id ? String(data.race.id) : "");
+      })
+      .catch(() => setCharacterRaceId(""));
+  }, [characterId, isAdmin, isGM]);
+
+  async function changeCharacterRace() {
+    if (!characterId || !characterRaceId || raceSaving) return;
+    setRaceSaving(true); setError(""); setSuccess("");
+    try {
+      const response = await fetch("/api/characters/" + characterId + "/race", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ raceId: Number(characterRaceId) }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo cambiar la raza.");
+      setSuccess("Raza actualizada y perks de raza sincronizadas.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar la raza.");
+    } finally {
+      setRaceSaving(false);
+    }
+  }
+
+  async function grantItem() {
+    if (!characterId || !grantItemId) {
+      setError("Selecciona un personaje y un objeto.");
+      return;
+    }
+
+    const quantity = Math.trunc(Number(grantQuantity));
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+      setError("La cantidad debe ser un entero entre 1 y 99.");
+      return;
+    }
+
+    setGrantSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/grant-item", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          characterId: Number(characterId),
+          itemId: Number(grantItemId),
+          quantity,
+          flair: grantFlair.trim() || null,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo entregar el objeto.");
+
+      setGrantQuantity(1);
+      setGrantFlair("");
+      setSuccess("Objeto entregado correctamente.");
+      const inventoryResponse = await fetch("/api/characters/" + characterId);
+      if (inventoryResponse.ok) {
+        const inventoryData = await inventoryResponse.json();
+        setEquipment(inventoryData.equipment ?? []);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo entregar el objeto.");
+    } finally {
+      setGrantSaving(false);
+    }
+  }
+
+  async function saveItemFlair(characterItemId: number, flair: string) {
+    setFlairSaving(characterItemId);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/characters/" + characterId + "/equipment", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characterItemId, flair }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo actualizar el flair.");
+
+      setEquipment((current) =>
+        current.map((entry) => entry.id === characterItemId ? { ...entry, flair: flair || null } : entry),
+      );
+      setSuccess("Flair actualizado correctamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo actualizar el flair.");
+    } finally {
+      setFlairSaving(null);
+    }
+  }
+
+  async function renameCharacter() {
+    if (!isAdmin || !characterId) return;
+
+    const name = characterName.trim();
+
+    if (!name || name.length > 80) {
+      setError("El nombre debe tener entre 1 y 80 caracteres.");
+      return;
+    }
+
+    setSavingName(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/characters/" + characterId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudo cambiar el nombre.");
+      }
+
+      setCharacters((current) =>
+        current.map((character) =>
+          String(character.id) === characterId
+            ? { ...character, name }
+            : character,
+        ),
+      );
+      setCharacterName(name);
+      setSuccess("Nombre actualizado correctamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar el nombre.");
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  function updateStat(stat: string, value: string) {
+    const parsed = Number(value);
+    setStats((current) => ({
+      ...current,
+      [stat]: Number.isFinite(parsed) ? Math.trunc(parsed) : 0,
+    }));
+  }
+
+  async function deleteCharacter() {
+    if (!characterId || deleteCountdown > 0 || !isAdmin) return;
+
+    setDeleting(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/characters/" + characterId, {
+        method: "DELETE",
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudo borrar el personaje.");
+      }
+
+      const deletedName = characters.find((character) => String(character.id) === characterId)?.name ?? "Personaje";
+      setCharacters((current) => current.filter((character) => String(character.id) !== characterId));
+      setCharacterId("");
+      setCharacterName("");
+      setDeleteOpen(false);
+      setSuccess("\"" + deletedName + "\" fue eliminado correctamente.");
+      setStats(emptyStats());
+      setKarma(0);
+      setMoney(0);
+      setLevelUpPoints(0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo borrar el personaje.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function applyChanges(): Promise<boolean> {
+    if (!characterId) {
+      setError("Selecciona un personaje.");
+      return false;
+    }
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/grant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          characterId: Number(characterId),
+          stats,
+          karma,
+          money,
+          levelUpPoints,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "No se pudieron aplicar los cambios.");
+      }
+
+      setStats(emptyStats());
+      setKarma(0);
+      setMoney(0);
+      setLevelUpPoints(0);
+      setSuccess("Cambios aplicados correctamente.");
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudieron aplicar los cambios.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function applyGlobalResources() {
+    if (!globalKarma && !globalMoney && !globalLevelUpPoints) {
+      setError("Indica al menos un recurso para entregar.");
+      return;
+    }
+
+    setGlobalSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/management/grant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          allCharacters: true,
+          karma: globalKarma,
+          money: globalMoney,
+          levelUpPoints: globalLevelUpPoints,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo hacer la entrega global.");
+
+      setGlobalKarma(0);
+      setGlobalMoney(0);
+      setGlobalLevelUpPoints(0);
+      setGlobalOpen(false);
+      setSuccess("Entrega global aplicada a " + (data.updatedCharacters ?? 0) + " personajes.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo hacer la entrega global.");
+    } finally {
+      setGlobalSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-zinc-950 p-12 text-white">
+        <p className="text-zinc-500">Cargando gestión...</p>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-zinc-950 text-white">
+      <div className="mx-auto max-w-5xl px-6 py-6">
+        <h1 className="text-4xl font-bold">{toolsMode ? "Herramientas de gestión" : "Gestión"}</h1>
+        {!toolsMode && <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-zinc-500">{isAdmin ? "Otorga cambios permanentes a las estadísticas base y recursos." : "Otorga recursos y puntos de Level Up a los personajes."}</p>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/management/logs"
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Ver logs
+            </Link>
+            <Link
+              href="/management/rankings"
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Rankings
+            </Link>
+
+            <Link
+              href="/management/rules"
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Reglas
+            </Link>
+
+            {isAdmin && (
+              <Link
+                href="/management/casino"
+                className="rounded-lg border border-amber-500/30 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-950/30"
+              >
+                Casino
+              </Link>
+            )}
+
+            {isAdmin && (
+              <>
+                <Link
+                  href="/management/items"
+                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+                >
+                  Objetos
+                </Link>
+                <Link
+                  href="/management/store"
+                  className="rounded-lg border border-emerald-500/30 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-950/30"
+                >
+                  Tienda
+                </Link>
+              </>
+            )}
+
+
+            {isAdmin && (
+              <Link
+                href="/management/world"
+                className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30"
+              >
+                Mundo
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link
+                href="/management/businesses"
+                className="rounded-lg border border-emerald-500/30 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-950/30"
+              >
+                Negocios y empleos
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link
+                href="/management/perks"
+                className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+              >
+                Perks
+              </Link>
+            )}
+            {isAdmin && (
+              <Link
+                href="/management/races"
+                className="rounded-lg border border-violet-500/30 px-4 py-2 text-sm font-medium text-violet-300 transition hover:bg-violet-950/30"
+              >
+                Razas
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link
+                href="/management/skills"
+                className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+              >
+                Habilidades
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link href="/management/roles" className="rounded-lg border border-cyan-700 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950">Gestionar roles</Link>
+            )}
+
+            {isAdmin && (
+              <Link
+                href="/management/users"
+                className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+              >
+                Ver usuarios
+              </Link>
+            )}
+
+            <Link
+              href="/management/social"
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Relaciones sociales
+            </Link>
+            {isAdmin && (
+              <Link
+                href="/management/statistics"
+                className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30"
+              >
+                Estadísticas
+              </Link>
+            )}
+
+            {(isAdmin || isGM) && (
+              <Link href="/management/effects" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de efectos</Link>
+            )}
+
+            <Link
+              href="/management/maze"
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+            >
+              Laberintos
+            </Link>
+            {(isGM || isAdmin) && (
+              <>
+                <Link
+                  href="/management/enemies"
+                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+                >
+                  Enemigos
+                </Link>
+                <Link
+                  href="/management/ambientations"
+                  className="rounded-lg border border-fuchsia-500/30 px-4 py-2 text-sm font-medium text-fuchsia-300 transition hover:bg-fuchsia-950/30"
+                >
+                  Ambientaciones
+                </Link>
+                <Link
+                  href="/management/themes"
+                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
+                >
+                  Temáticas
+                </Link>
+              </>
+            )}
+          </div>
+        </div>}
+
+        {!toolsMode && <div className="mt-5"><Link href="/management/character-tools" className="inline-flex rounded-lg border border-cyan-600 bg-cyan-950/30 px-5 py-3 font-semibold text-cyan-300">Entregas y edición de personajes</Link></div>}
+        {toolsMode && <div className="mb-4"><Link href="/management" className="text-cyan-300">← Volver a Gestión</Link></div>}
+        {error && (
+          <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">
+            {success}
+          </div>
+        )}
+
+        {toolsMode && <>
+        {capabilities.global && (
+          <section className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-950/10 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Entrega global</h2>
+                <p className="mt-1 text-sm text-zinc-500">Entrega Karma, Dinero o Puntos de Level Up a todos los personajes de jugadores.</p>
+              </div>
+              <button type="button" onClick={() => setGlobalOpen(true)} className="rounded-lg bg-amber-400 px-5 py-3 font-semibold text-zinc-950 transition hover:bg-amber-300">
+                Dar a todos
+              </button>
+            </div>
+          </section>
+        )}
+
+        {capabilities.details && characterId && (
+          <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-950/10 p-6">
+            <h2 className="text-xl font-semibold">Raza del personaje</h2>
+            <p className="mt-1 text-sm text-zinc-500">Cambiar la raza elimina solo las perks cuyo origen sea la raza anterior y conserva las obtenidas por creación u otras fuentes.</p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <select value={characterRaceId} onChange={(event) => setCharacterRaceId(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-white">
+                <option value="">Selecciona una raza</option>
+                {raceOptions.map((race) => <option key={race.id} value={race.id}>{race.name}</option>)}
+              </select>
+              <button type="button" onClick={changeCharacterRace} disabled={!characterRaceId || raceSaving} className="rounded-lg bg-violet-400 px-5 py-3 font-semibold text-zinc-950 disabled:opacity-40">{raceSaving ? "Aplicando..." : "Cambiar raza"}</button>
+            </div>
+          </section>
+        )}
+
+        <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+          <label className="block text-sm font-medium text-zinc-300">
+            Personaje
+          </label>
+
+          <select
+            value={characterId}
+            onChange={(event) => selectCharacter(event.target.value)}
+            className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-white outline-none focus:border-zinc-500"
+          >
+            <option value="">Selecciona un personaje</option>
+            {characters.map((character) => (
+              <option key={character.id} value={character.id}>
+                {character.name} — {character.ownerName}
+              </option>
+            ))}
+          </select>
+        </section>
+
+        {capabilities.resources && characterId && (
+          <section className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-6">
+            <h2 className="text-xl font-semibold">Entregar objeto</h2>
+            <p className="mt-1 text-sm text-zinc-500">GM y ADMIN pueden entregar directamente objetos del catálogo. No se cobra dinero.</p>
+
+            {grantableItems.length === 0 ? (
+              <p className="mt-5 text-sm text-zinc-500">No hay objetos disponibles en el catálogo.</p>
+            ) : (
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <label className="block sm:col-span-2">
+                  <span className="text-sm text-zinc-400">Objeto</span>
+                  <select
+                    value={grantItemId}
+                    onChange={(event) => setGrantItemId(event.target.value)}
+                    className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+                  >
+                    <option value="">Selecciona un objeto</option>
+                    {grantableItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} — {item.acquisitionType}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm text-zinc-400">Cantidad</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    value={grantQuantity}
+                    onChange={(event) => setGrantQuantity(Math.trunc(Number(event.target.value) || 1))}
+                    className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm text-zinc-400">Flair / variante (opcional)</span>
+                  <input
+                    maxLength={500}
+                    value={grantFlair}
+                    onChange={(event) => setGrantFlair(event.target.value)}
+                    placeholder="Ej. Premio del Festival de Verano"
+                    className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={grantItem}
+                  disabled={grantSaving || !grantItemId}
+                  className="sm:col-span-2 rounded-lg bg-emerald-400 px-5 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {grantSaving ? "Entregando..." : "Entregar objeto"}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {isAdmin && characterId && (
+          <section className="mt-6 rounded-2xl border border-violet-500/20 bg-violet-950/10 p-6">
+            <h2 className="text-xl font-semibold">Flair de objetos</h2>
+            <p className="mt-1 text-sm text-zinc-500">Solo ADMIN puede editar la variante de cada objeto. El flair pertenece a esta copia del objeto.</p>
+            {equipmentLoading ? (
+              <p className="mt-5 text-sm text-zinc-500">Cargando inventario...</p>
+            ) : equipment.length === 0 ? (
+              <p className="mt-5 text-sm text-zinc-500">Este personaje no tiene objetos.</p>
+            ) : (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {equipment.map((entry) => (
+                  <label key={entry.id} className="block rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                    <span className="text-sm font-medium text-zinc-300">{entry.item?.name ?? "Objeto"}</span>
+                    <span className="mt-1 block text-xs text-zinc-600">{entry.equipped ? "Equipado" : "En inventario"}</span>
+                    <input
+                      key={entry.flair ?? ""}
+                      defaultValue={entry.flair ?? ""}
+                      maxLength={500}
+                      placeholder="Ej. Mandoble de 2 metros"
+                      disabled={flairSaving !== null}
+                      onBlur={(event) => {
+                        const value = event.target.value.trim();
+                        if (value !== (entry.flair ?? "")) saveItemFlair(entry.id, value);
+                      }}
+                      className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+                    />
+                    <button
+                      type="button"
+                      disabled={equipmentDeleting !== null}
+                      onClick={async () => {
+                        if (!window.confirm("¿Eliminar este objeto del personaje?")) return;
+                        setEquipmentDeleting(entry.id);
+                        setError("");
+                        setSuccess("");
+                        try {
+                          const response = await fetch("/api/management/characters/" + characterId + "/equipment", {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ characterItemId: entry.id }),
+                          });
+                          const data = await response.json().catch(() => null);
+                          if (!response.ok) throw new Error(data?.error ?? "No se pudo eliminar el objeto.");
+                          setEquipment((current) => current.filter((item) => item.id !== entry.id));
+                          setSuccess("Objeto eliminado del inventario.");
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : "No se pudo eliminar el objeto.");
+                        } finally {
+                          setEquipmentDeleting(null);
+                        }
+                      }}
+                      className="mt-2 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-40"
+                    >
+                      {equipmentDeleting === entry.id ? "Eliminando..." : "Eliminar objeto"}
+                    </button>
+                  </label>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {isGM && characterId && (
+          <section className="mt-6 rounded-2xl border border-orange-500/20 bg-orange-950/10 p-6">
+            <h2 className="text-xl font-semibold">Consumibles del inventario</h2>
+            <p className="mt-1 text-sm text-zinc-500">GM puede eliminar consumibles usados o retirados durante el rol. ADMIN puede eliminar cualquier objeto.</p>
+            {equipmentLoading ? (
+              <p className="mt-5 text-sm text-zinc-500">Cargando inventario...</p>
+            ) : equipment.filter((entry) => entry.itemType === "CONSUMABLE").length === 0 ? (
+              <p className="mt-5 text-sm text-zinc-500">Este personaje no tiene consumibles.</p>
+            ) : (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {equipment.filter((entry) => entry.itemType === "CONSUMABLE").map((entry) => (
+                  <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                    <p className="font-semibold">{entry.item?.name ?? "Consumible"}</p>
+                    <p className="mt-1 text-xs text-zinc-500">Cantidad: {entry.quantity}</p>
+                    {entry.item?.description && <p className="mt-3 text-sm text-zinc-400">{entry.item.description}</p>}
+                    <button type="button" disabled={equipmentDeleting !== null} onClick={async () => {
+                      if (!window.confirm("¿Eliminar este consumible del inventario?")) return;
+                      setEquipmentDeleting(entry.id); setError(""); setSuccess("");
+                      try {
+                        const response = await fetch("/api/management/characters/" + characterId + "/equipment", {
+                          method: "DELETE", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ characterItemId: entry.id }),
+                        });
+                        const data = await response.json().catch(() => null);
+                        if (!response.ok) throw new Error(data?.error ?? "No se pudo eliminar el consumible.");
+                        setEquipment((current) => current.filter((item) => item.id !== entry.id));
+                        setSuccess("Consumible eliminado del inventario.");
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "No se pudo eliminar el consumible.");
+                      } finally { setEquipmentDeleting(null); }
+                    }} className="mt-3 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-40">
+                      {equipmentDeleting === entry.id ? "Eliminando..." : "Eliminar consumible"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {capabilities.details && characterId && (
+          <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+            <h2 className="text-xl font-semibold">Nombre del personaje</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Solo el ADMIN puede cambiarlo.
+            </p>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                maxLength={80}
+                value={characterName}
+                onChange={(event) => setCharacterName(event.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+              <button
+                type="button"
+                onClick={renameCharacter}
+                disabled={savingName || !characterName.trim()}
+                className="rounded-lg bg-white px-5 py-2 font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {savingName ? "Guardando..." : "Cambiar nombre"}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {(capabilities.resources || capabilities.details) && characterId && (
+          <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Modificar estadísticas y recursos</h2>
+                <p className="mt-1 text-sm text-zinc-500">Abre el editor sin llenar la página de formularios.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStatsModalOpen(true)}
+                className="rounded-lg bg-white px-5 py-3 font-medium text-black transition hover:bg-zinc-200"
+              >
+                ⚙️ Modificar
+              </button>
+            </div>
+          </section>
+        )}
+
+        <ManagementModal
+          open={statsModalOpen}
+          title="Modificar estadísticas y recursos"
+          onClose={() => {
+            if (!saving) setStatsModalOpen(false);
+          }}
+          maxWidth="max-w-3xl"
+        >
+          {capabilities.details && (
+            <section>
+              <h3 className="text-lg font-semibold">Estadísticas base</h3>
+              <p className="mt-1 text-sm text-zinc-500">Escribe cuánto quieres sumar o restar.</p>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {statNames.map((stat) => (
+                  <label key={stat} className="block">
+                    <span className="text-sm text-zinc-400">{statLabels[stat]}</span>
+                    <input
+                      type="number"
+                      value={stats[stat]}
+                      onChange={(event) => updateStat(stat, event.target.value)}
+                      className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+                    />
+                  </label>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className={isAdmin ? "mt-8 border-t border-zinc-800 pt-6" : ""}>
+            <h3 className="text-lg font-semibold">Recursos</h3>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm text-zinc-400">Karma</span>
+                <input type="number" value={karma} onChange={(event) => setKarma(Math.trunc(Number(event.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500" />
+              </label>
+              <label className="block">
+                <span className="text-sm text-zinc-400">Dinero</span>
+                <input type="number" value={money} onChange={(event) => setMoney(Math.trunc(Number(event.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500" />
+              </label>
+              <label className="block">
+                <span className="text-sm text-zinc-400">Puntos de Level Up</span>
+                <input type="number" value={levelUpPoints} onChange={(event) => setLevelUpPoints(Math.trunc(Number(event.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500" />
+              </label>
+            </div>
+          </section>
+
+          <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => setStatsModalOpen(false)} disabled={saving} className="rounded-lg border border-zinc-700 px-5 py-3 text-zinc-300 hover:bg-zinc-900 disabled:opacity-40">
+              Cancelar
+            </button>
+            <button type="button" onClick={async () => { if (await applyChanges()) setStatsModalOpen(false); }} disabled={saving || !characterId} className="rounded-lg bg-white px-5 py-3 font-medium text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40">
+              {saving ? "Aplicando..." : "Aplicar cambios"}
+            </button>
+          </div>
+        </ManagementModal>
+
+        <div className="mt-6">
+          {isAdmin && characterId && (
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(true)}
+              disabled={saving || deleting}
+              className="rounded-lg border border-red-900/70 px-6 py-3 font-medium text-red-300 transition hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Borrar personaje
+            </button>
+          )}
+        </div>
+
+        {globalOpen && capabilities.global && (
+          <div className="xahya-modal-overlay flex items-center justify-center bg-black/70 p-6">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
+              <h2 className="text-xl font-semibold">Dar recursos a todos</h2>
+              <p className="mt-2 text-sm text-zinc-500">Los valores se sumarán al saldo actual de cada personaje. No modifica estadísticas base.</p>
+              <div className="mt-5 grid gap-4">
+                <label className="block"><span className="text-sm text-zinc-400">Karma</span><input type="number" value={globalKarma} onChange={(e) => setGlobalKarma(Math.trunc(Number(e.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" /></label>
+                <label className="block"><span className="text-sm text-zinc-400">Dinero</span><input type="number" value={globalMoney} onChange={(e) => setGlobalMoney(Math.trunc(Number(e.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" /></label>
+                <label className="block"><span className="text-sm text-zinc-400">Puntos de Level Up</span><input type="number" value={globalLevelUpPoints} onChange={(e) => setGlobalLevelUpPoints(Math.trunc(Number(e.target.value) || 0))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" /></label>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => setGlobalOpen(false)} disabled={globalSaving} className="rounded-lg border border-zinc-700 px-4 py-2 text-zinc-300">Cancelar</button>
+                <button type="button" onClick={applyGlobalResources} disabled={globalSaving} className="rounded-lg bg-amber-400 px-4 py-2 font-semibold text-zinc-950 disabled:opacity-40">{globalSaving ? "Entregando..." : "Confirmar entrega"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {isAdmin && deleteOpen && (
+          <div className="xahya-modal-overlay flex items-center justify-center bg-black/70 p-6">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
+              <h2 className="text-xl font-semibold">¿Borrar personaje?</h2>
+              <p className="mt-3 text-zinc-400">
+                Esta acción eliminará permanentemente a{" "}
+                <span className="font-medium text-white">
+                  {characters.find((character) => String(character.id) === characterId)?.name ?? "este personaje"}
+                </span>{" "}
+                y sus datos.
+              </p>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDeleteOpen(false)}
+                  disabled={deleting}
+                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteCharacter}
+                  disabled={deleteCountdown > 0 || deleting}
+                  className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {deleting
+                    ? "Borrando..."
+                    : deleteCountdown > 0
+                      ? "Confirmar en " + deleteCountdown + "s"
+                      : "Confirmar borrado"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        </>}
+      </div>
+    </main>
+  );
+}

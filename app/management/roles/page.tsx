@@ -12,6 +12,7 @@ export default function RolesPage(){
  const [draft,setDraft]=useState(blank);
  const [editId,setEditId]=useState<number|null>(null);
  const [permissionsText,setPermissionsText]=useState("{}");
+ const [permissionPage,setPermissionPage]=useState("management.characters");
  const [error,setError]=useState("");
  const [message,setMessage]=useState("");
  const [busy,setBusy]=useState(false);
@@ -55,7 +56,7 @@ export default function RolesPage(){
     <label>Color del tag<input className={input} type="color" value={draft.color} onChange={e=>setDraft({...draft,color:e.target.value})}/></label>
     {(["dailyPts","dailyKarma","dailyMoney"] as const).map((key)=><label key={key}>{({dailyPts:"PTS diarios",dailyKarma:"Karma diario",dailyMoney:"Dinero diario"})[key]}<input className={input} type="number" min={0} step={1} value={draft[key]} onChange={e=>setDraft({...draft,[key]:Number(e.target.value)})}/></label>)}
    </div>
-   <label className="mt-4 block">Permisos por página y acción (JSON)<textarea className={input} rows={4} value={permissionsText} onChange={e=>setPermissionsText(e.target.value)}/></label>
+   <div className="mt-4 flex flex-wrap items-center gap-3"><label>Página <select className={input} value={permissionPage} onChange={e=>setPermissionPage(e.target.value)}>{["management.characters","management.users","management.roles"].map(p=><option key={p} value={p}>{p}</option>)}</select></label>{["view","edit"].map(action=><label key={action} className="flex items-center gap-2"><input type="checkbox" checked={Boolean(draft.permissions[permissionPage]?.includes(action))} onChange={e=>{const next={...draft.permissions};const actions=new Set(next[permissionPage]??[]);if(e.target.checked)actions.add(action);else actions.delete(action);next[permissionPage]=[...actions];setDraft({...draft,permissions:next});setPermissionsText(JSON.stringify(next,null,2));}}/>{action==="view"?"Ver":"Editar"}</label>)}</div><label className="mt-4 block">Permisos por página y acción (JSON)<textarea className={input} rows={4} value={permissionsText} onChange={e=>setPermissionsText(e.target.value)}/></label>
    <p className="mt-2 text-xs text-amber-300">Los permisos configurables requieren integración adicional con cada ruta protegida antes de conceder acceso efectivo.</p>
    <div className="mt-4 flex gap-3"><button disabled={busy} onClick={save} className="rounded-lg bg-cyan-600 px-5 py-2 disabled:opacity-50">Guardar rol</button>{editId!==null&&<button onClick={()=>{setEditId(null);setDraft(blank);setPermissionsText("{}");}} className="rounded-lg border border-zinc-700 px-4 py-2">Cancelar</button>}</div>
   </section>

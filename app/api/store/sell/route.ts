@@ -34,6 +34,8 @@ export async function POST(request: Request) {
   const item = await Item.where({ id: Number(owned.itemId) }).first();
   if (!item) return NextResponse.json({ error: "Definición del objeto no encontrada." }, { status: 404 });
 
+  if (owned.equipped || owned.equippedSlot) return NextResponse.json({ error: "Desequipa el objeto antes de venderlo." }, { status: 409 });
+
   const ownedQuantity = Number(owned.quantity);
   if (quantity > ownedQuantity) {
     return NextResponse.json({ error: "No tienes suficientes copias de este objeto." }, { status: 400 });
@@ -46,6 +48,8 @@ export async function POST(request: Request) {
   const total = storeValue * quantity;
 
   const result = await db.transaction(async (tx) => {
+    const currentOwned = await (tx.orm.public as any).CharacterItem.where({ id: characterItemId }).first();
+    if (!currentOwned || currentOwned.equipped || currentOwned.equippedSlot || Number(currentOwned.quantity) < quantity) throw new Error("ITEM_NOT_SELLABLE");
     const resources = await tx.orm.public.CharacterResource.where({ characterId: Number(character.id) }).first();
     if (!resources) throw new Error("RESOURCE_NOT_FOUND");
 
@@ -66,6 +70,7 @@ export async function POST(request: Request) {
       remainingQuantity: ownedQuantity - quantity,
     };
   }).catch((error) => {
+    if (error instanceof Error && error.message === "ITEM_NOT_SELLABLE") return { error: "El objeto está equipado o ya no está disponible para vender." };
     if (error instanceof Error && error.message === "RESOURCE_NOT_FOUND") {
       return { error: "El personaje no tiene recursos registrados." };
     }

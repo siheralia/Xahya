@@ -455,7 +455,7 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
       <div className="mx-auto max-w-5xl px-6 py-6">
         <h1 className="text-4xl font-bold">{toolsMode ? "Herramientas de gestión" : "Gestión"}</h1>
         {!toolsMode && <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-zinc-500">{isAdmin ? "Otorga cambios permanentes a las estadísticas base y recursos." : "Otorga recursos y puntos de Level Up a los personajes."}</p>
+          <p className="text-zinc-500">{toolsMode ? "Administra personajes y sus recursos según tus permisos." : "Consulta y administra las secciones de Xahya habilitadas para tu cuenta."}</p>
           <div className="flex flex-wrap gap-3">
             {canSee("logs") && (<Link
               href="/management/logs"

@@ -97,7 +97,7 @@ export default function ItemsManagementPage() {
       const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,attackType:form.itemType==="WEAPON"?form.attackType:null,propertyBusinessId:form.itemType==="PROPERTY"&&form.propertyBusinessId?Number(form.propertyBusinessId):null})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error);
       const savedId=Number(d?.item?.id ?? selected);
-      if(imageFile && savedId){
+      if(imageFile && savedId && form.itemType==="PROPERTY"){
         const fd=new FormData(); fd.set("itemId",String(savedId)); fd.set("file",imageFile);
         const imageResponse=await fetch("/api/management/items/image",{method:"POST",body:fd});
         const imageData=await imageResponse.json().catch(()=>null);
@@ -146,7 +146,7 @@ export default function ItemsManagementPage() {
         <div className="mt-5 grid gap-4">
           <label>Nombre<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           <label>Descripción<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={3} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
-          <div className="rounded-xl border border-zinc-800 p-4">
+          {form.itemType==="PROPERTY" && <div className="rounded-xl border border-zinc-800 p-4">
             <div className="flex flex-wrap items-center gap-4">
               {imagePreview ? <img src={imagePreview} alt={form.name || "Propiedad"} className="h-32 w-48 rounded-xl border border-zinc-700 object-cover" /> : <div className="flex h-32 w-48 items-center justify-center rounded-xl border border-dashed border-zinc-700 text-sm text-zinc-600">Sin imagen</div>}
               <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
@@ -155,7 +155,7 @@ export default function ItemsManagementPage() {
               </label>
             </div>
             <p className="mt-2 text-xs text-zinc-600">Máximo 5 MB. Las propiedades pueden tener una imagen propia.</p>
-          </div>
+          </div>}
           <div className="grid gap-4 sm:grid-cols-3">
             <label>Tipo de categoría<select value={form.itemType} onChange={e=>setForm({...form,itemType:e.target.value,acquisitionType:e.target.value==="PROPERTY"?"OTHER":form.acquisitionType})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{itemTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
             <label>Negocio exclusivo (solo para propiedades)<select value={form.propertyBusinessId} disabled={form.itemType!=="PROPERTY"} onChange={e=>setForm({...form,propertyBusinessId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="">Ninguno — propiedad vendible por cualquier negocio</option>{businesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>{form.itemType==="PROPERTY"&&<p className="mt-1 text-xs text-zinc-500">Si eliges un negocio, esta propiedad solo podrá ser comprada por ese negocio para revenderla.</p>}</label>

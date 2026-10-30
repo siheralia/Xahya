@@ -54,7 +54,7 @@ export async function GET() {
     const data=await response.json().catch(()=>null);
     return data?.signedURL ? process.env.SUPABASE_URL+"/storage/v1"+data.signedURL : null;
   }
-  const propertyItems = await Promise.all(items.filter((item:any)=>String(item.itemType)==="PROPERTY").map(async (item:any)=>({id:Number(item.id),name:String(item.name),description:item.description??null,propertyBusinessId:item.propertyBusinessId==null?null:Number(item.propertyBusinessId),imageUrl:await signedItemImage(item.imagePath)})));
+  const propertyItems = await Promise.all(items.filter((item:any)=>Boolean(item.id)).map(async (item:any)=>({id:Number(item.id),name:String(item.name),description:item.description??null,propertyBusinessId:item.propertyBusinessId==null?null:Number(item.propertyBusinessId),imageUrl:await signedItemImage(item.imagePath)})));
   const candidatesByBusiness = new Map<number, { id: number; name: string; flair: string | null }[]>();
   for (const business of ownedBusinesses) {
     const ownerId = Number(business.ownerCharacterId);
@@ -176,9 +176,9 @@ export async function POST(request: Request) {
     }
     if (action === "stockProperty") {
       const itemId = Number(body?.itemId); const quantity = Math.trunc(Number(body?.quantity ?? 0)); const purchasePrice = Math.trunc(Number(body?.purchasePrice ?? 0)); const salePrice = Math.trunc(Number(body?.salePrice ?? 0));
-      if (!Number.isInteger(itemId) || quantity <= 0 || purchasePrice < 0 || salePrice < 0 || salePrice < purchasePrice) return NextResponse.json({ error: "Datos de propiedad inválidos." }, { status: 400 });
+      if (!Number.isInteger(itemId) || quantity <= 0 || purchasePrice < 0 || salePrice < 0 || salePrice < purchasePrice) return NextResponse.json({ error: "Datos de inventario inválidos." }, { status: 400 });
       const Item = (db.orm.public as any).Item; const item = await Item.where({ id: itemId }).first();
-      if (!item || String(item.itemType) !== "PROPERTY") return NextResponse.json({ error: "Solo puedes vender objetos de tipo Propiedad." }, { status: 400 });
+      if (!item) return NextResponse.json({ error: "Objeto no encontrado." }, { status: 404 });
       if (item.propertyBusinessId != null && Number(item.propertyBusinessId) !== businessId) return NextResponse.json({ error: "Esta propiedad está reservada para otro negocio." }, { status: 403 });
       const total = purchasePrice * quantity;
       const current = await Business.where({ id: businessId }).first();

@@ -1931,7 +1931,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 <div key={entry.id} className="rounded-xl border border-emerald-400/15 bg-zinc-950/50 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold" style={{ color: themePalette.foreground }}>{entry.item?.name ?? "Objeto"}</p>
+                      <p className="font-semibold text-zinc-100">{entry.item?.name ?? "Objeto"}</p>
                       <p className="mt-1 text-xs text-zinc-500">{equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot ?? "Ranura"}</p>
                     </div>
                     <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>

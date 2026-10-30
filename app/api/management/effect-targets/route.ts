@@ -11,8 +11,8 @@ export async function GET() {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const users = await db.orm.public.User.all();
   const user = users.find((entry) => entry.clerkId === userId);
-  if (!user || !(await hasRolePermission(user, "management.items", "view") || await hasRolePermission(user, "management.effects", "view") || await hasRolePermission(user, "management.perks", "view"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!user || !(await hasRolePermission(user, "management.items", "view") || await hasRolePermission(user, "management.effects", "view") || await hasRolePermission(user, "management.perks", "view") || await hasRolePermission(user, "management.skills", "view"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const statistics = (await readStatisticsCatalog()).filter((stat) => stat.active !== false);
   const catalog = await readManagedEffectCatalog();
-  return NextResponse.json({ statistics, effects: catalog.effects.map(({type,label,mode,description}) => ({ type, label, mode, description, targets: resolveEffectTargets(type, statistics) })) });
+  return NextResponse.json({ statistics, narrativeCards: catalog.narrativeCards.filter(card => card.enabled), effects: catalog.effects.filter(effect => effect.enabled).map(({type,label,mode,description}) => ({ type, label, mode, description, targets: resolveEffectTargets(type, statistics) })) });
 }

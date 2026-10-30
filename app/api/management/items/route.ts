@@ -47,8 +47,7 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (!ACQUISITION_TYPES.includes(acquisitionType as any)) return "Tipo de obtención inválido.";
   if (ITEM_TYPES_WITHOUT_STORE.has(itemType) && acquisitionType === "PURCHASABLE") return "Las propiedades no se venden en la tienda general.";
   if (!Number.isInteger(price) || price < 0) return "El precio debe ser un entero no negativo.";
-  if (itemType === "PROPERTY" && propertyBusinessId !== null && (!Number.isInteger(propertyBusinessId) || propertyBusinessId <= 0)) return "Negocio exclusivo inválido.";
-  if (itemType !== "PROPERTY" && propertyBusinessId !== null) return "Solo las propiedades pueden estar vinculadas a un negocio.";
+  if (propertyBusinessId !== null && (!Number.isInteger(propertyBusinessId) || propertyBusinessId <= 0)) return "Negocio exclusivo inválido.";
   if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return "Slots de equipo inválidos.";
   for (const effect of effects) {
     if (!effect || typeof effect !== "object") return "Efecto de objeto inválido.";
@@ -96,7 +95,7 @@ export async function POST(request: Request) {
     price: Number(body.price ?? 0),
     effects: body.effects,
     allowedSlots,
-    propertyBusinessId: String(body.itemType) === "PROPERTY" ? propertyBusinessId : null,
+    propertyBusinessId,
   });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_CREATE", entityType: "ITEM", entityId: Number(item.id), details: { name: item.name, itemType: item.itemType, acquisitionType: item.acquisitionType } });
   return NextResponse.json({ item });

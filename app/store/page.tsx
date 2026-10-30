@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
+import { ShoppingBag, Coins } from "lucide-react";
 
 type Promotion = { id: number; name: string; adjustmentType: "PERCENT" | "FIXED"; adjustmentValue: number };
 type Item = {
@@ -232,7 +233,7 @@ export default function StorePage() {
         {success && <div className="mt-5 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
 
         <div role="tablist" aria-label="Operaciones de tienda" className="mt-8 flex gap-2 border-b border-zinc-700">
-          {(["buy", "sell"] as const).map((tab) => <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => { setActiveTab(tab); setError(""); setSuccess(""); }} className={`rounded-t-xl border border-b-0 px-6 py-3 font-semibold transition-colors ${activeTab === tab ? "border-zinc-500 bg-zinc-800 text-white" : "border-transparent text-[color:var(--store-muted)] hover:bg-zinc-800/50"}`}>{tab === "buy" ? "Comprar" : "Vender"}</button>)}
+          {(["buy", "sell"] as const).map((tab) => <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => { setActiveTab(tab); setError(""); setSuccess(""); }} className={`rounded-t-xl border border-b-0 px-6 py-3 font-semibold transition-colors ${activeTab === tab ? "border-zinc-500 bg-zinc-800 text-white" : "border-transparent text-[color:var(--store-muted)] hover:bg-zinc-800/50"}`}><span className="inline-flex items-center gap-2">{tab === "buy" ? <ShoppingBag size={18} aria-hidden="true" /> : <Coins size={18} aria-hidden="true" />}{tab === "buy" ? "Comprar" : "Vender"}</span></button>)}
         </div>
 
         {activeTab === "buy" && <section role="tabpanel" className="mt-6">

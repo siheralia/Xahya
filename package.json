@@ -15,6 +15,7 @@
     "@clerk/nextjs": "^7.9.7",
     "@js-temporal/polyfill": "^0.5.1",
     "@prisma/orm-postgres": "^8.0.0-rc.11",
+    "lucide-react": "^0.468.0",
     "next": "16.3.5",
     "prisma": "^8.0.0-rc.15",
     "react": "19.2.8",

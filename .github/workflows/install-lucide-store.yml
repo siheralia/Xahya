@@ -1,0 +1,33 @@
+name: Install Lucide React dependency
+on:
+  push:
+    branches:
+      - fix/store-buy-sell-tabs-equipped
+    paths:
+      - .github/workflows/install-lucide-store.yml
+  workflow_dispatch:
+# Revalidate the updated Lucide dependency and store icons.
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Update package manifest and lockfile
+        run: npm install lucide-react@^0.468.0 --package-lock-only --ignore-scripts
+      - name: Commit dependency files to PR branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Install lucide-react for store icons"
+            git push origin HEAD:fix/store-buy-sell-tabs-equipped
+          fi

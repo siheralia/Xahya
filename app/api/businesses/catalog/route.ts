@@ -107,6 +107,7 @@ export async function GET() {
                     id: Number(item.id),
                     name: String(item.name),
                     description: item.description ?? null,
+                    itemType: String(item.itemType),
                     imageUrl: await imageUrl(item.imagePath),
                   }
                 : null,

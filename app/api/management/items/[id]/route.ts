@@ -44,7 +44,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!name || name.length > 100 || !ITEM_TYPES.includes(itemType as any) || !Number.isInteger(price) || price < 0) return NextResponse.json({ error: "Datos del objeto inválidos." }, { status: 400 });
   if (itemType === "PROPERTY" && acquisitionType === "PURCHASABLE") return NextResponse.json({ error: "Las propiedades no se venden en la tienda general." }, { status: 400 });
   if (propertyBusinessId !== null && (!Number.isInteger(propertyBusinessId) || propertyBusinessId <= 0)) return NextResponse.json({ error: "Negocio exclusivo inválido." }, { status: 400 });
-  if (itemType !== "PROPERTY" && propertyBusinessId !== null) return NextResponse.json({ error: "Solo las propiedades pueden estar vinculadas a un negocio." }, { status: 400 });
   if (propertyBusinessId !== null) {
     const Business = (db.orm.public as any).Business;
     const business = await Business.where({ id: propertyBusinessId }).first();
@@ -60,7 +59,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     }
   }
-  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, attackType: itemType === "WEAPON" ? attackType : null, acquisitionType, price, effects, allowedSlots, propertyBusinessId: itemType === "PROPERTY" ? propertyBusinessId : null });
+  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, attackType: itemType === "WEAPON" ? attackType : null, acquisitionType, price, effects, allowedSlots, propertyBusinessId });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_UPDATE", entityType: "ITEM", entityId: id, details: { before: item, after: updated } });
   return NextResponse.json({ item: updated });
 }

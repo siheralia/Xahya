@@ -5,6 +5,7 @@ import DiceLauncher from "@/app/components/dice-launcher";
 import SeasonalAmbientation from "@/app/components/seasonal-ambientation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { Menu, UserRound, Store, ShoppingBag, Dices, Castle, Settings, CircleHelp, BookOpen, Bell, UsersRound, ChevronDown } from "lucide-react";
 
 type Character = { id: number; name: string };
 
@@ -67,6 +68,33 @@ export default function NavigationShell({
   const [unreadCount, setUnreadCount] = useState(0);
   const [systemOnline, setSystemOnline] = useState(true);
   const navRef = useRef<HTMLElement | null>(null);
+  const menuRef = useRef<HTMLDetailsElement | null>(null);
+  const charactersRef = useRef<HTMLDetailsElement | null>(null);
+
+  useEffect(() => {
+    const dismiss = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      for (const details of [menuRef.current, charactersRef.current]) {
+        if (details?.open && !details.contains(target)) details.open = false;
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      for (const details of [menuRef.current, charactersRef.current]) details && (details.open = false);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (menuRef.current) menuRef.current.open = false;
+    if (charactersRef.current) charactersRef.current.open = false;
+  }, [pathname]);
 
   useEffect(() => {
     const nav = navRef.current;
@@ -141,8 +169,8 @@ export default function NavigationShell({
         </div>
 
         <div className="xahya-nav-bottom">
-          <details className="xahya-menu">
-            <summary aria-label="Abrir menú de navegación">☰</summary>
+          <details ref={menuRef} className="xahya-menu">
+            <summary aria-label="Abrir menú de navegación"><Menu size={20} aria-hidden="true" /></summary>
             <nav
               className="xahya-menu-panel"
               aria-label="Navegación principal"
@@ -154,36 +182,36 @@ export default function NavigationShell({
               }}
             >
               <Link href="/profile" className={pathname === "/profile" ? "xahya-nav-active" : ""}>
-                Mi perfil
+                <UserRound size={17} aria-hidden="true" className="inline-block align-text-bottom mr-2" />Mi perfil
               </Link>
               <Link href="/businesses/catalog" className={pathname.startsWith("/businesses") ? "xahya-nav-active" : ""}>
-                Negocios
+                <Store size={17} aria-hidden="true" className="inline-block align-text-bottom mr-2" />Negocios
               </Link>
               <Link href="/store" className={pathname.startsWith("/store") ? "xahya-nav-active" : ""}>
-                Tienda
+                <ShoppingBag size={17} aria-hidden="true" className="inline-block align-text-bottom mr-2" />Tienda
               </Link>
               <Link href="/maze" className={pathname.startsWith("/maze") ? "xahya-nav-active" : ""}>
-                Laberinto
+                <Castle size={17} aria-hidden="true" className="inline-block align-text-bottom mr-2" />Laberinto
               </Link>
               <Link href="/casino" className={pathname.startsWith("/casino") ? "xahya-nav-active" : ""}>
-                Casino
+                <Dices size={17} aria-hidden="true" className="inline-block align-text-bottom mr-2" />Casino
               </Link>
               {canManage && (
                 <Link href="/management" className={pathname.startsWith("/management") ? "xahya-nav-active" : ""}>
-                  Gestión
+                  <Settings size={17} aria-hidden="true" className="inline-block align-text-bottom mr-2" />Gestión
                 </Link>
               )}
             </nav>
           </details>
 
           <nav className="xahya-utility-nav" aria-label="Ayuda y comunicación">
-            <Link href="/help">❔ <span>Ayuda</span></Link>
-            <Link href="/rules">📖 <span>Reglas</span></Link>
+            <Link href="/help"><CircleHelp size={17} aria-hidden="true" className="inline-block align-text-bottom" /> <span>Ayuda</span></Link>
+            <Link href="/rules"><BookOpen size={17} aria-hidden="true" className="inline-block align-text-bottom" /> <span>Reglas</span></Link>
             <Link
               href="/notifications"
               aria-label={unreadCount ? `Buzón: ${unreadCount} notificaciones sin leer` : "Buzón"}
             >
-              🔔 <span>Buzón</span>
+              <Bell size={17} aria-hidden="true" className="inline-block align-text-bottom" /> <span>Buzón</span>
               {unreadCount > 0 ? (
                 <span className="xahya-inbox-count">{unreadCount > 99 ? "99+" : unreadCount}</span>
               ) : null}
@@ -192,11 +220,11 @@ export default function NavigationShell({
         </div>
 
         {characters.length > 0 && (
-          <details className="xahya-characters">
-            <summary>Tus personajes</summary>
+          <details ref={charactersRef} className="xahya-characters">
+            <summary><UsersRound size={16} aria-hidden="true" className="inline-block align-text-bottom mr-2" />Tus personajes <ChevronDown size={14} aria-hidden="true" className="inline-block align-text-bottom ml-1" /></summary>
             <div className="xahya-character-list">
               {characters.map((character) => (
-                <Link key={character.id} href={`/characters/${character.id}`}>
+                <Link key={character.id} href={`/characters/${character.id}`} onClick={() => { if (charactersRef.current) charactersRef.current.open = false; }}>
                   {character.name}
                 </Link>
               ))}

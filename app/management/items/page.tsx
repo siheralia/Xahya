@@ -187,7 +187,6 @@ export default function ItemsManagementPage() {
                 <select value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
                   {!EFFECT_TARGETS.some(([value])=>value===effect.stat)&&<option value={effect.stat}>{effect.stat} (efecto inactivo: estadística no disponible)</option>}
                   {EFFECT_TARGETS.map(([value,label])=><option key={value} value={value}>{label}</option>)}
-                  <option value="OTHER">Otro</option>
                 </select>
               )}
               {effect.type === "system_action" ? (

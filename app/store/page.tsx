@@ -55,6 +55,7 @@ function getReadableTextColor(background: string | undefined) {
 
 
 export default function StorePage() {
+  const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
   const [items, setItems] = useState<Item[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState("");
@@ -122,6 +123,7 @@ export default function StorePage() {
     loadOwnedItems(Number(selectedCharacter)).catch((err) => setError(err instanceof Error ? err.message : "No se pudo cargar el inventario."));
   }, [selectedCharacter]);
 
+  const sellableItems = ownedItems.filter((entry) => !entry.equipped && !entry.equippedSlot && entry.quantity > 0);
   const character = characters.find((entry) => String(entry.id) === selectedCharacter);
   const money = Number(character?.money ?? 0);
   const subtypeOptions = Array.from(new Set(items.map(item => String(item.itemSubtype ?? "").trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es"));
@@ -229,7 +231,11 @@ export default function StorePage() {
         {error && <div className="mt-5 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
         {success && <div className="mt-5 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
 
-        <section className="mt-8">
+        <div role="tablist" aria-label="Operaciones de tienda" className="mt-8 flex gap-2 border-b border-zinc-700">
+          {(["buy", "sell"] as const).map((tab) => <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => { setActiveTab(tab); setError(""); setSuccess(""); }} className={`rounded-t-xl border border-b-0 px-6 py-3 font-semibold transition-colors ${activeTab === tab ? "border-zinc-500 bg-zinc-800 text-white" : "border-transparent text-[color:var(--store-muted)] hover:bg-zinc-800/50"}`}>{tab === "buy" ? "Comprar" : "Vender"}</button>)}
+        </div>
+
+        {activeTab === "buy" && <section role="tabpanel" className="mt-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-2xl font-bold">Comprar</h2>
             <div className="flex flex-wrap gap-2">
@@ -274,16 +280,16 @@ export default function StorePage() {
               })}
             </div>
           )}
-        </section>
+        </section>}
 
-        <section className="mt-10">
+        {activeTab === "sell" && <section role="tabpanel" className="mt-6">
           <h2 className="text-2xl font-bold">Vender</h2>
           <p className="mt-1 text-sm text-[color:var(--store-muted)]">Los objetos comprables se venden por la mitad de su precio base. Las promociones de compra no modifican el valor de reventa.</p>
-          {ownedItems.length === 0 ? (
+          {sellableItems.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8 text-center"><p className="text-[color:var(--store-muted)]">Este personaje no tiene objetos para vender.</p></div>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {ownedItems.map((entry) => {
+              {sellableItems.map((entry) => {
                 const item = entry.item;
                 const saleValue = item && String(item.acquisitionType) === "PURCHASABLE" && Number(item.price) > 0
                   ? Math.max(1, Math.floor(Number(item.price) / 2))
@@ -303,7 +309,7 @@ export default function StorePage() {
               })}
             </div>
           )}
-        </section>
+        </section>}
       </div>
     </main>
   );

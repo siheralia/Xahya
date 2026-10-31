@@ -56,7 +56,9 @@ export async function GET(request: Request) {
     .filter((log) => !cutoff || new Date(String(log.createdAt)).getTime() >= cutoff)
     .map((log) => {
       const actor = users.find((user) => Number(user.id) === Number(log.actorUserId));
-      const character = characters.find((item) => Number(item.id) === Number(log.characterId ?? log.entityId));
+      const characterId = log.characterId ?? (String(log.entityType).toUpperCase() === "CHARACTER" ? log.entityId : null);
+      const character = characterId == null ? null : characters.find((item) => Number(item.id) === Number(characterId));
+      const targetUser = log.targetUserId == null ? null : users.find((item) => Number(item.id) === Number(log.targetUserId));
       let details: Record<string, unknown> | null = null;
       if (log.details) {
         try {
@@ -78,6 +80,7 @@ export async function GET(request: Request) {
         characterId: log.characterId == null ? null : Number(log.characterId),
         actor: actor ? { id: Number(actor.id), name: actor.name ?? "Sin nombre", role: String(actor.role) } : null,
         targetUserId: log.targetUserId == null ? null : Number(log.targetUserId),
+        targetUserName: targetUser?.name ?? null,
         characterName: character?.name ?? null,
         businessName: resolvedBusiness?.name ?? null,
         position: position ? {

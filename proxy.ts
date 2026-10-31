@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/cron/economy",
   "/elementos/simulador(.*)",
   "/api/elements",
+  "/api/elements/diagram",
   "/api/dice", // La ruta devuelve errores JSON 401; evita redirecciones HTML de Clerk.
 ]);
 

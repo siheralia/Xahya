@@ -11,6 +11,7 @@ type Log = {
   characterId: number | null;
   actor: { id: number; name: string; role: string } | null;
   targetUserId: number | null;
+  targetUserName: string | null;
   characterName: string | null;
   businessName: string | null;
   position: { id: number; title: string; startTime: string; endTime: string; salary: number; salaryFrequency: string; payerType: string; payerCharacterId: number | null; payerCharacterName: string | null } | null;
@@ -44,6 +45,7 @@ const actionLabels: Record<string,string> = {
   SKILL_CREATE:"Creó habilidad", SKILL_UPDATE:"Modificó habilidad", SKILL_APPROVE:"Aprobó habilidad", SKILL_REJECT:"Rechazó habilidad",
   PERK_GRANTED:"Otorgó perk",
   CASINO_SET_UPDATE:"Modificó configuración del casino",
+  ROLE_SALARY_ACCRUAL:"Salario de rol acumulado", ROLE_SALARY_TRANSFER:"Transferencia de salario de rol",
   MAZE_TREASURE_CLAIM:"Reclamó tesoro", MAZE_ENTER:"Entró al laberinto", MAZE_MOVE:"Avanzó en el laberinto",
 };
 
@@ -235,6 +237,7 @@ export default function ManagementLogsPage() {
                     <p className="font-medium text-zinc-200">{readableAction(log.action)}</p>
                     <p className="mt-1 text-sm text-zinc-400">
                       <span className={actorClass(log.actor?.role)}>{log.actor?.name ?? "Sistema"}</span>
+                      {log.targetUserName && !log.characterName ? <><span className="text-zinc-700"> · </span><span className="text-zinc-300">{log.targetUserName}</span></> : null}
                       {log.characterName ? <><span className="text-zinc-700"> · </span><span className="text-zinc-300">{log.characterName}</span></> : null}
                       {log.businessName ? <><span className="text-zinc-700"> · </span><span className="text-zinc-300">{log.businessName}</span></> : null}
                     </p>

@@ -1,11 +1,20 @@
 "use client";
-import { DynamicIcon as LucideDynamicIcon, iconNames as allLucideIconNames } from "lucide-react/dynamic";
-import type { IconName } from "lucide-react/dynamic";
+import dynamicIconImports from "lucide-react/dynamicIconImports";
+import { lazy, Suspense, type ComponentType } from "react";
 import { Badge, Diamond, Heart, Scan, Spade, Sparkles, Zap, RefreshCcw, PanelsTopLeft, Swords, Shield, Flame, Snowflake, Wind, Droplets, Sun, Moon, Star, Eye, Target, Sword, WandSparkles, CircleHelp, Activity, HeartPulse, Cross, Hand, Clock, Timer, Gauge, Footprints, Move, Waves, Bolt, CircleDot, Orbit, Ghost, ShieldCheck, ShieldPlus, ArrowLeftRight, Repeat, RotateCcw, BookOpen, Brain, Gem, Crown, Lock, Key, Circle, Triangle, Hexagon, Layers, Users, User, Skull, Leaf, Feather, Radio, ScanEye, Sparkle, ShieldAlert, CircleOff, Minus, Plus, Percent, TrendingUp, TrendingDown, ArrowUp, ArrowDown, ArrowRight, ArrowLeft, Aperture, Focus, ScanLine, ScanFace, ScanHeart, ScanSearch, ScanText, ScanBarcode, PanelsLeftRight, PanelTop, PanelBottom, PanelLeft, PanelRight } from "lucide-react";
 const effectIconMap = {sparkles:Sparkles,zap:Zap,"refresh-ccw":RefreshCcw,"panels-top-left":PanelsTopLeft,swords:Swords,shield:Shield,flame:Flame,snowflake:Snowflake,wind:Wind,droplets:Droplets,sun:Sun,moon:Moon,star:Star,eye:Eye,target:Target,sword:Sword,"wand-sparkles":WandSparkles,"circle-help":CircleHelp,activity:Activity,"heart-pulse":HeartPulse,cross:Cross,hand:Hand,clock:Clock,timer:Timer,gauge:Gauge,footprints:Footprints,move:Move,waves:Waves,bolt:Bolt,"circle-dot":CircleDot,orbit:Orbit,ghost:Ghost,"shield-check":ShieldCheck,"shield-plus":ShieldPlus,"arrow-left-right":ArrowLeftRight,repeat:Repeat,"rotate-ccw":RotateCcw,"book-open":BookOpen,brain:Brain,gem:Gem,crown:Crown,lock:Lock,key:Key,circle:Circle,triangle:Triangle,hexagon:Hexagon,layers:Layers,users:Users,user:User,skull:Skull,leaf:Leaf,feather:Feather,radio:Radio,"scan-eye":ScanEye,sparkle:Sparkle,"shield-alert":ShieldAlert,"circle-off":CircleOff,minus:Minus,plus:Plus,percent:Percent,"trending-up":TrendingUp,"trending-down":TrendingDown,"arrow-up":ArrowUp,"arrow-down":ArrowDown,"arrow-right":ArrowRight,"arrow-left":ArrowLeft,aperture:Aperture,focus:Focus,"scan-line":ScanLine,"scan-face":ScanFace,"scan-heart":ScanHeart,"scan-search":ScanSearch,"scan-text":ScanText,"scan-barcode":ScanBarcode,"panels-left-right":PanelsLeftRight,"panel-top":PanelTop,"panel-bottom":PanelBottom,"panel-left":PanelLeft,"panel-right":PanelRight} as const;
 const iconNames: string[] = Object.keys(effectIconMap);
-const availableIconNames = new Set<string>(allLucideIconNames);
-function DynamicIcon({name,size=24,...props}:{name:string;size?:number;strokeWidth?:number;"aria-hidden"?:boolean}) { const Icon = effectIconMap[name as keyof typeof effectIconMap]; if (Icon) return <Icon size={size} {...props}/>; if (!availableIconNames.has(name)) return <Sparkles size={size} {...props}/>; return <LucideDynamicIcon key={name} name={name as IconName} size={size} fallback={()=><Sparkles size={size} {...props}/>} {...props}/>; }
+const availableIconNames = new Set<string>(Object.keys(dynamicIconImports));
+const lazyIconCache = new Map<string, ComponentType<any>>();
+function getLazyIcon(name: string): ComponentType<any> {
+  const cached = lazyIconCache.get(name);
+  if (cached) return cached;
+  const importer = dynamicIconImports[name as keyof typeof dynamicIconImports];
+  const Icon = lazy(importer as () => Promise<{default: ComponentType<any>}>);
+  lazyIconCache.set(name, Icon);
+  return Icon;
+}
+function DynamicIcon({name,size=24,...props}:{name:string;size?:number;strokeWidth?:number;"aria-hidden"?:boolean}) { const Icon = effectIconMap[name as keyof typeof effectIconMap]; if (Icon) return <Icon size={size} {...props}/>; if (!availableIconNames.has(name)) return <Sparkles size={size} {...props}/>; const LazyIcon = getLazyIcon(name); return <Suspense fallback={<Sparkles size={size} {...props}/>}><LazyIcon size={size} {...props}/></Suspense>; }
 
 const frames = { OFFENSIVE: Spade, PASSIVE: Badge, UTILITY: Scan, SUPPORT: Heart, BASIC: Diamond } as const;
 const mirrorIcons: Record<string,string> = { SUMMON_MIRROR: "panels-top-left", MIRROR_RAY: "zap", MAGIC_REFLECTION: "refresh-ccw" };

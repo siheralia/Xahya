@@ -15,7 +15,7 @@ export function SkillEmblem({ category, effects, icons, size = 64 }: { category:
   {selected.map((effect,i)=>{
    const candidate = icons?.[effect.type] ?? mirrorIcons[effect.type] ?? (effect.type === "DAMAGE_MULTIPLIER" ? "swords" : "sparkles");
    const name = (iconNames.includes(candidate as string) ? candidate : "sparkles") as string;
-   return <div key={i} className="absolute" style={{left:`${positions[i][0]/48*100}%`,top:`${positions[i][1]/48*100}%`,transform:"translate(-50%,-50%)"}}><DynamicIcon name={name} size={size*.19} strokeWidth={2} aria-hidden="true" /></div>;
+   return <div key={i} className="absolute" style={{left:`${positions[i][0]/48*100}%`,top:`${positions[i][1]/48*100}%`,transform:"translate(-50%,-50%)"}}><DynamicIcon name={name} size={size*.19} strokeWidth={2} aria-hidden={true} /></div>;
   })}
  </div>;
 }

@@ -50,7 +50,9 @@ export async function PUT(request: Request) {
     if (!entry || !label || label.length > 100 || description.length > 2000) return NextResponse.json({ error: "Datos de efecto inválidos." }, { status: 400 });
     const metadata = await readMechanicalMetadata();
     const before = metadata[type] ?? { label: entry.label, description: "" };
-    metadata[type] = { label, description };
+    const icon = typeof body.icon === "string" ? body.icon.trim() : "";
+    if (icon && !/^[a-z0-9-]{1,50}$/.test(icon)) return NextResponse.json({ error: "Icono inválido." }, { status: 400 });
+    metadata[type] = { label, description, icon };
     await writeMechanicalMetadata(metadata);
     await recordAuditEvent({ actorUserId: Number(user.id), action: "UPDATE_EFFECT_METADATA", entityType: "EFFECT", details: { type, before, after: metadata[type] } });
     return NextResponse.json({ metadata: metadata[type] });

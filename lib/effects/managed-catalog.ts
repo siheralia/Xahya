@@ -5,7 +5,7 @@ import { readEffectPricing } from "@/lib/effects/pricing";
 import { defaultEffectPricing } from "@/lib/skills/pch";
 
 const KEY = "skills.mechanical-effect-metadata.v1";
-export type MechanicalMetadata = { label: string; description: string };
+export type MechanicalMetadata = { label: string; description: string; icon?: string };
 export type MechanicalMetadataMap = Record<string, MechanicalMetadata>;
 
 /** Runtime mechanics stay registered in code; their player-facing metadata lives in AppSetting. */
@@ -22,7 +22,7 @@ export async function readMechanicalMetadata(): Promise<MechanicalMetadataMap> {
       const record = value as Record<string, unknown>;
       if (typeof record.label !== "string" || !record.label.trim() || record.label.length > 100) continue;
       if (typeof record.description !== "string" || record.description.length > 2000) continue;
-      result[entry.type] = { label: record.label.trim(), description: record.description.trim() };
+      result[entry.type] = { label: record.label.trim(), description: record.description.trim(), icon: typeof record.icon === "string" && /^[a-z0-9-]{1,50}$/.test(record.icon) ? record.icon : undefined };
     }
     return result;
   } catch { return {}; }
@@ -44,6 +44,7 @@ export async function readManagedEffectCatalog() {
       type: entry.type,
       label: metadata[entry.type]?.label ?? entry.label,
       description: metadata[entry.type]?.description ?? "",
+      icon: metadata[entry.type]?.icon ?? ({ SUMMON_MIRROR:"panels-top-left", MIRROR_RAY:"zap", MAGIC_REFLECTION:"refresh-ccw" } as Record<string,string>)[entry.type] ?? "sparkles",
       mode: entry.mode,
       targets: entry.targets,
       enabled: pricing[entry.type]?.enabled !== false,

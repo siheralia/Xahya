@@ -4,10 +4,13 @@ import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/du
 import type { EffectPricingMap } from "@/lib/skills/pch";
 
 import Link from "next/link";
+import { icons, type LucideIcon, type LucideProps } from "lucide-react";
+const iconNames = Object.keys(icons).map(key => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase());
+function DynamicIcon({ name, size = 24, ...props }: { name: string; size?: number; strokeWidth?: number; "aria-hidden"?: boolean }) { const key = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, c => c.toUpperCase()) as keyof typeof icons; const Icon = (icons[key] ?? icons.Sparkles) as LucideIcon; return <Icon size={size} {...(props as LucideProps)} />; }
 import { useEffect, useState } from "react";
 
 type Target = { key: string; label: string };
-type EffectDefinition = { type: string; label: string; description: string; mode: string; targets: Target[] };
+type EffectDefinition = { type: string; label: string; description: string; icon?: string; mode: string; targets: Target[] };
 type Statistic = { key: string; code?: string; name: string; kind: string };
 
 const modes: Record<string, string> = {
@@ -44,7 +47,7 @@ export default function EffectsManagementPage() {
   async function saveMetadata(effect:EffectDefinition) {
     setSaving("metadata:"+effect.type);setNotice("");
     try {
-      const response=await fetch("/api/management/effects",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"metadata",type:effect.type,label:effect.label,description:effect.description})});
+      const response=await fetch("/api/management/effects",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"metadata",type:effect.type,label:effect.label,description:effect.description,icon:effect.icon ?? "sparkles"})});
       const data=await response.json();if(!response.ok)throw Error(data.error??"No se pudo guardar");
       setNotice("Datos del efecto actualizados.");
     }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
@@ -110,10 +113,11 @@ export default function EffectsManagementPage() {
         <p className="text-sm text-zinc-400">Efectos narrativos disponibles para crear habilidades. Edita su costo o desactívalos aquí.</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards.map(card=><article key={card.id} className="rounded-xl border border-zinc-700 bg-zinc-950 p-4"><div className="text-2xl">✦</div><input aria-label="Nombre" value={card.name} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,name:e.target.value}:c))} className="w-full bg-zinc-900 p-2 font-semibold"/><textarea aria-label="Descripción" value={card.description} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,description:e.target.value}:c))} className="mt-2 w-full bg-zinc-900 p-2 text-sm"/><input aria-label="Precio PCH" type="number" min={0} value={card.pch} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,pch:Number(e.target.value)}:c))} className="mt-2 w-full bg-zinc-900 p-2 text-cyan-300"/><label className="mt-2 flex gap-2 text-sm"><input type="checkbox" checked={card.enabled} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,enabled:e.target.checked}:c))}/>Disponible</label><button type="button" disabled={saving!==null} onClick={()=>saveCard(card)} className="mt-2 rounded-lg bg-cyan-700 px-3 py-2 text-sm disabled:opacity-50">Guardar cambios</button></article>)}</div>
       </section>
+      <datalist id="effect-lucide-icons">{iconNames.map(name=><option key={name} value={name}/>)}</datalist>
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Efectos mecánicos del sistema y precios PCH</h2>
         <div className="grid gap-3 sm:grid-cols-2">{effects.filter(e=>(e.label+" "+e.type).toLowerCase().includes(search.toLowerCase())).map(e=>{const p=pricing[e.type];if(!p)return null;return <div key={e.type} className="space-y-3 rounded-xl border border-zinc-700 p-4">
-          <label className="block text-sm">Nombre<input aria-label={`Nombre de ${e.type}`} value={e.label} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,label:event.target.value}:item))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2 font-semibold"/></label><p className="text-xs text-zinc-500">{e.type} · Mecánica implementada</p>
+          <label className="block text-sm">Nombre<input aria-label={`Nombre de ${e.type}`} value={e.label} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,label:event.target.value}:item))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2 font-semibold"/></label><p className="text-xs text-zinc-500">{e.type} · Mecánica implementada</p><label className="block text-sm">Icono Lucide <input list="effect-lucide-icons" value={e.icon ?? "sparkles"} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,icon:event.target.value}:item))} className="mt-1 w-full rounded bg-zinc-950 p-2" /></label><DynamicIcon name={(iconNames.includes((e.icon ?? "sparkles") as string) ? e.icon : "sparkles") as string} size={28} />
           <label className="block text-sm">Descripción<textarea value={e.description??""} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,description:event.target.value}:item))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2"/></label>
           <button type="button" disabled={saving!==null} onClick={()=>saveMetadata(e)} className="rounded border border-cyan-700 px-3 py-2 text-sm disabled:opacity-50">Guardar nombre y descripción</button>
           <div className="grid grid-cols-2 gap-2">

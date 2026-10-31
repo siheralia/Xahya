@@ -335,7 +335,7 @@ export default function MazePage(){
                 <div className="mt-2 grid grid-cols-4 gap-1.5">
                   {[Swords,WandSparkles,Shield,Sparkles].map((Icon,i)=>
                     <button key={i} onClick={()=>setPanel("skills")} className="relative grid h-10 place-items-center rounded-lg border border-zinc-800 bg-zinc-950 text-sm hover:border-zinc-600">
-                      {icon}
+                      <Icon size={19} aria-hidden="true"/>
                       <span className="absolute bottom-0.5 right-1 text-[9px] text-zinc-600">—</span>
                     </button>
                   )}

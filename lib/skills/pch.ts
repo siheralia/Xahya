@@ -40,11 +40,8 @@ export function defaultEffectPricing(): EffectPricingMap {
 }
 
 export const ELEMENT_PCH_COST = 2;
-export const EFFECT_ELEMENTS = ["NEUTRAL","WATER","ICE","FIRE","LIGHTNING","AIR","VOID","LIGHT","HOLY","SHADOW","DARKNESS","EARTH","NATURE"] as const;
-export const EFFECT_ELEMENT_LABELS: Record<string,string> = {NEUTRAL:"Neutro",WATER:"Agua",ICE:"Hielo",FIRE:"Fuego",LIGHTNING:"Rayo",AIR:"Aire",VOID:"Vacío",LIGHT:"Luz",HOLY:"Sagrado",SHADOW:"Sombra",DARKNESS:"Oscuridad",EARTH:"Tierra",NATURE:"Naturaleza"};
 export function elementPchCost(element?: string): number {
   if (!element || element === "NEUTRAL") return 0;
-  if (!EFFECT_ELEMENTS.some(allowed => allowed === element)) throw new Error("Elemento de efecto inválido");
   return ELEMENT_PCH_COST;
 }
 

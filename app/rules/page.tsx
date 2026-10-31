@@ -1,3 +1,4 @@
+import {ElementRelationsModal} from "@/components/elements/ElementRelationsModal";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -84,6 +85,8 @@ export default function RulesPage() {
 
           <p className="mt-4 text-xs text-zinc-600">Quienes posean el Velo de Karma pueden ocultarse de este ranking público.</p>
         </section>
+
+        <div className="mt-6"><ElementRelationsModal /></div>
 
         {loading ? (
           <p className="mt-8 text-zinc-500">Cargando reglas...</p>

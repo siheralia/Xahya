@@ -4,10 +4,22 @@ import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/du
 import type { EffectPricingMap } from "@/lib/skills/pch";
 
 import Link from "next/link";
+import dynamicIconImports from "lucide-react/dynamicIconImports";
+import { lazy, Suspense, type ComponentType } from "react";
 import { Badge, Diamond, Heart, Scan, Spade, Sparkles, Zap, RefreshCcw, PanelsTopLeft, Swords, Shield, Flame, Snowflake, Wind, Droplets, Sun, Moon, Star, Eye, Target, Sword, WandSparkles, CircleHelp, Activity, HeartPulse, Cross, Hand, Clock, Timer, Gauge, Footprints, Move, Waves, Bolt, CircleDot, Orbit, Ghost, ShieldCheck, ShieldPlus, ArrowLeftRight, Repeat, RotateCcw, BookOpen, Brain, Gem, Crown, Lock, Key, Circle, Triangle, Hexagon, Layers, Users, User, Skull, Leaf, Feather, Radio, ScanEye, Sparkle, ShieldAlert, CircleOff, Minus, Plus, Percent, TrendingUp, TrendingDown, ArrowUp, ArrowDown, ArrowRight, ArrowLeft, Aperture, Focus, ScanLine, ScanFace, ScanHeart, ScanSearch, ScanText, ScanBarcode, PanelsLeftRight, PanelTop, PanelBottom, PanelLeft, PanelRight } from "lucide-react";
 const effectIconMap = {sparkles:Sparkles,zap:Zap,"refresh-ccw":RefreshCcw,"panels-top-left":PanelsTopLeft,swords:Swords,shield:Shield,flame:Flame,snowflake:Snowflake,wind:Wind,droplets:Droplets,sun:Sun,moon:Moon,star:Star,eye:Eye,target:Target,sword:Sword,"wand-sparkles":WandSparkles,"circle-help":CircleHelp,activity:Activity,"heart-pulse":HeartPulse,cross:Cross,hand:Hand,clock:Clock,timer:Timer,gauge:Gauge,footprints:Footprints,move:Move,waves:Waves,bolt:Bolt,"circle-dot":CircleDot,orbit:Orbit,ghost:Ghost,"shield-check":ShieldCheck,"shield-plus":ShieldPlus,"arrow-left-right":ArrowLeftRight,repeat:Repeat,"rotate-ccw":RotateCcw,"book-open":BookOpen,brain:Brain,gem:Gem,crown:Crown,lock:Lock,key:Key,circle:Circle,triangle:Triangle,hexagon:Hexagon,layers:Layers,users:Users,user:User,skull:Skull,leaf:Leaf,feather:Feather,radio:Radio,"scan-eye":ScanEye,sparkle:Sparkle,"shield-alert":ShieldAlert,"circle-off":CircleOff,minus:Minus,plus:Plus,percent:Percent,"trending-up":TrendingUp,"trending-down":TrendingDown,"arrow-up":ArrowUp,"arrow-down":ArrowDown,"arrow-right":ArrowRight,"arrow-left":ArrowLeft,aperture:Aperture,focus:Focus,"scan-line":ScanLine,"scan-face":ScanFace,"scan-heart":ScanHeart,"scan-search":ScanSearch,"scan-text":ScanText,"scan-barcode":ScanBarcode,"panels-left-right":PanelsLeftRight,"panel-top":PanelTop,"panel-bottom":PanelBottom,"panel-left":PanelLeft,"panel-right":PanelRight} as const;
 const iconNames: string[] = Object.keys(effectIconMap);
-function DynamicIcon({name,size=24,...props}:{name:string;size?:number;strokeWidth?:number;"aria-hidden"?:boolean}) { const Icon = effectIconMap[name as keyof typeof effectIconMap] ?? Sparkles; return <Icon size={size} {...props}/>; }
+const availableIconNames = new Set<string>(Object.keys(dynamicIconImports));
+const lazyIconCache = new Map<string, ComponentType<any>>();
+function getLazyIcon(name: string): ComponentType<any> {
+  const cached = lazyIconCache.get(name);
+  if (cached) return cached;
+  const importer = dynamicIconImports[name as keyof typeof dynamicIconImports];
+  const Icon = lazy(importer as () => Promise<{default: ComponentType<any>}>);
+  lazyIconCache.set(name, Icon);
+  return Icon;
+}
+function DynamicIcon({name,size=24,...props}:{name:string;size?:number;strokeWidth?:number;"aria-hidden"?:boolean}) { const Icon = effectIconMap[name as keyof typeof effectIconMap]; if (Icon) return <Icon size={size} {...props}/>; if (!availableIconNames.has(name)) return <Sparkles size={size} {...props}/>; const LazyIcon = getLazyIcon(name); return <Suspense fallback={<Sparkles size={size} {...props}/>}><LazyIcon size={size} {...props}/></Suspense>; }
 import { useEffect, useState } from "react";
 
 type Target = { key: string; label: string };
@@ -121,9 +133,10 @@ export default function EffectsManagementPage() {
           <input aria-label="Nombre del nuevo efecto" placeholder="Nombre" value={cardName} onChange={e=>setCardName(e.target.value)} className="w-full rounded bg-zinc-950 p-3"/>
           <textarea aria-label="Descripción del nuevo efecto" placeholder="Descripción" value={cardDescription} onChange={e=>setCardDescription(e.target.value)} className="w-full rounded bg-zinc-950 p-3"/>
           <label className="block text-sm">Costo PCH<input type="number" min={0} value={cardPch} onChange={e=>setCardPch(Number(e.target.value))} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label>
+          <label className="block text-sm">Nombre del icono Lucide (manual)<input value={newIcon} onChange={e=>setNewIcon(e.target.value.trim().toLowerCase())} placeholder="Ej. shield, flame, wand-sparkles" maxLength={40} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label><p className="text-xs text-zinc-400">Puedes escribir otro nombre en kebab-case. Los nombres válidos de Lucide se cargarán automáticamente; los desconocidos mostrarán destellos.</p>
           <label className="block text-sm">Buscar icono<input placeholder="Filtrar iconos…" value={iconSearch} onChange={e=>setIconSearch(e.target.value)} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label>
           <div className="grid max-h-44 grid-cols-6 gap-2 overflow-y-auto">{iconNames.filter(n=>n.includes(iconSearch.toLowerCase())).map(n=><button type="button" key={n} title={n} aria-label={n} aria-pressed={newIcon===n} onClick={()=>setNewIcon(n)} className={"rounded p-2 "+(newIcon===n?"bg-cyan-700":"bg-zinc-800")}><DynamicIcon name={n} size={22}/></button>)}</div>
-          <button type="button" disabled={saving!==null||!cardName.trim()||!cardDescription.trim()} onClick={createCard} className="rounded bg-cyan-700 px-4 py-2 disabled:opacity-50">Crear efecto</button>
+          <button type="button" disabled={saving!==null||!cardName.trim()||!cardDescription.trim()||!/^[a-z0-9-]{1,40}$/.test(newIcon)} onClick={createCard} className="rounded bg-cyan-700 px-4 py-2 disabled:opacity-50">Crear efecto</button>
         </div>}
       </section>
       {editing && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
@@ -131,12 +144,13 @@ export default function EffectsManagementPage() {
           <div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Editar efecto</h2><button type="button" onClick={()=>setEditing(null)} className="rounded border border-zinc-600 px-3 py-1">Cerrar</button></div>
           <label className="block text-sm">Nombre<input value={draft.name} onChange={e=>setDraft(d=>({...d,name:e.target.value}))} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label>
           <label className="block text-sm">Descripción<textarea value={draft.description} onChange={e=>setDraft(d=>({...d,description:e.target.value}))} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label>
+          <label className="block text-sm">Nombre del icono Lucide (manual)<input value={draft.icon} onChange={e=>setDraft(d=>({...d,icon:e.target.value.trim().toLowerCase()}))} maxLength={40} placeholder="Ej. shield, flame, wand-sparkles" className="mt-1 w-full rounded bg-zinc-950 p-3"/></label><p className="text-xs text-zinc-400">Los iconos válidos de Lucide se cargarán automáticamente. Los nombres desconocidos mostrarán destellos.</p>
           <label className="block text-sm">Buscar icono<input value={iconSearch} onChange={e=>setIconSearch(e.target.value)} placeholder="Ej. flame, shield, heart…" className="mt-1 w-full rounded bg-zinc-950 p-3"/></label>
           <div className="flex items-center gap-2 text-sm text-cyan-300"><DynamicIcon name={draft.icon} size={28}/><span>Icono seleccionado: {draft.icon}</span></div>
           <div className="grid max-h-48 grid-cols-6 gap-2 overflow-y-auto">{iconNames.filter(n=>n.includes(iconSearch.toLowerCase())).map(n=><button type="button" key={n} title={n} aria-label={n} aria-pressed={draft.icon===n} onClick={()=>setDraft(d=>({...d,icon:n}))} className={"rounded p-2 "+(draft.icon===n?"bg-cyan-700":"bg-zinc-800")}><DynamicIcon name={n} size={23}/></button>)}</div>
           {editing.kind==="custom" && <><label className="block text-sm">Costo PCH<input type="number" min={0} value={draft.pch} onChange={e=>setDraft(d=>({...d,pch:Number(e.target.value)}))} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.enabled} onChange={e=>setDraft(d=>({...d,enabled:e.target.checked}))}/>Disponible</label></>}
           {editing.kind==="mechanical" && <p className="text-xs text-zinc-400">El precio y disponibilidad mecánicos se administran por separado.</p>}
-          <button type="button" disabled={saving!==null||!draft.name.trim()||(editing.kind==="custom"&&!draft.description.trim())} onClick={async()=>{
+          <button type="button" disabled={saving!==null||!draft.name.trim()||!/^[a-z0-9-]{1,40}$/.test(draft.icon)||(editing.kind==="custom"&&!draft.description.trim())} onClick={async()=>{
             const saved = editing.kind==="custom" ? await saveCard({id:editing.id,name:draft.name,description:draft.description,icon:draft.icon,pch:draft.pch,enabled:draft.enabled}) : await saveMetadata({type:editing.id,label:draft.name,description:draft.description,icon:draft.icon,mode:"",targets:[]});
             if (!saved) return;
             setEditing(null);

@@ -1,5 +1,5 @@
-import {ElementRelationsModal} from "@/components/elements/ElementRelationsModal";
 "use client";
+import {ElementRelationsModal} from "@/components/elements/ElementRelationsModal";
 
 import { useEffect, useState } from "react";
 import { WhatsAppMarkup } from "@/components/WhatsAppMarkup";

@@ -1,5 +1,5 @@
 "use client";
-import {ElementRelationsModal} from "@/components/elements/ElementRelationsModal";
+import {ElementRelationsDisplay} from "@/components/elements/ElementRelationsDisplay";
 
 import { useEffect, useState } from "react";
 import { WhatsAppMarkup } from "@/components/WhatsAppMarkup";
@@ -86,7 +86,7 @@ export default function RulesPage() {
           <p className="mt-4 text-xs text-zinc-600">Quienes posean el Velo de Karma pueden ocultarse de este ranking público.</p>
         </section>
 
-        <div className="mt-6"><ElementRelationsModal /></div>
+        <div className="mt-6"><ElementRelationsDisplay /></div>
 
         {loading ? (
           <p className="mt-8 text-zinc-500">Cargando reglas...</p>

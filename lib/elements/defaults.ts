@@ -1,10 +1,11 @@
 export type ManagedElement = {key:string;name:string;icon:string;color:string;description:string;buff:string;debuff:string;preference:string;effectiveTo:string;weakTo:string};
-const names=["Neutral","Water","Ice","Fire","Lightning","Air","Void","Light","Holy","Shadow","Darkness","Earth","Nature"];
+const keys=["NEUTRAL","WATER","ICE","FIRE","LIGHTNING","AIR","VOID","LIGHT","HOLY","SHADOW","DARKNESS","EARTH","NATURE"];
+const names=["Neutro","Agua","Hielo","Fuego","Rayo","Aire","Vacío","Luz","Sagrado","Sombra","Oscuridad","Tierra","Naturaleza"];
 const buffs=["","MP","Mdef","Atk","Matk","Mspd","Pdg","Cspd","Mres","Eva","Will","Def","HP"];
-const debuffs=["","Slow and Heavy","Freeze Double damage","Damage And Burnt","Damage and Stun","Windtrap","No Mana","Slow Time","Silence","Blindness","Deep Sleep","Weakness","Coma"];
-const preferences=["","Casting multiple spells","Defending against magic","Damage","Hick Magical damage","Moving Fast","Seeing the enemy fall","Quick spells","Mental fortitude","Avoiding hits","Imposing over others","Testing enemies attacks","Living longer"];
+const debuffs=["","Lentitud y pesadez","Congelación y daño doble","Daño y quemadura","Daño y aturdimiento","Trampa de viento","Sin maná","Tiempo ralentizado","Silencio","Ceguera","Sueño profundo","Debilidad","Coma"];
+const preferences=["","Lanzar múltiples hechizos","Defenderse de la magia","Infligir daño","Daño mágico elevado","Moverse rápido","Ver caer al enemigo","Hechizos rápidos","Fortaleza mental","Esquivar golpes","Imponerse sobre otros","Poner a prueba los ataques enemigos","Vivir más tiempo"];
 const effective=["","Fire","Nature","Ice","Water","Void","Air","Shadow","Darkness","Holy","Light","Lightning","Earth"];
 const weak=["","Lightning","Fire","Water","Earth","Void","Air","Darkness","Shadow","Light","Holy","Nature","Ice"];
 const icons=["circle","droplets","snowflake","flame","zap","wind","orbit","sun","cross","moon","cloud-moon","mountain","leaf"];
 const colors=["#a1a1aa","#38bdf8","#a5f3fc","#fb923c","#facc15","#bae6fd","#a78bfa","#fde68a","#fef3c7","#64748b","#4c1d95","#a16207","#4ade80"];
-export const DEFAULT_ELEMENTS:ManagedElement[]=names.map((name,i)=>({key:name.toUpperCase(),name,icon:icons[i],color:colors[i],description:"",buff:buffs[i],debuff:debuffs[i],preference:preferences[i],effectiveTo:effective[i].toUpperCase(),weakTo:weak[i].toUpperCase()}));
+export const DEFAULT_ELEMENTS:ManagedElement[]=names.map((name,i)=>({key:keys[i],name,icon:icons[i],color:colors[i],description:"",buff:buffs[i],debuff:debuffs[i],preference:preferences[i],effectiveTo:effective[i].toUpperCase(),weakTo:weak[i].toUpperCase()}));

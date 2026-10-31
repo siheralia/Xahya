@@ -3,6 +3,9 @@ export type PricedEffect = { type?: string; target?: string; value?: number; des
 // Costes iniciales configurables: el administrador conserva la última palabra.
 export const BASE_COST: Record<string, number> = {
   NARRATIVE: 5,
+  SUMMON_MIRROR: 5,
+  MIRROR_RAY: 6,
+  MAGIC_REFLECTION: 8,
   STAT_BONUS: 2,
   STAT_MULTIPLIER: 5,
   DAMAGE_MULTIPLIER: 6,

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import MazeMap from "@/components/MazeMap";
-import { ArrowUpFromLine, ArrowDownToLine, ChevronUp, ChevronRight, ChevronDown, ChevronLeft, PanelBottomOpen, PanelTopClose, PanelLeftOpen, PanelRightClose, PanelTopOpen, PanelBottomClose, PanelRightOpen, PanelLeftClose, ScanSearch, Scroll, Footprints, Heart, Droplets, ChartNoAxesColumn, Backpack, Sparkles, Swords, Shield, WandSparkles, Coins, EyeOff, AudioLines, Slash, Activity } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, ChevronUp, ChevronRight, ChevronDown, ChevronLeft, PanelBottomOpen, PanelTopClose, PanelLeftOpen, PanelRightClose, PanelTopOpen, PanelBottomClose, PanelRightOpen, PanelLeftClose, ScanSearch, Scroll, Footprints, Heart, Droplets, ChartNoAxesColumn, Backpack, Sparkles, Swords, Shield, WandSparkles, EyeOff, AudioLines, Slash, Activity } from "lucide-react";
 
 const mazeDirectionIcons: Record<string, typeof ChevronUp> = { N: ChevronUp, N_UP: PanelBottomOpen, N_DOWN: PanelTopClose, E: ChevronRight, E_UP: PanelLeftOpen, E_DOWN: PanelRightClose, S: ChevronDown, S_UP: PanelTopOpen, S_DOWN: PanelBottomClose, O: ChevronLeft, O_UP: PanelRightOpen, O_DOWN: PanelLeftClose, UP: ArrowUpFromLine, DOWN: ArrowDownToLine };
 function MazeScrollIcon({size=20}:{size?:number}) { return <span className="relative inline-flex shrink-0 items-center justify-center" style={{width:size,height:size}} aria-hidden="true"><Scroll size={size} strokeWidth={1.8}/><Footprints className="absolute" size={Math.round(size*.43)} strokeWidth={2.2}/></span>; }
@@ -303,8 +303,8 @@ export default function MazePage(){
                     <span className="text-base leading-none"><ScanSearch size={16}/></span>
                     <span className="font-semibold text-zinc-100">{room?.roomNumber??"—"}</span>
                   </span>
-                  {invisibilityActive&&<span className="text-base leading-none" title="Invisibilidad activa">🫥</span>}
-                  {stealthActive&&<span className="text-base leading-none" title="Sigilo activo">🥷</span>}
+                  {invisibilityActive&&<span className="text-base leading-none" title="Invisibilidad activa"><EyeOff size={16}/></span>}
+                  {stealthActive&&<span className="text-base leading-none" title="Sigilo activo"><SilentStepsIcon/></span>}
                 </> : <>⌃ Ocultar</>}
               </button>
 
@@ -347,14 +347,14 @@ export default function MazePage(){
                       className={"h-9 rounded-lg border text-[11px] font-semibold transition-all "+(invisibilityActive
                         ?"border-violet-300 bg-violet-500/35 text-violet-50 shadow-[0_0_12px_rgba(167,139,250,0.35)]"
                         :"border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-violet-800 hover:text-violet-300")}>
-                      🫥 Invisibilidad {invisibilityActive?"ON":"OFF"}
+                      <EyeOff size={14} className="mr-1 inline-block align-[-2px]"/> Invisibilidad {invisibilityActive?"ON":"OFF"}
                     </button>
                   )}
                   <button onClick={()=>setStealthActive(v=>!v)} aria-pressed={stealthActive}
                     className={"h-9 rounded-lg border text-[11px] font-semibold transition-all "+(stealthActive
                       ?"border-cyan-300 bg-cyan-500/35 text-cyan-50 shadow-[0_0_12px_rgba(34,211,238,0.35)]"
                       :"border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-cyan-800 hover:text-cyan-300")}>
-                    🥷 Sigilo {stealthActive?"ON":"OFF"}
+                    <SilentStepsIcon/> Sigilo {stealthActive?"ON":"OFF"}
                   </button>
                 </div>
 
@@ -366,11 +366,11 @@ export default function MazePage(){
 
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-center">
-                    <p className="text-[10px] text-zinc-600"><Coins size={14} className="mx-auto"/></p>
+                    <p className="text-[10px] text-zinc-600">◈</p>
                     <p className="font-semibold">{characterData?.money??characterData?.resources?.money??"—"}</p>
                   </div>
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-center">
-                    <p className="text-[10px] text-zinc-600"><Sparkles size={14} className="mx-auto"/></p>
+                    <p className="text-[10px] text-zinc-600">🪷</p>
                     <p className="font-semibold">{characterData?.karma??characterData?.resources?.karma??"—"}</p>
                   </div>
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-center">

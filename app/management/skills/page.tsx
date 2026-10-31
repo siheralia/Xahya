@@ -25,8 +25,10 @@ const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0
 
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
+  const [effectDefinitions,setEffectDefinitions]=useState<{type:string;label:string;targets:{key:string;label:string}[]}[]>([]);
+  const [narrativeCards,setNarrativeCards]=useState<{id:string;name:string;description:string;category:string;pch:number}[]>([]);
   const [statDefinitions,setStatDefinitions]=useState<{key:string;name:string;kind:"basic"|"derived";active?:boolean}[]>([]);
-  useEffect(() => { fetch("/api/management/effect-targets").then((r) => r.ok ? r.json() : null).then((data) => { if (data?.statistics) setStatDefinitions(data.statistics); }).catch(() => {}); }, []);
+  useEffect(() => { fetch("/api/management/effect-targets").then((r) => r.ok ? r.json() : null).then((data) => { if (data?.statistics) setStatDefinitions(data.statistics); if (data?.effects) setEffectDefinitions(data.effects); if (data?.narrativeCards) setNarrativeCards(data.narrativeCards); }).catch(() => {}); }, []);
   const [characters,setCharacters]=useState<{id:number;name:string}[]>([]);
   const [filter,setFilter]=useState("PENDING");
   const [search,setSearch]=useState("");
@@ -126,6 +128,6 @@ export default function SkillsManagementPage(){
       </div>
     </section>
 
-    <SkillFormModal open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} form={form} onChange={setForm} statistics={statDefinitions} priceEffect={effectPchCost} pch={{total:pchTotal,base:pchBase,manaAdjusted:pchManaAdjusted}} characterSelector={<label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>} actions={<div className="flex flex-wrap gap-2"><button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button><button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button><button onClick={()=>save(true,false)} disabled={busy} className="rounded-lg bg-emerald-400 px-4 py-3 font-semibold text-zinc-950">Guardar y aprobar</button></div>} />
+    <SkillFormModal open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} form={form} onChange={setForm} statistics={statDefinitions} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={effectPchCost} pch={{total:pchTotal,base:pchBase,manaAdjusted:pchManaAdjusted}} characterSelector={<label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>} actions={<div className="flex flex-wrap gap-2"><button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button><button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button><button onClick={()=>save(true,false)} disabled={busy} className="rounded-lg bg-emerald-400 px-4 py-3 font-semibold text-zinc-950">Guardar y aprobar</button></div>} />
   </div></main>;
 }

@@ -1,0 +1,7 @@
+import {NextResponse} from "next/server";
+import {auth} from "@clerk/nextjs/server";
+import {db} from "@/lib/db";
+import {defaultDiagram,normalizeDiagram} from "@/lib/elements/diagram";
+const KEY="world.elements.diagram.v1";
+export async function GET(){try{const row=await db.orm.public.AppSetting.where({key:KEY}).first();return NextResponse.json({diagram:row?.value?normalizeDiagram(JSON.parse(String(row.value))):defaultDiagram},{headers:{"Cache-Control":"no-store"}})}catch{return NextResponse.json({diagram:defaultDiagram})}}
+export async function PUT(request:Request){const {userId}=await auth();if(!userId)return NextResponse.json({error:"Unauthorized"},{status:401});const users=await db.orm.public.User.all();if(!users.some(u=>u.clerkId===userId&&String(u.role)==="ADMIN"))return NextResponse.json({error:"Forbidden"},{status:403});const body=await request.json().catch(()=>null);if(!body?.diagram||!Array.isArray(body.diagram.circles)||body.diagram.circles.length>16)return NextResponse.json({error:"Diagrama inválido"},{status:400});const diagram=normalizeDiagram(body.diagram);if(diagram.circles.length!==body.diagram.circles.length||new Set(diagram.circles.map(c=>c.id)).size!==diagram.circles.length)return NextResponse.json({error:"Círculos inválidos"},{status:400});const value=JSON.stringify(diagram);const Setting=db.orm.public.AppSetting;const row=await Setting.where({key:KEY}).first();if(row)await Setting.where({key:KEY}).update({value});else await Setting.create({key:KEY,value});return NextResponse.json({diagram});}

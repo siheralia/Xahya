@@ -1,8 +1,8 @@
 "use client";
 import { Badge, Diamond, Heart, Scan, Spade } from "lucide-react";
-import { icons, type LucideIcon } from "lucide-react";
+import { icons, type LucideIcon, type LucideProps } from "lucide-react";
 const iconNames = Object.keys(icons).map(key => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase());
-function DynamicIcon({ name, size = 24, ...props }: { name: string; size?: number; strokeWidth?: number; "aria-hidden"?: string }) { const key = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, c => c.toUpperCase()) as keyof typeof icons; const Icon = (icons[key] ?? icons.Sparkles) as LucideIcon; return <Icon size={size} {...props} />; }
+function DynamicIcon({ name, size = 24, ...props }: { name: string; size?: number; strokeWidth?: number; "aria-hidden"?: boolean }) { const key = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, c => c.toUpperCase()) as keyof typeof icons; const Icon = (icons[key] ?? icons.Sparkles) as LucideIcon; return <Icon size={size} {...(props as LucideProps)} />; }
 
 const frames = { OFFENSIVE: Spade, PASSIVE: Badge, UTILITY: Scan, SUPPORT: Heart, BASIC: Diamond } as const;
 const mirrorIcons: Record<string,string> = { SUMMON_MIRROR: "panels-top-left", MIRROR_RAY: "zap", MAGIC_REFLECTION: "refresh-ccw" };

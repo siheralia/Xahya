@@ -4,7 +4,9 @@ import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/du
 import type { EffectPricingMap } from "@/lib/skills/pch";
 
 import Link from "next/link";
-import { DynamicIcon, iconNames } from "lucide-react/dynamic";
+import { icons, type LucideIcon } from "lucide-react";
+const iconNames = Object.keys(icons).map(key => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase());
+function DynamicIcon({ name, size = 24, ...props }: { name: string; size?: number; strokeWidth?: number; "aria-hidden"?: string }) { const key = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, c => c.toUpperCase()) as keyof typeof icons; const Icon = (icons[key] ?? icons.Sparkles) as LucideIcon; return <Icon size={size} {...props} />; }
 import { useEffect, useState } from "react";
 
 type Target = { key: string; label: string };
@@ -115,7 +117,7 @@ export default function EffectsManagementPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Efectos mecánicos del sistema y precios PCH</h2>
         <div className="grid gap-3 sm:grid-cols-2">{effects.filter(e=>(e.label+" "+e.type).toLowerCase().includes(search.toLowerCase())).map(e=>{const p=pricing[e.type];if(!p)return null;return <div key={e.type} className="space-y-3 rounded-xl border border-zinc-700 p-4">
-          <label className="block text-sm">Nombre<input aria-label={`Nombre de ${e.type}`} value={e.label} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,label:event.target.value}:item))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2 font-semibold"/></label><p className="text-xs text-zinc-500">{e.type} · Mecánica implementada</p><label className="block text-sm">Icono Lucide <input list="effect-lucide-icons" value={e.icon ?? "sparkles"} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,icon:event.target.value}:item))} className="mt-1 w-full rounded bg-zinc-950 p-2" /></label><DynamicIcon name={(iconNames.includes((e.icon ?? "sparkles") as typeof iconNames[number]) ? e.icon : "sparkles") as typeof iconNames[number]} size={28} />
+          <label className="block text-sm">Nombre<input aria-label={`Nombre de ${e.type}`} value={e.label} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,label:event.target.value}:item))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2 font-semibold"/></label><p className="text-xs text-zinc-500">{e.type} · Mecánica implementada</p><label className="block text-sm">Icono Lucide <input list="effect-lucide-icons" value={e.icon ?? "sparkles"} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,icon:event.target.value}:item))} className="mt-1 w-full rounded bg-zinc-950 p-2" /></label><DynamicIcon name={(iconNames.includes((e.icon ?? "sparkles") as string) ? e.icon : "sparkles") as string} size={28} />
           <label className="block text-sm">Descripción<textarea value={e.description??""} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,description:event.target.value}:item))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2"/></label>
           <button type="button" disabled={saving!==null} onClick={()=>saveMetadata(e)} className="rounded border border-cyan-700 px-3 py-2 text-sm disabled:opacity-50">Guardar nombre y descripción</button>
           <div className="grid grid-cols-2 gap-2">

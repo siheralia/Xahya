@@ -17,7 +17,7 @@ export const SKILL_FIELD_HELP = {
   cost: "Maná que se consume cada vez que utilizas la habilidad. Más maná puede reducir el precio de creación en PCH.",
   duration: "Tiempo durante el cual permanece activa. Instantánea significa que ocurre al usarla.",
   cooldown: "Tiempo o condición que debe pasar antes de poder usarla nuevamente.",
-  speed: "Determina la velocidad de activación. La velocidad distinta a la predeterminada aumenta el precio PCH.",
+  speed: "Determina la velocidad con la que se efectúa o resuelve la habilidad, no el momento en que comienza a activarse. Elegir una velocidad distinta de la predeterminada aumenta el precio de creación en 5 PCH.",
   areaOfEffect: "Objetivo único afecta a uno solo; un área puede alcanzar varios objetivos.",
   maxRangeMeters: "Distancia máxima a la que puedes utilizar la habilidad. Cinco metros no modifica el PCH; más distancia cuesta más y menos distancia descuenta.",
   maintenanceCost: "Maná que se consume por cada turno que permanece activa. Solo aplica a duraciones no instantáneas.",

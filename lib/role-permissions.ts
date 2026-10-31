@@ -13,6 +13,7 @@ export const ROLE_PERMISSIONS = {
  "management.finances": ["view", "adjust", "audit"],
  "management.statistics": ["view", "edit"],
  "management.effects": ["view", "create", "edit", "delete"],
+ "management.elements": ["view", "edit"],
  "management.races": ["view", "create", "edit", "delete"],
  "management.enemies": ["view", "create", "edit", "delete"],
  "management.ambientations": ["view", "edit"],

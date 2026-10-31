@@ -1,6 +1,8 @@
 "use client";
 import { Badge, Diamond, Heart, Scan, Spade } from "lucide-react";
-import { DynamicIcon, iconNames } from "lucide-react/dynamic";
+import { icons, type LucideIcon } from "lucide-react";
+const iconNames = Object.keys(icons).map(key => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase());
+function DynamicIcon({ name, size = 24, ...props }: { name: string; size?: number; strokeWidth?: number; "aria-hidden"?: string }) { const key = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, c => c.toUpperCase()) as keyof typeof icons; const Icon = (icons[key] ?? icons.Sparkles) as LucideIcon; return <Icon size={size} {...props} />; }
 
 const frames = { OFFENSIVE: Spade, PASSIVE: Badge, UTILITY: Scan, SUPPORT: Heart, BASIC: Diamond } as const;
 const mirrorIcons: Record<string,string> = { SUMMON_MIRROR: "panels-top-left", MIRROR_RAY: "zap", MAGIC_REFLECTION: "refresh-ccw" };
@@ -12,7 +14,7 @@ export function SkillEmblem({ category, effects, icons, size = 64 }: { category:
   <Frame size={size} strokeWidth={1.5} className="absolute inset-0" aria-hidden="true" />
   {selected.map((effect,i)=>{
    const candidate = icons?.[effect.type] ?? mirrorIcons[effect.type] ?? (effect.type === "DAMAGE_MULTIPLIER" ? "swords" : "sparkles");
-   const name = (iconNames.includes(candidate as typeof iconNames[number]) ? candidate : "sparkles") as typeof iconNames[number];
+   const name = (iconNames.includes(candidate as string) ? candidate : "sparkles") as string;
    return <div key={i} className="absolute" style={{left:`${positions[i][0]/48*100}%`,top:`${positions[i][1]/48*100}%`,transform:"translate(-50%,-50%)"}}><DynamicIcon name={name} size={size*.19} strokeWidth={2} aria-hidden="true" /></div>;
   })}
  </div>;

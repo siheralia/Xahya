@@ -45,7 +45,9 @@ export async function PUT(request: Request) {
   const pch = body.pch;
   if(!name || name.length>100 || !description || description.length>2000 || !Number.isSafeInteger(pch) || pch<0 || pch>100000 || typeof body.enabled!=="boolean")
     return NextResponse.json({error:"Datos inválidos"},{status:400});
-  const updated={...old,name,description,pch,enabled:body.enabled};
+  const icon = typeof body.icon === "string" ? body.icon.trim() : old.icon;
+  if (!icon || icon.length > 40) return NextResponse.json({error:"Icono inválido"},{status:400});
+  const updated={...old,name,description,pch,icon,enabled:body.enabled};
   cards[index]=updated;
   await writeNarrativeEffectCards(cards);
   return NextResponse.json({card:updated});

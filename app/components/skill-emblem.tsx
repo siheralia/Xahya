@@ -9,7 +9,7 @@ const mirrorIcons: Record<string,string> = { SUMMON_MIRROR: "panels-top-left", M
 export function SkillEmblem({ category, effects, icons, size = 64 }: { category: string; effects: Array<{type:string;target?:string}>; icons?: Record<string,string>; size?:number }) {
  const Frame = frames[category as keyof typeof frames] ?? Scan;
  const selected = effects.slice(0,4);
- const positions = selected.length === 1 ? [[24,24]] : selected.length === 2 ? [[15,24],[33,24]] : selected.length === 3 ? [[15,15],[33,15],[24,33]] : [[15,15],[33,15],[15,33],[33,33]];
+ const positions = selected.length === 1 ? [[24,24]] : selected.length === 2 ? [[15,24],[33,24]] : selected.length === 3 ? (category === "OFFENSIVE" ? [[24,15],[15,33],[33,33]] : [[15,15],[33,15],[24,33]]) : [[15,15],[33,15],[15,33],[33,33]];
  return <div className="relative shrink-0" style={{width:size,height:size}} aria-label={`Emblema de habilidad con ${effects.length} efectos`} role="img">
   <Frame size={size} strokeWidth={1.5} className="absolute inset-0" aria-hidden="true" />
   {selected.map((effect,i)=>{

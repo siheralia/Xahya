@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import MazeMap from "@/components/MazeMap";
-import { ChevronUp, ChevronRight, ChevronDown, ChevronLeft, PanelBottomOpen, PanelTopClose, PanelLeftOpen, PanelRightClose, PanelTopOpen, PanelBottomClose, PanelRightOpen, PanelLeftClose, ScanSearch, Scroll, Footprints, Heart, Droplets, ChartNoAxesColumn, Backpack, Sparkles, Swords, Shield, WandSparkles, Coins, MapPin, EyeOff, Eye, X, Activity } from "lucide-react";
+import { ChevronUp, ChevronRight, ChevronDown, ChevronLeft, PanelBottomOpen, PanelTopClose, PanelLeftOpen, PanelRightClose, PanelTopOpen, PanelBottomClose, PanelRightOpen, PanelLeftClose, ScanSearch, Scroll, Footprints, Heart, Droplets, ChartNoAxesColumn, Backpack, Sparkles, Swords, Shield, WandSparkles, Coins, EyeOff, Eye, Activity } from "lucide-react";
 
 const mazeDirectionIcons: Record<string, typeof ChevronUp> = { N: ChevronUp, N_UP: PanelBottomOpen, N_DOWN: PanelTopClose, E: ChevronRight, E_UP: PanelLeftOpen, E_DOWN: PanelRightClose, S: ChevronDown, S_UP: PanelTopOpen, S_DOWN: PanelBottomClose, O: ChevronLeft, O_UP: PanelRightOpen, O_DOWN: PanelLeftClose };
 function MazeScrollIcon({size=20}:{size?:number}) { return <span className="relative inline-flex shrink-0 items-center justify-center" style={{width:size,height:size}} aria-hidden="true"><Scroll size={size} strokeWidth={1.8}/><Footprints className="absolute" size={Math.round(size*.43)} strokeWidth={2.2}/></span>; }

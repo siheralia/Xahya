@@ -20,13 +20,17 @@ const modes: Record<string, string> = {
 
 export default function EffectsManagementPage() {
   const [effects, setEffects] = useState<EffectDefinition[]>([]);
-  const [cards,setCards] = useState<{id:string;name:string;description:string;category:string;pch:number;enabled:boolean}[]>([]);
+  const [cards,setCards] = useState<{id:string;name:string;description:string;category:string;icon:string;pch:number;enabled:boolean}[]>([]);
+  const [editing,setEditing] = useState<{kind:"mechanical"|"custom";id:string}|null>(null);
+  const [draft,setDraft] = useState<{name:string;description:string;icon:string;pch:number;enabled:boolean}>({name:"",description:"",icon:"sparkles",pch:0,enabled:true});
+  const [iconSearch,setIconSearch] = useState("");
   const [cardName,setCardName] = useState("");
   const [cardDescription,setCardDescription] = useState("");
   const [cardPch,setCardPch] = useState(5);
+  const [newIcon,setNewIcon] = useState("sparkles");
   const [showCreator,setShowCreator] = useState(false);
   useEffect(()=>{fetch("/api/effects/narrative-cards",{cache:"no-store"}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error??"No se pudo cargar el catálogo");return d;}).then(d=>setCards(d.cards??[])).catch(e=>setNotice(e instanceof Error?e.message:"Error al cargar tarjetas"));},[]);
-  async function saveCard(card:{id:string;name:string;description:string;pch:number;enabled:boolean}) {
+  async function saveCard(card:{id:string;name:string;description:string;icon:string;pch:number;enabled:boolean}) {
     setSaving(card.id);
     try {
       const response=await fetch("/api/effects/narrative-cards",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(card)});
@@ -38,10 +42,10 @@ export default function EffectsManagementPage() {
   async function createCard(){
     setSaving("new-card");
     try {
-      const response=await fetch("/api/effects/narrative-cards",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:cardName,description:cardDescription,category:"Narrativo",icon:"sparkles",pch:cardPch})});
+      const response=await fetch("/api/effects/narrative-cards",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:cardName,description:cardDescription,category:"Narrativo",icon:newIcon,pch:cardPch})});
       const data=await response.json();
       if(!response.ok)throw Error(data.error??"Error");
-      setCards(old=>[...old,data.card]);setCardName("");setCardDescription("");setNotice("Tarjeta creada y guardada correctamente.");setShowCreator(false);document.getElementById("custom-effect-catalog")?.scrollIntoView({behavior:"smooth",block:"start"});
+      setCards(old=>[...old,data.card]);setCardName("");setCardDescription("");setNewIcon("sparkles");setNotice("Tarjeta creada y guardada correctamente.");setShowCreator(false);document.getElementById("custom-effect-catalog")?.scrollIntoView({behavior:"smooth",block:"start"});
     }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
   }
 
@@ -98,68 +102,48 @@ export default function EffectsManagementPage() {
       <section className="rounded-xl border border-zinc-700 p-4"><h2 className="font-semibold">Velocidad predeterminada de ataques</h2><p className="my-2 text-sm text-zinc-400">Las habilidades con «Por defecto» consultan esta estadística al ejecutarse. Una velocidad distinta suma 5 PCH al crear la habilidad.</p><div className="flex gap-2"><select aria-label="Estadística predeterminada de velocidad" value={defaultSpeed} onChange={e=>setDefaultSpeed(e.target.value)} className="rounded bg-zinc-900 p-2">{speedStats.map(stat=><option key={stat.key} value={stat.key}>{stat.name}</option>)}</select><button type="button" disabled={saving==="speed"} onClick={saveDefaultSpeed} className="rounded bg-cyan-700 px-3 py-2">Guardar</button></div></section>
       {notice && <p role="status" className="text-sm text-cyan-300">{notice}</p>}
       <section className="space-y-3 rounded-2xl border border-zinc-700 bg-zinc-900 p-5"><h2 className="text-xl font-semibold">Costo PCH por duración</h2><p className="text-sm text-zinc-400">Los turnos aumentan el costo de cada efecto. La duración se registra en la habilidad; su contador se implementará después en combate.</p><div className="grid gap-3 sm:grid-cols-4">{([["instant","Multiplicador instantáneo"],["oneTurn","Multiplicador de 1 turno"],["perExtraTurn","Incremento por turno extra"],["perMovement","Multiplicador por movimiento"]] as const).map(([key,label])=><label key={key} className="text-sm">{label}<input type="number" min="0" max="10" step="0.05" value={durationPricing[key] ?? 0.2} onChange={e=>setDurationPricing(p=>({...p,[key]:Number(e.target.value)}))} className="mt-1 w-full rounded bg-zinc-950 p-2"/></label>)}</div><button type="button" disabled={saving!==null} onClick={saveDurationPricing} className="rounded bg-cyan-700 px-4 py-2 disabled:opacity-40">Guardar reglas de duración</button></section>
-      <section className="space-y-4 rounded-2xl border border-cyan-900 bg-zinc-900 p-5">
+
+      <section className="space-y-3 rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
+        <h2 className="text-xl font-semibold">Catálogo de efectos</h2>
+        <input aria-label="Filtrar efectos" placeholder="Buscar por nombre, código o descripción…" value={search} onChange={e=>setSearch(e.target.value)} className="w-full rounded-lg border border-zinc-600 bg-zinc-950 p-3"/>
+        <p className="text-xs text-zinc-400">Selecciona un efecto para abrir el editor compartido.</p>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {effects.filter(e=>(e.label+" "+e.type+" "+e.description).toLowerCase().includes(search.toLowerCase())).map(e=><button key={e.type} type="button" onClick={()=>{setEditing({kind:"mechanical",id:e.type});setDraft({name:e.label,description:e.description??"",icon:e.icon??"sparkles",pch:pricing[e.type]?.base??0,enabled:pricing[e.type]?.enabled??true});setIconSearch("");}} className="flex items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-950 p-3 text-left hover:border-cyan-500"><DynamicIcon name={e.icon??"sparkles"} size={24}/><span className="min-w-0"><span className="block truncate font-semibold">{e.label}</span><span className="block truncate text-xs text-zinc-400">{e.type}</span></span></button>)}
+          {cards.filter(c=>(c.name+" "+c.description).toLowerCase().includes(search.toLowerCase())).map(c=><button key={c.id} type="button" onClick={()=>{setEditing({kind:"custom",id:c.id});setDraft({name:c.name,description:c.description,icon:c.icon??"sparkles",pch:c.pch,enabled:c.enabled});setIconSearch("");}} className="flex items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-950 p-3 text-left hover:border-cyan-500"><DynamicIcon name={c.icon??"sparkles"} size={24}/><span className="min-w-0"><span className="block truncate font-semibold">{c.name}</span><span className="block text-xs text-zinc-400">Personalizado</span></span></button>)}
+        </div>
+        {!loading && effects.length===0 && <p className="text-zinc-400">No se cargaron efectos mecánicos.</p>}
+        {error && <p role="alert" className="text-red-300">{error}</p>}
+      </section>
+      <section className="space-y-3 rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
         <h2 className="text-xl font-semibold">Crear efecto personalizado</h2>
-        <p className="text-sm text-zinc-400">Los efectos nuevos son narrativos por defecto. Su costo PCH se cobra al crear habilidades.</p>
-        <button type="button" onClick={()=>setShowCreator(v=>!v)} className="rounded-lg border border-cyan-700 px-4 py-2">{showCreator?"Cerrar formulario":"+ Nuevo efecto"}</button>
+        <button type="button" onClick={()=>setShowCreator(v=>!v)} className="rounded-lg border border-cyan-700 px-4 py-2">{showCreator?"Cancelar":"+ Nuevo efecto"}</button>
         {showCreator && <div className="space-y-3">
-        <input aria-label="Nombre del efecto" placeholder="Nombre del efecto" value={cardName} onChange={e=>setCardName(e.target.value)} className="w-full rounded-lg bg-zinc-950 p-3" />
-        <textarea aria-label="Descripción" placeholder="Describe el efecto narrativo" value={cardDescription} onChange={e=>setCardDescription(e.target.value)} className="w-full rounded-lg bg-zinc-950 p-3" />
-        <label className="block text-sm">Costo PCH propuesto<input type="number" min={0} value={cardPch} onChange={e=>setCardPch(Number(e.target.value))} className="mt-1 w-full rounded-lg bg-zinc-950 p-3"/></label>
-        <button type="button" disabled={saving!==null || !cardName.trim() || !cardDescription.trim()} onClick={createCard} className="rounded-lg bg-cyan-700 px-4 py-2 disabled:opacity-50">Crear efecto</button>
+          <input aria-label="Nombre del nuevo efecto" placeholder="Nombre" value={cardName} onChange={e=>setCardName(e.target.value)} className="w-full rounded bg-zinc-950 p-3"/>
+          <textarea aria-label="Descripción del nuevo efecto" placeholder="Descripción" value={cardDescription} onChange={e=>setCardDescription(e.target.value)} className="w-full rounded bg-zinc-950 p-3"/>
+          <label className="block text-sm">Costo PCH<input type="number" min={0} value={cardPch} onChange={e=>setCardPch(Number(e.target.value))} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label>
+          <label className="block text-sm">Buscar icono<input placeholder="Filtrar iconos…" value={iconSearch} onChange={e=>setIconSearch(e.target.value)} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label>
+          <div className="grid max-h-44 grid-cols-6 gap-2 overflow-y-auto">{iconNames.filter(n=>n.includes(iconSearch.toLowerCase())).map(n=><button type="button" key={n} title={n} aria-label={n} aria-pressed={newIcon===n} onClick={()=>setNewIcon(n)} className={"rounded p-2 "+(newIcon===n?"bg-cyan-700":"bg-zinc-800")}><DynamicIcon name={n} size={22}/></button>)}</div>
+          <button type="button" disabled={saving!==null||!cardName.trim()||!cardDescription.trim()} onClick={createCard} className="rounded bg-cyan-700 px-4 py-2 disabled:opacity-50">Crear efecto</button>
         </div>}
       </section>
-      <section id="custom-effect-catalog" className="space-y-4 rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
-        <h2 className="text-xl font-semibold">Catálogo de efectos personalizados ({cards.length})</h2>
-        <p className="text-sm text-zinc-400">Efectos narrativos disponibles para crear habilidades. Edita su costo o desactívalos aquí.</p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards.map(card=><article key={card.id} className="rounded-xl border border-zinc-700 bg-zinc-950 p-4"><div className="text-2xl">✦</div><input aria-label="Nombre" value={card.name} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,name:e.target.value}:c))} className="w-full bg-zinc-900 p-2 font-semibold"/><textarea aria-label="Descripción" value={card.description} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,description:e.target.value}:c))} className="mt-2 w-full bg-zinc-900 p-2 text-sm"/><input aria-label="Precio PCH" type="number" min={0} value={card.pch} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,pch:Number(e.target.value)}:c))} className="mt-2 w-full bg-zinc-900 p-2 text-cyan-300"/><label className="mt-2 flex gap-2 text-sm"><input type="checkbox" checked={card.enabled} onChange={e=>setCards(old=>old.map(c=>c.id===card.id?{...c,enabled:e.target.checked}:c))}/>Disponible</label><button type="button" disabled={saving!==null} onClick={()=>saveCard(card)} className="mt-2 rounded-lg bg-cyan-700 px-3 py-2 text-sm disabled:opacity-50">Guardar cambios</button></article>)}</div>
-      </section>
-      <datalist id="effect-lucide-icons">{iconNames.map(name=><option key={name} value={name}/>)}</datalist>
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Efectos mecánicos del sistema y precios PCH</h2>
-        <div className="grid gap-3 sm:grid-cols-2">{effects.filter(e=>(e.label+" "+e.type).toLowerCase().includes(search.toLowerCase())).map(e=>{const p=pricing[e.type];if(!p)return null;return <div key={e.type} className="space-y-3 rounded-xl border border-zinc-700 p-4">
-          <label className="block text-sm">Nombre<input aria-label={`Nombre de ${e.type}`} value={e.label} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,label:event.target.value}:item))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2 font-semibold"/></label><p className="text-xs text-zinc-500">{e.type} · Mecánica implementada</p><label className="block text-sm">Icono Lucide <input list="effect-lucide-icons" value={e.icon ?? "sparkles"} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,icon:event.target.value}:item))} className="mt-1 w-full rounded bg-zinc-950 p-2" /></label><DynamicIcon name={(iconNames.includes((e.icon ?? "sparkles") as string) ? e.icon : "sparkles") as string} size={28} />
-          <label className="block text-sm">Descripción<textarea value={e.description??""} onChange={event=>setEffects(old=>old.map(item=>item.type===e.type?{...item,description:event.target.value}:item))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2"/></label>
-          <button type="button" disabled={saving!==null} onClick={()=>saveMetadata(e)} className="rounded border border-cyan-700 px-3 py-2 text-sm disabled:opacity-50">Guardar nombre y descripción</button>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-sm">Precio base<input type="number" min={0} step={1} value={p.base} onChange={event=>setPricing(old=>({...old,[e.type]:{...old[e.type],base:Number(event.target.value)}}))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2"/></label>
-            <label className="text-sm">PCH por escalón<input type="number" min={0} step={1} value={p.step} onChange={event=>setPricing(old=>({...old,[e.type]:{...old[e.type],step:Number(event.target.value)}}))} className="mt-1 w-full rounded border border-zinc-600 bg-zinc-950 p-2"/></label>
-          </div>
-          <label className="flex gap-2 text-sm"><input type="checkbox" checked={p.enabled} onChange={event=>setPricing(old=>({...old,[e.type]:{...old[e.type],enabled:event.target.checked}}))}/>Disponible para nuevas habilidades</label>
-          <button type="button" disabled={saving!==null} onClick={()=>savePricing(e.type)} className="rounded bg-cyan-700 px-3 py-2 text-sm disabled:opacity-50">Guardar precio</button>
-        </div>})}</div>
-      </section>
-      {error && <p role="alert" className="rounded-lg border border-red-800 p-3 text-red-300">{error}</p>}
-      {loading ? <p className="text-zinc-400">Cargando efectos…</p> : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><div className="text-2xl font-bold">{effects.length}</div><div className="text-sm text-zinc-400">Tipos de efectos</div></div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><div className="text-2xl font-bold">{statistics.length}</div><div className="text-sm text-zinc-400">Estadísticas activas</div></div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><div className="text-2xl font-bold">{effects.filter((effect) => effect.targets.length > 0).length}</div><div className="text-sm text-zinc-400">Tipos con objetivos</div></div>
-          </div>
-          <label className="block text-sm text-zinc-300">Buscar efecto
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tipo, nombre o cálculo" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" />
-          </label>
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="space-y-2">
-              {visible.map((effect) => <button key={effect.type} type="button" onClick={() => setSelected(effect.type)} className={"w-full rounded-xl border p-4 text-left " + (selected === effect.type ? "border-cyan-400 bg-zinc-800" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600")}>
-                <div className="font-semibold">{effect.label}</div>
-                <div className="mt-1 text-xs text-zinc-400">{effect.type} · {modes[effect.mode] ?? effect.mode}</div>
-              </button>)}
-              {!visible.length && <p className="text-zinc-400">No hay efectos coincidentes.</p>}
-            </div>
-            <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-              {active ? <>
-                <h2 className="text-xl font-semibold">{active.label}</h2>
-                <p className="mt-2 text-sm text-zinc-400">Código: <code>{active.type}</code></p>
-                <p className="mt-1 text-sm text-zinc-400">Operación: {modes[active.mode] ?? active.mode}</p>
-                <h3 className="mt-5 font-semibold">Objetivos permitidos ({active.targets.length})</h3>
-                {active.targets.length ? <div className="mt-3 flex flex-wrap gap-2">{active.targets.map((target) => <span key={target.key} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">{target.label} <code className="text-xs text-zinc-500">{target.key}</code></span>)}</div> : <p className="mt-2 text-sm text-zinc-400">No requiere seleccionar un objetivo.</p>}
-              </> : <p className="text-zinc-400">Selecciona un efecto para revisar sus reglas.</p>}
-            </section>
-          </div>
-        </>
-      )}
+      {editing && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
+        <section role="dialog" aria-modal="true" aria-label="Editar efecto" className="max-h-[90vh] w-full max-w-xl space-y-3 overflow-y-auto rounded-2xl border border-zinc-600 bg-zinc-900 p-5">
+          <div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Editar efecto</h2><button type="button" onClick={()=>setEditing(null)} className="rounded border border-zinc-600 px-3 py-1">Cerrar</button></div>
+          <label className="block text-sm">Nombre<input value={draft.name} onChange={e=>setDraft(d=>({...d,name:e.target.value}))} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label>
+          <label className="block text-sm">Descripción<textarea value={draft.description} onChange={e=>setDraft(d=>({...d,description:e.target.value}))} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label>
+          <label className="block text-sm">Buscar icono<input value={iconSearch} onChange={e=>setIconSearch(e.target.value)} placeholder="Ej. flame, shield, heart…" className="mt-1 w-full rounded bg-zinc-950 p-3"/></label>
+          <div className="flex items-center gap-2 text-sm text-cyan-300"><DynamicIcon name={draft.icon} size={28}/><span>Icono seleccionado: {draft.icon}</span></div>
+          <div className="grid max-h-48 grid-cols-6 gap-2 overflow-y-auto">{iconNames.filter(n=>n.includes(iconSearch.toLowerCase())).map(n=><button type="button" key={n} title={n} aria-label={n} aria-pressed={draft.icon===n} onClick={()=>setDraft(d=>({...d,icon:n}))} className={"rounded p-2 "+(draft.icon===n?"bg-cyan-700":"bg-zinc-800")}><DynamicIcon name={n} size={23}/></button>)}</div>
+          {editing.kind==="custom" && <><label className="block text-sm">Costo PCH<input type="number" min={0} value={draft.pch} onChange={e=>setDraft(d=>({...d,pch:Number(e.target.value)}))} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.enabled} onChange={e=>setDraft(d=>({...d,enabled:e.target.checked}))}/>Disponible</label></>}
+          {editing.kind==="mechanical" && <p className="text-xs text-zinc-400">El precio y disponibilidad mecánicos se administran por separado.</p>}
+          <button type="button" disabled={saving!==null||!draft.name.trim()||!draft.description.trim()} onClick={async()=>{
+            if(editing.kind==="custom"){await saveCard({id:editing.id,name:draft.name,description:draft.description,icon:draft.icon,pch:draft.pch,enabled:draft.enabled});}
+            else {await saveMetadata({type:editing.id,label:draft.name,description:draft.description,icon:draft.icon,mode:"",targets:[]});}
+            setEditing(null);
+            if(editing.kind==="mechanical")setEffects(old=>old.map(e=>e.type===editing.id?{...e,label:draft.name,description:draft.description,icon:draft.icon}:e));
+          }} className="rounded bg-cyan-700 px-4 py-2 disabled:opacity-50">Guardar cambios</button>
+        </section>
+      </div>}
     </main>
   );
 }

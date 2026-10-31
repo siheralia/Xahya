@@ -14,5 +14,5 @@ export async function GET() {
   if (!user || !(await hasRolePermission(user, "management.items", "view") || await hasRolePermission(user, "management.effects", "view") || await hasRolePermission(user, "management.perks", "view") || await hasRolePermission(user, "management.skills", "view"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const statistics = (await readStatisticsCatalog()).filter((stat) => stat.active !== false);
   const catalog = await readManagedEffectCatalog();
-  return NextResponse.json({ statistics, narrativeCards: catalog.narrativeCards.filter(card => card.enabled), effects: catalog.effects.filter(effect => effect.enabled).map(({type,label,mode,description}) => ({ type, label, mode, description, targets: resolveEffectTargets(type, statistics) })) });
+  return NextResponse.json({ statistics, narrativeCards: catalog.narrativeCards.filter(card => card.enabled), effects: catalog.effects.filter(effect => effect.enabled).map(({type,label,mode,description,icon}) => ({ type, label, mode, description, icon, targets: resolveEffectTargets(type, statistics) })) });
 }

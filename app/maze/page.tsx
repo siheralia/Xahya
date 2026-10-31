@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import MazeMap from "@/components/MazeMap";
-import { ArrowUpFromLine, ArrowDownToLine, ChevronUp, ChevronRight, ChevronDown, ChevronLeft, PanelBottomOpen, PanelTopClose, PanelLeftOpen, PanelRightClose, PanelTopOpen, PanelBottomClose, PanelRightOpen, PanelLeftClose, ScanSearch, Scroll, Footprints, Heart, Droplets, ChartNoAxesColumn, Backpack, Sparkles, Swords, Shield, WandSparkles, EyeOff, AudioLines, Slash, Activity, Icon, TriangleAlert, LoaderCircle } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, ChevronUp, ChevronRight, ChevronDown, ChevronLeft, PanelBottomOpen, PanelTopClose, PanelLeftOpen, PanelRightClose, PanelTopOpen, PanelBottomClose, PanelRightOpen, PanelLeftClose, ScanSearch, Scroll, Footprints, Heart, Droplets, ChartNoAxesColumn, Backpack, Sparkles, Swords, Shield, WandSparkles, Folder, Spear, HeartHandshake, Wrench, BookOpen, EyeOff, AudioLines, Slash, Activity, Icon, TriangleAlert, LoaderCircle } from "lucide-react";
 import { chest } from "@lucide/lab";
 
 const mazeDirectionIcons: Record<string, typeof ChevronUp> = { N: ChevronUp, N_UP: PanelBottomOpen, N_DOWN: PanelTopClose, E: ChevronRight, E_UP: PanelLeftOpen, E_DOWN: PanelRightClose, S: ChevronDown, S_UP: PanelTopOpen, S_DOWN: PanelBottomClose, O: ChevronLeft, O_UP: PanelRightOpen, O_DOWN: PanelLeftClose, UP: ArrowUpFromLine, DOWN: ArrowDownToLine };
@@ -336,11 +336,11 @@ export default function MazePage(){
                   </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-4 gap-1.5">
-                  {[Swords,WandSparkles,Shield,Sparkles].map((Icon,i)=>
-                    <button key={i} onClick={()=>{setSkillCategory(["OFFENSIVE","SUPPORT","UTILITY","BASIC"][i]);setPanel("skills");}} className="relative grid h-10 place-items-center rounded-lg border border-zinc-800 bg-zinc-950 text-sm hover:border-zinc-600">
-                      <Icon size={19} aria-hidden="true"/>
-                      <span className="absolute bottom-0.5 right-1 text-[9px] text-zinc-600">—</span>
+                <div className="mt-2 grid grid-cols-5 gap-1.5">
+                  {([["OFFENSIVE","Ofensivas",Spear],["SUPPORT","Soporte",HeartHandshake],["UTILITY","Utilidad",Wrench],["BASIC","Básicas",BookOpen],["PASSIVE","Pasivas",Shield]] as const).map(([category,label,CategoryIcon])=>
+                    <button key={category} title={label} aria-label={label} onClick={()=>{setSkillCategory(category);setPanel(category==="PASSIVE"?"passives":"skills");}} className="relative grid h-11 place-items-center rounded-lg border border-zinc-800 bg-zinc-950 hover:border-violet-600 hover:text-violet-200">
+                      <Folder size={29} strokeWidth={1.6} aria-hidden="true"/>
+                      <CategoryIcon size={13} strokeWidth={2} className="absolute top-3.5" aria-hidden="true"/>
                     </button>
                   )}
                 </div>
@@ -365,7 +365,7 @@ export default function MazePage(){
                 <div className="mt-2 grid grid-cols-3 gap-1.5">
                   <button onClick={()=>setPanel("stats")} className={"rounded-lg border px-2 py-2 text-xs "+(panel==="stats"?"border-violet-500/50 bg-violet-950/30 text-violet-200":"border-zinc-800 text-zinc-400 hover:text-white")}><ChartNoAxesColumn size={14} className="mr-1 inline-block"/> Stats</button>
                   <button onClick={()=>setPanel("inventory")} className={"rounded-lg border px-2 py-2 text-xs "+(panel==="inventory"?"border-violet-500/50 bg-violet-950/30 text-violet-200":"border-zinc-800 text-zinc-400 hover:text-white")}><Backpack size={14} className="mr-1 inline-block"/> Inventario</button>
-                  <button onClick={()=>setPanel("passives")} className={"rounded-lg border px-2 py-2 text-xs "+(panel==="passives"?"border-violet-500/50 bg-violet-950/30 text-violet-200":"border-zinc-800 text-zinc-400 hover:text-white")}><Sparkles size={14} className="mr-1 inline-block"/> Pasivas</button>
+                  <button onClick={()=>setPanel("skills")} className={"rounded-lg border px-2 py-2 text-xs "+(panel==="skills"?"border-violet-500/50 bg-violet-950/30 text-violet-200":"border-zinc-800 text-zinc-400 hover:text-white")}><Sparkles size={14} className="mr-1 inline-block"/> Habilidades</button>
                 </div>
 
                 <div className="mt-2 grid grid-cols-3 gap-2">

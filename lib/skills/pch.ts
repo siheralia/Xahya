@@ -1,4 +1,4 @@
-export type PricedEffect = { type?: string; target?: string; value?: number; description?: string };
+export type PricedEffect = { type?: string; target?: string; value?: number; description?: string; element?: string };
 
 // Costes iniciales configurables: el administrador conserva la última palabra.
 export const BASE_COST: Record<string, number> = {
@@ -39,18 +39,27 @@ export function defaultEffectPricing(): EffectPricingMap {
   return Object.fromEntries(Object.entries(BASE_COST).map(([type, base]) => [type, { base, step: 1, enabled: true }]));
 }
 
+export const ELEMENT_PCH_COST = 2;
+export const EFFECT_ELEMENTS = ["NEUTRAL","WATER","ICE","FIRE","LIGHTNING","AIR","VOID","LIGHT","HOLY","SHADOW","DARKNESS","EARTH","NATURE"] as const;
+export const EFFECT_ELEMENT_LABELS: Record<string,string> = {NEUTRAL:"Neutro",WATER:"Agua",ICE:"Hielo",FIRE:"Fuego",LIGHTNING:"Rayo",AIR:"Aire",VOID:"Vacío",LIGHT:"Luz",HOLY:"Sagrado",SHADOW:"Sombra",DARKNESS:"Oscuridad",EARTH:"Tierra",NATURE:"Naturaleza"};
+export function elementPchCost(element?: string): number {
+  if (!element || element === "NEUTRAL") return 0;
+  if (!EFFECT_ELEMENTS.some(allowed => allowed === element)) throw new Error("Elemento de efecto inválido");
+  return ELEMENT_PCH_COST;
+}
+
 export function effectPchCost(effect: PricedEffect, pricing?: EffectPricingMap): number {
   const type = String(effect?.type ?? "");
   const base = pricing?.[type]?.base ?? BASE_COST[type];
   if (base === undefined) throw new Error(`Tipo de efecto sin precio PCH: ${type}`);
-  if (type === "NARRATIVE") return base;
+  if (type === "NARRATIVE") return base + elementPchCost(effect.element);
   const raw = Number(effect?.value ?? (type.endsWith("_MULTIPLIER") ? 100 : 1));
   const power = skillEffectMultiplier(type, raw);
   if (!Number.isFinite(power) || power < 0) throw new Error("Potencia de efecto inválida");
   const steps = type.endsWith("_MULTIPLIER")
     ? Math.max(0, Math.ceil((power - 1) / 0.5 - 1e-9))
     : (power > 1 ? Math.ceil(Math.log2(power)) : 0);
-  return base + steps * (pricing?.[type]?.step ?? 1);
+  return base + steps * (pricing?.[type]?.step ?? 1) + elementPchCost(effect.element);
 }
 
 export function calculateSkillPch(effects: PricedEffect[], pricing?: EffectPricingMap): number {

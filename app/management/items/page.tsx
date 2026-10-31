@@ -1,10 +1,11 @@
 "use client";
+import { ElementSelect } from "@/components/effects/ElementSelect";
 
 import { useEffect, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
 import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
 
-type Effect = { type: string; stat: string; action?: string; value: number; description: string };
+type Effect = { type: string; stat: string; action?: string; value: number; description: string; element?: string };
 type Item = {
   id: number; name: string; description: string | null; itemType: string; itemSubtype: string | null; attackType: string | null;
   acquisitionType: string; price: number; propertyBusinessId?: number | null; effects: Effect[]; allowedSlots: string[]; imagePath?: string | null; imageUrl?: string | null;
@@ -166,7 +167,7 @@ export default function ItemsManagementPage() {
           </div>
           {form.itemType !== "PROPERTY" && <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">{form.allowedSlots.length ? "El objeto solo podrá equiparse en los slots seleccionados." : "Este objeto no se equipa."}</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>}
           <div><div className="flex items-center justify-between"><h3 className="font-medium">Efectos</h3><div className="flex items-center gap-3">{noEffects(form.effects)&&<span className="text-sm text-zinc-500">Sin efectos</span>}<button type="button" onClick={()=>setForm(f=>({...f,effects:[...f.effects,emptyEffect()]}))} className="text-sm text-zinc-300">+ Añadir efecto</button></div></div>
-          <div className="mt-3 space-y-3">{form.effects.map((effect,i)=><div key={i} className="rounded-xl border border-zinc-800 p-4">
+          <div className="mt-3 space-y-3">{form.effects.map((effect,i)=><div key={i} className="rounded-xl border border-zinc-800 p-4"><ElementSelect value={effect.element} onChange={element=>setForm(f=>({...f,effects:f.effects.map((entry,j)=>j===i?{...entry,element}:entry)}))}/>
             <div className="grid gap-3 sm:grid-cols-3">
               <select value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
                 {EFFECT_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}

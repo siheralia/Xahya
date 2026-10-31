@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import MazeMap from "@/components/MazeMap";
-import { ArrowUpFromLine, ArrowDownToLine, ChevronUp, ChevronRight, ChevronDown, ChevronLeft, PanelBottomOpen, PanelTopClose, PanelLeftOpen, PanelRightClose, PanelTopOpen, PanelBottomClose, PanelRightOpen, PanelLeftClose, ScanSearch, Scroll, Footprints, Heart, Droplets, ChartNoAxesColumn, Backpack, Sparkles, Swords, Shield, WandSparkles, Coins, EyeOff, Eye, Activity } from "lucide-react";
+import { ArrowUpFromLine, ArrowDownToLine, ChevronUp, ChevronRight, ChevronDown, ChevronLeft, PanelBottomOpen, PanelTopClose, PanelLeftOpen, PanelRightClose, PanelTopOpen, PanelBottomClose, PanelRightOpen, PanelLeftClose, ScanSearch, Scroll, Footprints, Heart, Droplets, ChartNoAxesColumn, Backpack, Sparkles, Swords, Shield, WandSparkles, Coins, EyeOff, AudioLines, Slash, Activity } from "lucide-react";
 
 const mazeDirectionIcons: Record<string, typeof ChevronUp> = { N: ChevronUp, N_UP: PanelBottomOpen, N_DOWN: PanelTopClose, E: ChevronRight, E_UP: PanelLeftOpen, E_DOWN: PanelRightClose, S: ChevronDown, S_UP: PanelTopOpen, S_DOWN: PanelBottomClose, O: ChevronLeft, O_UP: PanelRightOpen, O_DOWN: PanelLeftClose, UP: ArrowUpFromLine, DOWN: ArrowDownToLine };
 function MazeScrollIcon({size=20}:{size?:number}) { return <span className="relative inline-flex shrink-0 items-center justify-center" style={{width:size,height:size}} aria-hidden="true"><Scroll size={size} strokeWidth={1.8}/><Footprints className="absolute" size={Math.round(size*.43)} strokeWidth={2.2}/></span>; }
+function SilentStepsIcon() { return <span className="relative inline-flex h-4 w-4 items-center justify-center align-[-3px]" aria-hidden="true"><AudioLines size={16}/><Slash size={17} className="absolute" strokeWidth={2.4}/></span>; }
 function MazeDirectionIcon({direction}:{direction:string}) { const Icon=mazeDirectionIcons[direction]; return Icon?<Icon size={23} strokeWidth={1.9} aria-hidden="true"/>:<span aria-hidden="true">·</span>; }
 
 type Character={id:number;name:string;flair:string|null;avatarUrl?:string|null;isSystem?:boolean};

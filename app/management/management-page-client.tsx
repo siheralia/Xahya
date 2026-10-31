@@ -556,6 +556,8 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
                 Estadísticas
               </Link>)}
 
+            {canSee("elements") && (<Link href="/management/elements" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de elementos</Link>)}
+
             {canSee("effects") && (<Link href="/management/effects" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de efectos</Link>)}
 
             {canSee("labyrinth") && (<Link

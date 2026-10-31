@@ -1,5 +1,5 @@
-import { SkillEmblem } from "@/app/components/skill-emblem";
 "use client";
+import { SkillEmblem } from "@/app/components/skill-emblem";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
 
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";

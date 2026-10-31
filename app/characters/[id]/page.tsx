@@ -1,3 +1,4 @@
+import { SkillEmblem } from "@/app/components/skill-emblem";
 "use client";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
 
@@ -2131,7 +2132,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 <div key={skill.id} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="font-semibold" style={{ color: themePalette.foreground }}>{skill.name}</h3>
+                      <div className="flex items-center gap-3"><SkillEmblem category={skill.category} effects={Array.isArray(skill.effect) ? skill.effect : []} size={48}/><h3 className="font-semibold" style={{ color: themePalette.foreground }}>{skill.name}</h3></div>
                       <p className="mt-1 text-xs" style={{ color: themePalette.muted }}>
                         {skillCategories.find((category) => category[0] === skill.category)?.[1] ?? skill.category}
                         {" · "}Coste {skill.cost}{Number(skill.maintenanceCost ?? 0) > 0 ? " · Mantenimiento/turno " + skill.maintenanceCost : ""}{Number(skill.accumulationPerTick ?? 0) > 0 ? " · +" + skill.accumulationPerTick + " acumulación/tick" : ""}

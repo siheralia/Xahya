@@ -36,8 +36,8 @@ export default function EffectsManagementPage() {
       const response=await fetch("/api/effects/narrative-cards",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(card)});
       const data=await response.json();
       if(!response.ok)throw Error(data.error??"Error");
-      setCards(old=>old.map(c=>c.id===card.id?data.card:c));setNotice("Tarjeta actualizada");
-    }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
+      setCards(old=>old.map(c=>c.id===card.id?data.card:c));setNotice("Tarjeta actualizada");return true;
+    }catch(e){setNotice(e instanceof Error?e.message:"Error");return false;}finally{setSaving(null);}
   }
   async function createCard(){
     setSaving("new-card");
@@ -54,8 +54,8 @@ export default function EffectsManagementPage() {
     try {
       const response=await fetch("/api/management/effects",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"metadata",type:effect.type,label:effect.label,description:effect.description,icon:effect.icon ?? "sparkles"})});
       const data=await response.json();if(!response.ok)throw Error(data.error??"No se pudo guardar");
-      setNotice("Datos del efecto actualizados.");
-    }catch(e){setNotice(e instanceof Error?e.message:"Error");}finally{setSaving(null);}
+      setNotice("Datos del efecto actualizados.");return true;
+    }catch(e){setNotice(e instanceof Error?e.message:"Error");return false;}finally{setSaving(null);}
   }
   const [pricing,setPricing] = useState<EffectPricingMap>({});
   const [defaultSpeed,setDefaultSpeed] = useState("agility");
@@ -136,9 +136,9 @@ export default function EffectsManagementPage() {
           <div className="grid max-h-48 grid-cols-6 gap-2 overflow-y-auto">{iconNames.filter(n=>n.includes(iconSearch.toLowerCase())).map(n=><button type="button" key={n} title={n} aria-label={n} aria-pressed={draft.icon===n} onClick={()=>setDraft(d=>({...d,icon:n}))} className={"rounded p-2 "+(draft.icon===n?"bg-cyan-700":"bg-zinc-800")}><DynamicIcon name={n} size={23}/></button>)}</div>
           {editing.kind==="custom" && <><label className="block text-sm">Costo PCH<input type="number" min={0} value={draft.pch} onChange={e=>setDraft(d=>({...d,pch:Number(e.target.value)}))} className="mt-1 w-full rounded bg-zinc-950 p-3"/></label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.enabled} onChange={e=>setDraft(d=>({...d,enabled:e.target.checked}))}/>Disponible</label></>}
           {editing.kind==="mechanical" && <p className="text-xs text-zinc-400">El precio y disponibilidad mecánicos se administran por separado.</p>}
-          <button type="button" disabled={saving!==null||!draft.name.trim()||!draft.description.trim()} onClick={async()=>{
-            if(editing.kind==="custom"){await saveCard({id:editing.id,name:draft.name,description:draft.description,icon:draft.icon,pch:draft.pch,enabled:draft.enabled});}
-            else {await saveMetadata({type:editing.id,label:draft.name,description:draft.description,icon:draft.icon,mode:"",targets:[]});}
+          <button type="button" disabled={saving!==null||!draft.name.trim()||(editing.kind==="custom"&&!draft.description.trim())} onClick={async()=>{
+            const saved = editing.kind==="custom" ? await saveCard({id:editing.id,name:draft.name,description:draft.description,icon:draft.icon,pch:draft.pch,enabled:draft.enabled}) : await saveMetadata({type:editing.id,label:draft.name,description:draft.description,icon:draft.icon,mode:"",targets:[]});
+            if (!saved) return;
             setEditing(null);
             if(editing.kind==="mechanical")setEffects(old=>old.map(e=>e.type===editing.id?{...e,label:draft.name,description:draft.description,icon:draft.icon}:e));
           }} className="rounded bg-cyan-700 px-4 py-2 disabled:opacity-50">Guardar cambios</button>

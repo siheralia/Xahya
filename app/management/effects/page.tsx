@@ -4,9 +4,9 @@ import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/du
 import type { EffectPricingMap } from "@/lib/skills/pch";
 
 import Link from "next/link";
-import { icons, type LucideIcon } from "lucide-react";
+import { icons, type LucideIcon, type LucideProps } from "lucide-react";
 const iconNames = Object.keys(icons).map(key => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase());
-function DynamicIcon({ name, size = 24, ...props }: { name: string; size?: number; strokeWidth?: number; "aria-hidden"?: string }) { const key = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, c => c.toUpperCase()) as keyof typeof icons; const Icon = (icons[key] ?? icons.Sparkles) as LucideIcon; return <Icon size={size} {...props} />; }
+function DynamicIcon({ name, size = 24, ...props }: { name: string; size?: number; strokeWidth?: number; "aria-hidden"?: boolean }) { const key = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, c => c.toUpperCase()) as keyof typeof icons; const Icon = (icons[key] ?? icons.Sparkles) as LucideIcon; return <Icon size={size} {...(props as LucideProps)} />; }
 import { useEffect, useState } from "react";
 
 type Target = { key: string; label: string };

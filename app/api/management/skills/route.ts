@@ -1,3 +1,4 @@
+import { validateSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -54,7 +55,14 @@ export async function POST(request: Request) {
   const error = validate(body);
   if (error) return NextResponse.json({ error }, { status: 400 });
   const Skill = (db.orm.public as any).Skill;
+  const characterId = Number(body.characterId);
+  const requiredSkillIds: number[] = Array.isArray(body.requiredSkillIds) ? body.requiredSkillIds : [];
+  if (!Number.isSafeInteger(characterId) || characterId <= 0 || requiredSkillIds.some(id=>!Number.isSafeInteger(id))) return NextResponse.json({error:"Personaje o requisitos inválidos."},{status:400});
+  const available = await Skill.where({characterId}).all();
+  const prerequisiteError = validateSkillPrerequisites(characterId,null,requiredSkillIds.map(skillId=>({skillId})),available.map((s:any)=>({id:Number(s.id),characterId:Number(s.characterId),status:String(s.status)})));
+  if(prerequisiteError) return NextResponse.json({error:prerequisiteError},{status:400});
   const skill = await Skill.create({
+    requiredSkillIds,
     characterId: Number(body.characterId),
     name: body.name.trim(),
     cost: Number(body.cost),

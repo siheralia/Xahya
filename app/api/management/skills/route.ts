@@ -62,7 +62,6 @@ export async function POST(request: Request) {
   if (!validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Requisitos por efecto inválidos."},{status:400});
   if (!Number.isSafeInteger(characterId) || characterId <= 0 || !validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Personaje o requisitos inválidos."},{status:400});
   const available = await Skill.where({characterId}).all();
-  if(prerequisiteError) return NextResponse.json({error:prerequisiteError},{status:400});
   const skill = await Skill.create({
     effectRequirements,
     characterId: Number(body.characterId),

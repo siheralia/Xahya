@@ -1,5 +1,5 @@
 "use client";
-import {EffectCard,useEffectElementColors} from "@/components/effects/EffectCard";
+import {EffectCard,useEffectElementColors,sharedEffectTypes} from "@/components/effects/EffectCard";
 import { ElementSelect } from "@/components/effects/ElementSelect";
 
 import { useEffect, useState } from "react";
@@ -25,7 +25,7 @@ const equipmentSlots = [
   ["FEET","Pies"],["ARMS","Brazos"],["BACK","Espalda"],["ACCESSORY_1","Accesorio 1"],["ACCESSORY_2","Accesorio 2"],
 ];
 
-const EFFECT_TYPES = [...EFFECT_CATALOG.map(effect => [effect.type.toLowerCase(), effect.label] as const), ["system_action","Acción del sistema"]] as const;
+const EFFECT_TYPES = [...sharedEffectTypes.map(effect => [effect.type.toLowerCase(), effect.label] as const), ["system_action","Acción del sistema"]] as const;
 const DAMAGE_TARGETS = [["ALL","Todo"],["PHYSICAL","Físico"],["MAGICAL","Mágico"]] as const;
 const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_TRAP", "Romper una trampa y liberarte"], ["RELEASE_MAZE_TRAPPED", "Liberarte de una trampa"], ["CREATE_SKILL", "Permitir crear una habilidad"]] as const;
 

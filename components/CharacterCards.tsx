@@ -11,7 +11,7 @@ export function CharacterCards({characters}:{characters:Array<{id:number;name:st
  useEffect(()=>{let active=true;Promise.all(characters.map(async c=>{try{const response=await fetch("/api/characters/"+c.id,{cache:"no-store"});if(!response.ok)return null;return await response.json() as Character;}catch{return null;}})).then(rows=>{if(active)setDetails(Object.fromEntries(rows.filter((x):x is Character=>!!x).map(x=>[x.id,x])));});return()=>{active=false;};},[characters]);
  if(!characters.length)return <p className="rounded-xl border border-zinc-800 p-6 text-zinc-400">Todavía no tienes personajes.</p>;
  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{characters.map(base=>{
-  const c=details[base.id]??base;
+  const c:Character=details[base.id]??base;
   const p={...fallback,...(c.themePalette??{})};
   const phys=Number(c.derivedStats?.physicalAttack??0),magic=Number(c.derivedStats?.magicAttack??0);
   const isMagic=magic>phys;

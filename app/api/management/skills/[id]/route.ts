@@ -45,7 +45,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const effectRequirements = body.effectRequirements ?? (skill as any).effectRequirements ?? [];
   if (!validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Requisitos por efecto inválidos."},{status:400});
   const available = await Skill.where({characterId:Number(skill.characterId)}).all();
-  if(prerequisiteError) return NextResponse.json({error:prerequisiteError},{status:400});
 
   const requestedPchCost = body.pchCost === undefined ? Number((skill as any).pchCost ?? 0) : Number(body.pchCost);
   if (!Number.isInteger(requestedPchCost) || requestedPchCost < 0) return NextResponse.json({ error: "Costo PCH inválido." }, { status: 400 });

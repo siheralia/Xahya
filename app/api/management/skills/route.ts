@@ -2,6 +2,7 @@ import { validateSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { serializeSkillRange } from "@/lib/skills/range-storage";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
     description: body.description.trim(),
     duration: typeof body.duration === "string" ? body.duration.trim() || null : null,
     category: String(body.category),
-    areaOfEffect: typeof body.areaOfEffect === "string" ? body.areaOfEffect.trim() || null : null,
+    areaOfEffect: serializeSkillRange(body.areaOfEffect,body.maxRangeMeters??5),
     speed: typeof body.speed === "string" ? body.speed.trim() || null : null,
     cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : null,
     effect: Array.isArray(body.effect) ? body.effect : [],

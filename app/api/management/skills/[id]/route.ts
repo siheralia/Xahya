@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
+import { serializeSkillRange } from "@/lib/skills/range-storage";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 
@@ -100,7 +101,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         description,
         duration: typeof body.duration === "string" ? body.duration.trim() || null : (freshSkill.duration ?? null),
         category,
-        areaOfEffect: typeof body.areaOfEffect === "string" ? body.areaOfEffect.trim() || null : (freshSkill.areaOfEffect ?? null),
+        areaOfEffect: body.maxRangeMeters!==undefined ? serializeSkillRange(typeof body.areaOfEffect==="string"?body.areaOfEffect:freshSkill.areaOfEffect,body.maxRangeMeters) : (typeof body.areaOfEffect === "string" ? body.areaOfEffect.trim() || null : (freshSkill.areaOfEffect ?? null)),
         speed: typeof body.speed === "string" ? body.speed.trim() || null : (freshSkill.speed ?? null),
         cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : (freshSkill.cooldown ?? null),
         effect,

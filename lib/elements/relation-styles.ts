@@ -1,0 +1,3 @@
+export type RelationStyle={mode?:"quadratic"|"cubic";control1?:number;control2?:number;curve:number;stroke:number;headSize:number;head:"half"|"triangle"|"diamond"|"circle"|"none";dash:"solid"|"dashed"|"dotted";gap:number;startOffset:number;endOffset:number};
+export type RelationStyles=Record<"eff"|"evo"|"coop",RelationStyle>;
+export const defaultRelationStyles:RelationStyles={eff:{curve:1,stroke:3.2,headSize:29,head:"half",dash:"solid",gap:3.5,startOffset:0,endOffset:0},evo:{curve:1,stroke:3,headSize:22,head:"diamond",dash:"dashed",gap:3.5,startOffset:0,endOffset:0},coop:{curve:1,stroke:2.5,headSize:12,head:"circle",dash:"dotted",gap:3.5,startOffset:0,endOffset:0}};

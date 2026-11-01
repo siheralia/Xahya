@@ -1,5 +1,5 @@
-import {EffectCard,useEffectElementColors} from "@/components/effects/EffectCard";
 "use client";
+import {EffectCard,useEffectElementColors} from "@/components/effects/EffectCard";
 import { ElementSelect } from "@/components/effects/ElementSelect";
 
 import { useEffect, useState } from "react";

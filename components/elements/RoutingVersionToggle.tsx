@@ -1,0 +1,3 @@
+"use client";
+export type RoutingVersion="ordered"|"elastic"|"adaptive";
+export function RoutingVersionToggle({value,onChange}:{value:RoutingVersion;onChange:(v:RoutingVersion)=>void}){return <fieldset className="mt-3 rounded-lg border border-zinc-700 p-3"><legend className="px-2 text-sm">Algoritmo Bézier</legend><div className="flex flex-wrap gap-2">{([["ordered","V1 · Ordenado"],["elastic","V2 · Elástico"],["adaptive","V3 · Adaptativo"]] as const).map(([id,label])=><button key={id} type="button" aria-pressed={value===id} onClick={()=>onChange(id)} className={`rounded border px-3 py-2 text-xs ${value===id?"border-cyan-400 bg-cyan-950 text-cyan-100":"border-zinc-700 bg-zinc-900"}`}>{label}</button>)}</div></fieldset>}

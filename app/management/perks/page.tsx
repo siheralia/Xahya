@@ -1,6 +1,6 @@
 "use client";
 import { ElementSelect } from "@/components/effects/ElementSelect";
-import { EffectCard, useEffectElementColors } from "@/components/effects/EffectCard";
+import { EffectCard, useEffectElementColors, sharedEffectTypes, sharedEffectTargets } from "@/components/effects/EffectCard";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -23,9 +23,9 @@ export default function PerksManagementPage(){
   type EffectType=SkillEffectType;
   type Effect={type:EffectType;target?:string;value:number;element?:string};
   const [effectRows,setEffectRows]=useState<Effect[]>([]);
-  const EFFECT_TYPES = EFFECT_CATALOG.map(effect => [effect.type,effect.label] as [EffectType,string]);
+  const EFFECT_TYPES = sharedEffectTypes.map(effect => [effect.type as EffectType,effect.label] as [EffectType,string]);
   const [statDefinitions,setStatDefinitions] = useState<{key:string;name:string;kind:"basic"|"derived";code?:string;active?:boolean}[]>([]);
-  const TARGETS = Object.fromEntries(Object.keys(EFFECT_TARGETS).map((type) => [type, resolveEffectTargets(type, statDefinitions).map((entry) => entry.key)])) as Record<SkillEffectType,string[]>;
+  const TARGETS = Object.fromEntries(Object.keys(EFFECT_TARGETS).map((type) => [type, sharedEffectTargets(type, statDefinitions).map((entry) => entry.key)])) as Record<SkillEffectType,string[]>;
   const TARGET_LABELS: Record<string, string> = {
     STR: "Fuerza", AGI: "Agilidad", CON: "Constitución", INT: "Inteligencia",
     WIS: "Sabiduría", CHA: "Carisma", SPI: "Espíritu", LCK: "Suerte",

@@ -1,3 +1,4 @@
+import { getCharacterLimit } from "@/lib/character-limits";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -31,6 +32,7 @@ export async function GET() {
     email: user.email,
     role: user.role,
     characters,
+    characterLimit: await getCharacterLimit({id:Number(user.id),role:String(user.role)}),
   });
 }
 

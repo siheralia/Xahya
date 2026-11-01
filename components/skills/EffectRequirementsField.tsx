@@ -78,9 +78,12 @@ export function EffectRequirementsField({
       <button type="button" onClick={() => onChange(value.filter((_, i) => i !== index))}
         className="rounded border border-zinc-700 px-3 py-2">Quitar</button>
     </div>)}
-    <button type="button" disabled={value.length >= 10} onClick={() => onChange([
-      ...value, { effect: options[0]?.type ?? "CREATE", element: "" },
-    ])} className="rounded border border-cyan-700 px-3 py-2 disabled:opacity-40">
+    <button type="button" disabled={value.length >= 10} onClick={() => {
+      const nextEffect = options.find(option => !value.some(requirement =>
+        requirement.effect === option.type && !requirement.element,
+      ))?.type ?? "CREATE";
+      onChange([...value, { effect: nextEffect, element: "" }]);
+    }} className="rounded border border-cyan-700 px-3 py-2 disabled:opacity-40">
       Añadir requisito
     </button>
   </fieldset>;

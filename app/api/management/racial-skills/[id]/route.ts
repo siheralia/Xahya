@@ -24,7 +24,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   try{
     const query=db.raw.sql`
       UPDATE public."raceSkill"
-      SET "raceId"=${raceId},name=${name},description=${description || null},category=${category},
+      SET "raceId"=${raceId},name=${name},description=${description},category=${category},
           effect=${effects}::jsonb,"manaCost"=${manaCost},"maintenanceCost"=${maintenanceCost},active=${active}
       WHERE id=${id} RETURNING id
     `.returnsRow({id:"pg/int4@1"}).build();

@@ -19,9 +19,15 @@ export function providesEffect(skill: SkillWithEffects, requirement: EffectRequi
 export function meetsEffectRequirements(requirements: readonly EffectRequirement[], skills: readonly SkillWithEffects[]): boolean {
   return requirements.every(r => skills.some(s => providesEffect(s, r)));
 }
+/** Requirements are a tradeoff at skill creation: owning the effect is checked on activation, not purchase. */
+export function effectRequirementDiscountPercent(requirements: readonly EffectRequirement[]): number {
+  return Math.min(50, requirements.reduce((sum, r) => sum + (r.element ? 20 : 10), 0));
+}
+
 /** Effect-only: 10%; effect + element: 20%. Caps at 50% total. */
-export function effectRequirementDiscount(pch: number, requirements: readonly EffectRequirement[], skills: readonly SkillWithEffects[]): number {
+export function effectRequirementDiscount(pch: number, requirements: readonly EffectRequirement[]): number {
   if (!Number.isSafeInteger(pch) || pch < 0) throw new Error("Costo PCH inválido");
-  const percentage = Math.min(50, requirements.reduce((sum, r) => sum + (skills.some(s => providesEffect(s, r)) ? (r.element ? 20 : 10) : 0), 0));
+  if (!validEffectRequirements(requirements)) throw new Error("Requisitos por efecto inválidos.");
+  const percentage = effectRequirementDiscountPercent(requirements);
   return pch === 0 ? 0 : Math.max(1, Math.ceil(pch * (100 - percentage) / 100));
 }

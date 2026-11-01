@@ -1,10 +1,17 @@
+"use client";
 import Link from "next/link";
-
+import { useEffect, useState } from "react";
+import { CharacterCards } from "@/components/CharacterCards";
+type Character={id:number;name:string;flair:string|null};
 const sakuraPetals = Array.from({ length: 24 }, (_, index) => index);
-
-export default function Home() {
-  return (
-    <main className="relative min-h-full overflow-hidden bg-zinc-950 text-white">
+export default function Home(){
+ const [characters,setCharacters]=useState<Character[]>([]);
+ const [limit,setLimit]=useState<number|null>(3);
+ const [loading,setLoading]=useState(true);
+ const [error,setError]=useState("");
+ useEffect(()=>{Promise.all([fetch("/api/characters?mine=true",{cache:"no-store"}),fetch("/api/profile",{cache:"no-store"})]).then(async ([a,b])=>{if(!a.ok||!b.ok)throw Error("No se pudieron cargar los personajes.");const [list,profile]=await Promise.all([a.json(),b.json()]);setCharacters(Array.isArray(list)?list:[]);setLimit(profile.characterLimit??null);}).catch(e=>setError(e.message)).finally(()=>setLoading(false));},[]);
+ const canCreate=limit===null||characters.length<limit;
+ return <main className="relative flex min-h-screen flex-col overflow-hidden bg-zinc-950 text-white">
       <style>{`
         .sakura-layer {
           position: absolute;
@@ -85,38 +92,14 @@ export default function Home() {
         ))}
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-full max-w-6xl flex-col px-6 py-6">
-        <section className="flex flex-1 flex-col items-center justify-center text-center">
-          <p className="mb-4 text-sm font-medium uppercase tracking-[0.3em] text-zinc-500">
-            Xahya Character System
-          </p>
-
-          <h2 className="max-w-3xl text-5xl font-bold tracking-tight sm:text-6xl">
-            Tu personaje.
-            <br />
-            Tus estadísticas.
-            <br />
-            Un solo sistema.
-          </h2>
-
-          <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-400">
-            Xahya centraliza tus personajes, estadísticas, recursos y sistemas de juego en un solo lugar.
-          </p>
-
-          <div className="mt-10">
-            <Link
-              href="/characters/create"
-              className="rounded-lg bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200"
-            >
-              Crear personaje
-            </Link>
-          </div>
-        </section>
-
-        <footer className="border-t border-zinc-900 pt-6 text-sm text-zinc-600">
-          Xahya — Sistema de gestión de personajes y RPG
-        </footer>
-      </div>
-    </main>
-  );
+<div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-6">
+  <header className="flex flex-wrap items-center justify-between gap-4">
+   <div>{!loading&&canCreate&&<Link href="/characters/create" className="inline-flex rounded-xl bg-white px-4 py-2 font-semibold text-zinc-950 hover:bg-zinc-200">+ Crear personaje</Link>}</div>
+   <span className="text-xs uppercase tracking-[0.3em] text-zinc-500">Xahya</span>
+  </header>
+  <section className="mt-10 flex-1"><h1 className="mb-6 text-2xl font-bold">Mis personajes</h1>
+   {loading?<p className="text-zinc-400">Cargando personajes...</p>:error?<p role="alert" className="text-red-400">{error}</p>:<CharacterCards characters={characters}/>}
+  </section>
+  <footer className="mt-12 border-t border-zinc-800 py-6 text-sm text-zinc-500">Xahya — Sistema RPG</footer>
+ </div></main>;
 }

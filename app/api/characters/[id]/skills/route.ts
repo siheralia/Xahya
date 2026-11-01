@@ -156,7 +156,7 @@ export async function POST(
     }
   }
   pchCost = applyRangePch(manaAdjustedPch(pchCost, Number(body.cost ?? 0)) + speedSurcharge(body.speed), Number(body.maxRangeMeters ?? 5));
-  pchCost = effectRequirementDiscount(pchCost, effectRequirements, available);
+  pchCost = effectRequirementDiscount(pchCost, effectRequirements);
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {

@@ -35,7 +35,7 @@ export async function POST(request:Request) {
   try {
     const query=db.raw.sql`
       INSERT INTO public."raceSkill" ("raceId",name,description,category,effect,"manaCost","maintenanceCost",active)
-      VALUES (${raceId},${name},${description || null},${category},${effects}::jsonb,${manaCost},${maintenanceCost},${active})
+      VALUES (${raceId},${name},${description},${category},${effects}::jsonb,${manaCost},${maintenanceCost},${active})
       RETURNING id
     `.returnsRow({id:"pg/int4@1"}).build();
     const [created]=await db.runtime().query(query) as Array<{id:number}>;

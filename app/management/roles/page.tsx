@@ -13,7 +13,7 @@ export default function RolesPage(){
  const [users,setUsers]=useState<User[]>([]);
  const [draft,setDraft]=useState(blank);
  const [editId,setEditId]=useState<number|null>(null);
- const [permissionsText,setPermissionsText]=useState("{}");
+ const [permissionsText,setPermissionsText]=useState(JSON.stringify(blank.permissions,null,2));
  const [permissionPage,setPermissionPage]=useState("management.characters");
  const [error,setError]=useState("");
  const [message,setMessage]=useState("");
@@ -35,7 +35,7 @@ export default function RolesPage(){
    if(!permissions||typeof permissions!=="object"||Array.isArray(permissions)||Object.values(permissions).some(v=>!Array.isArray(v)||v.some(x=>typeof x!=="string")))throw new Error("Permisos: usa un objeto JSON con listas de acciones.");
    const response=await fetch("/api/management/roles",{method:editId?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...draft,permissions,...(editId?{id:editId}:{})})});
    const data=await response.json();if(!response.ok)throw new Error(data.error??"Error al guardar");
-   setMessage("Rol guardado.");setEditId(null);setDraft(blank);setPermissionsText("{}");await load();
+   setMessage("Rol guardado.");setEditId(null);setDraft(blank);setPermissionsText(JSON.stringify(blank.permissions,null,2));await load();
   }catch(e){setError(e instanceof Error?e.message:"Error inesperado");}finally{setBusy(false);}
  }
  async function remove(role:Role){

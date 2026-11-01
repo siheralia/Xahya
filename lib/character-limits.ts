@@ -15,6 +15,6 @@ export async function getCharacterLimit(actor:Actor):Promise<number|null>{
    const raw=r.permissions?.__characterLimit?.[0];
    return typeof raw==="string"&&/^\d+$/.test(raw)?Number(raw):null;
   }).filter((n:any):n is number=>n!==null&&Number.isSafeInteger(n)&&n>=0);
-  return limits.length?Math.max(DEFAULT_CHARACTER_LIMIT,...limits):DEFAULT_CHARACTER_LIMIT;
+  return limits.length?Math.max(...limits):DEFAULT_CHARACTER_LIMIT;
  }catch{return DEFAULT_CHARACTER_LIMIT;}
 }

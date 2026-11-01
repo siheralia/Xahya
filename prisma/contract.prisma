@@ -80,6 +80,10 @@ model Skill {
   speed       String?
   cooldown    String?
   effect      Json      @default("[]")
+  effectRequirements Json @default("[]")
+  requiredSkillIds Int[] @default([])
+  grantedByRacePerkId Int?
+  grantedByRaceSkillId Int?
   condition   String?
   status      String    @default("PENDING")
   createdAt   DateTime  @default(now())

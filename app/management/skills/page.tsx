@@ -59,7 +59,7 @@ export default function SkillsManagementPage(){
   const pchBase = form.effect.reduce((sum,e) => sum + effectPchCost(e), 0);
   const pchManaAdjusted = manaAdjustedPch(pchBase, form.cost);
   const pchSpeedAdjusted = pchManaAdjusted + (!form.speed || form.speed === "DEFAULT" ? 0 : 5);
-  const pchTotal = effectRequirementDiscount(applyRangePch(pchSpeedAdjusted, form.maxRangeMeters), form.effectRequirements, skills.filter(s=>s.characterId===Number(form.characterId)));
+  const pchTotal = effectRequirementDiscount(applyRangePch(pchSpeedAdjusted, form.maxRangeMeters), form.effectRequirements);
 
   const visible=useMemo(()=>skills.filter(s=>{
     const q=search.trim().toLowerCase();
@@ -93,7 +93,7 @@ export default function SkillsManagementPage(){
     setBusy(true);setError("");setSuccess("");
     try{
       const url=selected?"/api/management/skills/"+selected:"/api/management/skills";
-      const body={...form,characterId:Number(form.characterId),approve,reject};
+      const body={...form,pchCost:pchTotal,characterId:Number(form.characterId),approve,reject};
       const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       const raw=await r.text();
       let d:any={};
@@ -140,7 +140,7 @@ export default function SkillsManagementPage(){
     </section>
 
     <div className="mt-6"><SkillSpeedSettings/></div>
-    <SkillFormModal availableSkills={skills} characterId={Number(form.characterId)} editingSkillId={selected} open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} form={form} onChange={setForm} statistics={statDefinitions} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={effectPchCost} pch={{total:pchTotal,base:pchBase,manaAdjusted:pchManaAdjusted}} characterSelector={<label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>} actions={<div className="flex flex-wrap gap-2"><button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button><button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button><button onClick={()=>save(true,false)} disabled={busy} className="rounded-lg bg-emerald-400 px-4 py-3 font-semibold text-zinc-950">Guardar y aprobar</button></div>} />
+    <SkillFormModal availableSkills={skills} characterId={Number(form.characterId)} editingSkillId={selected} open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} form={form} onChange={setForm} statistics={statDefinitions} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={effectPchCost} pch={{total:pchTotal,beforeRequirements:applyRangePch(pchSpeedAdjusted,form.maxRangeMeters),base:pchBase,manaAdjusted:pchManaAdjusted}} characterSelector={<label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>} actions={<div className="flex flex-wrap gap-2"><button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button><button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button><button onClick={()=>save(true,false)} disabled={busy} className="rounded-lg bg-emerald-400 px-4 py-3 font-semibold text-zinc-950">Guardar y aprobar</button></div>} />
     </>}
   </div></main>;
 }

@@ -1,3 +1,4 @@
+import { getCharacterLimit } from "@/lib/character-limits";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -36,9 +37,10 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (String(user.role) === "PLAYER") {
+  const limit=await getCharacterLimit({id:Number(user.id),role:String(user.role)});
+  if(limit!==null) {
     const userCharacters = (await db.orm.public.Character.all()).filter((character) => Number(character.userId) === Number(user.id));
-    if (userCharacters.length >= 3) return NextResponse.json({ error: "Cada usuario puede tener un máximo de 3 personajes." }, { status: 400 });
+    if (userCharacters.length >= limit) return NextResponse.json({ error: "Has alcanzado el límite de personajes de tus roles." }, { status: 400 });
   }
 
   const body = await request.json();

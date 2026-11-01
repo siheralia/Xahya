@@ -4,7 +4,7 @@ import { EFFECT_TYPES } from "@/lib/effects/catalog";
 export type RacialEffect = {
   type: string; target?: string; element?: string; value?: number;
   description?: string; capability?: string; durationTurns?: number;
-  durationMovements?: number; targetKind?: string; activationCondition?: string;
+  durationMovements?: number; targetKind?: "SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT"; activationCondition?: "NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT";
 };
 export type RacialSkill = {
   id: number; raceId: number; raceName?: string;

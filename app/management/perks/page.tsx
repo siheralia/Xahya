@@ -1,5 +1,6 @@
 "use client";
-import { ElementSelect } from "@/components/effects/ElementSelect";
+import {SharedEffectsEditor} from "@/components/effects/SharedEffectsEditor";
+import { EffectCard, useEffectElementColors, sharedEffectTypes, sharedEffectTargets } from "@/components/effects/EffectCard";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -10,6 +11,7 @@ type Perk={id:number;name:string;description:string|null;probability:number;effe
 type Character={id:number;name:string;ownerName:string};
 
 export default function PerksManagementPage(){
+  const elementColors = useEffectElementColors();
   const [perks,setPerks]=useState<Perk[]>([]);
   const [characters,setCharacters]=useState<Character[]>([]);
   const [characterId,setCharacterId]=useState("");
@@ -21,9 +23,9 @@ export default function PerksManagementPage(){
   type EffectType=SkillEffectType;
   type Effect={type:EffectType;target?:string;value:number;element?:string};
   const [effectRows,setEffectRows]=useState<Effect[]>([]);
-  const EFFECT_TYPES = EFFECT_CATALOG.map(effect => [effect.type,effect.label] as [EffectType,string]);
+  const EFFECT_TYPES = sharedEffectTypes.map(effect => [effect.type as EffectType,effect.label] as [EffectType,string]);
   const [statDefinitions,setStatDefinitions] = useState<{key:string;name:string;kind:"basic"|"derived";code?:string;active?:boolean}[]>([]);
-  const TARGETS = Object.fromEntries(Object.keys(EFFECT_TARGETS).map((type) => [type, resolveEffectTargets(type, statDefinitions).map((entry) => entry.key)])) as Record<SkillEffectType,string[]>;
+  const TARGETS = Object.fromEntries(Object.keys(EFFECT_TARGETS).map((type) => [type, sharedEffectTargets(type, statDefinitions).map((entry) => entry.key)])) as Record<SkillEffectType,string[]>;
   const TARGET_LABELS: Record<string, string> = {
     STR: "Fuerza", AGI: "Agilidad", CON: "Constitución", INT: "Inteligencia",
     WIS: "Sabiduría", CHA: "Carisma", SPI: "Espíritu", LCK: "Suerte",
@@ -63,7 +65,7 @@ export default function PerksManagementPage(){
     setName(perk.name);
     setDescription(perk.description??"");
     setProbability(String(perk.probability));
-    setEffectRows((Array.isArray(perk.effects)?perk.effects:[]).map((effect:any)=>({type:(EFFECT_TYPES.some(([value])=>value===effect?.type)?effect.type:"STAT_BONUS") as EffectType,target:String(effect?.target??"STR"),value:Number(effect?.value??0),element:String(effect?.element??"NEUTRAL")})));
+    setEffectRows((Array.isArray(perk.effects)?perk.effects:[]).map((effect:any)=>({type:String(effect?.type??"STAT_BONUS") as EffectType,target:String(effect?.target??"STR"),value:Number(effect?.value??0),element:String(effect?.element??"NEUTRAL")})));
     setStackable(perk.stackable);
     setMaxStacks(perk.maxStacks==null?"":String(perk.maxStacks));
     setError("");setSuccess("");
@@ -73,7 +75,7 @@ export default function PerksManagementPage(){
   async function savePerk(){
     setError("");setSuccess("");
     if(!name.trim()){setError("El perk necesita un nombre.");return;}
-    const parsed=effectRows.filter(effect=>EFFECT_TYPES.some(([type])=>type===effect.type)&&(TARGETS[effect.type]?.length===0||TARGETS[effect.type]?.some(target=>target===effect.target))).map(effect=>({type:effect.type,target:effect.target,value:Number(effect.value),element:effect.element??"NEUTRAL"}));
+    const parsed=effectRows.map(effect=>({type:effect.type,target:effect.target,value:Number(effect.value),element:effect.element??"NEUTRAL"}));
     if(parsed.some(effect=>!Number.isFinite(effect.value))){setError("Todos los valores de los efectos deben ser números.");return;}
     const payload={name:name.trim(),description,effects:parsed,probability:Number(probability),stackable,maxStacks:stackable?null:(maxStacks===""?null:Number(maxStacks))};
     if(!Number.isFinite(payload.probability)||payload.probability<0){setError("Probabilidad inválida.");return;}
@@ -128,12 +130,7 @@ export default function PerksManagementPage(){
           <input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"/>
           <input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Descripción" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"/>
           <label className="text-sm text-zinc-400">Probabilidad<input type="number" min="0" step="0.1" value={probability} onChange={e=>setProbability(e.target.value)} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"/></label>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-            <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">Efectos</div><div className="text-xs text-zinc-500">Configúralos con selectores, sin escribir JSON.</div></div><button type="button" onClick={()=>setEffectRows(rows=>[...rows,{type:"STAT_BONUS",target:"STR",value:0}])} className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm text-cyan-300">+ Añadir efecto</button></div>
-            <div className="mt-3 space-y-3">{effectRows.map((effect,index)=>{const targets=TARGETS[effect.type]??[];return <div key={index} className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 md:grid-cols-[1fr_1fr_120px_auto]"><ElementSelect value={effect.element} onChange={element=>setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,element}:row))}/><select value={effect.type} onChange={e=>{const type=e.target.value as EffectType;setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,type,target:TARGETS[type]?.[0]??undefined}:row));}} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">{EFFECT_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><select value={effect.target??targets[0]??""} onChange={e=>setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,target:e.target.value}:row))} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm">
-                      {effect.target&&!targets.includes(effect.target)&&<option value={effect.target}>{effect.target} (efecto inactivo: estadística no disponible)</option>}{targets.map(target=><option key={target} value={target}>{statDefinitions.find((entry) => (entry.code || entry.key) === target)?.name ?? TARGET_LABELS[target]??target}</option>)}
-                    </select><input type="number" step="0.1" value={effect.value} onChange={e=>setEffectRows(rows=>rows.map((row,i)=>i===index?{...row,value:Number(e.target.value)}:row))} placeholder="Valor" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"/><button type="button" onClick={()=>setEffectRows(rows=>rows.filter((_,i)=>i!==index))} className="rounded-lg border border-red-900/60 px-3 py-2 text-sm text-red-300">Quitar</button></div>})}{!effectRows.length&&<p className="text-sm text-zinc-600">Sin efectos.</p>}</div>
-          </div>
+          <SharedEffectsEditor effects={effectRows} onChange={setEffectRows} onAdd={()=>({type:"STAT_BONUS" as EffectType,target:"STR",value:0})} types={EFFECT_TYPES} onTypeChange={(effect,type)=>({...effect,type:type as EffectType,target:TARGETS[type as EffectType]?.[0]??undefined})} renderTarget={(effect,_index,update)=>{const targets=TARGETS[effect.type]??[];return <label className="text-xs text-zinc-400">Objetivo<select className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={effect.target??targets[0]??""} onChange={e=>update({target:e.target.value})}>{effect.target&&!targets.includes(effect.target)&&<option value={effect.target}>{effect.target} (inactivo)</option>}{targets.map(target=><option key={target} value={target}>{statDefinitions.find(entry=>(entry.code||entry.key)===target)?.name??TARGET_LABELS[target]??target}</option>)}</select></label>;}}/>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={stackable} onChange={e=>setStackable(e.target.checked)}/> Acumulable</label>
           {!stackable&&<input type="number" min="1" value={maxStacks} onChange={e=>setMaxStacks(e.target.value)} placeholder="Máximo de acumulaciones" className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3"/>}
           <button onClick={savePerk} className="rounded-lg bg-white px-4 py-3 font-semibold text-black">{editingId?"Guardar cambios":"Crear perk"}</button>

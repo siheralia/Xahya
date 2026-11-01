@@ -43,7 +43,7 @@ export function validPermissions(value:unknown):value is Record<string,string[]>
  return Object.entries(value).every(([page,actions])=>
   (page==="__characterLimit" || page==="*" || Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS,page)) &&
   Array.isArray(actions) && actions.length<=40 &&
-  (page==="__characterLimit" ? actions.length===1 && /^\\d+$/.test(actions[0]) && Number.isSafeInteger(Number(actions[0])) : actions.every(action=>typeof action==="string" && (action==="*" || (page!=="*" && (ROLE_PERMISSIONS[page as keyof typeof ROLE_PERMISSIONS] as readonly string[]).includes(action))))));
+  (page==="__characterLimit" ? actions.length===1 && /^\d+$/.test(actions[0]) && Number.isSafeInteger(Number(actions[0])) : actions.every(action=>typeof action==="string" && (action==="*" || (page!=="*" && (ROLE_PERMISSIONS[page as keyof typeof ROLE_PERMISSIONS] as readonly string[]).includes(action))))));
 }
 export async function hasRolePermission(actor:Actor|null,page:string,action:string):Promise<boolean>{
  if(!actor||["SYSTEM","BANNED"].includes(String(actor.role)))return false;

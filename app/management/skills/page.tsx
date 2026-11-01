@@ -1,5 +1,5 @@
-import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 "use client";
+import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
 
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";

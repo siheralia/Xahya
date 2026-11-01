@@ -1,3 +1,4 @@
+import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { validateSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { readDefaultAttackSpeedStat, speedSurcharge } from "@/lib/skills/speed-settings";
 import { applyRangePch } from "@/lib/skills/range-pricing";
@@ -156,6 +157,7 @@ export async function POST(
     }
   }
   pchCost = applyRangePch(manaAdjustedPch(pchCost, Number(body.cost ?? 0)) + speedSurcharge(body.speed), Number(body.maxRangeMeters ?? 5));
+  pchCost = prerequisiteAdjustedPch(pchCost, requiredSkillIds.length);
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {

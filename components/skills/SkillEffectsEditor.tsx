@@ -5,7 +5,7 @@ import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
 import { effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
 import { ElementSelect } from "@/components/effects/ElementSelect";
 import { SkillFieldHelp } from "./SkillFieldHelp";
-export type EditableEffect = {type:string;element?:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT"};
+export type EditableEffect = {type:string;capability?:string;element?:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT"};
 export type NarrativeCard = {id:string|number;name:string;description:string;category?:string;pch?:number};
 type Props<E extends EditableEffect>={effects:E[];onChange:(effects:E[])=>void;statistics?:{key:string;name:string;kind:"basic"|"derived";active?:boolean}[];narrativeCards?:NarrativeCard[];effectDefinitions?:{type:string;label:string;targets:{key:string;label:string}[]}[];priceEffect?:(effect:E)=>number};
 const types=EFFECT_CATALOG.filter(x=>x.type!=="COMBAT_MULTIPLIER").map(x=>[x.type,x.label] as const);
@@ -24,6 +24,15 @@ export function SkillEffectsEditor<E extends EditableEffect>({effects,onChange,s
    <label className="text-xs text-zinc-400">Tipo <SkillFieldHelp field="effectType"/><select value={e.type} onChange={ev=>{const nextType=ev.target.value;const nextTargets=resolveEffectTargets(nextType,statistics);update(i,{type:nextType,target:nextTargets[0]?.key??""} as Partial<E>);}} className={"mt-1 w-full "+cls}>{!types.some(t=>t[0]===e.type)&&<option value={e.type}>{e.type}</option>}{types.map(t=><option key={t[0]} value={t[0]}>{t[1]}</option>)}{narrative&&<option value="NARRATIVE">Narrativo</option>}</select></label>
    {narrative?<label className="text-xs text-zinc-400">Descripción<input value={e.description??""} onChange={ev=>update(i,{description:ev.target.value} as Partial<E>)} className={"mt-1 w-full "+cls}/></label>:targets.length>0?<label className="text-xs text-zinc-400">Objetivo <SkillFieldHelp field="effectTarget"/><select value={e.target??""} onChange={ev=>update(i,{target:ev.target.value} as Partial<E>)} className={"mt-1 w-full "+cls}>{e.target&&!targets.some(t=>t.key===e.target)&&<option value={e.target}>{e.target}</option>}{targets.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}</select></label>:null}
    <ElementSelect value={e.element} onChange={element=>update(i,{element} as Partial<E>)}/>
+   <label className="block text-xs text-zinc-400">Capacidad para requisitos
+     <select aria-label="Capacidad del efecto para requisitos" value={e.capability??""} onChange={ev=>update(i,{capability:ev.target.value || undefined} as Partial<E>)} className={"mt-1 w-full "+cls}>
+       <option value="">Usar el tipo de efecto original</option>
+       {e.capability && e.capability!=="CREATE" && !(effectDefinitions??[]).some(def=>def.type===e.capability) && <option value={e.capability}>{e.capability}</option>}
+       <option value="CREATE">Crear</option>
+       {(effectDefinitions??[]).filter(def=>def.type!=="CREATE").map(def=><option key={def.type} value={def.type}>{def.label}</option>)}
+     </select>
+     <span className="mt-1 block text-xs text-zinc-500">Se reconoce al verificar requisitos por efecto y elemento.</span>
+   </label>
    {!narrative&&<label className="text-xs text-zinc-400">Potencia <SkillFieldHelp field="effectPower"/><input type="number" step=".01" value={e.value??0} onChange={ev=>update(i,{value:Number(ev.target.value)} as Partial<E>)} className={"mt-1 w-full "+cls}/></label>}
    <label className="text-xs text-zinc-400">Aplicar a <SkillFieldHelp field="effectRecipient"/><select value={e.targetKind??"SELF"} onChange={ev=>update(i,{targetKind:ev.target.value} as Partial<E>)} className={"mt-1 w-full "+cls}>{[["SELF","A sí mismo"],["CHARACTER","Personaje"],["OPPONENT","Oponente"],["EXISTING_OBJECT","Objeto existente"]].map(([v,t])=><option key={v} value={v}>{t}</option>)}</select></label>
    {e.targetKind&&e.targetKind!=="SELF"&&<label className="text-xs text-zinc-400">Referencia <SkillFieldHelp field="effectReference"/><input value={e.targetReference??""} onChange={ev=>update(i,{targetReference:ev.target.value} as Partial<E>)} className={"mt-1 w-full "+cls}/></label>}

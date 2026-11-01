@@ -135,8 +135,8 @@ export default function RacesManagementPage() {
       <div className="mx-auto max-w-6xl px-6 py-8">
         <Link href="/management" className="text-sm text-zinc-500 hover:text-cyan-300">← Gestión</Link>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-          <div><h1 className="text-4xl font-bold">Gestión de Razas</h1><p className="mt-2 text-zinc-500">Imágenes, descripción y perks de cada raza.</p></div>
-          <button onClick={() => { clearForm(); setModalOpen(true); }} className="rounded-lg bg-white px-5 py-3 font-semibold text-black">Nueva raza</button>
+          <div><h1 className="text-4xl font-bold">Gestión de Razas</h1><p className="mt-2 text-zinc-500">Imágenes, descripción, perks y habilidades de cada raza.</p></div>
+          <div className="flex flex-wrap gap-2"><Link href="/management/skills?tab=racial" className="rounded-lg border border-cyan-600 px-4 py-3 font-semibold text-cyan-200">Habilidades raciales</Link><button onClick={() => { clearForm(); setModalOpen(true); }} className="rounded-lg bg-white px-5 py-3 font-semibold text-black">Nueva raza</button></div>
         </div>
         {error && <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
         {success && <div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}

@@ -1,3 +1,4 @@
+import { validEffectRequirements, effectRequirementDiscount, meetsEffectRequirements } from "@/lib/skills/effect-requirements";
 import { hasSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
@@ -35,6 +36,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const approvedIds = new Set<number>(approved.map((s: { id: number }) => Number(s.id)));
       const requirements = (Array.isArray(skill.requiredSkillIds) ? skill.requiredSkillIds : []).map((skillId: number) => ({ skillId }));
       if (!hasSkillPrerequisites(requirements, approvedIds)) return NextResponse.json({ error: "Faltan habilidades aprobadas requeridas." }, { status: 400 });
+    }
+    if (action === "start") {
+      const approvedSkills = await Skill.where({characterId,status:"APPROVED"}).all();
+      if (!meetsEffectRequirements(Array.isArray(skill.effectRequirements)?skill.effectRequirements:[],approvedSkills.filter((s:{id:number})=>Number(s.id)!==skillId))) return NextResponse.json({error:"Faltan los efectos o elementos requeridos."},{status:400});
     }
     const now = new Date();
     if (action === "stop") await db.transaction((tx) => advanceCharacterSkillTicks(tx, characterId, now));

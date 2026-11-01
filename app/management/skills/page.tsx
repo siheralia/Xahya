@@ -59,7 +59,7 @@ export default function SkillsManagementPage(){
   const pchBase = form.effect.reduce((sum,e) => sum + effectPchCost(e), 0);
   const pchManaAdjusted = manaAdjustedPch(pchBase, form.cost);
   const pchSpeedAdjusted = pchManaAdjusted + (!form.speed || form.speed === "DEFAULT" ? 0 : 5);
-  const pchTotal = effectRequirementDiscount(applyRangePch(pchSpeedAdjusted, form.maxRangeMeters), form.effectRequirements, skills.filter(s=>s.characterId===Number(form.characterId)));
+  const pchTotal = effectRequirementDiscount(applyRangePch(pchSpeedAdjusted, form.maxRangeMeters), form.effectRequirements);
 
   const visible=useMemo(()=>skills.filter(s=>{
     const q=search.trim().toLowerCase();
@@ -93,7 +93,7 @@ export default function SkillsManagementPage(){
     setBusy(true);setError("");setSuccess("");
     try{
       const url=selected?"/api/management/skills/"+selected:"/api/management/skills";
-      const body={...form,characterId:Number(form.characterId),approve,reject};
+      const body={...form,pchCost:pchTotal,characterId:Number(form.characterId),approve,reject};
       const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       const raw=await r.text();
       let d:any={};

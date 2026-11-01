@@ -3,6 +3,7 @@ import { SkillFormModal } from "@/components/skills/SkillFormModal";
 
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
+import { SkillSpeedSettings } from "@/components/skills/SkillSpeedSettings";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -106,6 +107,7 @@ export default function SkillsManagementPage(){
       <div><h1 className="text-4xl font-bold">Habilidades</h1><p className="mt-2 text-zinc-500">Solicitudes de habilidades creadas por personajes y catálogo aprobado.</p></div>
       <button onClick={create} className="rounded-lg bg-white px-5 py-3 font-semibold text-black">Nueva habilidad</button>
     </div>
+    <div className="mt-6"><SkillSpeedSettings/></div>
     {error&&<div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
     {success&&<div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
     <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">

@@ -24,7 +24,7 @@ export function CharacterCards({characters}:{characters:Array<{id:number;name:st
     <div className="min-w-0 flex-1">
      <Link href={`/characters/${c.id}`} className="font-bold hover:underline" style={{color:p.primary}}>{c.name} {c.flair&&<span>⟨{c.flair}⟩</span>}</Link>
      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 text-sm">
-      <span title="Dinero" style={{color:"#facc15"}}>◆ {c.resources?.money?.toLocaleString("es-MX")??"—"}</span>
+      <span title="Dinero" style={{color:"#facc15"}}>◈ {c.resources?.money?.toLocaleString("es-MX")??"—"}</span>
       <span title="Karma">🪷 {c.resources?.karma??"—"}</span>
       <span className="inline-flex items-center gap-1" title={isMagic?"Ataque mágico":"Ataque físico"}>{isMagic?<WandSparkles size={15}/>:<Swords size={15}/>} {c.derivedStats?Math.max(phys,magic).toLocaleString("es-MX"):"—"}</span>
      </div>

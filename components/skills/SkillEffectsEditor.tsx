@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { ManagedElement } from "@/lib/elements/defaults";
 import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
 import { effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
 import { ElementSelect } from "@/components/effects/ElementSelect";
@@ -10,6 +11,8 @@ type Props<E extends EditableEffect>={effects:E[];onChange:(effects:E[])=>void;s
 const types=EFFECT_CATALOG.filter(x=>x.type!=="COMBAT_MULTIPLIER").map(x=>[x.type,x.label] as const);
 const cls="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm";
 export function SkillEffectsEditor<E extends EditableEffect>({effects,onChange,statistics=[],narrativeCards=[],effectDefinitions,priceEffect}:Props<E>){
+ const [elementColors,setElementColors]=useState<Record<string,string>>({});
+ useEffect(()=>{fetch("/api/management/elements").then(r=>r.ok?r.json():null).then(data=>{if(Array.isArray(data?.elements))setElementColors(Object.fromEntries((data.elements as ManagedElement[]).map(e=>[e.key,e.color])));}).catch(()=>{});},[]);
  const [search,setSearch]=useState("");const [open,setOpen]=useState(false);const [category,setCategory]=useState("Todos");
  const update=(index:number,patch:Partial<E>)=>onChange(effects.map((e,i)=>i===index?{...e,...patch}:e));
  const add=(effect:EditableEffect)=>{onChange([...effects,effect as E]);setOpen(false);};
@@ -19,7 +22,7 @@ export function SkillEffectsEditor<E extends EditableEffect>({effects,onChange,s
   {open&&<div className="mt-3 space-y-3 rounded-xl border border-cyan-800/50 bg-zinc-950 p-3"><input aria-label="Buscar efectos" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar efectos…" className={"w-full "+cls}/><div className="flex flex-wrap gap-2">{["Todos","Combate","Estadísticas","Recursos","Especiales"].map(c=><button key={c} type="button" onClick={()=>setCategory(c)} aria-pressed={category===c} className={"rounded-full border px-3 py-1 text-xs "+(category===c?"border-cyan-400 text-cyan-200":"border-zinc-700")}>{c}</button>)}</div>
    <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">{narrativeCards.filter(c=>(category==="Todos"||category==="Especiales"||category===c.category)&&(c.name+" "+c.description).toLowerCase().includes(search.toLowerCase())).map(c=><button type="button" key={c.id} onClick={()=>add({type:"NARRATIVE",target:"CARD:"+c.id,value:1,description:c.name+": "+c.description})} className="rounded-xl border border-cyan-800 bg-cyan-950/20 p-3 text-left"><b>✦ {c.name}</b><p className="text-xs text-zinc-400">{c.description}</p><span className="text-xs text-cyan-300">{c.pch??5} PCH</span></button>)}{catalog.map(c=><button key={c.type} type="button" onClick={()=>add({type:c.type,target:typeof c.targets[0]==="string"?c.targets[0]:c.targets[0]?.key,value:c.type.endsWith("_MULTIPLIER")?100:1,description:""})} className="rounded-xl border border-zinc-700 bg-gradient-to-br from-zinc-900 to-cyan-950/30 p-3 text-left hover:border-cyan-400"><b>{c.label}</b><p className="text-xs text-cyan-300">{effectPchCost({type:c.type,value:c.type.endsWith("_MULTIPLIER")?100:1})} PCH base</p></button>)}</div>
   </div>}
-  <div className="mt-4 space-y-4">{effects.map((e,i)=>{const narrative=e.type==="NARRATIVE";const targets=resolveEffectTargets(e.type,statistics);return <div key={i} className="grid gap-2 rounded-lg border border-zinc-800 p-3 sm:grid-cols-2">
+  <div className="mt-4 space-y-4">{effects.map((e,i)=>{const narrative=e.type==="NARRATIVE";const targets=resolveEffectTargets(e.type,statistics);return <div key={i} className="grid gap-2 rounded-lg border border-zinc-800 p-3 sm:grid-cols-2" style={e.element && e.element!=="NEUTRAL" && elementColors[e.element] ? {borderColor:elementColors[e.element]} : undefined}>
    <label className="text-xs text-zinc-400">Tipo <SkillFieldHelp field="effectType"/><select value={e.type} onChange={ev=>{const nextType=ev.target.value;const nextTargets=resolveEffectTargets(nextType,statistics);update(i,{type:nextType,target:nextTargets[0]?.key??""} as Partial<E>);}} className={"mt-1 w-full "+cls}>{!types.some(t=>t[0]===e.type)&&<option value={e.type}>{e.type}</option>}{types.map(t=><option key={t[0]} value={t[0]}>{t[1]}</option>)}{narrative&&<option value="NARRATIVE">Narrativo</option>}</select></label>
    {narrative?<label className="text-xs text-zinc-400">Descripción<input value={e.description??""} onChange={ev=>update(i,{description:ev.target.value} as Partial<E>)} className={"mt-1 w-full "+cls}/></label>:targets.length>0?<label className="text-xs text-zinc-400">Objetivo <SkillFieldHelp field="effectTarget"/><select value={e.target??""} onChange={ev=>update(i,{target:ev.target.value} as Partial<E>)} className={"mt-1 w-full "+cls}>{e.target&&!targets.some(t=>t.key===e.target)&&<option value={e.target}>{e.target}</option>}{targets.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}</select></label>:null}
    <ElementSelect value={e.element} onChange={element=>update(i,{element} as Partial<E>)}/>

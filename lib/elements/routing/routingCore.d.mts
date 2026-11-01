@@ -1,0 +1,10 @@
+export type RoutingVersion="ordered"|"elastic"|"adaptive";
+export interface RoutingNode{id:string;x:number;y:number;radius?:number;color?:string}
+export interface RoutingEdge{id:string;from:string;to:string;kind?:string}
+export interface RoutedRelation{id:string;kind:string;from:string;to:string;start:{x:number;y:number};end:{x:number;y:number};control:{x:number;y:number};path:string;sourceColor?:string;targetColor?:string}
+export interface RoutingResult{strategy:RoutingVersion;routes:RoutedRelation[];diagnostics:{edgeCount:number;splitCount:number;crossingsBefore:number;crossingsAfter:number}}
+export const ROUTING_VERSIONS:RoutingVersion[];
+export const ROUTING_PRESETS:Record<RoutingVersion,Record<string,number>>;
+export function geometricSeriesOffset(L:number,rank:number):number;
+export function findCrossings(routes:RoutedRelation[],samples?:number):number[][];
+export function buildRoutes(input:{nodes:RoutingNode[];edges:RoutingEdge[];strategy?:RoutingVersion;options?:Record<string,number>}):RoutingResult;

@@ -1,3 +1,4 @@
+import { hasSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
@@ -29,6 +30,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const skillId = Number(body?.skillId);
     const skill = await Skill.where({ id: skillId, characterId }).first();
     if (!skill || String(skill.status) !== "APPROVED") return NextResponse.json({ error: "Habilidad no encontrada o no aprobada." }, { status: 404 });
+    if (action === "start") {
+      const approved = await Skill.where({ characterId, status: "APPROVED" }).all();
+      const approvedIds = new Set<number>(approved.map((s: { id: number }) => Number(s.id)));
+      const requirements = (Array.isArray(skill.requiredSkillIds) ? skill.requiredSkillIds : []).map((skillId: number) => ({ skillId }));
+      if (!hasSkillPrerequisites(requirements, approvedIds)) return NextResponse.json({ error: "Faltan habilidades aprobadas requeridas." }, { status: 400 });
+    }
     const now = new Date();
     if (action === "stop") await db.transaction((tx) => advanceCharacterSkillTicks(tx, characterId, now));
     const existing = await State.where({ characterId, skillId }).first();

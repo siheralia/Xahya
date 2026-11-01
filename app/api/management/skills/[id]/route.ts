@@ -1,3 +1,4 @@
+import { validEffectRequirements, effectRequirementDiscount, meetsEffectRequirements } from "@/lib/skills/effect-requirements";
 import { validateSkillPrerequisites, hasPrerequisiteCycle } from "@/lib/skills/prerequisites";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
@@ -41,12 +42,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
   }
 
-  const requiredSkillIds: number[] = Array.isArray(body.requiredSkillIds) ? body.requiredSkillIds : (Array.isArray(skill.requiredSkillIds) ? skill.requiredSkillIds : []);
+  const effectRequirements = body.effectRequirements ?? (skill as any).effectRequirements ?? [];
+  if (!validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Requisitos por efecto inválidos."},{status:400});
   const available = await Skill.where({characterId:Number(skill.characterId)}).all();
-  const prerequisiteError = validateSkillPrerequisites(Number(skill.characterId),id,requiredSkillIds.map(skillId=>({skillId})),available.map((s:any)=>({id:Number(s.id),characterId:Number(s.characterId),status:String(s.status)})));
   if(prerequisiteError) return NextResponse.json({error:prerequisiteError},{status:400});
-  const graph = new Map<number,{skillId:number}[]>(available.map((s:any)=>[Number(s.id),(Number(s.id)===id?requiredSkillIds:(s.requiredSkillIds??[])).map((skillId:number)=>({skillId}))]));
-  if(hasPrerequisiteCycle(graph)) return NextResponse.json({error:"Las habilidades requeridas forman un ciclo."},{status:400});
 
   const requestedPchCost = body.pchCost === undefined ? Number((skill as any).pchCost ?? 0) : Number(body.pchCost);
   if (!Number.isInteger(requestedPchCost) || requestedPchCost < 0) return NextResponse.json({ error: "Costo PCH inválido." }, { status: 400 });
@@ -92,7 +91,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       await TxSkill.where({ id }).update({
         name,
-        requiredSkillIds,
+        effectRequirements,
         cost,
         pchCost: requestedPchCost,
         maintenanceCost,

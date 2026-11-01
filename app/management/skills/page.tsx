@@ -1,4 +1,5 @@
 "use client";
+import { effectRequirementDiscount } from "@/lib/skills/effect-requirements";
 import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
 
@@ -17,13 +18,13 @@ type Effect = { type: string; target?: string; value?: number; description?: str
 type Skill = {
   id:number; characterId:number; name:string; cost:number; pchCost:number; accumulationCost:number; accumulationPerTick:number; maintenanceCost:number; description:string|null; duration:string|null;
   category:string; basicType:string|null; attackType:string|null; defenseType:string|null; areaOfEffect:string|null; speed:string|null; cooldown:string|null; effect:Effect[];
-  condition:string|null; requiredSkillIds?:number[]; status:string; approvedAt:string|null; character?: { id:number; name:string }|null;
+  condition:string|null; effectRequirements?:{effect:string;element?:string}[]; status:string; approvedAt:string|null; character?: { id:number; name:string }|null;
 };
 
 const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
 const effectTypes=[...EFFECT_CATALOG.filter(e=>e.type!=="MAZE_UTILITY").map(e=>[e.type,e.label] as const),["MAZE_UTILITY_INVISIBILITY","Invisibilidad"],["MAZE_UTILITY_FLOATING","Flotar"]] as const;
 const blankEffect=():Effect=>({type:"STAT_BONUS",target:"STR",value:10,description:""});
-const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"Instantánea",category:"UTILITY",areaOfEffect:"Objetivo único",maxRangeMeters:5,speed:"DEFAULT",cooldown:"Sin cooldown",condition:"",requiredSkillIds:[] as number[],effect:[] as Effect[]});
+const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"Instantánea",category:"UTILITY",areaOfEffect:"Objetivo único",maxRangeMeters:5,speed:"DEFAULT",cooldown:"Sin cooldown",condition:"",effectRequirements:[] as {effect:string;element?:string}[],effect:[] as Effect[]});
 
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
@@ -55,7 +56,7 @@ export default function SkillsManagementPage(){
   const pchBase = form.effect.reduce((sum,e) => sum + effectPchCost(e), 0);
   const pchManaAdjusted = manaAdjustedPch(pchBase, form.cost);
   const pchSpeedAdjusted = pchManaAdjusted + (!form.speed || form.speed === "DEFAULT" ? 0 : 5);
-  const pchTotal = prerequisiteAdjustedPch(applyRangePch(pchSpeedAdjusted, form.maxRangeMeters), form.requiredSkillIds.length);
+  const pchTotal = effectRequirementDiscount(applyRangePch(pchSpeedAdjusted, form.maxRangeMeters), form.effectRequirements, skills.filter(s=>s.characterId===Number(form.characterId)));
 
   const visible=useMemo(()=>skills.filter(s=>{
     const q=search.trim().toLowerCase();
@@ -68,7 +69,7 @@ export default function SkillsManagementPage(){
     setForm({
       characterId:String(skill.characterId),name:skill.name,cost:Number(skill.cost),pchCost:Number(skill.pchCost??0),accumulationCost:Number(skill.accumulationCost??0),accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),description:skill.description??"",
       duration:skill.duration??"",category:skill.category,areaOfEffect:skill.areaOfEffect??"",maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\d+) m/)?.[1]??5),speed:skill.speed??"DEFAULT",
-      cooldown:skill.cooldown??"",condition:skill.condition??"",requiredSkillIds:skill.requiredSkillIds??[],effect:Array.isArray(skill.effect)?skill.effect:[],
+      cooldown:skill.cooldown??"",condition:skill.condition??"",effectRequirements:skill.effectRequirements??[],effect:Array.isArray(skill.effect)?skill.effect:[],
     });
     setModal(true);setError("");setSuccess("");
   }

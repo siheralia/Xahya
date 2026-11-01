@@ -13,7 +13,7 @@ export async function getCharacterLimit(actor:Actor):Promise<number|null>{
   const assigned=new Set(assignments.map((row:any)=>Number(row.roleId)));
   const limits=roles.filter((r:any)=>assigned.has(Number(r.id))).map((r:any)=>{
    const raw=r.permissions?.__characterLimit?.[0];
-   return typeof raw==="string"&&/^\\d+$/.test(raw)?Number(raw):null;
+   return typeof raw==="string"&&/^\d+$/.test(raw)?Number(raw):null;
   }).filter((n:any):n is number=>n!==null&&Number.isSafeInteger(n)&&n>=0);
   return limits.length?Math.max(DEFAULT_CHARACTER_LIMIT,...limits):DEFAULT_CHARACTER_LIMIT;
  }catch{return DEFAULT_CHARACTER_LIMIT;}

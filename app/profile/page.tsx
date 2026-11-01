@@ -1,5 +1,6 @@
 "use client";
 import SalaryWallet from "./SalaryWallet";
+import { CharacterCards } from "@/components/CharacterCards";
 
 import { useEffect, useState } from "react";
 
@@ -106,29 +107,7 @@ export default function ProfilePage() {
             <p className="mt-1 text-sm text-zinc-500">Solo los personajes pertenecientes a tu cuenta.</p>
           </div>
 
-          {characters.length === 0 ? (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 text-zinc-500">
-              Todavía no tienes personajes.
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {characters.map((character) => (
-                <a
-                  key={character.id}
-                  href={`/characters/${character.id}`}
-                  className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 transition hover:border-zinc-600 hover:bg-zinc-900"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">{character.name} {character.flair && <span className="text-base font-normal">⟨{character.flair}⟩</span>}</h3>
-                      <p className="mt-1 text-sm text-zinc-500">Personaje #{character.id}</p>
-                    </div>
-                    <span className="text-zinc-400">→</span>
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
+          <CharacterCards characters={characters} />
         </section>
       </div>
     </main>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { EffectRequirementsField } from "./EffectRequirementsField";
-import type { EffectRequirement } from "@/lib/skills/effect-requirements";
+import { effectRequirementDiscountPercent, type EffectRequirement } from "@/lib/skills/effect-requirements";
 import type { AvailableSkill } from "./SkillPrerequisitesField";
 import { SkillCoreFields, type SkillCore } from "./SkillCoreFields";
 import { SkillEffectsEditor, type EditableEffect, type NarrativeCard } from "./SkillEffectsEditor";
@@ -23,7 +23,7 @@ type Props<T extends SkillCore, E extends EditableEffect> = {
   characterId?: number;
   editingSkillId?: number | null;
   actions: ReactNode;
-  pch?: { total:number; base:number; manaAdjusted:number; balance?:number };
+  pch?: { total:number; base:number; manaAdjusted:number; beforeRequirements:number; balance?:number };
 };
 
 export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
@@ -46,7 +46,13 @@ export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
       <div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold">{title}</h2>{description&&<p className="mt-1 text-sm text-zinc-500">{description}</p>}</div><button type="button" onClick={onClose} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">Cerrar</button></div>
       {pch&&<div className="sticky top-0 z-20 -mx-2 mt-4 flex justify-end bg-zinc-950/95 px-2 py-3 backdrop-blur"><button type="button" onClick={()=>setBreakdownOpen(true)} className="rounded-full border border-cyan-400 bg-cyan-950 px-4 py-2 text-sm font-bold text-cyan-100 shadow-lg shadow-black/50">Costo: {pch.total} PCH · Detalles</button></div>}
       <div className="mt-5 space-y-5">{characterSelector}<SkillCoreFields form={form} onChange={onChange} effectEditor={<SkillEffectsEditor effects={form.effect} onChange={effect=>onChange({...form,effect})} statistics={statistics} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={priceEffect} />}/>{"effectRequirements" in form && Array.isArray(form.effectRequirements) && <EffectRequirementsField value={form.effectRequirements as EffectRequirement[]} onChange={requirements=>onChange({...form,effectRequirements:requirements})} effects={(effectDefinitions??[]).map(e=>({type:e.type,label:e.label}))} />}{actions}</div>
-      {pch&&breakdownOpen&&<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setBreakdownOpen(false);}}><div role="dialog" aria-modal="true" aria-label="Desglose de PCH" className="w-full max-w-sm rounded-2xl border border-cyan-500/50 bg-zinc-950 p-5 text-sm text-zinc-200 shadow-2xl"><div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold text-cyan-200">Costo: {pch.total} PCH</h3><button type="button" onClick={()=>setBreakdownOpen(false)} className="rounded-lg border border-zinc-700 px-3 py-2">Cerrar</button></div><div className="mt-4 space-y-2"><p>Efectos: {pch.base} PCH</p><p>Tras ajuste por maná ({form.cost}): {pch.manaAdjusted} PCH</p><p>Velocidad: {speedCost} PCH</p><p>Distancia ({form.maxRangeMeters??5} m): {distance>0?"+":""}{distance} PCH (mínimo total 1)</p>{pch.balance!==undefined&&<p>Saldo: {pch.balance} PCH · Restante: {pch.balance-pch.total} PCH</p>}<p className="text-xs text-zinc-500">No se aplican descuentos por condiciones no verificables en combate.</p></div></div></div>}
+      {pch&&breakdownOpen&&<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setBreakdownOpen(false);}}><div role="dialog" aria-modal="true" aria-label="Desglose de PCH" className="w-full max-w-sm rounded-2xl border border-cyan-500/50 bg-zinc-950 p-5 text-sm text-zinc-200 shadow-2xl"><div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold text-cyan-200">Costo: {pch.total} PCH</h3><button type="button" onClick={()=>setBreakdownOpen(false)} className="rounded-lg border border-zinc-700 px-3 py-2">Cerrar</button></div><div className="mt-4 space-y-2"><p>Efectos: {pch.base} PCH</p><p>Tras ajuste por maná ({form.cost}): {pch.manaAdjusted} PCH</p><p>Velocidad: {speedCost} PCH</p><p>Distancia ({form.maxRangeMeters??5} m): {distance>0?"+":""}{distance} PCH (mínimo total 1)</p>{pch.balance!==undefined&&<p>Saldo: {pch.balance} PCH · Restante: {pch.balance-pch.total} PCH</p>}<p>Subtotal antes de requisitos: {pch.beforeRequirements} PCH</p>
+        {"effectRequirements" in form && Array.isArray(form.effectRequirements) && <p className="font-semibold text-cyan-200">
+          Requisitos ({effectRequirementDiscountPercent(form.effectRequirements as EffectRequirement[])} %):
+          {" "}-{pch.beforeRequirements-pch.total} PCH
+        </p>}
+        <p className="font-semibold">Total: {pch.total} PCH</p>
+        <p className="text-xs text-zinc-500">Los requisitos reducen el costo de creación y se comprueban al activar la habilidad.</p></div></div></div>}
     </div>
   </div>;
 }

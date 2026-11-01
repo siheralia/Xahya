@@ -30,6 +30,7 @@ const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
   const [catalogTab,setCatalogTab]=useState<"CHARACTER"|"RACIAL">("CHARACTER");
+  useEffect(()=>{if(new URLSearchParams(window.location.search).get("tab")==="racial")setCatalogTab("RACIAL");},[]);
   const [effectDefinitions,setEffectDefinitions]=useState<{type:string;label:string;targets:{key:string;label:string}[]}[]>([]);
   const [narrativeCards,setNarrativeCards]=useState<{id:string;name:string;description:string;category:string;pch:number}[]>([]);
   const [statDefinitions,setStatDefinitions]=useState<{key:string;name:string;kind:"basic"|"derived";active?:boolean}[]>([]);

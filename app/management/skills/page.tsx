@@ -2,6 +2,7 @@
 import { effectRequirementDiscount } from "@/lib/skills/effect-requirements";
 import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
+import { RacialSkillsManagement } from "@/components/skills/RacialSkillsManagement";
 
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
@@ -28,6 +29,7 @@ const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0
 
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
+  const [catalogTab,setCatalogTab]=useState<"CHARACTER"|"RACIAL">("CHARACTER");
   const [effectDefinitions,setEffectDefinitions]=useState<{type:string;label:string;targets:{key:string;label:string}[]}[]>([]);
   const [narrativeCards,setNarrativeCards]=useState<{id:string;name:string;description:string;category:string;pch:number}[]>([]);
   const [statDefinitions,setStatDefinitions]=useState<{key:string;name:string;kind:"basic"|"derived";active?:boolean}[]>([]);
@@ -107,8 +109,13 @@ export default function SkillsManagementPage(){
   return <main className="min-h-screen bg-zinc-950 text-white"><div className="mx-auto max-w-6xl px-6 py-6">
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div><h1 className="text-4xl font-bold">Habilidades</h1><p className="mt-2 text-zinc-500">Solicitudes de habilidades creadas por personajes y catálogo aprobado.</p></div>
-      <button onClick={create} className="rounded-lg bg-white px-5 py-3 font-semibold text-black">Nueva habilidad</button>
+      {catalogTab==="CHARACTER"&&<button onClick={create} className="rounded-lg bg-white px-5 py-3 font-semibold text-black">Nueva habilidad</button>}
     </div>
+    <nav aria-label="Tipos de habilidades" className="mt-6 flex gap-2 border-b border-zinc-800 pb-3">
+      <button type="button" aria-current={catalogTab==="CHARACTER"?"page":undefined} onClick={()=>setCatalogTab("CHARACTER")} className={"rounded-lg px-4 py-2 text-sm font-semibold "+(catalogTab==="CHARACTER"?"bg-cyan-900 text-cyan-100":"border border-zinc-700 text-zinc-300")}>De personajes</button>
+      <button type="button" aria-current={catalogTab==="RACIAL"?"page":undefined} onClick={()=>setCatalogTab("RACIAL")} className={"rounded-lg px-4 py-2 text-sm font-semibold "+(catalogTab==="RACIAL"?"bg-cyan-900 text-cyan-100":"border border-zinc-700 text-zinc-300")}>Raciales</button>
+    </nav>
+    {catalogTab==="RACIAL"?<RacialSkillsManagement/>:<>
     {error&&<div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
     {success&&<div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
     <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
@@ -133,5 +140,6 @@ export default function SkillsManagementPage(){
 
     <div className="mt-6"><SkillSpeedSettings/></div>
     <SkillFormModal availableSkills={skills} characterId={Number(form.characterId)} editingSkillId={selected} open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} form={form} onChange={setForm} statistics={statDefinitions} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={effectPchCost} pch={{total:pchTotal,base:pchBase,manaAdjusted:pchManaAdjusted}} characterSelector={<label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>} actions={<div className="flex flex-wrap gap-2"><button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button><button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button><button onClick={()=>save(true,false)} disabled={busy} className="rounded-lg bg-emerald-400 px-4 py-3 font-semibold text-zinc-950">Guardar y aprobar</button></div>} />
+    </>}
   </div></main>;
 }

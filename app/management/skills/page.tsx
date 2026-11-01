@@ -1,3 +1,4 @@
+import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 "use client";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
 
@@ -54,7 +55,7 @@ export default function SkillsManagementPage(){
   const pchBase = form.effect.reduce((sum,e) => sum + effectPchCost(e), 0);
   const pchManaAdjusted = manaAdjustedPch(pchBase, form.cost);
   const pchSpeedAdjusted = pchManaAdjusted + (!form.speed || form.speed === "DEFAULT" ? 0 : 5);
-  const pchTotal = applyRangePch(pchSpeedAdjusted, form.maxRangeMeters);
+  const pchTotal = prerequisiteAdjustedPch(applyRangePch(pchSpeedAdjusted, form.maxRangeMeters), form.requiredSkillIds.length);
 
   const visible=useMemo(()=>skills.filter(s=>{
     const q=search.trim().toLowerCase();

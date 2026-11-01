@@ -1,6 +1,6 @@
 "use client";
 import {EffectCard,useEffectElementColors,sharedEffectTypes} from "@/components/effects/EffectCard";
-import { ElementSelect } from "@/components/effects/ElementSelect";
+import {SharedEffectsEditor} from "@/components/effects/SharedEffectsEditor";
 
 import { useEffect, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
@@ -168,39 +168,7 @@ export default function ItemsManagementPage() {
             <label>Precio<input type="number" min={0} value={form.price} onChange={e=>setForm({...form,price:Number(e.target.value)||0})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>
           </div>
           {form.itemType !== "PROPERTY" && <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">{form.allowedSlots.length ? "El objeto solo podrá equiparse en los slots seleccionados." : "Este objeto no se equipa."}</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>}
-          <div><div className="flex items-center justify-between"><h3 className="font-medium">Efectos</h3><div className="flex items-center gap-3">{noEffects(form.effects)&&<span className="text-sm text-zinc-500">Sin efectos</span>}<button type="button" onClick={()=>setForm(f=>({...f,effects:[...f.effects,emptyEffect()]}))} className="text-sm text-zinc-300">+ Añadir efecto</button></div></div>
-          <div className="mt-3 space-y-3">{form.effects.map((effect,i)=><EffectCard key={i} element={effect.element} colors={colors} className="p-4"><ElementSelect value={effect.element} onChange={element=>setForm(f=>({...f,effects:f.effects.map((entry,j)=>j===i?{...entry,element}:entry)}))}/>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <select value={effect.type} onChange={e=>updateEffect(i,"type",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
-                {EFFECT_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}
-              </select>
-              {effect.type === "system_action" ? (
-                <select value={effect.action ?? "ESCAPE_MAZE"} onChange={e=>updateEffect(i,"action",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
-                  {SYSTEM_ACTIONS.map(([value,label])=><option key={value} value={value}>{label}</option>)}
-                </select>
-              ) : effect.type === "narrative" ? (
-                <select value="OTHER" disabled className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-400"><option value="OTHER">Otro</option></select>
-              ) : effect.type === "damage_reduction" || effect.type === "damage_increase" ? (
-                <select value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
-                  {DAMAGE_TARGETS.map(([value,label])=><option key={value} value={value}>{label}</option>)}
-                </select>
-              ) : effect.stat === "OTHER" ? (
-                <input value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Objetivo personalizado"/>
-              ) : (
-                <select value={effect.stat} onChange={e=>updateEffect(i,"stat",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
-                  {!EFFECT_TARGETS.some(([value])=>value===effect.stat)&&<option value={effect.stat}>{effect.stat} (efecto inactivo: estadística no disponible)</option>}
-                  {EFFECT_TARGETS.map(([value,label])=><option key={value} value={value}>{label}</option>)}
-                </select>
-              )}
-              {effect.type === "system_action" ? (
-                <input type="number" value={1} readOnly className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-500"/>
-              ) : (
-                <input type="number" value={effect.value} onChange={e=>updateEffect(i,"value",e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Valor"/>
-              )}
-            </div>
-            <input value={effect.description} onChange={e=>updateEffect(i,"description",e.target.value)} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Descripción del efecto"/>
-            <button type="button" onClick={() => setForm(f => ({ ...f, effects: f.effects.filter((_, j) => j !== i) }))} className="mt-2 text-sm text-red-300">Quitar efecto</button>
-          </EffectCard>)}</div></div>
+          <SharedEffectsEditor effects={form.effects} onChange={effects=>setForm(f=>({...f,effects}))} onAdd={emptyEffect} types={EFFECT_TYPES} onTypeChange={(effect,type)=>type==="system_action"?{...effect,type,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1}:type==="narrative"?{...effect,type,stat:"OTHER",value:1}:type==="maze_utility"?{...effect,type,stat:"INVISIBILITY",value:1}:type==="damage_reduction"||type==="damage_increase"?{...effect,type,stat:"ALL",value:100}:{...effect,type,stat:effect.stat==="SYSTEM_ACTION"?"STR":effect.stat}} renderTarget={(effect,_index,update)=>effect.type==="system_action"?<label className="text-xs text-zinc-400">Acción<select value={effect.action??"ESCAPE_MAZE"} onChange={e=>update({action:e.target.value})} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{SYSTEM_ACTIONS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>:<label className="text-xs text-zinc-400">Objetivo<select value={effect.stat} onChange={e=>update({stat:e.target.value})} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{!EFFECT_TARGETS.some(([value])=>value===effect.stat)&&<option value={effect.stat}>{effect.stat}</option>}{(effect.type==="damage_reduction"||effect.type==="damage_increase"?DAMAGE_TARGETS:EFFECT_TARGETS).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>} renderExtra={(effect,_index,update)=><input value={effect.description} onChange={e=>update({description:e.target.value})} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Descripción del efecto"/>}/>
           <div className="flex flex-wrap gap-3"><button onClick={save} disabled={saving} className="rounded-lg bg-white px-5 py-3 font-medium text-black">{saving?"Guardando...":selected?"Guardar cambios":"Fabricar objeto"}</button>{selected&&canAction("delete",items.find(item=>item.id===selected)?.acquisitionType??"")&&<button onClick={remove} className="rounded-lg border border-red-900/70 px-5 py-3 text-red-300">Eliminar</button>}</div>
         </div>
       </section>

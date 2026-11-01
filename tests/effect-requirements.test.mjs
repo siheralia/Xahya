@@ -29,7 +29,7 @@ test("descuento acumulado limitado a 50 %, coste mínimo 1", () => {
 test("rechaza requisitos duplicados antes de calcular descuentos", () => {
   const duplicate = [{effect:"CREATE",element:"LIGHT"},{effect:"CREATE",element:"LIGHT"}];
   assert.equal(validEffectRequirements(duplicate), false);
-  assert.throws(() => effectRequirementDiscount(15, duplicate), /inválidos/);
+  assert.equal(effectRequirementDiscount(15, duplicate), 12); // no crash in preview, no duplicate discount
 });
 
 test("se mantiene la comprobación de capacidades aprobadas al activar", () => {

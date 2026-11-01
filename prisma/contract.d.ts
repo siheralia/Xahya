@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'1389370df17f320fb8d516c5a8cca99dfb6cbfe83500a64cb611bec98848ba4c'>;
+  StorageHashBase<'d6e77efc6fe998e493e6c3ff4b6cf642b5a6131fc19b3f20ff1de9e879f0daa0'>;
 export type ExecutionHash =
   ExecutionHashBase<'c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96'>;
 export type ProfileHash =
@@ -641,6 +641,10 @@ export type FieldOutputTypes = {
       readonly speed: CodecTypes['pg/text@1']['output'] | null;
       readonly cooldown: CodecTypes['pg/text@1']['output'] | null;
       readonly effect: CodecTypes['pg/json@1']['output'];
+      readonly effectRequirements: CodecTypes['pg/json@1']['output'];
+      readonly requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['output']>;
+      readonly grantedByRacePerkId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly grantedByRaceSkillId: CodecTypes['pg/int4@1']['output'] | null;
       readonly condition: CodecTypes['pg/text@1']['output'] | null;
       readonly status: CodecTypes['pg/text@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -1191,6 +1195,10 @@ export type FieldInputTypes = {
       readonly speed: CodecTypes['pg/text@1']['input'] | null;
       readonly cooldown: CodecTypes['pg/text@1']['input'] | null;
       readonly effect: CodecTypes['pg/json@1']['input'];
+      readonly effectRequirements: CodecTypes['pg/json@1']['input'];
+      readonly requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['input']>;
+      readonly grantedByRacePerkId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly grantedByRaceSkillId: CodecTypes['pg/int4@1']['input'] | null;
       readonly condition: CodecTypes['pg/text@1']['input'] | null;
       readonly status: CodecTypes['pg/text@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
@@ -1739,10 +1747,14 @@ export type StorageColumnTypes = {
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly duration: CodecTypes['pg/text@1']['output'] | null;
       readonly effect: CodecTypes['pg/json@1']['output'];
+      readonly effectRequirements: CodecTypes['pg/json@1']['output'];
+      readonly grantedByRacePerkId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly grantedByRaceSkillId: CodecTypes['pg/int4@1']['output'] | null;
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly maintenanceCost: CodecTypes['pg/int4@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly pchCost: CodecTypes['pg/int4@1']['output'];
+      readonly requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['output']>;
       readonly speed: CodecTypes['pg/text@1']['output'] | null;
       readonly status: CodecTypes['pg/text@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -2289,10 +2301,14 @@ export type StorageColumnInputTypes = {
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly duration: CodecTypes['pg/text@1']['input'] | null;
       readonly effect: CodecTypes['pg/json@1']['input'];
+      readonly effectRequirements: CodecTypes['pg/json@1']['input'];
+      readonly grantedByRacePerkId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly grantedByRaceSkillId: CodecTypes['pg/int4@1']['input'] | null;
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly maintenanceCost: CodecTypes['pg/int4@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly pchCost: CodecTypes['pg/int4@1']['input'];
+      readonly requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['input']>;
       readonly speed: CodecTypes['pg/text@1']['input'] | null;
       readonly status: CodecTypes['pg/text@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
@@ -2547,6 +2563,10 @@ export namespace Models {
     speed: CodecTypes['pg/text@1']['output'] | null;
     cooldown: CodecTypes['pg/text@1']['output'] | null;
     effect: CodecTypes['pg/json@1']['output'];
+    effectRequirements: CodecTypes['pg/json@1']['output'];
+    requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['output']>;
+    grantedByRacePerkId: CodecTypes['pg/int4@1']['output'] | null;
+    grantedByRaceSkillId: CodecTypes['pg/int4@1']['output'] | null;
     condition: CodecTypes['pg/text@1']['output'] | null;
     status: CodecTypes['pg/text@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -7004,6 +7024,34 @@ type ContractBase = Omit<
                     readonly kind: 'literal';
                     readonly value: DefaultLiteralValue<'pg/json@1', '[]'>;
                   };
+                };
+                readonly effectRequirements: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '[]'>;
+                  };
+                };
+                readonly requiredSkillIds: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', readonly []>;
+                  };
+                };
+                readonly grantedByRacePerkId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly grantedByRaceSkillId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
                 };
                 readonly condition: {
                   readonly nativeType: 'text';
@@ -11835,6 +11883,23 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
               };
+              readonly effectRequirements: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
+              readonly requiredSkillIds: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+                readonly many: true;
+              };
+              readonly grantedByRacePerkId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly grantedByRaceSkillId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly condition: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -11912,6 +11977,10 @@ type ContractBase = Omit<
                 readonly speed: { readonly column: 'speed' };
                 readonly cooldown: { readonly column: 'cooldown' };
                 readonly effect: { readonly column: 'effect' };
+                readonly effectRequirements: { readonly column: 'effectRequirements' };
+                readonly requiredSkillIds: { readonly column: 'requiredSkillIds' };
+                readonly grantedByRacePerkId: { readonly column: 'grantedByRacePerkId' };
+                readonly grantedByRaceSkillId: { readonly column: 'grantedByRaceSkillId' };
                 readonly condition: { readonly column: 'condition' };
                 readonly status: { readonly column: 'status' };
                 readonly createdAt: { readonly column: 'createdAt' };

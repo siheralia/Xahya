@@ -5504,6 +5504,27 @@
                   "kind": "scalar"
                 }
               },
+              "effectRequirements": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              },
+              "grantedByRacePerkId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "grantedByRaceSkillId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -5526,6 +5547,14 @@
                 }
               },
               "pchCost": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "requiredSkillIds": {
+                "many": true,
                 "nullable": false,
                 "type": {
                   "codecId": "pg/int4@1",
@@ -5637,6 +5666,15 @@
                 "effect": {
                   "column": "effect"
                 },
+                "effectRequirements": {
+                  "column": "effectRequirements"
+                },
+                "grantedByRacePerkId": {
+                  "column": "grantedByRacePerkId"
+                },
+                "grantedByRaceSkillId": {
+                  "column": "grantedByRaceSkillId"
+                },
                 "id": {
                   "column": "id"
                 },
@@ -5648,6 +5686,9 @@
                 },
                 "pchCost": {
                   "column": "pchCost"
+                },
+                "requiredSkillIds": {
+                  "column": "requiredSkillIds"
                 },
                 "speed": {
                   "column": "speed"
@@ -11838,6 +11879,13 @@
               "uniques": []
             },
             "skill": {
+              "checks": [
+                {
+                  "expression": "array_position(\"requiredSkillIds\", NULL) IS NULL",
+                  "name": "skill_requiredSkillIds_elem_not_null_9ca08ee4",
+                  "prefix": "skill_requiredSkillIds_elem_not_null"
+                }
+              ],
               "columns": {
                 "accumulationCost": {
                   "codecId": "pg/int4@1",
@@ -11943,6 +11991,25 @@
                   "nativeType": "json",
                   "nullable": false
                 },
+                "effectRequirements": {
+                  "codecId": "pg/json@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "[]"
+                  },
+                  "nativeType": "json",
+                  "nullable": false
+                },
+                "grantedByRacePerkId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
+                "grantedByRaceSkillId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
                 "id": {
                   "codecId": "pg/int4@1",
                   "default": {
@@ -11972,6 +12039,16 @@
                     "kind": "literal",
                     "value": 0
                   },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "requiredSkillIds": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": []
+                  },
+                  "many": true,
                   "nativeType": "int4",
                   "nullable": false
                 },
@@ -13619,7 +13696,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "1389370df17f320fb8d516c5a8cca99dfb6cbfe83500a64cb611bec98848ba4c"
+    "storageHash": "d6e77efc6fe998e493e6c3ff4b6cf642b5a6131fc19b3f20ff1de9e879f0daa0"
   },
   "execution": {
     "executionHash": "c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96",

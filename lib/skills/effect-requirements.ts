@@ -21,13 +21,19 @@ export function meetsEffectRequirements(requirements: readonly EffectRequirement
 }
 /** Requirements are a tradeoff at skill creation: owning the effect is checked on activation, not purchase. */
 export function effectRequirementDiscountPercent(requirements: readonly EffectRequirement[]): number {
-  return Math.min(50, requirements.reduce((sum, r) => sum + (r.element ? 20 : 10), 0));
+  const seen = new Set<string>();
+  return Math.min(50, requirements.reduce((sum, requirement) => {
+    if (!requirement || !requirement.effect) return sum;
+    const key = requirement.effect + ":" + (requirement.element || "");
+    if (seen.has(key)) return sum;
+    seen.add(key);
+    return sum + (requirement.element ? 20 : 10);
+  }, 0));
 }
 
 /** Effect-only: 10%; effect + element: 20%. Caps at 50% total. */
 export function effectRequirementDiscount(pch: number, requirements: readonly EffectRequirement[]): number {
   if (!Number.isSafeInteger(pch) || pch < 0) throw new Error("Costo PCH inválido");
-  if (!validEffectRequirements(requirements)) throw new Error("Requisitos por efecto inválidos.");
   const percentage = effectRequirementDiscountPercent(requirements);
   return pch === 0 ? 0 : Math.max(1, Math.ceil(pch * (100 - percentage) / 100));
 }

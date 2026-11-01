@@ -5,11 +5,11 @@ import { CharacterCards } from "@/components/CharacterCards";
 type Character={id:number;name:string;flair:string|null};
 export default function Home(){
  const [characters,setCharacters]=useState<Character[]>([]);
- const [role,setRole]=useState("");
+ const [limit,setLimit]=useState<number|null>(3);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
- useEffect(()=>{Promise.all([fetch("/api/characters?mine=true",{cache:"no-store"}),fetch("/api/profile",{cache:"no-store"})]).then(async ([a,b])=>{if(!a.ok||!b.ok)throw Error("No se pudieron cargar los personajes.");const [list,profile]=await Promise.all([a.json(),b.json()]);setCharacters(Array.isArray(list)?list:[]);setRole(String(profile.role??""));}).catch(e=>setError(e.message)).finally(()=>setLoading(false));},[]);
- const canCreate=role==="ADMIN"||role==="GM"||characters.length<3;
+ useEffect(()=>{Promise.all([fetch("/api/characters?mine=true",{cache:"no-store"}),fetch("/api/profile",{cache:"no-store"})]).then(async ([a,b])=>{if(!a.ok||!b.ok)throw Error("No se pudieron cargar los personajes.");const [list,profile]=await Promise.all([a.json(),b.json()]);setCharacters(Array.isArray(list)?list:[]);setLimit(profile.characterLimit??null);}).catch(e=>setError(e.message)).finally(()=>setLoading(false));},[]);
+ const canCreate=limit===null||characters.length<limit;
  return <main className="flex min-h-screen flex-col bg-zinc-950 text-white"><div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-6">
   <header className="flex flex-wrap items-center justify-between gap-4">
    <div>{!loading&&canCreate&&<Link href="/characters/create" className="inline-flex rounded-xl bg-white px-4 py-2 font-semibold text-zinc-950 hover:bg-zinc-200">+ Crear personaje</Link>}</div>

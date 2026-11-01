@@ -1,3 +1,5 @@
+import { validEffectRequirements, effectRequirementDiscount, meetsEffectRequirements } from "@/lib/skills/effect-requirements";
+import { validateSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -29,7 +31,6 @@ function validate(body: any) {
   const accumulationPerTick = Number(body.accumulationPerTick ?? 0);
   if (!Number.isInteger(cost) || cost < 0) return "Coste inválido.";
   if (!Number.isInteger(maintenanceCost) || maintenanceCost < 0 || !Number.isInteger(accumulationCost) || accumulationCost < 0 || !Number.isInteger(accumulationPerTick) || accumulationPerTick < 0) return "Costo de mantenimiento por turno inválido.";
-  if (!Number.isInteger(Number(body.maxRangeMeters??5)) || Number(body.maxRangeMeters??5)<0 || Number(body.maxRangeMeters??5)>100) return "Distancia máxima inválida.";
   if (effect.length > 20) return "Demasiados efectos.";
   return null;
 }
@@ -56,7 +57,13 @@ export async function POST(request: Request) {
   const error = validate(body);
   if (error) return NextResponse.json({ error }, { status: 400 });
   const Skill = (db.orm.public as any).Skill;
+  const characterId = Number(body.characterId);
+  const effectRequirements = body.effectRequirements ?? [];
+  if (!validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Requisitos por efecto inválidos."},{status:400});
+  if (!Number.isSafeInteger(characterId) || characterId <= 0 || !validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Personaje o requisitos inválidos."},{status:400});
+  const available = await Skill.where({characterId}).all();
   const skill = await Skill.create({
+    effectRequirements,
     characterId: Number(body.characterId),
     name: body.name.trim(),
     cost: Number(body.cost),

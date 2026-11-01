@@ -1,3 +1,5 @@
+import { validEffectRequirements, effectRequirementDiscount, meetsEffectRequirements } from "@/lib/skills/effect-requirements";
+import { validateSkillPrerequisites, hasPrerequisiteCycle } from "@/lib/skills/prerequisites";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { Temporal } from "@js-temporal/polyfill";
@@ -40,7 +42,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
   }
 
-  if(body.maxRangeMeters!==undefined && (!Number.isInteger(Number(body.maxRangeMeters))||Number(body.maxRangeMeters)<0||Number(body.maxRangeMeters)>100)) return NextResponse.json({error:"Distancia máxima inválida."},{status:400});
+  const effectRequirements = body.effectRequirements ?? (skill as any).effectRequirements ?? [];
+  if (!validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Requisitos por efecto inválidos."},{status:400});
+  const available = await Skill.where({characterId:Number(skill.characterId)}).all();
+
   const requestedPchCost = body.pchCost === undefined ? Number((skill as any).pchCost ?? 0) : Number(body.pchCost);
   if (!Number.isInteger(requestedPchCost) || requestedPchCost < 0) return NextResponse.json({ error: "Costo PCH inválido." }, { status: 400 });
 
@@ -85,6 +90,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       await TxSkill.where({ id }).update({
         name,
+        effectRequirements,
         cost,
         pchCost: requestedPchCost,
         maintenanceCost,

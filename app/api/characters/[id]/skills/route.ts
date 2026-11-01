@@ -1,3 +1,6 @@
+import { validEffectRequirements, effectRequirementDiscount, meetsEffectRequirements } from "@/lib/skills/effect-requirements";
+import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
+import { validateSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { readDefaultAttackSpeedStat, speedSurcharge } from "@/lib/skills/speed-settings";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
@@ -131,6 +134,10 @@ export async function POST(
   const Skill = (db.orm.public as any).Skill;
   if (!Skill) return NextResponse.json({ error: "El sistema de habilidades aún no está disponible." }, { status: 500 });
 
+  const effectRequirements = body.effectRequirements ?? [];
+  if (!validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Requisitos por efecto inválidos."},{status:400});
+  const available = await Skill.where({characterId}).all();
+
   const pricing = { ...defaultEffectPricing(), ...await readEffectPricing() };
   if (body.effect.some((effect: { type: string }) => pricing[effect.type]?.enabled === false)) return NextResponse.json({ error: "Uno de los efectos ya no está disponible para habilidades nuevas." }, { status: 400 });
   const narrativeCards = await readNarrativeEffectCards();
@@ -149,6 +156,7 @@ export async function POST(
     }
   }
   pchCost = applyRangePch(manaAdjustedPch(pchCost, Number(body.cost ?? 0)) + speedSurcharge(body.speed), Number(body.maxRangeMeters ?? 5));
+  pchCost = effectRequirementDiscount(pchCost, effectRequirements, available);
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {
@@ -162,6 +170,7 @@ export async function POST(
     if (affectedRows !== 1) throw new Error("NOT_ENOUGH_PCH");
     const skill = await (tx.orm.public as any).Skill.create({
       characterId,
+      effectRequirements,
       name: body.name.trim(),
       cost: Number(body.cost),
       pchCost,

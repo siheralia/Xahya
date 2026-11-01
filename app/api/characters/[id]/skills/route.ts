@@ -1,3 +1,4 @@
+import { validateSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { readDefaultAttackSpeedStat, speedSurcharge } from "@/lib/skills/speed-settings";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
@@ -131,6 +132,12 @@ export async function POST(
   const Skill = (db.orm.public as any).Skill;
   if (!Skill) return NextResponse.json({ error: "El sistema de habilidades aún no está disponible." }, { status: 500 });
 
+  const requiredSkillIds: number[] = Array.isArray(body.requiredSkillIds) ? body.requiredSkillIds : [];
+  if (requiredSkillIds.length > 10 || requiredSkillIds.some(id => !Number.isSafeInteger(id) || id <= 0)) return NextResponse.json({error:"Requisitos inválidos."},{status:400});
+  const available = await Skill.where({characterId}).all();
+  const prerequisiteError = validateSkillPrerequisites(characterId,null,requiredSkillIds.map(skillId=>({skillId})),available.map((s:any)=>({id:Number(s.id),characterId:Number(s.characterId),status:String(s.status)})));
+  if (prerequisiteError) return NextResponse.json({error:prerequisiteError},{status:400});
+
   const pricing = { ...defaultEffectPricing(), ...await readEffectPricing() };
   if (body.effect.some((effect: { type: string }) => pricing[effect.type]?.enabled === false)) return NextResponse.json({ error: "Uno de los efectos ya no está disponible para habilidades nuevas." }, { status: 400 });
   const narrativeCards = await readNarrativeEffectCards();
@@ -162,6 +169,7 @@ export async function POST(
     if (affectedRows !== 1) throw new Error("NOT_ENOUGH_PCH");
     const skill = await (tx.orm.public as any).Skill.create({
       characterId,
+      requiredSkillIds,
       name: body.name.trim(),
       cost: Number(body.cost),
       pchCost,

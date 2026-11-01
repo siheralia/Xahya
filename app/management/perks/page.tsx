@@ -65,7 +65,7 @@ export default function PerksManagementPage(){
     setName(perk.name);
     setDescription(perk.description??"");
     setProbability(String(perk.probability));
-    setEffectRows((Array.isArray(perk.effects)?perk.effects:[]).map((effect:any)=>({type:(EFFECT_TYPES.some(([value])=>value===effect?.type)?effect.type:"STAT_BONUS") as EffectType,target:String(effect?.target??"STR"),value:Number(effect?.value??0),element:String(effect?.element??"NEUTRAL")})));
+    setEffectRows((Array.isArray(perk.effects)?perk.effects:[]).map((effect:any)=>({type:String(effect?.type??"STAT_BONUS") as EffectType,target:String(effect?.target??"STR"),value:Number(effect?.value??0),element:String(effect?.element??"NEUTRAL")})));
     setStackable(perk.stackable);
     setMaxStacks(perk.maxStacks==null?"":String(perk.maxStacks));
     setError("");setSuccess("");
@@ -75,7 +75,7 @@ export default function PerksManagementPage(){
   async function savePerk(){
     setError("");setSuccess("");
     if(!name.trim()){setError("El perk necesita un nombre.");return;}
-    const parsed=effectRows.filter(effect=>EFFECT_TYPES.some(([type])=>type===effect.type)&&(TARGETS[effect.type]?.length===0||TARGETS[effect.type]?.some(target=>target===effect.target))).map(effect=>({type:effect.type,target:effect.target,value:Number(effect.value),element:effect.element??"NEUTRAL"}));
+    const parsed=effectRows.map(effect=>({type:effect.type,target:effect.target,value:Number(effect.value),element:effect.element??"NEUTRAL"}));
     if(parsed.some(effect=>!Number.isFinite(effect.value))){setError("Todos los valores de los efectos deben ser números.");return;}
     const payload={name:name.trim(),description,effects:parsed,probability:Number(probability),stackable,maxStacks:stackable?null:(maxStacks===""?null:Number(maxStacks))};
     if(!Number.isFinite(payload.probability)||payload.probability<0){setError("Probabilidad inválida.");return;}

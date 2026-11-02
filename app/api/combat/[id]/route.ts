@@ -5,6 +5,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { resolvePingPongAction, type CombatAttackType } from "@/lib/combat/engine";
+import { advanceCombatMechanics, encounterAgilityMultiplier } from "@/lib/skills/mechanics-runtime";
 
 const ATTACK_TYPES = new Set(["CUT", "BLUNT", "PIERCE"]);
 
@@ -59,9 +60,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const mechanics = await readMechanics();
-  const playerAgility = Math.max(1, await getCharacterMechanicValue(Number(session.playerCharacterId), mechanics.combatSpeed));
+  const playerAgility = Math.max(1, Math.round((await getCharacterMechanicValue(Number(session.playerCharacterId), mechanics.combatSpeed)) * encounterAgilityMultiplier(session.mechanicsState,"PLAYER")));
   const npcStats = session.npcStats && typeof session.npcStats === "object" ? session.npcStats as Record<string, unknown> : {};
-  const npcAgility = Math.max(1, Number(npcStats[mechanics.combatSpeed] ?? (mechanics.combatSpeed === "agility" ? npcStats.AGI : undefined) ?? npcStats.agility ?? npcStats.AGI ?? 1));
+  const npcAgility = Math.max(1, Math.round(Number(npcStats[mechanics.combatSpeed] ?? (mechanics.combatSpeed === "agility" ? npcStats.AGI : undefined) ?? npcStats.agility ?? npcStats.AGI ?? 1) * encounterAgilityMultiplier(session.mechanicsState,"NPC")));
   const npcAttackType = ATTACK_TYPES.has(String(npcStats.attackType ?? "CUT").toUpperCase())
     ? String(npcStats.attackType ?? "CUT").toUpperCase() as CombatAttackType
     : "CUT";
@@ -80,12 +81,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const logicalTicksElapsed = Math.max(0, result.currentTick - previousTick);
   const now = Temporal.Now.instant();
 
-  const { updated, skillAccumulations } = await db.transaction(async (tx) => {
+  const { updated, skillAccumulations, environment } = await db.transaction(async (tx) => {
     const TxSession = (tx.orm.public as any).CombatSession;
     const State = (tx.orm.public as any).CharacterSkillState;
     const Skill = (tx.orm.public as any).Skill;
 
     let skillAccumulations: Array<{ skillId: number; added: number; ticks: number }> = [];
+    const turnSkills=Skill?await Skill.where({characterId:Number(session.playerCharacterId)}).all():[];
+    const activeStates=State?await State.where({characterId:Number(session.playerCharacterId),active:true}).all():[];
+    const activeIds=activeStates.map((row:any)=>Number(row.skillId));
+    const environment=advanceCombatMechanics(session.mechanicsState,Number(session.playerCharacterId),turnSkills,activeIds);
     if (State && Skill && logicalTicksElapsed > 0) {
       const states = await State.where({ characterId: Number(session.playerCharacterId), active: true }).all();
       const skills = await Skill.where({ characterId: Number(session.playerCharacterId) }).all();
@@ -146,10 +151,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       playerNextActionTick: result.playerNextActionTick,
       npcNextActionTick: result.npcNextActionTick,
       lastAction: result.events,
+      mechanicsState:environment,
       updatedAt: now,
     });
-    return { updated, skillAccumulations };
+    return { updated, skillAccumulations, environment };
   });
 
-  return NextResponse.json({ session: updated, events: result.events, logicalTicksElapsed, skillAccumulations });
+  return NextResponse.json({ session: updated, events: result.events, logicalTicksElapsed, skillAccumulations, environment });
 }

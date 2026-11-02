@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { PCH_PER_COIN } from "@/lib/skills/pch";
 
-const SYSTEM_ACTIONS = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL"] as const;
+const SYSTEM_ACTIONS = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL", "IMPROVE_SKILL"] as const;
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -117,6 +117,35 @@ export async function POST(
       roomId: Number(room.id),
       trapDisabled: action === "DISARM_MAZE_TRAP",
     });
+  }
+
+  if (action === "IMPROVE_SKILL") {
+    try {
+      await db.transaction(async (tx) => {
+        const consume = db.raw.sql`
+          UPDATE public."characterItem" SET "quantity" = "quantity" - 1
+          WHERE id = ${characterItemId} AND "characterId" = ${characterId} AND "quantity" >= 1
+        `.affectedCount().build();
+        if ((await tx.execute(consume)).affectedRows !== 1) throw new Error("ITEM_NOT_AVAILABLE");
+        const credit = db.raw.sql`
+          UPDATE public."character"
+          SET "skillUpgradeCredits" = "skillUpgradeCredits" + 1
+          WHERE id = ${characterId} AND "skillUpgradeCredits" < 2147483647
+        `.affectedCount().build();
+        if ((await tx.execute(credit)).affectedRows !== 1) throw new Error("UPGRADE_CREDIT_OVERFLOW");
+        await (tx.orm.public as any).CharacterItem.where({ id: characterItemId, quantity: 0 }).delete();
+        await tx.orm.public.AuditLog.create({
+          actorUserId: user.id, action: "ITEM_USE_SYSTEM", entityType: "ITEM",
+          entityId: Number(item.id), characterId, targetUserId: null,
+          details: JSON.stringify({ characterItemId, action, grantedUpgradeCredits: 1 }),
+        });
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "ITEM_NOT_AVAILABLE")
+        return NextResponse.json({ error: "Esta moneda ya fue consumida." }, { status: 409 });
+      throw error;
+    }
+    return NextResponse.json({ success: true, action, consumed: 1, upgradeCreditsGranted: 1 });
   }
 
   if (action === "CREATE_SKILL") {

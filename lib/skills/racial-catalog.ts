@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
+import { validateCopyEffect } from "@/lib/skills/copy";
 import { EFFECT_TYPES } from "@/lib/effects/catalog";
 
 export type RacialEffect = {
   type: string; target?: string; element?: string; value?: number;
   description?: string; capability?: string; durationTurns?: number;
-  durationMovements?: number; targetKind?: "SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT"; activationCondition?: "NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT";
+  durationMovements?: number; targetKind?: "SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT"; activationCondition?: "NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT";copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;
 };
 export type RacialSkill = {
   id: number; raceId: number; raceName?: string;
@@ -28,6 +29,7 @@ export function validateRacialSkill(input: unknown): string | null {
   if (!Array.isArray(value.effect) || value.effect.length > 20) return "La habilidad admite hasta 20 efectos.";
   for (const row of value.effect) {
     if (!row || typeof row !== "object" || !EFFECT_TYPES.includes(row.type)) return "Tipo de efecto inválido.";
+    const copyError=validateCopyEffect(row);if(copyError)return copyError;
     if (row.element !== undefined && (typeof row.element !== "string" || !/^[A-Z0-9_]{1,64}$/.test(row.element))) return "Elemento inválido.";
     if (row.capability !== undefined && row.capability !== "" && (typeof row.capability !== "string" || !/^[A-Z][A-Z0-9_]{0,63}$/.test(row.capability))) return "Efecto para requisitos inválido.";
     if (row.target !== undefined && (typeof row.target !== "string" || row.target.length > 120)) return "Objetivo inválido.";

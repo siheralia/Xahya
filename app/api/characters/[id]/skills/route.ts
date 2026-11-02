@@ -12,6 +12,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { EFFECT_TYPES, resolveEffectTargets } from "@/lib/effects/catalog";
 import { readManagedEffectCatalog } from "@/lib/effects/managed-catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
+import { validateCopyEffect } from "@/lib/skills/copy";
 import { calculateSkillPch, defaultEffectPricing } from "@/lib/skills/pch";
 import { readEffectPricing } from "@/lib/effects/pricing";
 import { readNarrativeEffectCards } from "@/lib/effects/narrative-cards";
@@ -48,7 +49,7 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (effect.length > 20) return "Una habilidad no puede tener más de 20 efectos.";
   for (const row of effect) {
     if (!row || typeof row !== "object" || !EFFECT_TYPES.includes(String(row.type) as any)) return "Efecto de habilidad inválido.";
-    const parameterError = validateSkillParameters(row);
+    const parameterError = validateSkillParameters(row) ?? validateCopyEffect(row);
     if (parameterError) return parameterError;
     if (row.durationMovements !== undefined && (!Number.isSafeInteger(row.durationMovements) || row.durationMovements < 1 || row.durationMovements > 100)) return "Movimientos inválidos.";
     if (row.durationMovements !== undefined && row.durationTurns) return "Elige movimientos o turnos, no ambos.";
@@ -95,7 +96,7 @@ export async function GET(
   const rows = await Skill.where({ characterId }).all();
   const skills = rows.filter((row: any) => String(row.status) === "APPROVED");
   const pendingSkills = Number(character.userId) === Number(user.id)
-    ? rows.filter((row: any) => String(row.status) !== "APPROVED")
+    ? rows.filter((row: any) => ["PENDING","REJECTED"].includes(String(row.status)))
     : [];
   const State = (db.orm.public as any).CharacterSkillState;
   const states = State ? await State.where({ characterId }).all() : [];

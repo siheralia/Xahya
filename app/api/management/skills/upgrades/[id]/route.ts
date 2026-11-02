@@ -35,7 +35,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
           accumulationPerTick:payload.accumulationPerTick,duration:payload.duration,
           category:payload.category,areaOfEffect:serializeSkillRange(payload.areaOfEffect,payload.maxRangeMeters),
           speed:payload.speed,cooldown:payload.cooldown,condition:payload.condition,
-          effect:payload.effect,effectRequirements:payload.effectRequirements,pchCost:row.nextPch
+          effect:payload.effect,effectRequirements:payload.effectRequirements,mechanics:payload.mechanics,pchCost:row.nextPch
         });
       }else{
         const refund=db.raw.sql`UPDATE public."character"

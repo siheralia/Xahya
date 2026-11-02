@@ -10,6 +10,11 @@ export const COOLDOWN_OPTIONS = [
   {value:"Igual a duración",percent:null},
 ] as const;
 
+/** Only catalog values can receive a PCH discount. */
+export function isConfiguredCooldown(value:unknown):boolean {
+  return typeof value==="string" && COOLDOWN_OPTIONS.some(option=>option.value===value);
+}
+
 const byTurns=(turns:number):number =>
   turns>=10?30:turns>=5?20:turns>=3?15:turns>=2?10:turns>=1?5:0;
 

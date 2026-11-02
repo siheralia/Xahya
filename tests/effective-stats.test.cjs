@@ -48,6 +48,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
       return result;
     } },
     "@/lib/perks": { getPerkEffects: (entries) => entries.flatMap((entry) => entry.perk?.effects ?? []) },
+    "@/lib/skills/interaction-engine": {parseEnvironment:(v)=>v??{}, activeStatMultipliers:()=>({})},
   };
   const moduleExports = {};
   vm.runInNewContext(js, { exports: moduleExports, require: (id) => {

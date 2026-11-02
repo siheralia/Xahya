@@ -78,10 +78,10 @@ test("once per combat is only usable once in each encounter",()=>{
 
 test("outside combat respects elapsed wall-clock time (100s per turn)",()=>{
  const stamp={turn:0,at:1000};
- const before=runtime.cooldownAvailability("1 turno","Instantánea","OFFENSIVE",stamp,"PERSONAL",0,101000);
+ const before=runtime.cooldownAvailability("1 turno","Instantánea","OFFENSIVE",stamp,"PERSONAL",0,51000);
  assert.equal(before.allowed,false);
  assert.equal(before.remainingTurns,1);
- assert.equal(runtime.cooldownAvailability("1 turno","Instantánea","OFFENSIVE",stamp,"PERSONAL",0,201000).allowed,true);
+ assert.equal(runtime.cooldownAvailability("1 turno","Instantánea","OFFENSIVE",stamp,"PERSONAL",0,101000).allowed,true);
 });
 
 test("server and editors all apply same cooldown adjustment before requirements",()=>{

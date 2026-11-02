@@ -33,7 +33,7 @@ type Skill = {
 const categories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
 const effectTypes=[...EFFECT_CATALOG.filter(e=>e.type!=="MAZE_UTILITY").map(e=>[e.type,e.label] as const),["MAZE_UTILITY_INVISIBILITY","Invisibilidad"],["MAZE_UTILITY_FLOATING","Flotar"]] as const;
 const blankEffect=():Effect=>({type:"STAT_BONUS",target:"STR",value:10,description:""});
-const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"Instantánea",category:"UTILITY",areaOfEffect:"Objetivo único",maxRangeMeters:5,speed:"DEFAULT",cooldown:"Sin cooldown",condition:"",mechanics:{} as SkillMechanics,effectRequirements:[] as {effect:string;element?:string}[],effect:[] as Effect[]});
+const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0,accumulationPerTick:0,maintenanceCost:0,description:"",duration:"Instantánea",category:"UTILITY",attackType:null as string|null,defenseType:null as string|null,areaOfEffect:"Objetivo único",maxRangeMeters:5,speed:"DEFAULT",cooldown:"Sin cooldown",condition:"",mechanics:{} as SkillMechanics,effectRequirements:[] as {effect:string;element?:string}[],effect:[] as Effect[]});
 
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
@@ -100,7 +100,7 @@ export default function SkillsManagementPage(){
     setSelected(skill.id);
     setForm({
       characterId:String(skill.characterId),name:skill.name,cost:Number(skill.cost),pchCost:Number(skill.pchCost??0),accumulationCost:Number(skill.accumulationCost??0),accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),description:skill.description??"",
-      duration:skill.duration??"",category:skill.category,areaOfEffect:skill.areaOfEffect??"",maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\d+) m/)?.[1]??5),speed:skill.speed??"DEFAULT",
+      duration:skill.duration??"",category:skill.category,attackType:skill.attackType??null,defenseType:skill.defenseType??null,areaOfEffect:skill.areaOfEffect??"",maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\d+) m/)?.[1]??5),speed:skill.speed??"DEFAULT",
       cooldown:skill.cooldown??"",condition:skill.condition??"",mechanics:skill.mechanics??{},effectRequirements:skill.effectRequirements??[],effect:Array.isArray(skill.effect)?skill.effect:[],
     });
     setModal(true);setError("");setSuccess("");

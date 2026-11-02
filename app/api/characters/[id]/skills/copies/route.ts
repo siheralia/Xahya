@@ -68,7 +68,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
         pchCost:0,status:mode==="COLLECTION"?"STORED":"APPROVED"
       });
       const insert=db.raw.sql`INSERT INTO public."skillCopy" ("characterId","copierSkillId","sourceSkillId","copiedSkillId",mode,"remainingTurns",equipped)
-      VALUES (${id},${copierId},${sourceId},${Number(created.id)},${mode},${mode==="TEMPORARY"?Number(copyEffect.copyDurationTurns??3):null},${mode!=="COLLECTION"})`.affectedCount().build();
+      VALUES (${id},${copierId},${sourceId},${Number(created.id)},${mode},NULLIF(${mode==="TEMPORARY"?Number(copyEffect.copyDurationTurns??3):0},0),${mode!=="COLLECTION"})`.affectedCount().build();
       if((await tx.execute(insert)).affectedRows!==1)throw new Error("COPY_INSERT_FAILED");
       await tx.orm.public.AuditLog.create({
         actorUserId:owner.user.id,action:"SKILL_COPY",entityType:"SKILL",

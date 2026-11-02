@@ -2,8 +2,30 @@ import { db } from "@/lib/db";
 import { readStatisticsCatalog, CORE_BASIC_STAT_KEYS } from "@/lib/stats/dynamic";
 import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { getPerkEffects } from "@/lib/perks";
+import {activeStatMultipliers,parseEnvironment} from "@/lib/skills/interaction-engine";
 
 const CORE_CODES: Record<string,string> = {strength:"STR",agility:"AGI",constitution:"CON",intelligence:"INT",wisdom:"WIS",charisma:"CHA",spirit:"SPI",luck:"LCK"};
+
+/** Resolve the active character context without hardcoding any ability name. */
+async function readMechanicStatFactors(characterId:number, source:any):Promise<Record<string,number>> {
+  const Combat=(source.orm.public as any).CombatSession;
+  if(Combat){
+    const sessions=await Combat.where({playerCharacterId:characterId,status:"ACTIVE"}).all();
+    const current=sessions.sort((a:any,b:any)=>Number(b.id)-Number(a.id))[0];
+    if(current)return activeStatMultipliers(parseEnvironment(current.mechanicsState),"PLAYER");
+  }
+  const Position=(source.orm.public as any).MazeCharacterPosition;
+  const position=Position?await Position.where({characterId,status:"ACTIVE"}).first():null;
+  if(position){
+    const Room=(source.orm.public as any).MazeRoom;
+    const room=Room?await Room.where({id:Number(position.roomId)}).first():null;
+    if(room)return activeStatMultipliers(parseEnvironment(room.mechanicsState),"PLAYER");
+  }
+  const Character=(source.orm.public as any).Character;
+  const character=Character?await Character.where({id:characterId}).first():null;
+  return activeStatMultipliers(parseEnvironment(character?.mechanicsState),"PLAYER");
+}
+
 
 
 export async function getEffectiveCharacterStats(characterId:number, source:any=db) {
@@ -37,6 +59,7 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
   const perks = getPerkEffects(assigned.map((entry:any)=>({...entry,perk:perkDefinitions.find((perk:any)=>Number(perk.id)===Number(entry.perkId))})));
   const validEffects = effects.filter((effect:any)=>!["stat_bonus","stat_multiplier"].includes(effect.type)||validStatTarget(effect.stat)||effect.stat==="ATTACK_TOTAL");
   const validPerks = perks.filter((effect:any)=>!["STAT_BONUS","STAT_MULTIPLIER"].includes(String(effect.type))||validStatTarget(String(effect.target??""))||effect.target==="ATTACK_TOTAL");
+  const mechanicFactors=await readMechanicStatFactors(characterId,source);
   const base:Record<string,number> = {};
   const breakdown:Record<string,{base:number;value:number;karmaBonus:number;objectFlatBonus:number;combinedMultiplier:number}> = {};
   for(const key of basicKeys) {
@@ -52,8 +75,9 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     const itemFactors=validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&matches(entry.stat)).map((entry:any)=>entry.value);
     const perkFactors=validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&matches(String(entry.target))).map((entry:any)=>Number(entry.value));
     const combinedMultiplier=(1+multiplier)*([...itemFactors,...perkFactors].length ? [...itemFactors,...perkFactors].reduce((sum:number,factor:number)=>sum+factor,0) : 1);
-    base[key]=original*combinedMultiplier+flat+bonus+karma;
-    breakdown[key]={base:original,value:base[key],karmaBonus:karma,objectFlatBonus:flat+bonus,combinedMultiplier};
+    const mechanicMultiplier=mechanicFactors[codeByKey[key]]??mechanicFactors[key.toUpperCase()]??1;
+    base[key]=(original*combinedMultiplier+flat+bonus+karma)*mechanicMultiplier;
+    breakdown[key]={base:original,value:base[key],karmaBonus:karma,objectFlatBonus:flat+bonus,combinedMultiplier:combinedMultiplier*mechanicMultiplier};
   }
   let derived=await calculateConfiguredDerivedStats(base as any,source);
   // Resolve only active derived targets; do not fall back to legacy aliases for disabled stats.
@@ -80,6 +104,10 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
   for (const [key, modifier] of derivedModifiers) {
     const factor = modifier.factors.length ? modifier.factors.reduce((sum, value) => sum + value, 0) : 1;
     derived[key] = Number(derived[key] ?? 0) * factor + modifier.bonus;
+  }
+  for(const [key,code] of Object.entries(derivedCodes)) {
+    const mechanicMultiplier=mechanicFactors[code]??mechanicFactors[key.toUpperCase()];
+    if(mechanicMultiplier!==undefined && Number.isFinite(Number(derived[key]))) derived[key]*=mechanicMultiplier;
   }
   const attackFactors=[...validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").map((entry:any)=>entry.value),...validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&entry.target==="ATTACK_TOTAL").map((entry:any)=>Number(entry.value))];
   const attackMultiplier=attackFactors.length?attackFactors.reduce((sum:number,factor:number)=>sum+factor,0):1;

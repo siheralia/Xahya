@@ -1,6 +1,5 @@
 "use client";
 import {useEffect,useState} from "react";
-import {SkillEmblem} from "@/app/components/skill-emblem";
 
 type Entry={
  id:number;name:string;description:string|null;category:string;cost:number;

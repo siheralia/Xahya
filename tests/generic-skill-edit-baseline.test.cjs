@@ -46,10 +46,10 @@ const imports={
   "@/lib/skills/range-pricing":{applyRangePch:(n,m)=>Math.max(1,n+m-5)},
   "@/lib/skills/effect-requirements":{effectRequirementDiscount:n=>n},
 };
-const exports={};
+const moduleExports={};
 vm.runInNewContext(ts.transpileModule(text(file),{
  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
-}).outputText,{exports,require:name=>{
+}).outputText,{exports:moduleExports,require:name=>{
  if(name in imports)return imports[name];
  throw new Error("Unmocked import: "+name);
 },Math,Number,Object,Array,Set,Error}, {filename:file});
@@ -58,7 +58,7 @@ const form={
  effect:[{type:"NARRATIVE",value:1}],effectRequirements:[],
  mechanics:{},cost:0,speed:"DEFAULT",maxRangeMeters:0,
 };
-const calculate=exports.calculateGenericPricePreview;
+const calculate=moduleExports.calculateGenericPricePreview;
 test("editing preserves the original quoted price while the live quote changes",()=>{
  const before=calculate(form,null,[],()=>5);
  assert.equal(before.total,5);

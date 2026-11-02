@@ -35,6 +35,8 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
           accumulationPerTick:payload.accumulationPerTick,duration:payload.duration,
           category:payload.category,areaOfEffect:serializeSkillRange(payload.areaOfEffect,payload.maxRangeMeters),
           speed:payload.speed,cooldown:payload.cooldown,condition:payload.condition,
+          ...(payload.attackType!==undefined?{attackType:payload.attackType}:{}),
+          ...(payload.defenseType!==undefined?{defenseType:payload.defenseType}:{}),
           effect:payload.effect,effectRequirements:payload.effectRequirements,mechanics:payload.mechanics,pchCost:row.nextPch
         });
       }else{

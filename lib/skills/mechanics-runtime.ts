@@ -72,9 +72,12 @@ export async function activateSkillMechanics(tx:any, skill:any, characterId:numb
   if (!conditionsMet(mechanics.activationConditions??[],location.state,ctx))
     throw new Error("MECHANIC_CONDITION_FAILED");
   const result = applyMechanicEvent(location.state,mechanics,ctx);
-  const cost = Math.max(0,Number(skill.cost??0)) + result.manaInvestment;
-  const manaBalance = await debitCharacterMana(tx,characterId,cost,maxMana);
-  await saveSkillEnvironment(tx,location,result.state);
+  // Legacy skill ticking is only an accumulation toggle: do not retroactively
+  // charge existing skills until they explicitly opt in to the mechanics engine.
+  const hasExecutableRules=Array.isArray(mechanics.rules) && mechanics.rules.length>0;
+  const cost = hasExecutableRules ? Math.max(0,Number(skill.cost??0)) + result.manaInvestment : 0;
+  const manaBalance = hasExecutableRules ? await debitCharacterMana(tx,characterId,cost,maxMana) : null;
+  if(hasExecutableRules) await saveSkillEnvironment(tx,location,result.state);
   return {manaBalance,environment:result.state,environmentKind:location.kind};
 }
 

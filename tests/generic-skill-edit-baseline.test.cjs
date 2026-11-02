@@ -56,15 +56,16 @@ vm.runInNewContext(ts.transpileModule(text(file),{
 
 const form={
  effect:[{type:"NARRATIVE",value:1}],effectRequirements:[],
- mechanics:{},cost:25,speed:"DEFAULT",maxRangeMeters:0,
+ mechanics:{},cost:0,speed:"DEFAULT",maxRangeMeters:0,
 };
 const calculate=exports.calculateGenericPricePreview;
 test("editing preserves the original quoted price while the live quote changes",()=>{
  const before=calculate(form,null,[],()=>5);
  assert.equal(before.total,5);
  const original=before.total;
- const after=calculate({...form,cost:0},null,[],()=>5);
- assert.equal(after.total,5);
+ const after=calculate({...form,cost:5},null,[],()=>5);
+ assert.equal(after.total,4);
+ assert.equal(after.total-original,-1);
  const changed=calculate({...form,maxRangeMeters:5,cost:0},null,[],()=>5);
  assert.equal(changed.total,10);
  assert.equal(changed.total-original,5);

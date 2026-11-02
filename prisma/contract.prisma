@@ -82,6 +82,7 @@ model Skill {
   cooldown    String?
   effect      Json      @default("[]")
   effectRequirements Json @default("[]")
+  mechanics Json @default("{}")
   requiredSkillIds Int[] @default([])
   grantedByRacePerkId Int?
   grantedByRaceSkillId Int?
@@ -118,6 +119,7 @@ model CombatSession {
   playerCharacter      Character @relation(fields:[playerCharacterId], references:[id], onDelete:Cascade)
   npcName              String
   npcStats             Json      @default("{}")
+  mechanicsState       Json      @default("{}")
   currentTick          Int       @default(0)
   turn                 Int       @default(1)
   activeActor          String    @default("PLAYER")
@@ -163,6 +165,7 @@ model CharacterResource {
   karma       Int       @default(0)
   money       Int       @default(0)
   levelUpPoints Int       @default(0)
+  currentMana Int?
   blackjackState String?
 
   @@unique([characterId])
@@ -275,6 +278,7 @@ model MazeRoom {
   contentDescription String?
   treasureClaimed    Boolean   @default(false)
   treasureRewards   Json      @default("{}")
+  mechanicsState    Json      @default("{}")
   trapActive        Boolean   @default(true)
   createdAt          DateTime  @default(now())
   exits              MazeExit[] @relation("MazeExitFrom")

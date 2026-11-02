@@ -2226,10 +2226,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {pchBalance > 0 && (
+                <>
                 <button type="button" onClick={()=>setGenericSkillShopOpen(true)} className="rounded-lg border border-cyan-500/60 px-3 py-2 text-sm font-semibold text-cyan-200">Comprar genérica</button>
                  <button type="button" onClick={openSkillCreator} className="rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-zinc-950">
                   Crear habilidad · {pchBalance} PCH
                 </button>
+                </>
               )}
               <span className="rounded-lg border border-violet-700 px-3 py-2 text-xs text-violet-200">Monedas de mejora: {skillUpgradeCredits}</span>
               <button type="button" onClick={() => setSkillsOpen((value) => !value)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200">

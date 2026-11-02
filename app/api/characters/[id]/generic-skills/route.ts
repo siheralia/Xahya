@@ -48,6 +48,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{id:string}>
    if(chain.some(x=>!x.enabled))return null;
    const req=chain.some(x=>x.elementChoice);
    const quote=await quoteGenericSkill(all,t.id,req?sample:undefined);
+   if(quote.skill.effect.some((e:any)=>e.type==="ELEMENTAL_IMBUE" && (!e.element || e.element==="NEUTRAL" || !elements.some(el=>el.key===e.element))))return null;
    const alreadyOwned=[...ownedIds].some(existingId=>{
     try{return genericTemplateChain(all,existingId).some(x=>x.id===t.id);}
     catch{return false;}
@@ -95,6 +96,11 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
    const lock=db.raw.sql`UPDATE public."character" SET "pchBalance"="pchBalance" WHERE id=${access.characterId}`.affectedCount().build();
    if((await tx.execute(lock)).affectedRows!==1)throw new Error("CHARACTER_MISSING");
    const TxSkill=(tx.orm.public as any).Skill;
+   const fresh=(await (tx.orm.public as any).GenericSkillTemplate.all()).map(mapRow);
+   if(chain.some(original=>{
+     const updated=fresh.find(row=>row.id===original.id);
+     return !updated || JSON.stringify(updated)!==JSON.stringify(original);
+   }))throw new Error("TEMPLATE_CHANGED");
    const owned=await TxSkill.where({characterId:access.characterId}).all();
    const active=owned.filter((row:any)=>String(row.status)==="APPROVED");
    const ownedIds=ownTemplateIds(active);
@@ -154,6 +160,8 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
    PARENT_ACTIVE:"Desactiva la habilidad base antes de evolucionarla.",
    MISSING_CAPABILITIES:"No cumples los requisitos de efectos y elementos.",
    PCH_INSUFFICIENT:"PCH insuficientes.",
+   TEMPLATE_CHANGED:"El catálogo cambió mientras comprabas. Revisa los precios y vuelve a intentarlo.",
+   SKILL_PCH_OVERFLOW:"La habilidad supera el límite de PCH permitido.",
   };
   return NextResponse.json({error:reasons[error]??"No se pudo completar la compra."},{status:409});
  }

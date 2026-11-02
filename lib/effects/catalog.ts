@@ -19,6 +19,7 @@ export const EFFECT_CATALOG = [
   { type: "IGNORE_ALL_DEF_BONUS", label: "Ignorar defensas +", mode: "bonus", targets: [] },
   { type: "FINAL_DAMAGE_MULTIPLIER", label: "Daño final ocasionado ×", mode: "multiplier", targets: [] },
   { type: "FINAL_DAMAGE_BONUS", label: "Daño final ocasionado +", mode: "bonus", targets: [] },
+  { type: "COPY_SKILL", label: "Copiar habilidad", mode: "special", targets: [] },
   { type: "MAZE_UTILITY", label: "Capacidad de laberinto", mode: "special", targets: ["INVISIBILITY","FLOATING"] },
 ] as const;
 

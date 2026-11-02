@@ -533,6 +533,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [upgradingSkill,setUpgradingSkill]=useState<Skill|null>(null);
   const [upgradeRequests,setUpgradeRequests]=useState<Array<{id:number;skillId:number;status:string;deltaPch:number}>>([]);
   const [copyBusy,setCopyBusy]=useState<number|null>(null);
+  const [copyRequests,setCopyRequests]=useState<Array<{id:number;copierSkillId:number;sourceSkillId:number;sourceName:string;mode:string;status:string;copiedSkillId:number|null}>>([]);
   const [copyRecords,setCopyRecords]=useState<Array<{id:number;copierSkillId:number;sourceSkillId:number;copiedSkillId:number;name:string;mode:string;remainingTurns:number|null;equipped:boolean}>>([]);
   const [pchBalance, setPchBalance] = useState(0);
   const [effectDefinitions, setEffectDefinitions] = useState<EffectDefinition[]>([]);
@@ -571,7 +572,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     if (!character) return;
     void fetch("/api/characters/"+character.id+"/skills/upgrades",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{if(d){setSkillUpgradeCredits(Number(d.credits??0));setUpgradeRequests(d.requests??[]);}}).catch(()=>{});
-    void fetch("/api/characters/"+character.id+"/skills/copies",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{if(d)setCopyRecords(d.copies??[]);}).catch(()=>{});
+    void fetch("/api/characters/"+character.id+"/skills/copies",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{if(d){setCopyRecords(d.copies??[]);setCopyRequests(d.requests??[]);}}).catch(()=>{});
     fetch("/api/characters/" + character.id + "/skills", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return;
@@ -1432,8 +1433,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       if(!response.ok)throw new Error(data?.error??"No se pudo copiar.");
       const [sr,cr]=await Promise.all([fetch("/api/characters/"+character.id+"/skills",{cache:"no-store"}),fetch("/api/characters/"+character.id+"/skills/copies",{cache:"no-store"})]);
       if(sr.ok){const d=await sr.json();setSkills(d.skills??[]);setPendingSkills(d.pendingSkills??[]);}
-      if(cr.ok)setCopyRecords((await cr.json()).copies??[]);
-      setSuccess(mode==="IMITATION"?"Imitación de "+data.imitation?.name+" realizada una vez.":"Habilidad copiada correctamente.");
+      if(cr.ok){const copiesData=await cr.json();setCopyRecords(copiesData.copies??[]);setCopyRequests(copiesData.requests??[]); }
+      setSuccess("Solicitud de copia enviada a Gestión → Habilidades. La copia aparecerá cuando alguien autorizado la apruebe.");
     }catch(e){setError(e instanceof Error?e.message:"No se pudo copiar la habilidad.");}
     finally{setCopyBusy(null);}
   }
@@ -1443,7 +1444,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       const r=await fetch("/api/characters/"+character.id+"/skills/copies",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({copyId,equip})});
       const d=await r.json();if(!r.ok)throw new Error(d.error??"No se pudo cambiar la copia.");
       const [sr,cr]=await Promise.all([fetch("/api/characters/"+character.id+"/skills",{cache:"no-store"}),fetch("/api/characters/"+character.id+"/skills/copies",{cache:"no-store"})]);
-      if(sr.ok)setSkills((await sr.json()).skills??[]);if(cr.ok)setCopyRecords((await cr.json()).copies??[]);
+      if(sr.ok)setSkills((await sr.json()).skills??[]);if(cr.ok){const copiesData=await cr.json();setCopyRecords(copiesData.copies??[]);setCopyRequests(copiesData.requests??[]); }
     }catch(e){setError(e instanceof Error?e.message:"No se pudo equipar la copia.");}
   }
 
@@ -2224,7 +2225,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       copierSkillId={skill.id}
                       mode={effect.copyMode??"PERMANENT"}
                       busy={copyBusy!==null}
-                      refreshKey={copyRecords.length}
+                      refreshKey={copyRecords.length+copyRequests.filter(request=>request.status==="PENDING").length}
                       onCopy={sourceSkillId=>copySkillAction(skill.id,effect.copyMode??"PERMANENT",sourceSkillId)}
                     />
                   </div>)}
@@ -2254,6 +2255,13 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 </div>
               ))}
 
+              {copyRequests.length>0 && <div className="rounded-xl border border-amber-700/40 p-4">
+                <p className="font-semibold text-amber-200">Solicitudes de copia</p>
+                <div className="mt-3 space-y-2">{copyRequests.map(request=><div key={request.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm">
+                  <span>{request.sourceName} · {({PERMANENT:"Permanente",TEMPORARY:"Temporal",IMITATION:"Imitación",COLLECTION:"Colección"} as Record<string,string>)[request.mode]??request.mode}</span>
+                  <span className={request.status==="APPROVED"?"text-emerald-300":request.status==="REJECTED"?"text-red-300":"text-amber-300"}>{request.status==="APPROVED"?"Aprobada":request.status==="REJECTED"?"Rechazada":"Pendiente de aprobación"}</span>
+                </div>)}</div>
+              </div>}
               {copyRecords.length>0 && <div className="rounded-xl border border-violet-600/30 p-4">
                 <p className="font-semibold text-violet-200">Copias de habilidades</p>
                 <div className="mt-3 space-y-2">{copyRecords.map(copy=><div key={copy.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 p-3 text-sm">

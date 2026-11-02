@@ -103,7 +103,7 @@ export function SkillCopySourceSearch({
         onClick={() => onCopy(selected.id)}
         disabled={busy}
         className="rounded-lg bg-violet-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-      >{busy ? "Copiando…" : mode === "IMITATION" ? "Imitar habilidad" : "Copiar habilidad"}</button>
+      >{busy ? "Enviando solicitud…" : mode === "IMITATION" ? "Solicitar imitación" : "Solicitar copia"}</button>
     </div>}
   </div>;
 }

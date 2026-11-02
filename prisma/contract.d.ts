@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'d8344e66a3b4f5ac199c723074f64da10097363d1050bec6fe30ae8cd0649e73'>;
+  StorageHashBase<'913f1e61fcd0d36e7cff649ff0fceed94e3c8aa364450428743e61e579e02543'>;
 export type ExecutionHash =
   ExecutionHashBase<'c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96'>;
 export type ProfileHash =
@@ -344,6 +344,7 @@ export type FieldOutputTypes = {
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['output'];
       readonly skillUpgradeCredits: CodecTypes['pg/int4@1']['output'];
       readonly pchBalance: CodecTypes['pg/int4@1']['output'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['output'];
       readonly magicAttackType: CodecTypes['pg/text@1']['output'];
       readonly magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
       readonly blockDefenseType: CodecTypes['pg/text@1']['output'];
@@ -399,6 +400,7 @@ export type FieldOutputTypes = {
       readonly karma: CodecTypes['pg/int4@1']['output'];
       readonly money: CodecTypes['pg/int4@1']['output'];
       readonly levelUpPoints: CodecTypes['pg/int4@1']['output'];
+      readonly currentMana: CodecTypes['pg/int4@1']['output'] | null;
       readonly blackjackState: CodecTypes['pg/text@1']['output'] | null;
     };
     readonly CharacterSkillState: {
@@ -435,6 +437,7 @@ export type FieldOutputTypes = {
       readonly playerCharacterId: CodecTypes['pg/int4@1']['output'];
       readonly npcName: CodecTypes['pg/text@1']['output'];
       readonly npcStats: CodecTypes['pg/json@1']['output'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['output'];
       readonly currentTick: CodecTypes['pg/int4@1']['output'];
       readonly turn: CodecTypes['pg/int4@1']['output'];
       readonly activeActor: CodecTypes['pg/text@1']['output'];
@@ -544,6 +547,7 @@ export type FieldOutputTypes = {
       readonly contentDescription: CodecTypes['pg/text@1']['output'] | null;
       readonly treasureClaimed: CodecTypes['pg/bool@1']['output'];
       readonly treasureRewards: CodecTypes['pg/json@1']['output'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['output'];
       readonly trapActive: CodecTypes['pg/bool@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
@@ -643,6 +647,7 @@ export type FieldOutputTypes = {
       readonly cooldown: CodecTypes['pg/text@1']['output'] | null;
       readonly effect: CodecTypes['pg/json@1']['output'];
       readonly effectRequirements: CodecTypes['pg/json@1']['output'];
+      readonly mechanics: CodecTypes['pg/json@1']['output'];
       readonly requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['output']>;
       readonly grantedByRacePerkId: CodecTypes['pg/int4@1']['output'] | null;
       readonly grantedByRaceSkillId: CodecTypes['pg/int4@1']['output'] | null;
@@ -899,6 +904,7 @@ export type FieldInputTypes = {
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['input'];
       readonly skillUpgradeCredits: CodecTypes['pg/int4@1']['input'];
       readonly pchBalance: CodecTypes['pg/int4@1']['input'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['input'];
       readonly magicAttackType: CodecTypes['pg/text@1']['input'];
       readonly magicAttackDescription: CodecTypes['pg/text@1']['input'] | null;
       readonly blockDefenseType: CodecTypes['pg/text@1']['input'];
@@ -954,6 +960,7 @@ export type FieldInputTypes = {
       readonly karma: CodecTypes['pg/int4@1']['input'];
       readonly money: CodecTypes['pg/int4@1']['input'];
       readonly levelUpPoints: CodecTypes['pg/int4@1']['input'];
+      readonly currentMana: CodecTypes['pg/int4@1']['input'] | null;
       readonly blackjackState: CodecTypes['pg/text@1']['input'] | null;
     };
     readonly CharacterSkillState: {
@@ -990,6 +997,7 @@ export type FieldInputTypes = {
       readonly playerCharacterId: CodecTypes['pg/int4@1']['input'];
       readonly npcName: CodecTypes['pg/text@1']['input'];
       readonly npcStats: CodecTypes['pg/json@1']['input'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['input'];
       readonly currentTick: CodecTypes['pg/int4@1']['input'];
       readonly turn: CodecTypes['pg/int4@1']['input'];
       readonly activeActor: CodecTypes['pg/text@1']['input'];
@@ -1099,6 +1107,7 @@ export type FieldInputTypes = {
       readonly contentDescription: CodecTypes['pg/text@1']['input'] | null;
       readonly treasureClaimed: CodecTypes['pg/bool@1']['input'];
       readonly treasureRewards: CodecTypes['pg/json@1']['input'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['input'];
       readonly trapActive: CodecTypes['pg/bool@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
@@ -1198,6 +1207,7 @@ export type FieldInputTypes = {
       readonly cooldown: CodecTypes['pg/text@1']['input'] | null;
       readonly effect: CodecTypes['pg/json@1']['input'];
       readonly effectRequirements: CodecTypes['pg/json@1']['input'];
+      readonly mechanics: CodecTypes['pg/json@1']['input'];
       readonly requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['input']>;
       readonly grantedByRacePerkId: CodecTypes['pg/int4@1']['input'] | null;
       readonly grantedByRaceSkillId: CodecTypes['pg/int4@1']['input'] | null;
@@ -1456,6 +1466,7 @@ export type StorageColumnTypes = {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
       readonly magicAttackType: CodecTypes['pg/text@1']['output'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly pchBalance: CodecTypes['pg/int4@1']['output'];
       readonly raceId: CodecTypes['pg/int4@1']['output'] | null;
@@ -1506,6 +1517,7 @@ export type StorageColumnTypes = {
     readonly characterResource: {
       readonly blackjackState: CodecTypes['pg/text@1']['output'] | null;
       readonly characterId: CodecTypes['pg/int4@1']['output'];
+      readonly currentMana: CodecTypes['pg/int4@1']['output'] | null;
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly karma: CodecTypes['pg/int4@1']['output'];
       readonly levelUpPoints: CodecTypes['pg/int4@1']['output'];
@@ -1546,6 +1558,7 @@ export type StorageColumnTypes = {
       readonly currentTick: CodecTypes['pg/int4@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly lastAction: CodecTypes['pg/json@1']['output'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['output'];
       readonly npcName: CodecTypes['pg/text@1']['output'];
       readonly npcNextActionTick: CodecTypes['pg/int4@1']['output'] | null;
       readonly npcStats: CodecTypes['pg/json@1']['output'];
@@ -1650,6 +1663,7 @@ export type StorageColumnTypes = {
       readonly description: CodecTypes['pg/text@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly mazeId: CodecTypes['pg/int4@1']['output'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['output'];
       readonly roomNumber: CodecTypes['pg/int4@1']['output'];
       readonly roomType: CodecTypes['pg/text@1']['output'];
       readonly status: CodecTypes['pg/text@1']['output'];
@@ -1755,6 +1769,7 @@ export type StorageColumnTypes = {
       readonly grantedByRaceSkillId: CodecTypes['pg/int4@1']['output'] | null;
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly maintenanceCost: CodecTypes['pg/int4@1']['output'];
+      readonly mechanics: CodecTypes['pg/json@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly pchCost: CodecTypes['pg/int4@1']['output'];
       readonly requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['output']>;
@@ -2011,6 +2026,7 @@ export type StorageColumnInputTypes = {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly magicAttackDescription: CodecTypes['pg/text@1']['input'] | null;
       readonly magicAttackType: CodecTypes['pg/text@1']['input'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly pchBalance: CodecTypes['pg/int4@1']['input'];
       readonly raceId: CodecTypes['pg/int4@1']['input'] | null;
@@ -2061,6 +2077,7 @@ export type StorageColumnInputTypes = {
     readonly characterResource: {
       readonly blackjackState: CodecTypes['pg/text@1']['input'] | null;
       readonly characterId: CodecTypes['pg/int4@1']['input'];
+      readonly currentMana: CodecTypes['pg/int4@1']['input'] | null;
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly karma: CodecTypes['pg/int4@1']['input'];
       readonly levelUpPoints: CodecTypes['pg/int4@1']['input'];
@@ -2101,6 +2118,7 @@ export type StorageColumnInputTypes = {
       readonly currentTick: CodecTypes['pg/int4@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly lastAction: CodecTypes['pg/json@1']['input'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['input'];
       readonly npcName: CodecTypes['pg/text@1']['input'];
       readonly npcNextActionTick: CodecTypes['pg/int4@1']['input'] | null;
       readonly npcStats: CodecTypes['pg/json@1']['input'];
@@ -2205,6 +2223,7 @@ export type StorageColumnInputTypes = {
       readonly description: CodecTypes['pg/text@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly mazeId: CodecTypes['pg/int4@1']['input'];
+      readonly mechanicsState: CodecTypes['pg/json@1']['input'];
       readonly roomNumber: CodecTypes['pg/int4@1']['input'];
       readonly roomType: CodecTypes['pg/text@1']['input'];
       readonly status: CodecTypes['pg/text@1']['input'];
@@ -2310,6 +2329,7 @@ export type StorageColumnInputTypes = {
       readonly grantedByRaceSkillId: CodecTypes['pg/int4@1']['input'] | null;
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly maintenanceCost: CodecTypes['pg/int4@1']['input'];
+      readonly mechanics: CodecTypes['pg/json@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly pchCost: CodecTypes['pg/int4@1']['input'];
       readonly requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['input']>;
@@ -2488,6 +2508,7 @@ export namespace Models {
     skillCreationCredits: CodecTypes['pg/int4@1']['output'];
     skillUpgradeCredits: CodecTypes['pg/int4@1']['output'];
     pchBalance: CodecTypes['pg/int4@1']['output'];
+    mechanicsState: CodecTypes['pg/json@1']['output'];
     magicAttackType: CodecTypes['pg/text@1']['output'];
     magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
     blockDefenseType: CodecTypes['pg/text@1']['output'];
@@ -2569,6 +2590,7 @@ export namespace Models {
     cooldown: CodecTypes['pg/text@1']['output'] | null;
     effect: CodecTypes['pg/json@1']['output'];
     effectRequirements: CodecTypes['pg/json@1']['output'];
+    mechanics: CodecTypes['pg/json@1']['output'];
     requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['output']>;
     grantedByRacePerkId: CodecTypes['pg/int4@1']['output'] | null;
     grantedByRaceSkillId: CodecTypes['pg/int4@1']['output'] | null;
@@ -2600,6 +2622,7 @@ export namespace Models {
     playerCharacterId: CodecTypes['pg/int4@1']['output'];
     npcName: CodecTypes['pg/text@1']['output'];
     npcStats: CodecTypes['pg/json@1']['output'];
+    mechanicsState: CodecTypes['pg/json@1']['output'];
     currentTick: CodecTypes['pg/int4@1']['output'];
     turn: CodecTypes['pg/int4@1']['output'];
     activeActor: CodecTypes['pg/text@1']['output'];
@@ -2640,6 +2663,7 @@ export namespace Models {
     karma: CodecTypes['pg/int4@1']['output'];
     money: CodecTypes['pg/int4@1']['output'];
     levelUpPoints: CodecTypes['pg/int4@1']['output'];
+    currentMana: CodecTypes['pg/int4@1']['output'] | null;
     blackjackState: CodecTypes['pg/text@1']['output'] | null;
     character: public_Character;
     readonly [RelationKeys]?: 'character';
@@ -2740,6 +2764,7 @@ export namespace Models {
     contentDescription: CodecTypes['pg/text@1']['output'] | null;
     treasureClaimed: CodecTypes['pg/bool@1']['output'];
     treasureRewards: CodecTypes['pg/json@1']['output'];
+    mechanicsState: CodecTypes['pg/json@1']['output'];
     trapActive: CodecTypes['pg/bool@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     enemies: public_MazeRoomEnemy[];
@@ -4282,6 +4307,15 @@ type ContractBase = Omit<
                     readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
                   };
                 };
+                readonly mechanicsState: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
                 readonly magicAttackType: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
@@ -4844,6 +4878,11 @@ type ContractBase = Omit<
                     readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
                   };
                 };
+                readonly currentMana: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
                 readonly blackjackState: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
@@ -5180,6 +5219,15 @@ type ContractBase = Omit<
                   readonly nullable: false;
                 };
                 readonly npcStats: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
+                readonly mechanicsState: {
                   readonly nativeType: 'json';
                   readonly codecId: 'pg/json@1';
                   readonly nullable: false;
@@ -6175,6 +6223,15 @@ type ContractBase = Omit<
                     readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
                   };
                 };
+                readonly mechanicsState: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
                 readonly trapActive: {
                   readonly nativeType: 'bool';
                   readonly codecId: 'pg/bool@1';
@@ -7046,6 +7103,15 @@ type ContractBase = Omit<
                   readonly default: {
                     readonly kind: 'literal';
                     readonly value: DefaultLiteralValue<'pg/json@1', '[]'>;
+                  };
+                };
+                readonly mechanics: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
                   };
                 };
                 readonly requiredSkillIds: {
@@ -9345,6 +9411,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
+              readonly mechanicsState: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
               readonly magicAttackType: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -9674,6 +9744,7 @@ type ContractBase = Omit<
                 readonly skillCreationCredits: { readonly column: 'skillCreationCredits' };
                 readonly skillUpgradeCredits: { readonly column: 'skillUpgradeCredits' };
                 readonly pchBalance: { readonly column: 'pchBalance' };
+                readonly mechanicsState: { readonly column: 'mechanicsState' };
                 readonly magicAttackType: { readonly column: 'magicAttackType' };
                 readonly magicAttackDescription: { readonly column: 'magicAttackDescription' };
                 readonly blockDefenseType: { readonly column: 'blockDefenseType' };
@@ -10039,6 +10110,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
+              readonly currentMana: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly blackjackState: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -10067,6 +10142,7 @@ type ContractBase = Omit<
                 readonly karma: { readonly column: 'karma' };
                 readonly money: { readonly column: 'money' };
                 readonly levelUpPoints: { readonly column: 'levelUpPoints' };
+                readonly currentMana: { readonly column: 'currentMana' };
                 readonly blackjackState: { readonly column: 'blackjackState' };
               };
             };
@@ -10297,6 +10373,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
               };
+              readonly mechanicsState: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
               readonly currentTick: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
@@ -10362,6 +10442,7 @@ type ContractBase = Omit<
                 readonly playerCharacterId: { readonly column: 'playerCharacterId' };
                 readonly npcName: { readonly column: 'npcName' };
                 readonly npcStats: { readonly column: 'npcStats' };
+                readonly mechanicsState: { readonly column: 'mechanicsState' };
                 readonly currentTick: { readonly column: 'currentTick' };
                 readonly turn: { readonly column: 'turn' };
                 readonly activeActor: { readonly column: 'activeActor' };
@@ -11140,6 +11221,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
               };
+              readonly mechanicsState: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
               readonly trapActive: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
@@ -11232,6 +11317,7 @@ type ContractBase = Omit<
                 readonly contentDescription: { readonly column: 'contentDescription' };
                 readonly treasureClaimed: { readonly column: 'treasureClaimed' };
                 readonly treasureRewards: { readonly column: 'treasureRewards' };
+                readonly mechanicsState: { readonly column: 'mechanicsState' };
                 readonly trapActive: { readonly column: 'trapActive' };
                 readonly createdAt: { readonly column: 'createdAt' };
               };
@@ -11906,6 +11992,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
               };
+              readonly mechanics: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
               readonly requiredSkillIds: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
@@ -11997,6 +12087,7 @@ type ContractBase = Omit<
                 readonly cooldown: { readonly column: 'cooldown' };
                 readonly effect: { readonly column: 'effect' };
                 readonly effectRequirements: { readonly column: 'effectRequirements' };
+                readonly mechanics: { readonly column: 'mechanics' };
                 readonly requiredSkillIds: { readonly column: 'requiredSkillIds' };
                 readonly grantedByRacePerkId: { readonly column: 'grantedByRacePerkId' };
                 readonly grantedByRaceSkillId: { readonly column: 'grantedByRaceSkillId' };

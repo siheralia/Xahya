@@ -1499,6 +1499,13 @@
                   "kind": "scalar"
                 }
               },
+              "mechanicsState": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              },
               "name": {
                 "nullable": false,
                 "type": {
@@ -1967,6 +1974,9 @@
                 },
                 "magicAttackType": {
                   "column": "magicAttackType"
+                },
+                "mechanicsState": {
+                  "column": "mechanicsState"
                 },
                 "name": {
                   "column": "name"
@@ -2520,6 +2530,13 @@
                   "kind": "scalar"
                 }
               },
+              "currentMana": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -2574,6 +2591,9 @@
                 },
                 "characterId": {
                   "column": "characterId"
+                },
+                "currentMana": {
+                  "column": "currentMana"
                 },
                 "id": {
                   "column": "id"
@@ -2959,6 +2979,13 @@
                   "kind": "scalar"
                 }
               },
+              "mechanicsState": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              },
               "npcName": {
                 "nullable": false,
                 "type": {
@@ -3050,6 +3077,9 @@
                 },
                 "lastAction": {
                   "column": "lastAction"
+                },
+                "mechanicsState": {
+                  "column": "mechanicsState"
                 },
                 "npcName": {
                   "column": "npcName"
@@ -4268,6 +4298,13 @@
                   "kind": "scalar"
                 }
               },
+              "mechanicsState": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              },
               "roomNumber": {
                 "nullable": false,
                 "type": {
@@ -4423,6 +4460,9 @@
                 },
                 "mazeId": {
                   "column": "mazeId"
+                },
+                "mechanicsState": {
+                  "column": "mechanicsState"
                 },
                 "roomNumber": {
                   "column": "roomNumber"
@@ -5549,6 +5589,13 @@
                   "kind": "scalar"
                 }
               },
+              "mechanics": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              },
               "name": {
                 "nullable": false,
                 "type": {
@@ -5690,6 +5737,9 @@
                 },
                 "maintenanceCost": {
                   "column": "maintenanceCost"
+                },
+                "mechanics": {
+                  "column": "mechanics"
                 },
                 "name": {
                   "column": "name"
@@ -8708,6 +8758,15 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "mechanicsState": {
+                  "codecId": "pg/json@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "{}"
+                  },
+                  "nativeType": "json",
+                  "nullable": false
+                },
                 "name": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -9351,6 +9410,11 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "currentMana": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
                 "id": {
                   "codecId": "pg/int4@1",
                   "default": {
@@ -9819,6 +9883,15 @@
                   "nullable": false
                 },
                 "lastAction": {
+                  "codecId": "pg/json@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "{}"
+                  },
+                  "nativeType": "json",
+                  "nullable": false
+                },
+                "mechanicsState": {
                   "codecId": "pg/json@1",
                   "default": {
                     "kind": "literal",
@@ -10960,6 +11033,15 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "mechanicsState": {
+                  "codecId": "pg/json@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "{}"
+                  },
+                  "nativeType": "json",
+                  "nullable": false
+                },
                 "roomNumber": {
                   "codecId": "pg/int4@1",
                   "nativeType": "int4",
@@ -12045,6 +12127,15 @@
                     "value": 0
                   },
                   "nativeType": "int4",
+                  "nullable": false
+                },
+                "mechanics": {
+                  "codecId": "pg/json@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "{}"
+                  },
+                  "nativeType": "json",
                   "nullable": false
                 },
                 "name": {
@@ -13715,7 +13806,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "d8344e66a3b4f5ac199c723074f64da10097363d1050bec6fe30ae8cd0649e73"
+    "storageHash": "913f1e61fcd0d36e7cff649ff0fceed94e3c8aa364450428743e61e579e02543"
   },
   "execution": {
     "executionHash": "c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96",

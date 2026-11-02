@@ -6,13 +6,13 @@ const vm = require("node:vm");
 const ts = require("typescript");
 
 const source = fs.readFileSync(path.join(__dirname, "../lib/combat/matchup-types.ts"), "utf8");
-const exports = {};
+const matchupExports = {};
 vm.runInNewContext(ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText, { exports, Set, String, Array, Object }, { filename: "matchup-types.ts" });
+}).outputText, { exports: matchupExports, Set, String, Array, Object }, { filename: "matchup-types.ts" });
 
 const { COMBAT_ATTACK_TYPE_OPTIONS, COMBAT_DEFENSE_TYPE_OPTIONS,
-  validateSkillCombatTypes, normalizeSkillCombatType } = exports;
+  validateSkillCombatTypes, normalizeSkillCombatType } = matchupExports;
 
 test("tipos canónicos de combate coinciden con los básicos", () => {
   assert.deepEqual(Array.from(COMBAT_ATTACK_TYPE_OPTIONS, x => x.value), ["CUT", "BLUNT", "PIERCE"]);

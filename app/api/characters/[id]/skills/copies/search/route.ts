@@ -69,6 +69,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           AND existing."sourceSkillId"=s.id
           AND existing.mode=${mode}
       )
+      AND NOT EXISTS (
+        SELECT 1 FROM public."skillCopyRequest" pending
+        WHERE pending."characterId"=${characterId}
+          AND pending."copierSkillId"=${copierSkillId}
+          AND pending."sourceSkillId"=s.id
+          AND pending.mode=${mode} AND pending.status='PENDING'
+      )
     ORDER BY CASE WHEN lower(s.name)=lower(${term}) THEN 0 ELSE 1 END, s.name, s.id
     LIMIT 80
   `.returnsRow({

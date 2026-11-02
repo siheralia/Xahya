@@ -85,7 +85,8 @@ async function save(request:Request,editing:boolean) {
   }
   const data={name:candidate.name,description:candidate.description,
     parentTemplateId:candidate.parentTemplateId,payload:candidate.payload,
-    elementChoice:candidate.elementChoice,enabled:candidate.enabled,updatedAt:new Date()};
+    // The ORM uses Temporal.Instant for timestamptz and maintains updatedAt itself.
+    elementChoice:candidate.elementChoice,enabled:candidate.enabled};
   let saved:any;
   if(editing) saved=await templateModel.where({id}).update(data);
   else saved=await templateModel.create(data);

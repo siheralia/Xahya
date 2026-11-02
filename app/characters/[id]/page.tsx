@@ -26,12 +26,12 @@ type EquipmentItem = {
   item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; stat?: string; value: number; description?: string; action?: string }[] } | null;
 };
 
-type SkillEffect = { type: string; target?: string; value?: number; description?: string; durationTurns?: number; durationMovements?: number; targetKind?: "SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT"; targetReference?: string; activationCondition?: "NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT" };
+type SkillEffect = { type: string; target?: string; value?: number; description?: string;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean; durationTurns?: number; durationMovements?: number; targetKind?: "SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT"; targetReference?: string; activationCondition?: "NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT" };
 type SkillState = { id:number; characterId:number; skillId:number; active:boolean; accumulations:number; totalTicks:number; lastTickAt:string|null; };
 type Skill = {
   id: number; characterId: number; name: string; cost: number; accumulationCost: number; accumulationPerTick: number; maintenanceCost: number; description: string | null; duration: string | null;
   category: string; basicType: string | null; attackType: string | null; defenseType: string | null; areaOfEffect: string | null; speed: string | null; cooldown: string | null; effect: SkillEffect[];
-  condition: string | null; status: string; approvedAt: string | null;
+  condition: string | null; status: string; approvedAt: string | null; pchCost?:number;effectRequirements?:{effect:string;element?:string}[];
 };
 
 const skillCategories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]] as const;
@@ -528,6 +528,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [pendingSkills, setPendingSkills] = useState<Skill[]>([]);
   const [skillStates, setSkillStates] = useState<SkillState[]>([]);
   const [skillCreationCredits, setSkillCreationCredits] = useState(0);
+  const [skillUpgradeCredits,setSkillUpgradeCredits]=useState(0);
+  const [upgradingSkill,setUpgradingSkill]=useState<Skill|null>(null);
+  const [upgradeRequests,setUpgradeRequests]=useState<Array<{id:number;skillId:number;status:string;deltaPch:number}>>([]);
+  const [copySourceId,setCopySourceId]=useState("");
+  const [copyBusy,setCopyBusy]=useState<number|null>(null);
+  const [copyRecords,setCopyRecords]=useState<Array<{id:number;copierSkillId:number;sourceSkillId:number;copiedSkillId:number;name:string;mode:string;remainingTurns:number|null;equipped:boolean}>>([]);
   const [pchBalance, setPchBalance] = useState(0);
   const [effectDefinitions, setEffectDefinitions] = useState<EffectDefinition[]>([]);
   const [narrativeCards,setNarrativeCards] = useState<Array<{id:string;name:string;description:string;category:string;pch:number;icon:string}>>([]);
@@ -564,6 +570,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     if (!character) return;
+    void fetch("/api/characters/"+character.id+"/skills/upgrades",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{if(d){setSkillUpgradeCredits(Number(d.credits??0));setUpgradeRequests(d.requests??[]);}}).catch(()=>{});
+    void fetch("/api/characters/"+character.id+"/skills/copies",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{if(d)setCopyRecords(d.copies??[]);}).catch(()=>{});
     fetch("/api/characters/" + character.id + "/skills", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return;
@@ -1352,9 +1360,20 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
   async function submitSkill() {
-    if (!character || skillSaving || pchBalance < skillPchCost) return;
+    const delta=upgradingSkill?skillPchCost-Number(upgradingSkill.pchCost??0):skillPchCost;
+    if (!character || skillSaving || pchBalance < delta || (upgradingSkill && (delta<=0||skillUpgradeCredits<=0))) return;
     setSkillSaving(true); setError(""); setSuccess("");
     try {
+      if(upgradingSkill){
+        const response=await fetch("/api/characters/"+character.id+"/skills/upgrades",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...skillForm,skillId:upgradingSkill.id})});
+        const data=await response.json().catch(()=>null);
+        if(!response.ok)throw new Error(data?.error??"No se pudo solicitar la mejora.");
+        setSkillUpgradeCredits(current=>current-1);setPchBalance(current=>current-Number(data.deltaPch));
+        setUpgradeRequests(current=>[{id:Date.now(),skillId:upgradingSkill.id,status:"PENDING",deltaPch:data.deltaPch},...current]);
+        setUpgradingSkill(null);setSkillModalOpen(false);
+        setSuccess("Mejora enviada a aprobación. Se reservó una moneda y "+data.deltaPch+" PCH.");
+        return;
+      }
       const response = await fetch("/api/characters/" + character.id + "/skills", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1383,9 +1402,50 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
   function openSkillCreator() {
     if (pchBalance <= 0) return;
+    setUpgradingSkill(null);
     setSkillForm({ name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "Instantánea", category: "OFFENSIVE", areaOfEffect: "Objetivo único", maxRangeMeters: 5, speed: "DEFAULT", cooldown: "Sin cooldown", condition: "", effectRequirements: [], effect: [] });
     setCombatPanelOpen(false);
         setSkillModalOpen(true);
+  }
+
+  function openSkillUpgrade(skill:Skill){
+    if(skillUpgradeCredits<=0)return;
+    setUpgradingSkill(skill);
+    setSkillForm({
+      name:skill.name,cost:Number(skill.cost),accumulationCost:Number(skill.accumulationCost??0),
+      accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),
+      description:skill.description??"",duration:skill.duration??"Instantánea",category:skill.category,
+      areaOfEffect:skill.areaOfEffect?.split("|")[0]?.trim()??"Objetivo único",
+      maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\\d+) m/)?.[1]??5),
+      speed:skill.speed??"DEFAULT",cooldown:skill.cooldown??"Sin cooldown",
+      condition:skill.condition??"",effectRequirements:skill.effectRequirements??[],effect:skill.effect??[]
+    });
+    setCombatPanelOpen(false);setSkillModalOpen(true);
+  }
+  async function copySkillAction(copierSkillId:number,mode:string){
+    if(!character||copyBusy!==null)return;
+    const sourceSkillId=Number(copySourceId);
+    if(!Number.isSafeInteger(sourceSkillId)||sourceSkillId<=0){setError("Introduce el ID de una habilidad original aprobada.");return;}
+    setCopyBusy(copierSkillId);setError("");setSuccess("");
+    try{
+      const response=await fetch("/api/characters/"+character.id+"/skills/copies",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({copierSkillId,sourceSkillId,mode})});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok)throw new Error(data?.error??"No se pudo copiar.");
+      const [sr,cr]=await Promise.all([fetch("/api/characters/"+character.id+"/skills",{cache:"no-store"}),fetch("/api/characters/"+character.id+"/skills/copies",{cache:"no-store"})]);
+      if(sr.ok){const d=await sr.json();setSkills(d.skills??[]);setPendingSkills(d.pendingSkills??[]);}
+      if(cr.ok)setCopyRecords((await cr.json()).copies??[]);
+      setSuccess(mode==="IMITATION"?"Imitación de "+data.imitation?.name+" realizada una vez.":"Habilidad copiada correctamente.");
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo copiar la habilidad.");}
+    finally{setCopyBusy(null);}
+  }
+  async function equipCopy(copyId:number,equip:boolean){
+    if(!character)return;
+    try{
+      const r=await fetch("/api/characters/"+character.id+"/skills/copies",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({copyId,equip})});
+      const d=await r.json();if(!r.ok)throw new Error(d.error??"No se pudo cambiar la copia.");
+      const [sr,cr]=await Promise.all([fetch("/api/characters/"+character.id+"/skills",{cache:"no-store"}),fetch("/api/characters/"+character.id+"/skills/copies",{cache:"no-store"})]);
+      if(sr.ok)setSkills((await sr.json()).skills??[]);if(cr.ok)setCopyRecords((await cr.json()).copies??[]);
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo equipar la copia.");}
   }
 
   async function changeEquipment(characterItemId: number, equipped: boolean, slot?: string) {
@@ -1931,7 +1991,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <div><h2 className="text-xl font-semibold">Equipamiento</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">Objetos activos y sus ranuras.</p></div>
             <span className="text-xs text-zinc-600">{character.equipment.filter((entry) => entry.equipped).length} equipados</span>
           </div>
-        <SkillFormModal availableSkills={skills.map(s=>({id:Number(s.id),name:String(s.name),status:String(s.status),characterId:Number(character.id)}))} characterId={Number(character.id)} open={skillModalOpen} title="Crear habilidad" description="Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise." onClose={() => setSkillModalOpen(false)} form={skillForm} onChange={setSkillForm} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={priceSkillEffect} pch={{total:skillPchCost,beforeRequirements:applyRangePch(skillPchBeforeRange,skillForm.maxRangeMeters),base:skillBasePch,manaAdjusted:manaAdjustedPch(skillBasePch,skillForm.cost),balance:pchBalance}} actions={<button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || pchBalance < skillPchCost} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">{skillSaving ? "Enviando..." : "Enviar para aprobación"}</button>} />
+        <SkillFormModal availableSkills={skills.map(s=>({id:Number(s.id),name:String(s.name),status:String(s.status),characterId:Number(character.id)}))} characterId={Number(character.id)} open={skillModalOpen} title={upgradingSkill?"Mejorar habilidad":"Crear habilidad"} description={upgradingSkill?"La moneda autoriza la solicitud. Solo pagarás el incremento de PCH y la mejora requiere aprobación.":"Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise."} onClose={() => setSkillModalOpen(false)} form={skillForm} onChange={setSkillForm} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={priceSkillEffect} pch={{total:skillPchCost,beforeRequirements:applyRangePch(skillPchBeforeRange,skillForm.maxRangeMeters),base:skillBasePch,manaAdjusted:manaAdjustedPch(skillBasePch,skillForm.cost),balance:pchBalance}} actions={<button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || pchBalance < (upgradingSkill?skillPchCost-Number(upgradingSkill.pchCost??0):skillPchCost) || !!upgradingSkill && skillPchCost<=Number(upgradingSkill.pchCost??0)} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">{skillSaving ? "Enviando..." : upgradingSkill ? "Solicitar mejora · 1 moneda + "+Math.max(0,skillPchCost-Number(upgradingSkill.pchCost??0))+" PCH" : "Enviar para aprobación"}</button>} />
 
         {character.equipment.some((entry) => entry.equipped) ? (
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -2122,6 +2182,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   Crear habilidad · {pchBalance} PCH
                 </button>
               )}
+              <span className="rounded-lg border border-violet-700 px-3 py-2 text-xs text-violet-200">Monedas de mejora: {skillUpgradeCredits}</span>
               <button type="button" onClick={() => setSkillsOpen((value) => !value)} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200">
                 {skillsOpen ? "Cerrar menú" : "Abrir menú"}
               </button>
@@ -2156,6 +2217,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     {Number(skill.accumulationPerTick ?? 0) > 0 && (() => { const state = skillStates.find((entry) => entry.skillId === skill.id); return <span>◉ Acumulaciones: {state?.accumulations ?? 0} · {skill.accumulationPerTick}/tick</span>; })()}
                   </div>
                   {skill.condition && <p className="mt-3 text-xs text-amber-300">Condición: {skill.condition}</p>}
+                  {skillUpgradeCredits>0 && !copyRecords.some(c=>c.copiedSkillId===skill.id) && !upgradeRequests.some(r=>r.skillId===skill.id&&r.status==="PENDING") && <button type="button" onClick={()=>openSkillUpgrade(skill)} className="mt-3 rounded-lg border border-violet-500/50 px-3 py-2 text-xs text-violet-200">Mejorar · 1 moneda + diferencia de PCH</button>}
+                  {skill.effect?.filter(e=>e.type==="COPY_SKILL").map((effect,index)=><div key={"copy-"+index} className="mt-3 rounded-lg border border-purple-800/50 p-3">
+                    <p className="text-xs font-semibold text-purple-200">Copiar habilidad · {({PERMANENT:"Permanente",TEMPORARY:"Temporal",IMITATION:"Imitación",COLLECTION:"Colección"} as Record<string,string>)[effect.copyMode??"PERMANENT"]} · máximo {effect.value} PCH</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <input type="number" min={1} value={copySourceId} onChange={e=>setCopySourceId(e.target.value)} placeholder="ID de habilidad original" aria-label="ID de habilidad original" className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"/>
+                      <button type="button" disabled={copyBusy!==null} onClick={()=>copySkillAction(skill.id,effect.copyMode??"PERMANENT")} className="rounded-lg bg-purple-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">Copiar</button>
+                    </div>
+                  </div>)}
                   {Number(skill.accumulationPerTick ?? 0) > 0 && (() => { const state = skillStates.find((entry) => entry.skillId === skill.id); const active = Boolean(state?.active); return <button type="button" onClick={() => toggleSkillAccumulation(skill.id, !active)} className={"mt-3 rounded-lg border px-3 py-2 text-xs font-semibold " + (active ? "border-rose-400/30 text-rose-300" : "border-cyan-400/30 text-cyan-300")}>{active ? "Detener acumulación" : "Iniciar acumulación"}{state ? " · " + state.accumulations + " cargas" : ""}</button>; })()}
                   {skill.effect?.length > 0 && (
                     <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
@@ -2182,6 +2251,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 </div>
               ))}
 
+              {copyRecords.length>0 && <div className="rounded-xl border border-violet-600/30 p-4">
+                <p className="font-semibold text-violet-200">Copias de habilidades</p>
+                <div className="mt-3 space-y-2">{copyRecords.map(copy=><div key={copy.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 p-3 text-sm">
+                  <span>{copy.name} · {copy.mode==="COLLECTION"?"Colección":copy.mode==="TEMPORARY"?"Temporal ("+copy.remainingTurns+" turnos)": "Permanente"}</span>
+                  {copy.mode==="COLLECTION" && <button type="button" onClick={()=>equipCopy(copy.id,!copy.equipped)} className="rounded-md border border-violet-500 px-3 py-1 text-xs">{copy.equipped?"Guardar":"Equipar"}</button>}
+                </div>)}</div>
+              </div>}
+              {upgradeRequests.some(r=>r.status==="PENDING")&&<p className="text-sm text-amber-300">Mejoras pendientes: {upgradeRequests.filter(r=>r.status==="PENDING").length}</p>}
               {pendingSkills.length > 0 && (
                 <div className="rounded-xl border border-amber-400/20 bg-amber-950/10 p-4">
                   <p className="font-semibold text-amber-300">Solicitudes pendientes</p>
@@ -2246,7 +2323,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       </div>
                     )}
                     {entry.flair && <p className="mt-3 text-xs italic text-violet-300">✦ {entry.flair}</p>}
-                    {entry.item?.itemType === "CONSUMABLE" && Array.isArray(entry.item.effects) && entry.item.effects.some((effect: any) => effect?.type === "system_action" && ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL"].includes(effect?.action)) && (
+                    {entry.item?.itemType === "CONSUMABLE" && Array.isArray(entry.item.effects) && entry.item.effects.some((effect: any) => effect?.type === "system_action" && ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL", "IMPROVE_SKILL"].includes(effect?.action)) && (
                       <button type="button" onClick={() => useConsumable(entry.id, entry.item?.name ?? "Consumible")} disabled={itemUsing !== null} className="mt-3 w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-zinc-950 disabled:opacity-50">
                         {itemUsing === entry.id ? "Usando..." : entry.item?.effects?.some((effect: any) => effect?.action === "CREATE_SKILL") ? "Crear habilidad" : "Usar"}
                       </button>

@@ -4,6 +4,7 @@ import { validateSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { readDefaultAttackSpeedStat, speedSurcharge } from "@/lib/skills/speed-settings";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
+import { applyCooldownPch } from "@/lib/skills/cooldown";
 import { validateSkillParameters } from "@/lib/effects/skill-conditions";
 import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import { auth } from "@clerk/nextjs/server";
@@ -165,7 +166,7 @@ export async function POST(
     pchCost += configuredSkillEffectPch(effect, narrativeCards, pricing, durationPricing);
   }
   pchCost = applyRangePch(manaAdjustedPch(pchCost + mechanicsPchCost(body.mechanics??{}), Number(body.cost ?? 0)) + speedSurcharge(body.speed), Number(body.maxRangeMeters ?? 5));
-  pchCost = effectRequirementDiscount(pchCost, effectRequirements);
+  pchCost = effectRequirementDiscount(applyCooldownPch(pchCost,body.cooldown,body.duration,body.category), effectRequirements);
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {

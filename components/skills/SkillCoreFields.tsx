@@ -32,7 +32,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {form.category==="PASSIVE" && (
       <div className="sm:col-span-2">
         <label htmlFor="skill-passive-condition" className="block text-sm text-zinc-300">
-          Condición de activación <span className="font-bold text-amber-300" aria-hidden="true">*</span>
+          Condición general de la pasiva (obligatoria) <span className="font-bold text-amber-300" aria-hidden="true">*</span>
           <SkillFieldHelp field="condition"/>
         </label>
         <input
@@ -44,11 +44,11 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
           aria-required="true"
           aria-invalid={passiveConditionMissing}
           aria-describedby="skill-passive-condition-help"
-          placeholder="¿Qué debe ocurrir para que se aplique esta pasiva?"
+          placeholder="Ej.: Sikatā aprendida y arena presente; se endurece ante impactos"
           className={cls+" "+(passiveConditionMissing?"border-amber-500 focus:border-amber-400":"")}
         />
         <p id="skill-passive-condition-help" role={passiveConditionMissing?"alert":undefined} className={"mt-1 text-xs "+(passiveConditionMissing?"text-amber-300":"text-zinc-400")}>
-          {passiveConditionMissing?PASSIVE_CONDITION_REQUIRED_MESSAGE:"Condición obligatoria para pasivas. Describe cuándo funciona la habilidad."}
+          {passiveConditionMissing?PASSIVE_CONDITION_REQUIRED_MESSAGE:"Este campo es obligatorio para pasivas. Es distinto de «Condición del efecto» y de «Condiciones para activar» en Mecánicas."}
         </p>
       </div>
     )}

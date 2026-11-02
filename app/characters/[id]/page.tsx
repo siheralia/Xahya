@@ -1416,7 +1416,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),
       description:skill.description??"",duration:skill.duration??"Instantánea",category:skill.category,
       areaOfEffect:skill.areaOfEffect?.split("|")[0]?.trim()??"Objetivo único",
-      maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\\d+) m/)?.[1]??5),
+      maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\d+) m/)?.[1]??5),
       speed:skill.speed??"DEFAULT",cooldown:skill.cooldown??"Sin cooldown",
       condition:skill.condition??"",effectRequirements:skill.effectRequirements??[],effect:skill.effect??[]
     });

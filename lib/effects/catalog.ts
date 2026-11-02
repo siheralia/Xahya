@@ -73,7 +73,11 @@ export function validateEffectTarget(type: string, target: string, statistics: P
       PHYS_ATK:"PHYSICAL_ATTACK",MAGIC_ATK:"MAGIC_ATTACK",
       PHYSICAL_ATTACK:"PHYS_ATK",MAGIC_ATTACK:"MAGIC_ATK",
     };
-    return allowed.some(entry=>entry.key===aliases[target]);
+    if(!aliases[target])return false;
+    const statKey=target==="PHYS_ATK"||target==="PHYSICAL_ATTACK"?"physicalAttack":"magicAttack";
+    return statistics.length===0
+      ? allowed.some(entry=>entry.key===aliases[target])
+      : statistics.some(stat=>stat.key===statKey&&stat.active!==false);
   }
   return false;
 }

@@ -27,5 +27,9 @@ export async function GET(){
     createdAtText:"pg/text@1",copiedSkillId:"pg/int4@1"
   }).build();
   const requests=await db.runtime().query(q);
-  return NextResponse.json({requests},{headers:{"Cache-Control":"private, no-store"}});
+  const [approve,reject]=await Promise.all([
+    hasRolePermission(user,"management.skills","approve"),
+    hasRolePermission(user,"management.skills","reject")
+  ]);
+  return NextResponse.json({requests,permissions:{approve,reject}},{headers:{"Cache-Control":"private, no-store"}});
 }

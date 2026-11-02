@@ -32,7 +32,7 @@ export function cooldownAvailability(
   return remaining>0?{allowed:false,remainingTurns:remaining,remainingMs:0,reason:"COOLDOWN_ACTIVE"}
     :{allowed:true,remainingTurns:0,remainingMs:0};
  }
- const remainingMs=Math.max(0,stamp.at+(waitTurns+1)*OUT_OF_COMBAT_TURN_MS-nowMs);
+ const remainingMs=Math.max(0,stamp.at+waitTurns*OUT_OF_COMBAT_TURN_MS-nowMs);
  return remainingMs>0?{allowed:false,remainingTurns:Math.ceil(remainingMs/OUT_OF_COMBAT_TURN_MS),remainingMs,reason:"COOLDOWN_ACTIVE"}
    :{allowed:true,remainingTurns:0,remainingMs:0};
 }

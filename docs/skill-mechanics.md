@@ -31,7 +31,7 @@ Cada campo tiene \`material\` (clave ASCII mayúscula como \`FIRE\`), anillos de
 - Las habilidades pasivas aprobadas ejecutan reglas de \`TURN\` sin necesitar activación manual. Las activas requieren un estado activo.
 - Las reglas con \`linkedSkillId\` solo se ejecutan cuando dicha técnica está activa.
 - Cada turno efectivo de combate procesa dispersión, expiraciones, condiciones y exposición.
-- Las modificaciones de \`AGI\` afectan el cálculo de velocidad de combate. Otros estados quedan guardados para su interpretación por subsistemas que los soporten.
+- Los estados con estadísticas configuradas afectan los valores efectivos de la ficha y sus estadísticas derivadas; \`AGI\` modifica la velocidad de combate sin aplicar el factor dos veces.
 - Los campos se almacenan en \`combatSession.mechanicsState\`, \`mazeRoom.mechanicsState\` o \`character.mechanicsState\` según el contexto al activar.
 
 ### Protección de maná
@@ -65,7 +65,7 @@ La dispersión realiza transferencia conservando la cantidad aproximada de mater
 
 - El motor de combate actual no tiene coordenadas físicas nativas ni confirmación automática de impactos. El GM debe proporcionar distancias y eventos verificables.
 - Las habitaciones del laberinto guardan campos, pero el laberinto todavía no tiene turnos de combate físicos para dispersarlos automáticamente sin una acción de avance.
-- Las estadísticas distintas de AGI no se recalculan automáticamente desde estados de combate en todas las vistas.
+- Los estados guardados con significados narrativos especiales (inmovilización, quemadura, frío, etc.) aún requieren resolutores propios más allá de sus multiplicadores estadísticos.
 - No se implementaron una física completa de viento, humedad, combustión o radiación, ni una simulación real de partículas; esos comportamientos deben representarse mediante estados/reglas.
 - No hay resolución PvP multi-actor automática. El modelo de exposición del combate actual diferencia PLAYER y NPC.
 - No hay habilidades precargadas, especializaciones minerales ni poderes base. Se configuran cuando el dueño del juego lo decida.

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { serializeSkillRange } from "@/lib/skills/range-storage";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
+import {validateTheftEffect} from "@/lib/skills/theft";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -42,6 +43,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
   }
 
+  for(const row of effect){const err=validateTheftEffect(row);if(err)return NextResponse.json({error:err},{status:400});}
   const effectRequirements = body.effectRequirements ?? (skill as any).effectRequirements ?? [];
   if (!validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Requisitos por efecto inválidos."},{status:400});
   const available = await Skill.where({characterId:Number(skill.characterId)}).all();

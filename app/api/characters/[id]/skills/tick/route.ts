@@ -31,6 +31,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const skill = await Skill.where({ id: skillId, characterId }).first();
     if (!skill || String(skill.status) !== "APPROVED") return NextResponse.json({ error: "Habilidad no encontrada o no aprobada." }, { status: 404 });
     if (action === "start") {
+      const theftCheck=db.raw.sql`
+        SELECT id FROM public."skillTheft"
+        WHERE "victimCharacterId"=${characterId} AND "sourceSkillId"=${skillId} AND status='ACTIVE'
+        LIMIT 1
+      `.returnsRow({id:"pg/int4@1"}).build();
+      if((await db.runtime().query(theftCheck)).length)
+        return NextResponse.json({error:"Esta habilidad fue robada temporalmente y no se puede activar."},{status:409});
       const approvedSkills = await Skill.where({characterId,status:"APPROVED"}).all();
       if (!meetsEffectRequirements(Array.isArray(skill.effectRequirements)?skill.effectRequirements:[],approvedSkills.filter((s:{id:number})=>Number(s.id)!==skillId))) return NextResponse.json({error:"Faltan los efectos o elementos requeridos."},{status:400});
     }

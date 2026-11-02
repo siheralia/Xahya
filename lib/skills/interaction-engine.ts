@@ -73,7 +73,7 @@ export function parseEnvironment(value: unknown): EnvironmentState {
     distances: raw.distances && typeof raw.distances === "object" && !Array.isArray(raw.distances) ? raw.distances : {},
     statuses: Array.isArray(raw.statuses) ? raw.statuses.filter(s => !!s && isKey(s.status)).slice(0, 200) : [],
     cooldowns: raw.cooldowns && typeof raw.cooldowns==="object" && !Array.isArray(raw.cooldowns)
-      ? Object.fromEntries(Object.entries(raw.cooldowns).filter(([k,v])=>/^[0-9]+$/.test(k)&&v&&integer(v.turn)&&integer(v.at))) : {},
+      ? Object.fromEntries(Object.entries(raw.cooldowns).filter(([k,v])=>/^[0-9]+$/.test(k)&&v&&Number.isSafeInteger(v.turn)&&v.turn>=0&&Number.isSafeInteger(v.at)&&v.at>=0)) : {},
   };
 }
 

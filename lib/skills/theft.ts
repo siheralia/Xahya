@@ -10,6 +10,7 @@ export type TheftEffect=CopyEffect & {
   stealFidelityPercent?:number;
   stealAllowSpecial?:boolean;
   stealAllowRacial?:boolean;
+  stealBodyCoercion?:boolean;
 };
 export function canStealSkill(effect:TheftEffect,original:{pchCost?:number;effect?:unknown;grantedByRacePerkId?:number|null;grantedByRaceSkillId?:number|null},sourceComplexity:number):string|null{
   const invalid=validateTheftEffect(effect);

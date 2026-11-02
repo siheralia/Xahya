@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'913f1e61fcd0d36e7cff649ff0fceed94e3c8aa364450428743e61e579e02543'>;
+  StorageHashBase<'2feaf5a2d25f7e3ddc3aa280619fd1edfd4d7f3762ff686f28183eb5429be506'>;
 export type ExecutionHash =
   ExecutionHashBase<'c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96'>;
 export type ProfileHash =
@@ -488,6 +488,17 @@ export type FieldOutputTypes = {
       readonly enemyId: CodecTypes['pg/int4@1']['output'];
       readonly themeId: CodecTypes['pg/int4@1']['output'];
     };
+    readonly GenericSkillTemplate: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly parentTemplateId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly payload: CodecTypes['pg/json@1']['output'];
+      readonly elementChoice: CodecTypes['pg/bool@1']['output'];
+      readonly enabled: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
     readonly Item: {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
@@ -647,6 +658,8 @@ export type FieldOutputTypes = {
       readonly cooldown: CodecTypes['pg/text@1']['output'] | null;
       readonly effect: CodecTypes['pg/json@1']['output'];
       readonly effectRequirements: CodecTypes['pg/json@1']['output'];
+      readonly genericTemplateId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly genericElement: CodecTypes['pg/text@1']['output'] | null;
       readonly mechanics: CodecTypes['pg/json@1']['output'];
       readonly requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['output']>;
       readonly grantedByRacePerkId: CodecTypes['pg/int4@1']['output'] | null;
@@ -1048,6 +1061,17 @@ export type FieldInputTypes = {
       readonly enemyId: CodecTypes['pg/int4@1']['input'];
       readonly themeId: CodecTypes['pg/int4@1']['input'];
     };
+    readonly GenericSkillTemplate: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly parentTemplateId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly payload: CodecTypes['pg/json@1']['input'];
+      readonly elementChoice: CodecTypes['pg/bool@1']['input'];
+      readonly enabled: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
     readonly Item: {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
@@ -1207,6 +1231,8 @@ export type FieldInputTypes = {
       readonly cooldown: CodecTypes['pg/text@1']['input'] | null;
       readonly effect: CodecTypes['pg/json@1']['input'];
       readonly effectRequirements: CodecTypes['pg/json@1']['input'];
+      readonly genericTemplateId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly genericElement: CodecTypes['pg/text@1']['input'] | null;
       readonly mechanics: CodecTypes['pg/json@1']['input'];
       readonly requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['input']>;
       readonly grantedByRacePerkId: CodecTypes['pg/int4@1']['input'] | null;
@@ -1608,6 +1634,17 @@ export type StorageColumnTypes = {
       readonly enemyId: CodecTypes['pg/int4@1']['output'];
       readonly themeId: CodecTypes['pg/int4@1']['output'];
     };
+    readonly genericSkillTemplate: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly elementChoice: CodecTypes['pg/bool@1']['output'];
+      readonly enabled: CodecTypes['pg/bool@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly parentTemplateId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly payload: CodecTypes['pg/json@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
     readonly item: {
       readonly acquisitionType: CodecTypes['pg/text@1']['output'];
       readonly allowedSlots: CodecTypes['pg/json@1']['output'];
@@ -1765,6 +1802,8 @@ export type StorageColumnTypes = {
       readonly duration: CodecTypes['pg/text@1']['output'] | null;
       readonly effect: CodecTypes['pg/json@1']['output'];
       readonly effectRequirements: CodecTypes['pg/json@1']['output'];
+      readonly genericElement: CodecTypes['pg/text@1']['output'] | null;
+      readonly genericTemplateId: CodecTypes['pg/int4@1']['output'] | null;
       readonly grantedByRacePerkId: CodecTypes['pg/int4@1']['output'] | null;
       readonly grantedByRaceSkillId: CodecTypes['pg/int4@1']['output'] | null;
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -2168,6 +2207,17 @@ export type StorageColumnInputTypes = {
       readonly enemyId: CodecTypes['pg/int4@1']['input'];
       readonly themeId: CodecTypes['pg/int4@1']['input'];
     };
+    readonly genericSkillTemplate: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly elementChoice: CodecTypes['pg/bool@1']['input'];
+      readonly enabled: CodecTypes['pg/bool@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly parentTemplateId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly payload: CodecTypes['pg/json@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
     readonly item: {
       readonly acquisitionType: CodecTypes['pg/text@1']['input'];
       readonly allowedSlots: CodecTypes['pg/json@1']['input'];
@@ -2325,6 +2375,8 @@ export type StorageColumnInputTypes = {
       readonly duration: CodecTypes['pg/text@1']['input'] | null;
       readonly effect: CodecTypes['pg/json@1']['input'];
       readonly effectRequirements: CodecTypes['pg/json@1']['input'];
+      readonly genericElement: CodecTypes['pg/text@1']['input'] | null;
+      readonly genericTemplateId: CodecTypes['pg/int4@1']['input'] | null;
       readonly grantedByRacePerkId: CodecTypes['pg/int4@1']['input'] | null;
       readonly grantedByRaceSkillId: CodecTypes['pg/int4@1']['input'] | null;
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -2590,6 +2642,8 @@ export namespace Models {
     cooldown: CodecTypes['pg/text@1']['output'] | null;
     effect: CodecTypes['pg/json@1']['output'];
     effectRequirements: CodecTypes['pg/json@1']['output'];
+    genericTemplateId: CodecTypes['pg/int4@1']['output'] | null;
+    genericElement: CodecTypes['pg/text@1']['output'] | null;
     mechanics: CodecTypes['pg/json@1']['output'];
     requiredSkillIds: ReadonlyArray<CodecTypes['pg/int4@1']['output']>;
     grantedByRacePerkId: CodecTypes['pg/int4@1']['output'] | null;
@@ -2600,8 +2654,9 @@ export namespace Models {
     updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     approvedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     character: public_Character;
+    genericTemplate: public_GenericSkillTemplate | null;
     skillStates: public_CharacterSkillState[];
-    readonly [RelationKeys]?: 'character' | 'skillStates';
+    readonly [RelationKeys]?: 'character' | 'genericTemplate' | 'skillStates';
   };
   export type public_CharacterSkillState = {
     id: CodecTypes['pg/int4@1']['output'];
@@ -3267,6 +3322,21 @@ export namespace Models {
     cohorts: public_PopulationCohort[];
     readonly [RelationKeys]?: 'cohorts';
   };
+  export type public_GenericSkillTemplate = {
+    id: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    description: CodecTypes['pg/text@1']['output'] | null;
+    parentTemplateId: CodecTypes['pg/int4@1']['output'] | null;
+    payload: CodecTypes['pg/json@1']['output'];
+    elementChoice: CodecTypes['pg/bool@1']['output'];
+    enabled: CodecTypes['pg/bool@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    children: public_GenericSkillTemplate[];
+    parent: public_GenericSkillTemplate | null;
+    purchases: public_Skill[];
+    readonly [RelationKeys]?: 'children' | 'parent' | 'purchases';
+  };
 }
 
 export declare const models: {
@@ -3321,6 +3391,7 @@ export declare const models: {
     WorldInfrastructureLink: Models.public_WorldInfrastructureLink;
     WorldOccupation: Models.public_WorldOccupation;
     WorldSocialClass: Models.public_WorldSocialClass;
+    GenericSkillTemplate: Models.public_GenericSkillTemplate;
   };
 };
 
@@ -5726,6 +5797,103 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly genericSkillTemplate: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly parentTemplateId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly payload: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/json@1', '{}'>;
+                  };
+                };
+                readonly elementChoice: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly enabled: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'genericSkillTemplate_parentTemplateId_idx_da13cbca';
+                  readonly prefix: 'genericSkillTemplate_parentTemplateId_idx';
+                  readonly columns: readonly ['parentTemplateId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'genericSkillTemplate_enabled_idx_7f014af8';
+                  readonly prefix: 'genericSkillTemplate_enabled_idx';
+                  readonly columns: readonly ['enabled'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'genericSkillTemplate';
+                    readonly columns: readonly ['parentTemplateId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'genericSkillTemplate';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
             readonly item: {
               columns: {
                 readonly id: {
@@ -7105,6 +7273,16 @@ type ContractBase = Omit<
                     readonly value: DefaultLiteralValue<'pg/json@1', '[]'>;
                   };
                 };
+                readonly genericTemplateId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly genericElement: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
                 readonly mechanics: {
                   readonly nativeType: 'json';
                   readonly codecId: 'pg/json@1';
@@ -7179,6 +7357,12 @@ type ContractBase = Omit<
                   readonly columns: readonly ['status'];
                   readonly unique: false;
                 },
+                {
+                  readonly name: 'skill_genericTemplateId_idx_461067b8';
+                  readonly prefix: 'skill_genericTemplateId_idx';
+                  readonly columns: readonly ['genericTemplateId'];
+                  readonly unique: false;
+                },
               ];
               foreignKeys: readonly [
                 {
@@ -7190,6 +7374,18 @@ type ContractBase = Omit<
                   readonly target: {
                     readonly namespaceId: 'public' & NamespaceId;
                     readonly tableName: 'character';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'skill';
+                    readonly columns: readonly ['genericTemplateId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'genericSkillTemplate';
                     readonly columns: readonly ['id'];
                   };
                 },
@@ -8599,6 +8795,10 @@ type ContractBase = Omit<
     readonly worldSocialClass: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'WorldSocialClass';
+    };
+    readonly genericSkillTemplate: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'GenericSkillTemplate';
     };
   };
   readonly domain: {
@@ -10772,6 +10972,103 @@ type ContractBase = Omit<
               };
             };
           };
+          readonly GenericSkillTemplate: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly parentTemplateId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly payload: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
+              readonly elementChoice: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly enabled: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly children: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'GenericSkillTemplate';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['parentTemplateId'];
+                };
+              };
+              readonly parent: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'GenericSkillTemplate';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['parentTemplateId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly purchases: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Skill';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['genericTemplateId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'genericSkillTemplate';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+                readonly description: { readonly column: 'description' };
+                readonly parentTemplateId: { readonly column: 'parentTemplateId' };
+                readonly payload: { readonly column: 'payload' };
+                readonly elementChoice: { readonly column: 'elementChoice' };
+                readonly enabled: { readonly column: 'enabled' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
           readonly Item: {
             readonly fields: {
               readonly id: {
@@ -11992,6 +12289,14 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
               };
+              readonly genericTemplateId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly genericElement: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly mechanics: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
@@ -12052,6 +12357,18 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['id'];
                 };
               };
+              readonly genericTemplate: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'GenericSkillTemplate';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['genericTemplateId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
               readonly skillStates: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -12087,6 +12404,8 @@ type ContractBase = Omit<
                 readonly cooldown: { readonly column: 'cooldown' };
                 readonly effect: { readonly column: 'effect' };
                 readonly effectRequirements: { readonly column: 'effectRequirements' };
+                readonly genericTemplateId: { readonly column: 'genericTemplateId' };
+                readonly genericElement: { readonly column: 'genericElement' };
                 readonly mechanics: { readonly column: 'mechanics' };
                 readonly requiredSkillIds: { readonly column: 'requiredSkillIds' };
                 readonly grantedByRacePerkId: { readonly column: 'grantedByRacePerkId' };

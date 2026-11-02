@@ -96,6 +96,10 @@
       "model": "EnemyTheme",
       "namespace": "public"
     },
+    "genericSkillTemplate": {
+      "model": "GenericSkillTemplate",
+      "namespace": "public"
+    },
     "item": {
       "model": "Item",
       "namespace": "public"
@@ -3604,6 +3608,154 @@
               "table": "enemyTheme"
             }
           },
+          "GenericSkillTemplate": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "description": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "elementChoice": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "enabled": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "parentTemplateId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "payload": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "children": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "parentTemplateId"
+                  ]
+                },
+                "to": {
+                  "model": "GenericSkillTemplate",
+                  "namespace": "public"
+                }
+              },
+              "parent": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "parentTemplateId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "GenericSkillTemplate",
+                  "namespace": "public"
+                }
+              },
+              "purchases": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "genericTemplateId"
+                  ]
+                },
+                "to": {
+                  "model": "Skill",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "description": {
+                  "column": "description"
+                },
+                "elementChoice": {
+                  "column": "elementChoice"
+                },
+                "enabled": {
+                  "column": "enabled"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "parentTemplateId": {
+                  "column": "parentTemplateId"
+                },
+                "payload": {
+                  "column": "payload"
+                },
+                "updatedAt": {
+                  "column": "updatedAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "genericSkillTemplate"
+            }
+          },
           "Item": {
             "fields": {
               "acquisitionType": {
@@ -5561,6 +5713,20 @@
                   "kind": "scalar"
                 }
               },
+              "genericElement": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "genericTemplateId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "grantedByRacePerkId": {
                 "nullable": true,
                 "type": {
@@ -5657,6 +5823,22 @@
                   "namespace": "public"
                 }
               },
+              "genericTemplate": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "genericTemplateId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "GenericSkillTemplate",
+                  "namespace": "public"
+                }
+              },
               "skillStates": {
                 "cardinality": "1:N",
                 "on": {
@@ -5725,6 +5907,12 @@
                 },
                 "effectRequirements": {
                   "column": "effectRequirements"
+                },
+                "genericElement": {
+                  "column": "genericElement"
+                },
+                "genericTemplateId": {
+                  "column": "genericTemplateId"
                 },
                 "grantedByRacePerkId": {
                   "column": "grantedByRacePerkId"
@@ -10476,6 +10664,122 @@
               },
               "uniques": []
             },
+            "genericSkillTemplate": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "description": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "elementChoice": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "enabled": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "parentTemplateId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
+                "payload": {
+                  "codecId": "pg/json@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "{}"
+                  },
+                  "nativeType": "json",
+                  "nullable": false
+                },
+                "updatedAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "parentTemplateId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "genericSkillTemplate"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "genericSkillTemplate"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "enabled"
+                  ],
+                  "name": "genericSkillTemplate_enabled_idx_7f014af8",
+                  "prefix": "genericSkillTemplate_enabled_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "parentTemplateId"
+                  ],
+                  "name": "genericSkillTemplate_parentTemplateId_idx_da13cbca",
+                  "prefix": "genericSkillTemplate_parentTemplateId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
             "item": {
               "columns": {
                 "acquisitionType": {
@@ -12101,6 +12405,16 @@
                   "nativeType": "json",
                   "nullable": false
                 },
+                "genericElement": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "genericTemplateId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
                 "grantedByRacePerkId": {
                   "codecId": "pg/int4@1",
                   "nativeType": "int4",
@@ -12199,6 +12513,23 @@
                     "namespaceId": "public",
                     "tableName": "character"
                   }
+                },
+                {
+                  "onDelete": "setNull",
+                  "source": {
+                    "columns": [
+                      "genericTemplateId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "skill"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "genericSkillTemplate"
+                  }
                 }
               ],
               "indexes": [
@@ -12208,6 +12539,14 @@
                   ],
                   "name": "skill_characterId_idx_2423fe9d",
                   "prefix": "skill_characterId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "genericTemplateId"
+                  ],
+                  "name": "skill_genericTemplateId_idx_461067b8",
+                  "prefix": "skill_genericTemplateId_idx",
                   "unique": false
                 },
                 {
@@ -13806,7 +14145,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "913f1e61fcd0d36e7cff649ff0fceed94e3c8aa364450428743e61e579e02543"
+    "storageHash": "2feaf5a2d25f7e3ddc3aa280619fd1edfd4d7f3762ff686f28183eb5429be506"
   },
   "execution": {
     "executionHash": "c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96",

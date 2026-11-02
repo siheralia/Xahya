@@ -72,8 +72,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           ? await activateSkillMechanics(tx,skill,characterId,maxMana)
           : null;
         if(action==="stop")await stopSkillMechanics(tx,characterId,skillId);
-        if(action==="start" && skill.category!=="PASSIVE" &&
-           (skill.cooldown==="Una vez por combate"||cooldownTurns(skill.cooldown,skill.duration)>0)){
+        const shouldStampCooldown=skill.category!=="PASSIVE" && (
+          (action==="start" && (skill.cooldown==="Una vez por combate"||
+            (skill.cooldown!=="Igual a duración"&&cooldownTurns(skill.cooldown,skill.duration)>0))) ||
+          (action==="stop" && existing?.active && skill.cooldown==="Igual a duración"&&
+            cooldownTurns(skill.cooldown,skill.duration)>0)
+        );
+        if(shouldStampCooldown){
           // Mechanics may have rewritten the environment; reread before stamping
           // so the cooldown remains persisted alongside field/status effects.
           const location=await locateSkillEnvironment(tx,characterId);

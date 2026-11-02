@@ -96,7 +96,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
    const lock=db.raw.sql`UPDATE public."character" SET "pchBalance"="pchBalance" WHERE id=${access.characterId}`.affectedCount().build();
    if((await tx.execute(lock)).affectedRows!==1)throw new Error("CHARACTER_MISSING");
    const TxSkill=(tx.orm.public as any).Skill;
-   const fresh=(await (tx.orm.public as any).GenericSkillTemplate.all()).map(mapRow);
+   const fresh:GenericSkillTemplateRow[]=(await (tx.orm.public as any).GenericSkillTemplate.all()).map(mapRow);
    if(chain.some(original=>{
      const updated=fresh.find(row=>row.id===original.id);
      return !updated || JSON.stringify(updated)!==JSON.stringify(original);

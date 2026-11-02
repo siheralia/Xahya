@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { advanceCharacterSkillTicks } from "@/lib/combat/ticks";
-import { activateSkillMechanics, readMaxMana, locateSkillEnvironment } from "@/lib/skills/mechanics-runtime";
+import { activateSkillMechanics, readMaxMana, locateSkillEnvironment, stopSkillMechanics } from "@/lib/skills/mechanics-runtime";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -54,6 +54,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const mechanics=action==="start"
           ? await activateSkillMechanics(tx,skill,characterId,maxMana)
           : null;
+        if(action==="stop")await stopSkillMechanics(tx,characterId,skillId);
         const state=existing
           ? await TxState.where({id:Number(existing.id)}).update({
               active:action==="start",lastTickAt:action==="start"?now:existing.lastTickAt,updatedAt:now,

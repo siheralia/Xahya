@@ -50,6 +50,12 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
           WHERE id=${row.copierSkillId} AND "characterId"=${row.characterId} AND status='APPROVED'
         `.affectedCount().build();
         if((await tx.execute(lock)).affectedRows!==1)throw new Error("COPIER_CHANGED");
+        const origin=db.raw.sql`
+          UPDATE public."skill" SET "pchCost"="pchCost"
+          WHERE id=${row.sourceSkillId} AND status='APPROVED'
+            AND NOT EXISTS (SELECT 1 FROM public."skillCopy" WHERE "copiedSkillId"=${row.sourceSkillId})
+        `.affectedCount().build();
+        if((await tx.execute(origin)).affectedRows!==1)throw new Error("COPY_RECURSION");
         const Skill=(tx.orm.public as any).Skill;
         const [copier,source]=await Promise.all([
           Skill.where({id:row.copierSkillId,characterId:row.characterId,status:"APPROVED"}).first(),
@@ -63,12 +69,6 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
         const violation=canCopySkill(effect,{...source,pchCost:complexity},row.mode);
         if(violation)throw new Error("COPY_RULE:"+violation);
         if(row.sourceSkillId===row.copierSkillId)throw new Error("COPY_SELF");
-        const origin=db.raw.sql`
-          UPDATE public."skill" SET "pchCost"="pchCost"
-          WHERE id=${row.sourceSkillId} AND status='APPROVED'
-            AND NOT EXISTS (SELECT 1 FROM public."skillCopy" WHERE "copiedSkillId"=${row.sourceSkillId})
-        `.affectedCount().build();
-        if((await tx.execute(origin)).affectedRows!==1)throw new Error("COPY_RECURSION");
         const clone=copySkillSnapshot(source,effect);
         if(row.mode==="IMITATION"){
           // Imitation remains a recorded one-shot outcome, not automatic combat execution.

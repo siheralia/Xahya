@@ -72,6 +72,10 @@ async function save(request:Request,editing:boolean) {
   const listed=await elements();
   const sample=listed.find(x=>x!=="NEUTRAL");
   const result=await quoteGenericSkill(proposed,id,chain.some(r=>r.elementChoice)?sample:undefined);
+  const validElements=new Set(listed);
+  if(result.skill.effect.some((e:any)=>e.type==="ELEMENTAL_IMBUE" &&
+     (!e.element||e.element==="NEUTRAL"||!validElements.has(e.element))))
+    throw new Error("Imbuir elemento requiere un elemento vigente y no neutro.");
   // Changing a published parent may invalidate a descendant. Validate the entire catalog before saving.
   for(const child of proposed.filter(r=>r.id!==id)){
    const childChain=genericTemplateChain(proposed,child.id);

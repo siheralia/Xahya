@@ -3,6 +3,7 @@ import {type SkillMechanics,validateSkillMechanics} from "@/lib/skills/interacti
 import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
+import { applyCooldownPch } from "@/lib/skills/cooldown";
 import { speedSurcharge } from "@/lib/skills/speed-settings";
 import { defaultEffectPricing } from "@/lib/skills/pch";
 import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
@@ -62,7 +63,7 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
     }
     base += configuredSkillEffectPch(e,narrative,pricing,durations);
   }
-  const pch=effectRequirementDiscount(applyRangePch(manaAdjustedPch(base+mechanicsPchCost(mechanics),b.cost)+speedSurcharge(b.speed),range),requirements);
+  const pch=effectRequirementDiscount(applyCooldownPch(applyRangePch(manaAdjustedPch(base+mechanicsPchCost(mechanics),b.cost)+speedSurcharge(b.speed),range),b.cooldown,b.duration,b.category),requirements);
   if(!Number.isSafeInteger(pch)||pch<1)throw new Error("Costo PCH inválido.");
   return {pch,payload:{
     name:b.name.trim(),description:b.description.trim(),cost:b.cost,

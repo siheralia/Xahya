@@ -15,11 +15,13 @@ import { SkillSpeedSettings } from "@/components/skills/SkillSpeedSettings";
 import { useEffect, useMemo, useState } from "react";
 
 import { EFFECT_CATALOG, EFFECT_TARGETS, resolveEffectTargets } from "@/lib/effects/catalog";
-import { effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
+import { defaultEffectPricing, type EffectPricingMap } from "@/lib/skills/pch";
+import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
+import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 
-type Effect = { type: string; target?: string; value?: number; description?: string;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean };
+type Effect = { type: string; target?: string; value?: number; description?: string; element?: string; capability?: string; durationTurns?: number; durationMovements?: number;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean };
 type Skill = {
   id:number; characterId:number; name:string; cost:number; pchCost:number; accumulationCost:number; accumulationPerTick:number; maintenanceCost:number; description:string|null; duration:string|null;
   category:string; basicType:string|null; attackType:string|null; defenseType:string|null; areaOfEffect:string|null; speed:string|null; cooldown:string|null; effect:Effect[];
@@ -39,8 +41,25 @@ export default function SkillsManagementPage(){
   useEffect(()=>{const tab=new URLSearchParams(window.location.search).get("tab"); if(tab==="racial")setCatalogTab("RACIAL");else if(tab==="generic")setCatalogTab("GENERIC");},[]);
   const [effectDefinitions,setEffectDefinitions]=useState<{type:string;label:string;targets:{key:string;label:string}[]}[]>([]);
   const [narrativeCards,setNarrativeCards]=useState<{id:string;name:string;description:string;category:string;pch:number}[]>([]);
+  const [effectPricing,setEffectPricing]=useState<EffectPricingMap>(defaultEffectPricing());
+  const [durationPricing,setDurationPricing]=useState<DurationPricing>(DEFAULT_DURATION_PRICING);
+  const [pricingReady,setPricingReady]=useState(false);
   const [statDefinitions,setStatDefinitions]=useState<{key:string;name:string;kind:"basic"|"derived";active?:boolean}[]>([]);
-  useEffect(() => { fetch("/api/management/effect-targets").then((r) => r.ok ? r.json() : null).then((data) => { if (data?.statistics) setStatDefinitions(data.statistics); if (data?.effects) setEffectDefinitions(data.effects); if (data?.narrativeCards) setNarrativeCards(data.narrativeCards); }).catch(() => {}); }, []);
+  useEffect(() => {
+    fetch("/api/management/effect-targets", {cache:"no-store"})
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.statistics) setStatDefinitions(data.statistics);
+        if (data?.effects) setEffectDefinitions(data.effects);
+        if (data?.narrativeCards) setNarrativeCards(data.narrativeCards);
+        if (data?.effectPricing && data?.durationPricing && Array.isArray(data?.narrativeCards)) {
+          setEffectPricing(data.effectPricing);
+          setDurationPricing(data.durationPricing);
+          setPricingReady(true);
+        } else setError("No se pudo cargar el catálogo de precios. No se guardarán cambios PCH sin él.");
+      })
+      .catch(() => setError("No se pudo cargar el catálogo de precios. Actualiza la página e inténtalo otra vez."));
+  }, []);
   const [characters,setCharacters]=useState<{id:number;name:string}[]>([]);
   const [filter,setFilter]=useState("PENDING");
   const [search,setSearch]=useState("");
@@ -63,7 +82,8 @@ export default function SkillsManagementPage(){
   }
   useEffect(()=>{void load();},[]);
 
-  const pchBase = form.effect.reduce((sum,e) => sum + effectPchCost(e), 0) + mechanicsPchCost(form.mechanics);
+  const priceEffect = (effect:Effect) => configuredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
+  const pchBase = form.effect.reduce((sum,e) => sum + priceEffect(e), 0) + mechanicsPchCost(form.mechanics);
   const pchManaAdjusted = manaAdjustedPch(pchBase, form.cost);
   const pchSpeedAdjusted = pchManaAdjusted + (!form.speed || form.speed === "DEFAULT" ? 0 : 5);
   const pchTotal = effectRequirementDiscount(applyRangePch(pchSpeedAdjusted, form.maxRangeMeters), form.effectRequirements);
@@ -97,6 +117,7 @@ export default function SkillsManagementPage(){
   }
   async function save(approve=false,reject=false){
     if(!form.characterId){setError("Selecciona el personaje.");return;}
+    if(!pricingReady){setError("No se ha cargado el catálogo de precios. Actualiza la página antes de guardar.");return;}
     setBusy(true);setError("");setSuccess("");
     try{
       const url=selected?"/api/management/skills/"+selected:"/api/management/skills";
@@ -177,7 +198,7 @@ export default function SkillsManagementPage(){
       </div>
     </section>
     <div className="mt-6"><SkillSpeedSettings/></div>
-    <SkillFormModal availableSkills={skills} characterId={Number(form.characterId)} editingSkillId={selected} open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} form={form} onChange={setForm} statistics={statDefinitions} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={effectPchCost} pch={{total:pchTotal,beforeRequirements:applyRangePch(pchSpeedAdjusted,form.maxRangeMeters),base:pchBase,manaAdjusted:pchManaAdjusted}} characterSelector={<label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>} actions={<div className="flex flex-wrap gap-2"><button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button><button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button><button onClick={()=>save(true,false)} disabled={busy} className="rounded-lg bg-emerald-400 px-4 py-3 font-semibold text-zinc-950">Guardar y aprobar</button></div>} />
+    <SkillFormModal availableSkills={skills} characterId={Number(form.characterId)} editingSkillId={selected} open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} form={form} onChange={setForm} statistics={statDefinitions} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={pricingReady?priceEffect:undefined} pch={pricingReady?{total:pchTotal,beforeRequirements:applyRangePch(pchSpeedAdjusted,form.maxRangeMeters),base:pchBase,manaAdjusted:pchManaAdjusted}:undefined} characterSelector={<label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>} actions={<div className="flex flex-wrap gap-2"><button onClick={()=>save(false,false)} disabled={busy||!pricingReady} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button><button onClick={()=>save(false,true)} disabled={busy||!pricingReady} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button><button onClick={()=>save(true,false)} disabled={busy||!pricingReady} className="rounded-lg bg-emerald-400 px-4 py-3 font-semibold text-zinc-950">Guardar y aprobar</button></div>} />
     </>}
   </div></main>;
 }

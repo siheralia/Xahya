@@ -77,6 +77,7 @@ test("emblem endpoint exposes card icon mapping and UI uses it",()=>{
   assert.match(api,/catalogEffectIcons\(effects,narrativeCards\)/);
   assert.match(emblem,/resolveSkillEffectIcon\(effect,icons,managedIcons\)/);
   assert.match(emblem,/fetch\("\/api\/effect-icons",\{cache:"no-store"\}\)/);
+  assert.match(emblem,/selected\.length === 1 \? \.32/);
 });
 
 test("skill card titles are high contrast and copy buttons are present for approved and pending skills",()=>{

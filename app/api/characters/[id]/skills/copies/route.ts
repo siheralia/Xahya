@@ -2,7 +2,8 @@ import {auth} from "@clerk/nextjs/server";
 import {NextResponse} from "next/server";
 import {db} from "@/lib/db";
 import {canCopySkill,copySkillSnapshot,type CopyEffect,type CopyMode,COPY_MODES} from "@/lib/skills/copy";
-import {calculateSkillPch,defaultEffectPricing} from "@/lib/skills/pch";
+import {defaultEffectPricing} from "@/lib/skills/pch";
+import {copyComplexityPch} from "@/lib/skills/copy-complexity";
 import {readEffectPricing} from "@/lib/effects/pricing";
 
 const codec={id:"pg/int4@1",copierSkillId:"pg/int4@1",sourceSkillId:"pg/int4@1",copiedSkillId:"pg/int4@1",mode:"pg/text@1",remainingTurns:"pg/int4@1",equipped:"pg/bool@1",name:"pg/text@1"} as const;
@@ -34,16 +35,9 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   const effects=(Array.isArray(copier.effect)?copier.effect:[]) as CopyEffect[];
   const copyEffect=effects.find(e=>e.type==="COPY_SKILL"&&(e.copyMode??"PERMANENT")===mode);
   if(!copyEffect)return NextResponse.json({error:"La habilidad no dispone de esta modalidad de copia."},{status:400});
-  // Compare against the undiscounted construction cost of the effects when available.
-  let undiscounted=Number(source.pchCost??0);
-  try{
-    undiscounted=Math.max(undiscounted,calculateSkillPch(
-      Array.isArray(source.effect)?source.effect:[],
-      {...defaultEffectPricing(),...await readEffectPricing()}
-    ));
-  }catch{
-    // Legacy effects may no longer have a price; retain their recorded PCH.
-  }
+  const undiscounted = copyComplexityPch(source,{
+    ...defaultEffectPricing(),...await readEffectPricing()
+  });
   const rule=canCopySkill(copyEffect,{...source,pchCost:undiscounted},mode);
   if(rule)return NextResponse.json({error:rule},{status:400});
   if(Number(source.id)===Number(copier.id))return NextResponse.json({error:"Una habilidad de copia no puede copiarse a sí misma."},{status:400});

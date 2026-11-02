@@ -1,4 +1,6 @@
 import { validEffectRequirements, effectRequirementDiscount } from "@/lib/skills/effect-requirements";
+import {type SkillMechanics,validateSkillMechanics} from "@/lib/skills/interaction-engine";
+import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { speedSurcharge } from "@/lib/skills/speed-settings";
@@ -20,6 +22,7 @@ export type UpgradePayload = {
   condition:string|null; maxRangeMeters:number;
   effect:Array<{type:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;[key:string]:unknown}>;
   effectRequirements:Array<{effect:string;element?:string}>;
+  mechanics:SkillMechanics;
 };
 
 export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload;pch:number}> {
@@ -33,6 +36,9 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
   if(!Number.isSafeInteger(range)||range<0||range>100)throw new Error("Distancia inválida.");
   if (!Array.isArray(effects)||effects.length<1||effects.length>20)throw new Error("La habilidad debe tener entre 1 y 20 efectos.");
   if(!validEffectRequirements(requirements))throw new Error("Requisitos por efecto inválidos.");
+  const mechanics=(b.mechanics??{}) as SkillMechanics;
+  const mechanicsError=validateSkillMechanics(mechanics);
+  if(mechanicsError)throw new Error(mechanicsError);
   for (const field of ["cost","maintenanceCost","accumulationCost","accumulationPerTick"])if(!Number.isSafeInteger(b[field])||b[field]<0)throw new Error("Costos inválidos.");
   if(typeof b.speed!=="string"||typeof b.cooldown!=="string")throw new Error("Velocidad o enfriamiento inválidos.");
   const statistics=await readStatisticsCatalog();
@@ -60,7 +66,7 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
     }
     base+=durationPchCost(cost,m?{kind:"MOVEMENTS",movements:m}:t?{kind:"TURNS",turns:t}:{kind:"INSTANT"},durations);
   }
-  const pch=effectRequirementDiscount(applyRangePch(manaAdjustedPch(base,b.cost)+speedSurcharge(b.speed),range),requirements);
+  const pch=effectRequirementDiscount(applyRangePch(manaAdjustedPch(base+mechanicsPchCost(mechanics),b.cost)+speedSurcharge(b.speed),range),requirements);
   if(!Number.isSafeInteger(pch)||pch<1)throw new Error("Costo PCH inválido.");
   return {pch,payload:{
     name:b.name.trim(),description:b.description.trim(),cost:b.cost,
@@ -68,6 +74,6 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
     accumulationPerTick:b.accumulationPerTick,duration:b.duration??null,
     category:b.category,areaOfEffect:String(b.areaOfEffect??"Objetivo único"),
     maxRangeMeters:range,speed:b.speed,cooldown:b.cooldown,
-    condition:b.condition??null,effect:effects,effectRequirements:requirements,
+    condition:b.condition??null,effect:effects,effectRequirements:requirements,mechanics,
   }};
 }

@@ -15,7 +15,7 @@ export type MechanicCondition =
 export type MechanicAction =
   | { kind: "CREATE_FIELD"; material: string; rings: { radius: number; ppm: number }[]; spreadMeters?: number; transferPercent?: number; durationTurns?: number }
   | { kind: "CHANGE_FIELD"; material: string; ppm: number }
-  | { kind: "EXPOSE"; material: string; amount: number; target: MechanicTarget }
+  | { kind: "EXPOSE"; material: string; amount: number; target: MechanicTarget; fromField?: boolean }
   | { kind: "CLEANSE"; material: string; amount: number; target: MechanicTarget }
   | { kind: "STATUS"; status: string; target: MechanicTarget; durationTurns: number; stat?: string; multiplier?: number }
   | { kind: "MANA_WARD"; manaInvestment: number; level: number; target: "SELF"; durationTurns: number };
@@ -42,6 +42,7 @@ export type EnvironmentStatus = {
 export type EnvironmentState = {
   turn: number; fields: EnvironmentField[];
   exposures: Record<string, number>; statuses: EnvironmentStatus[];
+  distances: Partial<Record<"PLAYER" | "NPC", number>>;
 };
 export type MechanicsContext = {
   actor: "PLAYER" | "NPC";
@@ -59,7 +60,7 @@ const finite = (x: unknown, min = 0, max = 1000000): x is number =>
 const integer = (x: unknown, min = 0, max = 1000000): x is number =>
   finite(x, min, max) && Number.isSafeInteger(x);
 
-export const emptyEnvironment = (): EnvironmentState => ({ turn: 0, fields: [], exposures: {}, statuses: [] });
+export const emptyEnvironment = (): EnvironmentState => ({ turn: 0, fields: [], exposures: {}, statuses: [], distances: {} });
 
 export function parseEnvironment(value: unknown): EnvironmentState {
   if (!value || typeof value !== "object" || Array.isArray(value)) return emptyEnvironment();
@@ -68,6 +69,7 @@ export function parseEnvironment(value: unknown): EnvironmentState {
     turn: integer(raw.turn) ? raw.turn : 0,
     fields: Array.isArray(raw.fields) ? raw.fields.filter(f => !!f && isKey(f.material) && Array.isArray(f.rings)).slice(0, 100) : [],
     exposures: raw.exposures && typeof raw.exposures === "object" && !Array.isArray(raw.exposures) ? raw.exposures : {},
+    distances: raw.distances && typeof raw.distances === "object" && !Array.isArray(raw.distances) ? raw.distances : {},
     statuses: Array.isArray(raw.statuses) ? raw.statuses.filter(s => !!s && isKey(s.status)).slice(0, 200) : [],
   };
 }
@@ -145,7 +147,7 @@ export function conditionsMet(
 ): boolean {
   return conditions.every(condition => {
     switch (condition.kind) {
-      case "FIELD_MIN": return localPpm(state, condition.material, ctx.distances?.[ctx.actor] ?? 0) >= condition.ppm;
+      case "FIELD_MIN": return ctx.distances?.[ctx.actor] !== undefined && localPpm(state, condition.material, ctx.distances[ctx.actor]) >= condition.ppm;
       case "EXPOSURE_MIN": return (state.exposures[exposureKey(ctx.actor, condition.material)] ?? 0) >= condition.amount;
       case "SKILL_ACTIVE": return ctx.activeSkillIds.includes(condition.skillId);
       case "STATUS": return state.statuses.some(s => s.actor === ctx.actor && s.status === condition.status && s.remainingTurns > 0);
@@ -169,7 +171,7 @@ export function applyMechanicEvent(
 ): {state: EnvironmentState; manaInvestment: number} {
   const state: EnvironmentState = {
     turn: input.turn, fields: input.fields.map(f => ({...f, rings:f.rings.map(r => ({...r}))})),
-    exposures: {...input.exposures}, statuses: input.statuses.map(s => ({...s})),
+    exposures: {...input.exposures}, statuses: input.statuses.map(s => ({...s})), distances: {...input.distances},
   };
   if (!conditionsMet(mechanics.activationConditions ?? [], state, ctx)) return {state, manaInvestment:0};
   let manaInvestment = 0;
@@ -203,7 +205,13 @@ export function applyMechanicEvent(
           for (const actor of targetActors(action.target, ctx.actor)) {
             const key = exposureKey(actor, action.material);
             const ward = Math.max(0, ...state.statuses.filter(s => s.actor === actor && s.wardPpm && s.remainingTurns>0).map(s=>s.wardPpm??0));
-            const delta = action.kind === "EXPOSE" ? Math.max(0, action.amount - ward) : -action.amount;
+            const distance = ctx.distances?.[actor];
+            // A field-based exposure needs an explicitly measured distance.
+            if (action.kind === "EXPOSE" && action.fromField && distance === undefined) continue;
+            const amount = action.kind === "EXPOSE" && action.fromField
+              ? localPpm(state, action.material, distance)
+              : action.amount;
+            const delta = action.kind === "EXPOSE" ? Math.max(0, amount - ward) : -amount;
             state.exposures[key] = Math.max(0, (state.exposures[key] ?? 0) + delta);
           }
           break;
@@ -217,6 +225,7 @@ export function applyMechanicEvent(
           break;
         case "MANA_WARD":
           manaInvestment += action.manaInvestment;
+          state.statuses = state.statuses.filter(s=>!(s.sourceSkillId===ctx.sourceSkillId && s.status==="MANA_WARD" && s.actor===ctx.actor));
           state.statuses.push({sourceSkillId:ctx.sourceSkillId,status:"MANA_WARD",actor:ctx.actor,remainingTurns:action.durationTurns,wardPpm:manaWardReduction(action.manaInvestment,action.level)});
           break;
       }
@@ -228,7 +237,7 @@ export function applyMechanicEvent(
 /** Conserves ring mass (ppm × annular area) when spreading to the next ring. */
 export function advanceEnvironmentTurn(input: EnvironmentState): EnvironmentState {
   const state: EnvironmentState = {
-    turn:input.turn+1, fields:[], exposures:{...input.exposures},
+    turn:input.turn+1, fields:[], exposures:{...input.exposures}, distances:{...input.distances},
     statuses:input.statuses.map(s=>({...s,remainingTurns:s.remainingTurns-1})).filter(s=>s.remainingTurns>0),
   };
   for (const old of input.fields) {

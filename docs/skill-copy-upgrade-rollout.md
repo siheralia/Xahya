@@ -13,13 +13,14 @@
 1. Aplicar `supabase/migrations/20261102013000_skill_copies_upgrades.sql` **antes** de habilitar estas rutas en producción. No se ha aplicado directamente a producción desde este PR.
 2. Verificar/emitir el contrato de ORM con `prisma contract emit`, ejecutar `npm test`, `npx tsc --noEmit` y `npm run build`.
 3. Entregar una `Moneda de Mejora de Habilidades` desde Gestión de objetos, consumirla en el inventario y comprobar el saldo de la ficha.
-4. Crear y aprobar una habilidad `Copiar habilidad` con una modalidad; copiar una habilidad de origen aprobada, probando límite de complejidad y bloqueo de copias recursivas.
+4. Crear y aprobar una habilidad `Copiar habilidad` con una modalidad; buscar una habilidad aprobada por un fragmento de su nombre, seleccionar el personaje correcto ante nombres repetidos y copiarla. Probar límite de complejidad, acentos, caracteres especiales de búsqueda y bloqueo de copias recursivas.
 5. Solicitar mejora de complejidad, aprobar y rechazar solicitudes desde Gestión; comprobar cargos y devoluciones.
 6. Probar colección: guardar, equipar y desequipar. Probar temporal: avanzar un combate hasta vencer el número de turnos y comprobar estado `EXPIRED`.
 7. Probar permisos: un usuario no puede cargar/copiar/mejorar habilidades de personajes ajenos.
 
 ## Limitaciones de la primera versión
-- Para seleccionar la habilidad original se necesita conocer su ID; todavía no hay buscador de habilidades observadas.
+- El selector de origen ahora permite buscar habilidades aprobadas por nombre y propietario. Solo se listan resultados compatibles con la modalidad y complejidad; no exige conocer el ID.
+- Todavía no hay un registro automático de habilidades observadas; el buscador localiza habilidades aprobadas disponibles, no demuestra que Sarya las haya presenciado.
 - La imitación instantánea devuelve un registro de la reproducción (nombre, efectos y costo) y queda auditada, pero no se integra todavía con la resolución automática del daño o los demás efectos de combate. El combate actual no ejecuta de forma automática los efectos generales de habilidades creadas por usuarios.
 - La expiración temporal ocurre cuando avanzan **turnos de combate** registrados; no es tiempo de reloj.
 - Habilidades raciales que existan solo en el catálogo racial (sin entrada `skill`) no se pueden seleccionar como origen todavía.

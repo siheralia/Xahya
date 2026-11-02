@@ -44,6 +44,7 @@ const imports={
   "@/lib/skills/mechanics-pricing":{mechanicsPchCost:()=>0},
   "@/lib/skills/mana-pricing":{manaAdjustedPch:(n,m)=>Math.max(1,Math.ceil(2*n-m/5))},
   "@/lib/skills/range-pricing":{applyRangePch:(n,m)=>Math.max(1,n+m-5)},
+  "@/lib/skills/cooldown":{applyCooldownPch:(p)=>p},
   "@/lib/skills/effect-requirements":{effectRequirementDiscount:n=>n},
 };
 const moduleExports={};

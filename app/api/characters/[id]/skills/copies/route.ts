@@ -20,7 +20,19 @@ export async function GET(_request:Request,{params}:{params:Promise<{id:string}>
   if(!Number.isSafeInteger(id)||id<=0)return NextResponse.json({error:"Personaje inválido."},{status:400});
   if(!(await access(id)))return NextResponse.json({error:"Forbidden"},{status:403});
   const q=db.raw.sql`SELECT sc.id,sc."copierSkillId",sc."sourceSkillId",sc."copiedSkillId",sc.mode,sc."remainingTurns",sc.equipped,s.name FROM public."skillCopy" sc JOIN public."skill" s ON s.id=sc."copiedSkillId" WHERE sc."characterId"=${id} ORDER BY sc.id DESC`.returnsRow(codec).build();
-  return NextResponse.json({copies:await db.runtime().query(q)});
+  const requestsQuery=db.raw.sql`
+    SELECT r.id,r."copierSkillId",r."sourceSkillId",r.mode,r.status,
+      s.name AS "sourceName",r."copiedSkillId"
+    FROM public."skillCopyRequest" r
+    JOIN public."skill" s ON s.id=r."sourceSkillId"
+    WHERE r."characterId"=${id}
+    ORDER BY r.id DESC LIMIT 50
+  `.returnsRow({
+    id:"pg/int4@1",copierSkillId:"pg/int4@1",sourceSkillId:"pg/int4@1",
+    mode:"pg/text@1",status:"pg/text@1",sourceName:"pg/text@1",copiedSkillId:"pg/int4@1"
+  }).build();
+  const [copies,requests]=await Promise.all([db.runtime().query(q),db.runtime().query(requestsQuery)]);
+  return NextResponse.json({copies,requests},{headers:{"Cache-Control":"private, no-store"}});
 }
 export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){
   const id=Number((await params).id);

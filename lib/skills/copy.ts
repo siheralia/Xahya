@@ -33,7 +33,7 @@ export function copySkillSnapshot<T extends {effect:unknown;name:string}>(origin
   const fidelity=(effect.copyFidelityPercent ?? 100)/100;
   const cloned=structuredClone(original);
   if (Array.isArray(cloned.effect)) cloned.effect=cloned.effect.map((row:{type?:string;value?:number})=>({
-    ...row, value:typeof row.value==="number" && !String(row.type).endsWith("_MULTIPLIER") ? Math.max(0.01,Number((row.value*fidelity).toFixed(2))) : row.value
+    ...row, value:typeof row.value==="number" ? (String(row.type).endsWith("_MULTIPLIER") ? Math.max(1,Number((100+(row.value-100)*fidelity).toFixed(2))) : Math.max(0.01,Number((row.value*fidelity).toFixed(2)))) : row.value
   }));
   return cloned;
 }

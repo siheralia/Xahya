@@ -40,6 +40,9 @@ export function GenericSkillTemplatesManagement({statistics,narrativeCards,effec
  const [busy,setBusy]=useState(false);
  const [modal,setModal]=useState(false);
  const [selected,setSelected]=useState<number|null>(null);
+ // Freeze the server-quoted price when editing begins; changes to the form
+ // must not move the baseline used by the difference indicator.
+ const [originalTotalPch,setOriginalTotalPch]=useState<number|null>(null);
  const [form,setForm]=useState<FormData>(blank());
  const [parentId,setParentId]=useState<string>("");
  const [elementChoice,setElementChoice]=useState(false);
@@ -67,12 +70,12 @@ export function GenericSkillTemplatesManagement({statistics,narrativeCards,effec
  },[]);
  useEffect(()=>{void load();},[load]);
  function create(){
-  setSelected(null);setForm(blank());setParentId("");setElementChoice(false);
+  setSelected(null);setOriginalTotalPch(null);setForm(blank());setParentId("");setElementChoice(false);
   setEnabled(false);setError("");setMessage("");setModal(true);
  }
  function edit(t:Template){
   const p=t.payload??{};
-  setSelected(t.id);setParentId(t.parentTemplateId==null?"":String(t.parentTemplateId));
+  setSelected(t.id);setOriginalTotalPch(t.totalPch);setParentId(t.parentTemplateId==null?"":String(t.parentTemplateId));
   setElementChoice(t.elementChoice);setEnabled(t.enabled);
   setForm({...blank(),...p,name:t.name,description:t.description??"",
    effect:Array.isArray(p.effect)?p.effect:[],
@@ -131,7 +134,7 @@ export function GenericSkillTemplatesManagement({statistics,narrativeCards,effec
    priceEffect={pricingReady?priceEffect:undefined}
    pch={preview?{total:preview.total,base:preview.base,manaAdjusted:preview.manaAdjusted,
     beforeRequirements:preview.beforeRequirements,baseline:preview.baseline,
-    genericSpecialization:!!parentId}:undefined}
+    genericSpecialization:!!parentId,originalTotal: selected!==null?originalTotalPch??undefined:undefined}:undefined}
    characterSelector={<div className="grid gap-3 rounded-xl border border-violet-800/50 p-4 sm:grid-cols-2">
     <label className="text-sm text-zinc-400">Habilidad genérica base
      <select value={parentId} onChange={e=>setParentId(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2">

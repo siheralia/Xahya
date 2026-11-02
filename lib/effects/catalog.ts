@@ -54,9 +54,9 @@ export function resolveEffectTargets(
    // For example, physicalAttack becomes PHYSICAL_ATTACK after mapping.
    const attackKeys=new Set(["physicalAttack","magicAttack"]);
    const derived=statistics
-     .filter(s=>s.active!==false && (attackKeys.has(s.key)||attackKeys.has(s.code??"")))
+     .filter(s=>s.active!==false && attackKeys.has(s.key))
      .map(s=>({key:s.code||s.key,label:s.name||TARGET_LABELS[s.code||s.key]||s.key}));
-   return derived.length?[...derived,{key:"ATTACK_TOTAL",label:"Ataque total"}]:fixed.map(key=>({key,label:TARGET_LABELS[key]??key}));
+   return statistics.length>0?[...derived,{key:"ATTACK_TOTAL",label:"Ataque total"}]:fixed.map(key=>({key,label:TARGET_LABELS[key]??key}));
  }
  return fixed.map(key=>({key,label:TARGET_LABELS[key]??key}));
 }

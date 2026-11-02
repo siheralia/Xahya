@@ -29,10 +29,9 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {wrap("Nombre","name",<input value={form.name} onChange={e=>set("name",e.target.value)} className={cls}/>)}
     {wrap("Descripción","description",<textarea rows={3} value={form.description} onChange={e=>set("description",e.target.value)} className={cls}/>)}
     {wrap("Categoría","category",select("category",categories))}
-    {form.category==="PASSIVE" && (
-      <div className="sm:col-span-2">
+    <div className="sm:col-span-2">
         <label htmlFor="skill-passive-condition" className="block text-sm text-zinc-300">
-          Condición general de la pasiva (obligatoria) <span className="font-bold text-amber-300" aria-hidden="true">*</span>
+          Condición general de la habilidad {form.category==="PASSIVE" && <span className="font-semibold text-amber-300">(obligatoria para pasivas) *</span>}
           <SkillFieldHelp field="condition"/>
         </label>
         <input
@@ -40,18 +39,17 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
           type="text"
           value={form.condition}
           onChange={e=>set("condition",e.target.value)}
-          required
-          aria-required="true"
+          required={form.category==="PASSIVE"}
+          aria-required={form.category==="PASSIVE"}
           aria-invalid={passiveConditionMissing}
           aria-describedby="skill-passive-condition-help"
-          placeholder="Ej.: Sikatā aprendida y arena presente; se endurece ante impactos"
+          placeholder={form.category==="PASSIVE"?"Ej.: Sikatā aprendida y arena presente; se endurece ante impactos":"Opcional para esta categoría"}
           className={cls+" "+(passiveConditionMissing?"border-amber-500 focus:border-amber-400":"")}
         />
         <p id="skill-passive-condition-help" role={passiveConditionMissing?"alert":undefined} className={"mt-1 text-xs "+(passiveConditionMissing?"text-amber-300":"text-zinc-400")}>
-          {passiveConditionMissing?PASSIVE_CONDITION_REQUIRED_MESSAGE:"Este campo es obligatorio para pasivas. Es distinto de «Condición del efecto» y de «Condiciones para activar» en Mecánicas."}
+          {passiveConditionMissing?PASSIVE_CONDITION_REQUIRED_MESSAGE:form.category==="PASSIVE"?"Esta condición es obligatoria para pasivas. No es la «Condición del efecto» ni las condiciones de Mecánicas.":"Condición general opcional para esta categoría; se vuelve obligatoria al elegir Pasiva."}
         </p>
-      </div>
-    )}
+    </div>
     {effectEditor && <div className="sm:col-span-2">{effectEditor}</div>}
     {wrap("Maná por uso","cost",number("cost"))}
     {wrap("Duración","duration",select("duration",durations.map(x=>[x,x] as const)))}

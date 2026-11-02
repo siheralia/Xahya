@@ -6,7 +6,7 @@ import { effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
 import { ElementSelect } from "@/components/effects/ElementSelect";
 import { SkillFieldHelp } from "./SkillFieldHelp";
 import { COPY_MODES } from "@/lib/skills/copy";
-export type EditableEffect = {type:string;capability?:string;element?:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT";copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean};
+export type EditableEffect = {type:string;capability?:string;element?:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT";copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean};
 export type NarrativeCard = {id:string|number;name:string;description:string;category?:string;pch?:number};
 type Props<E extends EditableEffect>={effects:E[];onChange:(effects:E[])=>void;statistics?:{key:string;name:string;kind:"basic"|"derived";active?:boolean}[];narrativeCards?:NarrativeCard[];effectDefinitions?:{type:string;label:string;targets:{key:string;label:string}[]}[];priceEffect?:(effect:E)=>number};
 const types=EFFECT_CATALOG.filter(x=>x.type!=="COMBAT_MULTIPLIER").map(x=>[x.type,x.label] as const);
@@ -55,6 +55,7 @@ export function SkillEffectsEditor<E extends EditableEffect>({effects,onChange,s
       <p className="col-span-full text-xs text-zinc-500">La complejidad utiliza el PCH de construcción de la habilidad original. Puede aumentarse mediante monedas de mejora.</p>
    </div>}
    {e.type==="STEAL_SKILL" && <div className="col-span-full grid gap-3 rounded-xl border border-rose-800/50 p-3 sm:grid-cols-2">
+      <label className="col-span-full flex items-center gap-2 text-xs text-zinc-300"><input type="checkbox" checked={e.stealBodyCoercion===true} onChange={ev=>update(i,{stealBodyCoercion:ev.target.checked} as Partial<E>)}/>Coerción corporal directa (la víctima puede defenderse también con CON)</label>
       <p className="col-span-full text-xs text-rose-200">Robar exige el doble de la complejidad PCH de la habilidad original. La víctima pierde temporalmente su uso.</p>
       <label className="text-xs text-zinc-400">Duración del robo (turnos)
         <input type="number" min={1} max={100} value={e.stealDurationTurns??3} onChange={ev=>update(i,{stealDurationTurns:Number(ev.target.value)} as Partial<E>)} className={"mt-1 w-full "+cls}/>

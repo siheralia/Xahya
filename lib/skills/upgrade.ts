@@ -11,6 +11,7 @@ import { EFFECT_TYPES, resolveEffectTargets } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { validateSkillParameters } from "@/lib/effects/skill-conditions";
 import { validateCopyEffect } from "@/lib/skills/copy";
+import {validateTheftEffect} from "@/lib/skills/theft";
 
 export type UpgradePayload = {
   name:string; description:string; cost:number; maintenanceCost:number;
@@ -41,7 +42,7 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
   let base=0;
   for(const e of effects){
     if(!e || typeof e!=="object" || !EFFECT_TYPES.includes(e.type))throw new Error("Tipo de efecto inválido.");
-    const err=validateSkillParameters(e)??validateCopyEffect(e);
+    const err=validateSkillParameters(e)??validateCopyEffect(e)??validateTheftEffect(e);
     if(err)throw new Error(err);
     const t=Number(e.durationTurns??0),m=Number(e.durationMovements??0);
     if(!Number.isSafeInteger(t)||!Number.isSafeInteger(m)||t<0||m<0||(t&&m)||t>durations.maxTurns||m>(durations.maxMovements??20))throw new Error("Duración inválida.");

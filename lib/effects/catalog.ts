@@ -20,6 +20,7 @@ export const EFFECT_CATALOG = [
   { type: "FINAL_DAMAGE_MULTIPLIER", label: "Daño final ocasionado ×", mode: "multiplier", targets: [] },
   { type: "FINAL_DAMAGE_BONUS", label: "Daño final ocasionado +", mode: "bonus", targets: [] },
   { type: "COPY_SKILL", label: "Copiar habilidad", mode: "special", targets: [] },
+  { type: "STEAL_SKILL", label: "Robar habilidad", mode: "special", targets: [] },
   { type: "MAZE_UTILITY", label: "Capacidad de laberinto", mode: "special", targets: ["INVISIBILITY","FLOATING"] },
 ] as const;
 

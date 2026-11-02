@@ -108,6 +108,11 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
               < ${Number(freshEffect.stealCapacity??capacity)}
       `.affectedCount().build();
       if((await tx.execute(insert)).affectedRows!==1)throw new Error("THEFT_INSERT_FAILED");
+      const suspend=db.raw.sql`
+        UPDATE public."characterSkillState" SET active=false,"updatedAt"=now()
+        WHERE "characterId"=${Number(fresh.characterId)} AND "skillId"=${sourceSkillId} AND active=true
+      `.affectedCount().build();
+      await tx.execute(suspend);
       await tx.orm.public.AuditLog.create({
         actorUserId:owner.user.id,action:"SKILL_STEAL",entityType:"SKILL",
         entityId:sourceSkillId,characterId,targetUserId:null,

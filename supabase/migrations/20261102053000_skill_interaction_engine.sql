@@ -1,5 +1,6 @@
 -- General-purpose skill mechanics. No character abilities or skill records are inserted.
 -- Run before deploying API code that reads these columns.
+ALTER TABLE public."character" ADD COLUMN IF NOT EXISTS "mechanicsState" jsonb NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE public.skill
   ADD COLUMN IF NOT EXISTS mechanics jsonb NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE public.skill

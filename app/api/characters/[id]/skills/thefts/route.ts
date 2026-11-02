@@ -1,6 +1,9 @@
 import {auth} from "@clerk/nextjs/server";
 import {NextResponse} from "next/server";
 import {db} from "@/lib/db";
+import {randomInt} from "node:crypto";
+import {getEffectiveCharacterStats} from "@/lib/stats/effective";
+import {resolveWillpowerClash} from "@/lib/combat/willpower-clash";
 import {canStealSkill,snapshotStolenSkill,type TheftEffect} from "@/lib/skills/theft";
 import {copyComplexityPch} from "@/lib/skills/copy-complexity";
 import {defaultEffectPricing} from "@/lib/skills/pch";
@@ -62,7 +65,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   const duration=Number(effect.stealDurationTurns??3),capacity=Number(effect.stealCapacity??1);
 
   try{
-    const stolen=await db.transaction(async tx=>{
+    const theftResult=await db.transaction(async tx=>{
       // Serialize all thefts using a skill; validate the source after obtaining both locks.
       const lockThief=db.raw.sql`
         UPDATE public."skill" SET "pchCost"="pchCost"
@@ -86,6 +89,35 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
       const changed=canStealSkill(freshEffect,fresh,copyComplexityPch(fresh,{...defaultEffectPricing(),...await readEffectPricing()}));
       if(changed)throw new Error("STEAL_RULE:"+changed);
 
+      // Each attempt is claimed in the same transaction: a failed roll cannot be spammed.
+      const attempt=db.raw.sql`
+        INSERT INTO public."skillTheftAttemptGuard" ("thiefCharacterId","sourceSkillId","nextAllowedAt")
+        VALUES (${characterId},${sourceSkillId},now()+interval '60 seconds')
+        ON CONFLICT ("thiefCharacterId","sourceSkillId") DO UPDATE
+          SET "nextAllowedAt"=EXCLUDED."nextAllowedAt"
+          WHERE public."skillTheftAttemptGuard"."nextAllowedAt"<=now()
+      `.affectedCount().build();
+      if((await tx.execute(attempt)).affectedRows!==1)throw new Error("THEFT_COOLDOWN");
+      const [attackerStats,defenderStats]=await Promise.all([
+        getEffectiveCharacterStats(characterId,tx),
+        getEffectiveCharacterStats(Number(fresh.characterId),tx)
+      ]);
+      if(!attackerStats||!defenderStats)throw new Error("WILLPOWER_STATS_MISSING");
+      const clash=resolveWillpowerClash({
+        attacker:attackerStats.effectiveStats,
+        defender:defenderStats.effectiveStats,
+        attackRoll:randomInt(1,21),
+        defenseRoll:randomInt(1,21),
+        bodyCoercion:freshEffect.stealBodyCoercion===true
+      });
+      if(clash.resisted){
+        await tx.orm.public.AuditLog.create({
+          actorUserId:owner.user.id,action:"SKILL_STEAL_RESISTED",entityType:"SKILL",
+          entityId:sourceSkillId,characterId,targetUserId:null,
+          details:JSON.stringify({stealingSkillId,sourceSkillId,clash})
+        });
+        return {resisted:true,stolenSkillId:null,clash};
+      }
       const original=snapshotStolenSkill(fresh,freshEffect);
       const created=await TxSkill.create({
         characterId,name:original.name,cost:Number(original.cost??0),
@@ -116,14 +148,22 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
       await tx.orm.public.AuditLog.create({
         actorUserId:owner.user.id,action:"SKILL_STEAL",entityType:"SKILL",
         entityId:sourceSkillId,characterId,targetUserId:null,
-        details:JSON.stringify({stealingSkillId,sourceSkillId,stolenSkillId:Number(created.id),duration,complexity})
+        details:JSON.stringify({stealingSkillId,sourceSkillId,stolenSkillId:Number(created.id),duration,complexity,clash})
       });
-      return Number(created.id);
+      return {resisted:false,stolenSkillId:Number(created.id),clash};
     });
-    return NextResponse.json({ok:true,stolenSkillId:stolen,remainingTurns:duration},{status:201});
+    if(theftResult.resisted)
+      return NextResponse.json({ok:false,resisted:true,clash:theftResult.clash,
+        message:"La víctima resistió el choque de voluntades. No se robó su habilidad."});
+    return NextResponse.json({ok:true,stolenSkillId:theftResult.stolenSkillId,
+      clash:theftResult.clash,remainingTurns:duration},{status:201});
   }catch(error){
     const reason=error instanceof Error?error.message:"";
     if(reason.startsWith("STEAL_RULE:"))return NextResponse.json({error:reason.slice(11)},{status:409});
+    if(reason==="THEFT_COOLDOWN")
+      return NextResponse.json({error:"Ya intentaste robar esta habilidad recientemente. Puedes volver a intentarlo en 60 segundos."},{status:429});
+    if(reason==="WILLPOWER_STATS_MISSING")
+      return NextResponse.json({error:"Faltan estadísticas de voluntad para resolver el choque."},{status:409});
     if(["SOURCE_NOT_AVAILABLE","STEALING_SKILL_CHANGED","THEFT_CAPACITY","THEFT_INSERT_FAILED"].includes(reason)||/unique|duplicate/i.test(reason))
       return NextResponse.json({error:"La habilidad ya fue robada o se alcanzó el límite de robos activos."},{status:409});
     throw error;

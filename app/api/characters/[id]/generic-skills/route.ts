@@ -3,7 +3,7 @@ import {NextResponse} from "next/server";
 import {db} from "@/lib/db";
 import {meetsEffectRequirements} from "@/lib/skills/effect-requirements";
 import {
- genericTemplateChain,quoteGenericSkill,type GenericSkillTemplateRow,
+ genericTemplateChain,quoteGenericSkill,evolveGenericSkillSnapshot,type GenericSkillTemplateRow,
 } from "@/lib/skills/generic-catalog";
 
 async function authorized(id:string){
@@ -123,7 +123,9 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
    const debit=db.raw.sql`UPDATE public."character" SET "pchBalance"="pchBalance"-${quote.pchCost} WHERE id=${access.characterId} AND "pchBalance">=${quote.pchCost}`.affectedCount().build();
    if((await tx.execute(debit)).affectedRows!==1)throw new Error("PCH_INSUFFICIENT");
    if(parentSkill && Number(parentSkill.pchCost??0)+quote.pchCost>2147483647)throw new Error("SKILL_PCH_OVERFLOW");
-   const p=quote.skill;
+   const p=parentSkill
+     ? evolveGenericSkillSnapshot(parentSkill,template,quote.skill,chosenElement)
+     : quote.skill;
    const data={
     characterId:access.characterId,name:p.name,description:p.description,
     cost:p.cost,maintenanceCost:p.maintenanceCost,

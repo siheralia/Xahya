@@ -84,6 +84,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
             accumulationCost:Number(clone.accumulationCost??0),accumulationPerTick:Number(clone.accumulationPerTick??0),
             maintenanceCost:Number(clone.maintenanceCost??0),description:clone.description??null,
             duration:clone.duration??null,category:clone.category??"UTILITY",
+            attackType:clone.attackType??null,defenseType:clone.defenseType??null,
             areaOfEffect:clone.areaOfEffect??null,speed:clone.speed??"DEFAULT",
             cooldown:clone.cooldown??null,condition:clone.condition??null,
             effect:clone.effect??[],effectRequirements:clone.effectRequirements??[],mechanics:clone.mechanics??{},requiredSkillIds:[],

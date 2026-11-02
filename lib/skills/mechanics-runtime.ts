@@ -6,6 +6,26 @@ import {
   validateSkillMechanics,
 } from "@/lib/skills/interaction-engine";
 
+/** An elemental effect imbues its owner while the skill is active; damage typing is resolved elsewhere. */
+export function syncSkillImbuements(input:EnvironmentState,skill:any):EnvironmentState {
+  const id=Number(skill.id);
+  const effects=Array.isArray(skill.effect)?skill.effect:[];
+  const imbues=effects.filter((e:any)=>e?.type==="ELEMENTAL_IMBUE" && typeof e.element==="string" &&
+    /^[A-Z][A-Z0-9_]{0,63}$/.test(e.element) && e.element!=="NEUTRAL");
+  if(!imbues.length)return input;
+  return {...input,statuses:[
+    ...input.statuses.filter(s=>!(s.sourceSkillId===id&&s.status==="ELEMENTAL_IMBUE"&&s.actor==="PLAYER")),
+    ...imbues.map((e:any)=>({sourceSkillId:id,status:"ELEMENTAL_IMBUE",actor:"PLAYER" as const,
+      element:e.element,imbueTarget:String(e.target??"SELF"),remainingTurns:2})),
+  ]};
+}
+export async function stopSkillMechanics(tx:any,characterId:number,skillId:number){
+  const location=await locateSkillEnvironment(tx,characterId);
+  const filtered=location.state.statuses.filter(s=>!(s.sourceSkillId===skillId && s.status==="ELEMENTAL_IMBUE"));
+  if(filtered.length!==location.state.statuses.length)
+    await saveSkillEnvironment(tx,location,{...location.state,statuses:filtered});
+}
+
 type EnvironmentLocation = { kind: "COMBAT" | "MAZE" | "PERSONAL"; id: number; state: EnvironmentState };
 
 export async function locateSkillEnvironment(tx: any, characterId: number): Promise<EnvironmentLocation> {
@@ -74,11 +94,12 @@ export async function activateSkillMechanics(tx:any, skill:any, characterId:numb
   const result = applyMechanicEvent(location.state,mechanics,ctx);
   // Legacy skill ticking is only an accumulation toggle: do not retroactively
   // charge existing skills until they explicitly opt in to the mechanics engine.
-  const hasExecutableRules=Array.isArray(mechanics.rules) && mechanics.rules.length>0;
+  const hasExecutableRules=(Array.isArray(mechanics.rules) && mechanics.rules.length>0) || (Array.isArray(skill.effect) && skill.effect.some((e:any)=>e?.type==="ELEMENTAL_IMBUE"));
   const cost = hasExecutableRules ? Math.max(0,Number(skill.cost??0)) + result.manaInvestment : 0;
   const manaBalance = hasExecutableRules ? await debitCharacterMana(tx,characterId,cost,maxMana) : null;
-  if(hasExecutableRules) await saveSkillEnvironment(tx,location,result.state);
-  return {manaBalance,environment:result.state,environmentKind:location.kind};
+  const environment=syncSkillImbuements(result.state,skill);
+  if(hasExecutableRules) await saveSkillEnvironment(tx,location,environment);
+  return {manaBalance,environment,environmentKind:location.kind};
 }
 
 /** Advance fields and apply approved passive or currently active turn rules. */
@@ -98,7 +119,7 @@ export function advanceCombatMechanics(
       actor:"PLAYER",event:"TURN",sourceSkillId:Number(skill.id),ownerCharacterId,
       approvedSkillIds:approvedIds,activeSkillIds:activeIds,distances:state.distances,
     };
-    state=applyMechanicEvent(state,mechanics,ctx).state;
+    state=syncSkillImbuements(applyMechanicEvent(state,mechanics,ctx).state,skill);
   }
   return state;
 }

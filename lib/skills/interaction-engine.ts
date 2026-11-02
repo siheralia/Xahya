@@ -183,6 +183,8 @@ export function applyMechanicEvent(
       switch (action.kind) {
         case "CREATE_FIELD":
           if (state.fields.length >= 100) break;
+          // The caster stands at the origin of their own newly created field.
+          if(state.distances[ctx.actor]===undefined) state.distances[ctx.actor]=0;
           state.fields.push({
             id: ctx.sourceSkillId + ":" + state.turn + ":" + index + ":" + state.fields.length,
             sourceSkillId:ctx.sourceSkillId, ownerCharacterId:ctx.ownerCharacterId,

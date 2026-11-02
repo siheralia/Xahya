@@ -104,6 +104,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
     }
 
+    // Each combat turn advances temporary copies once; status gates their use after expiration.
+    const turnsElapsed = Math.max(0, Number(result.turn) - Number(session.turn ?? 1));
+    if (turnsElapsed > 0) {
+      const progress = db.raw.sql`
+        UPDATE public."skillCopy" SET "remainingTurns"=GREATEST(0,"remainingTurns"-${turnsElapsed})
+        WHERE "characterId"=${Number(session.playerCharacterId)} AND mode='TEMPORARY' AND "remainingTurns">0
+      `.affectedCount().build();
+      await tx.execute(progress);
+      const expire = db.raw.sql`
+        UPDATE public."skill" SET status='EXPIRED'
+        WHERE "characterId"=${Number(session.playerCharacterId)} AND status='APPROVED'
+          AND id IN (SELECT "copiedSkillId" FROM public."skillCopy"
+          WHERE "characterId"=${Number(session.playerCharacterId)} AND mode='TEMPORARY' AND "remainingTurns"=0)
+      `.affectedCount().build();
+      await tx.execute(expire);
+    }
+
     const updated = await TxSession.where({ id }).update({
       currentTick: result.currentTick,
       turn: result.turn,

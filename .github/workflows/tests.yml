@@ -48,7 +48,8 @@ jobs:
             money integer NOT NULL,
             karma integer NOT NULL,
             "blackjackState" jsonb,
-            "levelUpPoints" integer NOT NULL DEFAULT 0
+            "levelUpPoints" integer NOT NULL DEFAULT 0,
+            "currentMana" integer
           );
           CREATE TABLE public."w04Audit" (
             id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

@@ -86,12 +86,6 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
       const changed=canStealSkill(freshEffect,fresh,copyComplexityPch(fresh,{...defaultEffectPricing(),...await readEffectPricing()}));
       if(changed)throw new Error("STEAL_RULE:"+changed);
 
-      const quota=db.raw.sql`
-        SELECT count(*)::integer AS total FROM public."skillTheft"
-        WHERE "thiefCharacterId"=${characterId} AND "stealingSkillId"=${stealingSkillId} AND status='ACTIVE'
-      `.returnsRow({total:"pg/int4@1"}).build();
-      const [used]=await tx.execute(quota) as Array<{total:number}>;
-      if(Number(used?.total??0)>=Number(freshEffect.stealCapacity??capacity))throw new Error("THEFT_CAPACITY");
       const original=snapshotStolenSkill(fresh,freshEffect);
       const created=await TxSkill.create({
         characterId,name:original.name,cost:Number(original.cost??0),
@@ -106,8 +100,12 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
       const insert=db.raw.sql`
         INSERT INTO public."skillTheft" ("thiefCharacterId","victimCharacterId","stealingSkillId",
           "sourceSkillId","stolenSkillId","remainingTurns",status)
-        VALUES (${characterId},${Number(fresh.characterId)},${stealingSkillId},${sourceSkillId},
-          ${Number(created.id)},${Number(freshEffect.stealDurationTurns??duration)},'ACTIVE')
+        SELECT ${characterId},${Number(fresh.characterId)},${stealingSkillId},${sourceSkillId},
+          ${Number(created.id)},${Number(freshEffect.stealDurationTurns??duration)},'ACTIVE'
+        WHERE NOT EXISTS (SELECT 1 FROM public."skillTheft" WHERE "sourceSkillId"=${sourceSkillId} AND status='ACTIVE')
+          AND (SELECT count(*) FROM public."skillTheft"
+              WHERE "thiefCharacterId"=${characterId} AND "stealingSkillId"=${stealingSkillId} AND status='ACTIVE')
+              < ${Number(freshEffect.stealCapacity??capacity)}
       `.affectedCount().build();
       if((await tx.execute(insert)).affectedRows!==1)throw new Error("THEFT_INSERT_FAILED");
       await tx.orm.public.AuditLog.create({

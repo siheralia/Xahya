@@ -21,3 +21,14 @@ CREATE INDEX IF NOT EXISTS skill_theft_victim_status
 ALTER TABLE public."skillTheft" ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public."skillTheft" FROM anon,authenticated;
 REVOKE ALL ON SEQUENCE public."skillTheft_id_seq" FROM anon,authenticated;
+
+-- A failed opposed roll cannot be spammed until it succeeds.
+-- Server claims one attempt per thief + target skill every 60 seconds.
+CREATE TABLE IF NOT EXISTS public."skillTheftAttemptGuard" (
+  "thiefCharacterId" integer NOT NULL REFERENCES public."character"(id) ON DELETE CASCADE,
+  "sourceSkillId" integer NOT NULL REFERENCES public."skill"(id) ON DELETE CASCADE,
+  "nextAllowedAt" timestamptz NOT NULL,
+  PRIMARY KEY ("thiefCharacterId","sourceSkillId")
+);
+ALTER TABLE public."skillTheftAttemptGuard" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public."skillTheftAttemptGuard" FROM anon,authenticated;

@@ -60,7 +60,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const mechanics = await readMechanics();
-  const playerAgility = Math.max(1, Math.round((await getCharacterMechanicValue(Number(session.playerCharacterId), mechanics.combatSpeed)) * encounterAgilityMultiplier(session.mechanicsState,"PLAYER")));
+  // Character effective stats already include their active mechanic status multipliers.
+  const playerAgility = Math.max(1, await getCharacterMechanicValue(Number(session.playerCharacterId), mechanics.combatSpeed));
   const npcStats = session.npcStats && typeof session.npcStats === "object" ? session.npcStats as Record<string, unknown> : {};
   const npcAgility = Math.max(1, Math.round(Number(npcStats[mechanics.combatSpeed] ?? (mechanics.combatSpeed === "agility" ? npcStats.AGI : undefined) ?? npcStats.agility ?? npcStats.AGI ?? 1) * encounterAgilityMultiplier(session.mechanicsState,"NPC")));
   const npcAttackType = ATTACK_TYPES.has(String(npcStats.attackType ?? "CUT").toUpperCase())

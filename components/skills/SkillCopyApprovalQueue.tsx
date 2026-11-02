@@ -15,6 +15,7 @@ const MODES:Record<CopyRequest["mode"],string>={
 export function SkillCopyApprovalQueue(){
   const [requests,setRequests]=useState<CopyRequest[]>([]);
   const [loading,setLoading]=useState(true);
+  const [permissions,setPermissions]=useState({approve:false,reject:false});
   const [busy,setBusy]=useState<number|null>(null);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
@@ -25,6 +26,7 @@ export function SkillCopyApprovalQueue(){
       const data=await response.json();
       if(!response.ok)throw new Error(data.error??"No se pudieron cargar las solicitudes de copia.");
       setRequests(Array.isArray(data.requests)?data.requests:[]);
+      setPermissions({approve:data.permissions?.approve===true,reject:data.permissions?.reject===true});
     }catch(e){setError(e instanceof Error?e.message:"No se pudieron cargar las solicitudes de copia.");}
     finally{setLoading(false);}
   },[]);
@@ -65,10 +67,10 @@ export function SkillCopyApprovalQueue(){
             <span className="rounded-full border border-amber-500/30 px-2 py-1 text-xs text-amber-200">Pendiente</span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" disabled={busy!==null} onClick={()=>review(r.id,"APPROVED")}
-              className="rounded-lg bg-emerald-400 px-4 py-2 text-sm font-semibold text-zinc-950 disabled:opacity-50">Aprobar copia</button>
-            <button type="button" disabled={busy!==null} onClick={()=>review(r.id,"REJECTED")}
-              className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300 disabled:opacity-50">Rechazar</button>
+            {permissions.approve&&<button type="button" disabled={busy!==null} onClick={()=>review(r.id,"APPROVED")}
+              className="rounded-lg bg-emerald-400 px-4 py-2 text-sm font-semibold text-zinc-950 disabled:opacity-50">Aprobar copia</button>}
+            {permissions.reject&&<button type="button" disabled={busy!==null} onClick={()=>review(r.id,"REJECTED")}
+              className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300 disabled:opacity-50">Rechazar</button>}
           </div>
         </article>)}
         {pending.length===0&&<p className="text-sm text-zinc-500">No hay solicitudes de copia pendientes.</p>}

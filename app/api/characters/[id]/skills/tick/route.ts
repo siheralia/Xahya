@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { advanceCharacterSkillTicks } from "@/lib/combat/ticks";
+import { activateSkillMechanics, readMaxMana, locateSkillEnvironment } from "@/lib/skills/mechanics-runtime";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -43,11 +44,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     const now = new Date();
     if (action === "stop") await db.transaction((tx) => advanceCharacterSkillTicks(tx, characterId, now));
-    const existing = await State.where({ characterId, skillId }).first();
-    const state = existing
-      ? await State.where({ id: Number(existing.id) }).update({ active: action === "start", lastTickAt: action === "start" ? now : existing.lastTickAt, updatedAt: now })
-      : await State.create({ characterId, skillId, active: action === "start", accumulations: 0, totalTicks: 0, lastTickAt: action === "start" ? now : null });
-    return NextResponse.json({ state });
+    const maxMana = action === "start" ? await readMaxMana(characterId) : 0;
+    try {
+      const result = await db.transaction(async (tx) => {
+        const TxState=(tx.orm.public as any).CharacterSkillState;
+        const existing=await TxState.where({characterId,skillId}).first();
+        // Starting twice must not duplicate an effect or charge mana twice.
+        if(action==="start" && existing?.active) return {state:existing,alreadyActive:true,manaBalance:null,environment:null};
+        const mechanics=action==="start"
+          ? await activateSkillMechanics(tx,skill,characterId,maxMana)
+          : null;
+        const state=existing
+          ? await TxState.where({id:Number(existing.id)}).update({
+              active:action==="start",lastTickAt:action==="start"?now:existing.lastTickAt,updatedAt:now,
+            })
+          : await TxState.create({
+              characterId,skillId,active:action==="start",accumulations:0,totalTicks:0,
+              lastTickAt:action==="start"?now:null,
+            });
+        return {state,alreadyActive:false,manaBalance:mechanics?.manaBalance??null,environment:mechanics?.environment??null};
+      });
+      return NextResponse.json(result);
+    } catch(error) {
+      const code=error instanceof Error?error.message:"SKILL_START_FAILED";
+      const messages:Record<string,string>={
+        MANA_INSUFFICIENT:"Maná insuficiente para activar la habilidad.",
+        MANA_CHANGED:"El saldo de maná cambió; vuelve a intentar.",
+        MANA_RESOURCE_MISSING:"El personaje no tiene recursos de maná inicializados.",
+        MISSING_PARENT_SKILL:"Debes conocer la habilidad madre.",
+        MECHANIC_CONDITION_FAILED:"No se cumplen las condiciones mecánicas.",
+      };
+      if(messages[code])return NextResponse.json({error:messages[code]},{status:409});
+      console.error("[skills/tick] Activation error",error);
+      return NextResponse.json({error:code},{status:400});
+    }
   }
 
   const result = await db.transaction((tx) => advanceCharacterSkillTicks(tx, characterId));
@@ -65,5 +95,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!management && Number(character.userId) !== Number(user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const State = (db.orm.public as any).CharacterSkillState;
   const states = State ? await State.where({ characterId }).all() : [];
-  return NextResponse.json({ states });
+  const location=await locateSkillEnvironment(db,characterId);
+  const resource=await db.orm.public.CharacterResource.where({characterId}).first();
+  return NextResponse.json({ states,environment:location.state,environmentKind:location.kind,currentMana:resource?.currentMana??null });
 }

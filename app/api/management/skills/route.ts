@@ -7,6 +7,7 @@ import { serializeSkillRange } from "@/lib/skills/range-storage";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
+import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
 
 async function getAdmin(action: "view" | "edit") {
   const { userId: clerkId } = await auth();
@@ -24,6 +25,8 @@ function validate(body: any) {
   const category = String(body.category ?? "UTILITY");
   const cost = Number(body.cost ?? 0);
   const effect = Array.isArray(body.effect) ? body.effect : [];
+  const mechanicError=validateSkillMechanics(body.mechanics??{});
+  if(mechanicError)return mechanicError;
   if (!name || name.length > 120) return "El nombre debe tener entre 1 y 120 caracteres.";
   if (!description || description.length > 5000) return "La descripción es obligatoria.";
   if (!CATEGORIES.includes(category as any)) return "Categoría inválida.";
@@ -71,6 +74,7 @@ export async function POST(request: Request) {
   const status = body.approve === true ? "APPROVED" : body.reject === true ? "REJECTED" : "PENDING";
   const skill = await Skill.create({
     effectRequirements,
+    mechanics:body.mechanics??{},
     pchCost,
     characterId: Number(body.characterId),
     name: body.name.trim(),

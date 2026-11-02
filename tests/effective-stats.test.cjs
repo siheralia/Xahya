@@ -17,7 +17,7 @@ const ACTIVE_ATTACK_CATALOG = [
   { key: "magicAttack", code: "MAG_ATK", kind: "derived", active: true },
 ];
 
-function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, agility: 20, constitution: 20, intelligence: 20, wisdom: 20, charisma: 20, spirit: 20, luck: 20 }, modifiers = [], items = [], owned = [], perks = [], assigned = [], derived = {} } = {}) {
+function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, agility: 20, constitution: 20, intelligence: 20, wisdom: 20, charisma: 20, spirit: 20, luck: 20 }, modifiers = [], items = [], owned = [], perks = [], assigned = [], derived = {}, mechanicFactors = {} } = {}) {
   const tables = {
     CharacterStat: [{ characterId: 1, ...legacy }],
     CharacterStatValue: [],
@@ -48,6 +48,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
       return result;
     } },
     "@/lib/perks": { getPerkEffects: (entries) => entries.flatMap((entry) => entry.perk?.effects ?? []) },
+    "@/lib/skills/interaction-engine": {parseEnvironment:(v)=>v??{}, activeStatMultipliers:()=>mechanicFactors},
   };
   const moduleExports = {};
   vm.runInNewContext(js, { exports: moduleExports, require: (id) => {
@@ -143,4 +144,12 @@ test("two overlapping active karma boosts accumulate without affecting expired b
   });
   assert.equal(result.effectiveStats.strength, 140);
   assert.equal(result.statBreakdown.strength.karmaBonus, 40);
+});
+
+
+test("mechanical statuses modify effective basic stats and derived attack inputs",async()=>{
+ const value=await resolver({mechanicFactors:{STR:0.8,AGI:1.5}});
+ assert.equal(value.effectiveStats.strength,80);
+ assert.equal(value.effectiveStats.agility,30);
+ assert.equal(value.derived.physicalAttack,80);
 });

@@ -2,10 +2,11 @@
 
 import {useEffect,useState,type ReactNode} from "react";
 import { SkillFieldHelp, type SkillHelpKey } from "./SkillFieldHelp";
+import type { SkillMechanics } from "@/lib/skills/interaction-engine";
 
 export type SkillCore = {
   name: string; description: string; category: string; cost: number; duration: string; cooldown: string; speed: string;
-  areaOfEffect: string; maxRangeMeters?: number; maintenanceCost: number; accumulationPerTick: number; accumulationCost: number; condition: string;
+  areaOfEffect: string; maxRangeMeters?: number; maintenanceCost: number; accumulationPerTick: number; accumulationCost: number; condition: string; mechanics?: SkillMechanics;
 };
 const categories: [string,string][] = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
 const durations = ["Instantánea","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","20 turnos","No termina"];

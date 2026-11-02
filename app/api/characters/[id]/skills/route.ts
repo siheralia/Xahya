@@ -19,6 +19,8 @@ import { readEffectPricing } from "@/lib/effects/pricing";
 import { readNarrativeEffectCards } from "@/lib/effects/narrative-cards";
 import { readDurationPricing } from "@/lib/effects/duration-pricing-settings";
 import { durationPchCost } from "@/lib/effects/duration-pricing";
+import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
+import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
 async function getUser() {
@@ -37,6 +39,8 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   const accumulationCost = Number(body.accumulationCost ?? 0);
   const accumulationPerTick = Number(body.accumulationPerTick ?? 0);
   const effect = Array.isArray(body.effect) ? body.effect : [];
+  const mechanicError=validateSkillMechanics(body.mechanics??{});
+  if(mechanicError)return mechanicError;
   if (!name || name.length > 120) return "El nombre debe tener entre 1 y 120 caracteres.";
   if (!description || description.length > 5000) return "La descripción es obligatoria y no puede superar 5000 caracteres.";
   if (!CATEGORIES.includes(category as any)) return "Categoría de habilidad inválida.";
@@ -162,7 +166,7 @@ export async function POST(
       pchCost += durationPchCost(base,effect.durationMovements ? {kind:"MOVEMENTS",movements:effect.durationMovements} : effect.durationTurns ? {kind:"TURNS",turns:effect.durationTurns} : {kind:"INSTANT"},durationPricing);
     }
   }
-  pchCost = applyRangePch(manaAdjustedPch(pchCost, Number(body.cost ?? 0)) + speedSurcharge(body.speed), Number(body.maxRangeMeters ?? 5));
+  pchCost = applyRangePch(manaAdjustedPch(pchCost + mechanicsPchCost(body.mechanics??{}), Number(body.cost ?? 0)) + speedSurcharge(body.speed), Number(body.maxRangeMeters ?? 5));
   pchCost = effectRequirementDiscount(pchCost, effectRequirements);
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
@@ -178,6 +182,7 @@ export async function POST(
     const skill = await (tx.orm.public as any).Skill.create({
       characterId,
       effectRequirements,
+      mechanics:body.mechanics??{},
       name: body.name.trim(),
       cost: Number(body.cost),
       pchCost,

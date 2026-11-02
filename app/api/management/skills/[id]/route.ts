@@ -8,6 +8,7 @@ import { serializeSkillRange } from "@/lib/skills/range-storage";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
+import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -46,6 +47,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   for(const row of effect){const err=validateTheftEffect(row);if(err)return NextResponse.json({error:err},{status:400});}
   const effectRequirements = body.effectRequirements ?? (skill as any).effectRequirements ?? [];
   if (!validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Requisitos por efecto inválidos."},{status:400});
+  const mechanics=body.mechanics??skill.mechanics??{};
+  const mechanicError=validateSkillMechanics(mechanics,id);
+  if(mechanicError)return NextResponse.json({error:mechanicError},{status:400});
   const available = await Skill.where({characterId:Number(skill.characterId)}).all();
 
   const requestedPchCost = body.pchCost === undefined ? Number((skill as any).pchCost ?? 0) : Number(body.pchCost);
@@ -93,6 +97,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       await TxSkill.where({ id }).update({
         name,
         effectRequirements,
+        mechanics,
         cost,
         pchCost: requestedPchCost,
         maintenanceCost,

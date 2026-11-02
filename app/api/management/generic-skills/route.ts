@@ -29,7 +29,7 @@ const mapRow=(r:any):GenericSkillTemplateRow=>({
 export async function GET() {
  const user=await gate("view");
  if(!user)return NextResponse.json({error:"Sin permisos para gestionar habilidades."},{status:403});
- const rows=(await (db.orm.public as any).GenericSkillTemplate.all()).map(mapRow);
+ const rows:GenericSkillTemplateRow[]=(await (db.orm.public as any).GenericSkillTemplate.all()).map(mapRow);
  const available=await elements();const example=available.find(x=>x!=="NEUTRAL");
  const result=await Promise.all(rows.map(async row=>{
   try {
@@ -49,7 +49,7 @@ async function save(request:Request,editing:boolean) {
  const body=await request.json().catch(()=>null);
  if(!body||typeof body!=="object")return NextResponse.json({error:"Datos inválidos."},{status:400});
  const templateModel=(db.orm.public as any).GenericSkillTemplate;
- const rows=(await templateModel.all()).map(mapRow);
+ const rows:GenericSkillTemplateRow[]=(await templateModel.all()).map(mapRow);
  const id=editing?Number(body.id):Math.max(0,...rows.map(r=>r.id))+1;
  const previous=editing?rows.find(r=>r.id===id):null;
  if(editing&&!previous)return NextResponse.json({error:"Plantilla inexistente."},{status:404});

@@ -66,6 +66,12 @@ test("combat gate prevents restart during intervening turns and allows reactivat
  assert.equal(runtime.cooldownAvailability("2 turnos","Instantánea","OFFENSIVE",ledger["77"],"COMBAT",7,12000).allowed,true);
 });
 
+test("equal-to-duration cooldown is recorded after stopping an active skill",()=>{
+ const route=source("app/api/characters/[id]/skills/tick/route.ts");
+ assert.match(route,/action==="stop" && existing\?\.active && skill\.cooldown==="Igual a duración"/);
+ assert.match(route,/action==="start" && \(skill\.cooldown==="Una vez por combate"/);
+});
+
 test("once per combat is only usable once in each encounter",()=>{
  const unspent=runtime.cooldownAvailability("Una vez por combate","Instantánea","OFFENSIVE",undefined,"COMBAT",1,10000);
  assert.equal(unspent.allowed,true);

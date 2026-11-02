@@ -4,6 +4,7 @@ import { validateSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { readDefaultAttackSpeedStat, speedSurcharge } from "@/lib/skills/speed-settings";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
+import { applyCooldownPch, isConfiguredCooldown } from "@/lib/skills/cooldown";
 import { validateSkillParameters } from "@/lib/effects/skill-conditions";
 import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import { auth } from "@clerk/nextjs/server";
@@ -50,7 +51,7 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (body.maxRangeMeters !== undefined && (!Number.isSafeInteger(body.maxRangeMeters) || body.maxRangeMeters < 0 || body.maxRangeMeters > 100)) return "La distancia máxima debe ser entre 0 y 100 metros.";
   if (body.duration && !/^(Instantánea|No termina|[1-9]\\d* turnos?)$/.test(String(body.duration))) return "Duración inválida.";
   if (body.speed && !["DEFAULT","Instantánea","1 turno","2 turnos","3 turnos","No requiere"].includes(String(body.speed))) return "Velocidad inválida.";
-  if (body.cooldown && !["Sin cooldown","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","Una vez por combate","Igual a duración"].includes(String(body.cooldown))) return "Cooldown inválido.";
+  if (body.cooldown && !isConfiguredCooldown(body.cooldown)) return "Cooldown inválido.";
   if (isPassiveConditionMissing(category, body.condition)) return PASSIVE_CONDITION_REQUIRED_MESSAGE;
   if (effect.length > 20) return "Una habilidad no puede tener más de 20 efectos.";
   for (const row of effect) {
@@ -165,7 +166,7 @@ export async function POST(
     pchCost += configuredSkillEffectPch(effect, narrativeCards, pricing, durationPricing);
   }
   pchCost = applyRangePch(manaAdjustedPch(pchCost + mechanicsPchCost(body.mechanics??{}), Number(body.cost ?? 0)) + speedSurcharge(body.speed), Number(body.maxRangeMeters ?? 5));
-  pchCost = effectRequirementDiscount(pchCost, effectRequirements);
+  pchCost = effectRequirementDiscount(applyCooldownPch(pchCost,body.cooldown,body.duration,body.category), effectRequirements);
   if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {

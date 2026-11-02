@@ -17,6 +17,7 @@ import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 import { SkillFieldHelp } from "@/components/skills/SkillFieldHelp";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
+import { applyCooldownPch } from "@/lib/skills/cooldown";
 import { calculateSkillPch, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
 
 import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
@@ -580,7 +581,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const priceSkillEffect = (effect: SkillEffect) => configuredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
   const skillBasePch = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0) + mechanicsPchCost(skillForm.mechanics);
   const skillPchBeforeRange = manaAdjustedPch(skillBasePch, skillForm.cost) + (!skillForm.speed || skillForm.speed === "DEFAULT" ? 0 : 5);
-  const skillPchCost = Number.isSafeInteger(skillForm.maxRangeMeters) && skillForm.maxRangeMeters >= 0 && skillForm.maxRangeMeters <= 100 ? effectRequirementDiscount(applyRangePch(skillPchBeforeRange, skillForm.maxRangeMeters), skillForm.effectRequirements) : 0;
+  const skillPchCost = Number.isSafeInteger(skillForm.maxRangeMeters) && skillForm.maxRangeMeters >= 0 && skillForm.maxRangeMeters <= 100 ? effectRequirementDiscount(applyCooldownPch(applyRangePch(skillPchBeforeRange, skillForm.maxRangeMeters),skillForm.cooldown,skillForm.duration,skillForm.category), skillForm.effectRequirements) : 0;
   const themePalette = character?.themePalette ?? DEFAULT_THEME;
 
   useEffect(() => {

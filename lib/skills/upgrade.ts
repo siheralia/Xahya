@@ -3,6 +3,7 @@ import {type SkillMechanics,validateSkillMechanics} from "@/lib/skills/interacti
 import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
+import { applyCooldownPch, isConfiguredCooldown } from "@/lib/skills/cooldown";
 import { speedSurcharge } from "@/lib/skills/speed-settings";
 import { defaultEffectPricing } from "@/lib/skills/pch";
 import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
@@ -40,7 +41,7 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
   const mechanicsError=validateSkillMechanics(mechanics);
   if(mechanicsError)throw new Error(mechanicsError);
   for (const field of ["cost","maintenanceCost","accumulationCost","accumulationPerTick"])if(!Number.isSafeInteger(b[field])||b[field]<0)throw new Error("Costos inválidos.");
-  if(typeof b.speed!=="string"||typeof b.cooldown!=="string")throw new Error("Velocidad o enfriamiento inválidos.");
+  if(typeof b.speed!=="string"||!isConfiguredCooldown(b.cooldown))throw new Error("Velocidad o enfriamiento inválidos.");
   const statistics=await readStatisticsCatalog();
   const pricing={...defaultEffectPricing(),...await readEffectPricing()};
   const narrative=await readNarrativeEffectCards();
@@ -62,7 +63,7 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
     }
     base += configuredSkillEffectPch(e,narrative,pricing,durations);
   }
-  const pch=effectRequirementDiscount(applyRangePch(manaAdjustedPch(base+mechanicsPchCost(mechanics),b.cost)+speedSurcharge(b.speed),range),requirements);
+  const pch=effectRequirementDiscount(applyCooldownPch(applyRangePch(manaAdjustedPch(base+mechanicsPchCost(mechanics),b.cost)+speedSurcharge(b.speed),range),b.cooldown,b.duration,b.category),requirements);
   if(!Number.isSafeInteger(pch)||pch<1)throw new Error("Costo PCH inválido.");
   return {pch,payload:{
     name:b.name.trim(),description:b.description.trim(),cost:b.cost,

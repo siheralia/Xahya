@@ -3,10 +3,11 @@ import {useEffect,useMemo,useState} from "react";
 import ManagementModal from "@/app/management/_components/ManagementModal";
 import {SkillEffectsEditor, type EditableEffect, type NarrativeCard} from "./SkillEffectsEditor";
 import type {RacialSkill} from "@/lib/skills/racial-catalog";
+import {COOLDOWN_OPTIONS} from "@/lib/skills/cooldown";
 
 type Race={id:number;name:string};
-type Form={raceId:number;name:string;description:string;category:string;manaCost:number;maintenanceCost:number;active:boolean;effect:EditableEffect[]};
-const blank=(raceId:number):Form=>({raceId,name:"",description:"",category:"UTILITY",manaCost:0,maintenanceCost:0,active:true,effect:[]});
+type Form={raceId:number;name:string;description:string;category:string;manaCost:number;maintenanceCost:number;cooldown:string;active:boolean;effect:EditableEffect[]};
+const blank=(raceId:number):Form=>({raceId,name:"",description:"",category:"UTILITY",manaCost:0,maintenanceCost:0,cooldown:"Sin cooldown",active:true,effect:[]});
 const categories=[["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"]];
 
 export function RacialSkillsManagement(){
@@ -42,7 +43,7 @@ export function RacialSkillsManagement(){
 
   function create(){setSelected(null);setForm(blank(races[0]?.id??0));setError("");setSuccess("");setOpen(true);}
   function edit(s:RacialSkill){
-    setSelected(s.id);setForm({raceId:s.raceId,name:s.name,description:s.description??"",category:s.category,manaCost:s.manaCost,maintenanceCost:s.maintenanceCost,active:s.active,effect:Array.isArray(s.effect)?s.effect:[]});
+    setSelected(s.id);setForm({raceId:s.raceId,name:s.name,description:s.description??"",category:s.category,manaCost:s.manaCost,maintenanceCost:s.maintenanceCost,cooldown:s.cooldown??"Sin cooldown",active:s.active,effect:Array.isArray(s.effect)?s.effect:[]});
     setError("");setSuccess("");setOpen(true);
   }
   async function save(){
@@ -71,7 +72,7 @@ export function RacialSkillsManagement(){
         <div className="flex justify-between gap-3"><div><b>{s.name}</b><span className="ml-2 text-xs text-zinc-500">#{s.id}</span></div><span className={s.active?"text-xs text-emerald-400":"text-xs text-zinc-500"}>{s.active?"Activa":"Inactiva"}</span></div>
         <p className="mt-1 text-sm text-cyan-300">{s.raceName??races.find(r=>r.id===s.raceId)?.name??("Raza #"+s.raceId)}</p>
         <p className="mt-2 line-clamp-2 text-sm text-zinc-400">{s.description||"Sin descripción"}</p>
-        <p className="mt-2 text-xs text-zinc-500">{s.effect.length} efecto(s) · {s.manaCost} maná · {s.maintenanceCost} mantenimiento</p>
+        <p className="mt-2 text-xs text-zinc-500">{s.effect.length} efecto(s) · {s.manaCost} maná · {s.maintenanceCost} mantenimiento · {s.cooldown??"Sin cooldown"}</p>
         {s.effect.some(e=>e.capability)&&<p className="mt-2 text-xs text-amber-300">{s.effect.filter(e=>e.capability).map(e=>e.capability+(e.element?" + "+e.element:"")).join(", ")}</p>}
       </button>)}
       {!filtered.length&&<p className="py-8 text-zinc-500">No hay habilidades raciales que coincidan.</p>}
@@ -90,6 +91,7 @@ export function RacialSkillsManagement(){
           <label className="text-sm text-zinc-300">Maná<input type="number" min={0} step={1} value={form.manaCost} onChange={e=>setForm(f=>({...f,manaCost:Number(e.target.value)}))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-3"/></label>
           <label className="text-sm text-zinc-300">Mantenimiento<input type="number" min={0} step={1} value={form.maintenanceCost} onChange={e=>setForm(f=>({...f,maintenanceCost:Number(e.target.value)}))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-3"/></label>
         </div>
+        <label className="block text-sm text-zinc-300">Cooldown<select value={form.cooldown} onChange={e=>setForm(f=>({...f,cooldown:e.target.value}))} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-3">{COOLDOWN_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.value}</option>)}</select><span className="mt-1 block text-xs text-zinc-500">Las raciales son gratuitas: el cooldown limita su uso, no genera PCH.</span></label>
         <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={form.active} onChange={e=>setForm(f=>({...f,active:e.target.checked}))}/>Activa: conceder automáticamente a los personajes de esta raza</label>
         <SkillEffectsEditor effects={form.effect} onChange={effect=>setForm(f=>({...f,effect}))} statistics={statistics} effectDefinitions={effectDefinitions} narrativeCards={narrativeCards}/>
         <p className="text-xs text-zinc-400">Para Fotoconstrucción: configura «Capacidad para requisitos: Crear» y «Elemento: Luz» en su efecto. Las habilidades raciales no cuestan PCH al concederse.</p>

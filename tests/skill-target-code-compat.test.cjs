@@ -63,6 +63,7 @@ const upgrade=loadModule("lib/skills/upgrade.ts",{
   "@/lib/skills/mechanics-pricing":{mechanicsPchCost:()=>0},
   "@/lib/skills/range-pricing":{applyRangePch:(pch,metres)=>Math.max(1,pch+metres-5)},
   "@/lib/skills/mana-pricing":{manaAdjustedPch:(pch,mana)=>Math.max(1,Math.ceil(2*pch-mana/5))},
+  "@/lib/skills/cooldown":loadModule("lib/skills/cooldown.ts"),
   "@/lib/skills/speed-settings":{speedSurcharge:()=>0},
   "@/lib/skills/pch":{defaultEffectPricing:()=>({})},
   "@/lib/skills/configured-effect-pricing":{configuredSkillEffectPch:effect=>{

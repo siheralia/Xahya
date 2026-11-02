@@ -20,6 +20,7 @@ import { defaultEffectPricing, type EffectPricingMap } from "@/lib/skills/pch";
 import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
 import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
+import { applyCooldownPch } from "@/lib/skills/cooldown";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 
 type Effect = { type: string; target?: string; value?: number; description?: string; element?: string; capability?: string; durationTurns?: number; durationMovements?: number;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean };
@@ -87,7 +88,7 @@ export default function SkillsManagementPage(){
   const pchBase = form.effect.reduce((sum,e) => sum + priceEffect(e), 0) + mechanicsPchCost(form.mechanics);
   const pchManaAdjusted = manaAdjustedPch(pchBase, form.cost);
   const pchSpeedAdjusted = pchManaAdjusted + (!form.speed || form.speed === "DEFAULT" ? 0 : 5);
-  const pchTotal = effectRequirementDiscount(applyRangePch(pchSpeedAdjusted, form.maxRangeMeters), form.effectRequirements);
+  const pchTotal = effectRequirementDiscount(applyCooldownPch(applyRangePch(pchSpeedAdjusted, form.maxRangeMeters),form.cooldown,form.duration,form.category), form.effectRequirements);
 
   const visible=useMemo(()=>skills.filter(s=>{
     const q=search.trim().toLowerCase();

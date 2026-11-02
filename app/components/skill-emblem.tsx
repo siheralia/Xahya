@@ -1,5 +1,6 @@
 "use client";
 import dynamicIconImports from "lucide-react/dynamicIconImports";
+import { resolveSkillEffectIcon } from "@/lib/skills/emblem-icons";
 import { lazy, Suspense, useEffect, useId, useState, type ComponentType } from "react";
 import { Badge, Diamond, Heart, Scan, Spade, Sparkles, Zap, RefreshCcw, PanelsTopLeft, Swords, Shield, Flame, Snowflake, Wind, Droplets, Sun, Moon, Star, Eye, Target, Sword, WandSparkles, CircleHelp, Activity, HeartPulse, Cross, Hand, Clock, Timer, Gauge, Footprints, Move, Waves, Bolt, CircleDot, Orbit, Ghost, ShieldCheck, ShieldPlus, ArrowLeftRight, Repeat, RotateCcw, BookOpen, Brain, Gem, Crown, Lock, Key, Circle, Triangle, Hexagon, Layers, Users, User, Skull, Leaf, Feather, Radio, ScanEye, Sparkle, ShieldAlert, CircleOff, Minus, Plus, Percent, TrendingUp, TrendingDown, ArrowUp, ArrowDown, ArrowRight, ArrowLeft, Aperture, Focus, ScanLine, ScanFace, ScanHeart, ScanSearch, ScanText, ScanBarcode, PanelsLeftRight, PanelTop, PanelBottom, PanelLeft, PanelRight } from "lucide-react";
 const effectIconMap = {sparkles:Sparkles,zap:Zap,"refresh-ccw":RefreshCcw,"panels-top-left":PanelsTopLeft,swords:Swords,shield:Shield,flame:Flame,snowflake:Snowflake,wind:Wind,droplets:Droplets,sun:Sun,moon:Moon,star:Star,eye:Eye,target:Target,sword:Sword,"wand-sparkles":WandSparkles,"circle-help":CircleHelp,activity:Activity,"heart-pulse":HeartPulse,cross:Cross,hand:Hand,clock:Clock,timer:Timer,gauge:Gauge,footprints:Footprints,move:Move,waves:Waves,bolt:Bolt,"circle-dot":CircleDot,orbit:Orbit,ghost:Ghost,"shield-check":ShieldCheck,"shield-plus":ShieldPlus,"arrow-left-right":ArrowLeftRight,repeat:Repeat,"rotate-ccw":RotateCcw,"book-open":BookOpen,brain:Brain,gem:Gem,crown:Crown,lock:Lock,key:Key,circle:Circle,triangle:Triangle,hexagon:Hexagon,layers:Layers,users:Users,user:User,skull:Skull,leaf:Leaf,feather:Feather,radio:Radio,"scan-eye":ScanEye,sparkle:Sparkle,"shield-alert":ShieldAlert,"circle-off":CircleOff,minus:Minus,plus:Plus,percent:Percent,"trending-up":TrendingUp,"trending-down":TrendingDown,"arrow-up":ArrowUp,"arrow-down":ArrowDown,"arrow-right":ArrowRight,"arrow-left":ArrowLeft,aperture:Aperture,focus:Focus,"scan-line":ScanLine,"scan-face":ScanFace,"scan-heart":ScanHeart,"scan-search":ScanSearch,"scan-text":ScanText,"scan-barcode":ScanBarcode,"panels-left-right":PanelsLeftRight,"panel-top":PanelTop,"panel-bottom":PanelBottom,"panel-left":PanelLeft,"panel-right":PanelRight} as const;
@@ -30,10 +31,14 @@ function loadColors():Promise<ElementColor[]> {
 let cachedIcons:Record<string,string>|null=null;
 let iconsPromise:Promise<Record<string,string>>|null=null;
 function loadIcons():Promise<Record<string,string>> {
- if(cachedIcons)return Promise.resolve(cachedIcons);
- if(!iconsPromise)iconsPromise=fetch("/api/effect-icons").then(r=>r.ok?r.json():{icons:{}}).then(data=>{
-  cachedIcons=data.icons??{};return cachedIcons!;
- }).catch(()=>{iconsPromise=null;return {}});
+ // Refresh on every newly mounted emblem so icons changed in Gestión appear
+ // when navigating back to the character sheet without a hard browser reload.
+ // Concurrent emblems share the same in-flight request.
+ if(!iconsPromise)iconsPromise=fetch("/api/effect-icons",{cache:"no-store"})
+  .then(r=>{if(!r.ok)throw new Error("Effect icons unavailable");return r.json() as Promise<{icons:Record<string,string>}>;})
+  .then(data=>{cachedIcons=data.icons??{};return cachedIcons!;})
+  .catch(()=>cachedIcons??{})
+  .finally(()=>{iconsPromise=null;});
  return iconsPromise;
 }
 const frames = { OFFENSIVE: Spade, PASSIVE: Badge, UTILITY: Scan, SUPPORT: Heart, BASIC: Diamond } as const;
@@ -50,13 +55,14 @@ export function SkillEmblem({ category, effects, icons, size = 64 }: { category:
  const Frame = frames[category as keyof typeof frames] ?? Scan;
  const selected = effects.slice(0,4);
  const positions = selected.length === 1 ? [[24,24]] : selected.length === 2 ? [[15,24],[33,24]] : selected.length === 3 ? (category === "OFFENSIVE" ? [[24,15],[15,33],[33,33]] : [[15,15],[33,15],[24,33]]) : [[15,15],[33,15],[15,33],[33,33]];
+ const innerIconScale = selected.length === 1 ? .32 : selected.length === 2 ? .26 : .21;
  return <div className="relative shrink-0" style={{width:size,height:size}} aria-label={`Emblema de habilidad con ${effects.length} efectos`} role="img">
   {uniqueColors.length>1&&<svg aria-hidden="true" width="0" height="0" className="absolute"><defs><linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">{uniqueColors.map((color,i)=><stop key={color} offset={`${i/(uniqueColors.length-1)*100}%`} stopColor={color}/>)}</linearGradient></defs></svg>}
   <Frame size={size} strokeWidth={1.5} color={frameColor} className="absolute inset-0" aria-hidden="true" />
   {selected.map((effect,i)=>{
-   const candidate = icons?.[effect.type] ?? managedIcons[effect.type] ?? mirrorIcons[effect.type] ?? (effect.type === "DAMAGE_MULTIPLIER" ? "swords" : "sparkles");
+   const candidate = resolveSkillEffectIcon(effect,icons,managedIcons) ?? mirrorIcons[effect.type] ?? (effect.type === "DAMAGE_MULTIPLIER" ? "swords" : "sparkles");
    const name = candidate as string;
-   return <div key={i} className="absolute" style={{left:`${positions[i][0]/48*100}%`,top:`${positions[i][1]/48*100}%`,transform:"translate(-50%,-50%)"}}><DynamicIcon name={name} size={size*.19} color={colorByKey.get(String(effect.element??""))} strokeWidth={2} aria-hidden={true} /></div>;
+   return <div key={i} className="absolute" style={{left:`${positions[i][0]/48*100}%`,top:`${positions[i][1]/48*100}%`,transform:"translate(-50%,-50%)"}}><DynamicIcon name={name} size={size*innerIconScale} color={colorByKey.get(String(effect.element??""))} strokeWidth={2} aria-hidden={true} /></div>;
   })}
  </div>;
 }

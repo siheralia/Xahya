@@ -28,13 +28,12 @@ test("only passive skills with a nonblank condition may be submitted",()=>{
 
 test("form marks condition mandatory immediately and gives a field-level error",()=>{
   const ui=read("components/skills/SkillCoreFields.tsx");
-  assert.match(ui,/required=\{form.category==="PASSIVE"\}/);
+  assert.match(ui,/\{form.category==="PASSIVE" && \(\s*<div/);
   assert.ok(ui.indexOf('id="skill-passive-condition"') < ui.indexOf('{effectEditor &&'));
-  assert.match(ui,/aria-required=\{form.category==="PASSIVE"\}/);
+  assert.match(ui,/\brequired\s+aria-required="true"/);
   assert.match(ui,/aria-invalid=\{passiveConditionMissing\}/);
   assert.match(ui,/PASSIVE_CONDITION_REQUIRED_MESSAGE/);
-  assert.doesNotMatch(ui,/\{form.category==="PASSIVE" && \(\s*<div/);
-  assert.match(ui,/Condición general de la habilidad/);
+  assert.match(ui,/Condición general de la pasiva/);
   const effects=read("components/skills/SkillEffectsEditor.tsx");
   assert.match(effects,/Condición del efecto \(opcional\)/);
   assert.match(effects,/no reemplaza la condición obligatoria de una habilidad pasiva/);

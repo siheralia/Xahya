@@ -168,14 +168,17 @@ export async function POST(
   }
   pchCost = applyRangePch(manaAdjustedPch(pchCost + mechanicsPchCost(body.mechanics??{}), Number(body.cost ?? 0)) + speedSurcharge(body.speed), Number(body.maxRangeMeters ?? 5));
   pchCost = effectRequirementDiscount(pchCost, effectRequirements);
-  if (pchCost <= 0) return NextResponse.json({ error: "Agrega al menos un efecto con costo PCH." }, { status: 400 });
+  if (!Number.isSafeInteger(pchCost) || pchCost <= 0 || pchCost > 2147483647)
+    return NextResponse.json({ error: "El costo de PCH debe estar entre 1 y 2147483647." }, { status: 400 });
 
   const created = await db.transaction(async (tx) => {
     const TxCharacter = tx.orm.public.Character as any;
     const debit = db.raw.sql`
       UPDATE public."character"
       SET "pchBalance" = "pchBalance" - ${pchCost}
-      WHERE id = ${characterId} AND "pchBalance" >= ${pchCost}
+      -- Una habilidad puede dejar deuda de PCH; para comenzar una nueva,
+      -- el personaje debe disponer al menos de 1 PCH positivo.
+      WHERE id = ${characterId} AND "pchBalance" > 0
     `.affectedCount().build();
     const { affectedRows } = await tx.execute(debit);
     if (affectedRows !== 1) throw new Error("NOT_ENOUGH_PCH");
@@ -216,7 +219,7 @@ export async function POST(
     throw error;
   });
 
-  if (!created) return NextResponse.json({ error: "PCH insuficientes para crear esta habilidad." }, { status: 400 });
+  if (!created) return NextResponse.json({ error: "Necesitas al menos 1 PCH disponible para solicitar una habilidad; el resto del costo puede quedar como saldo negativo." }, { status: 400 });
 
 
   return NextResponse.json({ skill: created.skill, status: "PENDING", pchBalance: created.balance, pchCost }, { status: 201 });

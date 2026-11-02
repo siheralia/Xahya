@@ -33,6 +33,10 @@ test("form marks condition mandatory immediately and gives a field-level error",
   assert.match(ui,/required\s+aria-required="true"/);
   assert.match(ui,/aria-invalid=\{passiveConditionMissing\}/);
   assert.match(ui,/PASSIVE_CONDITION_REQUIRED_MESSAGE/);
+  assert.match(ui,/Condición general de la pasiva \(obligatoria\)/);
+  const effects=read("components/skills/SkillEffectsEditor.tsx");
+  assert.match(effects,/Condición del efecto \(opcional\)/);
+  assert.match(effects,/no reemplaza la condición obligatoria de una habilidad pasiva/);
   const modal=read("components/skills/SkillFormModal.tsx");
   assert.match(modal,/role="alert"/);
   assert.match(modal,/Ir a condición/);

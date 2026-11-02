@@ -535,6 +535,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [upgradeRequests,setUpgradeRequests]=useState<Array<{id:number;skillId:number;status:string;deltaPch:number}>>([]);
   const [copyBusy,setCopyBusy]=useState<number|null>(null);
   const [theftBusy,setTheftBusy]=useState<number|null>(null);
+  const [theftClash,setTheftClash]=useState<{stealingSkillId:number;resisted:boolean;attackerStat:string;defenderStat:string;attackRoll:number;defenseRoll:number;attackTotal:number;defenseTotal:number}|null>(null);
   const [thefts,setThefts]=useState<Array<{id:number;thiefCharacterId:number;victimCharacterId:number;sourceSkillId:number;stolenSkillId:number;sourceName:string;thiefName:string;victimName:string;remainingTurns:number;status:string}>>([]);
   const [copyRequests,setCopyRequests]=useState<Array<{id:number;copierSkillId:number;sourceSkillId:number;sourceName:string;mode:string;status:string;copiedSkillId:number|null}>>([]);
   const [copyRecords,setCopyRecords]=useState<Array<{id:number;copierSkillId:number;sourceSkillId:number;copiedSkillId:number;name:string;mode:string;remainingTurns:number|null;equipped:boolean}>>([]);
@@ -1444,7 +1445,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
   async function stealSkillAction(stealingSkillId:number,sourceSkillId:number){
     if(!character||theftBusy!==null)return;
-    setTheftBusy(stealingSkillId);setError("");setSuccess("");
+    setTheftBusy(stealingSkillId);setTheftClash(null);setError("");setSuccess("");
     try{
       const r=await fetch("/api/characters/"+character.id+"/skills/thefts",{
         method:"POST",headers:{"Content-Type":"application/json"},
@@ -1452,6 +1453,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       });
       const data=await r.json().catch(()=>null);
       if(!r.ok)throw new Error(data?.error??"No se pudo robar la habilidad.");
+      if(data?.clash)setTheftClash({stealingSkillId,resisted:data.resisted===true,...data.clash});
+      if(data?.resisted)return;
       const [sr,tr]=await Promise.all([
         fetch("/api/characters/"+character.id+"/skills",{cache:"no-store"}),
         fetch("/api/characters/"+character.id+"/skills/thefts",{cache:"no-store"})
@@ -2240,6 +2243,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     {Number(skill.maintenanceCost ?? 0) > 0 && <span>⟳ Mantenimiento/turno: {skill.maintenanceCost}</span>}
                     {skill.effect?.filter(e=>e.type==="STEAL_SKILL").map((effect,index)=><div key={"theft-"+index} className="mt-3 rounded-lg border border-rose-800/50 p-3">
                     <p className="text-xs font-semibold text-rose-200">Robar habilidad · capacidad {effect.value} PCH (requiere ×2 del original) · {effect.stealDurationTurns??3} turnos</p>
+                    {theftClash?.stealingSkillId===skill.id && <p role="status" className={"mt-2 rounded-lg border p-3 text-xs "+(theftClash.resisted?"border-amber-600/50 text-amber-200":"border-emerald-600/50 text-emerald-200")}>
+                      Choque de voluntades: SPI {theftClash.attackTotal} (d20: {theftClash.attackRoll}) contra {({wisdom:"WIS",charisma:"CHA",spirit:"SPI",constitution:"CON"} as Record<string,string>)[theftClash.defenderStat]??theftClash.defenderStat} {theftClash.defenseTotal} (d20: {theftClash.defenseRoll}). {theftClash.resisted?"La víctima resistió. La habilidad sigue con su dueño.":"Robo exitoso."}
+                    </p>}
                     <SkillTheftSourceSearch characterId={character.id} stealingSkillId={skill.id} busy={theftBusy!==null}
                       refreshKey={thefts.length} onSteal={sourceSkillId=>stealSkillAction(skill.id,sourceSkillId)}/>
                   </div>)}

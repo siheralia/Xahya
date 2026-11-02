@@ -15,7 +15,7 @@ import { effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 
-type Effect = { type: string; target?: string; value?: number; description?: string };
+type Effect = { type: string; target?: string; value?: number; description?: string;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean };
 type Skill = {
   id:number; characterId:number; name:string; cost:number; pchCost:number; accumulationCost:number; accumulationPerTick:number; maintenanceCost:number; description:string|null; duration:string|null;
   category:string; basicType:string|null; attackType:string|null; defenseType:string|null; areaOfEffect:string|null; speed:string|null; cooldown:string|null; effect:Effect[];
@@ -29,6 +29,8 @@ const blankForm=()=>({characterId:"",name:"",cost:0,pchCost:0,accumulationCost:0
 
 export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
+  const [upgradeRequests,setUpgradeRequests]=useState<Array<{id:number;skillId:number;skillName:string;characterName:string;baselinePch:number;nextPch:number;deltaPch:number;status:string;payload:{effect:Effect[]}}>>([]);
+  const [reviewingUpgrade,setReviewingUpgrade]=useState<number|null>(null);
   const [catalogTab,setCatalogTab]=useState<"CHARACTER"|"RACIAL">("CHARACTER");
   useEffect(()=>{if(new URLSearchParams(window.location.search).get("tab")==="racial")setCatalogTab("RACIAL");},[]);
   const [effectDefinitions,setEffectDefinitions]=useState<{type:string;label:string;targets:{key:string;label:string}[]}[]>([]);
@@ -47,10 +49,11 @@ export default function SkillsManagementPage(){
   async function load(){
     setError("");
     try{
-      const [sr,cr]=await Promise.all([fetch("/api/management/skills",{cache:"no-store"}),fetch("/api/characters?mine=false",{cache:"no-store"})]);
+      const [sr,cr,ur]=await Promise.all([fetch("/api/management/skills",{cache:"no-store"}),fetch("/api/characters?mine=false",{cache:"no-store"}),fetch("/api/management/skills/upgrades",{cache:"no-store"})]);
       const sd=await sr.json(); const cd=await cr.json();
       if(!sr.ok) throw new Error(sd.error);
       setSkills(sd.skills??[]);
+      if(ur.ok)setUpgradeRequests((await ur.json()).requests??[]);
       if(cr.ok) setCharacters((cd??[]).map((c:any)=>({id:Number(c.id),name:String(c.name)})));
     }catch(e){setError(e instanceof Error?e.message:"No se pudieron cargar las habilidades.");}
   }
@@ -107,6 +110,18 @@ export default function SkillsManagementPage(){
     finally{setBusy(false);}
   }
 
+  async function reviewUpgrade(id:number,decision:"APPROVED"|"REJECTED"){
+    if(reviewingUpgrade!==null)return;
+    setReviewingUpgrade(id);setError("");setSuccess("");
+    try{
+      const r=await fetch("/api/management/skills/upgrades/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({decision})});
+      const data=await r.json().catch(()=>null);if(!r.ok)throw new Error(data?.error??"No se pudo revisar la mejora.");
+      setSuccess(decision==="APPROVED"?"Mejora aprobada.":"Mejora rechazada; se devolvieron la moneda y los PCH.");
+      await load();
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo revisar la mejora.");}
+    finally{setReviewingUpgrade(null);}
+  }
+
   return <main className="min-h-screen bg-zinc-950 text-white"><div className="mx-auto max-w-6xl px-6 py-6">
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div><h1 className="text-4xl font-bold">Habilidades</h1><p className="mt-2 text-zinc-500">Solicitudes de habilidades creadas por personajes y catálogo aprobado.</p></div>
@@ -139,6 +154,22 @@ export default function SkillsManagementPage(){
       </div>
     </section>
 
+    <section className="mt-6 rounded-xl border border-violet-800/40 p-5">
+      <h2 className="text-xl font-semibold">Solicitudes de mejora de habilidades</h2>
+      <p className="mt-1 text-sm text-zinc-400">El costo adicional de PCH y una moneda quedan reservados hasta aprobar o rechazar.</p>
+      <div className="mt-4 space-y-3">
+        {upgradeRequests.filter(request=>request.status==="PENDING").map(request=><div key={request.id} className="rounded-lg border border-violet-900/70 bg-violet-950/20 p-4">
+          <p className="font-medium">{request.skillName} · {request.characterName}</p>
+          <p className="mt-1 text-xs text-zinc-400">#{request.skillId} · {request.baselinePch} → {request.nextPch} PCH (incremento {request.deltaPch})</p>
+          <p className="mt-2 text-xs text-zinc-400">Efectos propuestos: {request.payload.effect.map(effect=>effect.type==="COPY_SKILL"?"Copia "+effect.copyMode+" hasta "+effect.value+" PCH":effect.type+" "+(effect.value??"")).join(", ")}</p>
+          <div className="mt-3 flex gap-2">
+            <button type="button" disabled={reviewingUpgrade!==null} onClick={()=>reviewUpgrade(request.id,"APPROVED")} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 disabled:opacity-50">Aprobar mejora</button>
+            <button type="button" disabled={reviewingUpgrade!==null} onClick={()=>reviewUpgrade(request.id,"REJECTED")} className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300 disabled:opacity-50">Rechazar y devolver</button>
+          </div>
+        </div>)}
+        {!upgradeRequests.some(request=>request.status==="PENDING")&&<p className="text-sm text-zinc-500">No hay mejoras pendientes.</p>}
+      </div>
+    </section>
     <div className="mt-6"><SkillSpeedSettings/></div>
     <SkillFormModal availableSkills={skills} characterId={Number(form.characterId)} editingSkillId={selected} open={modal} title={selected?"Editar habilidad":"Crear habilidad"} onClose={()=>setModal(false)} form={form} onChange={setForm} statistics={statDefinitions} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={effectPchCost} pch={{total:pchTotal,beforeRequirements:applyRangePch(pchSpeedAdjusted,form.maxRangeMeters),base:pchBase,manaAdjusted:pchManaAdjusted}} characterSelector={<label className="block text-sm text-zinc-400">Personaje<select value={form.characterId} onChange={e=>setForm({...form,characterId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{characters.map(c=><option key={c.id} value={c.id}>{c.name} #{c.id}</option>)}</select></label>} actions={<div className="flex flex-wrap gap-2"><button onClick={()=>save(false,false)} disabled={busy} className="rounded-lg border border-zinc-700 px-4 py-3 font-medium">Guardar sin aprobar</button><button onClick={()=>save(false,true)} disabled={busy} className="rounded-lg border border-red-900/70 px-4 py-3 font-medium text-red-300">Rechazar</button><button onClick={()=>save(true,false)} disabled={busy} className="rounded-lg bg-emerald-400 px-4 py-3 font-semibold text-zinc-950">Guardar y aprobar</button></div>} />
     </>}

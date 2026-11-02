@@ -1,7 +1,7 @@
 import {auth} from "@clerk/nextjs/server";
 import {NextResponse} from "next/server";
 import {db} from "@/lib/db";
-import {canCopySkill,copySkillSnapshot,type CopyEffect,type CopyMode,COPY_MODES} from "@/lib/skills/copy";
+import {canCopySkill,type CopyEffect,type CopyMode,COPY_MODES} from "@/lib/skills/copy";
 import {defaultEffectPricing} from "@/lib/skills/pch";
 import {copyComplexityPch} from "@/lib/skills/copy-complexity";
 import {readEffectPricing} from "@/lib/effects/pricing";
@@ -43,49 +43,33 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   if(Number(source.id)===Number(copier.id))return NextResponse.json({error:"Una habilidad de copia no puede copiarse a sí misma."},{status:400});
   const copiedSource=db.raw.sql`SELECT id FROM public."skillCopy" WHERE "copiedSkillId"=${sourceId}`.returnsRow({id:"pg/int4@1"}).build();
   if((await db.runtime().query(copiedSource)).length)return NextResponse.json({error:"No se permite copiar una habilidad que ya sea una copia."},{status:400});
-  const clone=copySkillSnapshot(source,copyEffect);
-  if(mode==="IMITATION"){
-    // A one-shot imitation returns a self-contained effect snapshot; no saved skill is granted.
-    await (db.orm.public as any).AuditLog.create({
-      actorUserId:owner.user.id,action:"SKILL_IMITATE",entityType:"SKILL",
-      entityId:sourceId,characterId:id,targetUserId:null,
-      details:JSON.stringify({copierId,sourceId,mode}),
-    });
-    return NextResponse.json({mode,used:true,imitation:{name:clone.name,effect:clone.effect,cost:clone.cost}});
+  if(mode!=="IMITATION"){
+    const existing=db.raw.sql`SELECT id FROM public."skillCopy" WHERE "characterId"=${id} AND "copierSkillId"=${copierId} AND "sourceSkillId"=${sourceId} AND mode=${mode}`.returnsRow({id:"pg/int4@1"}).build();
+    if((await db.runtime().query(existing)).length)return NextResponse.json({error:"Ya tienes una copia de esa habilidad."},{status:409});
   }
-  const check=db.raw.sql`SELECT id FROM public."skillCopy" WHERE "characterId"=${id} AND "copierSkillId"=${copierId} AND "sourceSkillId"=${sourceId} AND mode=${mode}`.returnsRow({id:"pg/int4@1"}).build();
-  if((await db.runtime().query(check)).length)return NextResponse.json({error:"Ya tienes una copia de esa habilidad en esta modalidad."},{status:409});
   if(mode==="COLLECTION"){
-    const countQ=db.raw.sql`SELECT count(*)::integer AS count FROM public."skillCopy" WHERE "characterId"=${id} AND "copierSkillId"=${copierId} AND mode='COLLECTION'`.returnsRow({count:"pg/int4@1"}).build();
-    const [row]=await db.runtime().query(countQ) as Array<{count:number}>;
-    if(Number(row?.count??0)>=Number(copyEffect.copyCapacity??5))return NextResponse.json({error:"La colección alcanzó su capacidad."},{status:400});
+    const capacity=db.raw.sql`SELECT
+      (SELECT count(*)::integer FROM public."skillCopy" WHERE "characterId"=${id} AND "copierSkillId"=${copierId} AND mode='COLLECTION')
+      + (SELECT count(*)::integer FROM public."skillCopyRequest" WHERE "characterId"=${id} AND "copierSkillId"=${copierId} AND mode='COLLECTION' AND status='PENDING') AS total`
+      .returnsRow({total:"pg/int4@1"}).build();
+    const [row]=await db.runtime().query(capacity) as Array<{total:number}>;
+    if(Number(row?.total??0)>=Number(copyEffect.copyCapacity??5))return NextResponse.json({error:"La colección ya tiene copias o solicitudes hasta su capacidad."},{status:409});
   }
   try{
-    const copied=await db.transaction(async tx=>{
-      const ts=(tx.orm.public as any).Skill;
-      const created=await ts.create({
-        characterId:id,name:clone.name,cost:Number(clone.cost??0),
-        accumulationCost:Number(clone.accumulationCost??0),accumulationPerTick:Number(clone.accumulationPerTick??0),
-        maintenanceCost:Number(clone.maintenanceCost??0),description:clone.description??null,
-        duration:clone.duration??null,category:clone.category??"UTILITY",
-        areaOfEffect:clone.areaOfEffect??null,speed:clone.speed??"DEFAULT",
-        cooldown:clone.cooldown??null,condition:clone.condition??null,effect:clone.effect??[],
-        effectRequirements:clone.effectRequirements??[],requiredSkillIds:[],
-        pchCost:0,status:mode==="COLLECTION"?"STORED":"APPROVED"
-      });
-      const insert=db.raw.sql`INSERT INTO public."skillCopy" ("characterId","copierSkillId","sourceSkillId","copiedSkillId",mode,"remainingTurns",equipped)
-      VALUES (${id},${copierId},${sourceId},${Number(created.id)},${mode},NULLIF(${mode==="TEMPORARY"?Number(copyEffect.copyDurationTurns??3):0},0),${mode!=="COLLECTION"})`.affectedCount().build();
-      if((await tx.execute(insert)).affectedRows!==1)throw new Error("COPY_INSERT_FAILED");
+    await db.transaction(async tx=>{
+      const insert=db.raw.sql`INSERT INTO public."skillCopyRequest" ("characterId","copierSkillId","sourceSkillId",mode,status)
+        VALUES (${id},${copierId},${sourceId},${mode},'PENDING')`.affectedCount().build();
+      if((await tx.execute(insert)).affectedRows!==1)throw new Error("COPY_REQUEST_FAILED");
       await tx.orm.public.AuditLog.create({
-        actorUserId:owner.user.id,action:"SKILL_COPY",entityType:"SKILL",
-        entityId:Number(created.id),characterId:id,targetUserId:null,
-        details:JSON.stringify({copierId,sourceId,mode,complexity:source.pchCost}),
+        actorUserId:owner.user.id,action:"SKILL_COPY_REQUEST",entityType:"SKILL",
+        entityId:sourceId,characterId:id,targetUserId:null,
+        details:JSON.stringify({copierId,sourceId,mode,status:"PENDING",complexity:undiscounted})
       });
-      return created;
     });
-    return NextResponse.json({ok:true,mode,skill:copied},{status:201});
+    return NextResponse.json({ok:true,status:"PENDING",message:"Solicitud enviada para aprobación."},{status:201});
   }catch(error){
-    if(error instanceof Error && /unique|duplicate/i.test(error.message))return NextResponse.json({error:"Esta copia ya existe."},{status:409});
+    if(error instanceof Error&&/unique|duplicate/i.test(error.message))
+      return NextResponse.json({error:"Ya existe una solicitud de copia pendiente para esta habilidad."},{status:409});
     throw error;
   }
 }

@@ -111,6 +111,7 @@ export function validateSkillMechanics(value: unknown, ownSkillId?: number): str
       if (["CREATE_FIELD", "CHANGE_FIELD", "EXPOSE", "CLEANSE"].includes(action.kind)
         && !isKey((action as {material?:string}).material)) return "Material inválido.";
       if (action.kind === "CREATE_FIELD") {
+        if (rule.event !== "ACTIVATE") return "Los campos deben crearse al activar, no automáticamente cada turno.";
         if (!Array.isArray(action.rings) || action.rings.length < 1 || action.rings.length > 12
           || action.rings.some((r, i) => !finite(r?.radius, 0.01, 1000) || !finite(r?.ppm) || (i > 0 && r.radius <= action.rings[i - 1].radius))
           || (action.spreadMeters !== undefined && !finite(action.spreadMeters, 0, 100))
@@ -125,7 +126,7 @@ export function validateSkillMechanics(value: unknown, ownSkillId?: number): str
         || !["SELF", "OPPONENT", "ALL"].includes(action.target)
         || (action.stat !== undefined && !isKey(action.stat))
         || (action.multiplier !== undefined && !finite(action.multiplier, 0, 100)))) return "Estado inválido.";
-      if (action.kind === "MANA_WARD" && (!integer(action.manaInvestment, 1, 1000000)
+      if (action.kind === "MANA_WARD" && (rule.event !== "ACTIVATE" || !integer(action.manaInvestment, 1, 1000000)
         || !integer(action.level, 1, 100) || action.target !== "SELF"
         || !integer(action.durationTurns, 1, 1000))) return "Protección de maná inválida.";
     }

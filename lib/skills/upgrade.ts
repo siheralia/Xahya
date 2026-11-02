@@ -4,8 +4,8 @@ import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { speedSurcharge } from "@/lib/skills/speed-settings";
-import { durationPchCost } from "@/lib/effects/duration-pricing";
-import { calculateSkillPch, defaultEffectPricing } from "@/lib/skills/pch";
+import { defaultEffectPricing } from "@/lib/skills/pch";
+import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
 import { readEffectPricing } from "@/lib/effects/pricing";
 import { readDurationPricing } from "@/lib/effects/duration-pricing-settings";
 import { readNarrativeEffectCards } from "@/lib/effects/narrative-cards";
@@ -52,19 +52,16 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
     if(err)throw new Error(err);
     const t=Number(e.durationTurns??0),m=Number(e.durationMovements??0);
     if(!Number.isSafeInteger(t)||!Number.isSafeInteger(m)||t<0||m<0||(t&&m)||t>durations.maxTurns||m>(durations.maxMovements??20))throw new Error("Duración inválida.");
-    let cost:number;
     if(e.type==="NARRATIVE" && String(e.target??"").startsWith("CARD:")){
       const card=narrative.find(c=>c.id===String(e.target).slice(5));
       if(!card||!card.enabled||e.description!==card.name+": "+card.description)throw new Error("Tarjeta narrativa inválida.");
-      cost=card.pch;
     }else{
       if(pricing[e.type]?.enabled===false)throw new Error("Efecto desactivado.");
       const targets=resolveEffectTargets(e.type,statistics);
       if(targets.length && !targets.some(x=>x.key===e.target))throw new Error("Objetivo inválido.");
       if(e.type!=="NARRATIVE" && (!Number.isFinite(e.value)||e.value<=0))throw new Error("Potencia inválida.");
-      cost=calculateSkillPch([e],pricing);
     }
-    base+=durationPchCost(cost,m?{kind:"MOVEMENTS",movements:m}:t?{kind:"TURNS",turns:t}:{kind:"INSTANT"},durations);
+    base += configuredSkillEffectPch(e,narrative,pricing,durations);
   }
   const pch=effectRequirementDiscount(applyRangePch(manaAdjustedPch(base+mechanicsPchCost(mechanics),b.cost)+speedSurcharge(b.speed),range),requirements);
   if(!Number.isSafeInteger(pch)||pch<1)throw new Error("Costo PCH inválido.");

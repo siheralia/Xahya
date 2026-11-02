@@ -15,9 +15,10 @@ import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 import { SkillFieldHelp } from "@/components/skills/SkillFieldHelp";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
-import { calculateSkillPch, effectPchCost, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
+import { calculateSkillPch, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
 
-import { durationPchCost, DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
+import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
+import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
 import Link from "next/link";
 import { Swords, Shield, Heart, Droplets, Sparkles, Wind, Orbit } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
@@ -573,7 +574,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     mechanics:{} as SkillMechanics,
     effect: [] as SkillEffect[],
   });
-  const priceSkillEffect = (e: SkillEffect) => { const base = e.type==="NARRATIVE" && e.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===e.target?.slice(5))?.pch??0) : effectPchCost(e,effectPricing); return durationPchCost(base,e.durationMovements ? {kind:"MOVEMENTS",movements:e.durationMovements} : e.durationTurns ? {kind:"TURNS",turns:e.durationTurns} : {kind:"INSTANT"},durationPricing); };
+  const priceSkillEffect = (effect: SkillEffect) => configuredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
   const skillBasePch = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0) + mechanicsPchCost(skillForm.mechanics);
   const skillPchBeforeRange = manaAdjustedPch(skillBasePch, skillForm.cost) + (!skillForm.speed || skillForm.speed === "DEFAULT" ? 0 : 5);
   const skillPchCost = Number.isSafeInteger(skillForm.maxRangeMeters) && skillForm.maxRangeMeters >= 0 && skillForm.maxRangeMeters <= 100 ? effectRequirementDiscount(applyRangePch(skillPchBeforeRange, skillForm.maxRangeMeters), skillForm.effectRequirements) : 0;

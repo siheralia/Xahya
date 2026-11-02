@@ -83,7 +83,7 @@ export function SkillMechanicsEditor({
        <label className={label}>Duración (turnos; vacío = persistente)<input className={input} type="number" min="1" value={a.durationTurns??""} onChange={e=>updateAction(ri,ai,{...a,durationTurns:e.target.value?Number(e.target.value):undefined})}/></label>
       </div>
      </>}
-     {["EXPOSE","CLEANSE","CHANGE_FIELD"].includes(a.kind)&&<>
+     {(a.kind==="EXPOSE"||a.kind==="CLEANSE"||a.kind==="CHANGE_FIELD")&&<>
       <label className={label}>Material<input className={input} value={a.material} onChange={e=>updateAction(ri,ai,{...a,material:e.target.value.toUpperCase()} as MechanicAction)}/></label>
       <label className={label}>Cantidad {a.kind==="CHANGE_FIELD"?"ppm":"unidades"}<input className={input} type="number" min="0" value={a.kind==="CHANGE_FIELD"?a.ppm:a.amount} onChange={e=>updateAction(ri,ai,{...a,[a.kind==="CHANGE_FIELD"?"ppm":"amount"]:Number(e.target.value)} as MechanicAction)}/></label>
      </>}

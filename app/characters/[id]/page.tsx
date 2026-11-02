@@ -1320,6 +1320,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setSkillModalOpen(true);
         setSkillsOpen(true);
         setSuccess("Moneda consumida. Recibiste 10 PCH para crear habilidades.");
+      } else if (data.action === "IMPROVE_SKILL") {
+        setSkillUpgradeCredits(current => current + 1);
+        setSuccess("Moneda consumida. Recibiste 1 crédito de mejora de habilidades.");
       } else {
         setSuccess(data.action === "ESCAPE_MAZE" ? "Consumible usado. Has regresado a la habitación inicial del laberinto." : "Consumible usado.");
       }

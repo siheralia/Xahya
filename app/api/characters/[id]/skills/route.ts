@@ -10,7 +10,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { EFFECT_TYPES, resolveEffectTargets } from "@/lib/effects/catalog";
+import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
 import { readManagedEffectCatalog } from "@/lib/effects/managed-catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { validateCopyEffect } from "@/lib/skills/copy";
@@ -66,13 +66,13 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
       if (!String(row.description ?? "").trim()) return "Los efectos narrativos necesitan una descripción.";
       continue;
     }
-    const allowedTargets = resolveEffectTargets(type, statistics);
-    if (allowedTargets.length > 0 && !allowedTargets.some((option) => option.key === target) && !(type === "DAMAGE_MULTIPLIER" && ["MAGIC_ATTACK", "PHYSICAL_ATTACK"].includes(target))) return "Objetivo de efecto inválido.";
+    if (!validateEffectTarget(type, target, statistics)) {
+      return type === "DAMAGE_MULTIPLIER"
+        ? "Un multiplicador de daño debe apuntar a un tipo de ataque."
+        : "Objetivo de efecto inválido.";
+    }
     const value = Number(row.value);
     if (!Number.isFinite(value) || value <= 0) return "Valor de efecto inválido.";
-    if (type === "DAMAGE_MULTIPLIER" && !resolveEffectTargets("DAMAGE_MULTIPLIER", statistics).some((option) => option.key === target) && !["MAGIC_ATTACK", "PHYSICAL_ATTACK"].includes(target)) {
-      return "Un multiplicador de daño debe apuntar a un tipo de ataque.";
-    }
     if (type === "STAT_MULTIPLIER" && !Number.isFinite(value)) return "Multiplicador de estadística inválido.";
   }
   return null;

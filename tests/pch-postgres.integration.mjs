@@ -66,14 +66,14 @@ test("PCH PostgreSQL: costly skill can create debt, but simultaneous submissions
  assert.equal(await sql('SELECT "pchCost" FROM public."pchTestSkill" WHERE "characterId"=5'),"48");
 });
 test("PCH PostgreSQL: zero and negative balances cannot start another skill without a new coin", async () => {
- assert.ok((await skill(6,false,48)).startsWith("0"));
- assert.ok((await skill(5,false,48)).startsWith("0"));
+ assert.equal(Number((await skill(6,false,48)).split("\n").find(y=>/^[01]$/.test(y))),0);
+ assert.equal(Number((await skill(5,false,48)).split("\n").find(y=>/^[01]$/.test(y))),0);
  assert.equal(await sql('SELECT count(*) FROM public."pchTestSkill" WHERE "characterId"=6'),"0");
 });
 test("PCH PostgreSQL: consuming another coin pays down outstanding debt", async () => {
  await coin(3,7);
  assert.equal(await sql('SELECT "pchBalance" FROM public."pchTestCharacter" WHERE id=7'),"5");
- assert.ok((await skill(7,false,25)).startsWith("1"));
+ assert.equal(Number((await skill(7,false,25)).split("\n").find(y=>/^[01]$/.test(y))),1);
  assert.equal(await sql('SELECT "pchBalance" FROM public."pchTestCharacter" WHERE id=7'),"-20");
 });
 test("PCH PostgreSQL: upgrade coin can reserve new debt even with negative PCH", async () => {

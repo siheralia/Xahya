@@ -83,7 +83,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const now = Temporal.Now.instant();
 
   const { updated, skillAccumulations, environment } = await db.transaction(async (tx) => {
+    // Serialize against skill activation, which stamps its cooldown on this
+    // encounter. Reload environment after the lock to avoid overwriting a
+    // newly recorded cooldown with a stale pre-transaction session snapshot.
+    const lock=db.raw.sql`UPDATE public."character" SET id=id WHERE id=${Number(session.playerCharacterId)}`.affectedCount().build();
+    if((await tx.execute(lock)).affectedRows!==1)throw new Error("CHARACTER_NOT_FOUND");
     const TxSession = (tx.orm.public as any).CombatSession;
+    const freshEncounter=await TxSession.where({id}).first();
+    if(!freshEncounter||String(freshEncounter.status)!=="ACTIVE")throw new Error("ENCOUNTER_NOT_ACTIVE");
     const State = (tx.orm.public as any).CharacterSkillState;
     const Skill = (tx.orm.public as any).Skill;
 
@@ -91,7 +98,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const turnSkills=Skill?await Skill.where({characterId:Number(session.playerCharacterId)}).all():[];
     const activeStates=State?await State.where({characterId:Number(session.playerCharacterId),active:true}).all():[];
     const activeIds=activeStates.map((row:any)=>Number(row.skillId));
-    const environment=advanceCombatMechanics(session.mechanicsState,Number(session.playerCharacterId),turnSkills,activeIds);
+    const environment=advanceCombatMechanics(freshEncounter.mechanicsState,Number(session.playerCharacterId),turnSkills,activeIds);
     if (State && Skill && logicalTicksElapsed > 0) {
       const states = await State.where({ characterId: Number(session.playerCharacterId), active: true }).all();
       const skills = await Skill.where({ characterId: Number(session.playerCharacterId) }).all();

@@ -119,6 +119,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           WHERE "characterId"=${Number(session.playerCharacterId)} AND mode='TEMPORARY' AND "remainingTurns"=0)
       `.affectedCount().build();
       await tx.execute(expire);
+
+      // Expire thefts against the thief's combat turns. Original skill rows stay intact.
+      const decrementThefts=db.raw.sql`
+        UPDATE public."skillTheft" SET
+          "remainingTurns"=GREATEST(0,"remainingTurns"-${turnsElapsed}),
+          status=CASE WHEN "remainingTurns"<=${turnsElapsed} THEN 'EXPIRED' ELSE 'ACTIVE' END,
+          "expiredAt"=CASE WHEN "remainingTurns"<=${turnsElapsed} THEN now() ELSE "expiredAt" END
+        WHERE "thiefCharacterId"=${Number(session.playerCharacterId)}
+          AND status='ACTIVE'
+      `.affectedCount().build();
+      await tx.execute(decrementThefts);
+      const expireStolenSkills=db.raw.sql`
+        UPDATE public."skill" SET status='EXPIRED'
+        WHERE "characterId"=${Number(session.playerCharacterId)} AND status='APPROVED'
+          AND id IN (SELECT "stolenSkillId" FROM public."skillTheft"
+            WHERE "thiefCharacterId"=${Number(session.playerCharacterId)} AND status='EXPIRED')
+      `.affectedCount().build();
+      await tx.execute(expireStolenSkills);
     }
 
     const updated = await TxSession.where({ id }).update({

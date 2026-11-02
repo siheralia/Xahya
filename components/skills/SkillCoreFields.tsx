@@ -4,6 +4,7 @@ import {useEffect,useState,type ReactNode} from "react";
 import { SkillFieldHelp, type SkillHelpKey } from "./SkillFieldHelp";
 import type { SkillMechanics } from "@/lib/skills/interaction-engine";
 import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
+import {COOLDOWN_OPTIONS,cooldownDiscountPercent} from "@/lib/skills/cooldown";
 
 export type SkillCore = {
   name: string; description: string; category: string; cost: number; duration: string; cooldown: string; speed: string;
@@ -12,7 +13,7 @@ export type SkillCore = {
 const categories: [string,string][] = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
 const durations = ["Instantánea","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","20 turnos","No termina"];
 
-const cooldowns = ["Sin cooldown","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","Una vez por combate","Igual a duración"];
+const cooldowns = COOLDOWN_OPTIONS.map(option=>option.value);
 export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor}:{form:T;onChange:(next:T)=>void;effectEditor?:ReactNode}) {
   const [speedSettings,setSpeedSettings]=useState<{defaultKey:string;stats:{key:string;name:string}[]}>({defaultKey:"agility",stats:[{key:"agility",name:"Agilidad"}]});
   useEffect(()=>{fetch("/api/management/effects").then(r=>r.ok?r.json():null).then(d=>{if(d?.attackSpeedStats?.length)setSpeedSettings({defaultKey:d.defaultAttackSpeedStat??"agility",stats:d.attackSpeedStats});}).catch(()=>{});},[]);
@@ -55,7 +56,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {effectEditor && <div className="sm:col-span-2">{effectEditor}</div>}
     {wrap("Maná por uso","cost",number("cost"))}
     {wrap("Duración","duration",select("duration",durations.map(x=>[x,x] as const)))}
-    {wrap("Cooldown","cooldown",select("cooldown",cooldowns.map(x=>[x,x] as const)))}
+    {wrap("Cooldown","cooldown",<><select value={form.cooldown} onChange={e=>set("cooldown",e.target.value)} className={cls}>{cooldowns.map(c=><option key={c} value={c}>{c}{cooldownDiscountPercent(c,form.duration,form.category)>0?" (−"+cooldownDiscountPercent(c,form.duration,form.category)+"% PCH)":""}</option>)}</select>{form.cooldown==="Igual a duración" && cooldownDiscountPercent(form.cooldown,form.duration,form.category)===0 && <span className="mt-1 block text-xs text-amber-300">La duración no es finita en turnos, por lo que no aplica descuento.</span>}</>)}
     {wrap("Velocidad","speed",select("speed",speeds))}
     {wrap("Área de efecto","areaOfEffect",<input value={form.areaOfEffect} onChange={e=>set("areaOfEffect",e.target.value)} placeholder="Objetivo único / Área circular de 3 m" className={cls}/>)}
     {wrap("Distancia máxima (m)","maxRangeMeters",number("maxRangeMeters",0,100))}

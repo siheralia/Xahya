@@ -9,6 +9,7 @@ import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
 import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
 import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
+import {validateSkillCombatTypes,normalizeSkillCombatType} from "@/lib/combat/matchup-types";
 
 async function getAdmin(action: "view" | "edit") {
   const { userId: clerkId } = await auth();
@@ -28,6 +29,8 @@ function validate(body: any) {
   const effect = Array.isArray(body.effect) ? body.effect : [];
   const mechanicError=validateSkillMechanics(body.mechanics??{});
   if(mechanicError)return mechanicError;
+  const combatTypeError=validateSkillCombatTypes(body);
+  if(combatTypeError)return combatTypeError;
   if (!name || name.length > 120) return "El nombre debe tener entre 1 y 120 caracteres.";
   if (!description || description.length > 5000) return "La descripción es obligatoria.";
   if (!CATEGORIES.includes(category as any)) return "Categoría inválida.";
@@ -87,6 +90,8 @@ export async function POST(request: Request) {
     description: body.description.trim(),
     duration: typeof body.duration === "string" ? body.duration.trim() || null : null,
     category: String(body.category),
+    attackType: normalizeSkillCombatType(body.attackType),
+    defenseType: normalizeSkillCombatType(body.defenseType),
     areaOfEffect: serializeSkillRange(body.areaOfEffect,body.maxRangeMeters??5),
     speed: typeof body.speed === "string" ? body.speed.trim() || null : null,
     cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : null,

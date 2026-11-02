@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { advanceCharacterSkillTicks } from "@/lib/combat/ticks";
-import { activateSkillMechanics, readMaxMana, locateSkillEnvironment, stopSkillMechanics } from "@/lib/skills/mechanics-runtime";
+import { activateSkillMechanics, readMaxMana, locateSkillEnvironment, saveSkillEnvironment, stopSkillMechanics } from "@/lib/skills/mechanics-runtime";
+import {cooldownTurns} from "@/lib/skills/cooldown";
+import {cooldownAvailability,recordSkillCooldown} from "@/lib/skills/cooldown-runtime";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -47,14 +49,38 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const maxMana = action === "start" ? await readMaxMana(characterId) : 0;
     try {
       const result = await db.transaction(async (tx) => {
+        // Serialize two concurrent activations, including the first activation
+        // before a CharacterSkillState exists. Prevent duplicate cooldown/mana uses.
+        if(action==="start"){
+          const lock=db.raw.sql`UPDATE public."character" SET id=id WHERE id=${characterId}`.affectedCount().build();
+          if((await tx.execute(lock)).affectedRows!==1)throw new Error("CHARACTER_NOT_FOUND");
+        }
         const TxState=(tx.orm.public as any).CharacterSkillState;
         const existing=await TxState.where({characterId,skillId}).first();
         // Starting twice must not duplicate an effect or charge mana twice.
         if(action==="start" && existing?.active) return {state:existing,alreadyActive:true,manaBalance:null,environment:null};
+        if(action==="start"){
+          const location=await locateSkillEnvironment(tx,characterId);
+          const gate=cooldownAvailability(skill.cooldown,skill.duration,skill.category,
+            location.state.cooldowns?.[String(skillId)],location.kind,location.state.turn,Date.now());
+          if(!gate.allowed){
+            if(gate.reason==="COOLDOWN_COMBAT_ONLY")throw new Error("COOLDOWN_COMBAT_ONLY");
+            throw new Error("COOLDOWN_ACTIVE:"+gate.remainingTurns);
+          }
+        }
         const mechanics=action==="start"
           ? await activateSkillMechanics(tx,skill,characterId,maxMana)
           : null;
         if(action==="stop")await stopSkillMechanics(tx,characterId,skillId);
+        if(action==="start" && skill.category!=="PASSIVE" &&
+           (skill.cooldown==="Una vez por combate"||cooldownTurns(skill.cooldown,skill.duration)>0)){
+          // Mechanics may have rewritten the environment; reread before stamping
+          // so the cooldown remains persisted alongside field/status effects.
+          const location=await locateSkillEnvironment(tx,characterId);
+          await saveSkillEnvironment(tx,location,{...location.state,
+            cooldowns:recordSkillCooldown(location.state.cooldowns,skillId,location.state.turn,Date.now()),
+          });
+        }
         const state=existing
           ? await TxState.where({id:Number(existing.id)}).update({
               active:action==="start",lastTickAt:action==="start"?now:existing.lastTickAt,updatedAt:now,
@@ -74,7 +100,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         MANA_RESOURCE_MISSING:"El personaje no tiene recursos de maná inicializados.",
         MISSING_PARENT_SKILL:"Debes conocer la habilidad madre.",
         MECHANIC_CONDITION_FAILED:"No se cumplen las condiciones mecánicas.",
+        COOLDOWN_COMBAT_ONLY:"Esta habilidad solo puede utilizarse durante un combate.",
+
       };
+      if(code.startsWith("COOLDOWN_ACTIVE:")){
+        const remaining=Number(code.split(":")[1])||0;
+        return NextResponse.json({error:remaining>0?"Habilidad en cooldown. Faltan "+remaining+" turno(s).":"Esta habilidad ya se utilizó en este combate.",remainingTurns:remaining},{status:409});
+      }
       if(messages[code])return NextResponse.json({error:messages[code]},{status:409});
       console.error("[skills/tick] Activation error",error);
       return NextResponse.json({error:code},{status:400});

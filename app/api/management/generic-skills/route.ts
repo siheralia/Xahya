@@ -85,10 +85,13 @@ async function save(request:Request,editing:boolean) {
   }
   const data={name:candidate.name,description:candidate.description,
     parentTemplateId:candidate.parentTemplateId,payload:candidate.payload,
-    // The ORM uses Temporal.Instant for timestamptz and maintains updatedAt itself.
     elementChoice:candidate.elementChoice,enabled:candidate.enabled};
   let saved:any;
-  if(editing) saved=await templateModel.where({id}).update(data);
+  // GenericSkillTemplate.updatedAt only has a DB insertion default; set a
+  // Temporal.Instant on edits because pg/timestamptz-temporal does not encode Date.
+  if(editing) saved=await templateModel.where({id}).update({
+    ...data,updatedAt:Temporal.Instant.fromEpochMilliseconds(Date.now()),
+  });
   else saved=await templateModel.create(data);
   await db.orm.public.AuditLog.create({
    actorUserId:user.id,action:editing?"GENERIC_SKILL_UPDATE":"GENERIC_SKILL_CREATE",

@@ -5,10 +5,11 @@ import { SkillFieldHelp, type SkillHelpKey } from "./SkillFieldHelp";
 import type { SkillMechanics } from "@/lib/skills/interaction-engine";
 import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import {COOLDOWN_OPTIONS,cooldownDiscountPercent} from "@/lib/skills/cooldown";
+import {COMBAT_ATTACK_TYPE_OPTIONS,COMBAT_DEFENSE_TYPE_OPTIONS} from "@/lib/combat/matchup-types";
 
 export type SkillCore = {
   name: string; description: string; category: string; cost: number; duration: string; cooldown: string; speed: string;
-  areaOfEffect: string; maxRangeMeters?: number; maintenanceCost: number; accumulationPerTick: number; accumulationCost: number; condition: string; mechanics?: SkillMechanics;
+  areaOfEffect: string; attackType?: string | null; defenseType?: string | null; maxRangeMeters?: number; maintenanceCost: number; accumulationPerTick: number; accumulationCost: number; condition: string; mechanics?: SkillMechanics;
 };
 const categories: [string,string][] = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]];
 const durations = ["Instantánea","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","20 turnos","No termina"];
@@ -30,6 +31,21 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {wrap("Nombre","name",<input value={form.name} onChange={e=>set("name",e.target.value)} className={cls}/>)}
     {wrap("Descripción","description",<textarea rows={3} value={form.description} onChange={e=>set("description",e.target.value)} className={cls}/>)}
     {wrap("Categoría","category",select("category",categories))}
+    <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2">
+      <label className="block text-sm text-zinc-400">Tipo de ataque
+        <select value={form.attackType??""} onChange={e=>set("attackType",e.target.value||null)} className={cls}>
+          <option value="">No aplica</option>
+          {COMBAT_ATTACK_TYPE_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </label>
+      <label className="block text-sm text-zinc-400">Tipo de defensa
+        <select value={form.defenseType??""} onChange={e=>set("defenseType",e.target.value||null)} className={cls}>
+          <option value="">No aplica</option>
+          {COMBAT_DEFENSE_TYPE_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </label>
+      <p className="text-xs text-zinc-500 sm:col-span-2">Tipos para los enfrentamientos del combate, independientes de los ataques y defensas básicos del personaje. Una habilidad puede atacar, defender, hacer ambas cosas o ninguna. No representan su elemento ni cambian su PCH.</p>
+    </div>
     {form.category==="PASSIVE" && (
       <div className="sm:col-span-2">
         <label htmlFor="skill-passive-condition" className="block text-sm text-zinc-300">

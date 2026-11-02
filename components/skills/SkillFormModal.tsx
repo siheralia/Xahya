@@ -25,7 +25,7 @@ type Props<T extends SkillCore, E extends EditableEffect> = {
   characterId?: number;
   editingSkillId?: number | null;
   actions: ReactNode;
-  pch?: { total:number; base:number; manaAdjusted:number; beforeRequirements:number; balance?:number; baseline?:number };
+  pch?: { total:number; base:number; manaAdjusted:number; beforeRequirements:number; balance?:number; baseline?:number; genericSpecialization?:boolean };
 };
 
 export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
@@ -51,7 +51,7 @@ export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
         <span>{PASSIVE_CONDITION_REQUIRED_MESSAGE}</span>
         <button type="button" onClick={()=>document.getElementById("skill-passive-condition")?.focus()} className="rounded border border-amber-400/70 px-3 py-1.5 font-semibold hover:bg-amber-900/40">Ir a condición</button>
       </div>}
-      {pch&&<div className="sticky top-0 z-20 -mx-2 mt-4 flex justify-end bg-zinc-950/95 px-2 py-3 backdrop-blur"><button type="button" onClick={()=>setBreakdownOpen(true)} className="rounded-full border border-cyan-400 bg-cyan-950 px-4 py-2 text-sm font-bold text-cyan-100 shadow-lg shadow-black/50">{pch.baseline===undefined?"Costo: "+pch.total+" PCH":"Costo total: "+pch.total+" · Mejora: "+Math.max(0,pch.total-pch.baseline)+" PCH"} · Detalles</button></div>}
+      {pch&&<div className="sticky top-0 z-20 -mx-2 mt-4 flex justify-end bg-zinc-950/95 px-2 py-3 backdrop-blur"><button type="button" onClick={()=>setBreakdownOpen(true)} className="rounded-full border border-cyan-400 bg-cyan-950 px-4 py-2 text-sm font-bold text-cyan-100 shadow-lg shadow-black/50">{pch.baseline===undefined?"Costo: "+pch.total+" PCH":pch.genericSpecialization?"Costo total: "+pch.total+" · Especialización: "+Math.max(0,pch.total-pch.baseline)+" PCH":"Costo total: "+pch.total+" · Mejora: "+Math.max(0,pch.total-pch.baseline)+" PCH"} · Detalles</button></div>}
       <div className="mt-5 space-y-5">{characterSelector}<SkillCoreFields form={form} onChange={onChange} effectEditor={<SkillEffectsEditor effects={form.effect} onChange={effect=>onChange({...form,effect})} statistics={statistics} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={priceEffect} />}/><SkillMechanicsEditor value={form.mechanics??{}} onChange={mechanics=>onChange({...form,mechanics})} characterId={characterId} availableSkills={availableSkills} editingSkillId={editingSkillId}/>
       {"effectRequirements" in form && Array.isArray(form.effectRequirements) && <EffectRequirementsField value={form.effectRequirements as EffectRequirement[]} onChange={requirements=>onChange({...form,effectRequirements:requirements})} effects={(effectDefinitions??[]).map(e=>({type:e.type,label:e.label}))} />}{actions}</div>
       {pch&&breakdownOpen&&<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setBreakdownOpen(false);}}><div role="dialog" aria-modal="true" aria-label="Desglose de PCH" className="w-full max-w-sm rounded-2xl border border-cyan-500/50 bg-zinc-950 p-5 text-sm text-zinc-200 shadow-2xl"><div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold text-cyan-200">Costo: {pch.total} PCH</h3><button type="button" onClick={()=>setBreakdownOpen(false)} className="rounded-lg border border-zinc-700 px-3 py-2">Cerrar</button></div><div className="mt-4 space-y-2"><p>Efectos: {pch.base} PCH</p><p>Tras ajuste por maná ({form.cost}): {pch.manaAdjusted} PCH</p><p>Velocidad: {speedCost} PCH</p><p>Distancia ({form.maxRangeMeters??5} m): {distance>0?"+":""}{distance} PCH (mínimo total 1)</p>{pch.balance!==undefined&&<p>Saldo: {pch.balance} PCH · Restante: {pch.balance-pch.total} PCH</p>}<p>Subtotal antes de requisitos: {pch.beforeRequirements} PCH</p>
@@ -59,7 +59,7 @@ export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
           Requisitos ({effectRequirementDiscountPercent(form.effectRequirements as EffectRequirement[])} %):
           {" "}-{pch.beforeRequirements-pch.total} PCH
         </p>}
-        <p className="font-semibold">Total: {pch.total} PCH</p>{pch.baseline!==undefined&&<p className="font-semibold text-violet-200">Costo adicional de mejora: {Math.max(0,pch.total-pch.baseline)} PCH + 1 moneda de mejora</p>}
+        <p className="font-semibold">Total: {pch.total} PCH</p>{pch.baseline!==undefined&&<p className="font-semibold text-violet-200">{pch.genericSpecialization?"Costo de la especialización: ":"Costo adicional de mejora: "}{Math.max(0,pch.total-pch.baseline)} PCH{pch.genericSpecialization?" (sin pagar otra vez la habilidad base)":" + 1 moneda de mejora"}</p>}
         <p className="text-xs text-zinc-500">Los requisitos reducen el costo de creación y se comprueban al activar la habilidad.</p></div></div></div>}
     </div>
   </div>;

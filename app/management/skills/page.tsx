@@ -163,7 +163,7 @@ export default function SkillsManagementPage(){
       <button type="button" aria-current={catalogTab==="RACIAL"?"page":undefined} onClick={()=>setCatalogTab("RACIAL")} className={"rounded-lg px-4 py-2 text-sm font-semibold "+(catalogTab==="RACIAL"?"bg-cyan-900 text-cyan-100":"border border-zinc-700 text-zinc-300")}>Raciales</button>
       <button type="button" aria-current={catalogTab==="GENERIC"?"page":undefined} onClick={()=>setCatalogTab("GENERIC")} className={"rounded-lg px-4 py-2 text-sm font-semibold "+(catalogTab==="GENERIC"?"bg-cyan-900 text-cyan-100":"border border-zinc-700 text-zinc-300")}>Genéricas</button>
     </nav>
-    {catalogTab==="RACIAL"?<RacialSkillsManagement/>:catalogTab==="GENERIC"?<GenericSkillTemplatesManagement/>:<>
+    {catalogTab==="RACIAL"?<RacialSkillsManagement/>:catalogTab==="GENERIC"?<GenericSkillTemplatesManagement statistics={statDefinitions} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} effectPricing={effectPricing} durationPricing={durationPricing} pricingReady={pricingReady}/>:<>
     {error&&<div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
     {success&&<div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
     <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">

@@ -50,8 +50,13 @@ export function resolveEffectTargets(
    return configured.length?configured:fixed.map(key=>({key,label:TARGET_LABELS[key]??key}));
  }
  if(type==="DAMAGE_MULTIPLIER"||type==="COMBAT_MULTIPLIER"){
-   const derived=configured.filter(s=>["physicalAttack","magicAttack","PHYS_ATK","MAGIC_ATK"].includes(s.key));
-   return derived.length?[...derived,{key:"ATTACK_TOTAL",label:"Ataque total"}]:fixed.map(key=>({key,label:TARGET_LABELS[key]??key}));
+   // Filter by the statistic's stable key BEFORE converting it to a display code.
+   // For example, physicalAttack becomes PHYSICAL_ATTACK after mapping.
+   const attackKeys=new Set(["physicalAttack","magicAttack"]);
+   const derived=statistics
+     .filter(s=>s.active!==false && attackKeys.has(s.key))
+     .map(s=>({key:s.code||s.key,label:s.name||TARGET_LABELS[s.code||s.key]||s.key}));
+   return statistics.length>0?[...derived,{key:"ATTACK_TOTAL",label:"Ataque total"}]:fixed.map(key=>({key,label:TARGET_LABELS[key]??key}));
  }
  return fixed.map(key=>({key,label:TARGET_LABELS[key]??key}));
 }
@@ -59,5 +64,20 @@ export function resolveEffectTargets(
 /** Shared validation for perk and skill effect targets. */
 export function validateEffectTarget(type: string, target: string, statistics: Parameters<typeof resolveEffectTargets>[1]): boolean {
   const allowed = resolveEffectTargets(type, statistics);
-  return allowed.length === 0 || allowed.some((entry) => entry.key === target);
+  if(allowed.length===0||allowed.some(entry=>entry.key===target))return true;
+  // Historical skill effects used PHYS_ATK/MAGIC_ATK while current statistic
+  // definitions use PHYSICAL_ATTACK/MAGIC_ATTACK. Accept both without
+  // duplicating the dropdown options shown to players.
+  if(type==="DAMAGE_MULTIPLIER"||type==="COMBAT_MULTIPLIER"){
+    const aliases:Record<string,string>={
+      PHYS_ATK:"PHYSICAL_ATTACK",MAGIC_ATK:"MAGIC_ATTACK",
+      PHYSICAL_ATTACK:"PHYS_ATK",MAGIC_ATTACK:"MAGIC_ATK",
+    };
+    if(!aliases[target])return false;
+    const statKey=target==="PHYS_ATK"||target==="PHYSICAL_ATTACK"?"physicalAttack":"magicAttack";
+    return statistics.length===0
+      ? allowed.some(entry=>entry.key===aliases[target])
+      : statistics.some(stat=>stat.key===statKey&&stat.active!==false);
+  }
+  return false;
 }

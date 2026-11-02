@@ -9,7 +9,7 @@ import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing
 import { readEffectPricing } from "@/lib/effects/pricing";
 import { readDurationPricing } from "@/lib/effects/duration-pricing-settings";
 import { readNarrativeEffectCards } from "@/lib/effects/narrative-cards";
-import { EFFECT_TYPES, resolveEffectTargets } from "@/lib/effects/catalog";
+import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { validateSkillParameters } from "@/lib/effects/skill-conditions";
 import { validateCopyEffect } from "@/lib/skills/copy";
@@ -57,8 +57,7 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
       if(!card||!card.enabled||e.description!==card.name+": "+card.description)throw new Error("Tarjeta narrativa inválida.");
     }else{
       if(pricing[e.type]?.enabled===false)throw new Error("Efecto desactivado.");
-      const targets=resolveEffectTargets(e.type,statistics);
-      if(targets.length && !targets.some(x=>x.key===e.target))throw new Error("Objetivo inválido.");
+      if(!validateEffectTarget(e.type,String(e.target??""),statistics))throw new Error("Objetivo inválido.");
       if(e.type!=="NARRATIVE" && (!Number.isFinite(e.value)||e.value<=0))throw new Error("Potencia inválida.");
     }
     base += configuredSkillEffectPch(e,narrative,pricing,durations);

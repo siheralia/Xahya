@@ -62,6 +62,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       AND s.name ILIKE ${pattern} ESCAPE '!'
       AND s.id <> ${copierSkillId}
       AND NOT EXISTS (SELECT 1 FROM public."skillCopy" sc WHERE sc."copiedSkillId"=s.id)
+      AND NOT EXISTS (
+        SELECT 1 FROM public."skillCopy" existing
+        WHERE existing."characterId"=${characterId}
+          AND existing."copierSkillId"=${copierSkillId}
+          AND existing."sourceSkillId"=s.id
+          AND existing.mode=${mode}
+      )
     ORDER BY CASE WHEN lower(s.name)=lower(${term}) THEN 0 ELSE 1 END, s.name, s.id
     LIMIT 80
   `.returnsRow({

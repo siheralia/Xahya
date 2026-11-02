@@ -1,3 +1,5 @@
+import {EFFECT_CATALOG} from "@/lib/effects/catalog";
+
 export const COPY_MODES = ["PERMANENT","TEMPORARY","IMITATION","COLLECTION"] as const;
 export type CopyMode = (typeof COPY_MODES)[number];
 export type CopyEffect = {
@@ -26,7 +28,7 @@ export function canCopySkill(effect: CopyEffect, original: {pchCost?:number;effe
   }
   const effects=Array.isArray(original.effect)?original.effect as Array<{type?:string}>:[];
   if (effects.some(e=>e.type === "COPY_SKILL")) return "No se permite copiar otra habilidad de copia.";
-  if (effects.some(e=>["MIRROR_RAY","SUMMON_MIRROR","MAGIC_REFLECTION"].includes(String(e.type))) && effect.copyAllowSpecial===false) return "La copia de habilidades especiales está desactivada.";
+  if (effect.copyAllowSpecial===false && effects.some(e=>EFFECT_CATALOG.some(def=>def.type===e.type && def.mode==="special"))) return "La copia de habilidades especiales está desactivada.";
   return null;
 }
 export function copySkillSnapshot<T extends {effect:unknown;name:string}>(original:T, effect:CopyEffect) {

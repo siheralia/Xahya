@@ -96,7 +96,7 @@ export async function GET(
   const rows = await Skill.where({ characterId }).all();
   const skills = rows.filter((row: any) => String(row.status) === "APPROVED");
   const pendingSkills = Number(character.userId) === Number(user.id)
-    ? rows.filter((row: any) => String(row.status) !== "APPROVED")
+    ? rows.filter((row: any) => ["PENDING","REJECTED"].includes(String(row.status)))
     : [];
   const State = (db.orm.public as any).CharacterSkillState;
   const states = State ? await State.where({ characterId }).all() : [];

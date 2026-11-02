@@ -3,6 +3,8 @@ import { effectRequirementDiscount } from "@/lib/skills/effect-requirements";
 import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillEmblem } from "@/app/components/skill-emblem";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
+import type { SkillMechanics } from "@/lib/skills/interaction-engine";
+import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
 import { SkillCopySourceSearch } from "@/components/skills/SkillCopySourceSearch";
 import { SkillTheftSourceSearch } from "@/components/skills/SkillTheftSourceSearch";
 
@@ -33,7 +35,7 @@ type SkillState = { id:number; characterId:number; skillId:number; active:boolea
 type Skill = {
   id: number; characterId: number; name: string; cost: number; accumulationCost: number; accumulationPerTick: number; maintenanceCost: number; description: string | null; duration: string | null;
   category: string; basicType: string | null; attackType: string | null; defenseType: string | null; areaOfEffect: string | null; speed: string | null; cooldown: string | null; effect: SkillEffect[];
-  condition: string | null; status: string; approvedAt: string | null; pchCost?:number;effectRequirements?:{effect:string;element?:string}[];
+  condition: string | null; mechanics?:SkillMechanics; status: string; approvedAt: string | null; pchCost?:number;effectRequirements?:{effect:string;element?:string}[];
 };
 
 const skillCategories = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasiva"],["SUPPORT","Soporte"],["UTILITY","Utilidad"],["BASIC","Básica"]] as const;
@@ -91,6 +93,7 @@ type Character = {
     karma: number;
     money: number;
     levelUpPoints: number;
+    currentMana?:number|null;
   } | null;
   perks: { id: number; perkId: number; source: string; perk: { name: string; description: string | null } | null }[];
   derivedStats: Record<string, number> | null;
@@ -565,10 +568,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "Instantánea", category: "OFFENSIVE",
     areaOfEffect: "Objetivo único", maxRangeMeters: 5, speed: "DEFAULT", cooldown: "", condition: "",
     effectRequirements: [] as {effect:string;element?:string}[],
+    mechanics:{} as SkillMechanics,
     effect: [] as SkillEffect[],
   });
   const priceSkillEffect = (e: SkillEffect) => { const base = e.type==="NARRATIVE" && e.target?.startsWith("CARD:") ? (narrativeCards.find(c=>c.id===e.target?.slice(5))?.pch??0) : effectPchCost(e,effectPricing); return durationPchCost(base,e.durationMovements ? {kind:"MOVEMENTS",movements:e.durationMovements} : e.durationTurns ? {kind:"TURNS",turns:e.durationTurns} : {kind:"INSTANT"},durationPricing); };
-  const skillBasePch = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0);
+  const skillBasePch = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0) + mechanicsPchCost(skillForm.mechanics);
   const skillPchBeforeRange = manaAdjustedPch(skillBasePch, skillForm.cost) + (!skillForm.speed || skillForm.speed === "DEFAULT" ? 0 : 5);
   const skillPchCost = Number.isSafeInteger(skillForm.maxRangeMeters) && skillForm.maxRangeMeters >= 0 && skillForm.maxRangeMeters <= 100 ? effectRequirementDiscount(applyRangePch(skillPchBeforeRange, skillForm.maxRangeMeters), skillForm.effectRequirements) : 0;
   const themePalette = character?.themePalette ?? DEFAULT_THEME;
@@ -633,6 +637,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "No se pudo cambiar la acumulación.");
+      if(data.manaBalance!==null && data.manaBalance!==undefined) setCurrentMana(Number(data.manaBalance));
       setSkillStates((current) => {
         const next = current.filter((state) => state.skillId !== skillId);
         return [...next, data.state];
@@ -822,8 +827,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     if (!character) return;
     setCurrentHp(maxHp);
-    setCurrentMana(maxMana);
-  }, [character?.id, maxHp, maxMana]);
+    setCurrentMana(Math.min(maxMana,Number(character.resources?.currentMana??maxMana)));
+  }, [character?.id, maxHp, maxMana, character?.resources?.currentMana]);
 
   const radarStats: RadarStat[] = character?.basicStatDefinitions?.length
     ? character.basicStatDefinitions.filter((stat) => stat.active !== false && stat.showOnPolygon === true).map((stat) => ({ key: stat.key, short: stat.name }))
@@ -1390,7 +1395,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       setPchBalance(Number(data.pchBalance ?? pchBalance - skillPchCost));
       setPendingSkills((current) => [data.skill, ...current]);
       setSkillModalOpen(false);
-      setSkillForm({ name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "Instantánea", category: "OFFENSIVE", areaOfEffect: "Objetivo único", maxRangeMeters: 5, speed: "DEFAULT", cooldown: "Sin cooldown", condition: "", effectRequirements: [], effect: [] });
+      setSkillForm({ name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "Instantánea", category: "OFFENSIVE", areaOfEffect: "Objetivo único", maxRangeMeters: 5, speed: "DEFAULT", cooldown: "Sin cooldown", condition: "", mechanics:{}, effectRequirements: [], effect: [] });
       setSuccess("Habilidad enviada. Quedó pendiente de aprobación administrativa.");
       const refreshed = await fetch("/api/characters/" + character.id + "/skills", { cache: "no-store" });
       if (refreshed.ok) {
@@ -1409,7 +1414,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   function openSkillCreator() {
     if (pchBalance <= 0) return;
     setUpgradingSkill(null);
-    setSkillForm({ name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "Instantánea", category: "OFFENSIVE", areaOfEffect: "Objetivo único", maxRangeMeters: 5, speed: "DEFAULT", cooldown: "Sin cooldown", condition: "", effectRequirements: [], effect: [] });
+    setSkillForm({ name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "Instantánea", category: "OFFENSIVE", areaOfEffect: "Objetivo único", maxRangeMeters: 5, speed: "DEFAULT", cooldown: "Sin cooldown", condition: "", mechanics:{}, effectRequirements: [], effect: [] });
     setCombatPanelOpen(false);
         setSkillModalOpen(true);
   }
@@ -1424,7 +1429,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       areaOfEffect:skill.areaOfEffect?.split("|")[0]?.trim()??"Objetivo único",
       maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\d+) m/)?.[1]??5),
       speed:skill.speed??"DEFAULT",cooldown:skill.cooldown??"Sin cooldown",
-      condition:skill.condition??"",effectRequirements:skill.effectRequirements??[],effect:skill.effect??[]
+      condition:skill.condition??"",mechanics:skill.mechanics??{},effectRequirements:skill.effectRequirements??[],effect:skill.effect??[]
     });
     setCombatPanelOpen(false);setSkillModalOpen(true);
   }
@@ -2504,10 +2509,10 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               <input type="number" min="0" max={maxHp} value={currentHp} onChange={(e) => setCurrentHp(Math.min(maxHp, Math.max(0, Number(e.target.value) || 0)))} className="mt-2 h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" />
             </label>
             <label className="text-sm text-zinc-400"><Droplets size={16} className="inline-block align-text-bottom" aria-hidden="true" style={{ color: themePalette.accent }} /> Mana actual
-              <input type="number" min="0" max={maxMana} value={currentMana} onChange={(e) => setCurrentMana(Math.min(maxMana, Math.max(0, Number(e.target.value) || 0)))} className="mt-2 h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" />
+              <input type="number" min="0" max={maxMana} value={currentMana} onChange={(e) => setCurrentMana(Math.min(maxMana, Math.max(0, Number(e.target.value) || 0)))} onBlur={() => {if(character)void fetch("/api/characters/"+character.id+"/mana",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({currentMana})}).then(async r=>{if(!r.ok){const data=await r.json().catch(()=>({}));throw new Error(data.error??"No se pudo guardar el maná.");}}).catch(e=>setError(String(e.message??e)));}} className="mt-2 h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" />
             </label>
           </div>
-          <p className="mt-3 text-xs text-zinc-500">Los cambios de HP y Mana se reflejan inmediatamente en el estado; no necesitas aplicar un efecto.</p>
+          <p className="mt-3 text-xs text-zinc-500">El maná se guarda al salir del campo y se descuenta al activar habilidades. HP sigue siendo un valor local de la ficha.</p>
           <button type="button" onClick={copyEstadoToClipboard} className="mt-4 w-full rounded-xl border border-violet-700/60 px-4 py-3 text-sm font-semibold text-violet-200 transition hover:bg-violet-900/20">
             {copied === "estado" ? "✓ Estado copiado" : "Copiar estado actual"}
           </button>

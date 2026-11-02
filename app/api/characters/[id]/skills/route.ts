@@ -95,7 +95,12 @@ export async function GET(
   if (!Skill) return NextResponse.json({ skills: [], pendingSkills: [] });
 
   const rows = await Skill.where({ characterId }).all();
-  const skills = rows.filter((row: any) => String(row.status) === "APPROVED");
+  const suppressed=db.raw.sql`
+    SELECT "sourceSkillId" AS id FROM public."skillTheft"
+    WHERE "victimCharacterId"=${characterId} AND status='ACTIVE'
+  `.returnsRow({id:"pg/int4@1"}).build();
+  const stolenIds=new Set((await db.runtime().query(suppressed) as Array<{id:number}>).map(x=>Number(x.id)));
+  const skills = rows.filter((row: any) => String(row.status) === "APPROVED" && !stolenIds.has(Number(row.id)));
   const pendingSkills = Number(character.userId) === Number(user.id)
     ? rows.filter((row: any) => ["PENDING","REJECTED"].includes(String(row.status)))
     : [];

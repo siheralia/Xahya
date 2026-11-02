@@ -35,3 +35,13 @@ ALTER TABLE public."skillUpgradeRequest" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."skillCopy" ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public."skillUpgradeRequest",public."skillCopy" FROM anon, authenticated;
 REVOKE ALL ON SEQUENCE public."skillUpgradeRequest_id_seq",public."skillCopy_id_seq" FROM anon,authenticated;
+
+-- Base consumable managed like any other item; administrators can distribute it normally.
+INSERT INTO public."item" (name,description,"itemType","itemSubtype","acquisitionType",price,effects,"allowedSlots")
+SELECT 'Moneda de Mejora de Habilidades',
+  'Autoriza una solicitud de mejora de una habilidad existente. El incremento también requiere PCH.',
+  'CONSUMABLE','SKILL_UPGRADE','SYSTEM',0,
+  '[{"type":"system_action","action":"IMPROVE_SKILL","value":1}]'::jsonb,'[]'::jsonb
+WHERE NOT EXISTS (
+  SELECT 1 FROM public."item" WHERE name='Moneda de Mejora de Habilidades' AND "itemType"='CONSUMABLE'
+);

@@ -3,6 +3,7 @@ import { effectRequirementDiscount } from "@/lib/skills/effect-requirements";
 import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillEmblem } from "@/app/components/skill-emblem";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
+import {GenericSkillShop} from "@/components/skills/GenericSkillShop";
 import type { SkillMechanics } from "@/lib/skills/interaction-engine";
 import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
 import { SkillCopySourceSearch } from "@/components/skills/SkillCopySourceSearch";
@@ -562,6 +563,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const skillTargets = effectDefinitions.flatMap((definition) => definition.targets.map((target) => [target.key, target.label] as const));
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [skillModalOpen, setSkillModalOpen] = useState(false);
+  const [genericSkillShopOpen,setGenericSkillShopOpen]=useState(false);
   
   const [skillSaving, setSkillSaving] = useState(false);
   const [skillForm, setSkillForm] = useState({
@@ -1336,9 +1338,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       if (data.action === "CREATE_SKILL") {
         setPchBalance(Number(data.pchBalance ?? pchBalance + 10));
         setCombatPanelOpen(false);
-        setSkillModalOpen(true);
+        setGenericSkillShopOpen(true);
         setSkillsOpen(true);
-        setSuccess("Moneda consumida. Recibiste 10 PCH para crear habilidades.");
+        setSuccess("Moneda consumida. Recibiste 10 PCH. Puedes comprar una habilidad genérica o crear una personalizada.");
       } else if (data.action === "IMPROVE_SKILL") {
         setSkillUpgradeCredits(current => current + 1);
         setSuccess("Moneda consumida. Recibiste 1 crédito de mejora de habilidades.");
@@ -2023,6 +2025,20 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <div><h2 className="text-xl font-semibold">Equipamiento</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">Objetos activos y sus ranuras.</p></div>
             <span className="text-xs text-zinc-600">{character.equipment.filter((entry) => entry.equipped).length} equipados</span>
           </div>
+        <GenericSkillShop open={genericSkillShopOpen} characterId={Number(character.id)}
+          onClose={()=>setGenericSkillShopOpen(false)}
+          onCreateCustom={()=>{setGenericSkillShopOpen(false);openSkillCreator();}}
+          onPurchased={async data=>{
+            setPchBalance(Number(data.pchBalance));
+            const refreshed=await fetch("/api/characters/"+character.id+"/skills",{cache:"no-store"});
+            if(refreshed.ok){
+              const d=await refreshed.json();
+              setSkills(d.skills??[]);
+              setPendingSkills(d.pendingSkills??[]);
+              setSkillStates(d.skillStates??[]);
+            }
+            setSuccess(data.evolved?"Habilidad genérica evolucionada. Se descontaron "+data.pchCost+" PCH.":"Habilidad genérica adquirida y aprobada. Se descontaron "+data.pchCost+" PCH.");
+          }}/>
         <SkillFormModal availableSkills={skills.map(s=>({id:Number(s.id),name:String(s.name),status:String(s.status),characterId:Number(character.id)}))} characterId={Number(character.id)} open={skillModalOpen} title={upgradingSkill?"Mejorar habilidad":"Crear habilidad"} description={upgradingSkill?"La moneda autoriza la solicitud. Solo pagarás el incremento de PCH y la mejora requiere aprobación.":"Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise."} onClose={() => setSkillModalOpen(false)} form={skillForm} onChange={setSkillForm} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={priceSkillEffect} pch={{total:skillPchCost,baseline:upgradingSkill?.pchCost,beforeRequirements:applyRangePch(skillPchBeforeRange,skillForm.maxRangeMeters),base:skillBasePch,manaAdjusted:manaAdjustedPch(skillBasePch,skillForm.cost),balance:pchBalance}} actions={<button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || pchBalance < (upgradingSkill?skillPchCost-Number(upgradingSkill.pchCost??0):skillPchCost) || !!upgradingSkill && skillPchCost<=Number(upgradingSkill.pchCost??0)} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">{skillSaving ? "Enviando..." : upgradingSkill ? "Solicitar mejora · 1 moneda + "+Math.max(0,skillPchCost-Number(upgradingSkill.pchCost??0))+" PCH" : "Enviar para aprobación"}</button>} />
 
         {character.equipment.some((entry) => entry.equipped) ? (
@@ -2210,7 +2226,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {pchBalance > 0 && (
-                <button type="button" onClick={openSkillCreator} className="rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-zinc-950">
+                <button type="button" onClick={()=>setGenericSkillShopOpen(true)} className="rounded-lg border border-cyan-500/60 px-3 py-2 text-sm font-semibold text-cyan-200">Comprar genérica</button>
+                 <button type="button" onClick={openSkillCreator} className="rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-zinc-950">
                   Crear habilidad · {pchBalance} PCH
                 </button>
               )}

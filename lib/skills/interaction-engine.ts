@@ -36,7 +36,7 @@ export type EnvironmentField = {
 };
 export type EnvironmentStatus = {
   sourceSkillId: number; status: string; actor: "PLAYER" | "NPC";
-  remainingTurns: number; stat?: string; multiplier?: number;
+  remainingTurns: number; stat?: string; multiplier?: number; element?: string; imbueTarget?: string;
   wardPpm?: number;
 };
 export type EnvironmentState = {

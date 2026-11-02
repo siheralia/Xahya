@@ -5,6 +5,7 @@ import { SkillFormModal } from "@/components/skills/SkillFormModal";
 import type { SkillMechanics } from "@/lib/skills/interaction-engine";
 import { mechanicsPchCost } from "@/lib/skills/mechanics-pricing";
 import { RacialSkillsManagement } from "@/components/skills/RacialSkillsManagement";
+import {GenericSkillTemplatesManagement} from "@/components/skills/GenericSkillTemplatesManagement";
 import { SkillCopyApprovalQueue } from "@/components/skills/SkillCopyApprovalQueue";
 
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";
@@ -34,8 +35,8 @@ export default function SkillsManagementPage(){
   const [skills,setSkills]=useState<Skill[]>([]);
   const [upgradeRequests,setUpgradeRequests]=useState<Array<{id:number;skillId:number;skillName:string;characterName:string;baselinePch:number;nextPch:number;deltaPch:number;status:string;payload:{effect:Effect[]}}>>([]);
   const [reviewingUpgrade,setReviewingUpgrade]=useState<number|null>(null);
-  const [catalogTab,setCatalogTab]=useState<"CHARACTER"|"RACIAL">("CHARACTER");
-  useEffect(()=>{if(new URLSearchParams(window.location.search).get("tab")==="racial")setCatalogTab("RACIAL");},[]);
+  const [catalogTab,setCatalogTab]=useState<"CHARACTER"|"RACIAL"|"GENERIC">("CHARACTER");
+  useEffect(()=>{const tab=new URLSearchParams(window.location.search).get("tab"); if(tab==="racial")setCatalogTab("RACIAL");else if(tab==="generic")setCatalogTab("GENERIC");},[]);
   const [effectDefinitions,setEffectDefinitions]=useState<{type:string;label:string;targets:{key:string;label:string}[]}[]>([]);
   const [narrativeCards,setNarrativeCards]=useState<{id:string;name:string;description:string;category:string;pch:number}[]>([]);
   const [statDefinitions,setStatDefinitions]=useState<{key:string;name:string;kind:"basic"|"derived";active?:boolean}[]>([]);
@@ -133,8 +134,9 @@ export default function SkillsManagementPage(){
     <nav aria-label="Tipos de habilidades" className="mt-6 flex gap-2 border-b border-zinc-800 pb-3">
       <button type="button" aria-current={catalogTab==="CHARACTER"?"page":undefined} onClick={()=>setCatalogTab("CHARACTER")} className={"rounded-lg px-4 py-2 text-sm font-semibold "+(catalogTab==="CHARACTER"?"bg-cyan-900 text-cyan-100":"border border-zinc-700 text-zinc-300")}>De personajes</button>
       <button type="button" aria-current={catalogTab==="RACIAL"?"page":undefined} onClick={()=>setCatalogTab("RACIAL")} className={"rounded-lg px-4 py-2 text-sm font-semibold "+(catalogTab==="RACIAL"?"bg-cyan-900 text-cyan-100":"border border-zinc-700 text-zinc-300")}>Raciales</button>
+      <button type="button" aria-current={catalogTab==="GENERIC"?"page":undefined} onClick={()=>setCatalogTab("GENERIC")} className={"rounded-lg px-4 py-2 text-sm font-semibold "+(catalogTab==="GENERIC"?"bg-cyan-900 text-cyan-100":"border border-zinc-700 text-zinc-300")}>Genéricas</button>
     </nav>
-    {catalogTab==="RACIAL"?<RacialSkillsManagement/>:<>
+    {catalogTab==="RACIAL"?<RacialSkillsManagement/>:catalogTab==="GENERIC"?<GenericSkillTemplatesManagement/>:<>
     {error&&<div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
     {success&&<div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
     <section className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">

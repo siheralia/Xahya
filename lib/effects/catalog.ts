@@ -11,6 +11,7 @@ export const EFFECT_CATALOG = [
   { type: "MIRROR_RAY", label: "Rayo de espejo", mode: "special", targets: [] },
   { type: "MAGIC_REFLECTION", label: "Reflejar magia", mode: "special", targets: [] },
   { type: "NARRATIVE", label: "Narrativo", mode: "text", targets: ["OTHER"] },
+  { type: "ELEMENTAL_IMBUE", label: "Imbuir elemento", mode: "special", targets: ["SELF","WEAPON","ARMOR","SKILL"] },
   { type: "IGNORE_PHYS_DEF_MULTIPLIER", label: "Ignorar defensa física ×", mode: "multiplier", targets: [] },
   { type: "IGNORE_PHYS_DEF_BONUS", label: "Ignorar defensa física +", mode: "bonus", targets: [] },
   { type: "IGNORE_MAGIC_DEF_MULTIPLIER", label: "Ignorar defensa mágica ×", mode: "multiplier", targets: [] },
@@ -37,7 +38,7 @@ const TARGET_LABELS: Record<string,string> = {
  PHYS_ATK:"Ataque físico",MAGIC_ATK:"Ataque mágico",ATTACK_TOTAL:"Ataque total",DEF:"Defensa física",MAG_DEF:"Defensa mágica",
  PRECISION:"Precisión",CRITICAL:"Crítico",DISCOVERY:"Descubrimiento",MIRACLE:"Milagro",INTIMIDATION:"Intimidación",CONQUEST:"Conquista",
  RACE:"Raza",DODGE:"Evasión",STEALTH:"Sigilo",DETECTION:"Detección",ALL:"Todo el daño",PHYSICAL:"Daño físico",MAGICAL:"Daño mágico",
- INVISIBILITY:"Invisibilidad",FLOATING:"Flotar",OTHER:"Otro"
+ INVISIBILITY:"Invisibilidad",FLOATING:"Flotar",OTHER:"Otro",SELF:"Usuario",WEAPON:"Arma",ARMOR:"Armadura",SKILL:"Habilidad"
 };
 export function resolveEffectTargets(
  type:string,

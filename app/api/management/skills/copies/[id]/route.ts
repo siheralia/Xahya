@@ -86,7 +86,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
             duration:clone.duration??null,category:clone.category??"UTILITY",
             areaOfEffect:clone.areaOfEffect??null,speed:clone.speed??"DEFAULT",
             cooldown:clone.cooldown??null,condition:clone.condition??null,
-            effect:clone.effect??[],effectRequirements:clone.effectRequirements??[],requiredSkillIds:[],
+            effect:clone.effect??[],effectRequirements:clone.effectRequirements??[],mechanics:clone.mechanics??{},requiredSkillIds:[],
             pchCost:0,status:row.mode==="COLLECTION"?"STORED":"APPROVED"
           });
           createdId=Number(created.id);

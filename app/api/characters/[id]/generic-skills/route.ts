@@ -144,6 +144,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     skill=await TxSkill.create({...data,pchCost:quote.pchCost});
    }
    const character=await tx.orm.public.Character.where({id:access.characterId}).first();
+   if(!character)throw new Error("CHARACTER_MISSING");
    await tx.orm.public.AuditLog.create({
     actorUserId:access.user.id,action:parentSkill?"GENERIC_SKILL_EVOLVE":"GENERIC_SKILL_BUY",
     entityType:"SKILL",entityId:Number(skill.id),characterId:access.characterId,targetUserId:null,

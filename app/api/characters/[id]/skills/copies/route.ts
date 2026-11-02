@@ -35,6 +35,8 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   const rule=canCopySkill(copyEffect,source,mode);
   if(rule)return NextResponse.json({error:rule},{status:400});
   if(Number(source.id)===Number(copier.id))return NextResponse.json({error:"Una habilidad de copia no puede copiarse a sí misma."},{status:400});
+  const copiedSource=db.raw.sql`SELECT id FROM public."skillCopy" WHERE "copiedSkillId"=${sourceId}`.returnsRow({id:"pg/int4@1"}).build();
+  if((await db.runtime().query(copiedSource)).length)return NextResponse.json({error:"No se permite copiar una habilidad que ya sea una copia."},{status:400});
   const clone=copySkillSnapshot(source,copyEffect);
   if(mode==="IMITATION"){
     // A one-shot imitation returns a self-contained effect snapshot; no saved skill is granted.

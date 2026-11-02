@@ -14,11 +14,11 @@ import { readManagedEffectCatalog } from "@/lib/effects/managed-catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { validateCopyEffect } from "@/lib/skills/copy";
 import { validateTheftEffect } from "@/lib/skills/theft";
-import { calculateSkillPch, defaultEffectPricing } from "@/lib/skills/pch";
+import { defaultEffectPricing } from "@/lib/skills/pch";
+import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
 import { readEffectPricing } from "@/lib/effects/pricing";
 import { readNarrativeEffectCards } from "@/lib/effects/narrative-cards";
 import { readDurationPricing } from "@/lib/effects/duration-pricing-settings";
-import { durationPchCost } from "@/lib/effects/duration-pricing";
 import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
 import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
 
@@ -160,11 +160,8 @@ export async function POST(
       const card = narrativeCards.find(c => c.id === String(effect.target).slice(5));
       if (!card || !card.enabled || String(effect.description ?? "") !== card.name + ": " + card.description)
         return NextResponse.json({ error: "Tarjeta narrativa inválida o modificada." }, { status: 400 });
-      pchCost += durationPchCost(card.pch,effect.durationMovements ? {kind:"MOVEMENTS",movements:effect.durationMovements} : effect.durationTurns ? {kind:"TURNS",turns:effect.durationTurns} : {kind:"INSTANT"},durationPricing);
-    } else {
-      const base = calculateSkillPch([effect], pricing);
-      pchCost += durationPchCost(base,effect.durationMovements ? {kind:"MOVEMENTS",movements:effect.durationMovements} : effect.durationTurns ? {kind:"TURNS",turns:effect.durationTurns} : {kind:"INSTANT"},durationPricing);
     }
+    pchCost += configuredSkillEffectPch(effect, narrativeCards, pricing, durationPricing);
   }
   pchCost = applyRangePch(manaAdjustedPch(pchCost + mechanicsPchCost(body.mechanics??{}), Number(body.cost ?? 0)) + speedSurcharge(body.speed), Number(body.maxRangeMeters ?? 5));
   pchCost = effectRequirementDiscount(pchCost, effectRequirements);

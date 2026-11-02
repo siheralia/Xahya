@@ -1527,6 +1527,13 @@
                   "kind": "scalar"
                 }
               },
+              "skillUpgradeCredits": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "themePalette": {
                 "nullable": true,
                 "type": {
@@ -1972,6 +1979,9 @@
                 },
                 "skillCreationCredits": {
                   "column": "skillCreationCredits"
+                },
+                "skillUpgradeCredits": {
+                  "column": "skillUpgradeCredits"
                 },
                 "themePalette": {
                   "column": "themePalette"
@@ -8726,6 +8736,15 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "skillUpgradeCredits": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
                 "themePalette": {
                   "codecId": "pg/json@1",
                   "nativeType": "json",
@@ -13696,7 +13715,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "d6e77efc6fe998e493e6c3ff4b6cf642b5a6131fc19b3f20ff1de9e879f0daa0"
+    "storageHash": "d8344e66a3b4f5ac199c723074f64da10097363d1050bec6fe30ae8cd0649e73"
   },
   "execution": {
     "executionHash": "c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96",

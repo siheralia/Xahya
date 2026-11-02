@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'d6e77efc6fe998e493e6c3ff4b6cf642b5a6131fc19b3f20ff1de9e879f0daa0'>;
+  StorageHashBase<'d8344e66a3b4f5ac199c723074f64da10097363d1050bec6fe30ae8cd0649e73'>;
 export type ExecutionHash =
   ExecutionHashBase<'c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96'>;
 export type ProfileHash =
@@ -342,6 +342,7 @@ export type FieldOutputTypes = {
       readonly userId: CodecTypes['pg/int4@1']['output'];
       readonly raceId: CodecTypes['pg/int4@1']['output'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['output'];
+      readonly skillUpgradeCredits: CodecTypes['pg/int4@1']['output'];
       readonly pchBalance: CodecTypes['pg/int4@1']['output'];
       readonly magicAttackType: CodecTypes['pg/text@1']['output'];
       readonly magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
@@ -896,6 +897,7 @@ export type FieldInputTypes = {
       readonly userId: CodecTypes['pg/int4@1']['input'];
       readonly raceId: CodecTypes['pg/int4@1']['input'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['input'];
+      readonly skillUpgradeCredits: CodecTypes['pg/int4@1']['input'];
       readonly pchBalance: CodecTypes['pg/int4@1']['input'];
       readonly magicAttackType: CodecTypes['pg/text@1']['input'];
       readonly magicAttackDescription: CodecTypes['pg/text@1']['input'] | null;
@@ -1458,6 +1460,7 @@ export type StorageColumnTypes = {
       readonly pchBalance: CodecTypes['pg/int4@1']['output'];
       readonly raceId: CodecTypes['pg/int4@1']['output'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['output'];
+      readonly skillUpgradeCredits: CodecTypes['pg/int4@1']['output'];
       readonly themePalette: CodecTypes['pg/json@1']['output'] | null;
       readonly userId: CodecTypes['pg/int4@1']['output'];
     };
@@ -2012,6 +2015,7 @@ export type StorageColumnInputTypes = {
       readonly pchBalance: CodecTypes['pg/int4@1']['input'];
       readonly raceId: CodecTypes['pg/int4@1']['input'] | null;
       readonly skillCreationCredits: CodecTypes['pg/int4@1']['input'];
+      readonly skillUpgradeCredits: CodecTypes['pg/int4@1']['input'];
       readonly themePalette: CodecTypes['pg/json@1']['input'] | null;
       readonly userId: CodecTypes['pg/int4@1']['input'];
     };
@@ -2482,6 +2486,7 @@ export namespace Models {
     userId: CodecTypes['pg/int4@1']['output'];
     raceId: CodecTypes['pg/int4@1']['output'] | null;
     skillCreationCredits: CodecTypes['pg/int4@1']['output'];
+    skillUpgradeCredits: CodecTypes['pg/int4@1']['output'];
     pchBalance: CodecTypes['pg/int4@1']['output'];
     magicAttackType: CodecTypes['pg/text@1']['output'];
     magicAttackDescription: CodecTypes['pg/text@1']['output'] | null;
@@ -4251,6 +4256,15 @@ type ContractBase = Omit<
                   readonly nullable: true;
                 };
                 readonly skillCreationCredits: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly skillUpgradeCredits: {
                   readonly nativeType: 'int4';
                   readonly codecId: 'pg/int4@1';
                   readonly nullable: false;
@@ -9323,6 +9337,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
+              readonly skillUpgradeCredits: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly pchBalance: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
@@ -9654,6 +9672,7 @@ type ContractBase = Omit<
                 readonly userId: { readonly column: 'userId' };
                 readonly raceId: { readonly column: 'raceId' };
                 readonly skillCreationCredits: { readonly column: 'skillCreationCredits' };
+                readonly skillUpgradeCredits: { readonly column: 'skillUpgradeCredits' };
                 readonly pchBalance: { readonly column: 'pchBalance' };
                 readonly magicAttackType: { readonly column: 'magicAttackType' };
                 readonly magicAttackDescription: { readonly column: 'magicAttackDescription' };

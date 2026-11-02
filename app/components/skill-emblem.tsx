@@ -27,9 +27,20 @@ function loadColors():Promise<ElementColor[]> {
  }).catch(()=>{colorsPromise=null;return []});
  return colorsPromise;
 }
+let cachedIcons:Record<string,string>|null=null;
+let iconsPromise:Promise<Record<string,string>>|null=null;
+function loadIcons():Promise<Record<string,string>> {
+ if(cachedIcons)return Promise.resolve(cachedIcons);
+ if(!iconsPromise)iconsPromise=fetch("/api/effect-icons").then(r=>r.ok?r.json():{icons:{}}).then(data=>{
+  cachedIcons=data.icons??{};return cachedIcons!;
+ }).catch(()=>{iconsPromise=null;return {}});
+ return iconsPromise;
+}
 const frames = { OFFENSIVE: Spade, PASSIVE: Badge, UTILITY: Scan, SUPPORT: Heart, BASIC: Diamond } as const;
 const mirrorIcons: Record<string,string> = { SUMMON_MIRROR: "panels-top-left", MIRROR_RAY: "zap", MAGIC_REFLECTION: "refresh-ccw" };
 export function SkillEmblem({ category, effects, icons, size = 64 }: { category: string; effects: Array<{type:string;target?:string;element?:string|null}>; icons?: Record<string,string>; size?:number }) {
+ const [managedIcons,setManagedIcons]=useState<Record<string,string>>(cachedIcons??{});
+ useEffect(()=>{let mounted=true;loadIcons().then(value=>{if(mounted)setManagedIcons(value)});return()=>{mounted=false}},[]);
  const [palette,setPalette]=useState<ElementColor[]>(cachedColors??[]);
  const gradientId=useId().replace(/:/g,"");
  useEffect(()=>{let mounted=true;loadColors().then(colors=>{if(mounted)setPalette(colors)});return()=>{mounted=false}},[]);
@@ -43,7 +54,7 @@ export function SkillEmblem({ category, effects, icons, size = 64 }: { category:
   {uniqueColors.length>1&&<svg aria-hidden="true" width="0" height="0" className="absolute"><defs><linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">{uniqueColors.map((color,i)=><stop key={color} offset={`${i/(uniqueColors.length-1)*100}%`} stopColor={color}/>)}</linearGradient></defs></svg>}
   <Frame size={size} strokeWidth={1.5} color={frameColor} className="absolute inset-0" aria-hidden="true" />
   {selected.map((effect,i)=>{
-   const candidate = icons?.[effect.type] ?? mirrorIcons[effect.type] ?? (effect.type === "DAMAGE_MULTIPLIER" ? "swords" : "sparkles");
+   const candidate = icons?.[effect.type] ?? managedIcons[effect.type] ?? mirrorIcons[effect.type] ?? (effect.type === "DAMAGE_MULTIPLIER" ? "swords" : "sparkles");
    const name = candidate as string;
    return <div key={i} className="absolute" style={{left:`${positions[i][0]/48*100}%`,top:`${positions[i][1]/48*100}%`,transform:"translate(-50%,-50%)"}}><DynamicIcon name={name} size={size*.19} color={colorByKey.get(String(effect.element??""))} strokeWidth={2} aria-hidden={true} /></div>;
   })}

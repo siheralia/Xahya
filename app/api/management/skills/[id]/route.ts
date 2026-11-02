@@ -9,6 +9,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
 import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
+import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -39,6 +40,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const accumulationCost = Number(body.accumulationCost ?? skill.accumulationCost ?? 0);
   const accumulationPerTick = Number(body.accumulationPerTick ?? skill.accumulationPerTick ?? 0);
   const category = String(body.category ?? skill.category);
+  const nextCondition = typeof body.condition === "string" ? body.condition.trim() : (skill.condition ?? null);
+  // Rejection must remain available even for an incomplete or legacy passive.
+  if (body.reject !== true && isPassiveConditionMissing(category,nextCondition))
+    return NextResponse.json({error:PASSIVE_CONDITION_REQUIRED_MESSAGE},{status:400});
   const effect = Array.isArray(body.effect) ? body.effect : (Array.isArray(skill.effect) ? skill.effect : []);
   if (!name || name.length > 120 || !description || !Number.isInteger(cost) || cost < 0 || !Number.isInteger(maintenanceCost) || maintenanceCost < 0 || !Number.isInteger(accumulationCost) || accumulationCost < 0 || !Number.isInteger(accumulationPerTick) || accumulationPerTick < 0) {
     return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
@@ -110,7 +115,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         speed: typeof body.speed === "string" ? body.speed.trim() || null : (freshSkill.speed ?? null),
         cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : (freshSkill.cooldown ?? null),
         effect,
-        condition: typeof body.condition === "string" ? body.condition.trim() || null : (freshSkill.condition ?? null),
+        condition: nextCondition || null,
         status: approve ? "APPROVED" : reject ? "REJECTED" : String(freshSkill.status),
         approvedAt: approve
           ? Temporal.Instant.fromEpochMilliseconds(Date.now())

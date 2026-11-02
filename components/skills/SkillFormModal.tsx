@@ -7,6 +7,7 @@ import { effectRequirementDiscountPercent, type EffectRequirement } from "@/lib/
 import type { AvailableSkill } from "./SkillPrerequisitesField";
 import { SkillCoreFields, type SkillCore } from "./SkillCoreFields";
 import { SkillEffectsEditor, type EditableEffect, type NarrativeCard } from "./SkillEffectsEditor";
+import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 
 type Props<T extends SkillCore, E extends EditableEffect> = {
   open: boolean;
@@ -40,11 +41,16 @@ export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
     return ()=>{document.body.style.overflow=previous;window.removeEventListener("keydown",onKey);};
   },[open,onClose,breakdownOpen]);
   if (!open) return null;
+  const passiveConditionMissing=isPassiveConditionMissing(form.category,form.condition);
   const speedCost=!form.speed||form.speed==="DEFAULT"?0:5;
   const distance=Number(form.maxRangeMeters??5)-5;
   return <div className="xahya-modal-overlay flex items-center justify-center bg-black/75 p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div className="xahya-modal-panel max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-cyan-400/30 bg-zinc-950 p-5 shadow-2xl sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
       <div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold">{title}</h2>{description&&<p className="mt-1 text-sm text-zinc-500">{description}</p>}</div><button type="button" onClick={onClose} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">Cerrar</button></div>
+      {passiveConditionMissing&&<div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/60 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+        <span>{PASSIVE_CONDITION_REQUIRED_MESSAGE}</span>
+        <button type="button" onClick={()=>document.getElementById("skill-passive-condition")?.focus()} className="rounded border border-amber-400/70 px-3 py-1.5 font-semibold hover:bg-amber-900/40">Ir a condición</button>
+      </div>}
       {pch&&<div className="sticky top-0 z-20 -mx-2 mt-4 flex justify-end bg-zinc-950/95 px-2 py-3 backdrop-blur"><button type="button" onClick={()=>setBreakdownOpen(true)} className="rounded-full border border-cyan-400 bg-cyan-950 px-4 py-2 text-sm font-bold text-cyan-100 shadow-lg shadow-black/50">{pch.baseline===undefined?"Costo: "+pch.total+" PCH":"Costo total: "+pch.total+" · Mejora: "+Math.max(0,pch.total-pch.baseline)+" PCH"} · Detalles</button></div>}
       <div className="mt-5 space-y-5">{characterSelector}<SkillCoreFields form={form} onChange={onChange} effectEditor={<SkillEffectsEditor effects={form.effect} onChange={effect=>onChange({...form,effect})} statistics={statistics} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={priceEffect} />}/><SkillMechanicsEditor value={form.mechanics??{}} onChange={mechanics=>onChange({...form,mechanics})} characterId={characterId} availableSkills={availableSkills} editingSkillId={editingSkillId}/>
       {"effectRequirements" in form && Array.isArray(form.effectRequirements) && <EffectRequirementsField value={form.effectRequirements as EffectRequirement[]} onChange={requirements=>onChange({...form,effectRequirements:requirements})} effects={(effectDefinitions??[]).map(e=>({type:e.type,label:e.label}))} />}{actions}</div>

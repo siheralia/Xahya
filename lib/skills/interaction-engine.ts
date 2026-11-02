@@ -43,6 +43,7 @@ export type EnvironmentState = {
   turn: number; fields: EnvironmentField[];
   exposures: Record<string, number>; statuses: EnvironmentStatus[];
   distances: Partial<Record<"PLAYER" | "NPC", number>>;
+  cooldowns?: Record<string,{turn:number;at:number}>;
 };
 export type MechanicsContext = {
   actor: "PLAYER" | "NPC";
@@ -60,7 +61,7 @@ const finite = (x: unknown, min = 0, max = 1000000): x is number =>
 const integer = (x: unknown, min = 0, max = 1000000): x is number =>
   finite(x, min, max) && Number.isSafeInteger(x);
 
-export const emptyEnvironment = (): EnvironmentState => ({ turn: 0, fields: [], exposures: {}, statuses: [], distances: {} });
+export const emptyEnvironment = (): EnvironmentState => ({ turn: 0, fields: [], exposures: {}, statuses: [], distances: {}, cooldowns:{} });
 
 export function parseEnvironment(value: unknown): EnvironmentState {
   if (!value || typeof value !== "object" || Array.isArray(value)) return emptyEnvironment();
@@ -71,6 +72,8 @@ export function parseEnvironment(value: unknown): EnvironmentState {
     exposures: raw.exposures && typeof raw.exposures === "object" && !Array.isArray(raw.exposures) ? raw.exposures : {},
     distances: raw.distances && typeof raw.distances === "object" && !Array.isArray(raw.distances) ? raw.distances : {},
     statuses: Array.isArray(raw.statuses) ? raw.statuses.filter(s => !!s && isKey(s.status)).slice(0, 200) : [],
+    cooldowns: raw.cooldowns && typeof raw.cooldowns==="object" && !Array.isArray(raw.cooldowns)
+      ? Object.fromEntries(Object.entries(raw.cooldowns).filter(([k,v])=>/^\\d+$/.test(k)&&v&&integer(v.turn)&&integer(v.at))) : {},
   };
 }
 
@@ -172,7 +175,7 @@ export function applyMechanicEvent(
 ): {state: EnvironmentState; manaInvestment: number} {
   const state: EnvironmentState = {
     turn: input.turn, fields: input.fields.map(f => ({...f, rings:f.rings.map(r => ({...r}))})),
-    exposures: {...input.exposures}, statuses: input.statuses.map(s => ({...s})), distances: {...input.distances},
+    exposures: {...input.exposures}, statuses: input.statuses.map(s => ({...s})), distances: {...input.distances}, cooldowns:{...input.cooldowns},
   };
   if (!conditionsMet(mechanics.activationConditions ?? [], state, ctx)) return {state, manaInvestment:0};
   let manaInvestment = 0;
@@ -240,7 +243,7 @@ export function applyMechanicEvent(
 /** Conserves ring mass (ppm × annular area) when spreading to the next ring. */
 export function advanceEnvironmentTurn(input: EnvironmentState): EnvironmentState {
   const state: EnvironmentState = {
-    turn:input.turn+1, fields:[], exposures:{...input.exposures}, distances:{...input.distances},
+    turn:input.turn+1, fields:[], exposures:{...input.exposures}, distances:{...input.distances}, cooldowns:{...input.cooldowns},
     statuses:input.statuses.map(s=>({...s,remainingTurns:s.remainingTurns-1})).filter(s=>s.remainingTurns>0),
   };
   for (const old of input.fields) {

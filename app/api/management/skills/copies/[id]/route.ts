@@ -64,12 +64,11 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
         if(violation)throw new Error("COPY_RULE:"+violation);
         if(row.sourceSkillId===row.copierSkillId)throw new Error("COPY_SELF");
         const origin=db.raw.sql`
-          SELECT count(*)::integer AS count FROM public."skillCopy"
-          WHERE "copiedSkillId"=${row.sourceSkillId}
-        `.returnsRow({count:"pg/int4@1"}).build();
-        // This read is checked again in the INSERT for persistent copies.
-        const originRows=await tx.execute(origin);
-        if(Number((originRows as any).rows?.[0]?.count??0)>0)throw new Error("COPY_RECURSION");
+          UPDATE public."skill" SET "pchCost"="pchCost"
+          WHERE id=${row.sourceSkillId} AND status='APPROVED'
+            AND NOT EXISTS (SELECT 1 FROM public."skillCopy" WHERE "copiedSkillId"=${row.sourceSkillId})
+        `.affectedCount().build();
+        if((await tx.execute(origin)).affectedRows!==1)throw new Error("COPY_RECURSION");
         const clone=copySkillSnapshot(source,effect);
         if(row.mode==="IMITATION"){
           // Imitation remains a recorded one-shot outcome, not automatic combat execution.
@@ -80,22 +79,6 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
           `.affectedCount().build();
           if((await tx.execute(save)).affectedRows!==1)throw new Error("COPY_SAVE_FAILED");
         }else{
-          const found=db.raw.sql`
-            SELECT count(*)::integer AS count FROM public."skillCopy"
-            WHERE "characterId"=${row.characterId} AND "copierSkillId"=${row.copierSkillId}
-              AND "sourceSkillId"=${row.sourceSkillId} AND mode=${row.mode}
-          `.returnsRow({count:"pg/int4@1"}).build();
-          const foundRows=await tx.execute(found);
-          if(Number((foundRows as any).rows?.[0]?.count??0)>0)throw new Error("ALREADY_COPIED");
-          if(row.mode==="COLLECTION"){
-            const capacity=db.raw.sql`
-              SELECT count(*)::integer AS count FROM public."skillCopy"
-              WHERE "characterId"=${row.characterId} AND "copierSkillId"=${row.copierSkillId} AND mode='COLLECTION'
-            `.returnsRow({count:"pg/int4@1"}).build();
-            const countRows=await tx.execute(capacity);
-            if(Number((countRows as any).rows?.[0]?.count??0)>=Number(effect.copyCapacity??5))
-              throw new Error("COLLECTION_FULL");
-          }
           const created=await Skill.create({
             characterId:row.characterId,name:clone.name,cost:Number(clone.cost??0),
             accumulationCost:Number(clone.accumulationCost??0),accumulationPerTick:Number(clone.accumulationPerTick??0),
@@ -114,7 +97,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
             WHERE NOT EXISTS (SELECT 1 FROM public."skillCopy" WHERE "copiedSkillId"=${row.sourceSkillId})
               AND NOT EXISTS (SELECT 1 FROM public."skillCopy" WHERE "characterId"=${row.characterId}
                 AND "copierSkillId"=${row.copierSkillId} AND "sourceSkillId"=${row.sourceSkillId} AND mode=${row.mode})
-              AND (${row.mode}!=='COLLECTION' OR (SELECT count(*) FROM public."skillCopy" WHERE
+              AND (${row.mode}<>'COLLECTION' OR (SELECT count(*) FROM public."skillCopy" WHERE
                 "characterId"=${row.characterId} AND "copierSkillId"=${row.copierSkillId} AND mode='COLLECTION')<${Number(effect.copyCapacity??5)})
           `.affectedCount().build();
           if((await tx.execute(insert)).affectedRows!==1)throw new Error("COPY_CONFLICT");

@@ -48,9 +48,8 @@ export async function GET(_request:Request,{params}:{params:Promise<{id:string}>
    if(chain.some(x=>!x.enabled))return null;
    const req=chain.some(x=>x.elementChoice);
    const quote=await quoteGenericSkill(all,t.id,req?sample:undefined);
-   if(!Number.isSafeInteger(quote.pchCost)||quote.pchCost<=0||quote.pchCost>2147483647)
-  return NextResponse.json({error:"Costo de PCH fuera del límite admitido."},{status:400});
- if(quote.skill.effect.some((e:any)=>e.type==="ELEMENTAL_IMBUE" && (!e.element || e.element==="NEUTRAL" || !elements.some(el=>el.key===e.element))))return null;
+   if(!Number.isSafeInteger(quote.pchCost)||quote.pchCost<=0||quote.pchCost>2147483647)return null;
+   if(quote.skill.effect.some((e:any)=>e.type==="ELEMENTAL_IMBUE" && (!e.element || e.element==="NEUTRAL" || !elements.some(el=>el.key===e.element))))return null;
    const alreadyOwned=[...ownedIds].some(existingId=>{
     try{return genericTemplateChain(all,existingId).some(x=>x.id===t.id);}
     catch{return false;}
@@ -89,6 +88,8 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
  let quote:Awaited<ReturnType<typeof quoteGenericSkill>>;
  try {quote=await quoteGenericSkill(rows,templateId,requiresElement?chosenElement:undefined);}
  catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Habilidad inválida."},{status:400});}
+ if(!Number.isSafeInteger(quote.pchCost)||quote.pchCost<=0||quote.pchCost>2147483647)
+  return NextResponse.json({error:"Costo de PCH fuera del límite admitido."},{status:400});
  if(quote.skill.effect.some((e:any)=>e.type==="ELEMENTAL_IMBUE" &&
    (!e.element||e.element==="NEUTRAL"||!elements.some(el=>el.key===e.element))))
   return NextResponse.json({error:"La habilidad usa un elemento que ya no está disponible."},{status:409});

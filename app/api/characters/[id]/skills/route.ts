@@ -23,6 +23,7 @@ import { readNarrativeEffectCards } from "@/lib/effects/narrative-cards";
 import { readDurationPricing } from "@/lib/effects/duration-pricing-settings";
 import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
 import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
+import {validateSkillCombatTypes,normalizeSkillCombatType} from "@/lib/combat/matchup-types";
 
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
 async function getUser() {
@@ -43,6 +44,8 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   const effect = Array.isArray(body.effect) ? body.effect : [];
   const mechanicError=validateSkillMechanics(body.mechanics??{});
   if(mechanicError)return mechanicError;
+  const combatTypeError=validateSkillCombatTypes(body);
+  if(combatTypeError)return combatTypeError;
   if (!name || name.length > 120) return "El nombre debe tener entre 1 y 120 caracteres.";
   if (!description || description.length > 5000) return "La descripción es obligatoria y no puede superar 5000 caracteres.";
   if (!CATEGORIES.includes(category as any)) return "Categoría de habilidad inválida.";
@@ -191,6 +194,8 @@ export async function POST(
       description: body.description.trim(),
       duration: typeof body.duration === "string" ? body.duration.trim() || null : null,
       category: String(body.category),
+      attackType: normalizeSkillCombatType(body.attackType),
+      defenseType: normalizeSkillCombatType(body.defenseType),
       areaOfEffect: `${String(body.areaOfEffect || "Objetivo único").trim()} | Alcance máximo: ${Number(body.maxRangeMeters ?? 5)} m`,
       speed: typeof body.speed === "string" ? body.speed.trim() || "DEFAULT" : "DEFAULT",
       cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : null,

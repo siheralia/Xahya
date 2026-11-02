@@ -3,7 +3,7 @@ import {NextResponse} from "next/server";
 import {db} from "@/lib/db";
 import {canCopySkill,copySkillSnapshot,type CopyEffect,type CopyMode,COPY_MODES} from "@/lib/skills/copy";
 
-const codec={id:"pg/int4@1",copierSkillId:"pg/int4@1",sourceSkillId:"pg/int4@1",copiedSkillId:"pg/int4@1",mode:"pg/text@1",remainingTurns:"pg/int4@1",equipped:"pg/bool@1"} as const;
+const codec={id:"pg/int4@1",copierSkillId:"pg/int4@1",sourceSkillId:"pg/int4@1",copiedSkillId:"pg/int4@1",mode:"pg/text@1",remainingTurns:"pg/int4@1",equipped:"pg/bool@1",name:"pg/text@1"} as const;
 async function access(id:number){
   const {userId}=await auth();
   if(!userId)return null;
@@ -16,7 +16,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{id:string}>
   const id=Number((await params).id);
   if(!Number.isSafeInteger(id)||id<=0)return NextResponse.json({error:"Personaje inválido."},{status:400});
   if(!(await access(id)))return NextResponse.json({error:"Forbidden"},{status:403});
-  const q=db.raw.sql`SELECT id,"copierSkillId","sourceSkillId","copiedSkillId",mode,"remainingTurns",equipped FROM public."skillCopy" WHERE "characterId"=${id} ORDER BY id DESC`.returnsRow(codec).build();
+  const q=db.raw.sql`SELECT sc.id,sc."copierSkillId",sc."sourceSkillId",sc."copiedSkillId",sc.mode,sc."remainingTurns",sc.equipped,s.name FROM public."skillCopy" sc JOIN public."skill" s ON s.id=sc."copiedSkillId" WHERE sc."characterId"=${id} ORDER BY sc.id DESC`.returnsRow(codec).build();
   return NextResponse.json({copies:await db.runtime().query(q)});
 }
 export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){
@@ -88,7 +88,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   const b=await request.json().catch(()=>null);
   const copyId=Number(b?.copyId),equip=b?.equip;
   if(!Number.isSafeInteger(copyId)||copyId<=0||typeof equip!=="boolean")return NextResponse.json({error:"Selección inválida."},{status:400});
-  const q=db.raw.sql`SELECT id,"copierSkillId","sourceSkillId","copiedSkillId",mode,"remainingTurns",equipped FROM public."skillCopy" WHERE id=${copyId} AND "characterId"=${id}`.returnsRow(codec).build();
+  const q=db.raw.sql`SELECT sc.id,sc."copierSkillId",sc."sourceSkillId",sc."copiedSkillId",sc.mode,sc."remainingTurns",sc.equipped,s.name FROM public."skillCopy" sc JOIN public."skill" s ON s.id=sc."copiedSkillId" WHERE sc.id=${copyId} AND sc."characterId"=${id}`.returnsRow(codec).build();
   const [copy]=await db.runtime().query(q) as Array<{id:number;copierSkillId:number;sourceSkillId:number;copiedSkillId:number;mode:string;equipped:boolean}>;
   if(!copy||copy.mode!=="COLLECTION")return NextResponse.json({error:"Copia de colección no encontrada."},{status:404});
   await db.transaction(async tx=>{

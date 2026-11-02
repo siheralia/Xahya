@@ -31,7 +31,9 @@ const mana=load("lib/skills/mana-pricing.ts");
 const range=load("lib/skills/range-pricing.ts");
 const requirements=load("lib/skills/effect-requirements.ts");
 const mechanics=load("lib/skills/mechanics-pricing.ts");
+const cooldown=load("lib/skills/cooldown.ts");
 const preview=load("lib/skills/generic-preview.ts",{
+  "@/lib/skills/cooldown":cooldown,
   "@/lib/skills/mana-pricing":mana,
   "@/lib/skills/range-pricing":range,
   "@/lib/skills/effect-requirements":requirements,

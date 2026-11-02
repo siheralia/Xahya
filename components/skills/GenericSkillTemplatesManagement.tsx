@@ -17,12 +17,12 @@ type Template={
 type FormData={
  name:string;description:string;category:string;cost:number;
  maintenanceCost:number;accumulationCost:number;accumulationPerTick:number;
- duration:string;areaOfEffect:string;maxRangeMeters:number;speed:string;cooldown:string;condition:string;
+ duration:string;areaOfEffect:string;attackType:string|null;defenseType:string|null;maxRangeMeters:number;speed:string;cooldown:string;condition:string;
  effect:EditableEffect[];effectRequirements:{effect:string;element?:string}[];
  mechanics:SkillMechanics;
 };
 const blank=():FormData=>({
- name:"",description:"",category:"SUPPORT",cost:0,maintenanceCost:0,
+ name:"",description:"",category:"SUPPORT",attackType:null,defenseType:null,cost:0,maintenanceCost:0,
  accumulationCost:0,accumulationPerTick:0,duration:"Instantánea",
  areaOfEffect:"Objetivo único",maxRangeMeters:5,speed:"DEFAULT",
  cooldown:"Sin cooldown",condition:"",

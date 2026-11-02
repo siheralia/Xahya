@@ -1,6 +1,7 @@
 import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
 import {manaAdjustedPch} from "@/lib/skills/mana-pricing";
 import {applyRangePch} from "@/lib/skills/range-pricing";
+import {applyCooldownPch} from "@/lib/skills/cooldown";
 import {effectRequirementDiscount,type EffectRequirement} from "@/lib/skills/effect-requirements";
 import type {SkillMechanics} from "@/lib/skills/interaction-engine";
 
@@ -56,7 +57,7 @@ export function calculateGenericPricePreview(
  const base=effects.reduce((sum,e)=>sum+priceEffect(e),0)+mechanicsPchCost(combined);
  const manaAdjusted=manaAdjustedPch(base,form.cost);
  const beforeRequirements=applyRangePch(manaAdjusted+(!form.speed||form.speed==="DEFAULT"?0:5),form.maxRangeMeters);
- const total=effectRequirementDiscount(beforeRequirements,distinctRequirements);
+ const total=effectRequirementDiscount(applyCooldownPch(beforeRequirements,form.cooldown,form.duration,form.category),distinctRequirements);
  return {
   base,manaAdjusted,beforeRequirements,total,
   ...(parent?{baseline:parent.totalPch!}:{}),

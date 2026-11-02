@@ -4,7 +4,10 @@ import {useCallback,useEffect,useState} from "react";
 import {SkillFormModal} from "@/components/skills/SkillFormModal";
 import type {EditableEffect} from "@/components/skills/SkillEffectsEditor";
 import type {SkillMechanics} from "@/lib/skills/interaction-engine";
-import {effectPchCost} from "@/lib/skills/pch";
+import type {EffectPricingMap} from "@/lib/skills/pch";
+import type {DurationPricing} from "@/lib/effects/duration-pricing";
+import {configuredSkillEffectPch} from "@/lib/skills/configured-effect-pricing";
+import {calculateGenericPricePreview} from "@/lib/skills/generic-preview";
 
 type Template={
  id:number;name:string;description:string|null;parentTemplateId:number|null;
@@ -25,7 +28,13 @@ const blank=():FormData=>({
  cooldown:"Sin cooldown",condition:"",
  effect:[],effectRequirements:[],mechanics:{},
 });
-export function GenericSkillTemplatesManagement(){
+type CatalogProps={
+ statistics:{key:string;name:string;kind:"basic"|"derived";active?:boolean;code?:string}[];
+ narrativeCards:{id:string;name:string;description:string;category?:string;pch?:number}[];
+ effectDefinitions:{type:string;label:string;targets:{key:string;label:string}[]}[];
+ effectPricing:EffectPricingMap;durationPricing:DurationPricing;pricingReady:boolean;
+};
+export function GenericSkillTemplatesManagement({statistics,narrativeCards,effectDefinitions,effectPricing,durationPricing,pricingReady}:CatalogProps){
  const [templates,setTemplates]=useState<Template[]>([]);
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
@@ -37,6 +46,15 @@ export function GenericSkillTemplatesManagement(){
  const [enabled,setEnabled]=useState(false);
  const [message,setMessage]=useState("");
  const [error,setError]=useState("");
+ const priceEffect=(effect:EditableEffect)=>configuredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
+ let preview:ReturnType<typeof calculateGenericPricePreview>|null=null;
+ let previewError="";
+ if(pricingReady){
+  try{
+   preview=calculateGenericPricePreview(form,parentId?Number(parentId):null,templates,priceEffect);
+  }catch(e){previewError=e instanceof Error?e.message:"No se pudo calcular el costo PCH.";}
+ }
+
  const load=useCallback(async()=>{
   setLoading(true);
   try{
@@ -64,6 +82,8 @@ export function GenericSkillTemplatesManagement(){
  }
  async function save(){
   if(!form.name.trim()||!form.description.trim()){setError("Completa nombre y descripción.");return;}
+  if(!pricingReady||!preview){setError(previewError||"No se ha cargado el catálogo de precios.");return;}
+  if(parentId&&preview.additional<1){setError("La especialización debe agregar al menos 1 PCH al costo de la habilidad base.");return;}
   if(form.effect.length===0&&!parentId){setError("La habilidad base necesita al menos un efecto.");return;}
   setBusy(true);setError("");setMessage("");
   try {
@@ -106,8 +126,12 @@ export function GenericSkillTemplatesManagement(){
    </div>}
   <SkillFormModal open={modal} title={selected?"Editar plantilla genérica":"Nueva habilidad genérica"}
    description="Configura únicamente los efectos nuevos de esta plantilla. Si eliges una base, el comprador heredará su configuración y pagará solo el incremento."
-   onClose={()=>setModal(false)} form={form} onChange={setForm} priceEffect={effectPchCost}
-   pch={undefined}
+   onClose={()=>setModal(false)} form={form} onChange={setForm}
+   statistics={statistics} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions}
+   priceEffect={pricingReady?priceEffect:undefined}
+   pch={preview?{total:preview.total,base:preview.base,manaAdjusted:preview.manaAdjusted,
+    beforeRequirements:preview.beforeRequirements,baseline:preview.baseline,
+    genericSpecialization:!!parentId}:undefined}
    characterSelector={<div className="grid gap-3 rounded-xl border border-violet-800/50 p-4 sm:grid-cols-2">
     <label className="text-sm text-zinc-400">Habilidad genérica base
      <select value={parentId} onChange={e=>setParentId(e.target.value)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2">
@@ -126,7 +150,12 @@ export function GenericSkillTemplatesManagement(){
      </label>
     </div>
    </div>}
-   actions={<button type="button" disabled={busy} onClick={()=>void save()} className="w-full rounded-lg bg-cyan-400 p-3 font-semibold text-zinc-950 disabled:opacity-50">{busy?"Guardando...":"Guardar plantilla genérica"}</button>}
+   actions={<div className="space-y-3">
+    {!pricingReady&&<p role="status" className="text-sm text-amber-300">Cargando precios y estadísticas configuradas…</p>}
+    {pricingReady&&previewError&&<p role="alert" className="text-sm text-amber-300">{previewError}</p>}
+    {preview&&parentId&&<p className="text-sm text-violet-200">Costo total: {preview.total} PCH · Especialización: {Math.max(0,preview.additional)} PCH adicionales</p>}
+    <button type="button" disabled={busy||!pricingReady||!preview||(!!parentId&&preview.additional<1)} onClick={()=>void save()} className="w-full rounded-lg bg-cyan-400 p-3 font-semibold text-zinc-950 disabled:opacity-50">{busy?"Guardando...":"Guardar plantilla genérica"}</button>
+   </div>}
   />
  </section>;
 }

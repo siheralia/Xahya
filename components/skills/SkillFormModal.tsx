@@ -44,7 +44,7 @@ export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
   const passiveConditionMissing=isPassiveConditionMissing(form.category,form.condition);
   const speedCost=!form.speed||form.speed==="DEFAULT"?0:5;
   const distance=Number(form.maxRangeMeters??5)-5;
-  const editDelta=pch?.originalTotal===undefined?null:pch.total-pch.originalTotal;
+  const editDelta=pch && pch.originalTotal!==undefined ? pch.total-pch.originalTotal : null;
   const editDifference=(value:number)=>value>0?"+"+value:value<0?"−"+Math.abs(value):"0";
   return <div className="xahya-modal-overlay flex items-center justify-center bg-black/75 p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div className="xahya-modal-panel max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-cyan-400/30 bg-zinc-950 p-5 shadow-2xl sm:p-6" role="dialog" aria-modal="true" aria-label={title}>

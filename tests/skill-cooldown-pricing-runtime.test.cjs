@@ -113,6 +113,13 @@ test("activation persists cooldown to environment and refuses repeat use",()=>{
  assert.match(engine,/cooldowns:.*raw.cooldowns/);
 });
 
+test("combat turn update cannot erase a skill cooldown stamped concurrently",()=>{
+ const route=source("app/api/combat/[id]/route.ts");
+ assert.match(route,/freshEncounter=await TxSession\.where\(\{id\}\)\.first\(\)/);
+ assert.match(route,/advanceCombatMechanics\(freshEncounter\.mechanicsState/);
+ assert.match(route,/UPDATE public\."character" SET id=id/);
+});
+
 test("racial grant cost remains zero and cooldown is propagated by its catalog trigger",()=>{
  const migration=source("supabase/migrations/20261102203000_racial_skill_cooldown.sql");
  assert.match(migration,/ADD COLUMN IF NOT EXISTS cooldown/);

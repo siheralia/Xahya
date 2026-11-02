@@ -83,5 +83,5 @@ test("generic editor snapshots original price and shows signed delta in floating
  assert.match(modal,/editDelta!==null\?" · Δ original: "/);
  assert.match(modal,/Precio original al abrir:/);
  assert.match(modal,/Diferencia: \{editDifference\(editDelta\)\} PCH/);
- assert.match(modal,/Cooldown \\(\\{form\\.cooldown\\|\\|"Sin cooldown"\\}\\): −\\{cooldownSaved\\} PCH/);
+ assert.match(modal,/Cooldown \(\{form\.cooldown\|\|"Sin cooldown"\}\): −\{cooldownSaved\} PCH/);
 });

@@ -86,6 +86,9 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
  let quote:Awaited<ReturnType<typeof quoteGenericSkill>>;
  try {quote=await quoteGenericSkill(rows,templateId,requiresElement?chosenElement:undefined);}
  catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Habilidad inválida."},{status:400});}
+ if(quote.skill.effect.some((e:any)=>e.type==="ELEMENTAL_IMBUE" &&
+   (!e.element||e.element==="NEUTRAL"||!elements.some(el=>el.key===e.element))))
+  return NextResponse.json({error:"La habilidad usa un elemento que ya no está disponible."},{status:409});
  try{
   const result=await db.transaction(async tx=>{
    // Serialize purchases per character before checking ownership, parent and balance.
@@ -113,6 +116,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
      throw new Error("MISSING_CAPABILITIES");
    const debit=db.raw.sql`UPDATE public."character" SET "pchBalance"="pchBalance"-${quote.pchCost} WHERE id=${access.characterId} AND "pchBalance">=${quote.pchCost}`.affectedCount().build();
    if((await tx.execute(debit)).affectedRows!==1)throw new Error("PCH_INSUFFICIENT");
+   if(parentSkill && Number(parentSkill.pchCost??0)+quote.pchCost>2147483647)throw new Error("SKILL_PCH_OVERFLOW");
    const p=quote.skill;
    const data={
     characterId:access.characterId,name:p.name,description:p.description,

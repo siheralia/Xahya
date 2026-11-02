@@ -15,11 +15,13 @@ import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { validateSkillParameters } from "@/lib/effects/skill-conditions";
 import { validateCopyEffect } from "@/lib/skills/copy";
 import {validateTheftEffect} from "@/lib/skills/theft";
+import {validateSkillCombatTypes,normalizeSkillCombatType} from "@/lib/combat/matchup-types";
 
 export type UpgradePayload = {
   name:string; description:string; cost:number; maintenanceCost:number;
   accumulationCost:number; accumulationPerTick:number; duration:string|null;
   category:string; areaOfEffect:string; speed:string; cooldown:string;
+  attackType:string|null; defenseType:string|null;
   condition:string|null; maxRangeMeters:number;
   effect:Array<{type:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;[key:string]:unknown}>;
   effectRequirements:Array<{effect:string;element?:string}>;
@@ -40,6 +42,8 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
   const mechanics=(b.mechanics??{}) as SkillMechanics;
   const mechanicsError=validateSkillMechanics(mechanics);
   if(mechanicsError)throw new Error(mechanicsError);
+  const combatTypeError=validateSkillCombatTypes(b);
+  if(combatTypeError)throw new Error(combatTypeError);
   for (const field of ["cost","maintenanceCost","accumulationCost","accumulationPerTick"])if(!Number.isSafeInteger(b[field])||b[field]<0)throw new Error("Costos inválidos.");
   if(typeof b.speed!=="string"||!isConfiguredCooldown(b.cooldown))throw new Error("Velocidad o enfriamiento inválidos.");
   const statistics=await readStatisticsCatalog();
@@ -69,7 +73,7 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
     name:b.name.trim(),description:b.description.trim(),cost:b.cost,
     maintenanceCost:b.maintenanceCost,accumulationCost:b.accumulationCost,
     accumulationPerTick:b.accumulationPerTick,duration:b.duration??null,
-    category:b.category,areaOfEffect:String(b.areaOfEffect??"Objetivo único"),
+    category:b.category,attackType:normalizeSkillCombatType(b.attackType),defenseType:normalizeSkillCombatType(b.defenseType),areaOfEffect:String(b.areaOfEffect??"Objetivo único"),
     maxRangeMeters:range,speed:b.speed,cooldown:b.cooldown,
     condition:b.condition??null,effect:effects,effectRequirements:requirements,mechanics,
   }};

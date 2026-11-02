@@ -25,7 +25,7 @@ type Props<T extends SkillCore, E extends EditableEffect> = {
   characterId?: number;
   editingSkillId?: number | null;
   actions: ReactNode;
-  pch?: { total:number; base:number; manaAdjusted:number; beforeRequirements:number; balance?:number; baseline?:number };
+  pch?: { total:number; base:number; manaAdjusted:number; beforeRequirements:number; balance?:number; baseline?:number; genericSpecialization?:boolean };
 };
 
 export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({

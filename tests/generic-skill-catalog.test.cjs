@@ -5,7 +5,7 @@ const vm=require("node:vm");
 const ts=require("typescript");
 
 const source=fs.readFileSync(require("node:path").join(__dirname,"../lib/skills/generic-catalog.ts"),"utf8");
-const exports={};
+const catalogExports={};
 const quotePayload=async payload=>{
  if(!Array.isArray(payload.effect)||payload.effect.length===0)throw Error("Missing effects");
  if(payload.effect.some(e=>e.element==="$ELEMENT"))throw Error("Unresolved element");
@@ -13,11 +13,11 @@ const quotePayload=async payload=>{
 };
 vm.runInNewContext(ts.transpileModule(source,{
  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}
-}).outputText,{exports,require:(name)=>{
+}).outputText,{exports:catalogExports,require:(name)=>{
  if(name==="../../lib/skills/upgrade"||name==="@/lib/skills/upgrade")return {priceUpgrade:quotePayload};
  throw Error("Unexpected dependency: "+name);
 },Set,Number,Object,Array,String,Error}, {filename:"generic-catalog.ts"});
-const {genericTemplateChain,resolveGenericSkill,quoteGenericSkill,normalizeGenericPayload,validateGenericTemplateSettings}=exports;
+const {genericTemplateChain,resolveGenericSkill,quoteGenericSkill,normalizeGenericPayload,validateGenericTemplateSettings}=catalogExports;
 const base={id:1,name:"Escudo base",description:"Escudo de maná",parentTemplateId:null,enabled:true,elementChoice:false,
  payload:{name:"Escudo base",description:"Escudo de maná",category:"SUPPORT",
  cost:20,maintenanceCost:0,accumulationCost:0,accumulationPerTick:0,

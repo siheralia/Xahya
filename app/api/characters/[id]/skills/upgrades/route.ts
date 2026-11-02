@@ -42,10 +42,6 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   if(delta<=0)return NextResponse.json({error:"La mejora debe aumentar el costo de construcción PCH."},{status:400});
   try{
     await db.transaction(async tx=>{
-      const pending=db.raw.sql`SELECT id FROM public."skillUpgradeRequest" WHERE "skillId"=${skillId} AND status='PENDING'`.returnsRow({id:"pg/int4@1"}).build();
-      // Unique partial index also protects this check under concurrent requests.
-      const previous=await tx.execute(pending);
-      if(previous.rows?.length)throw new Error("UPGRADE_PENDING");
       const spend=db.raw.sql`UPDATE public."character" SET "pchBalance"="pchBalance"-${delta},"skillUpgradeCredits"="skillUpgradeCredits"-1 WHERE id=${id} AND "pchBalance">=${delta} AND "skillUpgradeCredits">=1`.affectedCount().build();
       if((await tx.execute(spend)).affectedRows!==1)throw new Error("NOT_ENOUGH_RESOURCES");
       const insert=db.raw.sql`INSERT INTO public."skillUpgradeRequest" ("characterId","skillId","baselinePch","nextPch","deltaPch",payload) VALUES (${id},${skillId},${baseline},${pch},${delta},${JSON.stringify(payload)}::jsonb)`.affectedCount().build();

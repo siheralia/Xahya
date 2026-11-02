@@ -3,6 +3,7 @@ import { effectRequirementDiscount } from "@/lib/skills/effect-requirements";
 import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
 import { RacialSkillsManagement } from "@/components/skills/RacialSkillsManagement";
+import { SkillCopyApprovalQueue } from "@/components/skills/SkillCopyApprovalQueue";
 
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
@@ -154,6 +155,7 @@ export default function SkillsManagementPage(){
       </div>
     </section>
 
+    <SkillCopyApprovalQueue/>
     <section className="mt-6 rounded-xl border border-violet-800/40 p-5">
       <h2 className="text-xl font-semibold">Solicitudes de mejora de habilidades</h2>
       <p className="mt-1 text-sm text-zinc-400">El costo adicional de PCH y una moneda quedan reservados hasta aprobar o rechazar.</p>

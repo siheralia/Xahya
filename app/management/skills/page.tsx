@@ -16,7 +16,7 @@ import { effectPchCost, skillEffectMultiplier } from "@/lib/skills/pch";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 
-type Effect = { type: string; target?: string; value?: number; description?: string;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean };
+type Effect = { type: string; target?: string; value?: number; description?: string;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean };
 type Skill = {
   id:number; characterId:number; name:string; cost:number; pchCost:number; accumulationCost:number; accumulationPerTick:number; maintenanceCost:number; description:string|null; duration:string|null;
   category:string; basicType:string|null; attackType:string|null; defenseType:string|null; areaOfEffect:string|null; speed:string|null; cooldown:string|null; effect:Effect[];

@@ -4,6 +4,7 @@ import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillEmblem } from "@/app/components/skill-emblem";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
 import { SkillCopySourceSearch } from "@/components/skills/SkillCopySourceSearch";
+import { SkillTheftSourceSearch } from "@/components/skills/SkillTheftSourceSearch";
 
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
@@ -27,7 +28,7 @@ type EquipmentItem = {
   item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; stat?: string; value: number; description?: string; action?: string }[] } | null;
 };
 
-type SkillEffect = { type: string; target?: string; value?: number; description?: string;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean; durationTurns?: number; durationMovements?: number; targetKind?: "SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT"; targetReference?: string; activationCondition?: "NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT" };
+type SkillEffect = { type: string; target?: string; value?: number; description?: string;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean; durationTurns?: number; durationMovements?: number; targetKind?: "SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT"; targetReference?: string; activationCondition?: "NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT" };
 type SkillState = { id:number; characterId:number; skillId:number; active:boolean; accumulations:number; totalTicks:number; lastTickAt:string|null; };
 type Skill = {
   id: number; characterId: number; name: string; cost: number; accumulationCost: number; accumulationPerTick: number; maintenanceCost: number; description: string | null; duration: string | null;
@@ -533,6 +534,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [upgradingSkill,setUpgradingSkill]=useState<Skill|null>(null);
   const [upgradeRequests,setUpgradeRequests]=useState<Array<{id:number;skillId:number;status:string;deltaPch:number}>>([]);
   const [copyBusy,setCopyBusy]=useState<number|null>(null);
+  const [theftBusy,setTheftBusy]=useState<number|null>(null);
+  const [theftClash,setTheftClash]=useState<{stealingSkillId:number;resisted:boolean;attackerStat:string;defenderStat:string;attackRoll:number;defenseRoll:number;attackTotal:number;defenseTotal:number}|null>(null);
+  const [thefts,setThefts]=useState<Array<{id:number;thiefCharacterId:number;victimCharacterId:number;sourceSkillId:number;stolenSkillId:number;sourceName:string;thiefName:string;victimName:string;remainingTurns:number;status:string}>>([]);
   const [copyRequests,setCopyRequests]=useState<Array<{id:number;copierSkillId:number;sourceSkillId:number;sourceName:string;mode:string;status:string;copiedSkillId:number|null}>>([]);
   const [copyRecords,setCopyRecords]=useState<Array<{id:number;copierSkillId:number;sourceSkillId:number;copiedSkillId:number;name:string;mode:string;remainingTurns:number|null;equipped:boolean}>>([]);
   const [pchBalance, setPchBalance] = useState(0);
@@ -572,6 +576,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     if (!character) return;
     void fetch("/api/characters/"+character.id+"/skills/upgrades",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{if(d){setSkillUpgradeCredits(Number(d.credits??0));setUpgradeRequests(d.requests??[]);}}).catch(()=>{});
+    void fetch("/api/characters/"+character.id+"/skills/thefts",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{if(d)setThefts(d.thefts??[]);}).catch(()=>{});
     void fetch("/api/characters/"+character.id+"/skills/copies",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{if(d){setCopyRecords(d.copies??[]);setCopyRequests(d.requests??[]);}}).catch(()=>{});
     fetch("/api/characters/" + character.id + "/skills", { cache: "no-store" })
       .then(async (response) => {
@@ -1438,6 +1443,28 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     }catch(e){setError(e instanceof Error?e.message:"No se pudo copiar la habilidad.");}
     finally{setCopyBusy(null);}
   }
+  async function stealSkillAction(stealingSkillId:number,sourceSkillId:number){
+    if(!character||theftBusy!==null)return;
+    setTheftBusy(stealingSkillId);setTheftClash(null);setError("");setSuccess("");
+    try{
+      const r=await fetch("/api/characters/"+character.id+"/skills/thefts",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({stealingSkillId,sourceSkillId})
+      });
+      const data=await r.json().catch(()=>null);
+      if(!r.ok)throw new Error(data?.error??"No se pudo robar la habilidad.");
+      if(data?.clash)setTheftClash({stealingSkillId,resisted:data.resisted===true,...data.clash});
+      if(data?.resisted)return;
+      const [sr,tr]=await Promise.all([
+        fetch("/api/characters/"+character.id+"/skills",{cache:"no-store"}),
+        fetch("/api/characters/"+character.id+"/skills/thefts",{cache:"no-store"})
+      ]);
+      if(sr.ok){const d=await sr.json();setSkills(d.skills??[]);setPendingSkills(d.pendingSkills??[]);}
+      if(tr.ok)setThefts((await tr.json()).thefts??[]);
+      setSuccess("Habilidad robada temporalmente. Su dueño no podrá activarla hasta que expire.");
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo robar.");}
+    finally{setTheftBusy(null);}
+  }
   async function equipCopy(copyId:number,equip:boolean){
     if(!character)return;
     try{
@@ -2214,7 +2241,15 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     {skill.speed && <span>⚡ Velocidad: {skill.speed}</span>}
                     {skill.cooldown && <span>↻ Cooldown: {skill.cooldown}</span>}
                     {Number(skill.maintenanceCost ?? 0) > 0 && <span>⟳ Mantenimiento/turno: {skill.maintenanceCost}</span>}
-                    {Number(skill.accumulationPerTick ?? 0) > 0 && (() => { const state = skillStates.find((entry) => entry.skillId === skill.id); return <span>◉ Acumulaciones: {state?.accumulations ?? 0} · {skill.accumulationPerTick}/tick</span>; })()}
+                    {skill.effect?.filter(e=>e.type==="STEAL_SKILL").map((effect,index)=><div key={"theft-"+index} className="mt-3 rounded-lg border border-rose-800/50 p-3">
+                    <p className="text-xs font-semibold text-rose-200">Robar habilidad · capacidad {effect.value} PCH (requiere ×2 del original) · {effect.stealDurationTurns??3} turnos</p>
+                    {theftClash?.stealingSkillId===skill.id && <p role="status" className={"mt-2 rounded-lg border p-3 text-xs "+(theftClash.resisted?"border-amber-600/50 text-amber-200":"border-emerald-600/50 text-emerald-200")}>
+                      Choque de voluntades: SPI {theftClash.attackTotal} (d20: {theftClash.attackRoll}) contra {({wisdom:"WIS",charisma:"CHA",spirit:"SPI",constitution:"CON"} as Record<string,string>)[theftClash.defenderStat]??theftClash.defenderStat} {theftClash.defenseTotal} (d20: {theftClash.defenseRoll}). {theftClash.resisted?"La víctima resistió. La habilidad sigue con su dueño.":"Robo exitoso."}
+                    </p>}
+                    <SkillTheftSourceSearch characterId={character.id} stealingSkillId={skill.id} busy={theftBusy!==null}
+                      refreshKey={thefts.length} onSteal={sourceSkillId=>stealSkillAction(skill.id,sourceSkillId)}/>
+                  </div>)}
+                  {Number(skill.accumulationPerTick ?? 0) > 0 && (() => { const state = skillStates.find((entry) => entry.skillId === skill.id); return <span>◉ Acumulaciones: {state?.accumulations ?? 0} · {skill.accumulationPerTick}/tick</span>; })()}
                   </div>
                   {skill.condition && <p className="mt-3 text-xs text-amber-300">Condición: {skill.condition}</p>}
                   {skillUpgradeCredits>0 && !copyRecords.some(c=>c.copiedSkillId===skill.id) && !upgradeRequests.some(r=>r.skillId===skill.id&&r.status==="PENDING") && <button type="button" onClick={()=>openSkillUpgrade(skill)} className="mt-3 rounded-lg border border-violet-500/50 px-3 py-2 text-xs text-violet-200">Mejorar · 1 moneda + diferencia de PCH</button>}
@@ -2255,6 +2290,15 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                 </div>
               ))}
 
+              {thefts.length>0&&<div className="rounded-xl border border-rose-700/40 p-4">
+                <p className="font-semibold text-rose-200">Robos temporales activos</p>
+                <div className="mt-2 space-y-2">{thefts.map(t=><p key={t.id} className="rounded-lg border border-zinc-800 p-3 text-sm">
+                  {t.thiefCharacterId===character.id
+                    ? "Has robado "+t.sourceName+" de "+t.victimName
+                    : t.thiefName+" ha robado "+t.sourceName+" de este personaje"}
+                  {" · "}{t.remainingTurns} turnos restantes
+                </p>)}</div>
+              </div>}
               {copyRequests.length>0 && <div className="rounded-xl border border-amber-700/40 p-4">
                 <p className="font-semibold text-amber-200">Solicitudes de copia</p>
                 <div className="mt-3 space-y-2">{copyRequests.map(request=><div key={request.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm">

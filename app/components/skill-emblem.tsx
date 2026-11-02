@@ -55,13 +55,14 @@ export function SkillEmblem({ category, effects, icons, size = 64 }: { category:
  const Frame = frames[category as keyof typeof frames] ?? Scan;
  const selected = effects.slice(0,4);
  const positions = selected.length === 1 ? [[24,24]] : selected.length === 2 ? [[15,24],[33,24]] : selected.length === 3 ? (category === "OFFENSIVE" ? [[24,15],[15,33],[33,33]] : [[15,15],[33,15],[24,33]]) : [[15,15],[33,15],[15,33],[33,33]];
+ const innerIconScale = selected.length === 1 ? .32 : selected.length === 2 ? .26 : .21;
  return <div className="relative shrink-0" style={{width:size,height:size}} aria-label={`Emblema de habilidad con ${effects.length} efectos`} role="img">
   {uniqueColors.length>1&&<svg aria-hidden="true" width="0" height="0" className="absolute"><defs><linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">{uniqueColors.map((color,i)=><stop key={color} offset={`${i/(uniqueColors.length-1)*100}%`} stopColor={color}/>)}</linearGradient></defs></svg>}
   <Frame size={size} strokeWidth={1.5} color={frameColor} className="absolute inset-0" aria-hidden="true" />
   {selected.map((effect,i)=>{
    const candidate = resolveSkillEffectIcon(effect,icons,managedIcons) ?? mirrorIcons[effect.type] ?? (effect.type === "DAMAGE_MULTIPLIER" ? "swords" : "sparkles");
    const name = candidate as string;
-   return <div key={i} className="absolute" style={{left:`${positions[i][0]/48*100}%`,top:`${positions[i][1]/48*100}%`,transform:"translate(-50%,-50%)"}}><DynamicIcon name={name} size={size*.19} color={colorByKey.get(String(effect.element??""))} strokeWidth={2} aria-hidden={true} /></div>;
+   return <div key={i} className="absolute" style={{left:`${positions[i][0]/48*100}%`,top:`${positions[i][1]/48*100}%`,transform:"translate(-50%,-50%)"}}><DynamicIcon name={name} size={size*innerIconScale} color={colorByKey.get(String(effect.element??""))} strokeWidth={2} aria-hidden={true} /></div>;
   })}
  </div>;
 }

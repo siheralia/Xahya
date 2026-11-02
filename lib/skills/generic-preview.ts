@@ -16,10 +16,10 @@ type Editable = {
  effect:ReadonlyArray<{type:string;value?:number;[key:string]:unknown}>;
  effectRequirements:EffectRequirement[];
  mechanics:SkillMechanics;
- cost:number;speed:string;maxRangeMeters:number;
+ cost:number;speed:string;maxRangeMeters:number;cooldown?:string;duration?:string;category?:string;
 };
 export type GenericPricePreview = {
- total:number; base:number;manaAdjusted:number;beforeRequirements:number;
+ total:number; base:number;manaAdjusted:number;beforeRequirements:number;afterCooldown:number;
  baseline?:number;additional:number;
 };
 
@@ -57,9 +57,10 @@ export function calculateGenericPricePreview(
  const base=effects.reduce((sum,e)=>sum+priceEffect(e),0)+mechanicsPchCost(combined);
  const manaAdjusted=manaAdjustedPch(base,form.cost);
  const beforeRequirements=applyRangePch(manaAdjusted+(!form.speed||form.speed==="DEFAULT"?0:5),form.maxRangeMeters);
- const total=effectRequirementDiscount(applyCooldownPch(beforeRequirements,form.cooldown,form.duration,form.category),distinctRequirements);
+ const afterCooldown=applyCooldownPch(beforeRequirements,form.cooldown,form.duration,form.category);
+ const total=effectRequirementDiscount(afterCooldown,distinctRequirements);
  return {
-  base,manaAdjusted,beforeRequirements,total,
+  base,manaAdjusted,beforeRequirements,afterCooldown,total,
   ...(parent?{baseline:parent.totalPch!}:{}),
   additional:total-(parent?.totalPch??0),
  };

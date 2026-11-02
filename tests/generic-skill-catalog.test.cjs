@@ -17,7 +17,7 @@ vm.runInNewContext(ts.transpileModule(source,{
  if(name==="../../lib/skills/upgrade"||name==="@/lib/skills/upgrade")return {priceUpgrade:quotePayload};
  throw Error("Unexpected dependency: "+name);
 },Set,Number,Object,Array,String,Error}, {filename:"generic-catalog.ts"});
-const {genericTemplateChain,resolveGenericSkill,quoteGenericSkill,normalizeGenericPayload,validateGenericTemplateSettings}=catalogExports;
+const {genericTemplateChain,resolveGenericSkill,quoteGenericSkill,normalizeGenericPayload,validateGenericTemplateSettings,evolveGenericSkillSnapshot}=catalogExports;
 const base={id:1,name:"Escudo base",description:"Escudo de maná",parentTemplateId:null,enabled:true,elementChoice:false,
  payload:{name:"Escudo base",description:"Escudo de maná",category:"SUPPORT",
  cost:20,maintenanceCost:0,accumulationCost:0,accumulationPerTick:0,
@@ -63,4 +63,18 @@ test("solo los efectos de imbuición ganan el marcador de selección",()=>{
  ]},true);
  assert.equal(payload.effect[0].element,"NEUTRAL");
  assert.equal(payload.effect[1].element,"$ELEMENT");
+});
+
+test("evolución preserva mejoras personalizadas de la base",()=>{
+ const customized={
+  effect:[...base.payload.effect,{type:"STAT_BONUS",target:"AGI",value:10,element:"NEUTRAL"}],
+  effectRequirements:[],
+  mechanics:{rules:[]},
+ };
+ const completed=resolveGenericSkill([base,variant],2,"FIRE").skill;
+ const result=evolveGenericSkillSnapshot(customized,variant,completed,"FIRE");
+ assert.equal(result.effect.length,3);
+ assert.equal(result.effect[1].type,"STAT_BONUS");
+ assert.equal(result.effect[2].type,"ELEMENTAL_IMBUE");
+ assert.equal(result.effect[2].element,"FIRE");
 });

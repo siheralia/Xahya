@@ -3,6 +3,7 @@
 import {useEffect,useState,type ReactNode} from "react";
 import { SkillFieldHelp, type SkillHelpKey } from "./SkillFieldHelp";
 import type { SkillMechanics } from "@/lib/skills/interaction-engine";
+import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 
 export type SkillCore = {
   name: string; description: string; category: string; cost: number; duration: string; cooldown: string; speed: string;
@@ -16,6 +17,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
   const [speedSettings,setSpeedSettings]=useState<{defaultKey:string;stats:{key:string;name:string}[]}>({defaultKey:"agility",stats:[{key:"agility",name:"Agilidad"}]});
   useEffect(()=>{fetch("/api/management/effects").then(r=>r.ok?r.json():null).then(d=>{if(d?.attackSpeedStats?.length)setSpeedSettings({defaultKey:d.defaultAttackSpeedStat??"agility",stats:d.attackSpeedStats});}).catch(()=>{});},[]);
   const defaultSpeedName=speedSettings.stats.find(stat=>stat.key===speedSettings.defaultKey)?.name??speedSettings.defaultKey;
+  const passiveConditionMissing = isPassiveConditionMissing(form.category, form.condition);
   const speeds:[string,string][]=[["DEFAULT",`Predeterminada (${defaultSpeedName})`],...speedSettings.stats.map(stat=>[stat.key,`${stat.name} (+5 PCH)`] as [string,string])];
   if(form.speed&&!speeds.some(([key])=>key===form.speed))speeds.push([form.speed,`${form.speed} (valor anterior)`]);
   const set = <K extends keyof SkillCore>(key:K,value:SkillCore[K]) => onChange({...form,[key]:value});
@@ -27,6 +29,29 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {wrap("Nombre","name",<input value={form.name} onChange={e=>set("name",e.target.value)} className={cls}/>)}
     {wrap("Descripción","description",<textarea rows={3} value={form.description} onChange={e=>set("description",e.target.value)} className={cls}/>)}
     {wrap("Categoría","category",select("category",categories))}
+    {form.category==="PASSIVE" && (
+      <div className="sm:col-span-2">
+        <label htmlFor="skill-passive-condition" className="block text-sm text-zinc-300">
+          Condición de activación <span className="font-bold text-amber-300" aria-hidden="true">*</span>
+          <SkillFieldHelp field="condition"/>
+        </label>
+        <input
+          id="skill-passive-condition"
+          type="text"
+          value={form.condition}
+          onChange={e=>set("condition",e.target.value)}
+          required
+          aria-required="true"
+          aria-invalid={passiveConditionMissing}
+          aria-describedby="skill-passive-condition-help"
+          placeholder="¿Qué debe ocurrir para que se aplique esta pasiva?"
+          className={cls+" "+(passiveConditionMissing?"border-amber-500 focus:border-amber-400":"")}
+        />
+        <p id="skill-passive-condition-help" role={passiveConditionMissing?"alert":undefined} className={"mt-1 text-xs "+(passiveConditionMissing?"text-amber-300":"text-zinc-400")}>
+          {passiveConditionMissing?PASSIVE_CONDITION_REQUIRED_MESSAGE:"Condición obligatoria para pasivas. Describe cuándo funciona la habilidad."}
+        </p>
+      </div>
+    )}
     {effectEditor && <div className="sm:col-span-2">{effectEditor}</div>}
     {wrap("Maná por uso","cost",number("cost"))}
     {wrap("Duración","duration",select("duration",durations.map(x=>[x,x] as const)))}
@@ -37,6 +62,5 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {form.duration !== "Instantánea" && wrap("Costo por turno","maintenanceCost",number("maintenanceCost"))}
     {wrap("Acumulaciones por tick","accumulationPerTick",number("accumulationPerTick"))}
     {form.accumulationPerTick>0 && wrap("Costo de acumulaciones","accumulationCost",number("accumulationCost"))}
-    {form.category==="PASSIVE" && wrap("Condición","condition",<input value={form.condition} onChange={e=>set("condition",e.target.value)} className={cls}/>)}
   </div>;
 }

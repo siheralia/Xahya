@@ -45,10 +45,10 @@ const quote = (effect, configuredEffectPricing=pch.defaultEffectPricing(), durat
   );
 };
 
-test("Sikatā: management card quote matches 10 PCH stored by character submission",()=>{
-  assert.equal(pch.effectPchCost(earthCardEffect),7); // incorrect generic narrative card shortcut
-  assert.equal(configured.configuredSkillEffectPch(earthCardEffect,[card],pch.defaultEffectPricing(),duration.DEFAULT_DURATION_PRICING),5);
-  assert.equal(quote(earthCardEffect),10);
+test("Sikatā: W002 + Tierra + 10 maná + 7 m costs 14 PCH in every editor",()=>{
+  assert.equal(pch.effectPchCost(earthCardEffect),7); // same number here, but a card may have its own base price
+  assert.equal(configured.configuredSkillEffectPch(earthCardEffect,[card],pch.defaultEffectPricing(),duration.DEFAULT_DURATION_PRICING),7);
+  assert.equal(quote(earthCardEffect),14);
 });
 
 test("ordinary narrative effects without a card still pay elemental surcharge",()=>{
@@ -59,17 +59,41 @@ test("ordinary narrative effects without a card still pay elemental surcharge",(
 
 test("managed card price overrides ordinary narrative base, including an element",()=>{
   const customPrices = {...pch.defaultEffectPricing(),NARRATIVE:{base:99,step:1,enabled:true}};
-  assert.equal(configured.configuredSkillEffectPch(earthCardEffect,[{id:"W002",pch:8}],customPrices,duration.DEFAULT_DURATION_PRICING),8);
+  assert.equal(configured.configuredSkillEffectPch(earthCardEffect,[{id:"W002",pch:8}],customPrices,duration.DEFAULT_DURATION_PRICING),10);
 });
 
 test("duration modifiers are identical for character and management forms",()=>{
   const threeTurns = {...earthCardEffect,durationTurns:3};
-  assert.equal(configured.configuredSkillEffectPch(threeTurns,[card],pch.defaultEffectPricing(),duration.DEFAULT_DURATION_PRICING),8);
-  assert.equal(quote(threeTurns),16);
+  assert.equal(configured.configuredSkillEffectPch(threeTurns,[card],pch.defaultEffectPricing(),duration.DEFAULT_DURATION_PRICING),11);
+  assert.equal(quote(threeTurns),22);
 });
 
 test("non-card effects use managed pricing instead of hardcoded defaults",()=>{
   const customPrices = {...pch.defaultEffectPricing(), STAT_BONUS:{base:7,step:3,enabled:true}};
   const e = {type:"STAT_BONUS",target:"AGI",value:4,element:"EARTH"};
   assert.equal(configured.configuredSkillEffectPch(e,[card],customPrices,duration.DEFAULT_DURATION_PRICING),15);
+});
+
+test("neutral cards use the card price without an elemental surcharge",()=>{
+  const neutral = {...earthCardEffect,element:"NEUTRAL"};
+  assert.equal(configured.configuredSkillEffectPch(neutral,[card],pch.defaultEffectPricing(),duration.DEFAULT_DURATION_PRICING),5);
+  assert.equal(quote(neutral),10);
+});
+
+test("missing element has no surcharge; other elements pay once",()=>{
+  const withoutElement = {...earthCardEffect};
+  delete withoutElement.element;
+  assert.equal(configured.configuredSkillEffectPch(withoutElement,[card],pch.defaultEffectPricing(),duration.DEFAULT_DURATION_PRICING),5);
+  const fire = {...earthCardEffect,element:"FIRE"};
+  assert.equal(configured.configuredSkillEffectPch(fire,[card],pch.defaultEffectPricing(),duration.DEFAULT_DURATION_PRICING),7);
+});
+
+test("server submission and upgrades reuse the central per-effect price calculation",()=>{
+  const submission=fs.readFileSync(path.join(__dirname,"../app/api/characters/[id]/skills/route.ts"),"utf8");
+  const upgrades=fs.readFileSync(path.join(__dirname,"../lib/skills/upgrade.ts"),"utf8");
+  const management=fs.readFileSync(path.join(__dirname,"../app/management/skills/page.tsx"),"utf8");
+  const character=fs.readFileSync(path.join(__dirname,"../app/characters/[id]/page.tsx"),"utf8");
+  for(const source of [submission,upgrades,management,character]){
+    assert.match(source,/configuredSkillEffectPch/);
+  }
 });

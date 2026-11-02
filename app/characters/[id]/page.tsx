@@ -2028,15 +2028,16 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         <GenericSkillShop open={genericSkillShopOpen} characterId={Number(character.id)}
           onClose={()=>setGenericSkillShopOpen(false)}
           onCreateCustom={()=>{setGenericSkillShopOpen(false);openSkillCreator();}}
-          onPurchased={async data=>{
+          onPurchased={data=>{
             setPchBalance(Number(data.pchBalance));
-            const refreshed=await fetch("/api/characters/"+character.id+"/skills",{cache:"no-store"});
-            if(refreshed.ok){
-              const d=await refreshed.json();
-              setSkills(d.skills??[]);
-              setPendingSkills(d.pendingSkills??[]);
-              setSkillStates(d.skillStates??[]);
-            }
+            void fetch("/api/characters/"+character.id+"/skills",{cache:"no-store"})
+              .then(async refreshed=>{
+                if(!refreshed.ok)throw new Error("No se pudo actualizar el listado de habilidades.");
+                const d=await refreshed.json();
+                setSkills(d.skills??[]);
+                setPendingSkills(d.pendingSkills??[]);
+                setSkillStates(d.skillStates??[]);
+              }).catch(e=>setError(e instanceof Error?e.message:"No se pudo actualizar la ficha."));
             setSuccess(data.evolved?"Habilidad genérica evolucionada. Se descontaron "+data.pchCost+" PCH.":"Habilidad genérica adquirida y aprobada. Se descontaron "+data.pchCost+" PCH.");
           }}/>
         <SkillFormModal availableSkills={skills.map(s=>({id:Number(s.id),name:String(s.name),status:String(s.status),characterId:Number(character.id)}))} characterId={Number(character.id)} open={skillModalOpen} title={upgradingSkill?"Mejorar habilidad":"Crear habilidad"} description={upgradingSkill?"La moneda autoriza la solicitud. Solo pagarás el incremento de PCH y la mejora requiere aprobación.":"Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise."} onClose={() => setSkillModalOpen(false)} form={skillForm} onChange={setSkillForm} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={priceSkillEffect} pch={{total:skillPchCost,baseline:upgradingSkill?.pchCost,beforeRequirements:applyRangePch(skillPchBeforeRange,skillForm.maxRangeMeters),base:skillBasePch,manaAdjusted:manaAdjustedPch(skillBasePch,skillForm.cost),balance:pchBalance}} actions={<button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || pchBalance < (upgradingSkill?skillPchCost-Number(upgradingSkill.pchCost??0):skillPchCost) || !!upgradingSkill && skillPchCost<=Number(upgradingSkill.pchCost??0)} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">{skillSaving ? "Enviando..." : upgradingSkill ? "Solicitar mejora · 1 moneda + "+Math.max(0,skillPchCost-Number(upgradingSkill.pchCost??0))+" PCH" : "Enviar para aprobación"}</button>} />

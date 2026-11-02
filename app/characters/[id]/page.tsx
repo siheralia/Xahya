@@ -3,6 +3,7 @@ import { effectRequirementDiscount } from "@/lib/skills/effect-requirements";
 import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillEmblem } from "@/app/components/skill-emblem";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
+import { SkillCopySourceSearch } from "@/components/skills/SkillCopySourceSearch";
 
 import { SkillEffectsEditor } from "@/components/skills/SkillEffectsEditor";
 import { SkillCoreFields } from "@/components/skills/SkillCoreFields";
@@ -531,7 +532,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [skillUpgradeCredits,setSkillUpgradeCredits]=useState(0);
   const [upgradingSkill,setUpgradingSkill]=useState<Skill|null>(null);
   const [upgradeRequests,setUpgradeRequests]=useState<Array<{id:number;skillId:number;status:string;deltaPch:number}>>([]);
-  const [copySourceId,setCopySourceId]=useState("");
   const [copyBusy,setCopyBusy]=useState<number|null>(null);
   const [copyRecords,setCopyRecords]=useState<Array<{id:number;copierSkillId:number;sourceSkillId:number;copiedSkillId:number;name:string;mode:string;remainingTurns:number|null;equipped:boolean}>>([]);
   const [pchBalance, setPchBalance] = useState(0);
@@ -1422,10 +1422,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     });
     setCombatPanelOpen(false);setSkillModalOpen(true);
   }
-  async function copySkillAction(copierSkillId:number,mode:string){
+  async function copySkillAction(copierSkillId:number,mode:string,sourceSkillId:number){
     if(!character||copyBusy!==null)return;
-    const sourceSkillId=Number(copySourceId);
-    if(!Number.isSafeInteger(sourceSkillId)||sourceSkillId<=0){setError("Introduce el ID de una habilidad original aprobada.");return;}
+    if(!Number.isSafeInteger(sourceSkillId)||sourceSkillId<=0){setError("Selecciona una habilidad de la búsqueda.");return;}
     setCopyBusy(copierSkillId);setError("");setSuccess("");
     try{
       const response=await fetch("/api/characters/"+character.id+"/skills/copies",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({copierSkillId,sourceSkillId,mode})});
@@ -2220,10 +2219,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                   {skillUpgradeCredits>0 && !copyRecords.some(c=>c.copiedSkillId===skill.id) && !upgradeRequests.some(r=>r.skillId===skill.id&&r.status==="PENDING") && <button type="button" onClick={()=>openSkillUpgrade(skill)} className="mt-3 rounded-lg border border-violet-500/50 px-3 py-2 text-xs text-violet-200">Mejorar · 1 moneda + diferencia de PCH</button>}
                   {skill.effect?.filter(e=>e.type==="COPY_SKILL").map((effect,index)=><div key={"copy-"+index} className="mt-3 rounded-lg border border-purple-800/50 p-3">
                     <p className="text-xs font-semibold text-purple-200">Copiar habilidad · {({PERMANENT:"Permanente",TEMPORARY:"Temporal",IMITATION:"Imitación",COLLECTION:"Colección"} as Record<string,string>)[effect.copyMode??"PERMANENT"]} · máximo {effect.value} PCH</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <input type="number" min={1} value={copySourceId} onChange={e=>setCopySourceId(e.target.value)} placeholder="ID de habilidad original" aria-label="ID de habilidad original" className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"/>
-                      <button type="button" disabled={copyBusy!==null} onClick={()=>copySkillAction(skill.id,effect.copyMode??"PERMANENT")} className="rounded-lg bg-purple-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">Copiar</button>
-                    </div>
+                    <SkillCopySourceSearch
+                      characterId={character.id}
+                      copierSkillId={skill.id}
+                      mode={effect.copyMode??"PERMANENT"}
+                      busy={copyBusy!==null}
+                      refreshKey={copyRecords.length}
+                      onCopy={sourceSkillId=>copySkillAction(skill.id,effect.copyMode??"PERMANENT",sourceSkillId)}
+                    />
                   </div>)}
                   {Number(skill.accumulationPerTick ?? 0) > 0 && (() => { const state = skillStates.find((entry) => entry.skillId === skill.id); const active = Boolean(state?.active); return <button type="button" onClick={() => toggleSkillAccumulation(skill.id, !active)} className={"mt-3 rounded-lg border px-3 py-2 text-xs font-semibold " + (active ? "border-rose-400/30 text-rose-300" : "border-cyan-400/30 text-cyan-300")}>{active ? "Detener acumulación" : "Iniciar acumulación"}{state ? " · " + state.accumulations + " cargas" : ""}</button>; })()}
                   {skill.effect?.length > 0 && (

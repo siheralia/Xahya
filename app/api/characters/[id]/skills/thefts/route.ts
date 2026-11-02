@@ -124,6 +124,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
         accumulationCost:Number(original.accumulationCost??0),accumulationPerTick:Number(original.accumulationPerTick??0),
         maintenanceCost:Number(original.maintenanceCost??0),description:original.description??null,
         duration:original.duration??null,category:original.category??"UTILITY",
+        attackType:original.attackType??null,defenseType:original.defenseType??null,
         areaOfEffect:original.areaOfEffect??null,speed:original.speed??"DEFAULT",
         cooldown:original.cooldown??null,condition:original.condition??null,
         effect:original.effect??[],effectRequirements:original.effectRequirements??[],

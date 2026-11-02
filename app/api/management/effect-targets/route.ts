@@ -5,6 +5,9 @@ import { resolveEffectTargets } from "@/lib/effects/catalog";
 import { readManagedEffectCatalog } from "@/lib/effects/managed-catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { hasRolePermission } from "@/lib/role-permissions";
+import { readDurationPricing } from "@/lib/effects/duration-pricing-settings";
+import { defaultEffectPricing } from "@/lib/skills/pch";
+import { readEffectPricing } from "@/lib/effects/pricing";
 
 export async function GET() {
   const { userId } = await auth();
@@ -14,5 +17,7 @@ export async function GET() {
   if (!user || !(await hasRolePermission(user, "management.items", "view") || await hasRolePermission(user, "management.effects", "view") || await hasRolePermission(user, "management.perks", "view") || await hasRolePermission(user, "management.skills", "view"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const statistics = (await readStatisticsCatalog()).filter((stat) => stat.active !== false);
   const catalog = await readManagedEffectCatalog();
-  return NextResponse.json({ statistics, narrativeCards: catalog.narrativeCards.filter(card => card.enabled), effects: catalog.effects.filter(effect => effect.enabled).map(({type,label,mode,description,icon}) => ({ type, label, mode, description, icon, targets: resolveEffectTargets(type, statistics) })) });
+  const [durationPricing, managedPricing] = await Promise.all([readDurationPricing(), readEffectPricing()]);
+  const effectPricing = { ...defaultEffectPricing(), ...managedPricing };
+  return NextResponse.json({ statistics, durationPricing, effectPricing, narrativeCards: catalog.narrativeCards.filter(card => card.enabled), effects: catalog.effects.filter(effect => effect.enabled).map(({type,label,mode,description,icon}) => ({ type, label, mode, description, icon, targets: resolveEffectTargets(type, statistics) })) });
 }

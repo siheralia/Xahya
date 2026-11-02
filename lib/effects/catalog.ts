@@ -52,7 +52,7 @@ export function resolveEffectTargets(
  if(type==="DAMAGE_MULTIPLIER"||type==="COMBAT_MULTIPLIER"){
    // Filter by the statistic's stable key BEFORE converting it to a display code.
    // For example, physicalAttack becomes PHYSICAL_ATTACK after mapping.
-   const attackKeys=new Set(["physicalAttack","magicAttack","PHYS_ATK","MAGIC_ATK","PHYSICAL_ATTACK","MAGIC_ATTACK"]);
+   const attackKeys=new Set(["physicalAttack","magicAttack"]);
    const derived=statistics
      .filter(s=>s.active!==false && (attackKeys.has(s.key)||attackKeys.has(s.code??"")))
      .map(s=>({key:s.code||s.key,label:s.name||TARGET_LABELS[s.code||s.key]||s.key}));

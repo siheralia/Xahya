@@ -4,7 +4,7 @@ import {useEffect,useState} from "react";
 type Entry={
  id:number;name:string;description:string|null;category:string;cost:number;
  pchCost:number;totalPch:number;parentTemplateId:number|null;requiresElement:boolean;
- alreadyOwned:boolean;hasBase:boolean;affordable:boolean;
+ alreadyOwned:boolean;hasBase:boolean;canPurchase:boolean;
  effects:{type:string;target?:string;element?:string;value?:number}[];
 };
 type Catalog={templates:Entry[];elements:{key:string;name:string}[];pchBalance:number};
@@ -32,7 +32,7 @@ export function GenericSkillShop({
   return ()=>{cancelled=true};
  },[open,characterId]);
  async function purchase(entry:Entry){
-  if(busy!==null||entry.alreadyOwned||!entry.hasBase||!entry.affordable)return;
+  if(busy!==null||entry.alreadyOwned||!entry.hasBase||!entry.canPurchase)return;
   setBusy(entry.id);setError("");
   try{
    const element=entry.requiresElement?(chosen[entry.id]??catalog?.elements[0]?.key):undefined;
@@ -66,7 +66,7 @@ export function GenericSkillShop({
     </div>
    </div>
    <div className="flex flex-wrap items-center justify-between gap-3">
-    <p className="font-medium text-cyan-300">PCH disponibles: {catalog?.pchBalance??"—"}</p>
+    <p className="font-medium text-cyan-300">Saldo PCH: {catalog?.pchBalance??"—"} {catalog && catalog.pchBalance<0?"(deuda pendiente)":""}</p>
     <input aria-label="Buscar genéricas" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar técnica..." className="w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm sm:w-60"/>
    </div>
    {error&&<p role="alert" className="rounded-lg border border-red-800 p-3 text-sm text-red-300">{error}</p>}
@@ -79,15 +79,16 @@ export function GenericSkillShop({
     </div>
     <p className="text-sm text-zinc-300">{entry.description}</p>
     {entry.parentTemplateId!==null&&<p className="text-xs text-violet-300">Evolución: solo se cobra el coste adicional. Precio total {entry.totalPch} PCH.</p>}
+    {catalog && entry.canPurchase && catalog.pchBalance<entry.pchCost && <p className="text-xs text-amber-300">Saldo tras comprar: {catalog.pchBalance-entry.pchCost} PCH (deuda).</p>}
     {entry.requiresElement&&<label className="block text-sm text-zinc-400">Elemento de imbuición
      <select className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2" value={chosen[entry.id]??catalog?.elements[0]?.key??""} onChange={e=>setChosen(v=>({...v,[entry.id]:e.target.value}))}>
       {catalog?.elements.map(e=><option key={e.key} value={e.key}>{e.name}</option>)}
      </select>
     </label>}
     <button type="button" onClick={()=>void purchase(entry)}
-     disabled={busy!==null||entry.alreadyOwned||!entry.hasBase||!entry.affordable||(entry.requiresElement&&!catalog?.elements.length)}
+     disabled={busy!==null||entry.alreadyOwned||!entry.hasBase||!entry.canPurchase||(entry.requiresElement&&!catalog?.elements.length)}
      className="w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400">
-     {busy===entry.id?"Comprando…":entry.alreadyOwned?"Ya adquirida":!entry.hasBase?"Primero adquiere la habilidad base":!entry.affordable?"PCH insuficientes":entry.parentTemplateId!==null?"Evolucionar · "+entry.pchCost+" PCH":"Adquirir · "+entry.pchCost+" PCH"}
+     {busy===entry.id?"Comprando…":entry.alreadyOwned?"Ya adquirida":!entry.hasBase?"Primero adquiere la habilidad base":!entry.canPurchase?"Sin PCH a favor":entry.parentTemplateId!==null?"Evolucionar · "+entry.pchCost+" PCH":"Adquirir · "+entry.pchCost+" PCH"}
     </button>
    </div>)}</div>}
   </section>

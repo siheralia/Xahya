@@ -48,6 +48,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{id:string}>
    if(chain.some(x=>!x.enabled))return null;
    const req=chain.some(x=>x.elementChoice);
    const quote=await quoteGenericSkill(all,t.id,req?sample:undefined);
+   if(!Number.isSafeInteger(quote.pchCost)||quote.pchCost<=0||quote.pchCost>2147483647)return null;
    if(quote.skill.effect.some((e:any)=>e.type==="ELEMENTAL_IMBUE" && (!e.element || e.element==="NEUTRAL" || !elements.some(el=>el.key===e.element))))return null;
    const alreadyOwned=[...ownedIds].some(existingId=>{
     try{return genericTemplateChain(all,existingId).some(x=>x.id===t.id);}
@@ -57,7 +58,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{id:string}>
    return {id:t.id,name:t.name,description:t.description,category:quote.skill.category,
     cost:quote.skill.cost,pchCost:quote.pchCost,totalPch:quote.totalPch,
     parentTemplateId:quote.parentTemplateId,requiresElement:req,alreadyOwned,hasBase,
-    affordable:Number(access.character.pchBalance??0)>=quote.pchCost,
+    canPurchase:Number(access.character.pchBalance??0)>0,
     effects:quote.skill.effect.map((e:any)=>({type:e.type,element:e.element,target:e.target,value:e.value})),
    };
   }catch{return null;}
@@ -87,6 +88,8 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
  let quote:Awaited<ReturnType<typeof quoteGenericSkill>>;
  try {quote=await quoteGenericSkill(rows,templateId,requiresElement?chosenElement:undefined);}
  catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Habilidad inválida."},{status:400});}
+ if(!Number.isSafeInteger(quote.pchCost)||quote.pchCost<=0||quote.pchCost>2147483647)
+  return NextResponse.json({error:"Costo de PCH fuera del límite admitido."},{status:400});
  if(quote.skill.effect.some((e:any)=>e.type==="ELEMENTAL_IMBUE" &&
    (!e.element||e.element==="NEUTRAL"||!elements.some(el=>el.key===e.element))))
   return NextResponse.json({error:"La habilidad usa un elemento que ya no está disponible."},{status:409});
@@ -120,7 +123,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
    const requirements=quote.skill.effectRequirements??[];
    if(!meetsEffectRequirements(requirements,active.filter((s:any)=>Number(s.id)!==Number(parentSkill?.id??0))))
      throw new Error("MISSING_CAPABILITIES");
-   const debit=db.raw.sql`UPDATE public."character" SET "pchBalance"="pchBalance"-${quote.pchCost} WHERE id=${access.characterId} AND "pchBalance">=${quote.pchCost}`.affectedCount().build();
+   const debit=db.raw.sql`UPDATE public."character" SET "pchBalance"="pchBalance"-${quote.pchCost} WHERE id=${access.characterId} AND "pchBalance">0`.affectedCount().build();
    if((await tx.execute(debit)).affectedRows!==1)throw new Error("PCH_INSUFFICIENT");
    if(parentSkill && Number(parentSkill.pchCost??0)+quote.pchCost>2147483647)throw new Error("SKILL_PCH_OVERFLOW");
    const p=parentSkill
@@ -162,7 +165,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
    PARENT_NOT_OWNED:"Primero compra la habilidad base.",ELEMENT_MISMATCH:"La especialización debe conservar el elemento de su base.",
    PARENT_ACTIVE:"Desactiva la habilidad base antes de evolucionarla.",
    MISSING_CAPABILITIES:"No cumples los requisitos de efectos y elementos.",
-   PCH_INSUFFICIENT:"PCH insuficientes.",
+   PCH_INSUFFICIENT:"Necesitas al menos 1 PCH a favor para comprar una genérica. La diferencia puede quedar como deuda.",
    TEMPLATE_CHANGED:"El catálogo cambió mientras comprabas. Revisa los precios y vuelve a intentarlo.",
    SKILL_PCH_OVERFLOW:"La habilidad supera el límite de PCH permitido.",
   };

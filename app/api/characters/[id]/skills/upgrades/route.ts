@@ -39,17 +39,18 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   try{({pch,payload}=await priceUpgrade(b));}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Mejora inválida."},{status:400});}
   if(payload.name!==skill.name || payload.category!==skill.category) return NextResponse.json({error:"Una mejora no puede cambiar el nombre ni la categoría."},{status:400});
   const baseline=Number(skill.pchCost??0),delta=pch-baseline;
-  if(delta<=0)return NextResponse.json({error:"La mejora debe aumentar el costo de construcción PCH."},{status:400});
+  if(!Number.isSafeInteger(delta)||delta<=0||delta>2147483647)
+    return NextResponse.json({error:"El incremento de PCH debe ser un entero positivo válido."},{status:400});
   try{
     await db.transaction(async tx=>{
-      const spend=db.raw.sql`UPDATE public."character" SET "pchBalance"="pchBalance"-${delta},"skillUpgradeCredits"="skillUpgradeCredits"-1 WHERE id=${id} AND "pchBalance">=${delta} AND "skillUpgradeCredits">=1`.affectedCount().build();
+      const spend=db.raw.sql`UPDATE public."character" SET "pchBalance"="pchBalance"-${delta},"skillUpgradeCredits"="skillUpgradeCredits"-1 WHERE id=${id} AND "skillUpgradeCredits">=1 AND "pchBalance">=${delta - 2147483648}`.affectedCount().build();
       if((await tx.execute(spend)).affectedRows!==1)throw new Error("NOT_ENOUGH_RESOURCES");
       const insert=db.raw.sql`INSERT INTO public."skillUpgradeRequest" ("characterId","skillId","baselinePch","nextPch","deltaPch",payload) VALUES (${id},${skillId},${baseline},${pch},${delta},${JSON.stringify(payload)}::jsonb)`.affectedCount().build();
       if((await tx.execute(insert)).affectedRows!==1)throw new Error("UPGRADE_INSERT_FAILED");
       await tx.orm.public.AuditLog.create({actorUserId:owner.user.id,action:"SKILL_UPGRADE_SUBMIT",entityType:"SKILL",entityId:skillId,characterId:id,targetUserId:null,details:JSON.stringify({delta,pch})});
     });
   }catch(e){
-    if(e instanceof Error && e.message==="NOT_ENOUGH_RESOURCES")return NextResponse.json({error:"Necesitas 1 moneda de mejora y PCH suficientes."},{status:400});
+    if(e instanceof Error && e.message==="NOT_ENOUGH_RESOURCES")return NextResponse.json({error:"Necesitas 1 moneda de mejora y que el saldo PCH resultante esté dentro de los límites permitidos."},{status:400});
     if(e instanceof Error && (e.message==="UPGRADE_PENDING"||String(e.message).includes("unique")))return NextResponse.json({error:"Esta habilidad ya tiene una mejora pendiente."},{status:409});
     throw e;
   }

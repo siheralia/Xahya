@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const result = await db.transaction(async (tx) => {
         // Serialize two concurrent activations, including the first activation
         // before a CharacterSkillState exists. Prevent duplicate cooldown/mana uses.
-        if(action==="start"){
+        if(action==="start"||action==="stop"){
           const lock=db.raw.sql`UPDATE public."character" SET id=id WHERE id=${characterId}`.affectedCount().build();
           if((await tx.execute(lock)).affectedRows!==1)throw new Error("CHARACTER_NOT_FOUND");
         }

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { serializeSkillRange } from "@/lib/skills/range-storage";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
+import {validateTheftEffect} from "@/lib/skills/theft";
 
 async function getAdmin(action: "view" | "edit") {
   const { userId: clerkId } = await auth();
@@ -31,6 +32,7 @@ function validate(body: any) {
   const accumulationPerTick = Number(body.accumulationPerTick ?? 0);
   if (!Number.isInteger(cost) || cost < 0) return "Coste inválido.";
   if (!Number.isInteger(maintenanceCost) || maintenanceCost < 0 || !Number.isInteger(accumulationCost) || accumulationCost < 0 || !Number.isInteger(accumulationPerTick) || accumulationPerTick < 0) return "Costo de mantenimiento por turno inválido.";
+  for(const row of effect){const err=validateTheftEffect(row);if(err)return err;}
   if (effect.length > 20) return "Demasiados efectos.";
   return null;
 }

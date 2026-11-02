@@ -124,3 +124,33 @@ export function normalizeGenericPayload(input:unknown,elementChoice:boolean):Rec
   })};
   return normalized;
 }
+
+/**
+ * Evolving an owned generic skill preserves any approved custom improvements
+ * previously applied to its actual snapshot instead of replacing them with
+ * the current template base. Only the new specialization's delta is appended.
+ */
+export function evolveGenericSkillSnapshot(
+  owned:{effect?:unknown; effectRequirements?:unknown; mechanics?:unknown},
+  leaf:GenericSkillTemplateRow, quoted:GenericResolvedSkill, selectedElement?:string,
+):GenericResolvedSkill {
+  const delta=asObject(leaf.payload);
+  const extra=array(delta.effect).map(e=>({
+    ...e,element:e.element===GENERIC_ELEMENT_PLACEHOLDER?selectedElement:e.element,
+  }));
+  const ownEffects=array(owned.effect);
+  const baseMechanics=mechanics(owned.mechanics);
+  const extraMechanics=mechanics(delta.mechanics);
+  const merged={
+    ...quoted,
+    effect:[...ownEffects,...extra],
+    effectRequirements:[...array(owned.effectRequirements),...array(delta.effectRequirements)],
+    mechanics:{...baseMechanics,...extraMechanics,
+      rules:[...array(baseMechanics.rules),...array(extraMechanics.rules)],
+      activationConditions:[...array(baseMechanics.activationConditions),...array(extraMechanics.activationConditions)],
+    },
+  } as GenericResolvedSkill;
+  if(merged.effect.length>20||array(merged.mechanics.rules).length>12)
+    throw new Error("La habilidad personalizada supera los límites de efectos o reglas al evolucionar.");
+  return merged;
+}

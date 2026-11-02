@@ -132,6 +132,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     accumulationCost:p.accumulationCost,accumulationPerTick:p.accumulationPerTick,
     duration:p.duration,category:p.category,areaOfEffect:String(p.areaOfEffect??"Objetivo único")+" | Alcance máximo: "+p.maxRangeMeters+" m",
     speed:p.speed,cooldown:p.cooldown,condition:p.condition,
+    attackType:p.attackType,defenseType:p.defenseType,
     effect:p.effect,effectRequirements:p.effectRequirements,
     mechanics:p.mechanics,
     genericTemplateId:templateId,genericElement:requiresElement?chosenElement:null,

@@ -10,6 +10,7 @@ import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
 import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
 import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
+import {validateSkillCombatTypes,normalizeSkillCombatType} from "@/lib/combat/matchup-types";
 
 async function getAdmin() {
   const { userId: clerkId } = await auth();
@@ -33,6 +34,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!skill) return NextResponse.json({ error: "Habilidad no encontrada." }, { status: 404 });
 
   const body = await request.json().catch(() => null);
+  const combatTypeError=validateSkillCombatTypes(body);
+  if(combatTypeError)return NextResponse.json({error:combatTypeError},{status:400});
   const name = typeof body.name === "string" ? body.name.trim() : String(skill.name);
   const description = typeof body.description === "string" ? body.description.trim() : String(skill.description ?? "");
   const cost = Number(body.cost ?? skill.cost);
@@ -111,6 +114,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         description,
         duration: typeof body.duration === "string" ? body.duration.trim() || null : (freshSkill.duration ?? null),
         category,
+        attackType: Object.prototype.hasOwnProperty.call(body,"attackType") ? normalizeSkillCombatType(body.attackType) : (freshSkill.attackType??null),
+        defenseType: Object.prototype.hasOwnProperty.call(body,"defenseType") ? normalizeSkillCombatType(body.defenseType) : (freshSkill.defenseType??null),
         areaOfEffect: body.maxRangeMeters!==undefined ? serializeSkillRange(typeof body.areaOfEffect==="string"?body.areaOfEffect:freshSkill.areaOfEffect,body.maxRangeMeters) : (typeof body.areaOfEffect === "string" ? body.areaOfEffect.trim() || null : (freshSkill.areaOfEffect ?? null)),
         speed: typeof body.speed === "string" ? body.speed.trim() || null : (freshSkill.speed ?? null),
         cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : (freshSkill.cooldown ?? null),

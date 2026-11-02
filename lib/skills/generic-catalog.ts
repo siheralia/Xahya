@@ -1,5 +1,6 @@
 import {priceUpgrade, type UpgradePayload} from "@/lib/skills/upgrade";
 import type {SkillMechanics} from "@/lib/skills/interaction-engine";
+import {validateSkillCombatTypes} from "@/lib/combat/matchup-types";
 
 export const GENERIC_ELEMENT_PLACEHOLDER = "$ELEMENT";
 export type GenericSkillTemplateRow = {
@@ -35,6 +36,8 @@ export function validateGenericTemplateSettings(
   if(row.description!=null && (typeof row.description!=="string"||row.description.length>5000))return "Descripción inválida.";
   if(!row.payload||typeof row.payload!=="object"||Array.isArray(row.payload))return "Configuración genérica inválida.";
   const payload=row.payload;
+  const combatTypeError=validateSkillCombatTypes(payload);
+  if(combatTypeError)return combatTypeError;
   if(!Array.isArray(payload.effect)||payload.effect.length>20) return "La plantilla necesita una lista de efectos válida.";
   if(!hasParent && payload.effect.length===0)return "La habilidad genérica base necesita al menos un efecto.";
   if(hasParent && payload.effect.length===0 && !array(mechanics(payload.mechanics).rules).length)

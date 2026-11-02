@@ -78,6 +78,7 @@ const upgrade=loadModule("lib/skills/upgrade.ts",{
   "@/lib/effects/skill-conditions":{validateSkillParameters:()=>null},
   "@/lib/skills/copy":{validateCopyEffect:()=>null},
   "@/lib/skills/theft":{validateTheftEffect:()=>null},
+  "@/lib/combat/matchup-types":loadModule("lib/combat/matchup-types.ts"),
 });
 
 const skill=(target,cost,range,element)=>({

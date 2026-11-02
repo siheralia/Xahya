@@ -15,6 +15,7 @@ vm.runInNewContext(ts.transpileModule(source,{
  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}
 }).outputText,{exports:catalogExports,require:(name)=>{
  if(name==="../../lib/skills/upgrade"||name==="@/lib/skills/upgrade")return {priceUpgrade:quotePayload};
+ if(name==="@/lib/combat/matchup-types")return {validateSkillCombatTypes:()=>null};
  throw Error("Unexpected dependency: "+name);
 },Set,Number,Object,Array,String,Error}, {filename:"generic-catalog.ts"});
 const {genericTemplateChain,resolveGenericSkill,quoteGenericSkill,normalizeGenericPayload,validateGenericTemplateSettings,evolveGenericSkillSnapshot}=catalogExports;

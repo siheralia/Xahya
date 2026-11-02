@@ -2,6 +2,7 @@
 import { effectRequirementDiscount } from "@/lib/skills/effect-requirements";
 import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillEmblem } from "@/app/components/skill-emblem";
+import { formatSkillForClipboard } from "@/lib/skills/skill-clipboard";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
 import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import {GenericSkillShop} from "@/components/skills/GenericSkillShop";
@@ -21,7 +22,7 @@ import { calculateSkillPch, skillEffectMultiplier, type EffectPricingMap } from 
 import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
 import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
 import Link from "next/link";
-import { Swords, Shield, Heart, Droplets, Sparkles, Wind, Orbit } from "lucide-react";
+import { Swords, Shield, Heart, Droplets, Sparkles, Wind, Orbit, Copy, Check } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { CharacterSilhouette, getCharacterSilhouetteSvg } from "@/components/CharacterSilhouette";
@@ -492,6 +493,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [copied, setCopied] = useState<"ficha" | "estado" | "">("");
+  const [copiedSkillId, setCopiedSkillId] = useState<number | null>(null);
   const [temporaryEffects, setTemporaryEffects] = useState<TemporaryEffect[]>([]);
   const [effectTarget, setEffectTarget] = useState("strength");
   const [effectMode, setEffectMode] = useState<"percent" | "flat">("percent");
@@ -1267,6 +1269,20 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       setTimeout(() => setCopied(""), 2000);
     } catch {
       setError("No se pudo copiar el estado al portapapeles.");
+    }
+  }
+
+  /** Copy one skill (not the character's entire sheet or the in-game COPY_SKILL effect). */
+  async function copySkillToClipboard(skill: Skill) {
+    try {
+      await navigator.clipboard.writeText(formatSkillForClipboard(skill, {
+        effects: Object.fromEntries(effectDefinitions.map(effect => [effect.type,effect.label])),
+        targets: Object.fromEntries(skillTargets),
+      }));
+      setCopiedSkillId(skill.id);
+      setTimeout(() => setCopiedSkillId(current => current === skill.id ? null : current), 2000);
+    } catch {
+      setError("No se pudo copiar la habilidad «"+skill.name+"» al portapapeles.");
     }
   }
 
@@ -2257,14 +2273,25 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               {skills.map((skill) => (
                 <div key={skill.id} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-3"><SkillEmblem category={skill.category} effects={Array.isArray(skill.effect) ? skill.effect : []} size={48}/><h3 className="font-semibold" style={{ color: themePalette.foreground }}>{skill.name}</h3></div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-3">
+                        <SkillEmblem category={skill.category} effects={Array.isArray(skill.effect) ? skill.effect : []} size={48}/>
+                        <h3 className="min-w-0 break-words text-base font-semibold text-zinc-100">{skill.name}</h3>
+                      </div>
                       <p className="mt-1 text-xs" style={{ color: themePalette.muted }}>
                         {skillCategories.find((category) => category[0] === skill.category)?.[1] ?? skill.category}
                         {" · "}Coste {skill.cost}{Number(skill.maintenanceCost ?? 0) > 0 ? " · Mantenimiento/turno " + skill.maintenanceCost : ""}{Number(skill.accumulationPerTick ?? 0) > 0 ? " · +" + skill.accumulationPerTick + " acumulación/tick" : ""}
                       </p>
                     </div>
-                    <span className="rounded-full border border-emerald-400/25 px-2 py-1 text-xs text-emerald-300">Aprobada</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-emerald-400/25 px-2 py-1 text-xs text-emerald-300">Aprobada</span>
+                      <button type="button" onClick={()=>copySkillToClipboard(skill)}
+                        aria-label={"Copiar habilidad "+skill.name+" al portapapeles"}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-600 px-3 py-2 text-xs font-semibold text-zinc-100 transition hover:border-cyan-400 hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+                        {copiedSkillId===skill.id?<Check size={15} aria-hidden="true"/>:<Copy size={15} aria-hidden="true"/>}
+                        {copiedSkillId===skill.id?"Copiada":"Copiar habilidad"}
+                      </button>
+                    </div>
                   </div>
                   <p className="mt-3 text-sm text-zinc-300 whitespace-pre-wrap">{skill.description}</p>
                   <div className="mt-3 grid gap-2 text-xs text-zinc-500 sm:grid-cols-2 lg:grid-cols-4">
@@ -2353,8 +2380,16 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     {pendingSkills.map((skill) => (
                       <div key={skill.id} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="font-medium">{skill.name}</span>
-                          <span className="text-xs text-amber-300">{skill.status === "REJECTED" ? "Rechazada" : "Pendiente"}</span>
+                          <span className="min-w-0 break-words font-semibold text-zinc-100">{skill.name}</span>
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <span className="text-xs text-amber-300">{skill.status === "REJECTED" ? "Rechazada" : "Pendiente"}</span>
+                            <button type="button" onClick={()=>copySkillToClipboard(skill)}
+                              aria-label={"Copiar habilidad "+skill.name+" al portapapeles"}
+                              className="inline-flex items-center gap-1 rounded-lg border border-zinc-600 px-2 py-1.5 text-xs font-semibold text-zinc-100 hover:border-cyan-400 hover:bg-zinc-800">
+                              {copiedSkillId===skill.id?<Check size={14} aria-hidden="true"/>:<Copy size={14} aria-hidden="true"/>}
+                              {copiedSkillId===skill.id?"Copiada":"Copiar"}
+                            </button>
+                          </div>
                         </div>
                         <p className="mt-1 text-xs text-zinc-500">{skill.description}</p>
                       </div>

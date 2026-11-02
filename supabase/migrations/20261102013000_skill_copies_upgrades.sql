@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public."skillCopy" (
   "createdAt" timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS skill_copy_character_idx ON public."skillCopy" ("characterId",mode);
+CREATE UNIQUE INDEX IF NOT EXISTS skill_copy_distinct_source_idx ON public."skillCopy" ("characterId","copierSkillId","sourceSkillId",mode);
 
 ALTER TABLE public."skillUpgradeRequest" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."skillCopy" ENABLE ROW LEVEL SECURITY;

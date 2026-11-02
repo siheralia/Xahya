@@ -5,9 +5,19 @@
 - `value` representa complejidad máxima en PCH. Mejorar esta propiedad (o las demás de una habilidad) usa una moneda de mejora y **únicamente el incremento positivo de PCH**.
 - La moneda es un consumible de sistema `IMPROVE_SKILL`, registrado en el catálogo de objetos y entregable desde Gestión. Al consumirlo concede un crédito de mejora, no PCH.
 - Las solicitudes de mejora se cargan y se cobran con una transacción y quedan pendientes de aprobación; el rechazo devuelve un crédito y los PCH.
-- Las copias permanentes producen una habilidad aprobada. Las temporales duran turnos de combate reales; las de colección pueden almacenarse y equiparse de una en una por habilidad copiadora. La imitación devuelve un efecto instantáneo sin guardar una habilidad.
+- Las copias requieren aprobación de Gestión → Habilidades. La solicitud inicial no concede nada; después de aprobar, las copias permanentes producen una habilidad aprobada, las temporales duran turnos de combate reales y las de colección pueden almacenarse y equiparse de una en una por habilidad copiadora. La imitación guarda el resultado de un solo uso en el registro aprobado (aún no ejecuta automáticamente efectos en combate).
 - La fidelidad porcentual afecta valores numéricos y multiplicadores; el origen se conserva mediante la tabla `skillCopy`.
 - Las habilidades de copia no pueden copiar otras copias, ni habilidades de copia, y se respetan restricciones de raciales y especiales.
+
+## Flujo de solicitudes de copia
+
+1. El personaje busca una habilidad por nombre y pulsa **Solicitar copia**.
+2. Se crea una solicitud `PENDING`. La ficha muestra su estado; una copia todavía no se concede.
+3. Un usuario con permiso `management.skills.approve` o `management.skills.reject` la revisa en **Gestión → Habilidades → Solicitudes de copia de habilidades**.
+4. Aprobar vuelve a verificar habilidad copiadora, origen aprobado, complejidad, restricciones y capacidad; solo entonces crea la copia. Rechazar no concede ningún efecto ni habilidad.
+5. La aprobación y la creación de la copia ocurren en una sola transacción. Si la habilidad ha cambiado, la aprobación falla y la solicitud sigue pendiente para revisión.
+
+**Requisito de despliegue:** aplicar `supabase/migrations/20261102030000_skill_copy_approval_requests.sql` antes de desplegar los endpoints del PR de aprobación. No ejecutar la ruta nueva contra la base sin esa tabla.
 
 ## Operación y migración
 1. Aplicar `supabase/migrations/20261102013000_skill_copies_upgrades.sql` **antes** de habilitar estas rutas en producción. No se ha aplicado directamente a producción desde este PR.

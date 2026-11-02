@@ -27,7 +27,7 @@ const equipmentSlots = [
 
 const EFFECT_TYPES = [...sharedEffectTypes.map(effect => [effect.type.toLowerCase(), effect.label] as const), ["system_action","Acción del sistema"]] as const;
 const DAMAGE_TARGETS = [["ALL","Todo"],["PHYSICAL","Físico"],["MAGICAL","Mágico"]] as const;
-const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_TRAP", "Romper una trampa y liberarte"], ["RELEASE_MAZE_TRAPPED", "Liberarte de una trampa"], ["CREATE_SKILL", "Permitir crear una habilidad"], ["IMPROVE_SKILL", "Moneda de mejora de habilidades"] as const;
+const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_TRAP", "Romper una trampa y liberarte"], ["RELEASE_MAZE_TRAPPED", "Liberarte de una trampa"], ["CREATE_SKILL", "Permitir crear una habilidad"], ["IMPROVE_SKILL", "Moneda de mejora de habilidades"]] as const;
 
 const NON_STAT_EFFECT_TARGETS: [string, string][] = [
   ["ATTACK_TOTAL", "Ataque total"], ["DAMAGE_REDUCTION_ALL", "Reducción de daño"],

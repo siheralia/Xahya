@@ -25,6 +25,7 @@ model Character {
   raceId    Int?
   race      Race?               @relation(fields:[raceId], references:[id], onDelete:SetNull)
   skillCreationCredits Int     @default(0)
+  skillUpgradeCredits Int     @default(0)
   pchBalance Int @default(0)
   magicAttackType String @default("CUT")
   magicAttackDescription String?

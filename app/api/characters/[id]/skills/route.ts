@@ -10,7 +10,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
+import { EFFECT_TYPES, resolveEffectTargets, validateEffectTarget } from "@/lib/effects/catalog";
 import { readManagedEffectCatalog } from "@/lib/effects/managed-catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { validateCopyEffect } from "@/lib/skills/copy";

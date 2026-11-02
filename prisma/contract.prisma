@@ -27,6 +27,7 @@ model Character {
   skillCreationCredits Int     @default(0)
   skillUpgradeCredits Int     @default(0)
   pchBalance Int @default(0)
+  mechanicsState Json @default("{}")
   magicAttackType String @default("CUT")
   magicAttackDescription String?
   blockDefenseType String @default("CONCENTRATED")

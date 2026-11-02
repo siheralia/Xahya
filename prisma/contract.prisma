@@ -83,6 +83,9 @@ model Skill {
   cooldown    String?
   effect      Json      @default("[]")
   effectRequirements Json @default("[]")
+  genericTemplateId Int?
+  genericElement String?
+  genericTemplate GenericSkillTemplate? @relation(fields:[genericTemplateId], references:[id], onDelete:SetNull)
   mechanics Json @default("{}")
   requiredSkillIds Int[] @default([])
   grantedByRacePerkId Int?
@@ -94,6 +97,7 @@ model Skill {
   approvedAt  DateTime?
   @@index([characterId])
   @@index([status])
+  @@index([genericTemplateId])
   skillStates CharacterSkillState[]
 }
 
@@ -866,4 +870,21 @@ model WorldSocialClass {
   cohorts     PopulationCohort[]
   @@index([active, name])
   @@map("worldSocialClass")
+}
+
+model GenericSkillTemplate {
+  id               Int       @id @default(autoincrement())
+  name             String
+  description      String?
+  parentTemplateId Int?
+  parent           GenericSkillTemplate? @relation("GenericSkillLineage", fields:[parentTemplateId], references:[id], onDelete:Restrict)
+  children         GenericSkillTemplate[] @relation("GenericSkillLineage")
+  payload          Json      @default("{}")
+  elementChoice    Boolean   @default(false)
+  enabled          Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now())
+  purchases        Skill[]
+  @@index([parentTemplateId])
+  @@index([enabled])
 }

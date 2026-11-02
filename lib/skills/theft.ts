@@ -15,6 +15,8 @@ export function canStealSkill(effect:TheftEffect,original:{pchCost?:number;effec
   const invalid=validateTheftEffect(effect);
   if(invalid)return invalid;
   if(requiredTheftPch(sourceComplexity)>Number(effect.value))return "La habilidad requiere el doble de su complejidad en PCH para robarla.";
+  if(Array.isArray(original.effect) && original.effect.some((entry:{type?:string})=>entry?.type==="STEAL_SKILL"))
+    return "No puedes robar otra habilidad que también robe habilidades.";
   const copyRule:CopyEffect={
     type:"COPY_SKILL",value:Number(effect.value),copyMode:"TEMPORARY",
     copyAllowSpecial:effect.stealAllowSpecial!==false,

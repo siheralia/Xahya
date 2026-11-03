@@ -1,5 +1,5 @@
 import {
-  applyCombatCommand, canAct, contestChance, matchupMultiplier, remainingAp, turnTicks,
+  applyCombatCommand, canAct, contestChance, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks,
   type CombatCommand, type CombatState, type DefenseChoice, type Point,
 } from "./turn-engine.ts";
 import { BASIC_MAGIC_RANGE_METERS } from "./magic-area.ts";
@@ -10,9 +10,19 @@ const cap = (v: number, min: number, max: number) => Math.max(min, Math.min(max,
 
 /** The training NPC varies the incoming strike orientation, not just its dice.
  * Points remain inside the combat editor's normalized [0,1] arena. */
-export function npcAttackTrajectory(random: NpcRandom): Point[] {
+export function npcAttackTrajectory(random: NpcRandom, anchoredAt?: Point | null): Point[] {
   const angle=cap(random(),0,0.999999)*Math.PI*2;
   const dx=Math.cos(angle)*0.35,dy=Math.sin(angle)*0.35;
+  if(anchoredAt) {
+    // Do not teleport the NPC's weapon stroke. Keep the inherited starting
+    // point exactly, then draw toward a randomized reachable endpoint.
+    const toward={x:cap(anchoredAt.x+dx*2,0,1),y:cap(anchoredAt.y+dy*2,0,1)};
+    const distance=Math.hypot(toward.x-anchoredAt.x,toward.y-anchoredAt.y);
+    const end=distance<0.08
+      ? {x:cap(anchoredAt.x-dx*2,0,1),y:cap(anchoredAt.y-dy*2,0,1)}
+      : toward;
+    return [{...anchoredAt},end];
+  }
   return [{x:0.5-dx,y:0.5-dy},{x:0.5+dx,y:0.5+dy}];
 }
 
@@ -128,10 +138,12 @@ export function progressTrainingNpc(
       const meters=Math.min(maximum,Math.max(0.01,distance-1.5));
       next=applyCombatCommand(next,"NPC",{kind:"MOVE",meters,direction:"TOWARD"},makeDice());
     } else {
+      const magicTypes=["CUT","BLUNT","PIERCE"] as const;
       next=castMagic
-        ? applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:"BLUNT",usesMagic:true,
+        ? applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:magicTypes[Math.floor(cap(random(),0,0.999999)*3)],usesMagic:true,
             areaCenter:{x:cap(random(),0,0.999999),y:cap(random(),0,0.999999)}},makeDice())
-        : applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType,trajectory:npcAttackTrajectory(random)},makeDice());
+        : applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType,
+            trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC"))},makeDice());
     }
   }
   throw new Error("La IA alcanzó el límite de acciones por actualización.");

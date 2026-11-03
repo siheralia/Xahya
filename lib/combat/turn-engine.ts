@@ -303,10 +303,15 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     // No selected dodge means contact is checked against a small base margin,
     // not another invisible full Esquive roll.
-    const contact = !avoided && (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (pending.usesMagic || pending.rangedPhysical
-      ? validArenaPoint(pending.targetCenter) && Math.hypot(pending.targetCenter.x-targetHitboxCenter.x,pending.targetCenter.y-targetHitboxCenter.y)
-        <= (pending.attackType==="BLUNT"?0.17:pending.attackType==="CUT"?0.11:0.07)
-      : geometricContact(pending.attackType,pending.trajectory,targetHitboxCenter));
+    const contact = !avoided && (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (
+      // Basic magic preserves its established full-area effect. Projectile
+      // placement and hand-drawn melee use the explicit geometric hitbox.
+      pending.usesMagic || (pending.rangedPhysical
+        ? validArenaPoint(pending.targetCenter) && Math.hypot(
+          pending.targetCenter.x-targetHitboxCenter.x,pending.targetCenter.y-targetHitboxCenter.y
+        ) <= (pending.attackType==="BLUNT"?0.17:pending.attackType==="CUT"?0.11:0.07)
+        : geometricContact(pending.attackType,pending.trajectory,targetHitboxCenter))
+    );
     const critical = contact && rolls.critical < clamp(0.05 + attacker.critical / (attacker.critical + fighter.luck + 100)*0.20,0.05,0.25);
     // A free phase-1 magical *basic* strike is intentionally bounded.
     // Full skill damage, mana expenditure and elemental effects belong to phase 2.

@@ -293,7 +293,7 @@ export default function CombatEncounter({id}:{id:string}) {
         </>}
       </svg>
       <div className="mt-3 flex flex-wrap items-end gap-3">
-       <label className="text-sm">{attackMode==="MAGIC_AREA"?"Tipo de magia básica":"Tipo de ataque físico"
+       <label className="text-sm">{attackMode==="MAGIC_AREA"?"Tipo de magia básica":"Tipo de ataque físico"}
         <select value={attackType} onChange={e=>setAttackType(e.target.value as typeof attackType)}
          className="mt-1 block rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
          <option value="CUT">{attackMode==="MAGIC_AREA"?"Onda cortante":"Corte"}</option>

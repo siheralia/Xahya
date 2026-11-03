@@ -17,8 +17,10 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,
-}:{encounterId:string;side:Side;authorized:boolean}) {
+ encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,
+}:{encounterId:string;side:Side;authorized:boolean;
+ canUseSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
+ onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean}) {
  const [skills,setSkills]=useState<Record<Side,CombatSkillPreview[]>>({PLAYER:[],NPC:[]});
  const [busy,setBusy]=useState(true);
  const [error,setError]=useState("");
@@ -42,7 +44,7 @@ export default function CombatSkillLoadout({
  const roster=skills[side]??[];
  return <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
   <h2 className="text-lg font-semibold">Habilidades del personaje · fase 2.1</h2>
-  <p className="mt-1 text-sm text-zinc-400">Catálogo aprobado conectado a la ficha. Los costes y efectos se muestran para preparar su ejecución; todavía no se pueden lanzar habilidades desde esta pantalla.</p>
+  <p className="mt-1 text-sm text-zinc-400">Habilidades aprobadas de tu ficha. Los ataques compatibles usan el lienzo de arriba y consumen maná, PA y ticks del encuentro; los efectos no implementados siguen bloqueados.</p>
   {busy?<p className="mt-3 text-sm text-zinc-400">Consultando habilidades aprobadas…</p>
   :error?<p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>
   :roster.length===0?<p className="mt-3 text-sm text-zinc-400">Este personaje no tiene habilidades aprobadas y disponibles para consultar.</p>
@@ -69,7 +71,31 @@ export default function CombatSkillLoadout({
      </div>
      {skill.effectTypes.length>0&&<p>Efectos: {skill.effectTypes.map(type=>(EFFECT_LABELS as Record<string,string>)[type]??type).join(", ")}</p>}
      {skill.mechanicActions.length>0&&<p>Acciones mecánicas: {skill.mechanicActions.map(type=>actionNames[type]??type).join(", ")}</p>}
-     <p className="text-xs text-zinc-500">Ejecución en combate pendiente de la fase 2.2. Los PCH de creación no se consumen al combatir.</p>
+     {skill.executable?<>
+      {(()=>{
+       const nextRound=cooldowns[String(skill.id)]??0;
+       const onCooldown=nextRound===-1||nextRound>round;
+       const missingAim=skill.needsAim&&skill.usesMagic&&
+         (aimMode!=="MAGIC_AREA"||!magicAimReady);
+       const blocked=!skill.requirementsSatisfied||!canUseSkill||busy||onCooldown||
+         mana===null||mana<skill.manaCost||missingAim;
+       const reason=onCooldown
+         ? nextRound===-1?"Ya utilizada una vez en este encuentro.":"Cooldown hasta el turno "+nextRound
+         : mana===null?"El encuentro no tiene maná de fase 2. Inicia uno nuevo."
+         : mana<skill.manaCost?"Maná insuficiente"
+         : missingAim?"Marca el centro en modalidad Explosión mágica del lienzo superior."
+         : !canUseSkill?"Esperando tu iniciativa":null;
+       return <div className="space-y-2">
+        {reason&&<p className="text-xs text-amber-300">{reason}</p>}
+        <button type="button" disabled={blocked}
+         onClick={()=>onCast(skill)}
+         className="rounded-lg border border-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-40">
+         {skill.skillKind==="OFFENSE"?"Lanzar ataque de habilidad":"Activar habilidad"}
+        </button>
+       </div>;
+      })()}
+     </>:<p className="text-xs text-amber-300">No ejecutable todavía: {skill.disabledReason??"Efectos pendientes de implementación"}</p>}
+     <p className="text-xs text-zinc-500">El coste PCH de construcción no se cobra en combate. El maná usado aquí queda dentro de este encuentro.</p>
     </div>
    </details>)}
   </div>}

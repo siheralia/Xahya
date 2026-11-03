@@ -133,7 +133,7 @@ function describeAttack(
   phrase=stem+". Pese "+reaction+" "+genitiveTarget+", "+
    (damageBefore?"recibió otros ":"recibió ")+damagePhrase(damage)+".";
  }else if(magic){
-  phrase=stem+" y alcanzó a "+target+", arrebatándole "+
+  phrase=stem+" y alcanzó a "+target+", causándole "+
    (damageBefore?"otros ":"")+damagePhrase(damage)+".";
  }else{
   phrase=stem+" y alcanzó a "+target+", causándole "+damagePhrase(damage)+".";

@@ -312,7 +312,7 @@ export default function CombatEncounter({id}:{id:string}) {
         <select value={attackMode} onChange={e=>setAttackMode(e.target.value as "PHYSICAL"|"MAGIC_AREA"|"RANGED")}
           className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
           <option value="PHYSICAL">Ataque físico cuerpo a cuerpo</option>
-          <option value="RANGED">Proyectil físico (arco, shuriken, piedra)</option>
+          {actor?.equippedWeapon?.mode==="RANGED"&&<option value="RANGED">Proyectil físico ({actor.equippedWeapon.name})</option>}
           <option value="MAGIC_AREA">Explosión mágica básica (área)</option>
         </select>
       </label>
@@ -350,11 +350,11 @@ export default function CombatEncounter({id}:{id:string}) {
          <option value="PIERCE">{attackMode==="MAGIC_AREA"?"Descarga perforante":"Penetración"}</option>
         </select>
        </label>
-       <button disabled={!ready||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
+       <button disabled={!ready||(attackMode==="RANGED"&&actor?.equippedWeapon?.mode!=="RANGED")||(attackMode==="PHYSICAL"&&actor?.equippedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
            ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??attackType,areaCenter:areaCenter??undefined}
-           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackType,areaCenter:areaCenter??undefined}
-           : {kind:"ATTACK",attackType,trajectory:normalizedPath})}
+           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackType:actor?.equippedWeapon?.attackType??attackType,areaCenter:areaCenter??undefined}
+           : {kind:"ATTACK",attackType:actor?.equippedWeapon?.attackType??attackType,trajectory:normalizedPath})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
         {attackMode==="MAGIC_AREA"?"Lanzar magia":attackMode==="RANGED"?"Disparar proyectil":"Atacar"}
        </button>

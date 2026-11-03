@@ -40,9 +40,11 @@ export function guessedMagicCenter(actual:Point,guess:Point):boolean {
  * including when a request has moderator access to both combatants.
  */
 export function combatClientView(state:CombatState):CombatState {
- if(!(state.pending?.usesMagic||state.pending?.rangedPhysical)||!state.pending.targetCenter)return state;
  const clone=structuredClone(state);
- if(clone.pending) {
+ // The complete chronology belongs to the server until it is converted into
+ // the final chronicle. Do not send an ever-growing private history on each poll.
+ delete clone.narrativeHistory;
+ if((state.pending?.usesMagic||state.pending?.rangedPhysical)&&state.pending.targetCenter&&clone.pending) {
   // Upgrade old pending 3×3 hints without exposing their exact epicenter.
   clone.pending.areaHint=magicImpactZone(state.pending.targetCenter);
   delete clone.pending.targetCenter;

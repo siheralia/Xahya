@@ -3,6 +3,7 @@ import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
 import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
 import { geometricContact } from "./geometry.ts";
+import { narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
 import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 
@@ -43,6 +44,10 @@ export type CombatLog = {
   attackSource?: PhysicalAttackSource;
   areaCenter?: Point; predictedCenter?: Point;
   skillId?: number; manaCost?: number;
+  /** Narration metadata; optional for encounters created before this feature. */
+  usesMagic?:boolean; thrownWeapon?:boolean; weaponName?:string;
+  skillName?:string; healingPoints?:number;
+  movementDirection?:"TOWARD"|"AWAY"|"WEAPON"; moveMeters?:number;
 };
 export type CombatState = {
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
@@ -58,6 +63,10 @@ export type CombatState = {
   skillBonuses?: Array<{by:Side;skillId:number;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
   processedSkillRequests?: string[];
   droppedWeapons?: Array<{owner:Side;weapon:CombatWeapon;slot?:"MAIN_HAND"|"OFF_HAND";positionMeters:number}>;
+  /** All chronological events needed to narrate a long fight (not just the last 100 on-screen entries). */
+  narrativeHistory?: CombatLog[];
+  /** Persisted final chronicle. Created exactly once when the fight ends. */
+  narrativeText?: string;
   pending: PendingAttack | null; log: CombatLog[];
 };
 export type CombatCommand =
@@ -104,7 +113,12 @@ function restoreWeapon(state:CombatState,dropped:NonNullable<CombatState["droppe
  return true;
 }
 const safePoint = (p: Point) => finite(p?.x) && finite(p?.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
-const addLog = (state: CombatState, entry: CombatLog) => { state.log.push(entry); state.log = state.log.slice(-100); };
+const addLog = (state: CombatState, entry: CombatLog) => {
+  state.narrativeHistory ??= state.log.slice(); // Backfill legacy fights when possible.
+  state.narrativeHistory.push(entry);
+  state.log.push(entry);
+  state.log = state.log.slice(-100);
+};
 export const actionPoints = (constitution: number) => Math.max(1, Math.floor(9 + normalize(constitution)));
 export const weaponIntegrityDefault = 100;
 export const massDefaultKg = 70;
@@ -140,7 +154,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},physicalPathEnds:{},pending:null,log:[]};
+    physicalPathEnd:{},physicalPathEnds:{},narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
   Math.max(1, f.speedValue ?? f.agility);
@@ -396,6 +410,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       state.status = "FINISHED";state.winner = pending.by;
       addLog(state,{kind:"END",tick:state.tick,by:pending.by,against:by,summary:attacker.name+" gana el combate"});
       settleDroppedWeapons(state);
+      state.narrativeText=narrateCombat(state.narrativeHistory??state.log,state.actors);
+      delete state.narrativeHistory; // Keep the finished record compact.
     }
     advanceRoundIfComplete(state);
     return state;
@@ -421,7 +437,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(magnitude!==0)clearPhysicalStrokes(state,by);
     spend(fighter,turnTicks(fighter));
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
-    addLog(state,{kind:"MOVE",tick:state.tick,by,
+    addLog(state,{kind:"MOVE",tick:state.tick,by,movementDirection:direction,moveMeters:command.meters,
       summary:recoveredWeapon?fighter.name+" recuperó "+recoveredWeapon+" tras desplazarse":fighter.name+" se desplazó "+command.meters+" m ("+direction+")"});
   } else if (command.kind === "WAIT") {
     fighter.spentTicks = LIMIT;
@@ -492,7 +508,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       areaHint:magic||ranged?magicImpactZone(command.areaCenter!):undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
-    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,attackSource:source,manaCost:magic&&serverSkillRangeMeters===undefined?1:undefined,
+    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,attackSource:source,
+      usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,weaponName:selectedWeapon?.name,manaCost:magic&&serverSkillRangeMeters===undefined?1:undefined,
       summary:magic?fighter.name+" lanzó magia de "+labels[command.attackType]+"; esperando reacción"
         :ranged?fighter.name+" lanzó "+(thrown?"el arma ("+selectedWeapon?.name+") de ":"un proyectil físico de ")+labels[command.attackType]+"; esperando reacción"
         :fighter.name+" atacó con "+(selectedWeapon?.name??(source==="FIST_LEFT"?"puño izquierdo":"puño derecho"))+" ("+labels[command.attackType]+")"+"; esperando reacción"});
@@ -557,6 +574,7 @@ export function applyResolvedCombatSkill(
   spend(actor,turnTicks(actor));
   next.tick=Math.max(next.tick,(next.round-1)*LIMIT+actor.spentTicks);
   addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,manaCost:plan.cost,
+   skillName:plan.name,healingPoints:plan.healing??undefined,
    summary:actor.name+" usó "+plan.name+(plan.healing?" y recuperó hasta "+plan.healing+" HP":"")});
   advanceRoundIfComplete(next);
  }

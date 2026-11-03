@@ -356,7 +356,8 @@ export default function CombatEncounter({id}:{id:string}) {
    </div>
   </div>
   {error&&<p role="alert" className="mb-4 rounded-lg border border-rose-600/50 p-3 text-rose-300">{error}</p>}
-  {shareStatus&&<p role="status" className="mb-3 text-sm text-cyan-300">{shareStatus}</p>}
+  {shareStatus&&<p role="status" className="mb-3 text-sm text-cyan-300">{shareStatus}</p>
+  {actionFeedback&&<p role="status" className="mb-3 rounded-lg border border-emerald-700/50 bg-emerald-950/20 p-3 text-sm text-emerald-200">{actionFeedback}</p>}}
   {!state?<p>Cargando combate…</p>:<>
    <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-zinc-700 p-3 text-sm">
     <span>Turno: <b>{state.round}</b></span><span>Tick global: <b>{state.tick}</b></span>
@@ -580,7 +581,8 @@ export default function CombatEncounter({id}:{id:string}) {
           <span className="ml-2 text-xs text-zinc-400">Configurado en la ficha o el arma</span>
         </div>
        </div>
-       <button disabled={!ready||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
+       {basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">El objetivo está a {targetDistance.toFixed(2)} m y el alcance máximo seleccionado es {basicReach.toFixed(2)} m. Acércate antes de atacar.</p>}
+       <button disabled={!ready||basicOutOfRange||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
            ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
            : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
@@ -681,6 +683,21 @@ export default function CombatEncounter({id}:{id:string}) {
     </div>}
    </section>}
 
+    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+     {(constructionSkills[side]??[]).map(skill=>{
+      const nextRound=state.skillCooldowns?.[side]?.[String(skill.id)]??0;
+      const cooled=nextRound===-1||nextRound>state.round;
+      const disabled=!ready||!constructionCenter||cooled||(state.mana?.[side]?.current??0)<skill.manaCost||
+        (skill.constructionMaterial==="MIRROR"&&targetDistance>(skill.rangeMeters??0));
+      return <button key={skill.id} type="button" disabled={disabled} onClick={()=>castSkill(skill)}
+       className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-cyan-500/70 bg-cyan-950/20 px-3 py-2 text-sm text-cyan-200 disabled:opacity-40">
+       <Plus size={16}/> Crear con {skill.name} · {skill.manaCost} maná
+      </button>;
+     })}
+    </div>
+    {canCreateObjects&&!constructionCenter&&<p className="mt-2 text-xs text-amber-300">Primero indica dónde aparecerá la construcción.</p>}
+    {(constructionSkills[side]??[]).some(skill=>skill.constructionMaterial==="MIRROR"&&targetDistance>(skill.rangeMeters??0))&&
+     <p className="mt-2 text-xs text-amber-300">Hay creaciones fuera de alcance. Acércate al adversario para invocarlas.</p>}
     <button type="button" onClick={()=>{openPanel("skills",null);}} className="mt-3 flex items-center gap-2 rounded-lg border border-cyan-500 px-3 py-2 text-sm text-cyan-200">
      <Sparkles size={16}/> Ver habilidades de creación
     </button>
@@ -694,7 +711,7 @@ export default function CombatEncounter({id}:{id:string}) {
     canUseSkill={ready} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
-    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} categoryFilter={skillCategory}/>
+    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={targetDistance}/>
 
    </CombatDialog>
    <CombatDialog open={panel==="stats"} title="Estado y estadísticas" onClose={closePanel}>

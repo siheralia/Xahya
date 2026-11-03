@@ -2,6 +2,7 @@ import {auth} from "@clerk/nextjs/server";
 import {NextResponse} from "next/server";
 import {db} from "@/lib/db";
 import {setActorDistance} from "@/lib/skills/mechanics-runtime";
+import {canApproveCombat} from "@/lib/combat/permissions";
 import {applyMechanicEvent,parseEnvironment,validateSkillMechanics,type MechanicEvent} from "@/lib/skills/interaction-engine";
 
 async function access(id:string) {
@@ -14,7 +15,7 @@ async function access(id:string) {
  if(!session||!user)return null;
  const character=await db.orm.public.Character.where({id:Number(session.playerCharacterId)}).first();
  if(!character)return null;
- const gm=["ADMIN","GM"].includes(String(user.role));
+ const gm=await canApproveCombat(user);
  if(!gm&&Number(character.userId)!==Number(user.id))return null;
  return {session,gm,characterId:Number(character.id),encounterId};
 }

@@ -30,7 +30,7 @@ export type CombatSkillPreview = {
  requirementsSatisfied: boolean;
  /** Only a strict set of implemented effects may be cast. */
  executable: boolean;
- skillKind?: "OFFENSE"|"SUPPORT"|null;
+ skillKind?: "OFFENSE"|"SUPPORT"|"CONSTRUCTION"|null;
  needsAim?: boolean;
  usesMagic?: boolean;
  disabledReason?:string|null;

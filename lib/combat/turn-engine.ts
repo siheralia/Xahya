@@ -8,6 +8,8 @@ import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validAre
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "NONE";
 export type Point = { x: number; y: number };
+export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FIST_LEFT";
+export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number};
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
   agility: number; speedValue?: number; strength: number; constitution: number; precision: number;
@@ -15,7 +17,8 @@ export type CombatFighter = {
   magicAttack: number; magicDefense: number; critical: number; luck: number;
   race: number; massKg: number; positionMeters: number; attackType: CombatAttackType;
   heightMeters?: number; unarmedReachMeters?: number;
-  equippedWeapon?: {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number};
+  equippedWeapon?: CombatWeapon;
+  offhandWeapon?: CombatWeapon;
   defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
   magicFieldDescription?: string | null; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
@@ -24,6 +27,7 @@ export type PendingAttack = {
   by: Side; against: Side; attackType: CombatAttackType;
   trajectory: Point[]; launchedAtTick: number; usesMagic: boolean;
   rangedPhysical?: boolean; thrownWeapon?:boolean; beyondEffectiveRange?:boolean;
+  attackSource?: PhysicalAttackSource;
   /** Hidden from client while pending; attacker-selected basic magic blast. */
   targetCenter?: Point;
   /** Coarse, public four-cell telegraph; never reveals the exact impact point. */
@@ -35,6 +39,7 @@ export type CombatLog = {
   damage?: number; critical?: boolean; contact?: boolean;
   knockbackMeters?: number; weaponIntegrity?: number; defense?: DefenseChoice;
   attackType?: CombatAttackType; rangedPhysical?: boolean; predictionMatched?: boolean;
+  attackSource?: PhysicalAttackSource;
   areaCenter?: Point; predictedCenter?: Point;
   skillId?: number; manaCost?: number;
 };
@@ -45,19 +50,20 @@ export type CombatState = {
   tieOpener?: Side;
   /** Last physical stroke endpoint for each combatant; cleared on movement. */
   physicalPathEnd?: Partial<Record<Side, Point>>;
+  physicalPathEnds?: Partial<Record<Side, Partial<Record<PhysicalAttackSource, Point>>>>;
   /** Encounter-local mana snapshot: never debits the global character sheet. */
   mana?: Record<Side,{current:number;max:number}>;
   skillCooldowns?: Partial<Record<Side,Record<string,number>>>;
   skillBonuses?: Array<{by:Side;skillId:number;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
   processedSkillRequests?: string[];
-  droppedWeapons?: Array<{owner:Side;weapon:NonNullable<CombatFighter["equippedWeapon"]>;positionMeters:number}>;
+  droppedWeapons?: Array<{owner:Side;weapon:CombatWeapon;slot?:"MAIN_HAND"|"OFF_HAND";positionMeters:number}>;
   pending: PendingAttack | null; log: CombatLog[];
 };
 export type CombatCommand =
-  | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON" }
+  | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
   | { kind: "WAIT" }
-  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; areaCenter?: Point }
-  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON" }
+  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point }
+  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
   | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
@@ -69,11 +75,32 @@ const normalize = (n: number) => Math.max(0, finite(n) ? n : 0);
 /** The duel canvas represents the defender at its normalized center.
  * Its world-space separation is checked independently in meters. */
 export const targetHitboxCenter: Point = {x:0.5,y:0.5};
-export function effectiveWeaponReachMeters(f:CombatFighter, thrown=false):number {
- const weapon=f.equippedWeapon;
+export function defaultAttackSource(f:CombatFighter):PhysicalAttackSource {
+ return f.equippedWeapon?"MAIN_HAND":f.offhandWeapon?"OFF_HAND":"FIST_RIGHT";
+}
+export function weaponForSource(f:CombatFighter,source:PhysicalAttackSource):CombatWeapon|undefined {
+ return source==="MAIN_HAND"?f.equippedWeapon:source==="OFF_HAND"?f.offhandWeapon:undefined;
+}
+export function effectiveWeaponReachMeters(f:CombatFighter, thrown=false, source:PhysicalAttackSource=defaultAttackSource(f)):number {
+ const weapon=weaponForSource(f,source);
  if(thrown)return weapon?.throwable?Math.max(0,weapon.throwRangeMeters??0):0;
  if(weapon)return Math.max(0,weapon.maximumRangeMeters??weapon.effectiveRangeMeters);
  return Math.max(0.3,f.unarmedReachMeters??(f.heightMeters??1.7)*0.45);
+}
+function clearPhysicalStrokes(state:CombatState,side:Side){
+ if(state.physicalPathEnd)delete state.physicalPathEnd[side];
+ if(state.physicalPathEnds)delete state.physicalPathEnds[side];
+}
+function activeDroppedWeapon(state:CombatState,by:Side,slot?:"MAIN_HAND"|"OFF_HAND"){
+ return state.droppedWeapons?.find(w=>w.owner===by&&(!slot||(w.slot??"MAIN_HAND")===slot));
+}
+function restoreWeapon(state:CombatState,dropped:NonNullable<CombatState["droppedWeapons"]>[number]):boolean {
+ const fighter=state.actors[dropped.owner];
+ const field=(dropped.slot??"MAIN_HAND")==="MAIN_HAND"?"equippedWeapon":"offhandWeapon";
+ if(fighter[field])return false;
+ fighter[field]={...dropped.weapon};
+ state.droppedWeapons=state.droppedWeapons?.filter(w=>w!==dropped);
+ return true;
 }
 const safePoint = (p: Point) => finite(p?.x) && finite(p?.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
 const addLog = (state: CombatState, entry: CombatLog) => { state.log.push(entry); state.log = state.log.slice(-100); };
@@ -112,7 +139,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},pending:null,log:[]};
+    physicalPathEnd:{},physicalPathEnds:{},pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
   Math.max(1, f.speedValue ?? f.agility);
@@ -166,12 +193,10 @@ export function canAct(state: CombatState, side: Side): boolean {
  * debited by a throw. Recover any still-dropped weapon at encounter completion
  * so the resulting combat state cannot contradict the original equipment. */
 function settleDroppedWeapons(state:CombatState) {
-  for(const dropped of state.droppedWeapons??[]){
-    const owner=state.actors[dropped.owner];
-    if(!owner.equippedWeapon) {
-      owner.equippedWeapon={...dropped.weapon};
+  for(const dropped of [...(state.droppedWeapons??[])]){
+    if(restoreWeapon(state,dropped)) {
       addLog(state,{kind:"RECOVER",tick:state.tick,by:dropped.owner,
-        summary:owner.name+" recuperó "+dropped.weapon.name+" al finalizar el combate"});
+        summary:state.actors[dropped.owner].name+" recuperó "+dropped.weapon.name+" al finalizar el combate"});
     }
   }
   state.droppedWeapons=[];
@@ -208,9 +233,12 @@ function direction(path: Point[]) {
 }
 /** A character resumes a physical stroke at the previous endpoint until moved.
  * Older saved encounters without this optional property remain usable. */
-export function physicalAttackStart(state: CombatState, by: Side): Point | null {
-  const anchor=state.physicalPathEnd?.[by];
-  return anchor && safePoint(anchor) ? anchor : null;
+export function physicalAttackStart(state: CombatState, by: Side, requested?:PhysicalAttackSource): Point | null {
+  const source=requested??defaultAttackSource(state.actors[by]);
+  const perSource=state.physicalPathEnds?.[by];
+  // Older encounters only had a single stroke for their default weapon.
+  const anchor=perSource?perSource[source]:(requested===undefined||source===defaultAttackSource(state.actors[by])?state.physicalPathEnd?.[by]:undefined);
+  return anchor && safePoint(anchor)?anchor:null;
 }
 export function deflectionAlignment(trajectory: Point[], guardAngle: number) {
   // Guard should cross the incoming tangent at ~90 degrees.

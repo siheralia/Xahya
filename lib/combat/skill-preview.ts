@@ -7,6 +7,8 @@
  * authoritative encounter transaction (phase 2.2).
  */
 import {previewSkillExecution} from "./skill-casting.ts";
+import {parseConfiguredSkillRange} from "./skill-range.ts";
+export {parseConfiguredSkillRange} from "./skill-range.ts";
 export type CombatSkillPreview = {
  id: number;
  name: string;
@@ -39,14 +41,6 @@ type SkillStateRecord = {skillId?:unknown;active?:unknown};
 const types=new Set(["CUT","BLUNT","PIERCE"]);
 const defenses=new Set(["CONCENTRATED","DISPERSED","SOLID"]);
 
-export function parseConfiguredSkillRange(areaOfEffect: unknown):{area:string;rangeMeters:number|null} {
- const text=typeof areaOfEffect==="string"?areaOfEffect.trim():"";
- const match=/\s*\|\s*Alcance máximo:\s*(\d+)\s*m\s*$/i.exec(text);
- if(!match)return {area:text||"No especificada",rangeMeters:null};
- const value=Number(match[1]);
- return {area:text.slice(0,match.index).trim()||"Objetivo único",
-   rangeMeters:Number.isSafeInteger(value)&&value>=0&&value<=100?value:null};
-}
 
 const nonnegativeInt=(x:unknown):number=>{
  const value=Number(x);

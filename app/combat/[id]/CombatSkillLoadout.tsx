@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useState} from "react";
 import {EFFECT_LABELS} from "@/lib/effects/catalog";
-import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
+import {availableConstructionMaterials,type CombatSkillPreview} from "@/lib/combat/skill-preview";
 import type {Side} from "@/lib/combat/turn-engine";
 
 type RosterResponse={skills:Record<Side,CombatSkillPreview[]>};
@@ -17,13 +17,18 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,constructionAimReady,
+ encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,
 }:{encounterId:string;side:Side;authorized:boolean;
  canUseSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
- onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean}) {
+ onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean;
+ onConstructionMaterialsChange:(side:Side,materials:string[])=>void}) {
  const [skills,setSkills]=useState<Record<Side,CombatSkillPreview[]>>({PLAYER:[],NPC:[]});
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
+ useEffect(()=>{
+  onConstructionMaterialsChange(side,authorized
+   ?availableConstructionMaterials(skills[side]??[]):[]);
+ },[side,skills,authorized,onConstructionMaterialsChange]);
  useEffect(()=>{
   if(!authorized)return;
   let live=true;

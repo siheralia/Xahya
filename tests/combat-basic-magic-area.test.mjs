@@ -106,3 +106,9 @@ test("training NPC may cast area magic without cheating when defending it",()=>{
  assert.equal(a.defense,"DODGE");
  assert.ok(a.predictedCenter);
 });
+
+test("NPC cannot activate a defensive magic field with zero mana",()=>{
+ const incoming=applyCombatCommand(makeState(fighter("Caster"),fighter("NPC",1)),"PLAYER",cast);
+ incoming.mana.NPC.current=0;
+ assert.notEqual(chooseNpcReaction(incoming,()=>0.65).defense,"MAGIC_FIELD");
+});

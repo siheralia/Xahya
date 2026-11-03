@@ -11,6 +11,22 @@ import { combatClientView } from "@/lib/combat/magic-area";
 import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
 import { canApproveCombat } from "@/lib/combat/permissions";
 
+async function snapshotEquippedWeapon(characterId:number):Promise<CombatFighter["equippedWeapon"]>{
+  const CharacterItem=(db.orm.public as any).CharacterItem;
+  const Item=(db.orm.public as any).Item;
+  if(!CharacterItem||!Item)return undefined;
+  const owned=await CharacterItem.where({characterId}).all();
+  const equipped=owned.find((entry:any)=>entry.equipped&&["MAIN_HAND","OFF_HAND"].includes(String(entry.equippedSlot)));
+  if(!equipped)return undefined;
+  const item=await Item.where({id:Number(equipped.itemId)}).first();
+  if(!item||item.itemType!=="WEAPON")return undefined;
+  const attackType=String(item.attackType);
+  if(!["CUT","BLUNT","PIERCE"].includes(attackType))return undefined;
+  const subtype=String(item.itemSubtype??"").toUpperCase();
+  const ranged=/BOW|CROSSBOW|ARCO|BALLESTA|RANGED|DISTANCIA/.test(subtype);
+  return {name:String(item.name),attackType:attackType as CombatFighter["attackType"],
+    mode:ranged?"RANGED":"MELEE",effectiveRangeMeters:ranged?10:1.5};
+}
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
 async function currentUser() {
   const {userId}=await auth();
@@ -67,6 +83,7 @@ export async function POST(req:Request) {
     (character as any).magicAttackType,(character as any).blockDefenseType,
     (character as any).fieldDefenseType,(character as any).fieldDefenseDescription);
   player.speedValue=numeric(first.effectiveStats[mechanics.combatSpeed]??first.derived[mechanics.combatSpeed],player.agility);
+  player.equippedWeapon=await snapshotEquippedWeapon(characterId);
   player.heightMeters=Math.max(0.3,numeric((character as any).height,170)/100);
   player.unarmedReachMeters=Math.round(player.heightMeters*0.45*100)/100;
   const opponentId=Number(body?.opponentCharacterId??0);
@@ -82,6 +99,7 @@ export async function POST(req:Request) {
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
       (rival as any).magicAttackType,(rival as any).blockDefenseType,
       (rival as any).fieldDefenseType,(rival as any).fieldDefenseDescription);
+    opponent.equippedWeapon=await snapshotEquippedWeapon(opponentId);
     opponent.heightMeters=Math.max(0.3,numeric((rival as any).height,170)/100);
     opponent.unarmedReachMeters=Math.round(opponent.heightMeters*0.45*100)/100;
     opponentManaMax=Math.max(0,Math.floor(numeric(stats.derived.maxMana)));

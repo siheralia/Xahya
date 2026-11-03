@@ -204,7 +204,7 @@ export default function CombatEncounter({id}:{id:string}) {
       <p className="text-sm text-zinc-300">Adivina dónde caerá la explosión. Toca el terreno para marcar su posible centro. La zona resaltada es solo una pista aproximada; acertar también requiere superar la tirada de Esquive.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         onPointerDown={e=>setPredictedCenter(toPoint(e))}
-        className="h-80 w-full cursor-crosshair touch-none rounded-lg border border-amber-500/40 bg-zinc-900"
+        className="aspect-square w-full max-w-xl cursor-crosshair touch-none rounded-lg border border-amber-500/40 bg-zinc-900"
         aria-label="Terreno grande para predecir el centro de la explosión mágica">
         {Array.from({length:9},(_,i)=><rect key={i} x={(i%3)*100/3}
           y={Math.floor(i/3)*100/3} width={100/3} height={100/3}
@@ -260,10 +260,10 @@ export default function CombatEncounter({id}:{id:string}) {
       <p className="mb-2 text-xs text-zinc-400">{attackMode==="MAGIC_AREA"
        ? "Toca una posición: el punto será el epicentro y el círculo la zona de explosión. El defensor solo verá la región aproximada. Ataque básico con coste temporal normal y "+BASIC_MAGIC_MANA_COST+" de maná en esta fase; las habilidades con maná llegan en fase 2."
        : "Arrastra el dedo o el cursor. La dirección final influye en la posibilidad de desviar el golpe."}</p>
-      <svg ref={canvas} viewBox="0 0 100 100" preserveAspectRatio="none"
+      <svg ref={canvas} viewBox="0 0 100 100" preserveAspectRatio={attackMode==="MAGIC_AREA"?"xMidYMid meet":"none"}
        onPointerDown={startDraw} onPointerMove={continueDraw}
        onPointerUp={endDraw} onPointerCancel={endDraw}
-       className="h-52 w-full touch-none rounded-lg bg-zinc-900"
+       className={attackMode==="MAGIC_AREA"?"aspect-square w-full max-w-md cursor-crosshair touch-none rounded-lg bg-zinc-900":"h-52 w-full touch-none rounded-lg bg-zinc-900"}
        aria-label="Lienzo para dibujar la trayectoria del ataque">
        {Array.from({length:9},(_,i)=><line key={i} x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth="0.3"/>)}
        {attackMode==="MAGIC_AREA"?

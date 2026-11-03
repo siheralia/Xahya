@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
+import { getCharacterMazeCapabilities } from "@/lib/maze-capabilities";
+import { treasureMoneyWithBonus } from "@/lib/maze-racial-effects";
 
 async function getUser() {
   const { userId: clerkId } = await auth();
@@ -35,7 +37,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const rewards = typeof room.treasureRewards === "string" ? JSON.parse(room.treasureRewards) : (room.treasureRewards ?? {});
     const resources = await tx.orm.public.CharacterResource.where({ characterId }).first();
     if (!resources) throw new Error("RESOURCE_NOT_FOUND");
-    const money = Number(rewards.money ?? 0);
+    const baseMoney = Number(rewards.money ?? 0);
+    const capabilities = await getCharacterMazeCapabilities(tx,characterId);
+    const money = treasureMoneyWithBonus(baseMoney,capabilities.treasureMoneyBonusPercent);
+    const bonusMoney = money - baseMoney;
     if (money) await tx.orm.public.CharacterResource.where({ id:resources.id }).update({ money:Number(resources.money)+money });
 
     if (Number(rewards.itemId) > 0) {
@@ -47,7 +52,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     await Room.where({ id:roomId }).update({ treasureClaimed:true, status:"COMPLETED" });
-    return { money, itemId:Number(rewards.itemId ?? 0), quantity:Math.max(0,Number(rewards.quantity ?? 0)) };
+    return { money, bonusMoney, itemId:Number(rewards.itemId ?? 0), quantity:Math.max(0,Number(rewards.quantity ?? 0)) };
   }).catch((error) => ({ error:error instanceof Error ? error.message : "UNKNOWN" }));
 
   if ("error" in result) {

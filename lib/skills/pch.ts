@@ -25,6 +25,9 @@ export const BASE_COST: Record<string, number> = {
   FINAL_DAMAGE_MULTIPLIER: 10,
   FINAL_DAMAGE_BONUS: 6,
   MAZE_UTILITY: 8,
+  MAZE_TRAP_EVASION: 12,
+  MAZE_TREASURE_ITEM_CHANCE: 10,
+  MAZE_TREASURE_MONEY_BONUS: 10,
   COPY_SKILL: 15,
   STEAL_SKILL: 30,
   // Backward-compatible legacy types.

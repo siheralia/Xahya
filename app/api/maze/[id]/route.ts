@@ -10,6 +10,7 @@ import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/deri
 import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { getDefaultEnemyImageUrl, getEnemyImagePaths, getEnemyImageUrl } from "@/lib/enemy-image";
 import { getCharacterMazeCapabilities } from "@/lib/maze-capabilities";
+import { avoidsMazeTrap, treasureItemChance } from "@/lib/maze-racial-effects";
 import { getCharacterCustomBasicStats } from "@/lib/stats/dynamic";
 
 async function getUser() {
@@ -148,7 +149,7 @@ function hasActiveEnemies(room: any, enemies: any[]) {
   return enemies.some((enemy: any) => Number(enemy.roomId) === Number(room.id) && String(enemy.status) === "ACTIVE");
 }
 
-async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = false, reservedDirection?: string, luck = 0, itemLuck = luck, moneyLuck = luck) {
+async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = false, reservedDirection?: string, luck = 0, itemLuck = luck, moneyLuck = luck, treasureItemBonusPercent = 0) {
   const disabledTypes = [
     !Boolean(maze.allowTraps) ? "TRAP" : null,
     !Boolean(maze.allowDeath) ? "DEATH" : null,
@@ -167,7 +168,7 @@ async function generateRoom(tx: any, maze: any, roomNumber: number, forceBoss = 
 
   if (roomType === "TREASURE") {
     const items = await tx.orm.public.Item.all();
-    const itemChance = Math.min(balance.mazeItemMax, balance.mazeItemBase + Math.max(0, Number(itemLuck) || 0) * balance.mazeItemRate);
+    const itemChance = treasureItemChance(Math.min(balance.mazeItemMax, balance.mazeItemBase + Math.max(0, Number(itemLuck) || 0) * balance.mazeItemRate),treasureItemBonusPercent);
     const item = items.length && Math.random() < itemChance ? items[Math.floor(Math.random() * items.length)] : null;
     const baseMoney = (Math.floor(Math.random() * 901) + 100) * 10;
     const moneyMultiplier = 1 + Math.min(balance.mazeMoneyMax, Math.max(0, Number(moneyLuck) || 0) * balance.mazeMoneyRate);
@@ -788,6 +789,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (detected) throw new Error("STEALTH_DETECTED");
     }
 
+    const racialMazeCapabilities = await getCharacterMazeCapabilities(tx,characterId);
+
     // In PLANAR_2D, reuse an existing room at the target grid coordinate.
     if (requestedExit.toRoomId == null && String(maze.generationMode ?? "FREE_3D") === "PLANAR_2D") {
       const mazeRooms = await TxRoom.where({ mazeId }).all();
@@ -838,7 +841,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (requestedExit.toRoomId != null) {
       const destination = await TxRoom.where({ id:Number(requestedExit.toRoomId) }).first();
       if (!destination) throw new Error("DESTINATION_NOT_FOUND");
-      const destinationLock = String(destination.roomType) === "TRAP" && Boolean(destination.trapActive);
+      const triggeredTrap = String(destination.roomType) === "TRAP" && Boolean(destination.trapActive);
+      const avoidedTrap = triggeredTrap && avoidsMazeTrap(racialMazeCapabilities.trapEvasionPercent,Math.random());
+      const destinationLock = triggeredTrap && !avoidedTrap;
       await TxPosition.where({ id:position?.id ?? (await TxPosition.where({ mazeId, characterId }).first())?.id }).update({
         roomId:destination.id,
         previousRoomId:currentRoom.id,
@@ -857,7 +862,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           }
         }
       }
-      return { room:destination, generated:false };
+      return { room:destination, generated:false, avoidedTrap };
     }
 
     const roomCount = (await TxRoom.where({ mazeId }).all()).length;
@@ -866,7 +871,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const returnDirection = OPPOSITE_DIRECTION[direction as keyof typeof OPPOSITE_DIRECTION];
     const mechanics = await readMechanics(tx);
     const [characterLuck, itemLuck, moneyLuck] = await Promise.all([getCharacterLuck(tx, characterId, mechanics.mazeRoomGeneration), getCharacterLuck(tx, characterId, mechanics.mazeItemChance), getCharacterLuck(tx, characterId, mechanics.mazeTreasureMoney)]);
-    const destination = await generateRoom(tx, maze, nextNumber, String(maze.mazeType) === "FINITE" && nextNumber === Number(maze.maxRooms), returnDirection, characterLuck, itemLuck, moneyLuck);
+    const destination = await generateRoom(tx, maze, nextNumber, String(maze.mazeType) === "FINITE" && nextNumber === Number(maze.maxRooms), returnDirection, characterLuck, itemLuck, moneyLuck, racialMazeCapabilities.treasureItemChancePercent);
 
     await TxExit.where({ id:requestedExit.id }).update({ toRoomId:destination.id });
 
@@ -882,9 +887,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const updatedPosition = await TxPosition.where({ mazeId, characterId }).first();
+    const triggeredTrap = String(destination.roomType) === "TRAP" && Boolean(destination.trapActive);
+    const avoidedTrap = triggeredTrap && avoidsMazeTrap(racialMazeCapabilities.trapEvasionPercent,Math.random());
     const destinationStatus = String(destination.roomType) === "DEATH"
       ? "DEAD_LOCKED"
-      : (String(destination.roomType) === "TRAP" && Boolean(destination.trapActive) ? "TRAPPED" : "ACTIVE");
+      : (triggeredTrap && !avoidedTrap ? "TRAPPED" : "ACTIVE");
     const destinationLockReason = destinationStatus === "DEAD_LOCKED" ? "DEATH" : destinationStatus === "TRAPPED" ? "TRAP" : null;
     await TxPosition.where({ id:updatedPosition.id }).update({
       roomId:destination.id,
@@ -909,7 +916,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await tx.orm.public.Maze.where({ id:mazeId }).update({ status:"BOSS_ACTIVE" });
     }
 
-    return { room:destination, generated:true };
+    return { room:destination, generated:true, avoidedTrap };
   }).catch((error) => ({ error:error instanceof Error ? error.message : "UNKNOWN" }));
 
   if ("error" in result) {
@@ -934,7 +941,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     entityType:"MAZE_ROOM",
     entityId:result.room.id,
     characterId,
-    details:{ mazeId, direction, generated:result.generated },
+    details:{ mazeId, direction, generated:result.generated, avoidedTrap:result.avoidedTrap },
   });
 
   return NextResponse.json(result);

@@ -297,13 +297,20 @@ export default function CombatEncounter({id}:{id:string}) {
        onChange={e=>setAngle(Number(e.target.value))}/>
       <span className="block text-xs text-zinc-400">Orientación aproximada: {guardHint(deflectionAlignment(pending.trajectory,angle))}. No garantiza desviar el golpe; también intervienen tu agilidad, la fuerza rival y la tirada.</span>
      </label>}
+     {selectedDefense==="DODGE"&&dodgeDirection==="WEAPON"&&droppedForActor.length>1&&
+      <label className="block text-sm">Arma hacia la que esquivar
+       <select value={activeRecoverSlot} onChange={e=>setRecoverSlot(e.target.value as "MAIN_HAND"|"OFF_HAND")}
+         className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2">
+         {droppedForActor.map(w=><option key={"dodge-"+(w.slot??"MAIN_HAND")} value={w.slot??"MAIN_HAND"}>{w.weapon.name} · {w.slot==="OFF_HAND"?"Secundaria":"Principal"}</option>)}
+       </select>
+      </label>}
      {selectedDefense==="DODGE"&&<label className="block text-sm">Desplazamiento al esquivar
        <select value={dodgeDirection} onChange={e=>setDodgeDirection(e.target.value as "AWAY"|"TOWARD"|"WEAPON")} className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2">
          <option value="AWAY">Alejarse</option><option value="TOWARD">Acercarse</option>
          {state.droppedWeapons?.some(w=>w.owner===side)&&<option value="WEAPON">Hacia el arma arrojada</option>}
        </select>
      </label>}
-     <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,defenseAngle:angle,dodgeDirection:selectedDefense==="DODGE"?dodgeDirection:undefined,
+     <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,defenseAngle:angle,weaponSlot:dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,dodgeDirection:selectedDefense==="DODGE"?dodgeDirection:undefined,
         predictedCenter:(pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
       disabled={busy||((pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
       {busy?"Resolviendo…":"Responder al ataque"}
@@ -318,7 +325,12 @@ export default function CombatEncounter({id}:{id:string}) {
         className="mt-1 block w-32 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"/>
       </label>
       <select aria-label="Dirección del desplazamiento" value={moveDirection} onChange={e=>setMoveDirection(e.target.value as "TOWARD"|"AWAY"|"WEAPON")} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="TOWARD">Acercarse</option><option value="AWAY">Alejarse</option>{state?.droppedWeapons?.some(w=>w.owner===side)&&<option value="WEAPON">Ir hacia arma arrojada</option>}</select>
-      <button disabled={!ready} onClick={()=>void submit({kind:"MOVE",meters,direction:moveDirection})}
+      {moveDirection==="WEAPON"&&droppedForActor.length>1&&<select aria-label="Arma por recuperar"
+        value={activeRecoverSlot} onChange={e=>setRecoverSlot(e.target.value as "MAIN_HAND"|"OFF_HAND")}
+        className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
+        {droppedForActor.map(w=><option key={(w.slot??"MAIN_HAND")+w.weapon.name} value={w.slot??"MAIN_HAND"}>{w.weapon.name} · {w.slot==="OFF_HAND"?"Secundaria":"Principal"}</option>)}
+      </select>}
+      <button disabled={!ready} onClick={()=>void submit({kind:"MOVE",meters,direction:moveDirection,weaponSlot:moveDirection==="WEAPON"?activeRecoverSlot:undefined})}
        className="rounded-lg border border-cyan-500 px-4 py-2 text-cyan-200 disabled:opacity-40">Mover</button>
       <button disabled={!ready} onClick={()=>void submit({kind:"WAIT"})}
        className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40">Terminar turno</button>

@@ -665,7 +665,7 @@ export function applyResolvedCombatSkill(
   const form=resolveConstructionForm(plan.construction.material,aim.constructionForm,
    existing.some(x=>x.owner===by&&x.sourceSkillId===plan.id&&x.form==="FIELD"));
   const userLabel=typeof aim.constructionLabel==="string"?aim.constructionLabel.trim():"";
-  if(userLabel.length>60||/[\\x00-\\x1f]/.test(userLabel))throw new Error("Nombre de construcción inválido.");
+  if(userLabel.length>60||/[\x00-\x1f]/.test(userLabel))throw new Error("Nombre de construcción inválido.");
   const resistance=plan.creationPassive;
   const baseRes=resistance
     ?Math.max(0,Number((owner as unknown as Record<string,number>)[resistance.resistance.baseStat]??owner.magicDefense)):0;

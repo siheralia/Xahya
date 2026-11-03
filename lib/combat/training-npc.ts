@@ -10,9 +10,10 @@ export const TRAINING_NPC_ATTRIBUTES = [
  "strength","constitution","intelligence","wisdom","charisma","spirit","luck",
 ] as const;
 type BaseStats = Record<string,number>;
-export function varyTrainingNpcStats<T extends BaseStats>(base:T,random:()=>number):T {
+export function varyTrainingNpcStats<T extends BaseStats>(base:T,random:()=>number,preserveStat="agility"):T {
  const varied:BaseStats={...base};
  for(const key of TRAINING_NPC_ATTRIBUTES) {
+  if(key===preserveStat)continue;
   const value=base[key];
   if(!Number.isFinite(value))continue;
   const roll=Math.min(0.999999,Math.max(0,random()));

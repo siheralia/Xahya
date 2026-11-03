@@ -122,7 +122,7 @@ test("encounter #2 regression: equally fast NPC counterattacks instead of defend
 });
 
 test("NPC protects itself instead of sacrificing an obviously fatal hit",()=>{
-  const player=fighter("Attacker",38,{physicalAttack:160});
+  const player=fighter("Attacker",38,{physicalAttack:160,equippedWeapon:{name:"Maza",attackType:"BLUNT",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2}});
   const npc=fighter("NPC",38,{hp:12,maxHp:12,positionMeters:1.5});
   let s=newCombatState(player,npc);
   s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"BLUNT"});

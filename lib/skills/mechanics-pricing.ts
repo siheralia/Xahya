@@ -1,4 +1,4 @@
-import { variableResistancePchCost } from "./variable-resistance";
+import { variableResistancePchCost } from "./variable-resistance.ts";
 import type {SkillMechanics} from "@/lib/skills/interaction-engine";
 
 /**

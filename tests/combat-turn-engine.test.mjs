@@ -98,6 +98,7 @@ test("simulation: 10k symmetric contests avoid first-player bias",()=>{
       {hit:random(),critical:random(),defense:random()});
     if(s2.actors.NPC.hp<100)hits++;
   }
+  console.log("COMBAT_BALANCE accuracy_symmetric_10000="+hits+"/10000");
   assert.ok(hits>4700 && hits<5300,`expect ~50% accuracy; got ${hits}`);
   assert.equal(contestChance(100,100),0.5);
 });
@@ -128,6 +129,7 @@ test("Monte Carlo: 1000 complete equal-stat duels produce no runaway winner bias
   assert.equal(state.status,"FINISHED");
   if(state.winner==="PLAYER")first++; else second++;
  }
+ console.log("COMBAT_BALANCE duel_wins_1000 PLAYER="+first+" NPC="+second);
  assert.equal(first+second,1000);
  assert.ok(first>430&&first<570,`biased complete duel winners: ${first}/1000`);
 });

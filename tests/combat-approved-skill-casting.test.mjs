@@ -38,7 +38,7 @@ test("approved physical skill uses configured 5m reach, damage x1/ignore DEF x0.
  assert.equal(plan.defenseFactor,0.5);
  assert.equal(plan.finalMultiplier,3);
  let s=state();
- assert.throws(()=>applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"PIERCE",trajectory:[{x:0,y:0.5},{x:1,y:0.5}]}),/alcance físico/);
+ assert.throws(()=>applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"BLUNT",trajectory:[{x:0,y:0.5},{x:1,y:0.5}]}),/alcance máximo/);
  s=applyResolvedCombatSkill(s,"PLAYER",plan,{requestId:request(1),trajectory:[{x:0,y:0.5},{x:1,y:0.5}]},dice);
  assert.equal(s.mana.PLAYER.current,30);
  assert.equal(s.actors.PLAYER.spentAp,1);

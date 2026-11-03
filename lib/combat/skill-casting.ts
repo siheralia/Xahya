@@ -147,6 +147,7 @@ export function previewSkillExecution(row:Record<string,unknown>){
   const plan=compileCombatSkill(row);
   return {executable:true as const,skillKind:plan.category,
    needsAim:plan.category!=="SUPPORT",usesMagic:plan.usesMagic===true,
+   constructionMaterial:plan.construction?.material??null,
    disabledReason:null};
  }catch(e) {
   return {executable:false as const,skillKind:null,

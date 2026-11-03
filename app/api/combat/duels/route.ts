@@ -7,12 +7,28 @@ import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { readMechanics } from "@/lib/stats/mechanics";
 import { canAct, massDefaultKg, newCombatState, weaponIntegrityDefault, type CombatFighter } from "@/lib/combat/turn-engine";
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
+import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
+import { hasRolePermission } from "@/lib/role-permissions";
 
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
 async function currentUser() {
   const {userId}=await auth();
   if(!userId)return null;
   return (await db.orm.public.User.all()).find(u=>u.clerkId===userId)??null;
+}
+async function canApproveCombat(user:{id:number;role:string}) {
+ return ["ADMIN","GM"].includes(String(user.role))
+  || await hasRolePermission(user,"management.combat","approve");
+}
+export async function GET() {
+ const user=await currentUser();
+ if(!user)return NextResponse.json({error:"Sin sesión."},{status:401});
+ const canApprovePvP=await canApproveCombat(user);
+ const all=await db.orm.public.Character.all();
+ const own=all.filter(c=>Number(c.userId)===Number(user.id));
+ const chars=canApprovePvP?all:own;
+ const characters=chars.map(c=>({id:Number(c.id),name:String(c.name),mine:Number(c.userId)===Number(user.id)}));
+ return NextResponse.json({characters,canApprovePvP});
 }
 function buildFighter(name:string, characterId:number|null, base:Record<string,number>,
  derived:Record<string,number>, weaponType:unknown="CUT", defenseType:unknown="SOLID"):CombatFighter {
@@ -39,7 +55,7 @@ export async function POST(req:Request) {
   if(!Number.isSafeInteger(characterId)||characterId<1)
     return NextResponse.json({error:"Personaje inválido."},{status:400});
   const character=await db.orm.public.Character.where({id:characterId}).first();
-  const gm=["ADMIN","GM"].includes(String(user.role));
+  const gm=await canApproveCombat(user);
   if(!character || (!gm && Number(character.userId)!==Number(user.id)))
     return NextResponse.json({error:"Sin permiso sobre este personaje."},{status:403});
   const first=await getEffectiveCharacterStats(characterId);
@@ -80,11 +96,15 @@ export async function POST(req:Request) {
         if(Number.isFinite(supplied))base[key]=Math.max(0,Math.min(10000,supplied));
       }
     }
-    const derived=await calculateConfiguredDerivedStats(base);
+    // A small, server-generated variation makes each training opponent unique.
+    // Preserve mirrored AGI/speed so equal-speed initiative can still be tested.
+    const npcBase=gm&&body?.npcStats&&typeof body.npcStats==="object"
+      ? base:varyTrainingNpcStats(base,()=>randomInt(1_000_000)/1_000_000);
+    const derived=await calculateConfiguredDerivedStats(npcBase);
     opponent=buildFighter(String(body?.npcName||"Oponente de entrenamiento").slice(0,80),
-      null,base,derived);
+      null,npcBase,derived);
     opponent.massKg=massDefaultKg;
-    opponent.speedValue=numeric((base as Record<string,number>)[mechanics.combatSpeed]??(derived as Record<string,number>)[mechanics.combatSpeed],opponent.agility);
+    opponent.speedValue=numeric((npcBase as Record<string,number>)[mechanics.combatSpeed]??(derived as Record<string,number>)[mechanics.combatSpeed],opponent.agility);
   }
   // Server-side random tie-break prevents a permanent first-mover advantage.
   // The next round opens with the other fighter, then alternates.

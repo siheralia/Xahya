@@ -1,3 +1,4 @@
+import { variableResistancePchCost } from "./variable-resistance.ts";
 import type {SkillMechanics} from "@/lib/skills/interaction-engine";
 
 /**
@@ -5,7 +6,9 @@ import type {SkillMechanics} from "@/lib/skills/interaction-engine";
  * Conditions and free-form descriptions never grant unpriced execution power.
  */
 export function mechanicsPchCost(mechanics:SkillMechanics|undefined|null):number {
-  if (!mechanics || !Array.isArray(mechanics.rules)) return 0;
+  if (!mechanics) return 0;
+  const resistanceCost = mechanics.variableResistance ? variableResistancePchCost(mechanics.variableResistance) : 0;
+  if (!Array.isArray(mechanics.rules)) return resistanceCost;
   return mechanics.rules.reduce((sum, rule) => {
     const actions = Array.isArray(rule.actions) ? rule.actions : [];
     const actionsCost=actions.reduce((total, action) => {
@@ -25,5 +28,5 @@ export function mechanicsPchCost(mechanics:SkillMechanics|undefined|null):number
       }
     },0);
     return sum + 2 + (rule.conditions?.length??0)*2 + actionsCost;
-  },0) + (mechanics.activationConditions?.length??0)*2;
+  },0) + (mechanics.activationConditions?.length??0)*2 + resistanceCost;
 }

@@ -1,6 +1,7 @@
 "use client";
 import type { SkillMechanics, MechanicCondition, MechanicRule, MechanicAction, MechanicEvent } from "@/lib/skills/interaction-engine";
 import type { AvailableSkill } from "./SkillPrerequisitesField";
+import { VariableResistanceEditor } from "./VariableResistance";
 
 const input = "mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm text-white";
 const label = "block text-xs text-zinc-400";
@@ -13,10 +14,11 @@ const events:MechanicEvent[]=["ACTIVATE","TURN","HIT","ENTER_FIELD"];
 const targets = [["SELF","Usuario"],["OPPONENT","Oponente"],["ALL","Todos"]] as const;
 
 export function SkillMechanicsEditor({
- value,onChange,characterId,availableSkills=[],editingSkillId,
+ value,onChange,characterId,availableSkills=[],editingSkillId,statistics=[],
 }:{
  value:SkillMechanics;onChange:(v:SkillMechanics)=>void;characterId?:number;
  availableSkills?:AvailableSkill[];editingSkillId?:number|null;
+ statistics?:{key:string;name:string;kind:"basic"|"derived";active?:boolean}[];
 }) {
  const mechanics=value??{};
  const rules=mechanics.rules??[];
@@ -51,6 +53,7 @@ export function SkillMechanicsEditor({
    <label className={label}>Familia de habilidades<input className={input} maxLength={80} placeholder="Ej. Control elemental" value={mechanics.family??""} onChange={e=>onChange({...mechanics,family:e.target.value})}/></label>
    <label className={label}>Habilidad madre<select className={input} value={mechanics.parentSkillId??""} onChange={e=>onChange({...mechanics,parentSkillId:e.target.value?Number(e.target.value):undefined})}><option value="">Ninguna</option>{skills.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
   </div>
+  <VariableResistanceEditor value={mechanics.variableResistance} statistics={statistics} onChange={variableResistance=>onChange({...mechanics,variableResistance})}/>
   <div><p className="mb-2 text-sm font-semibold">Condiciones para activar</p>{renderConditions(mechanics.activationConditions??[],setConditions)}</div>
   <div className="space-y-3">
    <div className="flex items-center justify-between"><h4 className="font-semibold">Reglas de interacción ({rules.length}/12)</h4><button type="button" disabled={rules.length>=12} className="rounded border border-violet-600 px-3 py-2 text-xs" onClick={()=>onChange({...mechanics,rules:[...rules,blankRule()]})}>+ Nueva regla</button></div>

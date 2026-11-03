@@ -39,9 +39,9 @@ export function validateGenericTemplateSettings(
   const combatTypeError=validateSkillCombatTypes(payload);
   if(combatTypeError)return combatTypeError;
   if(!Array.isArray(payload.effect)||payload.effect.length>20) return "La plantilla necesita una lista de efectos válida.";
-  if(!hasParent && payload.effect.length===0)return "La habilidad genérica base necesita al menos un efecto.";
-  if(hasParent && payload.effect.length===0 && !array(mechanics(payload.mechanics).rules).length)
-    return "La especialización debe añadir efectos o reglas.";
+  if(!hasParent && payload.effect.length===0 && !mechanics(payload.mechanics).variableResistance && !array(mechanics(payload.mechanics).rules).length)return "La habilidad genérica base necesita al menos un efecto o mecánica.";
+  if(hasParent && payload.effect.length===0 && !array(mechanics(payload.mechanics).rules).length && !mechanics(payload.mechanics).variableResistance)
+    return "La especialización debe añadir efectos o mecánicas.";
   if(typeof row.elementChoice!=="boolean")return "Selección elemental inválida.";
   const imbues=array(payload.effect).filter(e=>e?.type==="ELEMENTAL_IMBUE");
   if(row.elementChoice&&!imbues.length)return "Añade el efecto Imbuir elemento para permitir elegir elemento.";

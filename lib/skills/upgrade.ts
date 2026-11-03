@@ -37,7 +37,7 @@ export async function priceUpgrade(body:unknown):Promise<{payload:UpgradePayload
   if (!b.name || typeof b.name!=="string" || b.name.length>120 || !b.description || typeof b.description!=="string" || b.description.length>5000) throw new Error("Nombre o descripción inválidos.");
   if(!["OFFENSIVE","PASSIVE","SUPPORT","UTILITY","BASIC"].includes(b.category))throw new Error("Categoría inválida.");
   if(!Number.isSafeInteger(range)||range<0||range>100)throw new Error("Distancia inválida.");
-  if (!Array.isArray(effects)||effects.length<1||effects.length>20)throw new Error("La habilidad debe tener entre 1 y 20 efectos.");
+  if (!Array.isArray(effects)||effects.length>20||(!effects.length && !(b.mechanics?.variableResistance) && !(b.mechanics?.rules?.length)))throw new Error("La habilidad necesita entre 1 y 20 efectos o una mecánica.");
   if(!validEffectRequirements(requirements))throw new Error("Requisitos por efecto inválidos.");
   const mechanics=(b.mechanics??{}) as SkillMechanics;
   const mechanicsError=validateSkillMechanics(mechanics);

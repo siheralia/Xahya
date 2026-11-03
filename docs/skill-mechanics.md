@@ -34,6 +34,29 @@ Cada campo tiene \`material\` (clave ASCII mayúscula como \`FIRE\`), anillos de
 - Los estados con estadísticas configuradas afectan los valores efectivos de la ficha y sus estadísticas derivadas; \`AGI\` modifica la velocidad de combate sin aplicar el factor dos veces.
 - Los campos se almacenan en \`combatSession.mechanicsState\`, \`mazeRoom.mechanicsState\` o \`character.mechanicsState\` según el contexto al activar.
 
+### Resistencia variable (pasivas, barreras y construcciones)
+
+La configuración opcional `mechanics.variableResistance` almacena una única respuesta defensiva por habilidad, con parámetros tipados, sin expresiones ejecutables ni migración nueva. Es independiente de las reglas de eventos. Se configura desde el formulario compartido de habilidades y se refleja en el PCH en creación, mejoras y plantillas genéricas.
+
+Campos:
+- `baseStat`: clave dinámica de estadística (por defecto `magicDefense`, Defensa Mágica).
+- `input`: `ATTACK_SPEED`, `INCOMING_DAMAGE`, `HIT_COUNT`, `HP_PERCENT`. Son valores abstractos de Xahya; **no** son m/s.
+- `formula`: `PROGRESSIVE`, `LINEAR`, `DECREASING`, `THRESHOLD`, `HITS`.
+- `maxMultiplier` de 1 a 10, `minMultiplier` de 0.2 a 1, `threshold` de 1 a 100000, `coefficient` de 0 a 1.
+
+Fórmulas (entrada = X, base = B, máximo = M, umbral = U, coeficiente = k, mínimo = m):
+- Progresiva: `B * (1 + (M-1) * X²/(X²+U²))`. El umbral U es el punto medio del endurecimiento.
+- Lineal: `B * min(M,1+kX)`.
+- Decreciente: `B * max(m,1-kX)`.
+- Umbral: `B * (X>=U ? M : 1)`.
+- Impactos: `B * min(M,1+kX)`, con `input=HIT_COUNT`.
+
+La calculadora está en la tarjeta de cada habilidad que tenga esa mecánica; toma `effectiveStats` y `derivedStats` ya calculadas por `getEffectiveCharacterStats` (equipamiento, perks y modificadores persistentes). Refleja también los ajustes locales de Estado de rol a las estadísticas base mediante diferencias de fórmulas clásicas; con fórmulas derivadas personalizadas, los ajustes locales de base pueden requerir resolver la fórmula del catálogo en el servidor. La variable de entrada del ataque se introduce manualmente; el motor no inventa la velocidad de un enemigo.
+
+**Ejemplo Sikatā**: `{baseStat:"magicDefense",input:"ATTACK_SPEED",formula:"PROGRESSIVE",maxMultiplier:3,minMultiplier:0.2,threshold:50,coefficient:0.02}`. A 50 puntos de velocidad del ataque, la arena tiene ×2 su Defensa Mágica efectiva. No convierte mágicamente todas las defensas del personaje: la propiedad representa solo el material o barrera descritos.
+
+**Límite del alcance:** el motor actual no resuelve automáticamente defensa variable en los golpes, ni consume HP o aplica estados por esta fórmula. La calculadora ayuda a narrar y arbitrar impactos; se necesita conectar la resolución real de daño del combate cuando esté terminada. No se inventa un efecto preexistente ni se modifica ninguna habilidad ajena durante la migración.
+
 ### Protección de maná
 
 La acción \`MANA_WARD\` puede configurarse en **una habilidad futura**, sin crearla ahora. Consume la inversión declarada además del coste de la habilidad, y reduce exposición con:

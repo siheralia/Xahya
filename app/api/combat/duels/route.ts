@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getEffectiveCharacterStats } from "@/lib/stats/effective";
-import { calculateDerivedStats } from "@/lib/stats/derived";
+import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { readMechanics } from "@/lib/stats/mechanics";
 import { massDefaultKg, newCombatState, weaponIntegrityDefault, type CombatFighter } from "@/lib/combat/turn-engine";
 
@@ -78,7 +78,7 @@ export async function POST(req:Request) {
         if(Number.isFinite(supplied))base[key]=Math.max(0,Math.min(10000,supplied));
       }
     }
-    const derived=calculateDerivedStats(base);
+    const derived=await calculateConfiguredDerivedStats(base);
     opponent=buildFighter(String(body?.npcName||"Oponente de entrenamiento").slice(0,80),
       null,base,derived);
     opponent.massKg=massDefaultKg;

@@ -22,12 +22,12 @@ export default function CombatSkillLoadout({
  canUseSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
  onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean}) {
  const [skills,setSkills]=useState<Record<Side,CombatSkillPreview[]>>({PLAYER:[],NPC:[]});
- const [busy,setBusy]=useState(true);
+ const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
  useEffect(()=>{
   if(!authorized)return;
   let live=true;
-  setBusy(true);setError("");
+  setLoading(true);setError("");
   (async()=>{
    try{
     const r=await fetch("/api/combat/"+encounterId+"/skills",{cache:"no-store"});
@@ -36,7 +36,7 @@ export default function CombatSkillLoadout({
     if(live)setSkills(payload.skills);
    }catch(e){
     if(live)setError(e instanceof Error?e.message:"Error de consulta.");
-   }finally{if(live)setBusy(false);}
+   }finally{if(live)setLoading(false);}
   })();
   return()=>{live=false;};
  },[encounterId,authorized,side]);
@@ -45,7 +45,7 @@ export default function CombatSkillLoadout({
  return <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
   <h2 className="text-lg font-semibold">Habilidades del personaje · fase 2.1</h2>
   <p className="mt-1 text-sm text-zinc-400">Habilidades aprobadas de tu ficha. Los ataques compatibles usan el lienzo de arriba y consumen maná, PA y ticks del encuentro; los efectos no implementados siguen bloqueados.</p>
-  {busy?<p className="mt-3 text-sm text-zinc-400">Consultando habilidades aprobadas…</p>
+  {loading?<p className="mt-3 text-sm text-zinc-400">Consultando habilidades aprobadas…</p>
   :error?<p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>
   :roster.length===0?<p className="mt-3 text-sm text-zinc-400">Este personaje no tiene habilidades aprobadas y disponibles para consultar.</p>
   :<div className="mt-4 space-y-2">

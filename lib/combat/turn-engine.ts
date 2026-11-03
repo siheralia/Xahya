@@ -23,7 +23,7 @@ export type CombatFighter = {
 export type PendingAttack = {
   by: Side; against: Side; attackType: CombatAttackType;
   trajectory: Point[]; launchedAtTick: number; usesMagic: boolean;
-  rangedPhysical?: boolean; thrownWeapon?:boolean;
+  rangedPhysical?: boolean; thrownWeapon?:boolean; beyondEffectiveRange?:boolean;
   /** Hidden from client while pending; attacker-selected basic magic blast. */
   targetCenter?: Point;
   /** Coarse, public four-cell telegraph; never reveals the exact impact point. */
@@ -293,7 +293,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     // No selected dodge means contact is checked against a small base margin,
     // not another invisible full Esquive roll.
-    const contact = !avoided && (pending.usesMagic || pending.rangedPhysical
+    const contact = !avoided && (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (pending.usesMagic || pending.rangedPhysical
       ? validArenaPoint(pending.targetCenter) && Math.hypot(pending.targetCenter.x-0.5,pending.targetCenter.y-0.5)
         <= (pending.attackType==="BLUNT"?0.17:pending.attackType==="CUT"?0.11:0.07)
       : geometricContact(pending.attackType,pending.trajectory));
@@ -400,7 +400,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     if (magic && !validArenaPoint(command.areaCenter))
       throw new Error("Marca el centro de la explosión mágica en el lienzo.");
-    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:ranged?(thrown?fighter.equippedWeapon?.throwRangeMeters??0:fighter.equippedWeapon?.effectiveRangeMeters??0):(fighter.equippedWeapon?.effectiveRangeMeters??fighter.unarmedReachMeters??Math.max(0.3,(fighter.heightMeters??1.7)*0.45)))))
+    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:ranged?(thrown?fighter.equippedWeapon?.throwRangeMeters??0:fighter.equippedWeapon?.maximumRangeMeters??fighter.equippedWeapon?.effectiveRangeMeters??0):(fighter.equippedWeapon?.maximumRangeMeters??fighter.equippedWeapon?.effectiveRangeMeters??fighter.unarmedReachMeters??Math.max(0.3,(fighter.heightMeters??1.7)*0.45)))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance efectivo del arma.");
     spend(fighter,turnTicks(fighter,command.attackType));
     if(magic&&serverSkillRangeMeters===undefined)state.mana![by].current-=1;
@@ -415,6 +415,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     state.pending = {by,against:other(by),attackType:command.attackType,
       trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,
+      beyondEffectiveRange:!magic&&!thrown&&Math.abs(fighter.positionMeters-rival.positionMeters)>(fighter.equippedWeapon?.effectiveRangeMeters??fighter.unarmedReachMeters??0.8),
       targetCenter:magic||ranged?command.areaCenter:undefined,
       areaHint:magic||ranged?magicImpactZone(command.areaCenter!):undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);

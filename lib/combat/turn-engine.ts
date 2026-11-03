@@ -20,6 +20,7 @@ export type CombatFighter = {
 export type PendingAttack = {
   by: Side; against: Side; attackType: CombatAttackType;
   trajectory: Point[]; launchedAtTick: number; usesMagic: boolean;
+  rangedPhysical?: boolean;
   /** Hidden from client while pending; attacker-selected basic magic blast. */
   targetCenter?: Point;
   /** Coarse, public four-cell telegraph; never reveals the exact impact point. */
@@ -30,7 +31,7 @@ export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
   damage?: number; critical?: boolean; contact?: boolean;
   knockbackMeters?: number; weaponIntegrity?: number; defense?: DefenseChoice;
-  attackType?: CombatAttackType;
+  attackType?: CombatAttackType; rangedPhysical?: boolean; predictionMatched?: boolean;
   areaCenter?: Point; predictedCenter?: Point;
   skillId?: number; manaCost?: number;
 };
@@ -51,7 +52,7 @@ export type CombatState = {
 export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" }
   | { kind: "WAIT" }
-  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; areaCenter?: Point }
+  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; areaCenter?: Point }
   | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point }
   | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point };
 
@@ -227,12 +228,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     let damageScale = 1;
     let displaced = 0;
     if (defense === "DODGE") {
-      if (pending.usesMagic) {
-        if (!validArenaPoint(pending.targetCenter)) throw new Error("Centro mágico ausente.");
+      if (pending.usesMagic || pending.rangedPhysical) {
+        if (!validArenaPoint(pending.targetCenter)) throw new Error("Centro de ataque ausente.");
         if (!validArenaPoint(command.predictedCenter)) throw new Error("Marca dónde crees que caerá la explosión.");
         // Spatial prediction plus a genuine agility/precision contest.
         // The target was stored privately, never returned by the combat API.
-        avoided = guessedMagicCenter(pending.targetCenter,command.predictedCenter)
+        avoided = Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)
+          <= (pending.rangedPhysical ? (pending.attackType==="BLUNT"?0.12:pending.attackType==="CUT"?0.085:0.045) : pending.attackType==="BLUNT"?0.19:pending.attackType==="CUT"?0.11:0.07)
           && rolls.hit >= contestChance(attacker.precision, fighter.dodge);
       } else {
         avoided = rolls.hit >= contestChance(attacker.precision, fighter.dodge);
@@ -258,9 +260,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     } else if (defense === "DEFLECT") {
       const angle = Number(command.defenseAngle ?? 90);
       if (!finite(angle) || angle < 0 || angle >= 360) throw new Error("Ángulo inválido.");
+      if(pending.rangedPhysical && !validArenaPoint(command.predictedCenter)) throw new Error("Marca dónde interceptarás el proyectil.");
       const alignment = deflectionAlignment(pending.trajectory,angle);
+      const spatialAlignment = !pending.rangedPhysical || (validArenaPoint(pending.targetCenter) && validArenaPoint(command.predictedCenter) && Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=0.09);
       const success = rolls.defense < contestChance(fighter.agility * (0.5+alignment), attacker.strength);
-      avoided = success && alignment >= 0.55;
+      avoided = success && (pending.rangedPhysical ? spatialAlignment : alignment >= 0.55);
       if (!avoided) damageScale = 0.85;
     }
     // No selected dodge means contact is checked against a small base margin,
@@ -296,8 +300,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
       contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
       skillId:pending.skill?.id,
-      areaCenter:pending.usesMagic?pending.targetCenter:undefined,
-      predictedCenter:pending.usesMagic&&defense==="DODGE"?command.predictedCenter:undefined,
+      areaCenter:pending.usesMagic||pending.rangedPhysical?pending.targetCenter:undefined,
+      rangedPhysical:pending.rangedPhysical,
+      predictedCenter:(pending.usesMagic&&defense==="DODGE"||pending.rangedPhysical&&["DODGE","DEFLECT"].includes(defense))?command.predictedCenter:undefined,
+      predictionMatched:validArenaPoint(pending.targetCenter)&&validArenaPoint(command.predictedCenter)?Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=(pending.rangedPhysical?0.09:0.19):undefined,
       summary:avoided ? fighter.name + (pending.usesMagic?" escapó de la explosión":" evitó el ataque")
         : attacker.name + (pending.usesMagic?" acertó con su explosión mágica a ":" impactó a ") + fighter.name + " (" + damage + " HP)"});
     state.pending = null;
@@ -335,28 +341,32 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (!Array.isArray(points) || points.length < 2 || points.length > 80 || points.some(p => !safePoint(p)))
       throw new Error("Trayectoria inválida.");
     const magic=command.usesMagic===true;
-    if(!magic) {
+    const ranged=command.rangedPhysical===true;
+    if(magic&&ranged)throw new Error("El ataque no puede ser mágico y proyectil físico a la vez.");
+    if(ranged&&!validArenaPoint(command.areaCenter))throw new Error("Marca el punto de impacto del proyectil.");
+    if(!magic&&!ranged) {
       const previous=physicalAttackStart(state,by);
       if(previous && Math.hypot(points[0].x-previous.x,points[0].y-previous.y)>0.000001)
         throw new Error("El ataque físico debe comenzar donde terminó el anterior. Muévete para cambiar el punto de inicio.");
     }
     if (magic && !validArenaPoint(command.areaCenter))
       throw new Error("Marca el centro de la explosión mágica en el lienzo.");
-    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:2)))
+    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:ranged?10:2)))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 10 m.":"El objetivo está fuera del alcance físico de 2 m.");
     spend(fighter,turnTicks(fighter,command.attackType));
-    if(!magic){
+    if(!magic&&!ranged){
       state.physicalPathEnd??={};
       state.physicalPathEnd[by]={...points[points.length-1]};
     }
     state.pending = {by,against:other(by),attackType:command.attackType,
-      trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,
-      targetCenter:magic?command.areaCenter:undefined,
-      areaHint:magic?magicImpactZone(command.areaCenter!):undefined};
+      trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,
+      targetCenter:magic||ranged?command.areaCenter:undefined,
+      areaHint:magic||ranged?magicImpactZone(command.areaCenter!):undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,
-      summary:magic?fighter.name+" lanzó una explosión mágica básica de "+labels[command.attackType]+"; esperando reacción"
+      summary:magic?fighter.name+" lanzó magia de "+labels[command.attackType]+"; esperando reacción"
+        :ranged?fighter.name+" lanzó un proyectil físico de "+labels[command.attackType]+"; esperando reacción"
         :fighter.name+" lanzó un ataque de "+labels[command.attackType]+"; esperando reacción"});
   } else throw new Error("Acción inválida o habilidad sin autorización del servidor.");
   state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);

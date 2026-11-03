@@ -38,6 +38,7 @@ export function validateRacialSkill(input: unknown): string | null {
     if (row.target !== undefined && (typeof row.target !== "string" || row.target.length > 120)) return "Objetivo inválido.";
     if (row.description !== undefined && (typeof row.description !== "string" || row.description.length > 2000)) return "Descripción del efecto inválida.";
     if (row.value !== undefined && (!Number.isFinite(row.value) || row.value < 0 || row.value > 1000000)) return "Potencia inválida.";
+    if (row.type === "CONDITIONAL_DAMAGE_TAKEN_MULTIPLIER" && (!["CUT","BLUNT","PIERCE","FIRE"].includes(String(row.target)) || typeof row.value !== "number" || row.value < 10 || row.value > 300)) return "La resistencia condicional requiere un tipo de ataque o Fuego y un multiplicador entre 10 y 300 %.";
     if (row.durationTurns !== undefined && (!Number.isInteger(row.durationTurns) || row.durationTurns < 0 || row.durationTurns > 20)) return "Duración inválida.";
     if (row.durationMovements !== undefined && (!Number.isInteger(row.durationMovements) || row.durationMovements < 1 || row.durationMovements > 100)) return "Duración inválida.";
   }

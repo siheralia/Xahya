@@ -6,7 +6,7 @@ import type {CombatAttackType} from "./matchup-types.ts";
 export type CombatBuffStat = "physicalAttack"|"magicAttack"|"physicalDefense"|"magicDefense"|"precision"|"dodge";
 export type CombatSkillPlan = {
  id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT";
- attackType?:CombatAttackType;usesMagic?:boolean;
+ attackType?:CombatAttackType;usesMagic?:boolean;damageElement?:string;
  rangeMeters:number;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;
  healing:number;bonuses:{stat:CombatBuffStat;value:number}[];
  durationTurns:number;cooldownRounds:number;oncePerCombat:boolean;
@@ -49,6 +49,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
  const range=parseConfiguredSkillRange(row.areaOfEffect);
  const name=typeof row.name==="string"?row.name.slice(0,120):"Habilidad";
  let mode:"PHYSICAL"|"MAGICAL"|null=null;
+ let damageElement:string|undefined;
  let multiplier=1,defenseFactor=1,final=1,healing=0;
  const bonuses:{stat:CombatBuffStat;value:number}[]=[];
  for(const entry of effects){
@@ -61,7 +62,13 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
     const kind=["PHYS_ATK","PHYSICAL_ATTACK"].includes(target)?"PHYSICAL":
       ["MAGIC_ATK","MAGIC_ATTACK"].includes(target)?"MAGICAL":null;
     if(!kind||mode&&mode!==kind)fail("Tipo de daño ambiguo o no implementado.");
-    mode=kind; multiplier*=skillEffectMultiplier("DAMAGE_MULTIPLIER",value);
+    mode=kind;
+    if(typeof e.element==="string" && e.element.trim() && e.element!=="NEUTRAL"){
+      const chosen=e.element.toUpperCase();
+      if(damageElement && chosen!==damageElement)fail("Una habilidad ofensiva no puede tener dos elementos de daño incompatibles.");
+      damageElement=chosen;
+    }
+    multiplier*=skillEffectMultiplier("DAMAGE_MULTIPLIER",value);
     break;
    }
    case "IGNORE_PHYS_DEF_MULTIPLIER":
@@ -112,7 +119,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
  return {
   id,name,cost,category:isAttack?"OFFENSE":"SUPPORT",
   attackType:isAttack?String(row.attackType) as CombatAttackType:undefined,
-  usesMagic:mode==="MAGICAL",rangeMeters:range.rangeMeters??0,
+  usesMagic:mode==="MAGICAL",damageElement:isAttack?damageElement:undefined,rangeMeters:range.rangeMeters??0,
   damageMultiplier:multiplier,defenseFactor,finalMultiplier:final,
   healing,bonuses,durationTurns,cooldownRounds:cooldownTurns(cooldown,duration),
   oncePerCombat:cooldown==="Una vez por combate",

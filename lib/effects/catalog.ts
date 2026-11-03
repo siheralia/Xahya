@@ -4,6 +4,7 @@ export const EFFECT_CATALOG = [
   { type: "STAT_BONUS", label: "Estadística +", mode: "bonus", targets: ["STR","AGI","CON","INT","WIS","CHA","SPI","LCK","HP","MANA","PHYS_ATK","MAGIC_ATK","DEF","MAG_DEF","PRECISION","CRITICAL","DISCOVERY","MIRACLE","INTIMIDATION","CONQUEST","RACE","DODGE","STEALTH","DETECTION","ATTACK_TOTAL"] },
   { type: "DAMAGE_REDUCTION", label: "Daño recibido reducido ×", mode: "multiplier", targets: ["ALL","PHYSICAL","MAGICAL"] },
   { type: "DAMAGE_INCREASE", label: "Daño recibido aumentado ×", mode: "multiplier", targets: ["ALL","PHYSICAL","MAGICAL"] },
+  { type: "CONDITIONAL_DAMAGE_TAKEN_MULTIPLIER", label: "Daño recibido según ataque o elemento ×", mode: "multiplier", targets: ["CUT","BLUNT","PIERCE","FIRE"] },
   { type: "RESOURCE_BONUS", label: "Recurso +", mode: "bonus", targets: ["HP","MANA","MONEY","LEVEL_UP_POINTS"] },
   { type: "COMBAT_MULTIPLIER", label: "Combate ×", mode: "multiplier", targets: ["PHYS_ATK","MAGIC_ATK","ATTACK_TOTAL"] },
   { type: "EQUIPMENT_SLOT_CAP", label: "Límite de equipo +", mode: "bonus", targets: [] },
@@ -38,7 +39,7 @@ const TARGET_LABELS: Record<string,string> = {
  PHYS_ATK:"Ataque físico",MAGIC_ATK:"Ataque mágico",ATTACK_TOTAL:"Ataque total",DEF:"Defensa física",MAG_DEF:"Defensa mágica",
  PRECISION:"Precisión",CRITICAL:"Crítico",DISCOVERY:"Descubrimiento",MIRACLE:"Milagro",INTIMIDATION:"Intimidación",CONQUEST:"Conquista",
  RACE:"Raza",DODGE:"Evasión",STEALTH:"Sigilo",DETECTION:"Detección",ALL:"Todo el daño",PHYSICAL:"Daño físico",MAGICAL:"Daño mágico",
- INVISIBILITY:"Invisibilidad",FLOATING:"Flotar",OTHER:"Otro",SELF:"Usuario",WEAPON:"Arma",ARMOR:"Armadura",SKILL:"Habilidad"
+ CUT:"Corte",BLUNT:"Contundente",PIERCE:"Perforación",FIRE:"Fuego",INVISIBILITY:"Invisibilidad",FLOATING:"Flotar",OTHER:"Otro",SELF:"Usuario",WEAPON:"Arma",ARMOR:"Armadura",SKILL:"Habilidad"
 };
 export function resolveEffectTargets(
  type:string,

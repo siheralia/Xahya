@@ -3,6 +3,7 @@ import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
 import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
 import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
+import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
 
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "NONE";
@@ -14,7 +15,7 @@ export type CombatFighter = {
   magicAttack: number; magicDefense: number; critical: number; luck: number;
   race: number; massKg: number; positionMeters: number; attackType: CombatAttackType;
   defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
-  magicFieldDescription?: string | null; weaponIntegrity: number;
+  magicFieldDescription?: string | null; damageTakenFactors?:DamageTakenFactors; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
 };
 export type PendingAttack = {
@@ -24,7 +25,7 @@ export type PendingAttack = {
   targetCenter?: Point;
   /** Coarse, public four-cell telegraph; never reveals the exact impact point. */
   areaHint?: string;
-  skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number};
+  skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
 };
 export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
@@ -276,7 +277,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       :pending.usesMagic
         ?Math.max(1,Math.round((3+5*power/(power+protection+20))*(critical?1.5:1)*typeFactor))
         :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor-protection*0.75));
-    const damage = contact ? Math.max(0, Math.round(raw * damageScale * (skill?.finalMultiplier??1))) : 0;
+    const racialFactor=racialDamageFactor(fighter.damageTakenFactors,pending.attackType,pending.usesMagic,skill?.damageElement);
+    const damage = contact ? Math.max(0, Math.round(raw * damageScale * (skill?.finalMultiplier??1) * racialFactor)) : 0;
     fighter.hp = Math.max(0, fighter.hp - damage);
     if (contact && damage > 0 && displaced === 0 && !pending.usesMagic)
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
@@ -401,6 +403,7 @@ export function applyResolvedCombatSkill(
   next.pending.skill={
    id:plan.id,name:plan.name,damageMultiplier:plan.damageMultiplier,
    defenseFactor:plan.defenseFactor,finalMultiplier:plan.finalMultiplier,
+   damageElement:plan.damageElement,
   };
   const event=next.log.at(-1);
   if(event){event.skillId=plan.id;event.manaCost=plan.cost;

@@ -76,7 +76,7 @@ export default function CombatEncounter({id}:{id:string}) {
   const handle=window.setInterval(()=>{void load();},3500);
   return ()=>window.clearInterval(handle);
  },[load]);
- async function submit(command:CombatCommand) {
+ async function submit(command:CombatCommand | {kind:"ADVANCE"}) {
   if(busy)return;
   setBusy(true);setError("");
   try {
@@ -155,8 +155,14 @@ export default function CombatEncounter({id}:{id:string}) {
       </p>:
       <p className="mt-4 text-sm text-zinc-400">
        {ready?"Puedes actuar.":"En espera: el oponente debe avanzar sus ticks o se agotaron tus PA."}
-       {" "}El turno se comparte: 100 ticks y 9 + CON puntos de acción por combatiente.
+       {" "}El turno se comparte: 100 ticks y 9 + CON puntos de acción por combatiente. Los ataques y las reacciones consumen recursos; el NPC de entrenamiento actúa automáticamente.
       </p>}
+    {state.status==="ACTIVE" && !pending && !ready && side==="PLAYER" && hasAccess
+      && state.actors.NPC.characterId===null &&
+      <button type="button" disabled={busy} onClick={()=>void submit({kind:"ADVANCE"})}
+        className="mt-3 rounded-lg border border-amber-400 px-4 py-2 text-sm text-amber-200 disabled:opacity-40">
+        Avanzar IA del NPC (si quedó esperando)
+      </button>}
     {defending&&hasAccess&&<div className="mt-4 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
      <div className="grid gap-2 sm:grid-cols-2">

@@ -332,12 +332,16 @@ export default function CombatEncounter({id}:{id:string}) {
        : physicalAnchor
         ? "Tu siguiente ataque físico comienza donde terminó el anterior (punto verde). Dibuja desde allí; moverte permite elegir otro inicio."
         : "Arrastra el dedo o el cursor. La dirección final influye en la posibilidad de desviar el golpe."}</p>
+      {attackMode!=="MAGIC_AREA"&&<p className="mb-2 text-xs text-rose-200">El objetivo está marcado en rojo. El corte debe cruzarlo; el golpe y la perforación deben terminar dentro de su zona. Fuera del alcance efectivo disminuye la precisión.</p>}
       <svg ref={canvas} viewBox="0 0 100 100" preserveAspectRatio={attackMode!=="PHYSICAL"?"xMidYMid meet":"none"}
        onPointerDown={startDraw} onPointerMove={continueDraw}
        onPointerUp={endDraw} onPointerCancel={endDraw}
        className={attackMode!=="PHYSICAL"?"aspect-square w-full max-w-md cursor-crosshair touch-none rounded-lg bg-zinc-900":"h-52 w-full touch-none rounded-lg bg-zinc-900"}
        aria-label="Lienzo para dibujar la trayectoria del ataque">
        {Array.from({length:9},(_,i)=><line key={i} x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth="0.3"/>)}
+       {attackMode!=="MAGIC_AREA"&&<circle cx="50" cy="50" r={displayedAttackType==="BLUNT"?16:displayedAttackType==="CUT"?10:6.5}
+         stroke="#fb7185" strokeWidth="0.9" strokeDasharray="2 2" fill="#fb7185" fillOpacity={0.08}/>}
+       {attackMode!=="MAGIC_AREA"&&<circle cx="50" cy="50" r="1.2" fill="#fb7185"/>}
        {attackMode!=="PHYSICAL"?
         areaCenter&&<>
           {displayedAttackType==="CUT"&&<line x1={Math.max(0,areaCenter.x*100-25)} y1={areaCenter.y*100} x2={Math.min(100,areaCenter.x*100+25)} y2={areaCenter.y*100} stroke="#e9d5ff" strokeWidth="4" strokeLinecap="round"/>}

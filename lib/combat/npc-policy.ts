@@ -29,20 +29,23 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   const npc = state.actors.NPC, attacker = state.actors[state.pending.by];
   if (remainingAp(npc) < 1 || npc.spentTicks >= 100) return {kind:"DEFEND",defense:"NONE"};
   const factor = matchupMultiplier(state.pending.attackType,npc.defenseType);
-  // In the shared action budget, a trained defender can otherwise lose every
-  // action to reactions, especially in equal-speed encounters. Reserve a
-  // proactive attack when accepting the incoming blow is survivable. "NONE"
-  // spends no AP/ticks, but the hit still resolves normally; the subsequent
-  // counterattack spends a full action and the player may react.
+  // On tight action budgets, the NPC may take a survivable hit to preserve
+  // its next initiative. Otherwise it actually defends and still counterattacks
+  // on its alternating initiative. NONE costs no AP; attacks remain paid.
   const roundStart = (state.round-1)*100;
   const attackedThisRound = state.log.some(e =>
     e.kind==="ATTACK" && e.by==="NPC" && e.tick>roundStart);
-  const canCounterNow = npc.spentTicks + turnTicks(npc) <= attacker.spentTicks;
+  const reactionTicks = turnTicks(npc);
+  const canCounterNow = npc.spentTicks + reactionTicks <= attacker.spentTicks;
+  // A speed tie alternates proactive initiatives even after a reaction.
+  // Keep the defensive choice whenever enough AP/ticks remain to retaliate.
+  const canDefendAndCounter = remainingAp(npc) >= 2
+    && npc.spentTicks + reactionTicks < 100;
   const power = state.pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack;
   const protection = state.pending.usesMagic ? npc.magicDefense : npc.physicalDefense;
   const worstDirectDamage = Math.max(1,Math.round(
     power*1.5*factor - protection*0.75));
-  if(!attackedThisRound && canCounterNow && npc.hp>worstDirectDamage) {
+  if(!attackedThisRound && canCounterNow && !canDefendAndCounter && npc.hp>worstDirectDamage) {
     return {kind:"DEFEND",defense:"NONE"};
   }
   const dodgeChance = 1 - contestChance(attacker.precision,npc.dodge);

@@ -347,7 +347,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (!Array.isArray(points) || points.length < 2 || points.length > 80 || points.some(p => !safePoint(p)))
       throw new Error("Trayectoria inválida.");
     const magic=command.usesMagic===true;
-    if(magic&&!serverSkillRangeMeters){
+    if(magic&&serverSkillRangeMeters===undefined&&command.attackType!==fighter.attackType)
+      throw new Error("La magia básica debe usar el tipo de ataque mágico configurado en la ficha.");
+    if(magic&&serverSkillRangeMeters===undefined){
       const mana=state.mana?.[by];
       if(!mana||mana.current<1)throw new Error("Necesitas 1 punto de maná para lanzar magia básica.");
     }
@@ -364,7 +366,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:ranged?10:(fighter.unarmedReachMeters??Math.max(0.3,(fighter.heightMeters??1.7)*0.45)))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 10 m.":"El objetivo está fuera del alcance físico de 2 m.");
     spend(fighter,turnTicks(fighter,command.attackType));
-    if(magic&&!serverSkillRangeMeters)state.mana![by].current-=1;
+    if(magic&&serverSkillRangeMeters===undefined)state.mana![by].current-=1;
     if(!magic&&!ranged){
       state.physicalPathEnd??={};
       state.physicalPathEnd[by]={...points[points.length-1]};
@@ -375,7 +377,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       areaHint:magic||ranged?magicImpactZone(command.areaCenter!):undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
-    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,manaCost:magic&&!serverSkillRangeMeters?1:undefined,
+    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,manaCost:magic&&serverSkillRangeMeters===undefined?1:undefined,
       summary:magic?fighter.name+" lanzó magia de "+labels[command.attackType]+"; esperando reacción"
         :ranged?fighter.name+" lanzó un proyectil físico de "+labels[command.attackType]+"; esperando reacción"
         :fighter.name+" lanzó un ataque de "+labels[command.attackType]+"; esperando reacción"});

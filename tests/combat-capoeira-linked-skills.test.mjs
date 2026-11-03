@@ -76,15 +76,17 @@ test("the kick attacks independently of the katana and pays 30 mana and one acti
  assert.equal(state.actors.PLAYER.spentAp,1);
  assert.equal(state.pending.attackSource,"KICK");
  assert.equal(state.pending.attackType,"BLUNT");
+ assert.equal(state.pending.beyondEffectiveRange,false,"approved skill range must not use unarmed reach penalties");
  assert.equal(state.pending.skill.damageMultiplier,2);
  assert.equal(state.pending.skill.name,"Meia-lua de compasso");
  assert.equal(state.actors.PLAYER.equippedWeapon.name,"Katana");
  assert.deepEqual(physicalAttackStart(state,"PLAYER","KICK"),kickPath[1]);
  assert.equal(physicalAttackStart(state,"PLAYER","MAIN_HAND"),null);
  assert.equal(state.skillCooldowns.PLAYER["38"],0);
- assert.deepEqual(applyResolvedCombatSkill(JSON.parse(JSON.stringify(state)),"PLAYER",plan,{
+ const restored=JSON.parse(JSON.stringify(state));
+ assert.deepEqual(applyResolvedCombatSkill(restored,"PLAYER",plan,{
   requestId:request(1),attackSource:"KICK",trajectory:kickPath,
- },dice),state);
+ },dice),restored);
  state=applyCombatCommand(state,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
  assert.ok(state.actors.NPC.hp<100,"the resolved kick must deal damage");
  assert.equal(state.actors.PLAYER.equippedWeapon.name,"Katana");

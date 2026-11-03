@@ -56,8 +56,18 @@ export async function POST(req:Request) {
       (rival as any).magicAttackType,(rival as any).blockDefenseType);
     opponent.positionMeters=1.5;
   } else {
-    const base={strength:10,agility:10,constitution:10,intelligence:10,wisdom:10,
-      charisma:10,spirit:10,luck:10};
+    // Fair sparring partner: mirror the challenger's effective base stats,
+    // then let a GM override specific values for a scripted NPC.
+    const base={
+      strength:Math.max(1,numeric(first.effectiveStats.strength,10)),
+      agility:Math.max(1,numeric(first.effectiveStats.agility,10)),
+      constitution:Math.max(1,numeric(first.effectiveStats.constitution,10)),
+      intelligence:Math.max(1,numeric(first.effectiveStats.intelligence,10)),
+      wisdom:Math.max(1,numeric(first.effectiveStats.wisdom,10)),
+      charisma:Math.max(1,numeric(first.effectiveStats.charisma,10)),
+      spirit:Math.max(1,numeric(first.effectiveStats.spirit,10)),
+      luck:Math.max(1,numeric(first.effectiveStats.luck,10)),
+    };
     if(gm && body?.npcStats && typeof body.npcStats==="object") {
       for(const key of Object.keys(base) as Array<keyof typeof base>) {
         const supplied=Number(body.npcStats[key]);

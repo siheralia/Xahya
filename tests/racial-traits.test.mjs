@@ -56,8 +56,8 @@ test("blunt strike in the real combat engine is halved, while cut is not",()=>{
     attackType:"CUT",defenseType:"SOLID",spentTicks:0,spentAp:0,...extra,
   });
   const damage=(kind,modifiers)=>{
-    let s=newCombatState(fighter("Attacker",0),fighter("Defender",1.5,{damageTakenFactors:modifiers}));
-    s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:kind,trajectory:[{x:0,y:0.5},{x:1,y:0.5}]});
+    let s=newCombatState(fighter("Attacker",0,{equippedWeapon:{name:"Arma de prueba",attackType:kind,mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2}}),fighter("Defender",1.5,{damageTakenFactors:modifiers}));
+    s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:kind,trajectory:[{x:0,y:0.5},{x:0.5,y:0.5}]});
     s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},{hit:0.1,critical:0.99,defense:0.99});
     return 100-s.actors.NPC.hp;
   };

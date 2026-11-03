@@ -1,0 +1,32 @@
+name: Combat validation
+on:
+  push:
+    branches:
+      - feat/combat-attack-geometries
+  pull_request:
+    paths:
+      - 'lib/combat/**'
+      - 'app/combat/**'
+      - 'app/api/combat/**'
+      - 'app/management/items/**'
+      - 'app/api/management/items/**'
+      - 'prisma/contract.prisma'
+      - 'tests/combat-*.test.mjs'
+      - '.github/workflows/combat-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

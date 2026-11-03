@@ -214,6 +214,11 @@ model Item {
   itemType       String    @default("OTHER")
   itemSubtype    String?
   attackType     String?
+  weaponMode     String    @default("MELEE")
+  effectiveRangeMeters Float @default(1.5)
+  maximumRangeMeters Float @default(1.5)
+  throwable      Boolean   @default(false)
+  throwRangeMeters Float @default(0)
   acquisitionType String   @default("PURCHASABLE")
   price          Int       @default(0)
   effects        Json

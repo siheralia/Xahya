@@ -1,5 +1,5 @@
 import {
-  applyCombatCommand, canAct, contestChance, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks,
+  applyCombatCommand, canAct, contestChance, defaultAttackSource, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type Point,
 } from "./turn-engine.ts";
 import { BASIC_MAGIC_RANGE_METERS } from "./magic-area.ts";
@@ -57,8 +57,18 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
     if (choice<0.50) return {kind:"DEFEND",defense:"DODGE",
       predictedCenter:{x:startX+cap(random(),0,0.999999)*2/3,
         y:startY+cap(random(),0,0.999999)*2/3}};
-    if (choice<0.85) return {kind:"DEFEND",defense:"MAGIC_FIELD"};
+    if (choice<0.85 && (state.mana?.NPC?.current??0)>=1) return {kind:"DEFEND",defense:"MAGIC_FIELD"};
     return choice<0.95 ? {kind:"DEFEND",defense:"ENDURE"} : {kind:"DEFEND",defense:"NONE"};
+  }
+  if (state.pending.rangedPhysical) {
+    // The NPC receives the same quadrant hint as a human, never the secret center.
+    const hint=state.pending.areaHint??"superior izquierda";
+    const guess={x:(hint.includes("derecha")?1/3:0)+cap(random(),0,0.999999)*2/3,
+      y:(hint.includes("inferior")?1/3:0)+cap(random(),0,0.999999)*2/3};
+    const choice=random();
+    if(choice<0.5)return {kind:"DEFEND",defense:"DODGE",predictedCenter:guess};
+    if(choice<0.75)return {kind:"DEFEND",defense:"DEFLECT",defenseAngle:90,predictedCenter:guess};
+    return choice<0.9?{kind:"DEFEND",defense:"BLOCK"}:{kind:"DEFEND",defense:"ENDURE"};
   }
   const factor = matchupMultiplier(state.pending.attackType,npc.defenseType);
   // On tight action budgets, the NPC may take a survivable hit to preserve
@@ -133,18 +143,24 @@ export function progressTrainingNpc(
     const npcSlotReady = npc.spentTicks + turnTicks(npc) <= player.spentTicks;
     if(playerReady&&!npcSlotReady)return next;
     const distance=Math.abs(npc.positionMeters-player.positionMeters);
-    const castMagic=npc.magicAttack>0 && distance<=BASIC_MAGIC_RANGE_METERS && random()<0.25;
-    if(distance>2 && !castMagic) {
+    const castMagic=npc.magicAttack>0 && (next.mana?.NPC?.current??0)>=1 && distance<=BASIC_MAGIC_RANGE_METERS && random()<0.25;
+    const attackSource=defaultAttackSource(npc);
+    const weapon=weaponForSource(npc,attackSource);
+    const physicalReach=effectiveWeaponReachMeters(npc,false,attackSource);
+    if(distance>physicalReach && !castMagic) {
       const maximum=Math.max(1,Math.round(npc.race/10));
-      const meters=Math.min(maximum,Math.max(0.01,distance-1.5));
+      const meters=Math.min(maximum,Math.max(0.01,distance-Math.max(0.1,physicalReach-0.05)));
       next=applyCombatCommand(next,"NPC",{kind:"MOVE",meters,direction:"TOWARD"},makeDice());
     } else {
-      const magicTypes=["CUT","BLUNT","PIERCE"] as const;
       next=castMagic
-        ? applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:magicTypes[Math.floor(cap(random(),0,0.999999)*3)],usesMagic:true,
+        ? applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType,usesMagic:true,
             areaCenter:{x:cap(random(),0,0.999999),y:cap(random(),0,0.999999)}},makeDice())
-        : applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType,
-            trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC"))},makeDice());
+        : weapon?.mode==="RANGED"
+          ?applyCombatCommand(next,"NPC",{kind:"ATTACK",attackSource,attackType:weapon.attackType,
+            rangedPhysical:true,areaCenter:{x:0.4+0.2*cap(random(),0,0.999999),
+              y:0.4+0.2*cap(random(),0,0.999999)}},makeDice())
+          :applyCombatCommand(next,"NPC",{kind:"ATTACK",attackSource,attackType:weapon?.attackType??"BLUNT",
+            trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC",attackSource))},makeDice());
     }
   }
   throw new Error("La IA alcanzó el límite de acciones por actualización.");

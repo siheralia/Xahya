@@ -8,7 +8,7 @@ import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
 
 type Effect = { type: string; stat: string; action?: string; value: number; description: string; element?: string };
 type Item = {
-  id: number; name: string; description: string | null; itemType: string; itemSubtype: string | null; attackType: string | null;
+  id: number; name: string; description: string | null; itemType: string; itemSubtype: string | null; attackType: string | null; weaponMode?:string; effectiveRangeMeters?:number; maximumRangeMeters?:number; throwable?:boolean; throwRangeMeters?:number;
   acquisitionType: string; price: number; propertyBusinessId?: number | null; effects: Effect[]; allowedSlots: string[]; imagePath?: string | null; imageUrl?: string | null;
 };
 
@@ -48,7 +48,7 @@ export default function ItemsManagementPage() {
   useEffect(() => { fetch("/api/management/effect-targets").then((r)=>r.ok?r.json():null).then((data)=>{if(data?.statistics)setStatDefinitions(data.statistics);}).catch(()=>{}); }, []);
   const [businesses,setBusinesses]=useState<{id:number;name:string}[]>([]);
   const [selected,setSelected]=useState<number|null>(null);
-  const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",attackType:"CUT",acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[emptyEffect()],allowedSlots:defaultSlots});
+  const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
   const [error,setError]=useState(""); const [success,setSuccess]=useState("");
   const [modalOpen,setModalOpen]=useState(false); const [imageFile,setImageFile]=useState<File|null>(null); const [imagePreview,setImagePreview]=useState<string|null>(null);
@@ -79,11 +79,11 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",attackType:item.attackType??"CUT",acquisitionType:item.acquisitionType,price:Number(item.price),propertyBusinessId:item.propertyBusinessId==null?"":String(item.propertyBusinessId),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:String(effect.type??"stat_multiplier"),stat:String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":String(effect.stat??"OTHER"),action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??""),element:String(effect.element??"NEUTRAL")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",attackType:item.attackType??"CUT",weaponMode:item.weaponMode??"MELEE",effectiveRangeMeters:Number(item.effectiveRangeMeters??1.5),maximumRangeMeters:Number(item.maximumRangeMeters??1.5),throwable:Boolean(item.throwable),throwRangeMeters:Number(item.throwRangeMeters??0),acquisitionType:item.acquisitionType,price:Number(item.price),propertyBusinessId:item.propertyBusinessId==null?"":String(item.propertyBusinessId),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:String(effect.type??"stat_multiplier"),stat:String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":String(effect.stat??"OTHER"),action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??""),element:String(effect.element??"NEUTRAL")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
     setSuccess(""); setError(""); setImageFile(null); setImagePreview(item.imageUrl ?? null);
     setModalOpen(true);
   }
-  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",attackType:"CUT",acquisitionType:acquisitionTypes.find(([origin])=>canAction("create",origin))?.[0]??"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
+  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:acquisitionTypes.find(([origin])=>canAction("create",origin))?.[0]??"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
@@ -163,6 +163,13 @@ export default function ItemsManagementPage() {
             <label>Tipo de categoría<select value={form.itemType} onChange={e=>setForm({...form,itemType:e.target.value,acquisitionType:e.target.value==="PROPERTY"?"OTHER":form.acquisitionType})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{itemTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
             <label>Negocio de venta exclusivo<select value={form.propertyBusinessId} onChange={e=>setForm({...form,propertyBusinessId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="">Ninguno — disponible para cualquier negocio</option>{businesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>{form.itemType==="PROPERTY"&&<p className="mt-1 text-xs text-zinc-500">Si eliges un negocio, esta propiedad solo podrá ser comprada por ese negocio para revenderla.</p>}</label>
             <label>Tipo de ataque físico<select value={form.attackType} disabled={form.itemType!=="WEAPON"} onChange={e=>setForm({...form,attackType:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="CUT">Corte</option><option value="BLUNT">Contundente</option><option value="PIERCE">Penetración</option></select></label>
+            {form.itemType==="WEAPON"&&<div className="grid gap-3 rounded-lg border border-zinc-700 p-3 sm:grid-cols-2">
+              <label>Modalidad<select value={form.weaponMode} onChange={e=>setForm({...form,weaponMode:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2"><option value="MELEE">Cuerpo a cuerpo</option><option value="RANGED">A distancia</option></select></label>
+              <label>Distancia efectiva (m)<input type="number" min="0.1" step="0.1" value={form.effectiveRangeMeters} onChange={e=>setForm({...form,effectiveRangeMeters:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2"/></label>
+              <label>Distancia máxima (m)<input type="number" min="0.1" step="0.1" value={form.maximumRangeMeters} onChange={e=>setForm({...form,maximumRangeMeters:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2"/></label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={form.throwable} onChange={e=>setForm({...form,throwable:e.target.checked})}/>Se puede arrojar</label>
+              {form.throwable&&<label>Alcance al arrojar (m)<input type="number" min="0.1" step="0.1" value={form.throwRangeMeters} onChange={e=>setForm({...form,throwRangeMeters:Number(e.target.value)})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2"/></label>}
+            </div>}
             <label>Tipo específico<input list="item-subtype-options" value={form.itemSubtype} onChange={e=>setForm({...form,itemSubtype:e.target.value})} placeholder="Ej. Espada, Lanza..." className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/><datalist id="item-subtype-options">{["Espada","Lanza","Daga","Arco","Ballesta","Bastón","Vara","Hacha","Martillo","Escudo","Casco","Armadura","Botas","Guantes","Anillo","Collar","Consumible","Material","Otro"].map(value=><option key={value} value={value}/>)}</datalist></label>
             <label>Obtención<select value={form.acquisitionType} onChange={e=>setForm({...form,acquisitionType:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{acquisitionTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
             <label>Precio<input type="number" min={0} value={form.price} onChange={e=>setForm({...form,price:Number(e.target.value)||0})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"/></label>

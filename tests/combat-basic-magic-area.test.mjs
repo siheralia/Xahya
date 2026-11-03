@@ -14,17 +14,18 @@ const fighter=(name,location=0,override={})=>({
  strength:10,constitution:1,precision:30,dodge:30,
  physicalAttack:18,physicalDefense:6,magicAttack:150,magicDefense:10,
  critical:0,luck:10,race:20,massKg:70,positionMeters:location,
- weaponIntegrity:100,attackType:"CUT",defenseType:"SOLID",spentTicks:0,spentAp:0,
+ weaponIntegrity:100,attackType:"BLUNT",defenseType:"SOLID",spentTicks:0,spentAp:0,
  ...override,
 });
+const makeState=(...args)=>{const state=newCombatState(...args);state.mana={PLAYER:{current:10,max:10},NPC:{current:10,max:10}};return state;};
 const cast={kind:"ATTACK",attackType:"BLUNT",usesMagic:true,areaCenter:{x:0.18,y:0.15}};
 const dice={hit:0.99,critical:0.99,defense:0.99};
 
 test("basic magic shares the regular initiative and spends ticks and AP",()=>{
- let s=newCombatState(fighter("Caster"),fighter("Defender",6));
- assert.equal(BASIC_MAGIC_MANA_COST,0);
- assert.equal(BASIC_MAGIC_RANGE_METERS,10);
- assert.throws(()=>applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"BLUNT"}),/alcance físico/);
+ let s=makeState(fighter("Caster"),fighter("Defender",2));
+ assert.equal(BASIC_MAGIC_MANA_COST,1);
+ assert.equal(BASIC_MAGIC_RANGE_METERS,4);
+ assert.throws(()=>applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"BLUNT"}),/alcance máximo/);
  s=applyCombatCommand(s,"PLAYER",cast);
  assert.equal(s.actors.PLAYER.spentAp,1);
  assert.ok(s.actors.PLAYER.spentTicks>0);
@@ -35,15 +36,15 @@ test("basic magic shares the regular initiative and spends ticks and AP",()=>{
 });
 
 test("invalid or out-of-range magic centers and distant targets are rejected",()=>{
- let s=newCombatState(fighter("Caster"),fighter("Defender",2));
+ let s=makeState(fighter("Caster"),fighter("Defender",2));
  assert.throws(()=>applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"BLUNT",usesMagic:true}),/centro/);
  assert.throws(()=>applyCombatCommand(s,"PLAYER",{...cast,areaCenter:{x:2,y:0.5}}),/centro/);
- s=newCombatState(fighter("Caster"),fighter("Defender",11));
+ s=makeState(fighter("Caster"),fighter("Defender",5));
  assert.throws(()=>applyCombatCommand(s,"PLAYER",cast),/alcance mágico/);
 });
 
 test("defender receives only the telegraphed region, never the true circle center",()=>{
- const s=applyCombatCommand(newCombatState(fighter("Caster"),fighter("Defender",2)),"PLAYER",cast);
+ const s=applyCombatCommand(makeState(fighter("Caster"),fighter("Defender",2)),"PLAYER",cast);
  const publicState=combatClientView(s);
  assert.equal(publicState.pending.targetCenter,undefined);
  assert.equal(publicState.pending.areaHint,"superior izquierda");
@@ -54,7 +55,7 @@ test("defender receives only the telegraphed region, never the true circle cente
 });
 
 test("area dodge requires a prediction and a successful dodge roll",()=>{
- const source=newCombatState(fighter("Caster"),fighter("Defender",2));
+ const source=makeState(fighter("Caster"),fighter("Defender",2));
  const first=applyCombatCommand(source,"PLAYER",cast);
  assert.throws(()=>applyCombatCommand(first,"NPC",{kind:"DEFEND",defense:"DODGE"},dice),/Marca/);
  const escaped=applyCombatCommand(first,"NPC",{kind:"DEFEND",defense:"DODGE",predictedCenter:{x:0.2,y:0.15}},dice);
@@ -69,7 +70,7 @@ test("area dodge requires a prediction and a successful dodge roll",()=>{
 });
 
 test("magic does not use physical deflection or consume weapon durability",()=>{
- const source=newCombatState(fighter("Caster"),fighter("Defender",2));
+ const source=makeState(fighter("Caster"),fighter("Defender",2));
  const first=applyCombatCommand(source,"PLAYER",cast);
  assert.throws(()=>applyCombatCommand(first,"NPC",{kind:"DEFEND",defense:"DEFLECT",defenseAngle:90},dice),/explosión/);
  const endured=applyCombatCommand(first,"NPC",{kind:"DEFEND",defense:"ENDURE"},dice);
@@ -88,14 +89,14 @@ test("guess tolerance and circle hint work at arena edges",()=>{
 
 test("training NPC may cast area magic without cheating when defending it",()=>{
  const player=fighter("Guha",0),npc=fighter("NPC",1.5);
- let s=newCombatState(player,npc,"NPC");
+ let s=makeState(player,npc,"NPC");
  s=progressTrainingNpc(s,()=>dice,()=>0.1);
  assert.equal(s.pending?.by,"NPC");
  assert.equal(s.pending?.usesMagic,true);
  assert.ok(s.pending.targetCenter);
  s=applyCombatCommand(s,"PLAYER",{kind:"DEFEND",defense:"NONE"},dice);
  assert.ok(s.log.some(x=>x.kind==="RESOLVE"&&x.areaCenter));
- let incoming=newCombatState(player,npc);
+ let incoming=makeState(player,npc);
  incoming=applyCombatCommand(incoming,"PLAYER",cast);
  const fake=structuredClone(incoming);
  fake.pending.targetCenter={x:0.3,y:0.3}; // same coarse telegraph
@@ -104,4 +105,10 @@ test("training NPC may cast area magic without cheating when defending it",()=>{
  assert.deepEqual(a,b);
  assert.equal(a.defense,"DODGE");
  assert.ok(a.predictedCenter);
+});
+
+test("NPC cannot activate a defensive magic field with zero mana",()=>{
+ const incoming=applyCombatCommand(makeState(fighter("Caster"),fighter("NPC",1)),"PLAYER",cast);
+ incoming.mana.NPC.current=0;
+ assert.notEqual(chooseNpcReaction(incoming,()=>0.65).defense,"MAGIC_FIELD");
 });

@@ -12,6 +12,38 @@ import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { racialDamageFactors } from "@/lib/combat/innate-traits";
 
+async function snapshotEquippedWeapons(characterId:number):Promise<{
+  main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
+}>{
+  const CharacterItem=(db.orm.public as any).CharacterItem;
+  const Item=(db.orm.public as any).Item;
+  if(!CharacterItem||!Item)return {main:undefined,offhand:undefined};
+  const owned=await CharacterItem.where({characterId}).all();
+  const result:{main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]}={
+    main:undefined,offhand:undefined
+  };
+  for(const slot of ["MAIN_HAND","OFF_HAND"] as const) {
+    const equipped=owned.find((entry:any)=>entry.equipped&&entry.equippedSlot===slot);
+    if(!equipped)continue;
+    const item=await Item.where({id:Number(equipped.itemId)}).first();
+    if(!item||item.itemType!=="WEAPON"||!["CUT","BLUNT","PIERCE"].includes(String(item.attackType)))continue;
+    const effective=Number(item.effectiveRangeMeters??1.5);
+    const maximum=Number(item.maximumRangeMeters??effective);
+    const throwRange=Number(item.throwRangeMeters??0);
+    if(!Number.isFinite(effective)||effective<=0||!Number.isFinite(maximum)||maximum<effective||
+      !Number.isFinite(throwRange)||throwRange<0)continue;
+    const weapon={
+      name:String(item.name),attackType:String(item.attackType) as "CUT"|"BLUNT"|"PIERCE",
+      mode:item.weaponMode==="RANGED"?"RANGED" as const:"MELEE" as const,
+      effectiveRangeMeters:effective,maximumRangeMeters:maximum,
+      throwable:Boolean(item.throwable)&&throwRange>0,throwRangeMeters:throwRange,itemId:Number(item.id)
+    };
+    if(slot==="MAIN_HAND")result.main=weapon;
+    else result.offhand=weapon;
+  }
+  return result;
+}
+
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
 async function racialTraitsForCharacter(characterId:number) {
   const skills=await db.orm.public.Skill.where({characterId,status:"APPROVED"}).all();
@@ -73,6 +105,11 @@ export async function POST(req:Request) {
     (character as any).fieldDefenseType,(character as any).fieldDefenseDescription);
   player.speedValue=numeric(first.effectiveStats[mechanics.combatSpeed]??first.derived[mechanics.combatSpeed],player.agility);
   player.damageTakenFactors=await racialTraitsForCharacter(characterId);
+  const playerWeapons=await snapshotEquippedWeapons(characterId);
+  player.equippedWeapon=playerWeapons.main;
+  player.offhandWeapon=playerWeapons.offhand;
+  player.heightMeters=Math.max(0.3,numeric((character as any).height,170)/100);
+  player.unarmedReachMeters=Math.round(player.heightMeters*0.45*100)/100;
   const opponentId=Number(body?.opponentCharacterId??0);
   let opponent:CombatFighter;
   let opponentManaMax=0;
@@ -86,6 +123,11 @@ export async function POST(req:Request) {
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
       (rival as any).magicAttackType,(rival as any).blockDefenseType,
       (rival as any).fieldDefenseType,(rival as any).fieldDefenseDescription);
+    const rivalWeapons=await snapshotEquippedWeapons(opponentId);
+    opponent.equippedWeapon=rivalWeapons.main;
+    opponent.offhandWeapon=rivalWeapons.offhand;
+    opponent.heightMeters=Math.max(0.3,numeric((rival as any).height,170)/100);
+    opponent.unarmedReachMeters=Math.round(opponent.heightMeters*0.45*100)/100;
     opponentManaMax=Math.max(0,Math.floor(numeric(stats.derived.maxMana)));
     opponent.positionMeters=1.5;
     opponent.speedValue=numeric(stats.effectiveStats[mechanics.combatSpeed]??stats.derived[mechanics.combatSpeed],opponent.agility);
@@ -120,6 +162,8 @@ export async function POST(req:Request) {
       (character as any).fieldDefenseType);
     opponentManaMax=Math.max(0,Math.floor(numeric(derived.maxMana)));
     opponent.massKg=massDefaultKg;
+    opponent.heightMeters=player.heightMeters;
+    opponent.unarmedReachMeters=player.unarmedReachMeters;
     // Sparring mirrors the challenger’s *effective* speed even when the
     // configured combat-speed formula is a derived stat of varied attributes.
     opponent.speedValue=scripted

@@ -5,8 +5,8 @@ import CombatSkillLoadout from "./CombatSkillLoadout";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {
-  actionPoints, canAct, deflectionAlignment, effectiveCombatSpeed, physicalAttackStart, remainingAp, turnTicks,
-  type CombatCommand, type CombatState, type DefenseChoice, type Point, type Side,
+  actionPoints, canAct, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  type CombatCommand, type CombatState, type DefenseChoice, type PhysicalAttackSource, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
 type View = {state:CombatState;permissions:{PLAYER:boolean;NPC:boolean};
@@ -50,7 +50,9 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <span>{turnTicks(f)} ticks/acción</span>
    <span>STR: {f.strength}</span>
    <span>CON: {f.constitution}</span>
-   <span>Arma: {f.weaponIntegrity}/100</span>
+   <span>Integridad: {f.weaponIntegrity}/100</span>
+   <span className="col-span-2">Mano principal: {f.equippedWeapon?.name??"Libre"}</span>
+   <span className="col-span-2">Mano secundaria: {f.offhandWeapon?.name??"Libre"}</span>
    <span>Masa: {f.massKg} kg</span>
    {state.mana?.[side]&&<span className="font-semibold text-violet-300">Maná combate: {state.mana[side].current}/{state.mana[side].max}</span>}
   </div>
@@ -62,15 +64,18 @@ export default function CombatEncounter({id}:{id:string}) {
  const [error,setError]=useState("");
  const [shareStatus,setShareStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
- const [attackType,setAttackType]=useState<"CUT"|"BLUNT"|"PIERCE">("CUT");
- const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA">("PHYSICAL");
+ const [attackSource,setAttackSource]=useState<PhysicalAttackSource>("MAIN_HAND");
+ const [recoverSlot,setRecoverSlot]=useState<"MAIN_HAND"|"OFF_HAND">("MAIN_HAND");
+ const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW">("PHYSICAL");
+
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
  const [predictedCenter,setPredictedCenter]=useState<Point|null>(null);
  const [meters,setMeters]=useState(1);
- const [moveDirection,setMoveDirection]=useState<"TOWARD"|"AWAY">("TOWARD");
+ const [moveDirection,setMoveDirection]=useState<"TOWARD"|"AWAY"|"WEAPON">("TOWARD");
  const [points,setPoints]=useState<Point[]>(defaultPath);
  const [drawing,setDrawing]=useState(false);
  const [defense,setDefense]=useState<DefenseChoice>("DODGE");
+ const [dodgeDirection,setDodgeDirection]=useState<"AWAY"|"TOWARD"|"WEAPON">("AWAY");
  const [angle,setAngle]=useState(90);
  const [flash,setFlash]=useState(false);
  const lastResolution=useRef("");
@@ -130,19 +135,19 @@ export default function CombatEncounter({id}:{id:string}) {
   // Read the SVG's currentTarget synchronously, while React's pointer event
   // is still active. Deferred state updater callbacks must never access it.
   const point=toPoint(e);
-  if(attackMode==="MAGIC_AREA"){setAreaCenter(point);return;}
+  if(attackMode!=="PHYSICAL" || displayedAttackType==="PIERCE"){setAreaCenter(point);if(attackMode==="PHYSICAL")setPoints(physicalAnchor?[physicalAnchor,point]:[point,point]);return;}
   try { e.currentTarget.setPointerCapture(e.pointerId); }
   catch { /* Some mobile browsers do not support SVG pointer capture. */ }
   setDrawing(true);
   setPoints(physicalAnchor?[physicalAnchor,point]:[point]);
  }
  function continueDraw(e:PointerEvent<SVGSVGElement>) {
-  if(attackMode==="MAGIC_AREA"||!drawing)return;
+  if(attackMode!=="PHYSICAL"||displayedAttackType==="PIERCE"||!drawing)return;
   const point=toPoint(e);
   setPoints(previous=>previous.length>=79?previous:[...previous,point]);
  }
  function endDraw(e:PointerEvent<SVGSVGElement>) {
-  if(attackMode==="MAGIC_AREA"||!drawing)return;
+  if(attackMode!=="PHYSICAL"||displayedAttackType==="PIERCE"||!drawing)return;
   const point=toPoint(e);
   setDrawing(false);
   setPoints(previous=>previous.length<2?[...previous,point]:previous);
@@ -160,13 +165,21 @@ export default function CombatEncounter({id}:{id:string}) {
  const tiedSpeed=!!state&&effectiveCombatSpeed(state.actors.PLAYER)===effectiveCombatSpeed(state.actors.NPC);
  const actor=state?.actors[side];
  const pending=state?.pending;
- const physicalAnchor=state?physicalAttackStart(state,side):null;
+ const activeAttackSource:PhysicalAttackSource=actor&&(
+   (attackSource==="MAIN_HAND"&&!actor.equippedWeapon)||(attackSource==="OFF_HAND"&&!actor.offhandWeapon)
+ )?defaultAttackSource(actor):attackSource;
+ const selectedWeapon=actor?weaponForSource(actor,activeAttackSource):undefined;
+ const displayedAttackType=attackMode==="MAGIC_AREA"?(actor?.attackType??"CUT"):(selectedWeapon?.attackType??"BLUNT");
+ const physicalAnchor=state?physicalAttackStart(state,side,activeAttackSource):null;
+ const droppedForActor=state?.droppedWeapons?.filter(w=>w.owner===side)??[];
+ const activeRecoverSlot=droppedForActor.some(w=>(w.slot??"MAIN_HAND")===recoverSlot)
+   ?recoverSlot:(droppedForActor[0]?.slot??"MAIN_HAND");
  // Refresh the stroke origin after a paid physical attack or displacement,
  // including when the encounter is reloaded after signing back in.
  useEffect(()=>{
   setDrawing(false);
   setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);
- },[side,physicalAnchor?.x,physicalAnchor?.y]);
+ },[side,activeAttackSource,physicalAnchor?.x,physicalAnchor?.y]);
  const selectedDefense=pending?.usesMagic
   ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
   : (defense==="MAGIC_FIELD"?"DODGE":defense);
@@ -184,12 +197,14 @@ export default function CombatEncounter({id}:{id:string}) {
   castRequestRef.current={key,id:requestId};
   void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
    trajectory:skill.usesMagic?undefined:normalizedPath,
+   attackSource:skill.usesMagic?undefined:activeAttackSource,
    areaCenter:skill.usesMagic?areaCenter??undefined:undefined});
  }
  const hint=pending?.areaHint??"centro";
  const warningCells=magicHintCells(hint);
  const polyline=normalizedPath.map(p=>(p.x*100).toFixed(1)+","+(p.y*100).toFixed(1)).join(" ");
  return <main className="mx-auto max-w-5xl px-4 py-7 text-zinc-100">
+  {state?.droppedWeapons?.length ? <p className="mb-3 text-sm text-amber-200">Armas arrojadas pendientes de recuperar: {state.droppedWeapons.map(w=>w.weapon.name+" ("+state.actors[w.owner].name+")").join(", ")}. Puedes desplazarte hacia ellas y recogerlas durante el encuentro.</p> : null}
   {flash&&<div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[3000] bg-rose-200/50"/>}
   <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
    <h1 className="text-2xl font-bold">⚔️ Encuentro #{id}</h1>
@@ -215,7 +230,7 @@ export default function CombatEncounter({id}:{id:string}) {
       }</b></span>}
     {state.winner&&<b>Ganador: {state.actors[state.winner].name}</b>}
    </div>
-   <p className="mb-3 text-sm text-zinc-300">Distancia entre combatientes: <b>{Math.abs(state.actors.PLAYER.positionMeters-state.actors.NPC.positionMeters).toFixed(2)} m</b> · Alcance físico: 2 m · Explosión mágica básica: {BASIC_MAGIC_RANGE_METERS} m</p>
+
    <div className="grid gap-3 sm:grid-cols-2">
     <Fighter name={state.actors.PLAYER.name} side="PLAYER" state={state}/>
     <Fighter name={state.actors.NPC.name} side="NPC" state={state}/>
@@ -249,7 +264,7 @@ export default function CombatEncounter({id}:{id:string}) {
       {options.filter(opt=>pending.usesMagic
         ? ["DODGE","MAGIC_FIELD","ENDURE","NONE"].includes(opt.value)
         : opt.value!=="MAGIC_FIELD").map(opt=><label key={opt.value} className="flex gap-2 rounded-lg border border-zinc-700 p-3">
-       <input type="radio" checked={selectedDefense===opt.value} onChange={()=>setDefense(opt.value)}/>
+       <input type="radio" disabled={opt.value==="MAGIC_FIELD"&&(state.mana?.[side]?.current??0)<1} checked={selectedDefense===opt.value} onChange={()=>setDefense(opt.value)}/>
        <span><b>{opt.label}{opt.value==="MAGIC_FIELD"
          ? " ("+fieldNames[actor?.magicFieldType??"CONCENTRATED"]+")":""}</b>
         <small className="block text-zinc-400">{opt.description}</small>
@@ -258,8 +273,8 @@ export default function CombatEncounter({id}:{id:string}) {
        </span>
       </label>)}
      </div>
-     {pending.usesMagic&&selectedDefense==="DODGE"&&<div className="space-y-2">
-      <p className="text-sm text-zinc-300">Adivina dónde caerá la explosión. Toca el terreno para marcar su posible centro. Siempre se resaltan las cuatro casillas más próximas al impacto, no una casilla exacta; acertar también requiere superar la tirada de Esquive.</p>
+     {(pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)&&<div className="space-y-2">
+      <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":"Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo."} Toca el terreno para marcarlo. La región resaltada es una pista, no el punto exacto; acertar la predicción también requiere superar la tirada defensiva.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         onPointerDown={e=>setPredictedCenter(toPoint(e))}
         className="aspect-square w-full max-w-xl cursor-crosshair touch-none rounded-lg border border-amber-500/40 bg-zinc-900"
@@ -283,9 +298,22 @@ export default function CombatEncounter({id}:{id:string}) {
        onChange={e=>setAngle(Number(e.target.value))}/>
       <span className="block text-xs text-zinc-400">Orientación aproximada: {guardHint(deflectionAlignment(pending.trajectory,angle))}. No garantiza desviar el golpe; también intervienen tu agilidad, la fuerza rival y la tirada.</span>
      </label>}
-     <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,defenseAngle:angle,
-        predictedCenter:pending.usesMagic&&selectedDefense==="DODGE"?predictedCenter??undefined:undefined})}
-      disabled={busy||(pending.usesMagic&&selectedDefense==="DODGE"&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
+     {selectedDefense==="DODGE"&&dodgeDirection==="WEAPON"&&droppedForActor.length>1&&
+      <label className="block text-sm">Arma hacia la que esquivar
+       <select value={activeRecoverSlot} onChange={e=>setRecoverSlot(e.target.value as "MAIN_HAND"|"OFF_HAND")}
+         className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2">
+         {droppedForActor.map(w=><option key={"dodge-"+(w.slot??"MAIN_HAND")} value={w.slot??"MAIN_HAND"}>{w.weapon.name} · {w.slot==="OFF_HAND"?"Secundaria":"Principal"}</option>)}
+       </select>
+      </label>}
+     {selectedDefense==="DODGE"&&<label className="block text-sm">Desplazamiento al esquivar
+       <select value={dodgeDirection} onChange={e=>setDodgeDirection(e.target.value as "AWAY"|"TOWARD"|"WEAPON")} className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2">
+         <option value="AWAY">Alejarse</option><option value="TOWARD">Acercarse</option>
+         {state.droppedWeapons?.some(w=>w.owner===side)&&<option value="WEAPON">Hacia el arma arrojada</option>}
+       </select>
+     </label>}
+     <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,defenseAngle:angle,weaponSlot:dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,dodgeDirection:selectedDefense==="DODGE"?dodgeDirection:undefined,
+        predictedCenter:(pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
+      disabled={busy||((pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
       {busy?"Resolviendo…":"Responder al ataque"}
      </button>
     </div>}
@@ -297,63 +325,92 @@ export default function CombatEncounter({id}:{id:string}) {
         onChange={e=>setMeters(Number(e.target.value))}
         className="mt-1 block w-32 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"/>
       </label>
-      <select aria-label="Dirección del desplazamiento" value={moveDirection} onChange={e=>setMoveDirection(e.target.value as "TOWARD"|"AWAY")} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="TOWARD">Acercarse</option><option value="AWAY">Alejarse</option></select>
-      <button disabled={!ready} onClick={()=>void submit({kind:"MOVE",meters,direction:moveDirection})}
+      <select aria-label="Dirección del desplazamiento" value={moveDirection} onChange={e=>setMoveDirection(e.target.value as "TOWARD"|"AWAY"|"WEAPON")} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="TOWARD">Acercarse</option><option value="AWAY">Alejarse</option>{state?.droppedWeapons?.some(w=>w.owner===side)&&<option value="WEAPON">Ir hacia arma arrojada</option>}</select>
+      {moveDirection==="WEAPON"&&droppedForActor.length>1&&<select aria-label="Arma por recuperar"
+        value={activeRecoverSlot} onChange={e=>setRecoverSlot(e.target.value as "MAIN_HAND"|"OFF_HAND")}
+        className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
+        {droppedForActor.map(w=><option key={(w.slot??"MAIN_HAND")+w.weapon.name} value={w.slot??"MAIN_HAND"}>{w.weapon.name} · {w.slot==="OFF_HAND"?"Secundaria":"Principal"}</option>)}
+      </select>}
+      <button disabled={!ready} onClick={()=>void submit({kind:"MOVE",meters,direction:moveDirection,weaponSlot:moveDirection==="WEAPON"?activeRecoverSlot:undefined})}
        className="rounded-lg border border-cyan-500 px-4 py-2 text-cyan-200 disabled:opacity-40">Mover</button>
       <button disabled={!ready} onClick={()=>void submit({kind:"WAIT"})}
        className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40">Terminar turno</button>
      </div>
+     <p className="text-sm text-zinc-300">Distancia al oponente: <b>{Math.abs(state.actors.PLAYER.positionMeters-state.actors.NPC.positionMeters).toFixed(2)} m</b>
+       {" · "}{selectedWeapon?<>Alcance de {selectedWeapon.name}: <b>{selectedWeapon.effectiveRangeMeters}–{selectedWeapon.maximumRangeMeters??selectedWeapon.effectiveRangeMeters} m</b>
+         {selectedWeapon.throwable&&<>{" · "}Arrojar: {selectedWeapon.throwRangeMeters} m</>}</>
+         :<>Alcance de puño: <b>{(actor?.unarmedReachMeters??Math.max(0.3,(actor?.heightMeters??1.7)*0.45)).toFixed(2)} m</b></>}
+       {" · "}Magia básica: {BASIC_MAGIC_RANGE_METERS} m
+     </p>
      <div className="rounded-xl border border-zinc-700 p-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-       <b>{attackMode==="MAGIC_AREA"?"Elige el centro de la explosión":"Dibuja la trayectoria del ataque"}</b>
+       <b>{attackMode==="MAGIC_AREA"?(displayedAttackType==="CUT"?"Elige el centro de la línea mágica":displayedAttackType==="PIERCE"?"Elige la punta mágica":"Elige el centro de la explosión"):displayedAttackType==="PIERCE"?"Marca el punto de perforación":displayedAttackType==="BLUNT"?"Dibuja un golpe contundente rígido":"Dibuja la trayectoria del corte"}</b>
        <button onClick={()=>{setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);setAreaCenter(null);}} className="rounded border border-zinc-600 px-3 py-1 text-xs">Restablecer</button>
       </div>
       <label className="mb-3 block text-sm">Modalidad
-        <select value={attackMode} onChange={e=>setAttackMode(e.target.value as "PHYSICAL"|"MAGIC_AREA")}
+        <select value={attackMode} onChange={e=>setAttackMode(e.target.value as "PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW")}
           className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
-          <option value="PHYSICAL">Ataque físico</option>
+          <option value="PHYSICAL">Ataque físico cuerpo a cuerpo</option>
+          {selectedWeapon?.mode==="RANGED"&&<option value="RANGED">Proyectil físico ({selectedWeapon.name})</option>}
+          {selectedWeapon?.throwable&&<option value="THROW">Arrojar arma ({selectedWeapon.name})</option>}
           <option value="MAGIC_AREA">Explosión mágica básica (área)</option>
         </select>
       </label>
+      {attackMode!=="MAGIC_AREA"&&<label className="mb-3 block text-sm">Arma o mano para atacar
+        <select value={activeAttackSource} onChange={e=>{
+          const source=e.target.value as PhysicalAttackSource;
+          setAttackSource(source);setAreaCenter(null);
+          setAttackMode(actor&&weaponForSource(actor,source)?.mode==="RANGED"?"RANGED":"PHYSICAL");
+        }} className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
+          {actor?.equippedWeapon&&<option value="MAIN_HAND">Principal · {actor.equippedWeapon.name} · {attackNames[actor.equippedWeapon.attackType]}</option>}
+          {actor?.offhandWeapon&&<option value="OFF_HAND">Secundaria · {actor.offhandWeapon.name} · {attackNames[actor.offhandWeapon.attackType]}</option>}
+          <option value="FIST_RIGHT">Puño derecho · Contundente</option>
+          <option value="FIST_LEFT">Puño izquierdo · Contundente</option>
+        </select>
+      </label>}
       <p className="mb-2 text-xs text-zinc-400">{attackMode==="MAGIC_AREA"
        ? "Toca una posición: el punto será el epicentro y el círculo la zona de explosión. El defensor solo verá la región aproximada. Ataque básico con coste temporal normal y "+BASIC_MAGIC_MANA_COST+" de maná en esta fase; las habilidades con maná llegan en fase 2."
        : physicalAnchor
-        ? "Tu siguiente ataque físico comienza donde terminó el anterior (punto verde). Dibuja desde allí; moverte permite elegir otro inicio."
+        ? "Esta arma o mano continúa desde su último ataque (punto verde). Cambiar de arma o mano conserva su propia trayectoria."
         : "Arrastra el dedo o el cursor. La dirección final influye en la posibilidad de desviar el golpe."}</p>
-      <svg ref={canvas} viewBox="0 0 100 100" preserveAspectRatio={attackMode==="MAGIC_AREA"?"xMidYMid meet":"none"}
+      {attackMode!=="MAGIC_AREA"&&<p className="mb-2 text-xs text-rose-200">El objetivo está marcado en rojo. El corte debe cruzarlo; el golpe y la perforación deben terminar dentro de su zona. Fuera del alcance efectivo disminuye la precisión.</p>}
+      <svg ref={canvas} viewBox="0 0 100 100" preserveAspectRatio={attackMode!=="PHYSICAL"?"xMidYMid meet":"none"}
        onPointerDown={startDraw} onPointerMove={continueDraw}
        onPointerUp={endDraw} onPointerCancel={endDraw}
-       className={attackMode==="MAGIC_AREA"?"aspect-square w-full max-w-md cursor-crosshair touch-none rounded-lg bg-zinc-900":"h-52 w-full touch-none rounded-lg bg-zinc-900"}
+       className={attackMode!=="PHYSICAL"?"aspect-square w-full max-w-md cursor-crosshair touch-none rounded-lg bg-zinc-900":"h-52 w-full touch-none rounded-lg bg-zinc-900"}
        aria-label="Lienzo para dibujar la trayectoria del ataque">
        {Array.from({length:9},(_,i)=><line key={i} x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth="0.3"/>)}
-       {attackMode==="MAGIC_AREA"?
+       {attackMode!=="MAGIC_AREA"&&<circle cx="50" cy="50" r={displayedAttackType==="BLUNT"?16:displayedAttackType==="CUT"?10:6.5}
+         stroke="#fb7185" strokeWidth="0.9" strokeDasharray="2 2" fill="#fb7185" fillOpacity={0.08}/>}
+       {attackMode!=="MAGIC_AREA"&&<circle cx="50" cy="50" r="1.2" fill="#fb7185"/>}
+       {attackMode!=="PHYSICAL"?
         areaCenter&&<>
+          {displayedAttackType==="CUT"&&<line x1={Math.max(0,areaCenter.x*100-25)} y1={areaCenter.y*100} x2={Math.min(100,areaCenter.x*100+25)} y2={areaCenter.y*100} stroke="#e9d5ff" strokeWidth="4" strokeLinecap="round"/>}
           <circle cx={areaCenter.x*100} cy={areaCenter.y*100}
-            r={BASIC_MAGIC_AREA_RADIUS*100} fill="#c084fc" fillOpacity={0.3}
+            r={((attackMode==="RANGED"||attackMode==="THROW")?(displayedAttackType==="BLUNT"?0.12:displayedAttackType==="CUT"?0.085:0.045):displayedAttackType==="BLUNT"?BASIC_MAGIC_AREA_RADIUS:displayedAttackType==="CUT"?0.06:0.035)*100} fill="#c084fc" fillOpacity={0.3}
             stroke="#e9d5ff" strokeWidth={1.1}/>
           <circle cx={areaCenter.x*100} cy={areaCenter.y*100} r={2.3} fill="#f5d0fe"/>
         </>
         :<>
-          <polyline points={polyline} fill="none" stroke="#22d3ee" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          {displayedAttackType==="PIERCE"?<circle cx={normalizedPath.at(-1)!.x*100} cy={normalizedPath.at(-1)!.y*100} r="2.5" stroke="#22d3ee" fill="#22d3ee" />:<polyline points={displayedAttackType==="BLUNT"?`${normalizedPath[0].x*100},${normalizedPath[0].y*100} ${normalizedPath.at(-1)!.x*100},${normalizedPath.at(-1)!.y*100}`:polyline} fill="none" stroke="#22d3ee" strokeWidth={displayedAttackType==="BLUNT"?4:1.8} strokeLinecap="round" strokeLinejoin="round"/>}
           <circle cx={normalizedPath[0].x*100} cy={normalizedPath[0].y*100} r="2.5" fill="#34d399"/>
           <circle cx={normalizedPath.at(-1)!.x*100} cy={normalizedPath.at(-1)!.y*100} r="2.5" fill="#f59e0b"/>
         </>}
       </svg>
       <div className="mt-3 flex flex-wrap items-end gap-3">
-       <label className="text-sm">{attackMode==="MAGIC_AREA"?"Tipo de magia básica":"Tipo de ataque físico"}
-        <select value={attackType} onChange={e=>setAttackType(e.target.value as typeof attackType)}
-         className="mt-1 block rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
-         <option value="CUT">{attackMode==="MAGIC_AREA"?"Onda cortante":"Corte"}</option>
-         <option value="BLUNT">{attackMode==="MAGIC_AREA"?"Pulso contundente":"Contundente"}</option>
-         <option value="PIERCE">{attackMode==="MAGIC_AREA"?"Descarga perforante":"Penetración"}</option>
-        </select>
-       </label>
-       <button disabled={!ready||(attackMode==="MAGIC_AREA"?!areaCenter:points.length<2)}
+       <div className="text-sm">{attackMode==="MAGIC_AREA"?"Tipo de magia básica":"Tipo de ataque físico"}
+        <div className="mt-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">{attackNames[displayedAttackType]}
+          <span className="ml-2 text-xs text-zinc-400">Configurado en la ficha o el arma</span>
+        </div>
+       </div>
+       <button disabled={!ready||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
-           ? {kind:"ATTACK",usesMagic:true,attackType,areaCenter:areaCenter??undefined}
-           : {kind:"ATTACK",attackType,trajectory:normalizedPath})}
+           ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined}
+           : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
+           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
+           : {kind:"ATTACK",attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
-        {attackMode==="MAGIC_AREA"?"Lanzar explosión mágica":"Atacar"}
+        {attackMode==="MAGIC_AREA"?"Lanzar magia":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
        </button>
       </div>
      </div>
@@ -364,7 +421,7 @@ export default function CombatEncounter({id}:{id:string}) {
     canUseSkill={ready} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
-    onCast={castSkill} aimMode={attackMode} magicAimReady={areaCenter!==null}/>
+    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null}/>
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
     <h2 className="mb-3 text-lg font-bold">Registro de combate</h2>
     {state.log.length===0?<p className="text-sm text-zinc-500">Aún no hay acciones.</p>:

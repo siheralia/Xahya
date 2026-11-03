@@ -63,11 +63,11 @@ export default function CombatEncounter({id}:{id:string}) {
  const [shareStatus,setShareStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
  const [attackType,setAttackType]=useState<"CUT"|"BLUNT"|"PIERCE">("CUT");
- const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA"|"RANGED">("PHYSICAL");
+ const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW">("PHYSICAL");
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
  const [predictedCenter,setPredictedCenter]=useState<Point|null>(null);
  const [meters,setMeters]=useState(1);
- const [moveDirection,setMoveDirection]=useState<"TOWARD"|"AWAY">("TOWARD");
+ const [moveDirection,setMoveDirection]=useState<"TOWARD"|"AWAY"|"WEAPON">("TOWARD");
  const [points,setPoints]=useState<Point[]>(defaultPath);
  const [drawing,setDrawing]=useState(false);
  const [defense,setDefense]=useState<DefenseChoice>("DODGE");
@@ -297,7 +297,7 @@ export default function CombatEncounter({id}:{id:string}) {
         onChange={e=>setMeters(Number(e.target.value))}
         className="mt-1 block w-32 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"/>
       </label>
-      <select aria-label="Dirección del desplazamiento" value={moveDirection} onChange={e=>setMoveDirection(e.target.value as "TOWARD"|"AWAY")} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="TOWARD">Acercarse</option><option value="AWAY">Alejarse</option></select>
+      <select aria-label="Dirección del desplazamiento" value={moveDirection} onChange={e=>setMoveDirection(e.target.value as "TOWARD"|"AWAY"|"WEAPON")} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="TOWARD">Acercarse</option><option value="AWAY">Alejarse</option>{state?.droppedWeapons?.some(w=>w.owner===side)&&<option value="WEAPON">Ir hacia arma arrojada</option>}</select>
       <button disabled={!ready} onClick={()=>void submit({kind:"MOVE",meters,direction:moveDirection})}
        className="rounded-lg border border-cyan-500 px-4 py-2 text-cyan-200 disabled:opacity-40">Mover</button>
       <button disabled={!ready} onClick={()=>void submit({kind:"WAIT"})}
@@ -309,10 +309,11 @@ export default function CombatEncounter({id}:{id:string}) {
        <button onClick={()=>{setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);setAreaCenter(null);}} className="rounded border border-zinc-600 px-3 py-1 text-xs">Restablecer</button>
       </div>
       <label className="mb-3 block text-sm">Modalidad
-        <select value={attackMode} onChange={e=>setAttackMode(e.target.value as "PHYSICAL"|"MAGIC_AREA"|"RANGED")}
+        <select value={attackMode} onChange={e=>setAttackMode(e.target.value as "PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW")}
           className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
           <option value="PHYSICAL">Ataque físico cuerpo a cuerpo</option>
           {actor?.equippedWeapon?.mode==="RANGED"&&<option value="RANGED">Proyectil físico ({actor.equippedWeapon.name})</option>}
+          {actor?.equippedWeapon?.throwable&&<option value="THROW">Arrojar arma ({actor.equippedWeapon.name})</option>}
           <option value="MAGIC_AREA">Explosión mágica básica (área)</option>
         </select>
       </label>
@@ -331,7 +332,7 @@ export default function CombatEncounter({id}:{id:string}) {
         areaCenter&&<>
           {attackType==="CUT"&&<line x1={Math.max(0,areaCenter.x*100-25)} y1={areaCenter.y*100} x2={Math.min(100,areaCenter.x*100+25)} y2={areaCenter.y*100} stroke="#e9d5ff" strokeWidth="4" strokeLinecap="round"/>}
           <circle cx={areaCenter.x*100} cy={areaCenter.y*100}
-            r={(attackMode==="RANGED"?(attackType==="BLUNT"?0.12:attackType==="CUT"?0.085:0.045):attackType==="BLUNT"?BASIC_MAGIC_AREA_RADIUS:attackType==="CUT"?0.06:0.035)*100} fill="#c084fc" fillOpacity={0.3}
+            r={((attackMode==="RANGED"||attackMode==="THROW")?(attackType==="BLUNT"?0.12:attackType==="CUT"?0.085:0.045):attackType==="BLUNT"?BASIC_MAGIC_AREA_RADIUS:attackType==="CUT"?0.06:0.035)*100} fill="#c084fc" fillOpacity={0.3}
             stroke="#e9d5ff" strokeWidth={1.1}/>
           <circle cx={areaCenter.x*100} cy={areaCenter.y*100} r={2.3} fill="#f5d0fe"/>
         </>
@@ -350,13 +351,14 @@ export default function CombatEncounter({id}:{id:string}) {
          <option value="PIERCE">{attackMode==="MAGIC_AREA"?"Descarga perforante":"Penetración"}</option>
         </select>
        </label>
-       <button disabled={!ready||(attackMode==="RANGED"&&actor?.equippedWeapon?.mode!=="RANGED")||(attackMode==="PHYSICAL"&&actor?.equippedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
+       <button disabled={!ready||(attackMode==="RANGED"&&actor?.equippedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!actor?.equippedWeapon?.throwable)||(attackMode==="PHYSICAL"&&actor?.equippedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
            ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??attackType,areaCenter:areaCenter??undefined}
+           : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackType:actor?.equippedWeapon?.attackType??attackType,areaCenter:areaCenter??undefined}
            : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackType:actor?.equippedWeapon?.attackType??attackType,areaCenter:areaCenter??undefined}
            : {kind:"ATTACK",attackType:actor?.equippedWeapon?.attackType??attackType,trajectory:normalizedPath})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
-        {attackMode==="MAGIC_AREA"?"Lanzar magia":attackMode==="RANGED"?"Disparar proyectil":"Atacar"}
+        {attackMode==="MAGIC_AREA"?"Lanzar magia":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
        </button>
       </div>
      </div>

@@ -376,7 +376,7 @@ export default function CombatEncounter({id}:{id:string}) {
     canUseSkill={ready} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
-    onCast={castSkill} aimMode={attackMode} magicAimReady={areaCenter!==null}/>
+    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null}/>
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
     <h2 className="mb-3 text-lg font-bold">Registro de combate</h2>
     {state.log.length===0?<p className="text-sm text-zinc-500">Aún no hay acciones.</p>:

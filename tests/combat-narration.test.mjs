@@ -41,7 +41,7 @@ test("the chronicle turns logged actions into coherent predefined phrases",()=>{
 });
 test("newly completed encounters retain a full narration even after the 100-event screen log rolls over",()=>{
  const player=basicActor("Elena",0),opponent=basicActor("Sombra",1);
- opponent.hp=1;opponent.physicalDefense=0;
+ opponent.hp=1;opponent.physicalDefense=0;opponent.speedValue=60;
  let state=newCombatState(player,opponent);
  const history=Array.from({length:145},(_,i)=>({
   kind:"MOVE",tick:i,by:"PLAYER",summary:i===0?"Paso inicial memorable":"Recorrido "+i

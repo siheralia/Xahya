@@ -573,7 +573,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown,source))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance máximo del ataque.");
     const distanceAtLaunch=Math.abs(fighter.positionMeters-rival.positionMeters);
-    const effectiveAtLaunch=selectedWeapon?.effectiveRangeMeters??effectiveWeaponReachMeters(fighter,false,source);
+    // An approved skill owns its declared 2m/5m/etc. effective reach. Do
+    // not apply an unarmed or equipped-weapon range penalty to that technique.
+    const effectiveAtLaunch=serverSkillRangeMeters??
+      (selectedWeapon?.effectiveRangeMeters??effectiveWeaponReachMeters(fighter,false,source));
     spend(fighter,turnTicks(fighter,command.attackType));
     if(magic&&serverSkillRangeMeters===undefined)state.mana![by].current-=1;
     if(thrown&&selectedWeapon){

@@ -181,6 +181,15 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     fighter.hp = Math.max(0, fighter.hp - damage);
     if (contact && damage > 0 && displaced === 0 && !pending.usesMagic)
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
+    if (displaced > 0) {
+      if (defense === "REPEL" && damageScale < 1) {
+        const sign = Math.sign(attacker.positionMeters - fighter.positionMeters) || 1;
+        attacker.positionMeters += sign * displaced;
+      } else {
+        const sign = Math.sign(fighter.positionMeters - attacker.positionMeters) || 1;
+        fighter.positionMeters += sign * displaced;
+      }
+    }
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT + attacker.spentTicks,(state.round-1)*LIMIT + fighter.spentTicks);
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
       contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
@@ -220,8 +229,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("El objetivo está fuera del alcance físico de 2 m.");
     spend(fighter,turnTicks(fighter,command.attackType));
     state.pending = {by,against:other(by),attackType:command.attackType,
-      trajectory:points,launchedAtTick:fighter.spentTicks,usesMagic:command.usesMagic===true};
-    addLog(state,{kind:"ATTACK",tick:fighter.spentTicks,by,against:other(by),summary:fighter.name+" atacó; esperando reacción"});
+      trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:command.usesMagic===true};
+    addLog(state,{kind:"ATTACK",tick:(state.round-1)*LIMIT+fighter.spentTicks,by,against:other(by),summary:fighter.name+" atacó; esperando reacción"});
   } else throw new Error("Acción inválida.");
   state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);
   advanceRoundIfComplete(state);

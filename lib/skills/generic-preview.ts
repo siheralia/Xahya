@@ -42,7 +42,7 @@ export function calculateGenericPricePreview(
  if(parent && (parent.totalPch===null || !Number.isSafeInteger(parent.totalPch)))
   throw new Error("El precio de la habilidad base no está disponible.");
  const effects=[...chain.flatMap(t=>Array.isArray(t.payload.effect)?t.payload.effect:[]),...form.effect];
- if(!effects.length)throw new Error("Agrega un efecto para calcular los PCH.");
+ if(!effects.length && !form.mechanics?.variableResistance && !(form.mechanics?.rules?.length))throw new Error("Agrega un efecto o mecánica para calcular los PCH.");
  const requirements=[...chain.flatMap(t=>Array.isArray(t.payload.effectRequirements)?t.payload.effectRequirements:[]),...form.effectRequirements];
  const distinctRequirements=requirements.filter((r,i,a)=>a.findIndex(x=>x.effect===r.effect&&(x.element??"")===(r.element??""))===i);
  let combined:SkillMechanics={};

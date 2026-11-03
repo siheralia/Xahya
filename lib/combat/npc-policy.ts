@@ -1,5 +1,5 @@
 import {
-  applyCombatCommand, canAct, contestChance, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks,
+  applyCombatCommand, canAct, contestChance, defaultAttackSource, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type Point,
 } from "./turn-engine.ts";
 import { BASIC_MAGIC_RANGE_METERS } from "./magic-area.ts";
@@ -144,7 +144,9 @@ export function progressTrainingNpc(
     if(playerReady&&!npcSlotReady)return next;
     const distance=Math.abs(npc.positionMeters-player.positionMeters);
     const castMagic=npc.magicAttack>0 && (next.mana?.NPC?.current??0)>=1 && distance<=BASIC_MAGIC_RANGE_METERS && random()<0.25;
-    const physicalReach=effectiveWeaponReachMeters(npc);
+    const attackSource=defaultAttackSource(npc);
+    const weapon=weaponForSource(npc,attackSource);
+    const physicalReach=effectiveWeaponReachMeters(npc,false,attackSource);
     if(distance>physicalReach && !castMagic) {
       const maximum=Math.max(1,Math.round(npc.race/10));
       const meters=Math.min(maximum,Math.max(0.01,distance-Math.max(0.1,physicalReach-0.05)));
@@ -153,8 +155,12 @@ export function progressTrainingNpc(
       next=castMagic
         ? applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType,usesMagic:true,
             areaCenter:{x:cap(random(),0,0.999999),y:cap(random(),0,0.999999)}},makeDice())
-        : applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.equippedWeapon?.attackType??"BLUNT",
-            trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC"))},makeDice());
+        : weapon?.mode==="RANGED"
+          ?applyCombatCommand(next,"NPC",{kind:"ATTACK",attackSource,attackType:weapon.attackType,
+            rangedPhysical:true,areaCenter:{x:0.4+0.2*cap(random(),0,0.999999),
+              y:0.4+0.2*cap(random(),0,0.999999)}},makeDice())
+          :applyCombatCommand(next,"NPC",{kind:"ATTACK",attackSource,attackType:weapon?.attackType??"BLUNT",
+            trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC",attackSource))},makeDice());
     }
   }
   throw new Error("La IA alcanzó el límite de acciones por actualización.");

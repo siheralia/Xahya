@@ -5,8 +5,8 @@ import CombatSkillLoadout from "./CombatSkillLoadout";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {
-  actionPoints, canAct, deflectionAlignment, effectiveCombatSpeed, physicalAttackStart, remainingAp, turnTicks,
-  type CombatCommand, type CombatState, type DefenseChoice, type Point, type Side,
+  actionPoints, canAct, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  type CombatCommand, type CombatState, type DefenseChoice, type PhysicalAttackSource, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
 type View = {state:CombatState;permissions:{PLAYER:boolean;NPC:boolean};
@@ -51,7 +51,8 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <span>STR: {f.strength}</span>
    <span>CON: {f.constitution}</span>
    <span>Integridad: {f.weaponIntegrity}/100</span>
-   <span className="col-span-2">Equipada: {f.equippedWeapon?.name??"Puños"}</span>
+   <span className="col-span-2">Mano principal: {f.equippedWeapon?.name??"Libre"}</span>
+   <span className="col-span-2">Mano secundaria: {f.offhandWeapon?.name??"Libre"}</span>
    <span>Masa: {f.massKg} kg</span>
    {state.mana?.[side]&&<span className="font-semibold text-violet-300">Maná combate: {state.mana[side].current}/{state.mana[side].max}</span>}
   </div>
@@ -63,9 +64,10 @@ export default function CombatEncounter({id}:{id:string}) {
  const [error,setError]=useState("");
  const [shareStatus,setShareStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
- const [attackType,setAttackType]=useState<"CUT"|"BLUNT"|"PIERCE">("CUT");
+ const [attackSource,setAttackSource]=useState<PhysicalAttackSource>("MAIN_HAND");
+ const [recoverSlot,setRecoverSlot]=useState<"MAIN_HAND"|"OFF_HAND">("MAIN_HAND");
  const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW">("PHYSICAL");
- const displayedAttackType=(attackMode==="MAGIC_AREA"?view?.state.actors[side].attackType:view?.state.actors[side].equippedWeapon?.attackType)??(attackMode==="MAGIC_AREA"?attackType:"BLUNT");
+
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
  const [predictedCenter,setPredictedCenter]=useState<Point|null>(null);
  const [meters,setMeters]=useState(1);
@@ -163,13 +165,21 @@ export default function CombatEncounter({id}:{id:string}) {
  const tiedSpeed=!!state&&effectiveCombatSpeed(state.actors.PLAYER)===effectiveCombatSpeed(state.actors.NPC);
  const actor=state?.actors[side];
  const pending=state?.pending;
- const physicalAnchor=state?physicalAttackStart(state,side):null;
+ const activeAttackSource:PhysicalAttackSource=actor&&(
+   (attackSource==="MAIN_HAND"&&!actor.equippedWeapon)||(attackSource==="OFF_HAND"&&!actor.offhandWeapon)
+ )?defaultAttackSource(actor):attackSource;
+ const selectedWeapon=actor?weaponForSource(actor,activeAttackSource):undefined;
+ const displayedAttackType=attackMode==="MAGIC_AREA"?(actor?.attackType??"CUT"):(selectedWeapon?.attackType??"BLUNT");
+ const physicalAnchor=state?physicalAttackStart(state,side,activeAttackSource):null;
+ const droppedForActor=state?.droppedWeapons?.filter(w=>w.owner===side)??[];
+ const activeRecoverSlot=droppedForActor.some(w=>(w.slot??"MAIN_HAND")===recoverSlot)
+   ?recoverSlot:(droppedForActor[0]?.slot??"MAIN_HAND");
  // Refresh the stroke origin after a paid physical attack or displacement,
  // including when the encounter is reloaded after signing back in.
  useEffect(()=>{
   setDrawing(false);
   setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);
- },[side,physicalAnchor?.x,physicalAnchor?.y]);
+ },[side,activeAttackSource,physicalAnchor?.x,physicalAnchor?.y]);
  const selectedDefense=pending?.usesMagic
   ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
   : (defense==="MAGIC_FIELD"?"DODGE":defense);
@@ -219,7 +229,7 @@ export default function CombatEncounter({id}:{id:string}) {
       }</b></span>}
     {state.winner&&<b>Ganador: {state.actors[state.winner].name}</b>}
    </div>
-   <p className="mb-3 text-sm text-zinc-300">Distancia entre combatientes: <b>{Math.abs(state.actors.PLAYER.positionMeters-state.actors.NPC.positionMeters).toFixed(2)} m</b> · Alcance físico: {actor?.equippedWeapon?`${actor.equippedWeapon.effectiveRangeMeters}–${actor.equippedWeapon.maximumRangeMeters??actor.equippedWeapon.effectiveRangeMeters} m`:`${(actor?.unarmedReachMeters??Math.max(0.3,(actor?.heightMeters??1.7)*0.45)).toFixed(2)} m (sin arma)`} · Magia básica: {BASIC_MAGIC_RANGE_METERS} m</p>
+
    <div className="grid gap-3 sm:grid-cols-2">
     <Fighter name={state.actors.PLAYER.name} side="PLAYER" state={state}/>
     <Fighter name={state.actors.NPC.name} side="NPC" state={state}/>
@@ -313,6 +323,12 @@ export default function CombatEncounter({id}:{id:string}) {
       <button disabled={!ready} onClick={()=>void submit({kind:"WAIT"})}
        className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40">Terminar turno</button>
      </div>
+     <p className="text-sm text-zinc-300">Distancia al oponente: <b>{Math.abs(state.actors.PLAYER.positionMeters-state.actors.NPC.positionMeters).toFixed(2)} m</b>
+       {" · "}{selectedWeapon?<>Alcance de {selectedWeapon.name}: <b>{selectedWeapon.effectiveRangeMeters}–{selectedWeapon.maximumRangeMeters??selectedWeapon.effectiveRangeMeters} m</b>
+         {selectedWeapon.throwable&&<>{" · "}Arrojar: {selectedWeapon.throwRangeMeters} m</>}</>
+         :<>Alcance de puño: <b>{(actor?.unarmedReachMeters??Math.max(0.3,(actor?.heightMeters??1.7)*0.45)).toFixed(2)} m</b></>}
+       {" · "}Magia básica: {BASIC_MAGIC_RANGE_METERS} m
+     </p>
      <div className="rounded-xl border border-zinc-700 p-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
        <b>{attackMode==="MAGIC_AREA"?(displayedAttackType==="CUT"?"Elige el centro de la línea mágica":displayedAttackType==="PIERCE"?"Elige la punta mágica":"Elige el centro de la explosión"):displayedAttackType==="PIERCE"?"Marca el punto de perforación":displayedAttackType==="BLUNT"?"Dibuja un golpe contundente rígido":"Dibuja la trayectoria del corte"}</b>

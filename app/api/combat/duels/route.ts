@@ -9,6 +9,7 @@ import { canAct, massDefaultKg, newCombatState, weaponIntegrityDefault, type Com
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 import { combatClientView } from "@/lib/combat/magic-area";
 import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
+import { applyTrainingDifficulty, parseTrainingDifficulty, trainingBaseStats } from "@/lib/combat/training-difficulty";
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { racialDamageFactors } from "@/lib/combat/innate-traits";
 
@@ -112,6 +113,11 @@ export async function POST(req:Request) {
   player.unarmedReachMeters=Math.round(player.heightMeters*0.45*100)/100;
   const opponentId=Number(body?.opponentCharacterId??0);
   let opponent:CombatFighter;
+  let trainingDifficulty:ReturnType<typeof parseTrainingDifficulty>="INTERMEDIATE";
+  if(!(Number.isSafeInteger(opponentId)&&opponentId>0)) {
+    try { trainingDifficulty=parseTrainingDifficulty(body?.npcDifficulty); }
+    catch {return NextResponse.json({error:"Dificultad de entrenamiento inválida."},{status:400});}
+  }
   let opponentManaMax=0;
   if(Number.isSafeInteger(opponentId) && opponentId>0) {
     // A GM must initiate PvP. Both owners may act afterward.
@@ -156,10 +162,12 @@ export async function POST(req:Request) {
     const scripted=gm&&body?.npcStats&&typeof body.npcStats==="object";
     const npcBase=scripted
       ? base:varyTrainingNpcStats(base,()=>randomInt(1_000_000)/1_000_000,mechanics.combatSpeed);
-    const derived=await calculateConfiguredDerivedStats(npcBase);
+    const difficultyBase=trainingBaseStats(npcBase,trainingDifficulty,mechanics.combatSpeed);
+    const derived=await calculateConfiguredDerivedStats(difficultyBase);
     opponent=buildFighter(String(body?.npcName||"Oponente de entrenamiento").slice(0,80),
-      null,npcBase,derived,"CUT","SOLID",
+      null,difficultyBase,derived,"CUT","SOLID",
       (character as any).fieldDefenseType);
+    opponent=applyTrainingDifficulty(opponent,trainingDifficulty);
     opponentManaMax=Math.max(0,Math.floor(numeric(derived.maxMana)));
     opponent.massKg=massDefaultKg;
     opponent.heightMeters=player.heightMeters;
@@ -196,7 +204,7 @@ export async function POST(req:Request) {
   const Session=(db.orm.public as any).CombatSession;
   const session=await Session.create({
     playerCharacterId:characterId,npcName:opponent.name,
-    npcStats:{opponentCharacterId:opponent.characterId},
+    npcStats:{opponentCharacterId:opponent.characterId,...(opponent.characterId===null?{difficulty:trainingDifficulty}:{})},
     currentTick:state.tick,turn:state.round,
     activeActor:state.pending?.against??(canAct(state,"PLAYER")?"PLAYER":"NPC"),
     status:state.status,lastAction:{combatV1:state},

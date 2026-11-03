@@ -36,3 +36,18 @@ export function compileTrainingNpcSkills(rows:readonly GenericSkillTemplateRow[]
  }
  return result;
 }
+
+/** Variety without extra ability creation or PCH: take up to three compatible public spells. */
+export function selectTrainingNpcSkills(plans:readonly CombatSkillPlan[],random:()=>number,limit=3):CombatSkillPlan[] {
+ const selected:CombatSkillPlan[]=[];
+ const take=(candidates:readonly CombatSkillPlan[])=>{
+  const eligible=candidates.filter(p=>!selected.some(s=>s.id===p.id));
+  if(!eligible.length||selected.length>=limit)return;
+  const choice=Math.min(eligible.length-1,Math.floor(Math.max(0,Math.min(0.999999,random()))*eligible.length));
+  selected.push(eligible[choice]);
+ };
+ take(plans.filter(p=>p.category==="OFFENSE"));
+ take(plans.filter(p=>p.category==="SUPPORT"));
+ while(selected.length<Math.min(limit,plans.length))take(plans);
+ return selected;
+}

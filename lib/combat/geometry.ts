@@ -1,5 +1,5 @@
-import type { Point } from "./turn-engine";
-import type { CombatAttackType } from "./ticks";
+import type { Point } from "./turn-engine.ts";
+import type { CombatAttackType } from "./ticks.ts";
 
 export const distance=(a:Point,b:Point)=>Math.hypot(a.x-b.x,a.y-b.y);
 export function segmentDistance(point:Point,a:Point,b:Point):number {

@@ -56,7 +56,7 @@ export type CombatState = {
 export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON" }
   | { kind: "WAIT" }
-  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; areaCenter?: Point }
+  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; areaCenter?: Point }
   | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point }
   | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point };
 

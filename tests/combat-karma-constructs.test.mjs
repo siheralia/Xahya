@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {validateKarmaBoostAllocation} from "../lib/combat/karma-boost.ts";
 import {creationPlanFromEffect,attachedCreationPassive} from "../lib/combat/constructs.ts";
 import {compileCombatSkill} from "../lib/combat/skill-casting.ts";
@@ -104,4 +105,26 @@ test("light objects are visible but cannot attack, block or inherit a sand passi
  assert.equal(s.mana.PLAYER.current,100);
  assert.throws(()=>applyResolvedCombatSkill(state(),"PLAYER",plan,{
   requestId:"light-block-123456",areaCenter:{x:0.2,y:0.7},constructionForm:"BLOCK"},dice),/decorativos/);
+});
+
+test("boosted stats are removed from the finished combat snapshot, never from a character sheet",()=>{
+ let s=state();
+ s=applyResolvedKarmaBoost(s,"PLAYER","boost-expire-123456",{strength:2},4,{strength:2,physicalAttack:4});
+ assert.equal(s.actors.PLAYER.strength,22);
+ s.pending={by:"PLAYER",against:"NPC",attackType:"BLUNT",trajectory:[{x:0,y:0.5},{x:1,y:0.5}],launchedAtTick:10,usesMagic:false};
+ s.actors.NPC.hp=1;
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ assert.equal(s.status,"FINISHED");
+ assert.equal(s.actors.PLAYER.strength,20);
+ assert.equal(s.actors.PLAYER.physicalAttack,24);
+ assert.deepEqual(s.karmaBoosts,{});
+ assert.deepEqual(s.karmaBoostDeltas,{});
+});
+test("karma spending remains conditional and transactional on the server",()=>{
+ const src=readFileSync(new URL("../app/api/combat/[id]/actions/route.ts",import.meta.url),"utf8");
+ assert.match(src,/state\.processedKarmaRequests\?\.includes\(requestId\)/);
+ assert.match(src,/SET karma=karma-/);
+ assert.match(src,/karma>=/);
+ assert.match(src,/applyResolvedKarmaBoost\(state,side,requestId,allocation,cost,deltas\)/);
+ assert.match(src,/tx\.execute\(request\)/);
 });

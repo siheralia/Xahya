@@ -99,7 +99,7 @@ export async function POST(req:Request) {
     // A small, server-generated variation makes each training opponent unique.
     // Preserve mirrored AGI/speed so equal-speed initiative can still be tested.
     const npcBase=gm&&body?.npcStats&&typeof body.npcStats==="object"
-      ? base:varyTrainingNpcStats(base,()=>randomInt(1_000_000)/1_000_000);
+      ? base:varyTrainingNpcStats(base,()=>randomInt(1_000_000)/1_000_000,mechanics.combatSpeed);
     const derived=await calculateConfiguredDerivedStats(npcBase);
     opponent=buildFighter(String(body?.npcName||"Oponente de entrenamiento").slice(0,80),
       null,npcBase,derived);

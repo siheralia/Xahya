@@ -1,6 +1,7 @@
 import { calculateActionTicks, COMBAT_TICKS_PER_TURN } from "./ticks.ts";
 import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
+import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
 import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 
 export type Side = "PLAYER" | "NPC";
@@ -23,6 +24,7 @@ export type PendingAttack = {
   targetCenter?: Point;
   /** Coarse, public four-cell telegraph; never reveals the exact impact point. */
   areaHint?: string;
+  skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number};
 };
 export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
@@ -30,6 +32,7 @@ export type CombatLog = {
   knockbackMeters?: number; weaponIntegrity?: number; defense?: DefenseChoice;
   attackType?: CombatAttackType;
   areaCenter?: Point; predictedCenter?: Point;
+  skillId?: number; manaCost?: number;
 };
 export type CombatState = {
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
@@ -38,13 +41,19 @@ export type CombatState = {
   tieOpener?: Side;
   /** Last physical stroke endpoint for each combatant; cleared on movement. */
   physicalPathEnd?: Partial<Record<Side, Point>>;
+  /** Encounter-local mana snapshot: never debits the global character sheet. */
+  mana?: Record<Side,{current:number;max:number}>;
+  skillCooldowns?: Partial<Record<Side,Record<string,number>>>;
+  skillBonuses?: Array<{by:Side;skillId:number;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
+  processedSkillRequests?: string[];
   pending: PendingAttack | null; log: CombatLog[];
 };
 export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" }
   | { kind: "WAIT" }
   | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; areaCenter?: Point }
-  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point };
+  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point }
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -114,7 +123,7 @@ function lastInitiativeSide(state: CombatState): Side | null {
   for (let i = state.log.length - 1; i >= 0; i--) {
     const {kind, by} = state.log[i];
     if (kind === "ROUND") break;
-    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT") return by;
+    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT" || kind === "SKILL") return by;
   }
   return null;
 }
@@ -150,6 +159,13 @@ function advanceRoundIfComplete(state: CombatState) {
       state.actors[side].spentTicks = 0;
       state.actors[side].spentAp = 0;
     }
+    // Buffs use the same persisted round clock as normal initiatives.
+    const active=state.skillBonuses??[];
+    for(const bonus of active.filter(b=>b.expiresAtRound<=state.round)){
+      const fighter=state.actors[bonus.by];
+      fighter[bonus.stat]=Math.max(0,fighter[bonus.stat]-bonus.value);
+    }
+    state.skillBonuses=active.filter(b=>b.expiresAtRound>state.round);
     addLog(state,{kind:"ROUND",tick:state.tick,by:"PLAYER",summary:"Comienza el turno " + state.round});
   }
 }
@@ -181,7 +197,8 @@ export function knockbackMeters(force: number, resistance: number, massKg = mass
  * consumes action ticks. Reaction is a separate choice, not a free extra dodge.
  */
 export function applyCombatCommand(original: CombatState, by: Side, command: CombatCommand,
-  rolls: {hit:number; critical:number; defense:number} = {hit:0.5,critical:0.5,defense:0.5}): CombatState {
+  rolls: {hit:number; critical:number; defense:number} = {hit:0.5,critical:0.5,defense:0.5},
+  serverSkillRangeMeters?:number): CombatState {
   const state = structuredClone(original);
   if (state.version !== 1 || state.status !== "ACTIVE") throw new Error("El combate no está activo.");
   if (!SIDES.includes(by)) throw new Error("Combatiente no válido.");
@@ -252,10 +269,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const critical = contact && rolls.critical < clamp(0.05 + attacker.critical / (attacker.critical + fighter.luck + 100)*0.20,0.05,0.25);
     // A free phase-1 magical *basic* strike is intentionally bounded.
     // Full skill damage, mana expenditure and elemental effects belong to phase 2.
-    const raw = pending.usesMagic
-      ? Math.max(1,Math.round((3+5*power/(power+protection+20))*(critical?1.5:1)*typeFactor))
-      : Math.max(1, Math.round(power * (critical?1.5:1) * typeFactor - protection * 0.75));
-    const damage = contact ? Math.max(0, Math.round(raw * damageScale)) : 0;
+    const skill=pending.skill;
+    const raw=skill
+      ?Math.max(1,Math.round(power*skill.damageMultiplier*(critical?1.5:1)*typeFactor
+        -protection*skill.defenseFactor*0.75))
+      :pending.usesMagic
+        ?Math.max(1,Math.round((3+5*power/(power+protection+20))*(critical?1.5:1)*typeFactor))
+        :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor-protection*0.75));
+    const damage = contact ? Math.max(0, Math.round(raw * damageScale * (skill?.finalMultiplier??1))) : 0;
     fighter.hp = Math.max(0, fighter.hp - damage);
     if (contact && damage > 0 && displaced === 0 && !pending.usesMagic)
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
@@ -274,6 +295,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT + attacker.spentTicks,(state.round-1)*LIMIT + fighter.spentTicks);
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
       contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
+      skillId:pending.skill?.id,
       areaCenter:pending.usesMagic?pending.targetCenter:undefined,
       predictedCenter:pending.usesMagic&&defense==="DODGE"?command.predictedCenter:undefined,
       summary:avoided ? fighter.name + (pending.usesMagic?" escapó de la explosión":" evitó el ataque")
@@ -320,7 +342,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     if (magic && !validArenaPoint(command.areaCenter))
       throw new Error("Marca el centro de la explosión mágica en el lienzo.");
-    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(magic?BASIC_MAGIC_RANGE_METERS:2))
+    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:2)))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 10 m.":"El objetivo está fuera del alcance físico de 2 m.");
     spend(fighter,turnTicks(fighter,command.attackType));
     if(!magic){
@@ -336,8 +358,74 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,
       summary:magic?fighter.name+" lanzó una explosión mágica básica de "+labels[command.attackType]+"; esperando reacción"
         :fighter.name+" lanzó un ataque de "+labels[command.attackType]+"; esperando reacción"});
-  } else throw new Error("Acción inválida.");
+  } else throw new Error("Acción inválida o habilidad sin autorización del servidor.");
   state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);
   advanceRoundIfComplete(state);
   return state;
+}
+
+/**
+ * Executes an ALREADY VALIDATED server-side plan. Never trust client-supplied
+ * effects, damage, price, cooldown or targets. All changes are pure; the
+ * existing locked combat transaction commits mana, effects and initiative
+ * atomically in the combatSession JSON state.
+ */
+export function applyResolvedCombatSkill(
+ original:CombatState,by:Side,plan:CombatSkillPlan,
+ aim:{requestId:string;trajectory?:Point[];areaCenter?:Point},
+ rolls:{hit:number;critical:number;defense:number},
+):CombatState {
+ if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))
+  throw new Error("Identificador de acción inválido.");
+ if(original.processedSkillRequests?.includes(aim.requestId))
+  return original;
+ if(!canAct(original,by))throw new Error("No puedes lanzar una habilidad fuera de tu iniciativa.");
+ const available=original.mana?.[by];
+ if(!available||!Number.isFinite(available.current))
+  throw new Error("Este encuentro no tiene maná de fase 2; inicia uno nuevo.");
+ if(available.current<plan.cost)
+  throw new Error("Maná insuficiente para esta habilidad.");
+ const key=String(plan.id);
+ const nextAllowed=original.skillCooldowns?.[by]?.[key]??0;
+ if(nextAllowed===-1 || nextAllowed>original.round)
+  throw new Error(nextAllowed===-1?"Esta habilidad solo se usa una vez por combate.":
+    "Habilidad en cooldown hasta el turno "+nextAllowed+".");
+ let next:CombatState;
+ if(plan.category==="OFFENSE") {
+  if(!plan.attackType)throw new Error("La habilidad no tiene tipo de ataque.");
+  next=applyCombatCommand(original,by,{
+   kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
+   trajectory:aim.trajectory,areaCenter:aim.areaCenter,
+  },rolls,plan.rangeMeters);
+  if(!next.pending)throw new Error("No se pudo preparar el ataque de habilidad.");
+  next.pending.skill={
+   id:plan.id,name:plan.name,damageMultiplier:plan.damageMultiplier,
+   defenseFactor:plan.defenseFactor,finalMultiplier:plan.finalMultiplier,
+  };
+  const event=next.log.at(-1);
+  if(event){event.skillId=plan.id;event.manaCost=plan.cost;
+   event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";}
+ }else{
+  next=structuredClone(original);
+  const actor=next.actors[by];
+  actor.hp=Math.min(actor.maxHp,Math.max(0,actor.hp+plan.healing));
+  next.skillBonuses??=[];
+  for(const bonus of plan.bonuses){
+   actor[bonus.stat]+=bonus.value;
+   next.skillBonuses.push({...bonus,by,skillId:plan.id,
+      expiresAtRound:next.round+plan.durationTurns});
+  }
+  spend(actor,turnTicks(actor));
+  next.tick=Math.max(next.tick,(next.round-1)*LIMIT+actor.spentTicks);
+  addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,manaCost:plan.cost,
+   summary:actor.name+" usó "+plan.name+(plan.healing?" y recuperó hasta "+plan.healing+" HP":"")});
+  advanceRoundIfComplete(next);
+ }
+ next.mana![by].current-=plan.cost;
+ next.skillCooldowns??={};
+ next.skillCooldowns[by]??={};
+ next.skillCooldowns[by]![key]=plan.oncePerCombat?-1:
+   (plan.cooldownRounds>0?original.round+plan.cooldownRounds+1:0);
+ next.processedSkillRequests=[...(next.processedSkillRequests??[]),aim.requestId].slice(-100);
+ return next;
 }

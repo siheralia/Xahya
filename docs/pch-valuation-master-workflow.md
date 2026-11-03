@@ -529,12 +529,12 @@ O0 and O1 establish the shared evidence base. RD1–RD9 are the nine independent
 |---|---|---|---|
 | O0 | Source baseline and evidence freeze | None | Pinned source map and current formula audit |
 | O1 | Shared evidence import and coverage audit | O0 | Anonymized data bundle, manifest and data dictionary |
-| RD1 | Independent capability cost | O0, O1, O3 | Primitive capability ontology and standalone-cost theory |
+| RD1 | Independent capability cost | O0, O1 | Primitive capability ontology and standalone-cost theory |
 | RD2 | Base-stat synergy | O1, RD1 | Base-stat interaction and path-partition theory |
 | RD3 | Derived-stat synergy | O1, RD1, RD2 | Derived dependency and mediated-attribution theory |
 | RD4 | General mechanic synergy | O1, RD1–RD3 | Mechanic-response and outcome-attribution theory |
 | RD5 | External portfolio synergy | O1, RD1, RD4 | Portfolio marginal-contribution/interaction theory |
-| RD6 | Complexity and concentration | RD1, O3 | Graph complexity and concentration/aggregation theory |
+| RD6 | Complexity and concentration | RD1, O1 | Graph complexity and concentration/aggregation theory |
 | RD7 | Resource opportunity cost | O1, RD1, RD5, RD9 | Resource shadow-price and operating-cost theory |
 | RD8 | Action opportunity cost | O1, RD1, RD4, RD5, RD9 | Feasible-action and scheduling opportunity theory |
 | RD9 | Scenario-weighted utility | O1, RD1, RD4–RD8 | Scenario distribution, utility and risk theory |
@@ -769,7 +769,7 @@ A workstream PR may be merged into the integration branch only when:
 7. No computational implementation or unapproved PCH change has slipped into the branch.
 8. The master checklist is updated with evidence links and reviewer disposition.
 
-**Merge sequence:** establish O0 and O1 first. RD1 begins against the shared evidence base. RD2, RD3 and RD4 may research in parallel but must reconcile their direct/mediated attribution boundaries before final acceptance. RD5 can proceed in parallel once the skill graph and activation registry are sufficiently complete. RD6 can proceed in parallel once RD1's primitive-cost ontology and O3's graph registry are available. RD7 and RD8 can research in parallel but must jointly resolve resource-vs-action double counting. RD9 may research in parallel using the shared behaviour/scenario evidence, then reconcile its utility definition with RD1, RD4–RD8. Each RD PR merges to the integration branch only after its own RD-M1–RD-M7 gate. O10 integrates the nine accepted conclusions and is proposed to `main` in a separate review PR. No direct merge to `main` while any RD remains unresolved.
+**Merge sequence:** establish O0 and O1 first. RD1 begins against the shared evidence base. RD2, RD3 and RD4 may research in parallel but must reconcile their direct/mediated attribution boundaries before final acceptance. RD5 can proceed in parallel once the skill graph and activation registry are sufficiently complete. RD6 can proceed in parallel once RD1's primitive-cost ontology and the shared skill-graph registry are available. RD7 and RD8 can research in parallel but must jointly resolve resource-vs-action double counting. RD9 may research in parallel using the shared behaviour/scenario evidence, then reconcile its utility definition with RD1, RD4–RD8. Each RD PR merges to the integration branch only after its own RD-M1–RD-M7 gate. O10 integrates the nine accepted conclusions and is proposed to `main` in a separate review PR. No direct merge to `main` while any RD remains unresolved.
 
 ### Workstream handoff template
 

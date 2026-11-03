@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { randomInt } from "node:crypto";
+import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import {
   applyCombatCommand, canAct, type CombatCommand, type CombatState, type Side,
@@ -97,7 +98,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
         activeActor:next.pending?.against??(canAct(next,"PLAYER")?"PLAYER":"NPC"),
         playerNextActionTick:next.actors.PLAYER.spentTicks,
         npcNextActionTick:next.actors.NPC.spentTicks,
-        updatedAt:new Date(),
+        updatedAt:Temporal.Now.instant(),
       });
       return next;
     });

@@ -17,11 +17,11 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,
+ encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,categoryFilter,
 }:{encounterId:string;side:Side;authorized:boolean;
  canUseSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
  onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean;
- onConstructionMaterialsChange:(side:Side,materials:string[])=>void}) {
+ onConstructionMaterialsChange:(side:Side,materials:string[])=>void;categoryFilter?:string|null}) {
  const [skills,setSkills]=useState<Record<Side,CombatSkillPreview[]>>({PLAYER:[],NPC:[]});
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
@@ -46,9 +46,9 @@ export default function CombatSkillLoadout({
   return()=>{live=false;};
  },[encounterId,authorized,side]);
  if(!authorized)return null;
- const roster=skills[side]??[];
+ const roster=(skills[side]??[]).filter(skill=>!categoryFilter||skill.category===categoryFilter);
  return <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
-  <h2 className="text-lg font-semibold">Habilidades del personaje · fase 2.1</h2>
+  <h2 className="text-lg font-semibold">{categoryFilter?("Habilidades "+(categories[categoryFilter]??categoryFilter)):"Habilidades del personaje"}</h2>
   <p className="mt-1 text-sm text-zinc-400">Habilidades aprobadas de tu ficha. Los ataques compatibles usan el lienzo de arriba y consumen maná, PA y ticks del encuentro; los efectos no implementados siguen bloqueados.</p>
   {loading?<p className="mt-3 text-sm text-zinc-400">Consultando habilidades aprobadas…</p>
   :error?<p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>
@@ -89,7 +89,7 @@ export default function CombatSkillLoadout({
          : mana===null?"El encuentro no tiene maná de fase 2. Inicia uno nuevo."
          : mana<skill.manaCost?"Maná insuficiente"
          : missingAim?(skill.skillKind==="CONSTRUCTION"?"Marca la posición de la construcción en el terreno.":"Marca el centro en modalidad Explosión mágica del lienzo superior.")
-         : !canUseSkill?"Esperando tu iniciativa":null;
+         : !canUseSkill?"La habilidad está lista, pero debes esperar tu iniciativa o resolver una reacción pendiente.":null;
        return <div className="space-y-2">
         {reason&&<p className="text-xs text-amber-300">{reason}</p>}
         {skill.skillKind==="OFFENSE"&&!skill.usesMagic&&skill.attackType==="BLUNT"&&

@@ -562,8 +562,11 @@ export function applyResolvedCombatSkill(
    damageElement:plan.damageElement,
   };
   const event=next.log.at(-1);
-  if(event){event.skillId=plan.id;event.manaCost=plan.cost;
-   event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";}
+  if(event){event.skillId=plan.id;event.manaCost=plan.cost;event.skillName=plan.name;
+   event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";
+   const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
+   if(historical){historical.skillId=plan.id;historical.skillName=plan.name;historical.summary=event.summary;}
+  }
  }else{
   next=structuredClone(original);
   const actor=next.actors[by];

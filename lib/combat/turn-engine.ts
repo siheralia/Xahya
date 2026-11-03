@@ -10,7 +10,7 @@ export type CombatFighter = {
   agility: number; strength: number; constitution: number; precision: number;
   dodge: number; physicalAttack: number; physicalDefense: number;
   magicAttack: number; magicDefense: number; critical: number; luck: number;
-  race: number; massKg: number; attackType: CombatAttackType;
+  race: number; massKg: number; positionMeters: number; attackType: CombatAttackType;
   defenseType: CombatDefenseType; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
 };
@@ -29,7 +29,7 @@ export type CombatState = {
   pending: PendingAttack | null; log: CombatLog[];
 };
 export type CombatCommand =
-  | { kind: "MOVE"; meters: number }
+  | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" }
   | { kind: "WAIT" }
   | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean }
   | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number };
@@ -69,7 +69,7 @@ function validateRoll(value: number) {
 }
 function validateFighter(f: CombatFighter) {
   if (!f || typeof f.name !== "string" || !finite(f.hp) || !finite(f.maxHp) || f.maxHp < 1 || f.hp < 0 || f.hp > f.maxHp
-    || !finite(f.massKg) || f.massKg <= 0 || !finite(f.weaponIntegrity) || f.weaponIntegrity < 0 || f.weaponIntegrity > 100)
+    || !finite(f.massKg) || f.massKg <= 0 || !finite(f.positionMeters) || !finite(f.weaponIntegrity) || f.weaponIntegrity < 0 || f.weaponIntegrity > 100)
     throw new Error("Combatiente inválido.");
 }
 export function newCombatState(player: CombatFighter, npc: CombatFighter): CombatState {
@@ -199,8 +199,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const maximum = Math.max(1,Math.round(normalize(fighter.race)/10));
     if (!finite(command.meters) || command.meters < 0 || command.meters > maximum)
       throw new Error("Desplazamiento fuera del alcance por acción: " + maximum + " m.");
+    const direction = command.direction??"TOWARD";
+    if (!["TOWARD","AWAY"].includes(direction)) throw new Error("Dirección inválida.");
+    const sign = Math.sign(rival.positionMeters-fighter.positionMeters)||1;
+    const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(rival.positionMeters-fighter.positionMeters));
+    fighter.positionMeters += sign*magnitude;
     spend(fighter,turnTicks(fighter));
-    addLog(state,{kind:"MOVE",tick:fighter.spentTicks,by,summary:fighter.name+" se desplazó "+command.meters+" m"});
+    addLog(state,{kind:"MOVE",tick:(state.round-1)*LIMIT+fighter.spentTicks,by,
+      summary:fighter.name+" se desplazó "+command.meters+" m ("+direction+")"});
   } else if (command.kind === "WAIT") {
     fighter.spentTicks = LIMIT;
     fighter.spentAp = actionPoints(fighter.constitution);
@@ -210,6 +216,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const points = command.trajectory?.length ? command.trajectory : [{x:0.1,y:0.5},{x:0.9,y:0.5}];
     if (!Array.isArray(points) || points.length < 2 || points.length > 80 || points.some(p => !safePoint(p)))
       throw new Error("Trayectoria inválida.");
+    if (Math.abs(fighter.positionMeters-rival.positionMeters)>2)
+      throw new Error("El objetivo está fuera del alcance físico de 2 m.");
     spend(fighter,turnTicks(fighter,command.attackType));
     state.pending = {by,against:other(by),attackType:command.attackType,
       trajectory:points,launchedAtTick:fighter.spentTicks,usesMagic:command.usesMagic===true};

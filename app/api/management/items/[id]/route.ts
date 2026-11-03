@@ -59,7 +59,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     }
   }
-  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, attackType: itemType === "WEAPON" ? attackType : null, acquisitionType, price, effects, allowedSlots, propertyBusinessId });
+  const weaponMode=String(body.weaponMode??item.weaponMode??"MELEE");
+  const effectiveRangeMeters=Number(body.effectiveRangeMeters??item.effectiveRangeMeters??1.5);
+  const maximumRangeMeters=Number(body.maximumRangeMeters??item.maximumRangeMeters??effectiveRangeMeters);
+  const throwable=body.throwable===undefined?Boolean(item.throwable):body.throwable===true;
+  const throwRangeMeters=Number(body.throwRangeMeters??item.throwRangeMeters??0);
+  if(itemType==="WEAPON"&&(!["MELEE","RANGED"].includes(weaponMode)||
+    ![effectiveRangeMeters,maximumRangeMeters,throwRangeMeters].every(Number.isFinite)||
+    effectiveRangeMeters<=0||maximumRangeMeters<effectiveRangeMeters||maximumRangeMeters>1000||
+    throwRangeMeters<0||(throwable&&throwRangeMeters<=0)))
+    return NextResponse.json({error:"Configuración de alcance del arma inválida."},{status:400});
+  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, attackType: itemType === "WEAPON" ? attackType : null, weaponMode, effectiveRangeMeters, maximumRangeMeters, throwable, throwRangeMeters, acquisitionType, price, effects, allowedSlots, propertyBusinessId });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_UPDATE", entityType: "ITEM", entityId: id, details: { before: item, after: updated } });
   return NextResponse.json({ item: updated });
 }

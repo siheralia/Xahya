@@ -759,7 +759,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
  aim:{requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;
-  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string},
+  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))
@@ -783,9 +783,12 @@ export function applyResolvedCombatSkill(
   next=applyCombatCommand(original,by,{
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
    trajectory:aim.trajectory,areaCenter:aim.areaCenter,attackSource:aim.attackSource,
-  },rolls,plan.rangeMeters);
-  if(!next.pending)throw new Error("No se pudo preparar el ataque de habilidad.");
-  next.pending.skill={
+   targetConstructionId:aim.targetConstructionId,
+  },rolls,plan.rangeMeters,{
+   id:plan.id,name:plan.name,damageMultiplier:plan.damageMultiplier,finalMultiplier:plan.finalMultiplier,
+  });
+  if(!next.pending&&!aim.targetConstructionId)throw new Error("No se pudo preparar el ataque de habilidad.");
+  if(next.pending)next.pending.skill={
    id:plan.id,name:plan.name,damageMultiplier:plan.damageMultiplier,
    defenseFactor:plan.defenseFactor,finalMultiplier:plan.finalMultiplier,
    damageElement:plan.damageElement,
@@ -802,6 +805,41 @@ export function applyResolvedCombatSkill(
   next=structuredClone(original);
   const owner=next.actors[by];
   const existing=next.constructions??[];
+  if(plan.mirror){
+    if(aim.constructionForm&&aim.constructionForm!=="FIELD")
+      throw new Error("Un espejo no puede configurarse como bloque o decoración.");
+    if(existing.length>=120)throw new Error("Hay demasiadas construcciones activas.");
+    const userLabel=typeof aim.constructionLabel==="string"?aim.constructionLabel.trim():"";
+    if(userLabel.length>60||/[\x00-\x1f]/.test(userLabel))
+      throw new Error("Nombre de espejo inválido.");
+    if(Math.abs(owner.positionMeters-next.actors[other(by)].positionMeters)>plan.rangeMeters)
+      throw new Error("El objetivo está fuera del alcance de invocación del espejo.");
+    const mirror:CombatConstruction={
+      id:by+"-"+plan.id+"-"+next.round+"-"+next.tick+"-"+existing.length,
+      owner:by,sourceSkillId:plan.id,material:"MIRROR",form:"MIRROR",
+      label:userLabel||plan.construction.label,center:point,createdRound:next.round,
+      tangible:true,durability:plan.mirror.durability,
+      mirror:{rayMultiplier:plan.mirror.rayMultiplier,reflectionMultiplier:plan.mirror.reflectionMultiplier,
+       rangeMeters:plan.rangeMeters,attackType:"PIERCE"},
+    };
+    next.constructions=[...existing,mirror];
+    // The cast itself creates the first magic piercing attack for one PA.
+    next=applyCombatCommand(next,by,{kind:"ATTACK",attackType:"PIERCE",
+     usesMagic:true,areaCenter:point},rolls,plan.rangeMeters);
+    if(!next.pending)throw new Error("No se pudo lanzar el primer rayo del espejo.");
+    next.pending.mirrorId=mirror.id;
+    next.pending.skill={id:plan.id,name:plan.name+" · Rayo",
+     damageMultiplier:plan.mirror.rayMultiplier,defenseFactor:1,finalMultiplier:1};
+    const event=next.log.at(-1);
+    if(event){
+      event.skillId=plan.id;event.skillName=plan.name;event.constructionId=mirror.id;
+      event.manaCost=plan.cost;
+      event.summary=owner.name+" invocó "+mirror.label+" y lanzó un rayo mágico de perforación.";
+      const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
+      if(historical){historical.skillId=plan.id;historical.skillName=plan.name;
+       historical.constructionId=mirror.id;historical.summary=event.summary;}
+    }
+  }else{
   if(existing.length>=120)throw new Error("Hay demasiadas construcciones activas.");
   const form=resolveConstructionForm(plan.construction.material,aim.constructionForm,
    existing.some(x=>x.owner===by&&x.sourceSkillId===plan.id&&x.form==="FIELD"));
@@ -825,6 +863,7 @@ export function applyResolvedCombatSkill(
     summary:owner.name+" creó "+construction.label+" ("+form+")"+
      (resistance?" y activó automáticamente la pasiva de resistencia":"")});
   advanceRoundIfComplete(next);
+  }
  }else{
   next=structuredClone(original);
   const actor=next.actors[by];

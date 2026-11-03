@@ -11,6 +11,7 @@ const fighter=(name,speed=38,overrides={})=>({
   physicalAttack:10.5,physicalDefense:10.5,magicAttack:20,magicDefense:10,
   critical:10,luck:31,race:1.25,massKg:70,positionMeters:0,
   weaponIntegrity:100,attackType:"CUT",defenseType:"SOLID",
+  equippedWeapon:{name:"Arma de entrenamiento",attackType:"CUT",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2},
   spentTicks:0,spentAp:0,...overrides,
 });
 const dice=()=>({hit:0.1,critical:0.99,defense:0.2});

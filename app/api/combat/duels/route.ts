@@ -8,17 +8,13 @@ import { readMechanics } from "@/lib/stats/mechanics";
 import { canAct, massDefaultKg, newCombatState, weaponIntegrityDefault, type CombatFighter } from "@/lib/combat/turn-engine";
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
-import { hasRolePermission } from "@/lib/role-permissions";
+import { canApproveCombat } from "@/lib/combat/permissions";
 
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
 async function currentUser() {
   const {userId}=await auth();
   if(!userId)return null;
   return (await db.orm.public.User.all()).find(u=>u.clerkId===userId)??null;
-}
-async function canApproveCombat(user:{id:number;role:string}) {
- return ["ADMIN","GM"].includes(String(user.role))
-  || await hasRolePermission(user,"management.combat","approve");
 }
 export async function GET() {
  const user=await currentUser();

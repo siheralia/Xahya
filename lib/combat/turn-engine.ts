@@ -57,7 +57,9 @@ export type CombatLog = {
 export type CombatState = {
   /** NPC-only randomized loadout: persistent per encounter, never written to a character. */
   trainingNpc?: {difficulty:"BASIC"|"INTERMEDIATE"|"ADVANCED"|"ENDURANCE"|"AGGRESSIVE";
-    race:{id:number;name:string};perks:Array<{id:number;name:string}>;skills:CombatSkillPlan[]};
+    race:{id:number;name:string};
+    racialPerks:Array<{id:number;name:string;mechanical:boolean}>;
+    extraPerks:Array<{id:number;name:string}>;skills:CombatSkillPlan[]};
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
   winner: Side | null; actors: Record<Side, CombatFighter>;
   /** Randomly resolved initial initiative tie; absent in older persisted fights. */

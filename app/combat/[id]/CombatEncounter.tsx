@@ -130,19 +130,19 @@ export default function CombatEncounter({id}:{id:string}) {
   // Read the SVG's currentTarget synchronously, while React's pointer event
   // is still active. Deferred state updater callbacks must never access it.
   const point=toPoint(e);
-  if(attackMode==="MAGIC_AREA"){setAreaCenter(point);return;}
+  if(attackMode==="MAGIC_AREA" || attackType==="PIERCE"){setAreaCenter(point);if(attackMode==="PHYSICAL")setPoints(physicalAnchor?[physicalAnchor,point]:[point,point]);return;}
   try { e.currentTarget.setPointerCapture(e.pointerId); }
   catch { /* Some mobile browsers do not support SVG pointer capture. */ }
   setDrawing(true);
   setPoints(physicalAnchor?[physicalAnchor,point]:[point]);
  }
  function continueDraw(e:PointerEvent<SVGSVGElement>) {
-  if(attackMode==="MAGIC_AREA"||!drawing)return;
+  if(attackMode==="MAGIC_AREA"||attackType==="PIERCE"||!drawing)return;
   const point=toPoint(e);
   setPoints(previous=>previous.length>=79?previous:[...previous,point]);
  }
  function endDraw(e:PointerEvent<SVGSVGElement>) {
-  if(attackMode==="MAGIC_AREA"||!drawing)return;
+  if(attackMode==="MAGIC_AREA"||attackType==="PIERCE"||!drawing)return;
   const point=toPoint(e);
   setDrawing(false);
   setPoints(previous=>previous.length<2?[...previous,point]:previous);
@@ -259,7 +259,7 @@ export default function CombatEncounter({id}:{id:string}) {
       </label>)}
      </div>
      {pending.usesMagic&&selectedDefense==="DODGE"&&<div className="space-y-2">
-      <p className="text-sm text-zinc-300">Adivina dónde caerá la explosión. Toca el terreno para marcar su posible centro. Siempre se resaltan las cuatro casillas más próximas al impacto, no una casilla exacta; acertar también requiere superar la tirada de Esquive.</p>
+      <p className="text-sm text-zinc-300">Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo. Toca el terreno para marcarlo. Siempre se resaltan las cuatro casillas más próximas al impacto, no una casilla exacta; acertar también requiere superar la tirada de Esquive.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         onPointerDown={e=>setPredictedCenter(toPoint(e))}
         className="aspect-square w-full max-w-xl cursor-crosshair touch-none rounded-lg border border-amber-500/40 bg-zinc-900"
@@ -305,7 +305,7 @@ export default function CombatEncounter({id}:{id:string}) {
      </div>
      <div className="rounded-xl border border-zinc-700 p-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-       <b>{attackMode==="MAGIC_AREA"?"Elige el centro de la explosión":"Dibuja la trayectoria del ataque"}</b>
+       <b>{attackMode==="MAGIC_AREA"?(attackType==="CUT"?"Elige el centro de la línea mágica":attackType==="PIERCE"?"Elige la punta mágica":"Elige el centro de la explosión"):attackType==="PIERCE"?"Marca el punto de perforación":attackType==="BLUNT"?"Dibuja un golpe contundente rígido":"Dibuja la trayectoria del corte"}</b>
        <button onClick={()=>{setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);setAreaCenter(null);}} className="rounded border border-zinc-600 px-3 py-1 text-xs">Restablecer</button>
       </div>
       <label className="mb-3 block text-sm">Modalidad
@@ -328,13 +328,14 @@ export default function CombatEncounter({id}:{id:string}) {
        {Array.from({length:9},(_,i)=><line key={i} x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth="0.3"/>)}
        {attackMode==="MAGIC_AREA"?
         areaCenter&&<>
+          {attackType==="CUT"&&<line x1={Math.max(0,areaCenter.x*100-25)} y1={areaCenter.y*100} x2={Math.min(100,areaCenter.x*100+25)} y2={areaCenter.y*100} stroke="#e9d5ff" strokeWidth="4" strokeLinecap="round"/>}
           <circle cx={areaCenter.x*100} cy={areaCenter.y*100}
-            r={BASIC_MAGIC_AREA_RADIUS*100} fill="#c084fc" fillOpacity={0.3}
+            r={(attackType==="BLUNT"?BASIC_MAGIC_AREA_RADIUS:attackType==="CUT"?0.06:0.035)*100} fill="#c084fc" fillOpacity={0.3}
             stroke="#e9d5ff" strokeWidth={1.1}/>
           <circle cx={areaCenter.x*100} cy={areaCenter.y*100} r={2.3} fill="#f5d0fe"/>
         </>
         :<>
-          <polyline points={polyline} fill="none" stroke="#22d3ee" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          {attackType==="PIERCE"?<circle cx={normalizedPath.at(-1)!.x*100} cy={normalizedPath.at(-1)!.y*100} r="2.5" stroke="#22d3ee" fill="#22d3ee" />:<polyline points={attackType==="BLUNT"?`${normalizedPath[0].x*100},${normalizedPath[0].y*100} ${normalizedPath.at(-1)!.x*100},${normalizedPath.at(-1)!.y*100}`:polyline} fill="none" stroke="#22d3ee" strokeWidth={attackType==="BLUNT"?4:1.8} strokeLinecap="round" strokeLinejoin="round"/>}
           <circle cx={normalizedPath[0].x*100} cy={normalizedPath[0].y*100} r="2.5" fill="#34d399"/>
           <circle cx={normalizedPath.at(-1)!.x*100} cy={normalizedPath.at(-1)!.y*100} r="2.5" fill="#f59e0b"/>
         </>}

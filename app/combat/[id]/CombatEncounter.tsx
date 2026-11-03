@@ -77,6 +77,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [constructionMaterials,setConstructionMaterials]=useState<Partial<Record<Side,string[]>>>({});
  const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK">("FIELD");
  const [constructionLabel,setConstructionLabel]=useState("");
+ const [attackTargetId,setAttackTargetId]=useState("");
  const [karmaAllocation,setKarmaAllocation]=useState<Record<string,number>>({});
  const [defenseConstruction,setDefenseConstruction]=useState("");
  const karmaRequestRef=useRef<{key:string;id:string}|null>(null);
@@ -204,7 +205,9 @@ export default function CombatEncounter({id}:{id:string}) {
  const hasAccess=view?.permissions[side]??false;
  const creationMaterials=constructionMaterials[side]??[];
  const canCreateObjects=hasAccess&&creationMaterials.length>0;
- const canCreateMaterialBlocks=creationMaterials.some(material=>material!=="LIGHT");
+ const canCreateMaterialBlocks=creationMaterials.some(material=>material!=="LIGHT"&&material!=="MIRROR");
+ const enemyMirrors=state?.constructions?.filter(c=>c.owner!==side&&c.form==="MIRROR"&&(c.durability??0)>0)??[];
+ const selectedAttackTargetId=enemyMirrors.some(c=>c.id===attackTargetId)?attackTargetId:"";
  const defending=!!pending&&pending.against===side;
  const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
  const karmaAvailable=view?.karma?.[side]??0;
@@ -235,8 +238,9 @@ export default function CombatEncounter({id}:{id:string}) {
    trajectory:construction||skill.usesMagic?undefined:normalizedPath,
    attackSource:construction||skill.usesMagic?undefined:activeAttackSource,
    areaCenter:construction?constructionCenter??undefined:skill.usesMagic?areaCenter??undefined:undefined,
-   constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":constructionForm):undefined,
-   constructionLabel:construction?constructionLabel.trim():undefined});
+   constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
+   constructionLabel:construction?constructionLabel.trim():undefined,
+   targetConstructionId:!construction&&selectedAttackTargetId?selectedAttackTargetId:undefined});
  }
  const chronicle=state?.status==="FINISHED"
   ?(state.narrativeVersion===2&&state.narrativeText
@@ -450,6 +454,16 @@ export default function CombatEncounter({id}:{id:string}) {
           <option value="KICK">Pierna / patada · Contundente</option>
         </select>
       </label>}
+      {enemyMirrors.length>0&&<label className="mb-3 block text-sm">Objetivo del ataque
+       <select value={selectedAttackTargetId} onChange={e=>setAttackTargetId(e.target.value)}
+        className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
+        <option value="">Personaje rival</option>
+        {enemyMirrors.map(mirror=><option key={mirror.id} value={mirror.id}>
+         {mirror.label} · resistencia {mirror.durability} · posición {Math.round(mirror.center.x*100)}%, {Math.round(mirror.center.y*100)}%
+        </option>)}
+       </select>
+       <span className="mt-1 block text-xs text-zinc-400">Puedes atacar físicamente el espejo para romperlo. La magia que alcance su posición se reflejará según sus efectos.</span>
+      </label>}
       <p className="mb-2 text-xs text-zinc-400">{attackMode==="MAGIC_AREA"
        ? "Toca una posición: el punto será el epicentro y el círculo la zona de explosión. El defensor solo verá la región aproximada. Ataque básico con coste temporal normal y "+BASIC_MAGIC_MANA_COST+" de maná en esta fase; las habilidades con maná llegan en fase 2."
        : physicalAnchor
@@ -462,6 +476,13 @@ export default function CombatEncounter({id}:{id:string}) {
        className={attackMode!=="PHYSICAL"?"aspect-square w-full max-w-md cursor-crosshair touch-none rounded-lg bg-zinc-900":"h-52 w-full touch-none rounded-lg bg-zinc-900"}
        aria-label="Lienzo para dibujar la trayectoria del ataque">
        {Array.from({length:9},(_,i)=><line key={i} x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth="0.3"/>)}
+       {enemyMirrors.map(mirror=><g key={mirror.id} pointerEvents="none">
+        <rect x={mirror.center.x*100-3.5} y={mirror.center.y*100-7}
+         width="7" height="14" rx="1.5" stroke={selectedAttackTargetId===mirror.id?"#fbbf24":"#67e8f9"}
+         fill="#164e63" strokeWidth={selectedAttackTargetId===mirror.id?1.5:0.8}/>
+        <path d={`M${mirror.center.x*100-1.8},${mirror.center.y*100-5} l3.5,9`}
+         stroke="#a5f3fc" strokeWidth="0.6"/>
+       </g>)}
        {attackMode!=="MAGIC_AREA"&&<circle cx="50" cy="50" r={displayedAttackType==="BLUNT"?16:displayedAttackType==="CUT"?10:6.5}
          stroke="#fb7185" strokeWidth="0.9" strokeDasharray="2 2" fill="#fb7185" fillOpacity={0.08}/>}
        {attackMode!=="MAGIC_AREA"&&<circle cx="50" cy="50" r="1.2" fill="#fb7185"/>}
@@ -487,10 +508,10 @@ export default function CombatEncounter({id}:{id:string}) {
        </div>
        <button disabled={!ready||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
-           ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined}
-           : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
-           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
-           : {kind:"ATTACK",attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath})}
+           ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : {kind:"ATTACK",attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath,targetConstructionId:selectedAttackTargetId||undefined})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
         {attackMode==="MAGIC_AREA"?"Lanzar magia":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
        </button>
@@ -520,7 +541,14 @@ export default function CombatEncounter({id}:{id:string}) {
       </g>)}
       <circle cx="50" cy="50" r="7" stroke="#a1a1aa" fill="none" strokeDasharray="2 2"/>
       {(state.constructions??[]).map(c=><g key={c.id}>
-       {c.form==="BLOCK"
+       {c.form==="MIRROR"
+        ?<g>
+          <rect x={c.center.x*100-4} y={c.center.y*100-8}
+           width="8" height="16" rx="1.5" fill="#164e63" stroke="#67e8f9" strokeWidth="1.2"/>
+          <path d={`M${c.center.x*100-2.5},${c.center.y*100-5} l5,11`}
+           stroke="#a5f3fc" strokeWidth=".8"/>
+         </g>
+        :c.form==="BLOCK"
         ?<rect x={c.center.x*100-7} y={c.center.y*100-7} width="14" height="14" rx="1" fill="#d6ab72" stroke="#facc15"/>
         :<circle cx={c.center.x*100} cy={c.center.y*100} r={c.form==="FIELD"?11:5}
          stroke={c.material==="LIGHT"?"#67e8f9":"#d6ab72"} strokeWidth="2"
@@ -544,7 +572,7 @@ export default function CombatEncounter({id}:{id:string}) {
     {canCreateObjects&&!constructionCenter&&<p className="mt-2 text-xs text-amber-300">Selecciona una posición en el terreno para crear el objeto.</p>}
     {(state.constructions??[]).length>0&&<div className="mt-3 space-y-1">
      {state.constructions?.map(c=><p key={c.id} className="text-xs text-zinc-300">
-      {state.actors[c.owner].name}: {c.label} · {c.form==="BLOCK"?"bloque defensivo, resistencia "+c.durability:c.form==="DECOR"?"decorativo, sin efectos":"campo de material"}
+      {state.actors[c.owner].name}: {c.label} · {c.form==="MIRROR"?"espejo mágico, resistencia "+c.durability+" · rayo por turno · reflexión "+Math.round((c.mirror?.reflectionMultiplier??0)*100)+"%":c.form==="BLOCK"?"bloque defensivo, resistencia "+c.durability:c.form==="DECOR"?"decorativo, sin efectos":"campo de material"}
       {c.passive?" · pasiva de resistencia automática":""}
      </p>)}
     </div>}

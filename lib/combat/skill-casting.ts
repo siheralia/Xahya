@@ -1,11 +1,15 @@
 import {cooldownTurns} from "../skills/cooldown.ts";
 import {skillEffectMultiplier} from "../skills/pch.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
+import {creationPlanFromEffect,type ConstructionPlan} from "./constructs.ts";
+import type {VariableResistance} from "../skills/variable-resistance.ts";
 import type {CombatAttackType} from "./matchup-types.ts";
 
 export type CombatBuffStat = "physicalAttack"|"magicAttack"|"physicalDefense"|"magicDefense"|"precision"|"dodge";
 export type CombatSkillPlan = {
- id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT";
+ id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT"|"CONSTRUCTION";
+ construction?:ConstructionPlan;
+ creationPassive?:{sourceSkillId:number;resistance:VariableResistance};
  attackType?:CombatAttackType;usesMagic?:boolean;damageElement?:string;
  rangeMeters:number;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;
  healing:number;bonuses:{stat:CombatBuffStat;value:number}[];
@@ -51,6 +55,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
  let mode:"PHYSICAL"|"MAGICAL"|null=null;
  let damageElement:string|undefined;
  let multiplier=1,defenseFactor=1,final=1,healing=0;
+ let construction:ConstructionPlan|undefined;
  const bonuses:{stat:CombatBuffStat;value:number}[]=[];
  for(const entry of effects){
   if(!entry||typeof entry!=="object")fail("Efecto de habilidad inválido.");
@@ -89,10 +94,19 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
     if(!stat)fail("Estadística temporal todavía no soportada: "+target);
     bonuses.push({stat,value});break;
    }
+   case "NARRATIVE": {
+    const create=creationPlanFromEffect(e);
+    if(!create)fail("Este efecto narrativo no crea una construcción ejecutable.");
+    if(construction)fail("Una habilidad solo puede crear un objeto por ejecución.");
+    construction=create;
+    break;
+   }
    default:fail("Este efecto todavía no puede ejecutarse en combate: "+e.type);
   }
  }
  const isAttack=mode!==null;
+ if(construction&&(isAttack||bonuses.length>0||healing>0))
+  fail("Combinar la construcción con otros efectos requiere un resolutor propio.");
  if(isAttack && (bonuses.length>0||healing>0))
   fail("Las combinaciones de ataque y soporte requieren un resolutor propio.");
  if(isAttack){
@@ -104,7 +118,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
    fail("Ignorar defensa física no corresponde a este ataque.");
   if(mode==="PHYSICAL"&&effects.some((e:any)=>e.type==="IGNORE_MAGIC_DEF_MULTIPLIER"))
    fail("Ignorar defensa mágica no corresponde a este ataque.");
- }else if(bonuses.length===0&&healing===0)fail("La habilidad no contiene efectos ejecutables.");
+ }else if(bonuses.length===0&&healing===0&&!construction)fail("La habilidad no contiene efectos ejecutables.");
  const duration=String(row.duration??"");
  const parsed=/^(\d+) turnos?$/.exec(duration.trim());
  const durationTurns=parsed?Number(parsed[1]):0;
@@ -117,7 +131,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
  if(!Number.isFinite(limit)||limit>1000||healing>1000000)
   fail("La combinación de potencias supera los límites del motor.");
  return {
-  id,name,cost,category:isAttack?"OFFENSE":"SUPPORT",
+  id,name,cost,category:construction?"CONSTRUCTION":isAttack?"OFFENSE":"SUPPORT",construction,
   attackType:isAttack?String(row.attackType) as CombatAttackType:undefined,
   usesMagic:mode==="MAGICAL",damageElement:isAttack?damageElement:undefined,rangeMeters:range.rangeMeters??0,
   damageMultiplier:multiplier,defenseFactor,finalMultiplier:final,
@@ -132,7 +146,7 @@ export function previewSkillExecution(row:Record<string,unknown>){
  try {
   const plan=compileCombatSkill(row);
   return {executable:true as const,skillKind:plan.category,
-   needsAim:plan.category==="OFFENSE",usesMagic:plan.usesMagic===true,
+   needsAim:plan.category!=="SUPPORT",usesMagic:plan.usesMagic===true,
    disabledReason:null};
  }catch(e) {
   return {executable:false as const,skillKind:null,

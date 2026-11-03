@@ -22,6 +22,7 @@ export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
   damage?: number; critical?: boolean; contact?: boolean;
   knockbackMeters?: number; weaponIntegrity?: number; defense?: DefenseChoice;
+  attackType?: CombatAttackType;
 };
 export type CombatState = {
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
@@ -269,7 +270,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     state.pending = {by,against:other(by),attackType:command.attackType,
       trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:command.usesMagic===true};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
-    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),summary:fighter.name+" atacó; esperando reacción"});
+    const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
+    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,
+      summary:fighter.name+" lanzó un ataque de "+labels[command.attackType]+"; esperando reacción"});
   } else throw new Error("Acción inválida.");
   state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);
   advanceRoundIfComplete(state);

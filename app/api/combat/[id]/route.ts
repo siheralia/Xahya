@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { Temporal } from "@js-temporal/polyfill";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { canApproveCombat } from "@/lib/combat/permissions";
 import { resolvePingPongAction, type CombatAttackType } from "@/lib/combat/engine";
 import { advanceCombatMechanics, encounterAgilityMultiplier } from "@/lib/skills/mechanics-runtime";
 
@@ -26,7 +27,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: "Combate no encontrado." }, { status: 404 });
 
   const character = await db.orm.public.Character.where({ id: Number(session.playerCharacterId) }).first();
-  const management = ["GM", "ADMIN"].includes(String(user.role));
+  const management = await canApproveCombat(user);
   if (!character || (!management && Number(character.userId) !== Number(user.id))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -55,7 +56,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const stats = await getEffectiveCharacterStats(Number(session.playerCharacterId));
   if (!character || !stats) return NextResponse.json({ error: "Datos del personaje incompletos." }, { status: 400 });
 
-  const management = ["GM", "ADMIN"].includes(String(user.role));
+  const management = await canApproveCombat(user);
   if (!management && Number(character.userId) !== Number(user.id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

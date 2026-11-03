@@ -26,6 +26,8 @@ export type CombatLog = {
 export type CombatState = {
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
   winner: Side | null; actors: Record<Side, CombatFighter>;
+  /** Randomly resolved initial initiative tie; absent in older persisted fights. */
+  tieOpener?: Side;
   pending: PendingAttack | null; log: CombatLog[];
 };
 export type CombatCommand =
@@ -72,9 +74,10 @@ function validateFighter(f: CombatFighter) {
     || !finite(f.massKg) || f.massKg <= 0 || !finite(f.positionMeters) || !finite(f.weaponIntegrity) || f.weaponIntegrity < 0 || f.weaponIntegrity > 100)
     throw new Error("Combatiente inválido.");
 }
-export function newCombatState(player: CombatFighter, npc: CombatFighter): CombatState {
+export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpener: Side="PLAYER"): CombatState {
   validateFighter(player); validateFighter(npc);
-  return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,
+  if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
+  return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
     pending:null,log:[]};
 }
@@ -116,7 +119,8 @@ export function canAct(state: CombatState, side: Side): boolean {
     const last = lastInitiativeSide(state);
     if (last === null) {
       // Rotate who opens the round on a speed tie.
-      const opener: Side = state.round % 2 === 1 ? "PLAYER" : "NPC";
+      const first = state.tieOpener ?? "PLAYER";
+      const opener: Side = state.round % 2 === 1 ? first : other(first);
       return side === opener || !hasInitiativeBudget(rival);
     }
     return last !== side || !hasInitiativeBudget(rival);

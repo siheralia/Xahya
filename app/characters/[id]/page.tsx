@@ -4,6 +4,7 @@ import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillEmblem } from "@/app/components/skill-emblem";
 import { formatSkillForClipboard } from "@/lib/skills/skill-clipboard";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
+import { VariableResistanceCalculator } from "@/components/skills/VariableResistance";
 import { COMBAT_ATTACK_TYPE_OPTIONS, COMBAT_DEFENSE_TYPE_OPTIONS } from "@/lib/combat/matchup-types";
 import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import {GenericSkillShop} from "@/components/skills/GenericSkillShop";

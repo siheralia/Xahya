@@ -19,15 +19,32 @@ function tangentGuardAngle(points: Point[]): number {
 }
 
 /**
- * Reaction policy: all five mechanical defenses compete with weights tied to
- * estimated effectiveness. A little exploration prevents all-dodge behavior.
- * The defender's scarce AP/ticks are still charged by the combat engine.
+ * Reaction policy: first reserve an opportunity for a survivable counterattack,
+ * then weigh five defenses by estimated effectiveness. This prevents a passive
+ * NPC that spends every shared-tick action on defense. Reactions that are used
+ * are still fully charged by the combat engine; counterattacks are not free.
  */
 export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extract<CombatCommand,{kind:"DEFEND"}> {
   if (state.pending?.against !== "NPC") throw new Error("El NPC no tiene un ataque pendiente.");
   const npc = state.actors.NPC, attacker = state.actors[state.pending.by];
   if (remainingAp(npc) < 1 || npc.spentTicks >= 100) return {kind:"DEFEND",defense:"NONE"};
   const factor = matchupMultiplier(state.pending.attackType,npc.defenseType);
+  // In the shared action budget, a trained defender can otherwise lose every
+  // action to reactions, especially in equal-speed encounters. Reserve a
+  // proactive attack when accepting the incoming blow is survivable. "NONE"
+  // spends no AP/ticks, but the hit still resolves normally; the subsequent
+  // counterattack spends a full action and the player may react.
+  const roundStart = (state.round-1)*100;
+  const attackedThisRound = state.log.some(e =>
+    e.kind==="ATTACK" && e.by==="NPC" && e.tick>roundStart);
+  const canCounterNow = npc.spentTicks + turnTicks(npc) <= attacker.spentTicks;
+  const power = state.pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack;
+  const protection = state.pending.usesMagic ? npc.magicDefense : npc.physicalDefense;
+  const worstDirectDamage = Math.max(1,Math.round(
+    power*1.5*factor - protection*0.75));
+  if(!attackedThisRound && canCounterNow && npc.hp>worstDirectDamage) {
+    return {kind:"DEFEND",defense:"NONE"};
+  }
   const dodgeChance = 1 - contestChance(attacker.precision,npc.dodge);
   const blockChance = contestChance(npc.constitution * factor,attacker.strength);
   const endureChance = contestChance(npc.constitution,attacker.strength);

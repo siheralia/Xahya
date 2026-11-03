@@ -90,7 +90,7 @@ test("magic field uses its own RPS type, not the physical blocking type",()=>{
 
 test("a magic field cannot be used to block a physical swing",()=>{
  const first=applyCombatCommand(
-  makeState(actor("Attacker",101),actor("Defender",102,1.5)),"PLAYER",
+  makeState(actor("Attacker",101),actor("Defender",102,0.5)),"PLAYER",
   {kind:"ATTACK",attackType:"BLUNT",trajectory:[{x:0.1,y:0.2},{x:0.7,y:0.8}]});
  assert.throws(
   ()=>applyCombatCommand(first,"NPC",{kind:"DEFEND",defense:"MAGIC_FIELD"},dice),

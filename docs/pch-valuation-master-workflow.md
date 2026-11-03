@@ -665,7 +665,7 @@ A workstream PR may be merged into the integration branch only when:
 7. No computational implementation or unapproved PCH change has slipped into the branch.
 8. The master checklist is updated with evidence links and reviewer disposition.
 
-**Merge sequence:** merge O1 first; merge O2 and O3 independently; then O4–O7 once their dependencies are met; merge O8 only after all inputs are present; O9 closes the theory. The final theory integration branch is then proposed to `main) in a separate review PR. No direct merge to `main` while the independent objectives are incomplete.
+**Merge sequence:** merge O1 first; merge O2 and O3 independently; then O4–O7 once their dependencies are met; merge O8 only after all inputs are present; O9 closes the theory. The final theory integration branch is then proposed to `main` in a separate review PR. No direct merge to `main` while the independent objectives are incomplete.
 
 ### Workstream handoff template
 

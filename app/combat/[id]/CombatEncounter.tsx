@@ -258,7 +258,7 @@ export default function CombatEncounter({id}:{id:string}) {
         </select>
       </label>
       <p className="mb-2 text-xs text-zinc-400">{attackMode==="MAGIC_AREA"
-       ? "Toca una posición: el punto será el epicentro y el círculo la zona de explosión. El defensor solo verá la región aproximada. Ataque básico sin consumo de maná en esta fase."
+       ? "Toca una posición: el punto será el epicentro y el círculo la zona de explosión. El defensor solo verá la región aproximada. Ataque básico con coste temporal normal y {BASIC_MAGIC_MANA_COST} de maná en esta fase; las habilidades con maná llegan en fase 2."
        : "Arrastra el dedo o el cursor. La dirección final influye en la posibilidad de desviar el golpe."}</p>
       <svg ref={canvas} viewBox="0 0 100 100" preserveAspectRatio="none"
        onPointerDown={startDraw} onPointerMove={continueDraw}

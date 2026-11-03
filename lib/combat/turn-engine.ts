@@ -7,7 +7,7 @@ export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" |
 export type Point = { x: number; y: number };
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
-  agility: number; strength: number; constitution: number; precision: number;
+  agility: number; speedValue?: number; strength: number; constitution: number; precision: number;
   dodge: number; physicalAttack: number; physicalDefense: number;
   magicAttack: number; magicDefense: number; critical: number; luck: number;
   race: number; massKg: number; positionMeters: number; attackType: CombatAttackType;
@@ -80,7 +80,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter): Comba
 }
 export function turnTicks(f: CombatFighter, attackType?: CombatAttackType) {
   const modifier = attackType === "BLUNT" ? 1.15 : attackType === "PIERCE" ? 0.85 : 1;
-  return calculateActionTicks(Math.max(1, f.agility), modifier);
+  return calculateActionTicks(Math.max(1, f.speedValue??f.agility), modifier);
 }
 export function remainingAp(f: CombatFighter) {
   return Math.max(0, actionPoints(f.constitution) - f.spentAp);

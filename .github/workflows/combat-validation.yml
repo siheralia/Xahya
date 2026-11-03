@@ -1,5 +1,8 @@
 name: Combat validation
 on:
+  push:
+    branches:
+      - feat/combat-attack-geometries
   pull_request:
     paths:
       - 'lib/combat/**'

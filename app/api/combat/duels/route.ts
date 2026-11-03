@@ -24,7 +24,7 @@ function buildFighter(name:string, characterId:number|null, base:Record<string,n
     physicalDefense:numeric(derived.physicalDefense),magicAttack:numeric(derived.magicAttack),
     magicDefense:numeric(derived.magicDefense),critical:numeric(derived.critical),
     luck:numeric(base.luck),race:numeric(derived.race),
-    massKg:massDefaultKg,attackType:aType,defenseType:dType,
+    massKg:massDefaultKg,positionMeters:characterId===null?1.5:0,attackType:aType,defenseType:dType,
     weaponIntegrity:weaponIntegrityDefault,spentTicks:0,spentAp:0,
   };
 }

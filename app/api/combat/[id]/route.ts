@@ -49,6 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const session = CombatSession ? await CombatSession.where({ id }).first() : null;
   if (!session) return NextResponse.json({ error: "Combate no encontrado." }, { status: 404 });
   if (String(session.status) !== "ACTIVE") return NextResponse.json({ error: "El combate ya terminó." }, { status: 400 });
+  if ((session.lastAction as any)?.combatV1) return NextResponse.json({ error: "Este combate utiliza acciones y reacciones del motor nuevo. Usa /api/combat/"+id+"/actions." }, { status: 409 });
 
   const character = await db.orm.public.Character.where({ id: Number(session.playerCharacterId) }).first();
   const stats = await getEffectiveCharacterStats(Number(session.playerCharacterId));

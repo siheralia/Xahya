@@ -12,7 +12,7 @@ import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validAre
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
 export type Point = { x: number; y: number };
-export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FIST_LEFT";
+export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FIST_LEFT" | "KICK";
 export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number};
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
@@ -541,7 +541,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Trayectoria inválida.");
     const magic=command.usesMagic===true;
     const source=command.attackSource??defaultAttackSource(fighter);
-    if(!["MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT"].includes(source))throw new Error("Origen de ataque inválido.");
+    if(!["MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT","KICK"].includes(source))throw new Error("Origen de ataque inválido.");
     const selectedWeapon=weaponForSource(fighter,source);
     if(magic&&serverSkillRangeMeters===undefined&&command.attackType!==fighter.attackType)
       throw new Error("La magia básica debe usar el tipo de ataque mágico configurado en la ficha.");
@@ -602,7 +602,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,weaponName:selectedWeapon?.name,manaCost:magic&&serverSkillRangeMeters===undefined?1:undefined,
       summary:magic?fighter.name+" lanzó magia de "+labels[command.attackType]+"; esperando reacción"
         :ranged?fighter.name+" lanzó "+(thrown?"el arma ("+selectedWeapon?.name+") de ":"un proyectil físico de ")+labels[command.attackType]+"; esperando reacción"
-        :fighter.name+" atacó con "+(selectedWeapon?.name??(source==="FIST_LEFT"?"puño izquierdo":"puño derecho"))+" ("+labels[command.attackType]+")"+"; esperando reacción"});
+        :fighter.name+" atacó con "+(selectedWeapon?.name??(source==="FIST_LEFT"?"puño izquierdo":source==="KICK"?"patada":"puño derecho"))+" ("+labels[command.attackType]+")"+"; esperando reacción"});
   } else throw new Error("Acción inválida o habilidad sin autorización del servidor.");
   state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);
   advanceRoundIfComplete(state);

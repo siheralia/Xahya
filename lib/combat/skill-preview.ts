@@ -101,8 +101,17 @@ export function projectApprovedCombatSkills(
  const allowed=rows.filter(row=>String(row.status)==="APPROVED"
    && !stolenIds.has(Number(row.id)));
  const activeIds=new Set(states.filter(s=>s.active===true).map(s=>Number(s.skillId)));
+ const approvedIds=new Set(allowed.map(skill=>Number(skill.id)));
+ // Parent links are explicit catalog dependencies; a stolen or missing parent
+ // cannot authorize the linked technique even if its own row is approved.
+ const linkedParentSatisfied=(skill:SkillRecord)=>{
+  const mechanics=skill.mechanics&&typeof skill.mechanics==="object"&&!Array.isArray(skill.mechanics)
+   ?skill.mechanics as Record<string,unknown>:{};
+  const parent=mechanics.parentSkillId;
+  return parent===undefined||parent===null||(Number.isSafeInteger(parent)&&approvedIds.has(Number(parent)));
+ };
  return allowed.map(skill=>combatSkillPreview(
    skill,activeIds.has(Number(skill.id)),
-   meetsRequirements(skill,allowed.filter(s=>Number(s.id)!==Number(skill.id))),
+   meetsRequirements(skill,allowed.filter(s=>Number(s.id)!==Number(skill.id)))&&linkedParentSatisfied(skill),
  )).filter((s):s is CombatSkillPreview=>s!==null);
 }

@@ -3,6 +3,8 @@
  * No eval, arbitrary scripts or skill-name special cases.
  * Environment is stored per combat encounter or maze room.
  */
+import { validateVariableResistance, type VariableResistance } from "./variable-resistance";
+
 export type MechanicEvent = "ACTIVATE" | "TURN" | "HIT" | "ENTER_FIELD";
 export type MechanicTarget = "SELF" | "OPPONENT" | "ALL";
 export type MechanicCondition =
@@ -27,7 +29,7 @@ export type MechanicRule = {
   // Skill that must also be approved and active; supports mineral + base-technique combinations.
   linkedSkillId?: number;
 };
-export type SkillMechanics = { family?: string; parentSkillId?: number; activationConditions?: MechanicCondition[]; rules?: MechanicRule[] };
+export type SkillMechanics = { family?: string; parentSkillId?: number; activationConditions?: MechanicCondition[]; rules?: MechanicRule[]; variableResistance?: VariableResistance };
 export type FieldRing = { radius: number; ppm: number };
 export type EnvironmentField = {
   id: string; sourceSkillId: number; ownerCharacterId: number; material: string;
@@ -89,6 +91,10 @@ export function validateSkillMechanics(value: unknown, ownSkillId?: number): str
     return "Demasiadas condiciones de activación.";
   if (mechanics.rules !== undefined && (!Array.isArray(mechanics.rules) || mechanics.rules.length > 12))
     return "Máximo 12 reglas por habilidad.";
+  if (mechanics.variableResistance !== undefined) {
+    const error = validateVariableResistance(mechanics.variableResistance);
+    if (error) return error;
+  }
   const conditions = [...(mechanics.activationConditions ?? []), ...(mechanics.rules ?? []).flatMap(r => r.conditions ?? [])];
   for (const condition of conditions) {
     if (!condition || !["FIELD_MIN", "EXPOSURE_MIN", "SKILL_ACTIVE", "STATUS", "EVENT"].includes(condition.kind))

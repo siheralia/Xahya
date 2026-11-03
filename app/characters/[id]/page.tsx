@@ -2297,6 +2297,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     </div>
                   </div>
                   <p className="mt-3 text-sm text-zinc-300 whitespace-pre-wrap">{skill.description}</p>
+                   {skill.mechanics?.variableResistance && <VariableResistanceCalculator key={skill.id} config={skill.mechanics.variableResistance} effectiveStats={character.effectiveStats??{}} derivedStats={character.derivedStats??{}} temporaryEffects={temporaryEffects} hpPercent={maxHp>0?currentHp/maxHp*100:undefined}/> }
                   <div className="mt-3 grid gap-2 text-xs text-zinc-500 sm:grid-cols-2 lg:grid-cols-4">
                     {skill.duration && <span>⏳ Duración: {skill.duration}</span>}
                     {skill.areaOfEffect && <span>◎ Área: {skill.areaOfEffect}</span>}

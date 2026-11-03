@@ -73,6 +73,8 @@ function describeAttack(
   :isTrainingOpponent(fighters.NPC.name)?"El rival":fighters.NPC.name;
  const target=victim==="PLAYER"?fighters.PLAYER.name.split(/\s+/)[0]
   :isTrainingOpponent(fighters.NPC.name)?"el rival":fighters.NPC.name;
+ const genitiveActor=actor==="El rival"?"del rival":"de "+actor;
+ const genitiveTarget=target==="el rival"?"del rival":"de "+target;
  const magic=Boolean(launch?.usesMagic||launch?.summary?.includes("lanzó magia")||
   launch?.summary?.includes("explosión mágica"));
  const thrown=Boolean(launch?.thrownWeapon||launch?.summary?.includes("lanzó el arma"));
@@ -80,7 +82,8 @@ function describeAttack(
  const type=launch?.attackType??impact?.attackType;
  const technique=launch?.skillName;
  const descriptor=noun(type,magic,ranged,thrown,launch?.weaponName);
- const act=technique?"la técnica «"+technique+"» ("+descriptor+")":descriptor;
+ const withWeapon=!magic&&!ranged&&!thrown&&launch?.weaponName?descriptor+" con "+launch.weaponName:descriptor;
+ const act=technique?"la técnica «"+technique+"» ("+withWeapon+")":withWeapon;
  const key=side+":"+(magic?"MAGIC":ranged?"RANGED":"PHYSICAL")+":"+(type??"OTHER");
  ctx.counts[key]=(ctx.counts[key]??0)+1;
  const repeat=ctx.counts[key];
@@ -99,7 +102,8 @@ function describeAttack(
   defended==="MAGIC_FIELD"?"al campo defensivo":undefined;
  const pushed=landed&&(impact?.knockbackMeters??0)>0;
  const damageBefore=ctx.damaged[victim]>0;
- const stem=first?actor+" abrió el combate con "+act:
+ const stem=thrown?actor+" arrojó "+(launch?.weaponName??"su arma"):
+  first?actor+" abrió el combate con "+act:
   counter?actor+" respondió con "+act:
   followingMiss?actor+" insistió con "+act:
   actor+" atacó con "+act;
@@ -116,17 +120,17 @@ function describeAttack(
   phrase="Sin embargo, su siguiente ataque encontró una abertura: un impacto de "+
    damagePhrase(damage)+" que terminó el combate.";
  }else if(magic&&defended==="MAGIC_FIELD"){
-  phrase=stem+". Ni siquiera el campo defensivo de "+target+
+  phrase=stem+". Ni siquiera el campo defensivo "+genitiveTarget+
    " pudo impedir que recibiera "+damagePhrase(damage)+".";
  }else if(repeat>1&&type==="CUT"&&!magic&&!ranged){
-  phrase=(repeat===2?"Un segundo corte de ":"Otro corte de ")+actor+" volvió a alcanzar a "+target+
+  phrase=(repeat===2?"Un segundo corte ":"Otro corte ")+genitiveActor+" volvió a alcanzar a "+target+
    " y causó "+damagePhrase(damage)+".";
  }else if(first){
   phrase=stem+" que "+(reaction?", pese "+reaction+", ":"")+
    "causó "+damagePhrase(damage)+" a "+target+
    (pushed?" y obligó a "+target+" a retroceder":"")+".";
  }else if(reaction){
-  phrase=stem+". Pese "+reaction+" de "+target+", "+
+  phrase=stem+". Pese "+reaction+" "+genitiveTarget+", "+
    (damageBefore?"recibió otros ":"recibió ")+damagePhrase(damage)+".";
  }else if(magic){
   phrase=stem+" y alcanzó a "+target+", arrebatándole "+

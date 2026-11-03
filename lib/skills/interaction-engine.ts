@@ -3,7 +3,7 @@
  * No eval, arbitrary scripts or skill-name special cases.
  * Environment is stored per combat encounter or maze room.
  */
-import { validateVariableResistance, type VariableResistance } from "./variable-resistance";
+import { validateVariableResistance, type VariableResistance } from "./variable-resistance.ts";
 
 export type MechanicEvent = "ACTIVATE" | "TURN" | "HIT" | "ENTER_FIELD";
 export type MechanicTarget = "SELF" | "OPPONENT" | "ALL";

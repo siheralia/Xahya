@@ -24,6 +24,9 @@ export const EFFECT_CATALOG = [
   { type: "COPY_SKILL", label: "Copiar habilidad", mode: "special", targets: [] },
   { type: "STEAL_SKILL", label: "Robar habilidad", mode: "special", targets: [] },
   { type: "MAZE_UTILITY", label: "Capacidad de laberinto", mode: "special", targets: ["INVISIBILITY","FLOATING"] },
+  { type: "MAZE_TRAP_EVASION", label: "Evitar trampas del laberinto (%)", mode: "bonus", targets: ["TRAP"] },
+  { type: "MAZE_TREASURE_ITEM_CHANCE", label: "Probabilidad adicional de objeto en tesoros (%)", mode: "bonus", targets: ["TREASURE"] },
+  { type: "MAZE_TREASURE_MONEY_BONUS", label: "Monedas extra al reclamar tesoros (%)", mode: "bonus", targets: ["TREASURE"] },
 ] as const;
 
 export type SkillEffectType = typeof EFFECT_CATALOG[number]["type"];
@@ -39,7 +42,7 @@ const TARGET_LABELS: Record<string,string> = {
  PHYS_ATK:"Ataque físico",MAGIC_ATK:"Ataque mágico",ATTACK_TOTAL:"Ataque total",DEF:"Defensa física",MAG_DEF:"Defensa mágica",
  PRECISION:"Precisión",CRITICAL:"Crítico",DISCOVERY:"Descubrimiento",MIRACLE:"Milagro",INTIMIDATION:"Intimidación",CONQUEST:"Conquista",
  RACE:"Raza",DODGE:"Evasión",STEALTH:"Sigilo",DETECTION:"Detección",ALL:"Todo el daño",PHYSICAL:"Daño físico",MAGICAL:"Daño mágico",
- CUT:"Corte",BLUNT:"Contundente",PIERCE:"Perforación",FIRE:"Fuego",INVISIBILITY:"Invisibilidad",FLOATING:"Flotar",OTHER:"Otro",SELF:"Usuario",WEAPON:"Arma",ARMOR:"Armadura",SKILL:"Habilidad"
+ CUT:"Corte",BLUNT:"Contundente",PIERCE:"Perforación",FIRE:"Fuego",TRAP:"Trampa",TREASURE:"Tesoro",INVISIBILITY:"Invisibilidad",FLOATING:"Flotar",OTHER:"Otro",SELF:"Usuario",WEAPON:"Arma",ARMOR:"Armadura",SKILL:"Habilidad"
 };
 export function resolveEffectTargets(
  type:string,

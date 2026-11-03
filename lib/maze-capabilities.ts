@@ -1,6 +1,5 @@
-export type MazeCapabilities = {
-  invisibility: boolean;
-};
+import { racialMazeBonuses, type RacialMazeBonuses } from "./maze-racial-effects";
+export type MazeCapabilities = { invisibility: boolean } & RacialMazeBonuses;
 
 /** Returns capabilities granted by approved skills and equipped item effects. */
 export async function getCharacterMazeCapabilities(tx: any, characterId: number): Promise<MazeCapabilities> {
@@ -24,15 +23,15 @@ export async function getCharacterMazeCapabilities(tx: any, characterId: number)
     }
   }
 
-  if (!invisibility && Skill) {
-    const skills = await Skill.where({ characterId }).all();
+  const skills = Skill ? await Skill.where({ characterId }).all() : [];
+  if (!invisibility) {
     invisibility = skills
-      .filter((skill: any) => String(skill.status) === 'APPROVED')
+      .filter((skill: any) => String(skill.status) === "APPROVED")
       .some((skill: any) => {
         const effects = Array.isArray(skill.effect) ? skill.effect : [];
-        return effects.some((effect: any) => String(effect?.type ?? '').toUpperCase() === 'MAZE_UTILITY' && String(effect?.target ?? '').toUpperCase() === 'INVISIBILITY');
+        return effects.some((effect: any) => String(effect?.type ?? "").toUpperCase() === "MAZE_UTILITY"
+          && String(effect?.target ?? "").toUpperCase() === "INVISIBILITY");
       });
   }
-
-  return { invisibility };
+  return { invisibility, ...racialMazeBonuses(skills) };
 }

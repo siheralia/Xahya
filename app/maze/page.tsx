@@ -32,6 +32,7 @@ export default function MazePage(){
   const [position,setPosition]=useState<number|null>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  const [racialNotice,setRacialNotice]=useState("");
   const [selectedEnemy,setSelectedEnemy]=useState<any>(null);
   const [selectedOccupant,setSelectedOccupant]=useState<Occupant|null>(null);
   const [copied,setCopied]=useState(false);
@@ -71,23 +72,23 @@ export default function MazePage(){
   async function moveInvisible(direction:string){
     setBusy(true);setError("");
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"exploreInvisible",characterId:Number(characterId),direction})});
-    const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo explorar invisible.");else await loadMaze();setBusy(false);
+    const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo explorar invisible.");else {await loadMaze();setRacialNotice(d.avoidedTrap?"Tus reflejos te apartaron de una trampa antes de que se cerrara.":"");}setBusy(false);
   }
   async function moveStealth(direction:string){
 
     setBusy(true);setError("");
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"exploreStealth",characterId:Number(characterId),direction})});
-    const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar sigilosamente.");else await loadMaze();setBusy(false);
+    const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar sigilosamente.");else {await loadMaze();setRacialNotice(d.avoidedTrap?"Tus reflejos te apartaron de una trampa antes de que se cerrara.":"");}setBusy(false);
   }
   async function move(direction:string){
 
     setMovingDirection(direction);
-    setBusy(true);setError("");
+    setBusy(true);setError("");setRacialNotice("");
     // La API decide si sigilo/invisibilidad son relevantes según el cuarto.
     // No bloquean trampas liberadas ni cuartos que no contienen enemigos.
     const action=invisibilityActive?"exploreInvisible":stealthActive?"exploreStealth":undefined;
     const r=await fetch("/api/maze/"+mazeId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,characterId:Number(characterId),direction})});
-    const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar.");else await loadMaze();setBusy(false);setMovingDirection(null);
+    const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo avanzar.");else {await loadMaze();if(d.avoidedTrap)setRacialNotice("Tus reflejos te apartaron de una trampa antes de que se cerrara.");}setBusy(false);setMovingDirection(null);
   }
   async function useTrapConsumable(characterItemId:number, action:"DISARM_MAZE_TRAP"|"RELEASE_MAZE_TRAPPED"){
     if(!mazeId||!characterId||trapBusy!==null)return;
@@ -109,7 +110,7 @@ export default function MazePage(){
   async function claim(){
     setBusy(true);setError("");
     const r=await fetch("/api/maze/"+mazeId+"/claim",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({characterId:Number(characterId),roomId:position})});
-    const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo reclamar.");else await loadMaze();setBusy(false);
+    const d=await r.json();if(!r.ok)setError(d?.error??"No se pudo reclamar.");else {await loadMaze();setRacialNotice(Number(d.bonusMoney)>0?"Tu instinto descubrió vetas de riqueza que otros habrían pasado por alto.":"");}setBusy(false);
   }
   async function defeatEnemy(enemy:any){
     if(!mazeId||!characterId)return;
@@ -190,6 +191,7 @@ export default function MazePage(){
   return <main className="min-h-screen bg-zinc-950 text-white">
     <div className="mx-auto flex min-h-screen w-full flex-col px-3 py-3 sm:px-5 sm:py-4">
       {error&&<div className="mt-3 rounded-xl border border-red-900/60 bg-red-950/30 p-3 text-sm text-red-300">{error}</div>}
+      {racialNotice&&<div role="status" className="mt-3 rounded-xl border border-emerald-800/60 bg-emerald-950/30 p-3 text-sm text-emerald-200">✦ {racialNotice}</div>}
       {!maze&&<section className="mt-3 grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 sm:grid-cols-2">
         <label className="text-xs text-zinc-500">Personaje<select value={characterId} onChange={e=>selectCharacter(e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm"><option value="">Selecciona</option>{characters.map(c=><option key={c.id} value={c.id}>{c.isSystem?"⚙️ SYSTEM · ":""}{c.name}</option>)}</select></label>
         <label className="text-xs text-zinc-500">Laberinto<select value={mazeId} onChange={e=>setMazeId(e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm"><option value="">Selecciona</option>{mazes.map(m=><option key={m.id} value={m.id}>{m.name} — {m.mazeType==="FINITE"?m.roomCount+"/"+m.maxRooms:"∞"}</option>)}</select></label>

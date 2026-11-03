@@ -147,6 +147,11 @@ export function progressTrainingNpc(
     const attackSource=defaultAttackSource(npc);
     const weapon=weaponForSource(npc,attackSource);
     const physicalReach=effectiveWeaponReachMeters(npc,false,attackSource);
+    // Training opponents notice visible enemy mirrors. They may deliberately
+    // break a nearby mirror or cast at it; neither is free damage to its owner.
+    const enemyMirrors=(next.constructions??[]).filter(c=>
+      c.form==="MIRROR"&&c.owner==="PLAYER"&&(c.durability??0)>0);
+    const mirrorTarget=enemyMirrors.length&&random()<0.35?enemyMirrors[0]:undefined;
     if(distance>physicalReach && !castMagic) {
       const maximum=Math.max(1,Math.round(npc.race/10));
       const meters=Math.min(maximum,Math.max(0.01,distance-Math.max(0.1,physicalReach-0.05)));
@@ -154,13 +159,21 @@ export function progressTrainingNpc(
     } else {
       next=castMagic
         ? applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType,usesMagic:true,
-            areaCenter:{x:cap(random(),0,0.999999),y:cap(random(),0,0.999999)}},makeDice())
+            areaCenter:mirrorTarget?{...mirrorTarget.center}:
+              {x:cap(random(),0,0.999999),y:cap(random(),0,0.999999)},
+            targetConstructionId:mirrorTarget?.id},makeDice())
         : weapon?.mode==="RANGED"
           ?applyCombatCommand(next,"NPC",{kind:"ATTACK",attackSource,attackType:weapon.attackType,
-            rangedPhysical:true,areaCenter:{x:0.4+0.2*cap(random(),0,0.999999),
-              y:0.4+0.2*cap(random(),0,0.999999)}},makeDice())
+            rangedPhysical:true,areaCenter:mirrorTarget?{...mirrorTarget.center}:
+              {x:0.4+0.2*cap(random(),0,0.999999),
+              y:0.4+0.2*cap(random(),0,0.999999)},
+            targetConstructionId:mirrorTarget?.id},makeDice())
           :applyCombatCommand(next,"NPC",{kind:"ATTACK",attackSource,attackType:weapon?.attackType??"BLUNT",
-            trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC",attackSource))},makeDice());
+            trajectory:mirrorTarget?[
+              physicalAttackStart(next,"NPC",attackSource)??{x:cap(mirrorTarget.center.x-0.3,0,1),y:mirrorTarget.center.y},
+              {...mirrorTarget.center}
+            ]:npcAttackTrajectory(random,physicalAttackStart(next,"NPC",attackSource)),
+            targetConstructionId:mirrorTarget?.id},makeDice());
     }
   }
   throw new Error("La IA alcanzó el límite de acciones por actualización.");

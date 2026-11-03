@@ -28,14 +28,14 @@ test("the chronicle turns logged actions into coherent predefined phrases",()=>{
  ];
  const first=narrateCombat(events,fighters),second=narrateCombat(events,fighters);
  assert.equal(first,second,"replays must not be random");
- assert.match(first,/Elena contra Sombra/);
- assert.match(first,/avanzó 1 m/);
- assert.match(first,/trazó un corte con Katana/);
- assert.match(first,/14 puntos de daño/);
+ assert.match(first,/Elena se enfrentó a Sombra/);
+ assert.match(first,/avanzó para acortar la distancia/);
+ assert.match(first,/abrió el combate con un corte con Katana/);
+ assert.match(first,/catorce puntos de daño/);
  assert.match(first,/impacto crítico/);
  assert.match(first,/Curación/);
  assert.match(first,/arrojó Daga/);
- assert.match(first,/Sombra esquivó/);
+ assert.match(first,/Sombra logró esquivar el ataque/);
  assert.match(first,/se alzó con la victoria/);
  assert.doesNotMatch(first,/esperando reacción/);
 });
@@ -53,8 +53,9 @@ test("newly completed encounters retain a full narration even after the 100-even
  assert.equal(state.status,"FINISHED");
  assert.ok(state.log.length<=100);
  assert.match(state.narrativeText,/Paso inicial memorable/);
- assert.match(state.narrativeText,/Elena se alzó con la victoria/);
- assert.equal(state.narrativeHistory,undefined,"the finished state stores the finalized text, not duplicate history");
+ assert.match(state.narrativeText,/Elena obtuvo la victoria/);
+ assert.equal(state.narrativeHistory.length,148,"the full history is kept server-side for future reinterpretations");
+ assert.equal(state.narrativeVersion,2);
  const publicState=combatClientView(state);
  assert.equal(publicState.narrativeText,state.narrativeText);
  assert.equal(publicState.narrativeHistory,undefined);
@@ -74,4 +75,64 @@ test("the interface stops polling after FINISHED and offers manual refresh and c
  assert.match(src,/Copiar narración/);
  assert.match(src,/navigator\.clipboard\.writeText\(chronicle\)/);
  assert.match(src,/Actualizar resultado/);
+});
+
+test("Ariana battle tells a connected three-paragraph story, not a list of logs",()=>{
+ const actors={
+  PLAYER:{name:"Ariana Lailas",hp:3,maxHp:12},
+  NPC:{name:"Oponente de entrenamiento",hp:0,maxHp:30}
+ };
+ const events=[
+  {kind:"ATTACK",tick:7,by:"NPC",against:"PLAYER",summary:"Oponente lanzó un corte",attackType:"CUT"},
+  {kind:"RESOLVE",tick:12,by:"NPC",against:"PLAYER",summary:"Oponente impactó a Ariana (4 HP)",damage:4,contact:true,defense:"DEFLECT",knockbackMeters:0.86},
+  {kind:"MOVE",tick:35,by:"PLAYER",summary:"Ariana se desplazó 0.5 m (TOWARD)",movementDirection:"TOWARD",moveMeters:0.5},
+  {kind:"ATTACK",tick:43,by:"NPC",against:"PLAYER",summary:"Oponente lanzó magia de perforación",attackType:"PIERCE",usesMagic:true},
+  {kind:"RESOLVE",tick:48,by:"NPC",against:"PLAYER",summary:"Oponente impactó a Ariana (4 HP)",damage:4,contact:true,defense:"NONE"},
+  {kind:"ATTACK",tick:76,by:"NPC",against:"PLAYER",summary:"Oponente lanzó un corte",attackType:"CUT"},
+  {kind:"RESOLVE",tick:80,by:"NPC",against:"PLAYER",summary:"Oponente impactó a Ariana (1 HP)",damage:1,contact:true,defense:"NONE"},
+  {kind:"ROUND",tick:100,by:"PLAYER",summary:"Comienza el turno 2"},
+  {kind:"ATTACK",tick:112,by:"PLAYER",against:"NPC",summary:"Ariana lanzó magia de perforación",attackType:"PIERCE",usesMagic:true},
+  {kind:"RESOLVE",tick:139,by:"PLAYER",against:"NPC",summary:"Ariana acertó con su explosión mágica (10 HP)",damage:10,contact:true,defense:"MAGIC_FIELD"},
+  {kind:"MOVE",tick:178,by:"NPC",summary:"Oponente se desplazó 0.71999999999999998 m (TOWARD)",movementDirection:"TOWARD",moveMeters:0.72},
+  {kind:"ATTACK",tick:178,by:"PLAYER",against:"NPC",summary:"Ariana lanzó un ataque de perforación",attackType:"PIERCE"},
+  {kind:"RESOLVE",tick:178,by:"PLAYER",against:"NPC",summary:"Oponente evitó el ataque",damage:0,contact:false,defense:"DEFLECT"},
+  {kind:"ATTACK",tick:200,by:"PLAYER",against:"NPC",summary:"Ariana lanzó un ataque de perforación",attackType:"PIERCE"},
+  {kind:"RESOLVE",tick:200,by:"PLAYER",against:"NPC",summary:"Ariana impactó a oponente (63 HP)",damage:63,contact:true,defense:"NONE"},
+  {kind:"END",tick:200,by:"PLAYER",against:"NPC",summary:"Ariana Lailas gana el combate"},
+ ];
+ const story=narrateCombat(events,actors);
+ assert.equal(story.split("\n\n").length,3,story);
+ assert.match(story,/Ariana Lailas se enfrentó a un oponente de entrenamiento/);
+ assert.match(story,/El rival abrió el combate con un corte/);
+ assert.match(story,/pese al intento de desvío/);
+ assert.match(story,/obligó a Ariana a retroceder/);
+ assert.match(story,/Ariana avanzó para recuperar terreno/);
+ assert.match(story,/explosión mágica perforante/);
+ assert.match(story,/Un segundo corte del rival/);
+ assert.match(story,/Al comenzar el segundo turno, Ariana respondió/);
+ assert.match(story,/Ni siquiera el campo defensivo del rival/);
+ assert.match(story,/logró desviar el ataque/);
+ assert.match(story,/su siguiente ataque encontró una abertura/);
+ assert.match(story,/63 puntos de daño que terminó el combate/);
+ assert.match(story,/Ariana Lailas obtuvo la victoria, aunque terminó con apenas tres de sus doce puntos de vida/);
+ assert.doesNotMatch(story,/Tick 200|esperando reacción|0\.7199999999/);
+ assert.doesNotMatch(story,/Crónica del encuentro:/);
+});
+
+test("pre-versioned concluded fights are regenerated from surviving facts, not frozen in the old style",()=>{
+ const state=newCombatState(basicActor("Elena",0),basicActor("Sombra",1));
+ state.status="FINISHED";
+ state.winner="PLAYER";
+ state.log=[
+   {kind:"ATTACK",tick:10,by:"PLAYER",against:"NPC",attackType:"PIERCE",summary:"Elena lanzó un ataque de perforación"},
+   {kind:"RESOLVE",tick:12,by:"PLAYER",against:"NPC",contact:true,damage:63,defense:"NONE",summary:"Elena impactó a Sombra (63 HP)"},
+   {kind:"END",tick:12,by:"PLAYER",against:"NPC",summary:"Elena gana el combate"},
+ ];
+ state.narrativeText="Crónica del encuentro: Elena contra Sombra.\n\nElena lanzó una estocada.";
+ const publicState=combatClientView(state);
+ assert.equal(publicState.narrativeVersion,2);
+ assert.match(publicState.narrativeText,/Elena se enfrentó a Sombra/);
+ assert.match(publicState.narrativeText,/63 puntos de daño/);
+ assert.doesNotMatch(publicState.narrativeText,/Crónica del encuentro:/);
+ assert.equal(state.narrativeText.startsWith("Crónica del encuentro:"),true,"server projection must not mutate persistence");
 });

@@ -1,4 +1,5 @@
 import type { CombatState, Point } from "./turn-engine.ts";
+import {COMBAT_NARRATIVE_VERSION,narrateCombat} from "./narration.ts";
 
 /** Phase-1 abstract aiming arena: independently projected from the 1D distance system. */
 export const BASIC_MAGIC_AREA_RADIUS = 0.14;
@@ -41,6 +42,14 @@ export function guessedMagicCenter(actual:Point,guess:Point):boolean {
  */
 export function combatClientView(state:CombatState):CombatState {
  const clone=structuredClone(state);
+ if(state.status==="FINISHED"&&(state.narrativeVersion??0)<COMBAT_NARRATIVE_VERSION){
+  // Previously finished fights contain an old-fashioned narrative, but can be
+  // reinterpreted from the event log without altering persisted battle state.
+  const complete=(state.narrativeHistory?.length??0)>0;
+  clone.narrativeText=narrateCombat(complete?state.narrativeHistory!:state.log,state.actors);
+  clone.narrativeVersion=COMBAT_NARRATIVE_VERSION;
+  clone.narrativePartial=!complete&&state.log.length>=100;
+ }
  // The complete chronology belongs to the server until it is converted into
  // the final chronicle. Do not send an ever-growing private history on each poll.
  delete clone.narrativeHistory;

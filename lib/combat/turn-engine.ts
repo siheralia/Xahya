@@ -3,7 +3,7 @@ import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
 import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
 import { geometricContact } from "./geometry.ts";
-import { narrateCombat } from "./narration.ts";
+import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
 import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 
@@ -67,6 +67,8 @@ export type CombatState = {
   narrativeHistory?: CombatLog[];
   /** Persisted final chronicle. Created exactly once when the fight ends. */
   narrativeText?: string;
+  narrativeVersion?:number;
+  narrativePartial?:boolean;
   pending: PendingAttack | null; log: CombatLog[];
 };
 export type CombatCommand =
@@ -411,7 +413,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       addLog(state,{kind:"END",tick:state.tick,by:pending.by,against:by,summary:attacker.name+" gana el combate"});
       settleDroppedWeapons(state);
       state.narrativeText=narrateCombat(state.narrativeHistory??state.log,state.actors);
-      delete state.narrativeHistory; // Keep the finished record compact.
+      state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
+      // Retain server-only source events to allow better interpretations of old encounters.
     }
     advanceRoundIfComplete(state);
     return state;
@@ -559,8 +562,11 @@ export function applyResolvedCombatSkill(
    damageElement:plan.damageElement,
   };
   const event=next.log.at(-1);
-  if(event){event.skillId=plan.id;event.manaCost=plan.cost;
-   event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";}
+  if(event){event.skillId=plan.id;event.manaCost=plan.cost;event.skillName=plan.name;
+   event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";
+   const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
+   if(historical){historical.skillId=plan.id;historical.skillName=plan.name;historical.summary=event.summary;}
+  }
  }else{
   next=structuredClone(original);
   const actor=next.actors[by];

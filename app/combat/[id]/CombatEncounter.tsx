@@ -205,7 +205,8 @@ export default function CombatEncounter({id}:{id:string}) {
    areaCenter:skill.usesMagic?areaCenter??undefined:undefined});
  }
  const chronicle=state?.status==="FINISHED"
-  ?(state.narrativeText??narrateCombat(state.log,state.actors)):"";
+  ?(state.narrativeVersion===2&&state.narrativeText
+    ?state.narrativeText:narrateCombat(state.log,state.actors)):"";
  async function copyChronicle(){
   try{
    await navigator.clipboard.writeText(chronicle);
@@ -450,12 +451,13 @@ export default function CombatEncounter({id}:{id:string}) {
       </button>
      </div>
     </div>
-    <p className="mb-3 text-sm text-zinc-400">Relato automático de las acciones, defensas, habilidades y desenlace. El refresco automático ya está detenido.</p>
+    <p className="mb-3 text-sm text-zinc-400">Relato del encuentro organizado por turnos, con sus acciones y consecuencias. El refresco automático ya está detenido.</p>
     {narrativeCopyStatus&&<p role="status" className="mb-3 text-sm text-amber-200">{narrativeCopyStatus}</p>}
-    {!state.narrativeText&&<p className="mb-2 text-xs text-zinc-400">Encuentro antiguo: la crónica se reconstruyó a partir de los eventos que aún conserva el registro.</p>}
-    <textarea readOnly value={chronicle} aria-label="Narración completa del encuentro"
-     className="min-h-80 w-full resize-y rounded-lg border border-zinc-700 bg-zinc-900 p-4 text-sm leading-relaxed text-zinc-100"
-     rows={16}/>
+    {state.narrativePartial&&<p className="mb-2 text-xs text-zinc-400">Encuentro anterior: este relato utiliza únicamente las acciones todavía conservadas en el registro.</p>}
+    <article aria-label="Narración completa del encuentro"
+     className="select-text whitespace-pre-wrap rounded-lg border border-zinc-700 bg-zinc-900/60 p-4 text-sm leading-7 text-zinc-100">
+     {chronicle}
+    </article>
    </section>}
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
     <h2 className="mb-3 text-lg font-bold">Registro de combate</h2>

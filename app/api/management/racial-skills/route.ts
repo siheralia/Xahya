@@ -31,11 +31,11 @@ export async function POST(request:Request) {
   if (!await db.orm.public.Race.where({id:raceId}).first()) return NextResponse.json({error:"Raza inexistente."},{status:400});
   const name=String(body.name).trim(),description=String(body.description).trim();
   const category=String(body.category),manaCost=Number(body.manaCost),maintenanceCost=Number(body.maintenanceCost);
-  const active=Boolean(body.active),effects=JSON.stringify(body.effect),cooldown=String(body.cooldown??"Sin cooldown");
+  const active=Boolean(body.active),effects=JSON.stringify(body.effect),cooldown=String(body.cooldown??"Sin cooldown"),duration=String(body.duration??"Instantánea");
   try {
     const query=db.raw.sql`
-      INSERT INTO public."raceSkill" ("raceId",name,description,category,effect,"manaCost","maintenanceCost",cooldown,active)
-      VALUES (${raceId},${name},${description},${category},${effects}::jsonb,${manaCost},${maintenanceCost},${cooldown},${active})
+      INSERT INTO public."raceSkill" ("raceId",name,description,category,effect,"manaCost","maintenanceCost",duration,cooldown,active)
+      VALUES (${raceId},${name},${description},${category},${effects}::jsonb,${manaCost},${maintenanceCost},${duration},${cooldown},${active})
       RETURNING id
     `.returnsRow({id:"pg/int4@1"}).build();
     const [created]=await db.runtime().query(query) as Array<{id:number}>;

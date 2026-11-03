@@ -1,6 +1,7 @@
 import type {CombatAttackType} from "./ticks.ts";
 import type {CombatFighter,CombatLog,Side} from "./turn-engine.ts";
 
+export const COMBAT_NARRATIVE_VERSION=2;
 type Fighters=Record<Side,Pick<CombatFighter,"name">&Partial<Pick<CombatFighter,"hp"|"maxHp">>>;
 type Beat=
  | {kind:"ATTACK";launch?:CombatLog;result?:CombatLog}
@@ -92,12 +93,12 @@ function describeAttack(
  const landed=Boolean(impact?.contact&&damage>0);
  const avoided=Boolean(impact&&/evitó el ataque|escapó de la explosión/i.test(impact.summary));
  const defended=impact?.defense;
- const reaction=defended==="DEFLECT"?"intento de desvío":
-  defended==="BLOCK"?"bloqueo":
-  defended==="ENDURE"?"resistencia":
-  defended==="REPEL"?"intento de repelerlo":
-  defended==="DODGE"?"maniobra evasiva":
-  defended==="MAGIC_FIELD"?"campo defensivo":undefined;
+ const reaction=defended==="DEFLECT"?"al intento de desvío":
+  defended==="BLOCK"?"al bloqueo":
+  defended==="ENDURE"?"a la resistencia":
+  defended==="REPEL"?"al intento de repelerlo":
+  defended==="DODGE"?"a la maniobra evasiva":
+  defended==="MAGIC_FIELD"?"al campo defensivo":undefined;
  const pushed=landed&&(impact?.knockbackMeters??0)>0;
  const damageBefore=ctx.damaged[victim]>0;
  const stem=first?actor+" abrió el combate con "+act:
@@ -108,8 +109,8 @@ function describeAttack(
  if(!impact){
   phrase=stem+", aunque no quedó registrada la resolución del ataque.";
  }else if(!landed){
-  if(avoided&&defended==="DEFLECT")phrase=stem+", pero "+target+" logró desviarlo.";
-  else if(avoided&&defended==="DODGE")phrase=stem+", pero "+target+" logró esquivarlo.";
+  if(avoided&&defended==="DEFLECT")phrase=stem+", pero "+target+" logró desviar el ataque.";
+  else if(avoided&&defended==="DODGE")phrase=stem+", pero "+target+" logró esquivar el ataque.";
   else if(avoided)phrase=stem+", pero "+target+" evitó el impacto.";
   else if(impact.contact&&damage===0)phrase=stem+", aunque "+target+" no sufrió daño.";
   else phrase=stem+", pero el ataque no alcanzó a "+target+".";
@@ -120,14 +121,14 @@ function describeAttack(
   phrase=stem+". Ni siquiera el campo defensivo de "+target+
    " pudo impedir que recibiera "+damagePhrase(damage)+".";
  }else if(repeat>1&&type==="CUT"&&!magic&&!ranged){
-  phrase="Un segundo corte de "+actor+" volvió a alcanzar a "+target+
+  phrase=(repeat===2?"Un segundo corte de ":"Otro corte de ")+actor+" volvió a alcanzar a "+target
    " y causó "+damagePhrase(damage)+".";
  }else if(first){
-  phrase=stem+" que "+(reaction?", pese al "+reaction+", ":"")+
+  phrase=stem+" que "+(reaction?", pese "+reaction+", ":"")+
    "causó "+damagePhrase(damage)+" a "+target+
    (pushed?" y obligó a "+target+" a retroceder":"")+".";
  }else if(reaction){
-  phrase=stem+". Pese al "+reaction+" de "+target+", "+
+  phrase=stem+". Pese "+reaction+" de "+target+", "+
    (damageBefore?"recibió otros ":"recibió ")+damagePhrase(damage)+".";
  }else if(magic){
   phrase=stem+" y alcanzó a "+target+", arrebatándole "+
@@ -210,6 +211,7 @@ export function narrateCombat(log:ReadonlyArray<CombatLog>,fighters:Fighters):st
    continue;
   }
   const event=beat.event;
+  if(ended)continue;
   if(event.kind==="ROUND"){
    flush();
    const explicit=Number(event.summary.match(/(?:turno|ronda)\s+(\d+)/i)?.[1]);

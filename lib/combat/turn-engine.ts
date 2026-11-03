@@ -14,6 +14,7 @@ export type CombatFighter = {
   magicAttack: number; magicDefense: number; critical: number; luck: number;
   race: number; massKg: number; positionMeters: number; attackType: CombatAttackType;
   heightMeters?: number; unarmedReachMeters?: number;
+  equippedWeapon?: {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number};
   defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
   magicFieldDescription?: string | null; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
@@ -355,6 +356,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     const ranged=command.rangedPhysical===true;
     if(magic&&ranged)throw new Error("El ataque no puede ser mágico y proyectil físico a la vez.");
+    if(!magic&&serverSkillRangeMeters===undefined){
+      const weapon=fighter.equippedWeapon;
+      if(ranged&&(!weapon||weapon.mode!=="RANGED"))throw new Error("Necesitas un arma a distancia equipada para disparar.");
+      if(weapon&&weapon.attackType!==command.attackType)throw new Error("El tipo de ataque debe coincidir con el arma equipada.");
+      if(!ranged&&weapon?.mode==="RANGED")throw new Error("Esta arma está configurada para ataques a distancia.");
+    }
     if(ranged&&!validArenaPoint(command.areaCenter))throw new Error("Marca el punto de impacto del proyectil.");
     if(!magic&&!ranged) {
       const previous=physicalAttackStart(state,by);
@@ -363,8 +370,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     if (magic && !validArenaPoint(command.areaCenter))
       throw new Error("Marca el centro de la explosión mágica en el lienzo.");
-    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:ranged?10:(fighter.unarmedReachMeters??Math.max(0.3,(fighter.heightMeters??1.7)*0.45)))))
-      throw new Error(magic?"El objetivo está fuera del alcance mágico de 10 m.":"El objetivo está fuera del alcance físico de 2 m.");
+    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:ranged?(fighter.equippedWeapon?.effectiveRangeMeters??0):(fighter.equippedWeapon?.effectiveRangeMeters??fighter.unarmedReachMeters??Math.max(0.3,(fighter.heightMeters??1.7)*0.45)))))
+      throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance efectivo del arma.");
     spend(fighter,turnTicks(fighter,command.attackType));
     if(magic&&serverSkillRangeMeters===undefined)state.mana![by].current-=1;
     if(!magic&&!ranged){

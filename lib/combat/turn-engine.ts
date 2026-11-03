@@ -1,6 +1,7 @@
 import { calculateActionTicks, COMBAT_TICKS_PER_TURN } from "./ticks.ts";
 import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
+import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "NONE";
@@ -17,12 +18,17 @@ export type CombatFighter = {
 export type PendingAttack = {
   by: Side; against: Side; attackType: CombatAttackType;
   trajectory: Point[]; launchedAtTick: number; usesMagic: boolean;
+  /** Hidden from client while pending; attacker-selected basic magic blast. */
+  targetCenter?: Point;
+  /** Coarse, public 3x3 telegraph; never reveals the exact impact point. */
+  areaHint?: string;
 };
 export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
   damage?: number; critical?: boolean; contact?: boolean;
   knockbackMeters?: number; weaponIntegrity?: number; defense?: DefenseChoice;
   attackType?: CombatAttackType;
+  areaCenter?: Point; predictedCenter?: Point;
 };
 export type CombatState = {
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
@@ -34,8 +40,8 @@ export type CombatState = {
 export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" }
   | { kind: "WAIT" }
-  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean }
-  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number };
+  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; areaCenter?: Point }
+  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -179,6 +185,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     validateRoll(rolls.hit); validateRoll(rolls.critical); validateRoll(rolls.defense);
     const attacker = state.actors[pending.by];
     let defense = command.defense;
+    if (pending.usesMagic && !["DODGE","ENDURE","NONE"].includes(defense))
+      throw new Error("Para la explosión mágica básica puedes esquivar el área, resistir o no reaccionar.");
     if (remainingAp(fighter) <= 0 || fighter.spentTicks >= LIMIT) defense = "NONE";
     if (defense !== "NONE") spend(fighter, turnTicks(fighter));
     const power = pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack;
@@ -188,7 +196,16 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     let damageScale = 1;
     let displaced = 0;
     if (defense === "DODGE") {
-      avoided = rolls.hit >= contestChance(attacker.precision, fighter.dodge);
+      if (pending.usesMagic) {
+        if (!validArenaPoint(pending.targetCenter)) throw new Error("Centro mágico ausente.");
+        if (!validArenaPoint(command.predictedCenter)) throw new Error("Marca dónde crees que caerá la explosión.");
+        // Spatial prediction plus a genuine agility/precision contest.
+        // The target was stored privately, never returned by the combat API.
+        avoided = guessedMagicCenter(pending.targetCenter,command.predictedCenter)
+          && rolls.hit >= contestChance(attacker.precision, fighter.dodge);
+      } else {
+        avoided = rolls.hit >= contestChance(attacker.precision, fighter.dodge);
+      }
     } else if (defense === "BLOCK") {
       const contest = contestChance(fighter.constitution * typeFactor, attacker.strength);
       const held = fighter.weaponIntegrity > 0 && rolls.defense < contest;
@@ -213,7 +230,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // not another invisible full Esquive roll.
     const contact = !avoided;
     const critical = contact && rolls.critical < clamp(0.05 + attacker.critical / (attacker.critical + fighter.luck + 100)*0.20,0.05,0.25);
-    const raw = Math.max(1, Math.round(power * (critical?1.5:1) * typeFactor - protection * 0.75));
+    // A free phase-1 magical *basic* strike is intentionally bounded.
+    // Full skill damage, mana expenditure and elemental effects belong to phase 2.
+    const raw = pending.usesMagic
+      ? Math.max(1,Math.round((3+5*power/(power+protection+20))*(critical?1.5:1)*typeFactor))
+      : Math.max(1, Math.round(power * (critical?1.5:1) * typeFactor - protection * 0.75));
     const damage = contact ? Math.max(0, Math.round(raw * damageScale)) : 0;
     fighter.hp = Math.max(0, fighter.hp - damage);
     if (contact && damage > 0 && displaced === 0 && !pending.usesMagic)
@@ -230,7 +251,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT + attacker.spentTicks,(state.round-1)*LIMIT + fighter.spentTicks);
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
       contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
-      summary:avoided ? fighter.name + " evitó el ataque" : attacker.name + " impactó a " + fighter.name + " (" + damage + " HP)"});
+      areaCenter:pending.usesMagic?pending.targetCenter:undefined,
+      predictedCenter:pending.usesMagic&&defense==="DODGE"?command.predictedCenter:undefined,
+      summary:avoided ? fighter.name + (pending.usesMagic?" escapó de la explosión":" evitó el ataque")
+        : attacker.name + (pending.usesMagic?" acertó con su explosión mágica a ":" impactó a ") + fighter.name + " (" + damage + " HP)"});
     state.pending = null;
     if (fighter.hp <= 0) {
       state.status = "FINISHED";state.winner = pending.by;
@@ -264,15 +288,21 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const points = command.trajectory?.length ? command.trajectory : [{x:0.1,y:0.5},{x:0.9,y:0.5}];
     if (!Array.isArray(points) || points.length < 2 || points.length > 80 || points.some(p => !safePoint(p)))
       throw new Error("Trayectoria inválida.");
-    if (Math.abs(fighter.positionMeters-rival.positionMeters)>2)
-      throw new Error("El objetivo está fuera del alcance físico de 2 m.");
+    const magic=command.usesMagic===true;
+    if (magic && !validArenaPoint(command.areaCenter))
+      throw new Error("Marca el centro de la explosión mágica en el lienzo.");
+    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(magic?BASIC_MAGIC_RANGE_METERS:2))
+      throw new Error(magic?"El objetivo está fuera del alcance mágico de 10 m.":"El objetivo está fuera del alcance físico de 2 m.");
     spend(fighter,turnTicks(fighter,command.attackType));
     state.pending = {by,against:other(by),attackType:command.attackType,
-      trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:command.usesMagic===true};
+      trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,
+      targetCenter:magic?command.areaCenter:undefined,
+      areaHint:magic?magicImpactZone(command.areaCenter!):undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,
-      summary:fighter.name+" lanzó un ataque de "+labels[command.attackType]+"; esperando reacción"});
+      summary:magic?fighter.name+" lanzó una explosión mágica básica; esperando reacción"
+        :fighter.name+" lanzó un ataque de "+labels[command.attackType]+"; esperando reacción"});
   } else throw new Error("Acción inválida.");
   state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);
   advanceRoundIfComplete(state);

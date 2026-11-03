@@ -91,7 +91,7 @@ export function canAct(state: CombatState, side: Side): boolean {
   if (remainingAp(f) < 1 || f.spentTicks >= LIMIT) return false;
   // At most one opponent-sized action of temporal lead. At twice the
   // opponent's speed, two short movements fit before the rival moves once.
-  return f.spentTicks <= rival.spentTicks + turnTicks(rival);
+  return f.spentTicks < rival.spentTicks + turnTicks(rival);
 }
 function advanceRoundIfComplete(state: CombatState) {
   const finished = (side: Side) => {
@@ -151,7 +151,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     let damageScale = 1;
     let displaced = 0;
     if (defense === "DODGE") {
-      avoided = rolls.hit < contestChance(fighter.dodge, attacker.precision);
+      avoided = rolls.hit >= contestChance(attacker.precision, fighter.dodge);
     } else if (defense === "BLOCK") {
       const contest = contestChance(fighter.constitution * typeFactor, attacker.strength);
       const held = fighter.weaponIntegrity > 0 && rolls.defense < contest;
@@ -174,14 +174,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     // No selected dodge means contact is checked against a small base margin,
     // not another invisible full Esquive roll.
-    const contact = !avoided && (defense !== "DODGE" || rolls.hit < contestChance(attacker.precision, fighter.dodge));
+    const contact = !avoided;
     const critical = contact && rolls.critical < clamp(0.05 + attacker.critical / (attacker.critical + fighter.luck + 100)*0.20,0.05,0.25);
     const raw = Math.max(1, Math.round(power * (critical?1.5:1) * typeFactor - protection * 0.75));
     const damage = contact ? Math.max(0, Math.round(raw * damageScale)) : 0;
     fighter.hp = Math.max(0, fighter.hp - damage);
     if (contact && damage > 0 && displaced === 0 && !pending.usesMagic)
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
-    state.tick = Math.max(state.tick,attacker.spentTicks,fighter.spentTicks);
+    state.tick = Math.max(state.tick,(state.round-1)*LIMIT + attacker.spentTicks,(state.round-1)*LIMIT + fighter.spentTicks);
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
       contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
       summary:avoided ? fighter.name + " evitó el ataque" : attacker.name + " impactó a " + fighter.name + " (" + damage + " HP)"});
@@ -215,7 +215,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       trajectory:points,launchedAtTick:fighter.spentTicks,usesMagic:command.usesMagic===true};
     addLog(state,{kind:"ATTACK",tick:fighter.spentTicks,by,against:other(by),summary:fighter.name+" atacó; esperando reacción"});
   } else throw new Error("Acción inválida.");
-  state.tick = Math.max(state.tick,fighter.spentTicks);
+  state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);
   advanceRoundIfComplete(state);
   return state;
 }

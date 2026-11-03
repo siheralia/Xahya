@@ -7,6 +7,7 @@ import {
   applyCombatCommand, canAct, type CombatCommand, type CombatState, type Side,
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
+import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 
 const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
   critical:randomInt(1_000_000)/1_000_000,defense:randomInt(1_000_000)/1_000_000});
@@ -36,29 +37,6 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}) {
   return NextResponse.json({state:a.state,permissions:{PLAYER:a.canPlayer,
     NPC:a.canOpponent},canMove:{PLAYER:canAct(a.state,"PLAYER"),NPC:canAct(a.state,"NPC")}});
 }
-function npcRespond(state:CombatState):CombatState {
-  // NPC-only automated actions. Never auto-respond for another human player.
-  if(state.actors.NPC.characterId!==null || state.status!=="ACTIVE")return state;
-  let next=state;
-  if(next.pending?.against==="NPC") {
-    const npc=next.actors.NPC;
-    const defense=npc.constitution>npc.agility?"BLOCK":"DODGE";
-    next=applyCombatCommand(next,"NPC",{kind:"DEFEND",defense},dice());
-  }
-  // After the player's movement or resolved attack, NPC may submit one action,
-  // generating a player-facing reaction. It never spams an unbounded loop.
-  if(!next.pending && canAct(next,"NPC") && !canAct(next,"PLAYER") && next.actors.NPC.spentTicks<=next.actors.PLAYER.spentTicks) {
-    const npc=next.actors.NPC;
-    const distance=Math.abs(npc.positionMeters-next.actors.PLAYER.positionMeters);
-    if(distance>2) {
-      const step=Math.min(Math.max(1,Math.round(npc.race/10)),distance-1.5);
-      next=applyCombatCommand(next,"NPC",{kind:"MOVE",meters:step,direction:"TOWARD"},dice());
-    } else {
-      next=applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType},dice());
-    }
-  }
-  return next;
-}
 export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
   const a=await access((await params).id);
   if(!a)return NextResponse.json({error:"Combate no encontrado o sin permiso."},{status:403});
@@ -68,6 +46,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
     return NextResponse.json({error:"Acción inválida."},{status:400});
   if(side==="PLAYER"&&!a.canPlayer || side==="NPC"&&!a.canOpponent)
     return NextResponse.json({error:"No controlas a este combatiente."},{status:403});
+  const advanceNpcOnly=body.command.kind==="ADVANCE";
   const command=body.command as CombatCommand;
   if(command.kind==="ATTACK"&&command.usesMagic===true)
     return NextResponse.json({error:"Los ataques mágicos requieren integrar primero su coste de maná."},{status:400});
@@ -81,8 +60,20 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
       const state=(fresh?.lastAction as any)?.combatV1 as CombatState|undefined;
       if(!state||state.version!==1||String(fresh?.status)!=="ACTIVE")
         throw new Error("El combate ya terminó o no admite estas acciones.");
-      let next=applyCombatCommand(state,side,command,dice());
-      if(side==="PLAYER" && command.kind!=="DEFEND" && next.status==="ACTIVE")next=npcRespond(next);
+      let next: CombatState;
+      if(advanceNpcOnly) {
+        if(side!=="PLAYER" || state.actors.NPC.characterId!==null)
+          throw new Error("Solo puedes avanzar la IA de un oponente de entrenamiento.");
+        next=progressTrainingNpc(state,dice,()=>randomInt(1_000_000)/1_000_000);
+        if(JSON.stringify(next)===JSON.stringify(state))
+          throw new Error("No hay ninguna acción automática pendiente del NPC.");
+      } else {
+        next=applyCombatCommand(state,side,command,dice());
+        // In particular, progress after PLAYER's DEFEND; previously this was
+        // skipped and forced GM to control the training NPC manually.
+        if(side==="PLAYER" && next.status==="ACTIVE")
+          next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);
+      }
       let mechanics=fresh.mechanicsState;
       if(next.round>state.round) {
         const Skill=(tx.orm.public as any).Skill;

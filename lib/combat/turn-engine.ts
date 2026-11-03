@@ -5,10 +5,12 @@ import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
 import { geometricContact } from "./geometry.ts";
 import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
+import {calculateVariableResistance} from "../skills/variable-resistance.ts";
+import {validateConstructionPlacement,resolveConstructionForm,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 
 export type Side = "PLAYER" | "NPC";
-export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "NONE";
+export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
 export type Point = { x: number; y: number };
 export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FIST_LEFT";
 export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number};
@@ -47,6 +49,7 @@ export type CombatLog = {
   /** Narration metadata; optional for encounters created before this feature. */
   usesMagic?:boolean; thrownWeapon?:boolean; weaponName?:string;
   skillName?:string; healingPoints?:number;
+  karmaSpent?:number; karmaAllocation?:Record<string,number>; constructionId?:string;
   movementDirection?:"TOWARD"|"AWAY"|"WEAPON"; moveMeters?:number;
 };
 export type CombatState = {
@@ -62,6 +65,10 @@ export type CombatState = {
   skillCooldowns?: Partial<Record<Side,Record<string,number>>>;
   skillBonuses?: Array<{by:Side;skillId:number;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
   processedSkillRequests?: string[];
+  processedKarmaRequests?: string[];
+  karmaBoosts?: Partial<Record<Side,Record<string,number>>>;
+  karmaBoostDeltas?: Partial<Record<Side,Record<string,number>>>;
+  constructions?: CombatConstruction[];
   droppedWeapons?: Array<{owner:Side;weapon:CombatWeapon;slot?:"MAIN_HAND"|"OFF_HAND";positionMeters:number}>;
   /** All chronological events needed to narrate a long fight (not just the last 100 on-screen entries). */
   narrativeHistory?: CombatLog[];
@@ -74,9 +81,10 @@ export type CombatState = {
 export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
   | { kind: "WAIT" }
+  | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
   | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point }
-  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource };
+  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -84,6 +92,58 @@ const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(h
 const other = (side: Side): Side => side === "PLAYER" ? "NPC" : "PLAYER";
 const finite = (n: unknown) => typeof n === "number" && Number.isFinite(n);
 const normalize = (n: number) => Math.max(0, finite(n) ? n : 0);
+/** Only the server supplies resolved deltas and charges the real karma wallet in
+ * the same transaction as the updated encounter state. One activation is one
+ * action, irrespective of the amount of karma or number of base stats.
+ */
+export function applyResolvedKarmaBoost(
+ original:CombatState,by:Side,requestId:string,allocation:Record<string,number>,
+ cost:number,deltas:Record<string,number>,
+):CombatState {
+ if(original.processedKarmaRequests?.includes(requestId))return original;
+ if(original.status!=="ACTIVE"||!canAct(original,by))throw new Error("No tienes la iniciativa para aumentar estadísticas.");
+ if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(requestId))throw new Error("Identificador de boost inválido.");
+ const points=Object.values(allocation).reduce((sum,n)=>sum+n,0);
+ if(!Number.isSafeInteger(points)||points<=0||cost!==points*2)throw new Error("Coste de karma inválido.");
+ const state=structuredClone(original),actor=state.actors[by];
+ for(const [key,value] of Object.entries(deltas)) {
+  if(!Number.isFinite(value))throw new Error("Delta estadístico inválido.");
+  if(key==="manaMax"){
+   if(state.mana?.[by])state.mana[by].max=Math.max(state.mana[by].current,state.mana[by].max+value);
+  } else if(key in actor && typeof (actor as unknown as Record<string,unknown>)[key]==="number"){
+   const fields=actor as unknown as Record<string,number>;
+   fields[key]=Math.max(0,fields[key]+value);
+   if(key==="maxHp")actor.hp=Math.min(actor.hp,actor.maxHp);
+  }
+ }
+ state.karmaBoosts??={};state.karmaBoosts[by]??={};
+ for(const [key,value] of Object.entries(allocation))state.karmaBoosts[by]![key]=(state.karmaBoosts[by]![key]??0)+value;
+ state.karmaBoostDeltas??={};state.karmaBoostDeltas[by]??={};
+ for(const [key,value] of Object.entries(deltas))state.karmaBoostDeltas[by]![key]=(state.karmaBoostDeltas[by]![key]??0)+value;
+ state.processedKarmaRequests??=[];state.processedKarmaRequests.push(requestId);
+ spend(actor,turnTicks(actor)); // exactly one PA, independently of allocated points
+ state.tick=Math.max(state.tick,(state.round-1)*LIMIT+actor.spentTicks);
+ addLog(state,{kind:"KARMA",tick:state.tick,by,karmaSpent:cost,karmaAllocation:{...allocation},
+  summary:actor.name+" gastó "+cost+" karma para aumentar "+Object.entries(allocation).map(([key,n])=>key+" +"+n).join(", ")});
+ advanceRoundIfComplete(state);
+ return state;
+}
+function clearKarmaBoostsAtCombatEnd(state:CombatState){
+ for(const side of SIDES) {
+  const actor=state.actors[side];
+  for(const [key,amount] of Object.entries(state.karmaBoostDeltas?.[side]??{})) {
+   if(key==="manaMax") {
+    if(state.mana?.[side])state.mana[side].max=Math.max(0,state.mana[side].max-amount);
+   }else if(key in actor&&typeof (actor as unknown as Record<string,unknown>)[key]==="number"){
+    const fields=actor as unknown as Record<string,number>;
+    fields[key]=Math.max(0,fields[key]-amount);
+   }
+  }
+  actor.hp=Math.min(actor.hp,actor.maxHp);
+  if(state.mana?.[side])state.mana[side].current=Math.min(state.mana[side].current,state.mana[side].max);
+ }
+ state.karmaBoosts={};state.karmaBoostDeltas={};
+}
 /** The duel canvas represents the defender at its normalized center.
  * Its world-space separation is checked independently in meters. */
 export const targetHitboxCenter: Point = {x:0.5,y:0.5};
@@ -156,7 +216,8 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},physicalPathEnds:{},narrativeHistory:[],pending:null,log:[]};
+    physicalPathEnd:{},physicalPathEnds:{},constructions:[],karmaBoosts:{},karmaBoostDeltas:{},
+    processedKarmaRequests:[],narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
   Math.max(1, f.speedValue ?? f.agility);
@@ -181,7 +242,7 @@ function lastInitiativeSide(state: CombatState): Side | null {
   for (let i = state.log.length - 1; i >= 0; i--) {
     const {kind, by} = state.log[i];
     if (kind === "ROUND") break;
-    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT" || kind === "SKILL") return by;
+    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT" || kind === "SKILL" || kind==="KARMA") return by;
   }
   return null;
 }
@@ -279,12 +340,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   if (state.pending) {
     const pending = state.pending;
     if (command.kind !== "DEFEND" || pending.against !== by) throw new Error("Debe responder al ataque pendiente.");
-    if (!["DODGE","BLOCK","ENDURE","REPEL","DEFLECT","MAGIC_FIELD","NONE"].includes(command.defense))
+    if (!["DODGE","BLOCK","ENDURE","REPEL","DEFLECT","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(command.defense))
       throw new Error("Defensa desconocida.");
     validateRoll(rolls.hit); validateRoll(rolls.critical); validateRoll(rolls.defense);
     const attacker = state.actors[pending.by];
     let defense = command.defense;
-    if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","NONE"].includes(defense))
+    if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(defense))
       throw new Error("Para la explosión mágica básica puedes esquivar, levantar un campo mágico, resistir o no reaccionar.");
     if (!pending.usesMagic && defense === "MAGIC_FIELD")
       throw new Error("El campo defensivo mágico solo puede responder a ataques mágicos.");
@@ -328,6 +389,30 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const effectiveField=Math.max(0,fighter.magicDefense)/typeFactor;
       const held=rolls.defense < contestChance(effectiveField,attacker.magicAttack);
       damageScale=held ? 0.25 : 0.75;
+    } else if(defense==="CONSTRUCTION") {
+      const block=state.constructions?.find(c=>c.id===command.constructionId&&
+        c.owner===by&&c.form==="BLOCK"&&c.tangible&&
+        (c.durability??0)>0&&Math.hypot(c.center.x-targetHitboxCenter.x,c.center.y-targetHitboxCenter.y)<=0.35);
+      if(!block)throw new Error("Selecciona un bloque defensivo cercano al personaje.");
+      const resistance=block.passive?.resistance;
+      const base=resistance
+        ?Math.max(0,Number((fighter as unknown as Record<string,number>)[resistance.baseStat]??fighter.magicDefense))
+        :fighter.magicDefense;
+      const input=resistance?.input==="INCOMING_DAMAGE"?power:
+        resistance?.input==="HP_PERCENT"?100*fighter.hp/Math.max(1,fighter.maxHp):
+        resistance?.input==="HIT_COUNT"?(block.hitCount??0):effectiveCombatSpeed(attacker);
+      const blockDefense=resistance?calculateVariableResistance(resistance,base,input).resistance:base;
+      const previous=block.durability??0;
+      const pressure=Math.max(1,Math.round(power/typeFactor));
+      const held=blockDefense>=power && previous>=pressure;
+      block.hitCount=(block.hitCount??0)+1;
+      block.durability=Math.max(0,previous-pressure);
+      damageScale=held?0:0.5;
+      if(block.durability===0) {
+        state.constructions=state.constructions?.filter(c=>c.id!==block.id);
+        addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by,constructionId:block.id,
+          summary:block.label+" se rompió al interceptar el ataque."});
+      }
     } else if (defense === "ENDURE") {
       damageScale = rolls.defense < contestChance(fighter.constitution,attacker.strength) ? 0.45 : 1;
     } else if (defense === "REPEL") {
@@ -412,6 +497,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       state.status = "FINISHED";state.winner = pending.by;
       addLog(state,{kind:"END",tick:state.tick,by:pending.by,against:by,summary:attacker.name+" gana el combate"});
       settleDroppedWeapons(state);
+      clearKarmaBoostsAtCombatEnd(state);
       state.narrativeText=narrateCombat(state.narrativeHistory??state.log,state.actors);
       state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
       // Retain server-only source events to allow better interpretations of old encounters.
@@ -421,6 +507,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   }
   if (command.kind === "DEFEND") throw new Error("No existe un ataque pendiente.");
   if (!canAct(state,by)) throw new Error("Espera el movimiento del otro participante o el siguiente turno.");
+  if(command.kind==="BOOST_KARMA")throw new Error("El boost de karma debe ser aprobado por el servidor.");
   if (command.kind === "MOVE") {
     const maximum = Math.max(1,Math.round(normalize(fighter.race)/10));
     if (!finite(command.meters) || command.meters < 0 || command.meters > maximum)
@@ -530,7 +617,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
  */
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
- aim:{requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource},
+ aim:{requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;
+  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))
@@ -567,6 +655,35 @@ export function applyResolvedCombatSkill(
    const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
    if(historical){historical.skillId=plan.id;historical.skillName=plan.name;historical.summary=event.summary;}
   }
+ }else if(plan.category==="CONSTRUCTION") {
+  if(!plan.construction)throw new Error("La habilidad no tiene una creación configurada.");
+  const point=validateConstructionPlacement(aim.areaCenter);
+  next=structuredClone(original);
+  const owner=next.actors[by];
+  const existing=next.constructions??[];
+  if(existing.length>=120)throw new Error("Hay demasiadas construcciones activas.");
+  const form=resolveConstructionForm(plan.construction.material,aim.constructionForm,
+   existing.some(x=>x.owner===by&&x.sourceSkillId===plan.id&&x.form==="FIELD"));
+  const userLabel=typeof aim.constructionLabel==="string"?aim.constructionLabel.trim():"";
+  if(userLabel.length>60||/[\x00-\x1f]/.test(userLabel))throw new Error("Nombre de construcción inválido.");
+  const resistance=plan.creationPassive;
+  const baseRes=resistance
+    ?Math.max(0,Number((owner as unknown as Record<string,number>)[resistance.resistance.baseStat]??owner.magicDefense)):0;
+  const construction:CombatConstruction={
+    id:by+"-"+plan.id+"-"+next.round+"-"+next.tick+"-"+existing.length,
+    owner:by,sourceSkillId:plan.id,material:plan.construction.material,form,
+    label:userLabel||plan.construction.label,center:point,createdRound:next.round,
+    tangible:form==="BLOCK",durability:form==="BLOCK"?Math.max(1,Math.round(baseRes)):undefined,
+    passive:resistance?structuredClone(resistance):undefined,
+  };
+  next.constructions=[...existing,construction];
+  spend(owner,turnTicks(owner)); // casting is one action
+  next.tick=Math.max(next.tick,(next.round-1)*LIMIT+owner.spentTicks);
+  addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,skillName:plan.name,
+    constructionId:construction.id,manaCost:plan.cost,
+    summary:owner.name+" creó "+construction.label+" ("+form+")"+
+     (resistance?" y activó automáticamente la pasiva de resistencia":"")});
+  advanceRoundIfComplete(next);
  }else{
   next=structuredClone(original);
   const actor=next.actors[by];

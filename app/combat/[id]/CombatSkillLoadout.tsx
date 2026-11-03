@@ -17,10 +17,10 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,
+ encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,constructionAimReady,
 }:{encounterId:string;side:Side;authorized:boolean;
  canUseSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
- onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean}) {
+ onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean}) {
  const [skills,setSkills]=useState<Record<Side,CombatSkillPreview[]>>({PLAYER:[],NPC:[]});
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
@@ -75,22 +75,22 @@ export default function CombatSkillLoadout({
       {(()=>{
        const nextRound=cooldowns[String(skill.id)]??0;
        const onCooldown=nextRound===-1||nextRound>round;
-       const missingAim=skill.needsAim&&skill.usesMagic&&
-         (aimMode!=="MAGIC_AREA"||!magicAimReady);
+       const missingAim=skill.needsAim&&(skill.skillKind==="CONSTRUCTION"
+         ?!constructionAimReady:skill.usesMagic&&(aimMode!=="MAGIC_AREA"||!magicAimReady));
        const blocked=!skill.requirementsSatisfied||!canUseSkill||busy||onCooldown||
          mana===null||mana<skill.manaCost||missingAim;
        const reason=onCooldown
          ? nextRound===-1?"Ya utilizada una vez en este encuentro.":"Cooldown hasta el turno "+nextRound
          : mana===null?"El encuentro no tiene maná de fase 2. Inicia uno nuevo."
          : mana<skill.manaCost?"Maná insuficiente"
-         : missingAim?"Marca el centro en modalidad Explosión mágica del lienzo superior."
+         : missingAim?(skill.skillKind==="CONSTRUCTION"?"Marca la posición de la construcción en el terreno.":"Marca el centro en modalidad Explosión mágica del lienzo superior.")
          : !canUseSkill?"Esperando tu iniciativa":null;
        return <div className="space-y-2">
         {reason&&<p className="text-xs text-amber-300">{reason}</p>}
         <button type="button" disabled={blocked}
          onClick={()=>onCast(skill)}
          className="rounded-lg border border-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-40">
-         {skill.skillKind==="OFFENSE"?"Lanzar ataque de habilidad":"Activar habilidad"}
+         {skill.skillKind==="OFFENSE"?"Lanzar ataque de habilidad":skill.skillKind==="CONSTRUCTION"?"Crear construcción":"Activar habilidad"}
         </button>
        </div>;
       })()}

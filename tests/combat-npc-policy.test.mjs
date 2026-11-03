@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { applyCombatCommand, canAct, newCombatState, remainingAp } from "../lib/combat/turn-engine.ts";
 import { chooseNpcReaction, progressTrainingNpc } from "../lib/combat/npc-policy.ts";
+import { compileCombatSkill } from "../lib/combat/skill-casting.ts";
 
 const fighter = (name, agility=100, overrides={}) => ({
  characterId:null,name,hp:100,maxHp:100,agility,strength:10,constitution:1,
@@ -139,4 +140,27 @@ test("counterattack stance does not grant extra ticks or an additional free acti
   assert.equal(p.actors.NPC.spentAp,2);
   assert.equal(p.actors.NPC.spentTicks,54);
   assert.equal(p.log.filter(e=>e.kind==="ATTACK"&&e.by==="NPC").length,1);
+});
+
+
+test("aggressive NPC casts a real published-style ability using encounter mana and AP",()=>{
+ const plan=compileCombatSkill({
+  id:1_000_000_016,name:"Orbe arcano",status:"APPROVED",category:"OFFENSIVE",
+  cost:10,attackType:"PIERCE",areaOfEffect:"Oponente único | Alcance máximo: 5 m",
+  duration:"Instantánea",cooldown:"2 turnos",mechanics:{},condition:"",
+  effect:[{type:"DAMAGE_MULTIPLIER",target:"MAGIC_ATK",value:150}],
+ });
+ let s=newCombatState(fighter("Hero",100),fighter("Aggressive",50,{positionMeters:1.5}));
+ s.mana={PLAYER:{current:60,max:60},NPC:{current:60,max:60}};
+ s.trainingNpc={difficulty:"AGGRESSIVE",race:{id:2,name:"Enano"},
+  perks:[{id:1,name:"Uno"},{id:2,name:"Dos"},{id:3,name:"Tres"}],skills:[plan]};
+ s=applyCombatCommand(s,"PLAYER",{kind:"MOVE",meters:0.1});
+ s=applyCombatCommand(s,"PLAYER",{kind:"MOVE",meters:0.1});
+ s=progressTrainingNpc(s,dice,()=>0);
+ assert.equal(s.pending?.by,"NPC");
+ assert.equal(s.pending?.skill?.id,1_000_000_016);
+ assert.equal(s.mana.NPC.current,50);
+ assert.equal(s.actors.NPC.spentAp,1);
+ assert.equal(s.skillCooldowns.NPC[String(plan.id)],4);
+ assert.equal(s.trainingNpc.perks.length,3);
 });

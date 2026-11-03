@@ -84,15 +84,17 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
           const Skill=(tx.orm.public as any).Skill;
           const skill=await Skill.where({id:skillId,characterId,status:"APPROVED"}).first();
           if(!skill)throw new Error("Esta habilidad no está aprobada para tu personaje.");
-          const stolen=db.raw.sql`
-            SELECT 1 AS "taken" FROM public."skillTheft"
-            WHERE "victimCharacterId"=${characterId}
-             AND "sourceSkillId"=${skillId} AND status='ACTIVE' LIMIT 1
-          `.returnsRow({taken:"pg/int4@1"}).build();
-          if((await db.runtime().query(stolen) as Array<{taken:number}>).length>0)
+          const stolenQuery=db.raw.sql`
+            SELECT "sourceSkillId" AS "id" FROM public."skillTheft"
+            WHERE "victimCharacterId"=${characterId} AND status='ACTIVE'
+          `.returnsRow({id:"pg/int4@1"}).build();
+          const stolenIds=new Set((await db.runtime().query(stolenQuery) as Array<{id:number}>)
+            .map(row=>Number(row.id)));
+          if(stolenIds.has(skillId))
             throw new Error("No puedes lanzar una habilidad que te han robado temporalmente.");
           const available=await Skill.where({characterId,status:"APPROVED"}).all();
-          const others=available.filter((s:any)=>Number(s.id)!==skillId);
+          // A temporarily stolen prerequisite cannot authorize another skill.
+          const others=available.filter((s:any)=>Number(s.id)!==skillId && !stolenIds.has(Number(s.id)));
           const requirements=Array.isArray(skill.effectRequirements)?skill.effectRequirements:[];
           if(!meetsEffectRequirements(requirements,others))
             throw new Error("No se cumplen los requisitos por efecto de esta habilidad.");

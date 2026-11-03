@@ -153,7 +153,8 @@ test("aggressive NPC casts a real published-style ability using encounter mana a
  let s=newCombatState(fighter("Hero",100),fighter("Aggressive",50,{positionMeters:1.5}));
  s.mana={PLAYER:{current:60,max:60},NPC:{current:60,max:60}};
  s.trainingNpc={difficulty:"AGGRESSIVE",race:{id:2,name:"Enano"},
-  perks:[{id:1,name:"Uno"},{id:2,name:"Dos"},{id:3,name:"Tres"}],skills:[plan]};
+  racialPerks:[{id:1,name:"Racial",mechanical:true}],
+  extraPerks:[{id:2,name:"Uno"},{id:3,name:"Dos"},{id:4,name:"Tres"}],skills:[plan]};
  s=applyCombatCommand(s,"PLAYER",{kind:"MOVE",meters:0.1});
  s=applyCombatCommand(s,"PLAYER",{kind:"MOVE",meters:0.1});
  s=progressTrainingNpc(s,dice,()=>0);
@@ -162,5 +163,6 @@ test("aggressive NPC casts a real published-style ability using encounter mana a
  assert.equal(s.mana.NPC.current,50);
  assert.equal(s.actors.NPC.spentAp,1);
  assert.equal(s.skillCooldowns.NPC[String(plan.id)],4);
- assert.equal(s.trainingNpc.perks.length,3);
+ assert.equal(s.trainingNpc.extraPerks.length,3);
+ assert.equal(s.trainingNpc.racialPerks.length,1);
 });

@@ -50,7 +50,7 @@ export function applyTrainingBasePerks<T extends Record<string,number>>(base:T,p
  }
  return result as T;
 }
-export function applyTrainingDerivedPerks<T extends Record<string,unknown>>(fighter:T,perks:readonly TrainingPerk[]):T {
+export function applyTrainingDerivedPerks<T extends object>(fighter:T,perks:readonly TrainingPerk[]):T {
  const result={...fighter} as Record<string,unknown>;
  for(const perk of perks)for(const e of perk.effects){
   const key=TRAINING_DERIVED_PERK_KEYS[e.target];

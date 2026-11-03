@@ -4,7 +4,7 @@ import type { CombatDefenseType } from "./matchup-types.ts";
 import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 
 export type Side = "PLAYER" | "NPC";
-export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "NONE";
+export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "NONE";
 export type Point = { x: number; y: number };
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
@@ -12,7 +12,8 @@ export type CombatFighter = {
   dodge: number; physicalAttack: number; physicalDefense: number;
   magicAttack: number; magicDefense: number; critical: number; luck: number;
   race: number; massKg: number; positionMeters: number; attackType: CombatAttackType;
-  defenseType: CombatDefenseType; weaponIntegrity: number;
+  defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
+  magicFieldDescription?: string | null; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
 };
 export type PendingAttack = {
@@ -20,7 +21,7 @@ export type PendingAttack = {
   trajectory: Point[]; launchedAtTick: number; usesMagic: boolean;
   /** Hidden from client while pending; attacker-selected basic magic blast. */
   targetCenter?: Point;
-  /** Coarse, public 3x3 telegraph; never reveals the exact impact point. */
+  /** Coarse, public four-cell telegraph; never reveals the exact impact point. */
   areaHint?: string;
 };
 export type CombatLog = {
@@ -188,18 +189,23 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   if (state.pending) {
     const pending = state.pending;
     if (command.kind !== "DEFEND" || pending.against !== by) throw new Error("Debe responder al ataque pendiente.");
-    if (!["DODGE","BLOCK","ENDURE","REPEL","DEFLECT","NONE"].includes(command.defense))
+    if (!["DODGE","BLOCK","ENDURE","REPEL","DEFLECT","MAGIC_FIELD","NONE"].includes(command.defense))
       throw new Error("Defensa desconocida.");
     validateRoll(rolls.hit); validateRoll(rolls.critical); validateRoll(rolls.defense);
     const attacker = state.actors[pending.by];
     let defense = command.defense;
-    if (pending.usesMagic && !["DODGE","ENDURE","NONE"].includes(defense))
-      throw new Error("Para la explosión mágica básica puedes esquivar el área, resistir o no reaccionar.");
+    if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","NONE"].includes(defense))
+      throw new Error("Para la explosión mágica básica puedes esquivar, levantar un campo mágico, resistir o no reaccionar.");
+    if (!pending.usesMagic && defense === "MAGIC_FIELD")
+      throw new Error("El campo defensivo mágico solo puede responder a ataques mágicos.");
     if (remainingAp(fighter) <= 0 || fighter.spentTicks >= LIMIT) defense = "NONE";
     if (defense !== "NONE") spend(fighter, turnTicks(fighter));
     const power = pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack;
     const protection = pending.usesMagic ? fighter.magicDefense : fighter.physicalDefense;
-    const typeFactor = matchupMultiplier(pending.attackType, fighter.defenseType);
+    // The magical field uses its own basic RPS type from the character sheet;
+    // physical blocking retains the separately configured blockDefenseType.
+    const defenseType=pending.usesMagic?(fighter.magicFieldType??fighter.defenseType):fighter.defenseType;
+    const typeFactor = matchupMultiplier(pending.attackType, defenseType);
     let avoided = false;
     let damageScale = 1;
     let displaced = 0;
@@ -220,6 +226,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       // Tool durability never substitutes for the wielder's CON.
       damageScale = held ? 0.12 : 0.8;
       fighter.weaponIntegrity = Math.max(0, fighter.weaponIntegrity - Math.max(1,Math.ceil(power / 8)));
+    } else if (defense === "MAGIC_FIELD") {
+      // Basic defensive field: active reaction, paid AP/ticks, no persistent
+      // barrier or mana expenditure until the configurable-skills phase.
+      const effectiveField=Math.max(0,fighter.magicDefense)/typeFactor;
+      const held=rolls.defense < contestChance(effectiveField,attacker.magicAttack);
+      damageScale=held ? 0.25 : 0.75;
     } else if (defense === "ENDURE") {
       damageScale = rolls.defense < contestChance(fighter.constitution,attacker.strength) ? 0.45 : 1;
     } else if (defense === "REPEL") {

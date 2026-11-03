@@ -325,7 +325,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const hint=pending?.areaHint??"centro";
  const warningCells=magicHintCells(hint);
  const polyline=normalizedPath.map(p=>(p.x*100).toFixed(1)+","+(p.y*100).toFixed(1)).join(" ");
- return <main className="mx-auto max-w-5xl px-4 py-7 text-zinc-100">
+ return <main className="mx-auto max-w-5xl px-3 py-5 pb-28 text-zinc-100 sm:px-4 sm:py-7 sm:pb-28">
   {state?.droppedWeapons?.length ? <p className="mb-3 text-sm text-amber-200">Armas arrojadas pendientes de recuperar: {state.droppedWeapons.map(w=>w.weapon.name+" ("+state.actors[w.owner].name+")").join(", ")}. Puedes desplazarte hacia ellas y recogerlas durante el encuentro.</p> : null}
   {flash&&<div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[3000] bg-rose-200/50"/>}
   <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
@@ -353,17 +353,23 @@ export default function CombatEncounter({id}:{id:string}) {
     {state.winner&&<b>Ganador: {state.actors[state.winner].name}</b>}
    </div>
 
-   <div className="grid gap-3 sm:grid-cols-2">
-    <Fighter name={state.actors.PLAYER.name} side="PLAYER" state={state}/>
-    <Fighter name={state.actors.NPC.name} side="NPC" state={state}/>
+   <div className="rounded-2xl border border-zinc-800 p-3">
+    <p className="mb-2 text-xs uppercase tracking-[.15em] text-zinc-500">Adversario</p>
+    <Fighter name={state.actors[opposingSide].name} side={opposingSide} state={state}/>
    </div>
+   <CombatCharacterHud fighter={state.actors[side]} opponent={state.actors[opposingSide]}
+    side={side} mana={state.mana?.[side]} flair={characterData?.flair??characterData?.character?.flair}
+    open={hudOpen} onOpenChange={setHudOpen} onPanel={openPanel}
+    canCreate={canCreateObjects} attackMode={attackMode} attackSource={activeAttackSource}
+    onChooseAttack={chooseAttackMode} canActNow={ready} status={state.status}/>
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
-    <label className="block text-sm font-semibold">Controlar
-     <select value={side} onChange={e=>setSide(e.target.value as Side)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2">
-      {view?.permissions.PLAYER&&<option value="PLAYER">{state.actors.PLAYER.name}</option>}
-      {view?.permissions.NPC&&<option value="NPC">{state.actors.NPC.name}</option>}
+    {view?.permissions.PLAYER&&view?.permissions.NPC&&<label className="mb-3 block text-xs text-zinc-400">Controlar personaje
+     <select value={side} onChange={e=>setSide(e.target.value as Side)}
+      className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm">
+      <option value="PLAYER">{state.actors.PLAYER.name}</option>
+      <option value="NPC">{state.actors.NPC.name}</option>
      </select>
-    </label>
+    </label>}
     {pending?
       <p role="status" className="mt-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-3 text-amber-200">
        <b>Reacción pendiente:</b> {state.actors[pending.by].name} lanzó {pending.usesMagic?<>una explosión mágica básica de <b>{attackNames[pending.attackType]}</b></>:<>un ataque de <b>{attackNames[pending.attackType]}</b></>} contra {state.actors[pending.against].name}.
@@ -475,27 +481,6 @@ export default function CombatEncounter({id}:{id:string}) {
          :<>Alcance de puño: <b>{(actor?.unarmedReachMeters??Math.max(0.3,(actor?.heightMeters??1.7)*0.45)).toFixed(2)} m</b></>}
        {" · "}Magia básica: {BASIC_MAGIC_RANGE_METERS} m
      </p>
-     <section className="rounded-xl border border-amber-400/30 bg-zinc-950 p-3">
-      <h3 className="font-semibold text-amber-200">Mini boost de karma 🪷</h3>
-      <p className="mt-1 text-xs text-zinc-400">2 karma por +1 en una estadística base. Toda la distribución cuesta una sola acción (1 PA); el karma gastado no se recupera y los bonos terminan con el combate.</p>
-      <p className="mt-2 text-sm">Saldo: <b>{karmaAvailable} 🪷</b> · Gasto seleccionado: <b>{karmaCost} 🪷</b> · Coste de acción: <b>1 PA</b></p>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-       {(view?.boostStats??[]).map(stat=><label className="text-xs" key={stat.key}>
-        {stat.label}
-        <input aria-label={"Puntos de "+stat.label} type="number" min="0" step="1"
-         value={karmaAllocation[stat.key]??0}
-         onChange={e=>setKarmaAllocation(old=>({...old,[stat.key]:Number(e.target.value)}))}
-         className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2"/>
-       </label>)}
-      </div>
-      <button type="button" disabled={!ready||karmaPoints<=0||karmaCost>karmaAvailable||
-        Object.values(karmaAllocation).some(n=>!Number.isSafeInteger(n)||n<0)}
-       onClick={boostKarma} className="mt-3 rounded-lg border border-amber-400 px-4 py-2 font-semibold text-amber-200 disabled:opacity-40">
-       Activar boost ({karmaCost} 🪷, 1 PA)
-      </button>
-      {Object.keys(state.karmaBoosts?.[side]??{}).length>0&&
-       <p className="mt-2 text-xs text-amber-300">Bonos de este encuentro: {Object.entries(state.karmaBoosts?.[side]??{}).map(([stat,n])=>stat+" +"+n).join(", ")}</p>}
-     </section>
      <div className="rounded-xl border border-zinc-700 p-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
        <b>{attackMode==="MAGIC_AREA"?(displayedAttackType==="CUT"?"Elige el centro de la línea mágica":displayedAttackType==="PIERCE"?"Elige la punta mágica":"Elige el centro de la explosión"):displayedAttackType==="PIERCE"?"Marca el punto de perforación":displayedAttackType==="BLUNT"?"Dibuja un golpe contundente rígido":"Dibuja la trayectoria del corte"}</b>
@@ -589,6 +574,35 @@ export default function CombatEncounter({id}:{id:string}) {
     </div>}
    </section>
    {isPvp&&<p className="mt-4 text-xs text-zinc-400">PvP compartido: el dueño de cada personaje abre esta misma URL en su cuenta. Las acciones aparecen aproximadamente cada 3,5 segundos; no hay invitaciones automáticas todavía.</p>}
+
+   <CombatDialog open={panel==="karma"} title="Mini boost de karma" onClose={closePanel}>
+    {error&&<p role="alert" className="mb-3 text-sm text-rose-300">{error}</p>}
+     <section className="rounded-xl border border-amber-400/30 bg-zinc-950 p-3">
+      <h3 className="font-semibold text-amber-200">Mini boost de karma 🪷</h3>
+      <p className="mt-1 text-xs text-zinc-400">2 karma por +1 en una estadística base. Toda la distribución cuesta una sola acción (1 PA); el karma gastado no se recupera y los bonos terminan con el combate.</p>
+      <p className="mt-2 text-sm">Saldo: <b>{karmaAvailable} 🪷</b> · Gasto seleccionado: <b>{karmaCost} 🪷</b> · Coste de acción: <b>1 PA</b></p>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+       {(view?.boostStats??[]).map(stat=><label className="text-xs" key={stat.key}>
+        {stat.label}
+        <input aria-label={"Puntos de "+stat.label} type="number" min="0" step="1"
+         value={karmaAllocation[stat.key]??0}
+         onChange={e=>setKarmaAllocation(old=>({...old,[stat.key]:Number(e.target.value)}))}
+         className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2"/>
+       </label>)}
+      </div>
+      <button type="button" disabled={!ready||karmaPoints<=0||karmaCost>karmaAvailable||
+        Object.values(karmaAllocation).some(n=>!Number.isSafeInteger(n)||n<0)}
+       onClick={boostKarma} className="mt-3 rounded-lg border border-amber-400 px-4 py-2 font-semibold text-amber-200 disabled:opacity-40">
+       Activar boost ({karmaCost} 🪷, 1 PA)
+      </button>
+      {Object.keys(state.karmaBoosts?.[side]??{}).length>0&&
+       <p className="mt-2 text-xs text-amber-300">Bonos de este encuentro: {Object.entries(state.karmaBoosts?.[side]??{}).map(([stat,n])=>stat+" +"+n).join(", ")}</p>}
+     </section>
+
+   </CombatDialog>
+   <CombatDialog open={panel==="construction"&&canCreateObjects&&state.status==="ACTIVE"} title="Constructor de objetos" onClose={closePanel}>
+    {error&&<p role="alert" className="mb-3 rounded-lg border border-rose-700/50 p-2 text-sm text-rose-200">{error}</p>}
+    {!ready&&<p role="status" className="mb-3 text-sm text-amber-300">{advancingNpc?"El adversario está actuando...":"Aún no tienes la iniciativa: puedes preparar la posición y lanzar la creación al llegar tu turno."}</p>}
    {state.status==="ACTIVE"&&(canCreateObjects||(state.constructions?.length??0)>0)&&<section className="mt-5 rounded-xl border border-cyan-400/30 bg-zinc-950 p-4">
     <h2 className="font-semibold text-cyan-200">{canCreateObjects?"Constructor de objetos":"Construcciones en el campo"}</h2>
     {canCreateObjects&&<p className="mt-1 text-xs text-zinc-400">Selecciona dónde colocar una creación y actívala desde una habilidad con efecto Crear. Sus propiedades dependen del material y de las pasivas configuradas. Los objetos decorativos no bloquean ataques.</p>}
@@ -646,11 +660,60 @@ export default function CombatEncounter({id}:{id:string}) {
      </p>)}
     </div>}
    </section>}
+
+    <button type="button" onClick={()=>{openPanel("skills","UTILITY");}} className="mt-3 flex items-center gap-2 rounded-lg border border-cyan-500 px-3 py-2 text-sm text-cyan-200">
+     <Sparkles size={16}/> Ver habilidades de creación
+    </button>
+   </CombatDialog>
+   <CombatDialog open={panel==="skills"} title="Habilidades de combate" onClose={closePanel}>
+    {error&&<p role="alert" className="mb-3 rounded-lg border border-rose-700/50 p-2 text-sm text-rose-200">{error}</p>}
+    {!ready&&state.status==="ACTIVE"&&<p role="status" className="mb-3 rounded-lg border border-amber-500/40 p-2 text-sm text-amber-300">
+      {advancingNpc?"El adversario está tomando su iniciativa.":defending?"Tienes una reacción pendiente; resuélvela antes de lanzar una habilidad.":"La habilidad estará disponible cuando te corresponda actuar."}
+    </p>}
    <CombatSkillLoadout encounterId={id} side={side} authorized={hasAccess}
     canUseSkill={ready} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
-    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange}/>
+    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} categoryFilter={skillCategory}/>
+
+   </CombatDialog>
+   <CombatDialog open={panel==="stats"} title="Estado y estadísticas" onClose={closePanel}>
+    <p className="mb-3 text-xs text-zinc-400">Estadísticas y recursos del encuentro actual. Los modificadores temporales no se guardan en la ficha.</p>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+     {([["HP",actor?.hp+"/"+actor?.maxHp],["Maná",state.mana?.[side]?.current+"/"+state.mana?.[side]?.max],["PA",actor?remainingAp(actor)+"/"+actionPoints(actor.constitution):"—"],
+      ["Fuerza",actor?.strength],["Agilidad",actor?.agility],["Constitución",actor?.constitution],
+      ["Ataque físico",actor?.physicalAttack],["Ataque mágico",actor?.magicAttack],
+      ["Defensa física",actor?.physicalDefense],["Defensa mágica",actor?.magicDefense],
+      ["Precisión",actor?.precision],["Esquive",actor?.dodge],["Crítico",actor?.critical],["Suerte",actor?.luck]]
+      as Array<[string,string|number|undefined]>).map(([label,value])=>
+      <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2">
+       <p className="text-xs text-zinc-400">{label}</p><b>{value??"—"}</b>
+      </div>)}
+    </div>
+    {Object.keys(state.karmaBoosts?.[side]??{}).length>0&&
+     <p className="mt-3 text-sm text-amber-200">Boosts de combate: {Object.entries(state.karmaBoosts?.[side]??{}).map(([stat,value])=>stat+" +"+value).join(", ")}</p>}
+    {actor?.characterId&&<Link href={"/characters/"+actor.characterId} className="mt-4 inline-block text-sm text-cyan-300">Ver ficha completa de estadísticas</Link>}
+   </CombatDialog>
+   <CombatDialog open={panel==="inventory"} title="Inventario del personaje" onClose={closePanel}>
+    {characterDataError&&<p role="status" className="mb-3 text-sm text-amber-300">{characterDataError}</p>}
+    <div className="grid gap-2 sm:grid-cols-2">
+     {(Array.isArray(characterData?.equipment)?characterData.equipment:[]).map((entry:any)=>
+      <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2">
+       <div className="flex items-center justify-between gap-2"><b className="text-sm">{entry.item?.name??entry.name??"Objeto"}</b>
+        <span className="text-xs text-zinc-400">×{entry.quantity??1}</span></div>
+       <p className="mt-1 text-xs text-zinc-500">{entry.item?.description??(entry.equipped?"Equipado":"Sin descripción")}</p>
+      </div>)}
+    </div>
+    {!characterData&&<p className="mt-2 text-sm text-zinc-400">Consultando inventario…</p>}
+    {characterData&&(!Array.isArray(characterData.equipment)||characterData.equipment.length===0)&&
+     <p className="mt-2 text-sm text-zinc-400">No hay objetos en el inventario.</p>}
+    <div className="mt-3 rounded-lg border border-zinc-800 p-3 text-sm text-zinc-400">
+     <p>Mano principal: {actor?.equippedWeapon?.name??"Libre"}</p>
+     <p>Mano secundaria: {actor?.offhandWeapon?.name??"Libre"}</p>
+    </div>
+    <p className="mt-2 text-xs text-zinc-500">Los HP y el maná mostrados en combate no se descuentan de la ficha.</p>
+    {actor?.characterId&&<Link href={"/characters/"+actor.characterId} className="mt-3 inline-block text-sm text-cyan-300">Abrir inventario completo en la ficha</Link>}
+   </CombatDialog>
    {state.status==="FINISHED"&&<section className="mt-5 rounded-xl border border-amber-500/40 bg-zinc-950 p-4" aria-label="Crónica del encuentro">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
      <h2 className="text-lg font-bold text-amber-200">Crónica del encuentro</h2>

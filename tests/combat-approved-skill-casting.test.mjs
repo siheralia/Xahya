@@ -77,7 +77,8 @@ test("healing respects HP maximum, cooldown and insufficient mana",()=>{
  assert.equal(next.actors.PLAYER.hp,100);
  assert.equal(next.mana.PLAYER.current,0);
  assert.equal(next.skillCooldowns.PLAYER["7"],4);
- assert.throws(()=>applyResolvedCombatSkill(next,"PLAYER",plan,{requestId:request(6)},dice),/Maná insuficiente|cooldown/);
+ const afterNpc=applyCombatCommand(next,"NPC",{kind:"WAIT"},dice);
+ assert.throws(()=>applyResolvedCombatSkill(afterNpc,"PLAYER",plan,{requestId:request(6)},dice),/Maná insuficiente|cooldown/);
  assert.equal(s.actors.PLAYER.hp,99,"original session state must remain pure");
 });
 
@@ -103,6 +104,7 @@ test("one-per-combat cooldown never resets even after a round",()=>{
  assert.equal(s.skillCooldowns.PLAYER["9"],-1);
  s=applyCombatCommand(s,"NPC",{kind:"WAIT"},dice);
  s=applyCombatCommand(s,"PLAYER",{kind:"WAIT"},dice);
+ s=applyCombatCommand(s,"NPC",{kind:"WAIT"},dice); // NPC opens tied round 2
  assert.throws(()=>applyResolvedCombatSkill(s,"PLAYER",plan,{requestId:request(9)},dice),/una vez/);
 });
 

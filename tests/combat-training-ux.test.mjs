@@ -10,7 +10,7 @@ const fighter=(name,positionMeters=0)=>({
  strength:1,constitution:1,precision:60,dodge:60,physicalAttack:10,
  physicalDefense:8,magicAttack:10,magicDefense:10,critical:1,luck:10,
  race:1,massKg:70,positionMeters,weaponIntegrity:100,
- attackType:"CUT",defenseType:"SOLID",spentTicks:0,spentAp:0,
+ attackType:"CUT",defenseType:"SOLID",equippedWeapon:{name:"Estoque",attackType:"PIERCE",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2},spentTicks:0,spentAp:0,
 });
 
 test("NPC variation uses whole-point changes, keeps speed equal and does not mutate input",()=>{

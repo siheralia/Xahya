@@ -136,6 +136,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const tiedSpeed=!!state&&effectiveCombatSpeed(state.actors.PLAYER)===effectiveCombatSpeed(state.actors.NPC);
  const actor=state?.actors[side];
  const pending=state?.pending;
+ const selectedDefense=pending?.usesMagic&&["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense;
  const hasAccess=view?.permissions[side]??false;
  const defending=!!pending&&pending.against===side;
  const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
@@ -196,11 +197,11 @@ export default function CombatEncounter({id}:{id:string}) {
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
      <div className="grid gap-2 sm:grid-cols-2">
       {options.filter(opt=>!pending.usesMagic||["DODGE","ENDURE","NONE"].includes(opt.value)).map(opt=><label key={opt.value} className="flex gap-2 rounded-lg border border-zinc-700 p-3">
-       <input type="radio" checked={defense===opt.value} onChange={()=>setDefense(opt.value)}/>
+       <input type="radio" checked={selectedDefense===opt.value} onChange={()=>setDefense(opt.value)}/>
        <span><b>{opt.label}</b><small className="block text-zinc-400">{opt.description}</small></span>
       </label>)}
      </div>
-     {pending.usesMagic&&defense==="DODGE"&&<div className="space-y-2">
+     {pending.usesMagic&&selectedDefense==="DODGE"&&<div className="space-y-2">
       <p className="text-sm text-zinc-300">Adivina dónde caerá la explosión. Toca el terreno para marcar su posible centro. La zona resaltada es solo una pista aproximada; acertar también requiere superar la tirada de Esquive.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         onPointerDown={e=>setPredictedCenter(toPoint(e))}
@@ -220,14 +221,14 @@ export default function CombatEncounter({id}:{id:string}) {
       </svg>
       <p className="text-xs text-zinc-400">{predictedCenter?"Predicción marcada. Puedes cambiarla tocando otro punto.":"Aún no has señalado el posible impacto."}</p>
      </div>}
-     {defense==="DEFLECT"&&<label className="block text-sm">Orientación de la guardia: {angle}°
+     {selectedDefense==="DEFLECT"&&<label className="block text-sm">Orientación de la guardia: {angle}°
       <input className="mt-2 w-full" type="range" min="0" max="359" value={angle}
        onChange={e=>setAngle(Number(e.target.value))}/>
       <span className="block text-xs text-zinc-400">Orientación aproximada: {guardHint(deflectionAlignment(pending.trajectory,angle))}. No garantiza desviar el golpe; también intervienen tu agilidad, la fuerza rival y la tirada.</span>
      </label>}
-     <button onClick={()=>void submit({kind:"DEFEND",defense,defenseAngle:angle,
-        predictedCenter:pending.usesMagic&&defense==="DODGE"?predictedCenter??undefined:undefined})}
-      disabled={busy||(pending.usesMagic&&defense==="DODGE"&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
+     <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,defenseAngle:angle,
+        predictedCenter:pending.usesMagic&&selectedDefense==="DODGE"?predictedCenter??undefined:undefined})}
+      disabled={busy||(pending.usesMagic&&selectedDefense==="DODGE"&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
       {busy?"Resolviendo…":"Responder al ataque"}
      </button>
     </div>}

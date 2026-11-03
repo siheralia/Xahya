@@ -111,13 +111,14 @@ function localEffectiveStat(key:string,effectiveStats:Record<string,number>,deri
  }
  return Math.max(0,apply(key,current));
 }
-export function VariableResistanceCalculator({config,effectiveStats,derivedStats,temporaryEffects=[]}:{
+export function VariableResistanceCalculator({config,effectiveStats,derivedStats,temporaryEffects=[],hpPercent}:{
  config:VariableResistance;effectiveStats:Record<string,number>;derivedStats:Record<string,number>;
- temporaryEffects?:TemporaryEffect[];
+ temporaryEffects?:TemporaryEffect[];hpPercent?:number;
 }){
  const [value,setValue]=useState(50);
  const base=localEffectiveStat(config.baseStat,effectiveStats,derivedStats,temporaryEffects);
- const result=base===null||validateVariableResistance(config)?null:calculateVariableResistance(config,base,value);
+ const inputValue=config.input==="HP_PERCENT"&&Number.isFinite(hpPercent)?Math.max(0,Math.min(100,hpPercent!)):value;
+ const result=base===null||validateVariableResistance(config)?null:calculateVariableResistance(config,base,inputValue);
  const inputLabel=RESISTANCE_INPUT_OPTIONS.find(o=>o.value===config.input)?.label??config.input;
  return <div className="mt-4 space-y-3 rounded-xl border border-cyan-600/40 bg-cyan-950/15 p-3 text-sm">
   <p className="font-semibold text-cyan-200">Calculadora · Resistencia variable</p>
@@ -128,9 +129,10 @@ export function VariableResistanceCalculator({config,effectiveStats,derivedStats
     <strong className="text-lg">{base===null?"No disponible":base.toLocaleString("es-MX",{maximumFractionDigits:2})}</strong>
    </div>
    <label className="text-xs text-zinc-400">{inputLabel} {config.input==="ATTACK_SPEED"?"(valor del ataque, sin unidades)":""}
-    <input className={inputClass} type="number" min="0" max={config.input==="HP_PERCENT"?100:undefined} step={config.input==="HIT_COUNT"?1:"any"} value={value} onChange={e=>setValue(Math.max(0,Math.min(config.input==="HP_PERCENT"?100:100000,Number(e.target.value)||0)))}/>
+    <input className={inputClass} type="number" min="0" max={config.input==="HP_PERCENT"?100:undefined} step={config.input==="HIT_COUNT"?1:"any"} value={inputValue} readOnly={config.input==="HP_PERCENT"&&Number.isFinite(hpPercent)} onChange={e=>setValue(Math.max(0,Math.min(config.input==="HP_PERCENT"?100:100000,Number(e.target.value)||0)))}/>
    </label>
   </div>
+  {config.input==="HP_PERCENT"&&Number.isFinite(hpPercent)&&<p className="text-xs text-cyan-300">Vida actual de la ficha, actualizada automáticamente.</p>}
   {result?<div className="grid grid-cols-2 gap-2">
    <div className="rounded-lg bg-zinc-950/70 p-3"><span className="block text-xs text-zinc-400">Multiplicador</span><strong className="text-lg">×{result.multiplier.toFixed(2)}</strong></div>
    <div className="rounded-lg bg-zinc-950/70 p-3"><span className="block text-xs text-zinc-400">Resistencia efectiva</span><strong className="text-lg">{result.resistance.toLocaleString("es-MX",{maximumFractionDigits:2})}</strong></div>

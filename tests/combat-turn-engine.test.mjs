@@ -66,7 +66,7 @@ test("dodge resolves a single contested roll, not two dodges",()=>{
 test("weapon durability 100 cannot make a weak child resist a very strong blow",()=>{
   let s=newCombatState(fighter("Troll",50,{strength:180,physicalAttack:160,equippedWeapon:{name:"Martillo",attackType:"BLUNT",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2}}),
     fighter("Niño",40,{constitution:1,weaponIntegrity:100,physicalDefense:2}));
-  s=applyCombatCommand(s,"PLAYER",{...attack,attackType:"BLUNT"});
+  s=applyCombatCommand(s,"PLAYER",{...attack,attackType:"BLUNT",trajectory:[{x:0,y:0.5},{x:0.5,y:0.5}]});
   s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"BLOCK"},{hit:0.2,critical:0.9,defense:0.99});
   assert.ok(s.actors.NPC.hp<100);
   assert.ok(s.actors.NPC.weaponIntegrity<100);

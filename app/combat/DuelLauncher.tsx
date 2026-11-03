@@ -53,7 +53,7 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
  const availableOpponents=options?.characters.filter(c=>String(c.id)!==characterId)??[];
  return <main className="mx-auto max-w-2xl px-4 py-10 text-zinc-100">
   <div className="mb-7 flex items-center justify-between"><h1 className="text-3xl font-bold">⚔️ Combate</h1><Link href="/" className="text-sm text-cyan-300">Inicio</Link></div>
-  <p className="mb-5 text-zinc-400">Entrena contra NPC de dificultad configurable, con una raza, tres perks y habilidades del catálogo público. Sus estadísticas y recursos existen solo durante el encuentro.</p>
+  <p className="mb-5 text-zinc-400">Entrena contra NPC de dificultad configurable, con una raza, todos sus perks raciales, tres perks adicionales y habilidades del catálogo público. Sus estadísticas y recursos existen solo durante el encuentro.</p>
   <div className="space-y-4 rounded-2xl border border-zinc-700 bg-zinc-950/70 p-5">
    <label className="block text-sm">Tu personaje
     <select value={characterId} disabled={busy||loading} onChange={e=>{setCharacterId(e.target.value);setOpponentCharacterId("");}}
@@ -81,7 +81,7 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
       <option value="ENDURANCE">Resistencia · grandes cantidades de HP</option>
       <option value="AGGRESSIVE">Agresivo · presión constante y habilidades</option>
     </select>
-    <span className="mt-1 block text-xs text-zinc-400">La raza y los tres perks se sortean del catálogo activo; las habilidades compatibles consumen el maná y PA reales del NPC.</span>
+    <span className="mt-1 block text-xs text-zinc-400">El NPC hereda todos los perks de su raza y recibe otros tres, distintos, del catálogo activo. Las habilidades compatibles consumen maná y PA del combate.</span>
    </label>}
    {error&&<p role="alert" className="text-rose-400">{error}</p>}
    <button type="button" onClick={()=>void start()} disabled={busy||loading||!characterId}

@@ -45,6 +45,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [side,setSide]=useState<Side>("PLAYER");
  const [attackType,setAttackType]=useState<"CUT"|"BLUNT"|"PIERCE">("CUT");
  const [meters,setMeters]=useState(1);
+ const [moveDirection,setMoveDirection]=useState<"TOWARD"|"AWAY">("TOWARD");
  const [points,setPoints]=useState<Point[]>(defaultPath);
  const [drawing,setDrawing]=useState(false);
  const [defense,setDefense]=useState<DefenseChoice>("DODGE");
@@ -58,6 +59,7 @@ export default function CombatEncounter({id}:{id:string}) {
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"Error al consultar el combate.");
    setView(data);
+   if(!data.permissions.PLAYER&&data.permissions.NPC)setSide("NPC");
    const events=(data.state as CombatState).log;
    const last=events.filter(e=>e.kind==="RESOLVE").at(-1);
    const key=last?last.tick+":"+last.summary+":"+last.defense:"";
@@ -134,6 +136,7 @@ export default function CombatEncounter({id}:{id:string}) {
     <span>{state.status==="ACTIVE"?"En curso":"Finalizado"}</span>
     {state.winner&&<b>Ganador: {state.actors[state.winner].name}</b>}
    </div>
+   <p className="mb-3 text-sm text-zinc-300">Distancia entre combatientes: <b>{Math.abs(state.actors.PLAYER.positionMeters-state.actors.NPC.positionMeters).toFixed(2)} m</b> · Alcance del ataque físico: 2 m</p>
    <div className="grid gap-3 sm:grid-cols-2">
     <Fighter name={state.actors.PLAYER.name} side="PLAYER" state={state}/>
     <Fighter name={state.actors.NPC.name} side="NPC" state={state}/>
@@ -180,7 +183,8 @@ export default function CombatEncounter({id}:{id:string}) {
         onChange={e=>setMeters(Number(e.target.value))}
         className="mt-1 block w-32 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"/>
       </label>
-      <button disabled={!ready} onClick={()=>void submit({kind:"MOVE",meters})}
+      <select aria-label="Dirección del desplazamiento" value={moveDirection} onChange={e=>setMoveDirection(e.target.value as "TOWARD"|"AWAY")} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"><option value="TOWARD">Acercarse</option><option value="AWAY">Alejarse</option></select>
+      <button disabled={!ready} onClick={()=>void submit({kind:"MOVE",meters,direction:moveDirection})}
        className="rounded-lg border border-cyan-500 px-4 py-2 text-cyan-200 disabled:opacity-40">Mover</button>
       <button disabled={!ready} onClick={()=>void submit({kind:"WAIT"})}
        className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40">Terminar turno</button>

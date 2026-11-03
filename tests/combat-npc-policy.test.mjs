@@ -129,7 +129,7 @@ test("NPC protects itself instead of sacrificing an obviously fatal hit",()=>{
 });
 
 test("counterattack stance does not grant extra ticks or an additional free action",()=>{
-  const player=fighter("Attacker",38,{physicalAttack:7,physicalDefense:5});
+  const player=fighter("Attacker",38,{strength:1,physicalAttack:7,physicalDefense:5});
   const npc=fighter("NPC",38,{positionMeters:1.5,physicalDefense:6});
   let s=newCombatState(player,npc);
   s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"CUT"});

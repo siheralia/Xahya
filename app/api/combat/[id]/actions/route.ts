@@ -4,13 +4,19 @@ import { randomInt } from "node:crypto";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import {
-  applyCombatCommand, applyResolvedCombatSkill, canAct, type CombatCommand, type CombatState, type Side,
+  applyCombatCommand, applyResolvedCombatSkill, applyResolvedKarmaBoost, canAct, type CombatCommand, type CombatState, type Side,
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 import { combatClientView } from "@/lib/combat/magic-area";
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { compileCombatSkill } from "@/lib/combat/skill-casting";
+import {attachedCreationPassive} from "@/lib/combat/constructs";
+import {validateKarmaBoostAllocation} from "@/lib/combat/karma-boost";
+import {getEffectiveCharacterStats} from "@/lib/stats/effective";
+import {calculateConfiguredDerivedStats} from "@/lib/stats/engine";
+import {readStatisticsCatalog,CORE_BASIC_STAT_KEYS} from "@/lib/stats/dynamic";
+import {readMechanics} from "@/lib/stats/mechanics";
 import { meetsEffectRequirements } from "@/lib/skills/effect-requirements";
 
 const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
@@ -38,8 +44,18 @@ async function access(id:string) {
 export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}) {
   const a=await access((await params).id);
   if(!a)return NextResponse.json({error:"Combate no encontrado o sin permiso."},{status:403});
-  return NextResponse.json({state:combatClientView(a.state),permissions:{PLAYER:a.canPlayer,
-    NPC:a.canOpponent},canMove:{PLAYER:canAct(a.state,"PLAYER"),NPC:canAct(a.state,"NPC")}});
+  const resource=(db.orm.public as any).CharacterResource;
+  const karma:Partial<Record<Side,number>>={};
+  for(const side of ["PLAYER","NPC"] as const){
+    if(!(side==="PLAYER"?a.canPlayer:a.canOpponent))continue;
+    const characterId=a.state.actors[side].characterId;
+    if(characterId===null)continue;
+    const row=await resource.where({characterId}).first();
+    karma[side]=Number(row?.karma??0);
+  }
+  return NextResponse.json({state:combatClientView(a.state),karma,
+    permissions:{PLAYER:a.canPlayer,NPC:a.canOpponent},
+    canMove:{PLAYER:canAct(a.state,"PLAYER"),NPC:canAct(a.state,"NPC")}});
 }
 export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
   const a=await access((await params).id);
@@ -69,6 +85,57 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
         next=progressTrainingNpc(state,dice,()=>randomInt(1_000_000)/1_000_000);
         if(JSON.stringify(next)===JSON.stringify(state))
           throw new Error("No hay ninguna acción automática pendiente del NPC.");
+      } else if(command.kind==="BOOST_KARMA"){
+        const characterId=state.actors[side].characterId;
+        if(characterId===null)throw new Error("Los NPC de entrenamiento no tienen karma.");
+        const requestId=String(command.requestId??"");
+        if(state.processedKarmaRequests?.includes(requestId)) {
+          next=state; // Idempotent retry: never debit the real wallet twice.
+        } else {
+          const catalog=await readStatisticsCatalog(tx);
+          const allowed=new Set([...CORE_BASIC_STAT_KEYS].filter(key=>!catalog.some(entry=>entry.key===key&&entry.active===false)));
+          for(const entry of catalog)if(entry.kind==="basic"&&entry.active!==false)allowed.add(entry.key);
+          const {allocation,cost}=validateKarmaBoostAllocation(command.allocation,allowed);
+          const calculated=await getEffectiveCharacterStats(characterId,tx);
+          if(!calculated)throw new Error("No hay estadísticas para aumentar.");
+          const prior=state.karmaBoosts?.[side]??{};
+          const beforeBase={...calculated.effectiveStats};
+          for(const [key,value] of Object.entries(prior))beforeBase[key]=(beforeBase[key]??0)+value;
+          const afterBase={...beforeBase};
+          for(const [key,value] of Object.entries(allocation))afterBase[key]=(afterBase[key]??0)+value;
+          const [before,after,settings]=await Promise.all([
+            calculateConfiguredDerivedStats(beforeBase as any,tx),
+            calculateConfiguredDerivedStats(afterBase as any,tx),
+            readMechanics(tx),
+          ]);
+          const deltas:Record<string,number>={};
+          for(const key of ["strength","agility","constitution","luck"]){
+            const diff=(afterBase[key]??0)-(beforeBase[key]??0);
+            if(diff)deltas[key]=diff;
+          }
+          for(const key of ["physicalAttack","magicAttack","physicalDefense","magicDefense",
+            "precision","dodge","critical","race","maxHp"]){
+            const delta=Number(after[key]??0)-Number(before[key]??0);
+            if(!Number.isFinite(delta))throw new Error("La estadística derivada no es válida: "+key);
+            if(delta)deltas[key]=delta;
+          }
+          const maxManaDelta=Number(after.maxMana??0)-Number(before.maxMana??0);
+          if(!Number.isFinite(maxManaDelta))throw new Error("Maná derivado inválido.");
+          if(maxManaDelta)deltas.manaMax=maxManaDelta;
+          const speedKey=settings.combatSpeed;
+          const oldSpeed=beforeBase[speedKey]??before[speedKey];
+          const newSpeed=afterBase[speedKey]??after[speedKey];
+          if(Number.isFinite(oldSpeed)&&Number.isFinite(newSpeed)&&newSpeed!==oldSpeed)
+            deltas.speedValue=newSpeed-oldSpeed;
+          const request=db.raw.sql`UPDATE public."characterResource"
+             SET karma=karma-${cost} WHERE "characterId"=${characterId} AND karma>=${cost}`
+             .affectedCount().build();
+          if((await tx.execute(request)).affectedRows!==1)
+            throw new Error("Karma insuficiente: se necesitan "+cost+" puntos.");
+          next=applyResolvedKarmaBoost(state,side,requestId,allocation,cost,deltas);
+          if(side==="PLAYER"&&next.status==="ACTIVE")
+            next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);
+        }
       } else if(command.kind==="CAST_SKILL") {
         // The client supplies ONLY a skill id and aim. Its effects, cost and
         // cooldown are compiled exclusively from the approved DB row here,
@@ -99,6 +166,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
           if(!meetsEffectRequirements(requirements,others))
             throw new Error("No se cumplen los requisitos por efecto de esta habilidad.");
           const plan=compileCombatSkill(skill);
+          if(plan.category==="CONSTRUCTION")plan.creationPassive=attachedCreationPassive(plan.id,available);
           next=applyResolvedCombatSkill(state,side,plan,command,dice());
           if(side==="PLAYER"&&next.status==="ACTIVE")
             next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);

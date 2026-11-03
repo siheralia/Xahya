@@ -57,7 +57,7 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
     if (choice<0.50) return {kind:"DEFEND",defense:"DODGE",
       predictedCenter:{x:startX+cap(random(),0,0.999999)*2/3,
         y:startY+cap(random(),0,0.999999)*2/3}};
-    if (choice<0.85) return {kind:"DEFEND",defense:"MAGIC_FIELD"};
+    if (choice<0.85 && (state.mana?.NPC?.current??0)>=1) return {kind:"DEFEND",defense:"MAGIC_FIELD"};
     return choice<0.95 ? {kind:"DEFEND",defense:"ENDURE"} : {kind:"DEFEND",defense:"NONE"};
   }
   if (state.pending.rangedPhysical) {

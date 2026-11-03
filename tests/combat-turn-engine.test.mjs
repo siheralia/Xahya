@@ -9,7 +9,7 @@ const fighter = (name, agility = 100, overrides = {}) => ({
   characterId:null,name,hp:100,maxHp:100,agility,strength:10,constitution:1,
   precision:30,dodge:30,physicalAttack:18,physicalDefense:6,
   magicAttack:12,magicDefense:4,critical:10,luck:10,race:20,
-  massKg:70,weaponIntegrity:100,attackType:"CUT",defenseType:"SOLID",
+  massKg:70,positionMeters:0,weaponIntegrity:100,attackType:"CUT",defenseType:"SOLID",
   spentTicks:0,spentAp:0,...overrides,
 });
 const move = {kind:"MOVE",meters:1};

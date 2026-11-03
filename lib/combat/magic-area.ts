@@ -2,8 +2,8 @@ import type { CombatState, Point } from "./turn-engine.ts";
 
 /** Phase-1 abstract aiming arena: independently projected from the 1D distance system. */
 export const BASIC_MAGIC_AREA_RADIUS = 0.14;
-export const BASIC_MAGIC_RANGE_METERS = 10;
-export const BASIC_MAGIC_MANA_COST = 0; // Phase 2 will introduce paid abilities.
+export const BASIC_MAGIC_RANGE_METERS = 4;
+export const BASIC_MAGIC_MANA_COST = 1; // Phase 2 will introduce paid abilities.
 export const MAGIC_GUESS_TOLERANCE = 0.19;
 
 export const validArenaPoint = (p:unknown):p is Point => {

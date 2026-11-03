@@ -340,12 +340,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   if (state.pending) {
     const pending = state.pending;
     if (command.kind !== "DEFEND" || pending.against !== by) throw new Error("Debe responder al ataque pendiente.");
-    if (!["DODGE","BLOCK","ENDURE","REPEL","DEFLECT","MAGIC_FIELD","NONE"].includes(command.defense))
+    if (!["DODGE","BLOCK","ENDURE","REPEL","DEFLECT","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(command.defense))
       throw new Error("Defensa desconocida.");
     validateRoll(rolls.hit); validateRoll(rolls.critical); validateRoll(rolls.defense);
     const attacker = state.actors[pending.by];
     let defense = command.defense;
-    if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","NONE"].includes(defense))
+    if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(defense))
       throw new Error("Para la explosión mágica básica puedes esquivar, levantar un campo mágico, resistir o no reaccionar.");
     if (!pending.usesMagic && defense === "MAGIC_FIELD")
       throw new Error("El campo defensivo mágico solo puede responder a ataques mágicos.");
@@ -389,6 +389,30 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const effectiveField=Math.max(0,fighter.magicDefense)/typeFactor;
       const held=rolls.defense < contestChance(effectiveField,attacker.magicAttack);
       damageScale=held ? 0.25 : 0.75;
+    } else if(defense==="CONSTRUCTION") {
+      const block=state.constructions?.find(c=>c.id===command.constructionId&&
+        c.owner===by&&c.form==="BLOCK"&&c.tangible&&
+        (c.durability??0)>0&&Math.hypot(c.center.x-targetHitboxCenter.x,c.center.y-targetHitboxCenter.y)<=0.35);
+      if(!block)throw new Error("Selecciona un bloque defensivo cercano al personaje.");
+      const resistance=block.passive?.resistance;
+      const base=resistance
+        ?Math.max(0,Number((fighter as unknown as Record<string,number>)[resistance.baseStat]??fighter.magicDefense))
+        :fighter.magicDefense;
+      const input=resistance?.input==="INCOMING_DAMAGE"?power:
+        resistance?.input==="HP_PERCENT"?100*fighter.hp/Math.max(1,fighter.maxHp):
+        resistance?.input==="HIT_COUNT"?(block.hitCount??0):effectiveCombatSpeed(attacker);
+      const blockDefense=resistance?calculateVariableResistance(resistance,base,input).resistance:base;
+      const previous=block.durability??0;
+      const pressure=Math.max(1,Math.round(power/typeFactor));
+      const held=blockDefense>=power && previous>=pressure;
+      block.hitCount=(block.hitCount??0)+1;
+      block.durability=Math.max(0,previous-pressure);
+      damageScale=held?0:0.5;
+      if(block.durability===0) {
+        state.constructions=state.constructions?.filter(c=>c.id!==block.id);
+        addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by,constructionId:block.id,
+          summary:block.label+" se rompió al interceptar el ataque."});
+      }
     } else if (defense === "ENDURE") {
       damageScale = rolls.defense < contestChance(fighter.constitution,attacker.strength) ? 0.45 : 1;
     } else if (defense === "REPEL") {

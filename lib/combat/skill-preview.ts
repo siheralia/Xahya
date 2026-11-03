@@ -6,6 +6,7 @@
  * Execution remains disabled until each effect is implemented in the
  * authoritative encounter transaction (phase 2.2).
  */
+import {previewSkillExecution} from "./skill-casting.ts";
 export type CombatSkillPreview = {
  id: number;
  name: string;
@@ -25,8 +26,12 @@ export type CombatSkillPreview = {
  mechanicActions: string[];
  active: boolean;
  requirementsSatisfied: boolean;
- /** Always false in phase 2.1. */
- executable: false;
+ /** Only a strict set of implemented effects may be cast. */
+ executable: boolean;
+ skillKind?: "OFFENSE"|"SUPPORT"|null;
+ needsAim?: boolean;
+ usesMagic?: boolean;
+ disabledReason?:string|null;
 };
 
 type SkillRecord = Record<string, unknown>;
@@ -85,7 +90,11 @@ export function combatSkillPreview(
   duration:nonempty(skill.duration)||null,
   cooldown:nonempty(skill.cooldown)||null,
   effectTypes,mechanicActions,
-  active,requirementsSatisfied,executable:false,
+  active,requirementsSatisfied,
+  ...previewSkillExecution(skill),
+  executable:requirementsSatisfied&&previewSkillExecution(skill).executable,
+  disabledReason:requirementsSatisfied?previewSkillExecution(skill).disabledReason:
+    "Faltan requisitos por efecto para lanzar esta habilidad.",
  };
 }
 

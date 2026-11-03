@@ -32,6 +32,7 @@ export type CombatSkillPreview = {
  executable: boolean;
  skillKind?: "OFFENSE"|"SUPPORT"|"CONSTRUCTION"|null;
  needsAim?: boolean;
+ constructionMaterial?:string|null;
  usesMagic?: boolean;
  disabledReason?:string|null;
 };

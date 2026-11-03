@@ -19,15 +19,35 @@ function tangentGuardAngle(points: Point[]): number {
 }
 
 /**
- * Reaction policy: all five mechanical defenses compete with weights tied to
- * estimated effectiveness. A little exploration prevents all-dodge behavior.
- * The defender's scarce AP/ticks are still charged by the combat engine.
+ * Reaction policy: first reserve an opportunity for a survivable counterattack,
+ * then weigh five defenses by estimated effectiveness. This prevents a passive
+ * NPC that spends every shared-tick action on defense. Reactions that are used
+ * are still fully charged by the combat engine; counterattacks are not free.
  */
 export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extract<CombatCommand,{kind:"DEFEND"}> {
   if (state.pending?.against !== "NPC") throw new Error("El NPC no tiene un ataque pendiente.");
   const npc = state.actors.NPC, attacker = state.actors[state.pending.by];
   if (remainingAp(npc) < 1 || npc.spentTicks >= 100) return {kind:"DEFEND",defense:"NONE"};
   const factor = matchupMultiplier(state.pending.attackType,npc.defenseType);
+  // On tight action budgets, the NPC may take a survivable hit to preserve
+  // its next initiative. Otherwise it actually defends and still counterattacks
+  // on its alternating initiative. NONE costs no AP; attacks remain paid.
+  const roundStart = (state.round-1)*100;
+  const attackedThisRound = state.log.some(e =>
+    e.kind==="ATTACK" && e.by==="NPC" && e.tick>roundStart);
+  const reactionTicks = turnTicks(npc);
+  const canCounterNow = npc.spentTicks + reactionTicks <= attacker.spentTicks;
+  // A speed tie alternates proactive initiatives even after a reaction.
+  // Keep the defensive choice whenever enough AP/ticks remain to retaliate.
+  const canDefendAndCounter = remainingAp(npc) >= 2
+    && npc.spentTicks + reactionTicks < 100;
+  const power = state.pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack;
+  const protection = state.pending.usesMagic ? npc.magicDefense : npc.physicalDefense;
+  const worstDirectDamage = Math.max(1,Math.round(
+    power*1.5*factor - protection*0.75));
+  if(!attackedThisRound && canCounterNow && !canDefendAndCounter && npc.hp>worstDirectDamage) {
+    return {kind:"DEFEND",defense:"NONE"};
+  }
   const dodgeChance = 1 - contestChance(attacker.precision,npc.dodge);
   const blockChance = contestChance(npc.constitution * factor,attacker.strength);
   const endureChance = contestChance(npc.constitution,attacker.strength);

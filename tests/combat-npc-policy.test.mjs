@@ -88,3 +88,54 @@ test("reactions consume AP: a slower fighter cannot dodge unlimited attacks for 
  assert.equal(remainingAp(s.actors.NPC),start-1);
  assert.equal(s.pending,null);
 });
+
+test("encounter #2 regression: equally fast NPC counterattacks instead of defending every strike",()=>{
+  // Numeric profile observed in Guha's second encounter: 38 speed,
+  // 12 HP, 27 ticks per NPC action, and an incoming BLUNT attack.
+  const guha=fighter("Guha",38,{
+    hp:12,maxHp:12,speedValue:38,agility:38,strength:1,
+    precision:62.33,physicalAttack:10.5,physicalDefense:45.5,
+    constitution:1,race:1.25,dodge:136,critical:73.23,luck:31,
+    attackType:"BLUNT",defenseType:"CONCENTRATED"
+  });
+  const npc=fighter("Training NPC",38,{
+    hp:12,maxHp:12,speedValue:38,agility:38,strength:1,
+    precision:62.33,physicalAttack:10.5,physicalDefense:10.5,
+    constitution:1,race:1.25,dodge:136,critical:73.23,luck:31,
+    attackType:"CUT",defenseType:"SOLID",positionMeters:1.5
+  });
+  let state=newCombatState(guha,npc);
+  state=applyCombatCommand(state,"PLAYER",{kind:"ATTACK",attackType:"BLUNT"});
+  const nextChoice=chooseNpcReaction(state,rng);
+  assert.notEqual(nextChoice.defense,"NONE","NPC can defend and retain the next alternating initiative");
+  state=progressTrainingNpc(state,()=>({hit:0.2,critical:0.99,defense:0.1}),rng);
+  const resolution=state.log.find(e=>e.kind==="RESOLVE");
+  assert.notEqual(resolution.defense,"NONE");
+  assert.equal(state.pending?.by,"NPC","NPC gets to attack with its own paid action");
+  assert.ok(state.log.some(e=>e.kind==="ATTACK"&&e.by==="NPC"));
+  assert.equal(state.actors.NPC.spentAp,2);
+  assert.ok(state.actors.NPC.hp>0);
+  state=applyCombatCommand(state,"PLAYER",{kind:"DEFEND",defense:"DODGE"},dice());
+  state=progressTrainingNpc(state,dice,rng);
+  assert.ok(state.actors.PLAYER.spentAp>=2,"Guha pays for her defense and can act again when due");
+});
+
+test("NPC protects itself instead of sacrificing an obviously fatal hit",()=>{
+  const player=fighter("Attacker",38,{physicalAttack:160});
+  const npc=fighter("NPC",38,{hp:12,maxHp:12,positionMeters:1.5});
+  let s=newCombatState(player,npc);
+  s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"BLUNT"});
+  assert.notEqual(chooseNpcReaction(s,rng).defense,"NONE");
+});
+
+test("counterattack stance does not grant extra ticks or an additional free action",()=>{
+  const player=fighter("Attacker",38,{strength:1,physicalAttack:7,physicalDefense:5});
+  const npc=fighter("NPC",38,{positionMeters:1.5,physicalDefense:6});
+  let s=newCombatState(player,npc);
+  s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"CUT"});
+  const p=progressTrainingNpc(s,dice,rng);
+  assert.equal(p.pending?.by,"NPC");
+  assert.equal(p.actors.NPC.spentAp,2);
+  assert.equal(p.actors.NPC.spentTicks,54);
+  assert.equal(p.log.filter(e=>e.kind==="ATTACK"&&e.by==="NPC").length,1);
+});

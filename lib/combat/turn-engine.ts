@@ -26,6 +26,8 @@ export type CombatLog = {
 export type CombatState = {
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
   winner: Side | null; actors: Record<Side, CombatFighter>;
+  /** Randomly resolved initial initiative tie; absent in older persisted fights. */
+  tieOpener?: Side;
   pending: PendingAttack | null; log: CombatLog[];
 };
 export type CombatCommand =
@@ -72,25 +74,59 @@ function validateFighter(f: CombatFighter) {
     || !finite(f.massKg) || f.massKg <= 0 || !finite(f.positionMeters) || !finite(f.weaponIntegrity) || f.weaponIntegrity < 0 || f.weaponIntegrity > 100)
     throw new Error("Combatiente inválido.");
 }
-export function newCombatState(player: CombatFighter, npc: CombatFighter): CombatState {
+export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpener: Side="PLAYER"): CombatState {
   validateFighter(player); validateFighter(npc);
-  return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,
+  if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
+  return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
     pending:null,log:[]};
 }
+export const effectiveCombatSpeed = (f: CombatFighter) =>
+  Math.max(1, f.speedValue ?? f.agility);
 export function turnTicks(f: CombatFighter, attackType?: CombatAttackType) {
   const modifier = attackType === "BLUNT" ? 1.15 : attackType === "PIERCE" ? 0.85 : 1;
-  return calculateActionTicks(Math.max(1, f.speedValue??f.agility), modifier);
+  return calculateActionTicks(effectiveCombatSpeed(f), modifier);
 }
 export function remainingAp(f: CombatFighter) {
   return Math.max(0, actionPoints(f.constitution) - f.spentAp);
 }
+const hasInitiativeBudget = (f: CombatFighter) =>
+  remainingAp(f) >= 1 && f.spentTicks < LIMIT;
+
+/**
+ * Only proactive actions (ATTACK, MOVE, WAIT) take an initiative slot.
+ * Defending an incoming attack is a paid reaction, but does not count as
+ * taking the defender's initiative. A ROUND entry resets the tie order.
+ * This is derived from the persisted event log, so existing encounters
+ * do not need a migration or a new saved-state version.
+ */
+function lastInitiativeSide(state: CombatState): Side | null {
+  for (let i = state.log.length - 1; i >= 0; i--) {
+    const {kind, by} = state.log[i];
+    if (kind === "ROUND") break;
+    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT") return by;
+  }
+  return null;
+}
 export function canAct(state: CombatState, side: Side): boolean {
   if (state.status !== "ACTIVE" || state.pending) return false;
   const f = state.actors[side], rival = state.actors[other(side)];
-  if (remainingAp(f) < 1 || f.spentTicks >= LIMIT) return false;
-  // At most one opponent-sized action of temporal lead. At twice the
-  // opponent's speed, two short movements fit before the rival moves once.
+  if (!hasInitiativeBudget(f)) return false;
+  if (effectiveCombatSpeed(f) === effectiveCombatSpeed(rival)) {
+    // Equal speed: strict alternating initiative. Reactions consume ticks/AP
+    // but never allow an actor to take two consecutive proactive actions if
+    // the opponent has an opportunity to take one.
+    const last = lastInitiativeSide(state);
+    if (last === null) {
+      // Rotate who opens the round on a speed tie.
+      const first = state.tieOpener ?? "PLAYER";
+      const opener: Side = state.round % 2 === 1 ? first : other(first);
+      return side === opener || !hasInitiativeBudget(rival);
+    }
+    return last !== side || !hasInitiativeBudget(rival);
+  }
+  // Unequal speed: at most one opponent-sized action of temporal lead.
+  // At twice the other's speed, two short movements fit before one of theirs.
   return f.spentTicks < rival.spentTicks + turnTicks(rival);
 }
 function advanceRoundIfComplete(state: CombatState) {

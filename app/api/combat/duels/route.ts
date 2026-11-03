@@ -1,10 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { randomInt } from "node:crypto";
 import { db } from "@/lib/db";
 import { getEffectiveCharacterStats } from "@/lib/stats/effective";
 import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { readMechanics } from "@/lib/stats/mechanics";
-import { massDefaultKg, newCombatState, weaponIntegrityDefault, type CombatFighter } from "@/lib/combat/turn-engine";
+import { canAct, massDefaultKg, newCombatState, weaponIntegrityDefault, type CombatFighter } from "@/lib/combat/turn-engine";
+import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
 async function currentUser() {
@@ -84,13 +86,22 @@ export async function POST(req:Request) {
     opponent.massKg=massDefaultKg;
     opponent.speedValue=numeric((base as Record<string,number>)[mechanics.combatSpeed]??(derived as Record<string,number>)[mechanics.combatSpeed],opponent.agility);
   }
-  const state=newCombatState(player,opponent);
+  // Server-side random tie-break prevents a permanent first-mover advantage.
+  // The next round opens with the other fighter, then alternates.
+  const starter=randomInt(2)===0?"PLAYER":"NPC";
+  const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
+    critical:randomInt(1_000_000)/1_000_000,defense:randomInt(1_000_000)/1_000_000});
+  const state=progressTrainingNpc(newCombatState(player,opponent,starter),dice,
+    ()=>randomInt(1_000_000)/1_000_000);
   const Session=(db.orm.public as any).CombatSession;
   const session=await Session.create({
     playerCharacterId:characterId,npcName:opponent.name,
     npcStats:{opponentCharacterId:opponent.characterId},
-    currentTick:0,turn:1,activeActor:"PLAYER",status:"ACTIVE",lastAction:{combatV1:state},
-    playerNextActionTick:0,npcNextActionTick:0,
+    currentTick:state.tick,turn:state.round,
+    activeActor:state.pending?.against??(canAct(state,"PLAYER")?"PLAYER":"NPC"),
+    status:state.status,lastAction:{combatV1:state},
+    playerNextActionTick:state.actors.PLAYER.spentTicks,
+    npcNextActionTick:state.actors.NPC.spentTicks,
   });
   return NextResponse.json({id:Number(session.id),state},{status:201});
 }

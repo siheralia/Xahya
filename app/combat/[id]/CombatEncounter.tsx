@@ -2,6 +2,9 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
 import CombatSkillLoadout from "./CombatSkillLoadout";
+import CombatCharacterHud, {type CombatPanel} from "./CombatCharacterHud";
+import CombatDialog from "./CombatDialog";
+import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
@@ -23,6 +26,10 @@ const options: Array<{value:DefenseChoice,label:string,description:string}> = [
  {value:"CONSTRUCTION",label:"Bloque de construcción",description:"Interceptar usando una barrera colocada en el terreno"},
  {value:"NONE",label:"No reaccionar",description:"Recibir el impacto sin respuesta activa"},
 ];
+const defenseIcons:Record<DefenseChoice,typeof Footprints>={
+ DODGE:Footprints,BLOCK:Shield,ENDURE:ShieldCheck,REPEL:MoveUpRight,
+ DEFLECT:Swords,MAGIC_FIELD:WandSparkles,CONSTRUCTION:Box,NONE:Ban,
+};
 const defaultPath:Point[]=[{x:0.1,y:0.5},{x:0.9,y:0.5}];
 const attackNames={CUT:"Corte",BLUNT:"Contundente",PIERCE:"Penetración"} as const;
 const fieldNames={CONCENTRATED:"Concentrada",DISPERSED:"Dispersa",SOLID:"Sólida"} as const;
@@ -63,6 +70,18 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
 }
 export default function CombatEncounter({id}:{id:string}) {
  const [view,setView]=useState<View|null>(null);
+ const [hudOpen,setHudOpen]=useState(false);
+ const [panel,setPanel]=useState<CombatPanel>("none");
+ const [skillCategory,setSkillCategory]=useState<string|null>(null);
+ const [characterData,setCharacterData]=useState<any>(null);
+ const [characterDataError,setCharacterDataError]=useState("");
+ const [advancingNpc,setAdvancingNpc]=useState(false);
+ const lastNpcAdvance=useRef("");
+ const openPanel=useCallback((next:CombatPanel,category:string|null=null)=>{
+  setPanel(next);if(next==="skills")setSkillCategory(category);
+  setHudOpen(false);
+ },[]);
+ const closePanel=useCallback(()=>setPanel("none"),[]);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [shareStatus,setShareStatus]=useState("");
@@ -108,7 +127,7 @@ export default function CombatEncounter({id}:{id:string}) {
     window.setTimeout(()=>setFlash(false),330);
    }
    if(key)lastResolution.current=key;
-   setError("");
+   // A successful background poll must never erase a rejected player action.
   }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar el combate.");}
  },[id]);
  const onConstructionMaterialsChange=useCallback((owner:Side,materials:string[])=>{
@@ -171,6 +190,7 @@ export default function CombatEncounter({id}:{id:string}) {
   setPoints(previous=>previous.length<2?[...previous,point]:previous);
  }
  const state=view?.state;
+ const opposingSide:Side=side==="PLAYER"?"NPC":"PLAYER";
  const isPvp=state?.actors.NPC.characterId!==null && state?.actors.NPC.characterId!==undefined;
  async function shareEncounter(){
   try {
@@ -203,6 +223,20 @@ export default function CombatEncounter({id}:{id:string}) {
   ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
   : (defense==="MAGIC_FIELD"?"DODGE":defense);
  const hasAccess=view?.permissions[side]??false;
+ useEffect(()=>{
+  const characterId=actor?.characterId;
+  if(!hasAccess||!characterId){setCharacterData(null);setCharacterDataError("");return;}
+  let active=true;
+  setCharacterData(null);setCharacterDataError("");
+  fetch("/api/characters/"+characterId,{cache:"no-store"})
+   .then(async response=>{
+    const data=await response.json();
+    if(!response.ok)throw new Error(data?.error??"No se pudieron cargar datos de ficha.");
+    if(active)setCharacterData(data);
+   }).catch(e=>{if(active)setCharacterDataError(e instanceof Error?e.message:"Datos de ficha no disponibles.");});
+  return ()=>{active=false;};
+ },[actor?.characterId,hasAccess]);
+
  const creationMaterials=constructionMaterials[side]??[];
  const canCreateObjects=hasAccess&&creationMaterials.length>0;
  const canCreateMaterialBlocks=creationMaterials.some(material=>material!=="LIGHT"&&material!=="MIRROR");
@@ -210,6 +244,31 @@ export default function CombatEncounter({id}:{id:string}) {
  const selectedAttackTargetId=enemyMirrors.some(c=>c.id===attackTargetId)?attackTargetId:"";
  const defending=!!pending&&pending.against===side;
  const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
+ const npcNeedsInitiative=Boolean(state&&state.status==="ACTIVE"&&
+   state.actors.NPC.characterId===null&&hasAccess&&side==="PLAYER"&&!state.pending&&
+   !canAct(state,"PLAYER")&&canAct(state,"NPC"));
+ useEffect(()=>{
+  if(!npcNeedsInitiative||!state||advancingNpc||busy)return;
+  const key=[id,state.round,state.tick,state.actors.NPC.spentTicks,
+   state.actors.PLAYER.spentTicks,state.actors.NPC.spentAp].join(":");
+  if(lastNpcAdvance.current===key)return;
+  lastNpcAdvance.current=key;
+  let active=true;
+  setAdvancingNpc(true);
+  fetch("/api/combat/"+id+"/actions",{
+   method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({side:"PLAYER",command:{kind:"ADVANCE"}}),
+  }).then(async response=>{
+   const data=await response.json();
+   if(!response.ok)throw new Error(data?.error??"No se pudo avanzar la iniciativa rival.");
+   if(active)setView(previous=>previous?{...previous,state:data.state}:previous);
+  }).catch(e=>{if(active)setError(e instanceof Error?e.message:"No se pudo avanzar la iniciativa.");})
+   .finally(()=>{if(active)setAdvancingNpc(false);});
+  return ()=>{active=false;};
+ },[id,npcNeedsInitiative,state?.round,state?.tick,
+    state?.actors.NPC.spentTicks,state?.actors.NPC.spentAp,
+    state?.actors.PLAYER.spentTicks,advancingNpc,busy]);
+
  const karmaAvailable=view?.karma?.[side]??0;
  const karmaPoints=Object.values(karmaAllocation).reduce((sum,n)=>sum+(Number.isSafeInteger(n)&&n>0?n:0),0);
  const karmaCost=karmaPoints*2;
@@ -217,6 +276,16 @@ export default function CombatEncounter({id}:{id:string}) {
    (c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35)??[];
  const chosenDefenseConstruction=defenderBlocks.some(c=>c.id===defenseConstruction)?defenseConstruction:defenderBlocks[0]?.id;
  const maxMove=actor?Math.max(1,Math.round(actor.race/10)):1;
+ const chooseAttackMode=(mode:"MAGIC_AREA"|"MAIN_HAND"|"OFF_HAND")=>{
+  setAreaCenter(null);
+  if(mode==="MAGIC_AREA"){setAttackMode("MAGIC_AREA");return;}
+  const source:PhysicalAttackSource=mode==="MAIN_HAND"
+   ?(actor?.equippedWeapon?"MAIN_HAND":"FIST_RIGHT")
+   :(actor?.offhandWeapon?"OFF_HAND":"FIST_LEFT");
+  setAttackSource(source);
+  const weapon=actor?weaponForSource(actor,source):undefined;
+  setAttackMode(weapon?.mode==="RANGED"?"RANGED":"PHYSICAL");
+ };
  const normalizedPath=physicalAnchor
    ? [physicalAnchor,...(points.length>1?points.slice(1):[physicalAnchor])]
    : points.length>1?points:defaultPath;

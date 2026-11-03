@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
 import CombatSkillLoadout from "./CombatSkillLoadout";
-import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS } from "@/lib/combat/magic-area";
+import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {
   actionPoints, canAct, deflectionAlignment, effectiveCombatSpeed, physicalAttackStart, remainingAp, turnTicks,
   type CombatCommand, type CombatState, type DefenseChoice, type Point, type Side,
@@ -16,10 +16,12 @@ const options: Array<{value:DefenseChoice,label:string,description:string}> = [
  {value:"ENDURE",label:"Resistir",description:"STR vs CON"},
  {value:"REPEL",label:"Repeler",description:"STR vs STR; empuje"},
  {value:"DEFLECT",label:"Desviar",description:"STR vs AGI y orientación de guardia"},
+ {value:"MAGIC_FIELD",label:"Campo defensivo mágico",description:"DEF mágica vs ataque mágico y ventajas por tipo de campo"},
  {value:"NONE",label:"No reaccionar",description:"Recibir el impacto sin respuesta activa"},
 ];
 const defaultPath:Point[]=[{x:0.1,y:0.5},{x:0.9,y:0.5}];
 const attackNames={CUT:"Corte",BLUNT:"Contundente",PIERCE:"Penetración"} as const;
+const fieldNames={CONCENTRATED:"Concentrada",DISPERSED:"Dispersa",SOLID:"Sólida"} as const;
 function attackDirection(points:Point[]):string {
  const first=points[points.length-2],last=points[points.length-1];
  if(!first||!last)return "indeterminada";
@@ -116,24 +118,30 @@ export default function CombatEncounter({id}:{id:string}) {
  }
  function toPoint(e:PointerEvent<SVGSVGElement>):Point {
   const rect=e.currentTarget.getBoundingClientRect();
-  if(!rect)return {x:0,y:0};
+  if(!rect.width||!rect.height)return {x:0.5,y:0.5};
   return {x:Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width)),
     y:Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height))};
  }
  function startDraw(e:PointerEvent<SVGSVGElement>) {
-  if(attackMode==="MAGIC_AREA"){setAreaCenter(toPoint(e));return;}
-  e.currentTarget.setPointerCapture(e.pointerId);
+  // Read the SVG's currentTarget synchronously, while React's pointer event
+  // is still active. Deferred state updater callbacks must never access it.
+  const point=toPoint(e);
+  if(attackMode==="MAGIC_AREA"){setAreaCenter(point);return;}
+  try { e.currentTarget.setPointerCapture(e.pointerId); }
+  catch { /* Some mobile browsers do not support SVG pointer capture. */ }
   setDrawing(true);
-  setPoints(physicalAnchor?[physicalAnchor,toPoint(e)]:[toPoint(e)]);
+  setPoints(physicalAnchor?[physicalAnchor,point]:[point]);
  }
  function continueDraw(e:PointerEvent<SVGSVGElement>) {
   if(attackMode==="MAGIC_AREA"||!drawing)return;
-  setPoints(previous=>previous.length>=79?previous:[...previous,toPoint(e)]);
+  const point=toPoint(e);
+  setPoints(previous=>previous.length>=79?previous:[...previous,point]);
  }
  function endDraw(e:PointerEvent<SVGSVGElement>) {
   if(attackMode==="MAGIC_AREA"||!drawing)return;
+  const point=toPoint(e);
   setDrawing(false);
-  setPoints(previous=>previous.length<2?[...previous,toPoint(e)]:previous);
+  setPoints(previous=>previous.length<2?[...previous,point]:previous);
  }
  const state=view?.state;
  const isPvp=state?.actors.NPC.characterId!==null && state?.actors.NPC.characterId!==undefined;
@@ -155,7 +163,9 @@ export default function CombatEncounter({id}:{id:string}) {
   setDrawing(false);
   setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);
  },[side,physicalAnchor?.x,physicalAnchor?.y]);
- const selectedDefense=pending?.usesMagic&&["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense;
+ const selectedDefense=pending?.usesMagic
+  ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
+  : (defense==="MAGIC_FIELD"?"DODGE":defense);
  const hasAccess=view?.permissions[side]??false;
  const defending=!!pending&&pending.against===side;
  const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
@@ -164,8 +174,7 @@ export default function CombatEncounter({id}:{id:string}) {
    ? [physicalAnchor,...(points.length>1?points.slice(1):[physicalAnchor])]
    : points.length>1?points:defaultPath;
  const hint=pending?.areaHint??"centro";
- const warningCol=hint.includes("izquierda")?0:hint.includes("derecha")?2:1;
- const warningRow=hint.includes("superior")?0:hint.includes("inferior")?2:1;
+ const warningCells=magicHintCells(hint);
  const polyline=normalizedPath.map(p=>(p.x*100).toFixed(1)+","+(p.y*100).toFixed(1)).join(" ");
  return <main className="mx-auto max-w-5xl px-4 py-7 text-zinc-100">
   {flash&&<div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[3000] bg-rose-200/50"/>}
@@ -180,7 +189,7 @@ export default function CombatEncounter({id}:{id:string}) {
    </div>
   </div>
   {error&&<p role="alert" className="mb-4 rounded-lg border border-rose-600/50 p-3 text-rose-300">{error}</p>}
-  {shareStatus&&<p role="status" className="mb-3 text-sm text-cyan-300">{shareStatus}</p>}
+  {shareStatus&&<p role="status" className="mb-3 text-sm text-cyan-300">{shareStatus}</p>
   {!state?<p>Cargando combate…</p>:<>
    <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-zinc-700 p-3 text-sm">
     <span>Turno: <b>{state.round}</b></span><span>Tick global: <b>{state.tick}</b></span>
@@ -208,7 +217,7 @@ export default function CombatEncounter({id}:{id:string}) {
     {pending?
       <p role="status" className="mt-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-3 text-amber-200">
        <b>Reacción pendiente:</b> {state.actors[pending.by].name} lanzó {pending.usesMagic?<>una explosión mágica básica de <b>{attackNames[pending.attackType]}</b></>:<>un ataque de <b>{attackNames[pending.attackType]}</b></>} contra {state.actors[pending.against].name}.
-       {" "}{pending.usesMagic?<>Zona aproximada: <b>{hint}</b>. El centro exacto está oculto.</>:<>Trayectoria aparente: <b>{attackDirection(pending.trajectory)}</b>.</>}
+       {" "}{pending.usesMagic?<>Región aproximada: <b>{hint}</b> (cuatro casillas resaltadas). El centro exacto está oculto.</>:<>Trayectoria aparente: <b>{attackDirection(pending.trajectory)}</b>.</>}
        {defending?" Elige cómo responder.":" Esperando la decisión del defensor."}
       </p>:
       <p className="mt-4 text-sm text-zinc-400">
@@ -224,21 +233,28 @@ export default function CombatEncounter({id}:{id:string}) {
     {defending&&hasAccess&&<div className="mt-4 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
      <div className="grid gap-2 sm:grid-cols-2">
-      {options.filter(opt=>!pending.usesMagic||["DODGE","ENDURE","NONE"].includes(opt.value)).map(opt=><label key={opt.value} className="flex gap-2 rounded-lg border border-zinc-700 p-3">
+      {options.filter(opt=>pending.usesMagic
+        ? ["DODGE","MAGIC_FIELD","ENDURE","NONE"].includes(opt.value)
+        : opt.value!=="MAGIC_FIELD").map(opt=><label key={opt.value} className="flex gap-2 rounded-lg border border-zinc-700 p-3">
        <input type="radio" checked={selectedDefense===opt.value} onChange={()=>setDefense(opt.value)}/>
-       <span><b>{opt.label}</b><small className="block text-zinc-400">{opt.description}</small></span>
+       <span><b>{opt.label}{opt.value==="MAGIC_FIELD"
+         ? " ("+fieldNames[actor?.magicFieldType??"CONCENTRATED"]+")":""}</b>
+        <small className="block text-zinc-400">{opt.description}</small>
+        {opt.value==="MAGIC_FIELD"&&actor?.magicFieldDescription&&
+          <small className="mt-1 block text-zinc-400">{actor.magicFieldDescription}</small>}
+       </span>
       </label>)}
      </div>
      {pending.usesMagic&&selectedDefense==="DODGE"&&<div className="space-y-2">
-      <p className="text-sm text-zinc-300">Adivina dónde caerá la explosión. Toca el terreno para marcar su posible centro. La zona resaltada es solo una pista aproximada; acertar también requiere superar la tirada de Esquive.</p>
+      <p className="text-sm text-zinc-300">Adivina dónde caerá la explosión. Toca el terreno para marcar su posible centro. Siempre se resaltan las cuatro casillas más próximas al impacto, no una casilla exacta; acertar también requiere superar la tirada de Esquive.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         onPointerDown={e=>setPredictedCenter(toPoint(e))}
         className="aspect-square w-full max-w-xl cursor-crosshair touch-none rounded-lg border border-amber-500/40 bg-zinc-900"
         aria-label="Terreno grande para predecir el centro de la explosión mágica">
         {Array.from({length:9},(_,i)=><rect key={i} x={(i%3)*100/3}
           y={Math.floor(i/3)*100/3} width={100/3} height={100/3}
-          fill={warningCol===i%3&&warningRow===Math.floor(i/3)?"#fbbf24":"#334155"}
-          fillOpacity={warningCol===i%3&&warningRow===Math.floor(i/3)?0.24:0.09}
+          fill={warningCells.includes(i)?"#fbbf24":"#334155"}
+          fillOpacity={warningCells.includes(i)?0.24:0.09}
           stroke="#64748b" strokeWidth={0.35}/>)}
         {predictedCenter&&<>
           <circle cx={predictedCenter.x*100} cy={predictedCenter.y*100}
@@ -339,7 +355,7 @@ export default function CombatEncounter({id}:{id:string}) {
       {state.log.slice().reverse().map((entry,index)=>
        <li key={state.log.length-index} className="border-b border-zinc-800 pb-2">
         <span className="text-zinc-500">Tick {entry.tick} · </span>{entry.summary}
-        {entry.defense&&<span className="ml-2 text-cyan-300">[{entry.defense}]</span>}
+        {entry.defense&&<span className="ml-2 text-cyan-300">[{entry.defense==="MAGIC_FIELD"?"Campo mágico":entry.defense}]</span>}
         {entry.critical&&<strong className="ml-2 text-amber-300">¡Crítico!</strong>}
         {entry.knockbackMeters!==undefined&&entry.knockbackMeters>0&&
          <small className="ml-2 text-zinc-400">Desplazamiento: {entry.knockbackMeters} m</small>}

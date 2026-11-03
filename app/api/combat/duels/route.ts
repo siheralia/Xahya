@@ -11,15 +11,19 @@ import { combatClientView } from "@/lib/combat/magic-area";
 import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
 import { canApproveCombat } from "@/lib/combat/permissions";
 
-async function snapshotEquippedWeapon(characterId:number):Promise<CombatFighter["equippedWeapon"]>{
+async function snapshotEquippedWeapons(characterId:number):Promise<{
+  main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
+}>{
   const CharacterItem=(db.orm.public as any).CharacterItem;
   const Item=(db.orm.public as any).Item;
-  if(!CharacterItem||!Item)return undefined;
+  if(!CharacterItem||!Item)return {main:undefined,offhand:undefined};
   const owned=await CharacterItem.where({characterId}).all();
-  // Prioritize main hand and skip shields/other non-weapons in occupied slots.
-  const candidates=owned.filter((entry:any)=>entry.equipped&&["MAIN_HAND","OFF_HAND"].includes(String(entry.equippedSlot)))
-    .sort((a:any,b:any)=>Number(b.equippedSlot==="MAIN_HAND")-Number(a.equippedSlot==="MAIN_HAND"));
-  for(const equipped of candidates){
+  const result:{main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]}={
+    main:undefined,offhand:undefined
+  };
+  for(const slot of ["MAIN_HAND","OFF_HAND"] as const) {
+    const equipped=owned.find((entry:any)=>entry.equipped&&entry.equippedSlot===slot);
+    if(!equipped)continue;
     const item=await Item.where({id:Number(equipped.itemId)}).first();
     if(!item||item.itemType!=="WEAPON"||!["CUT","BLUNT","PIERCE"].includes(String(item.attackType)))continue;
     const effective=Number(item.effectiveRangeMeters??1.5);
@@ -27,13 +31,18 @@ async function snapshotEquippedWeapon(characterId:number):Promise<CombatFighter[
     const throwRange=Number(item.throwRangeMeters??0);
     if(!Number.isFinite(effective)||effective<=0||!Number.isFinite(maximum)||maximum<effective||
       !Number.isFinite(throwRange)||throwRange<0)continue;
-    return {name:String(item.name),attackType:String(item.attackType) as CombatFighter["attackType"],
-      mode:item.weaponMode==="RANGED"?"RANGED":"MELEE",
+    const weapon={
+      name:String(item.name),attackType:String(item.attackType) as "CUT"|"BLUNT"|"PIERCE",
+      mode:item.weaponMode==="RANGED"?"RANGED" as const:"MELEE" as const,
       effectiveRangeMeters:effective,maximumRangeMeters:maximum,
-      throwable:Boolean(item.throwable)&&throwRange>0,throwRangeMeters:throwRange,itemId:Number(item.id)};
+      throwable:Boolean(item.throwable)&&throwRange>0,throwRangeMeters:throwRange,itemId:Number(item.id)
+    };
+    if(slot==="MAIN_HAND")result.main=weapon;
+    else result.offhand=weapon;
   }
-  return undefined;
+  return result;
 }
+
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
 async function currentUser() {
   const {userId}=await auth();
@@ -90,7 +99,9 @@ export async function POST(req:Request) {
     (character as any).magicAttackType,(character as any).blockDefenseType,
     (character as any).fieldDefenseType,(character as any).fieldDefenseDescription);
   player.speedValue=numeric(first.effectiveStats[mechanics.combatSpeed]??first.derived[mechanics.combatSpeed],player.agility);
-  player.equippedWeapon=await snapshotEquippedWeapon(characterId);
+  const playerWeapons=await snapshotEquippedWeapons(characterId);
+  player.equippedWeapon=playerWeapons.main;
+  player.offhandWeapon=playerWeapons.offhand;
   player.heightMeters=Math.max(0.3,numeric((character as any).height,170)/100);
   player.unarmedReachMeters=Math.round(player.heightMeters*0.45*100)/100;
   const opponentId=Number(body?.opponentCharacterId??0);
@@ -106,7 +117,9 @@ export async function POST(req:Request) {
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
       (rival as any).magicAttackType,(rival as any).blockDefenseType,
       (rival as any).fieldDefenseType,(rival as any).fieldDefenseDescription);
-    opponent.equippedWeapon=await snapshotEquippedWeapon(opponentId);
+    const rivalWeapons=await snapshotEquippedWeapons(opponentId);
+    opponent.equippedWeapon=rivalWeapons.main;
+    opponent.offhandWeapon=rivalWeapons.offhand;
     opponent.heightMeters=Math.max(0.3,numeric((rival as any).height,170)/100);
     opponent.unarmedReachMeters=Math.round(opponent.heightMeters*0.45*100)/100;
     opponentManaMax=Math.max(0,Math.floor(numeric(stats.derived.maxMana)));

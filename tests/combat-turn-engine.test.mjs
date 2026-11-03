@@ -137,3 +137,9 @@ test("Monte Carlo: 1000 complete equal-stat duels produce no runaway winner bias
  assert.equal(first+second,1000);
  assert.ok(first>430&&first<570,`biased complete duel winners: ${first}/1000`);
 });
+
+test("combat tick speed can be configured without changing real AGI",()=>{
+ const actor=fighter("A",100,{speedValue:50});
+ assert.equal(turnTicks(actor),20);
+ assert.equal(actor.agility,100);
+});

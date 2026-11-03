@@ -53,7 +53,13 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}) {
     const row=await resource.where({characterId}).first();
     karma[side]=Number(row?.karma??0);
   }
-  return NextResponse.json({state:combatClientView(a.state),karma,
+  const catalog=await readStatisticsCatalog();
+  const basic=new Map([...CORE_BASIC_STAT_KEYS].map(key=>[key,{key,label:key}]));
+  for(const item of catalog){
+    if(item.kind==="basic"&&item.active!==false)basic.set(item.key,{key:item.key,label:item.name||item.key});
+    else if(item.kind==="basic"&&item.active===false)basic.delete(item.key);
+  }
+  return NextResponse.json({state:combatClientView(a.state),karma,boostStats:[...basic.values()],
     permissions:{PLAYER:a.canPlayer,NPC:a.canOpponent},
     canMove:{PLAYER:canAct(a.state,"PLAYER"),NPC:canAct(a.state,"NPC")}});
 }

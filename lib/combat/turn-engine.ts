@@ -162,6 +162,20 @@ export function canAct(state: CombatState, side: Side): boolean {
   // At twice the other's speed, two short movements fit before one of theirs.
   return f.spentTicks < rival.spentTicks + turnTicks(rival);
 }
+/** Combat equipment is a snapshot: the persistent character inventory is never
+ * debited by a throw. Recover any still-dropped weapon at encounter completion
+ * so the resulting combat state cannot contradict the original equipment. */
+function settleDroppedWeapons(state:CombatState) {
+  for(const dropped of state.droppedWeapons??[]){
+    const owner=state.actors[dropped.owner];
+    if(!owner.equippedWeapon) {
+      owner.equippedWeapon={...dropped.weapon};
+      addLog(state,{kind:"RECOVER",tick:state.tick,by:dropped.owner,
+        summary:owner.name+" recuperó "+dropped.weapon.name+" al finalizar el combate"});
+    }
+  }
+  state.droppedWeapons=[];
+}
 function advanceRoundIfComplete(state: CombatState) {
   const finished = (side: Side) => {
     const f = state.actors[side];
@@ -352,6 +366,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (fighter.hp <= 0) {
       state.status = "FINISHED";state.winner = pending.by;
       addLog(state,{kind:"END",tick:state.tick,by:pending.by,against:by,summary:attacker.name+" gana el combate"});
+      settleDroppedWeapons(state);
     }
     advanceRoundIfComplete(state);
     return state;

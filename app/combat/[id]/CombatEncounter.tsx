@@ -528,7 +528,7 @@ export default function CombatEncounter({id}:{id:string}) {
          <Target size={15}/> Disparo a distancia
         </button>}
        </div>
-      </details>
+      </details>}
       {enemyMirrors.length>0&&<label className="mb-3 block text-sm">Objetivo del ataque
        <select value={selectedAttackTargetId} onChange={e=>setAttackTargetId(e.target.value)}
         className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">

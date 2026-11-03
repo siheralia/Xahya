@@ -17,6 +17,18 @@ const options: Array<{value:DefenseChoice,label:string,description:string}> = [
  {value:"NONE",label:"No reaccionar",description:"Recibir el impacto sin respuesta activa"},
 ];
 const defaultPath:Point[]=[{x:0.1,y:0.5},{x:0.9,y:0.5}];
+const attackNames={CUT:"Corte",BLUNT:"Contundente",PIERCE:"Penetración"} as const;
+function attackDirection(points:Point[]):string {
+ const first=points[points.length-2],last=points[points.length-1];
+ if(!first||!last)return "indeterminada";
+ const x=Math.abs(last.x-first.x),y=Math.abs(last.y-first.y);
+ return x>y*1.8?"lateral":y>x*1.8?"vertical":"diagonal";
+}
+function guardHint(alignment:number):string {
+ if(alignment>=0.75)return "Favorable";
+ if(alignment>=0.45)return "Intermedia";
+ return "Desfavorable";
+}
 function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
  const f=state.actors[side];
  return <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4">
@@ -157,7 +169,8 @@ export default function CombatEncounter({id}:{id:string}) {
     </label>
     {pending?
       <p role="status" className="mt-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-3 text-amber-200">
-       <b>Reacción pendiente:</b> {state.actors[pending.by].name} lanzó un ataque contra {state.actors[pending.against].name}.
+       <b>Reacción pendiente:</b> {state.actors[pending.by].name} lanzó un ataque de <b>{attackNames[pending.attackType]}</b> contra {state.actors[pending.against].name}.
+       {" "}Trayectoria aparente: <b>{attackDirection(pending.trajectory)}</b>.
        {defending?" Elige cómo responder.":" Esperando la decisión del defensor."}
       </p>:
       <p className="mt-4 text-sm text-zinc-400">
@@ -181,7 +194,7 @@ export default function CombatEncounter({id}:{id:string}) {
      {defense==="DEFLECT"&&<label className="block text-sm">Orientación de la guardia: {angle}°
       <input className="mt-2 w-full" type="range" min="0" max="359" value={angle}
        onChange={e=>setAngle(Number(e.target.value))}/>
-      <span className="block text-xs text-zinc-400">Alineación de desvío estimada: {Math.round(deflectionAlignment(pending.trajectory,angle)*100)}%</span>
+      <span className="block text-xs text-zinc-400">Orientación aproximada: {guardHint(deflectionAlignment(pending.trajectory,angle))}. No garantiza desviar el golpe; también intervienen tu agilidad, la fuerza rival y la tirada.</span>
      </label>}
      <button onClick={()=>void submit({kind:"DEFEND",defense,defenseAngle:angle})}
       disabled={busy} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">

@@ -365,9 +365,9 @@ export default function CombatEncounter({id}:{id:string}) {
        <button disabled={!ready||(attackMode==="RANGED"&&actor?.equippedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!actor?.equippedWeapon?.throwable)||(attackMode==="PHYSICAL"&&actor?.equippedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
            ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??attackType,areaCenter:areaCenter??undefined}
-           : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackType:actor?.equippedWeapon?.attackType??attackType,areaCenter:areaCenter??undefined}
-           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackType:actor?.equippedWeapon?.attackType??attackType,areaCenter:areaCenter??undefined}
-           : {kind:"ATTACK",attackType:actor?.equippedWeapon?.attackType??attackType,trajectory:normalizedPath})}
+           : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
+           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
+           : {kind:"ATTACK",attackType:displayedAttackType,trajectory:normalizedPath})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
         {attackMode==="MAGIC_AREA"?"Lanzar magia":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
        </button>

@@ -20,12 +20,12 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   if (!await db.orm.public.Race.where({id:raceId}).first()) return NextResponse.json({error:"Raza inexistente."},{status:400});
   const name=String(body.name).trim(),description=String(body.description).trim();
   const category=String(body.category),manaCost=Number(body.manaCost),maintenanceCost=Number(body.maintenanceCost);
-  const active=Boolean(body.active),effects=JSON.stringify(body.effect),cooldown=String(body.cooldown??"Sin cooldown");
+  const active=Boolean(body.active),effects=JSON.stringify(body.effect),cooldown=String(body.cooldown??"Sin cooldown"),duration=String(body.duration??"Instantánea");
   try{
     const query=db.raw.sql`
       UPDATE public."raceSkill"
       SET "raceId"=${raceId},name=${name},description=${description},category=${category},
-          effect=${effects}::jsonb,"manaCost"=${manaCost},"maintenanceCost"=${maintenanceCost},cooldown=${cooldown},active=${active}
+          effect=${effects}::jsonb,"manaCost"=${manaCost},"maintenanceCost"=${maintenanceCost},duration=${duration},cooldown=${cooldown},active=${active}
       WHERE id=${id} RETURNING id
     `.returnsRow({id:"pg/int4@1"}).build();
     const rows=await db.runtime().query(query) as Array<{id:number}>;

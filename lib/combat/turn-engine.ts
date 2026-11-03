@@ -37,6 +37,8 @@ export type PendingAttack = {
   /** Coarse, public four-cell telegraph; never reveals the exact impact point. */
   areaHint?: string;
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
+  /** Autonomous attack from a placed mirror; does not charge an extra action. */
+  mirrorId?:string; mirrorAuto?:boolean;
 };
 export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
@@ -69,6 +71,8 @@ export type CombatState = {
   karmaBoosts?: Partial<Record<Side,Record<string,number>>>;
   karmaBoostDeltas?: Partial<Record<Side,Record<string,number>>>;
   constructions?: CombatConstruction[];
+  /** Ordered rays to resolve on the start of a new round. */
+  mirrorRayQueue?: string[];
   droppedWeapons?: Array<{owner:Side;weapon:CombatWeapon;slot?:"MAIN_HAND"|"OFF_HAND";positionMeters:number}>;
   /** All chronological events needed to narrate a long fight (not just the last 100 on-screen entries). */
   narrativeHistory?: CombatLog[];
@@ -82,9 +86,9 @@ export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
   | { kind: "WAIT" }
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
-  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point }
+  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; targetConstructionId?:string }
   | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string };
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -216,7 +220,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},physicalPathEnds:{},constructions:[],karmaBoosts:{},karmaBoostDeltas:{},
+    physicalPathEnd:{},physicalPathEnds:{},constructions:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},
     processedKarmaRequests:[],narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>

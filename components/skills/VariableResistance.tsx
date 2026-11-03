@@ -4,7 +4,7 @@ import { useState } from "react";
 import { calculateDerivedStats } from "@/lib/stats/derived";
 import {
   DEFAULT_VARIABLE_RESISTANCE, RESISTANCE_FORMULA_OPTIONS, RESISTANCE_INPUT_OPTIONS,
-  calculateVariableResistance, variableResistancePchCost,
+  calculateVariableResistance, variableResistancePchCost, validateVariableResistance,
   type VariableResistance, type ResistanceFormula, type ResistanceInput,
 } from "@/lib/skills/variable-resistance";
 
@@ -33,7 +33,8 @@ export function VariableResistanceEditor({value,onChange,statistics=[]}:{
  const c=value??DEFAULT_VARIABLE_RESISTANCE;
  const available=[...standardStats,...statistics.filter(s=>s.active!==false)].filter((s,i,a)=>a.findIndex(x=>x.key===s.key)===i);
  const update=(next:Partial<VariableResistance>)=>onChange({...c,...next});
- const result=calculateVariableResistance(c,previewBase,previewInput);
+ const validationError=validateVariableResistance(c);
+ const result=validationError?null:calculateVariableResistance(c,previewBase,previewInput);
  return <div className="space-y-3 rounded-xl border border-cyan-700/50 bg-cyan-950/10 p-4">
   <label className="flex items-center gap-2 text-sm font-semibold text-cyan-100">
    <input type="checkbox" checked={enabled} onChange={e=>onChange(e.target.checked?{...DEFAULT_VARIABLE_RESISTANCE}:undefined)}/>
@@ -72,6 +73,7 @@ export function VariableResistanceEditor({value,onChange,statistics=[]}:{
     </label>}
    </div>
    <p className="break-words rounded-lg bg-zinc-950/70 px-3 py-2 text-xs text-cyan-200">{formulaDescription[c.formula]}</p>
+   {validationError&&<p role="alert" className="text-xs text-amber-300">{validationError}</p>}
    <p className="text-xs text-violet-300">Coste mecánico: {variableResistancePchCost(c)} PCH, incluido en el coste total de la habilidad.</p>
    <div className="grid gap-2 sm:grid-cols-2">
     <label className="text-xs text-zinc-400">Base de ejemplo (el personaje real se calcula automáticamente)
@@ -81,7 +83,7 @@ export function VariableResistanceEditor({value,onChange,statistics=[]}:{
      <input className={inputClass} type="number" min="0" value={previewInput} onChange={e=>setPreviewInput(Math.max(0,Number(e.target.value)||0))}/>
     </label>
    </div>
-   <p className="text-sm text-zinc-200">Ejemplo: ×{result.multiplier.toFixed(2)} → <strong>{result.resistance.toFixed(2)}</strong> resistencia</p>
+   {result&&<p className="text-sm text-zinc-200">Ejemplo: ×{result.multiplier.toFixed(2)} → <strong>{result.resistance.toFixed(2)}</strong> resistencia</p>}
   </>}
  </div>;
 }
@@ -115,7 +117,7 @@ export function VariableResistanceCalculator({config,effectiveStats,derivedStats
 }){
  const [value,setValue]=useState(50);
  const base=localEffectiveStat(config.baseStat,effectiveStats,derivedStats,temporaryEffects);
- const result=base===null?null:calculateVariableResistance(config,base,value);
+ const result=base===null||validateVariableResistance(config)?null:calculateVariableResistance(config,base,value);
  const inputLabel=RESISTANCE_INPUT_OPTIONS.find(o=>o.value===config.input)?.label??config.input;
  return <div className="mt-4 space-y-3 rounded-xl border border-cyan-600/40 bg-cyan-950/15 p-3 text-sm">
   <p className="font-semibold text-cyan-200">Calculadora · Resistencia variable</p>

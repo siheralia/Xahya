@@ -10,6 +10,7 @@ import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 import { combatClientView } from "@/lib/combat/magic-area";
 import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
 import { canApproveCombat } from "@/lib/combat/permissions";
+import { racialDamageFactors } from "@/lib/combat/innate-traits";
 
 async function snapshotEquippedWeapons(characterId:number):Promise<{
   main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
@@ -44,6 +45,10 @@ async function snapshotEquippedWeapons(characterId:number):Promise<{
 }
 
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
+async function racialTraitsForCharacter(characterId:number) {
+  const skills=await db.orm.public.Skill.where({characterId,status:"APPROVED"}).all();
+  return racialDamageFactors(skills);
+}
 async function currentUser() {
   const {userId}=await auth();
   if(!userId)return null;
@@ -99,6 +104,7 @@ export async function POST(req:Request) {
     (character as any).magicAttackType,(character as any).blockDefenseType,
     (character as any).fieldDefenseType,(character as any).fieldDefenseDescription);
   player.speedValue=numeric(first.effectiveStats[mechanics.combatSpeed]??first.derived[mechanics.combatSpeed],player.agility);
+  player.damageTakenFactors=await racialTraitsForCharacter(characterId);
   const playerWeapons=await snapshotEquippedWeapons(characterId);
   player.equippedWeapon=playerWeapons.main;
   player.offhandWeapon=playerWeapons.offhand;
@@ -125,6 +131,7 @@ export async function POST(req:Request) {
     opponentManaMax=Math.max(0,Math.floor(numeric(stats.derived.maxMana)));
     opponent.positionMeters=1.5;
     opponent.speedValue=numeric(stats.effectiveStats[mechanics.combatSpeed]??stats.derived[mechanics.combatSpeed],opponent.agility);
+    opponent.damageTakenFactors=await racialTraitsForCharacter(opponentId);
   } else {
     // Fair sparring partner: mirror the challenger's effective base stats,
     // then let a GM override specific values for a scripted NPC.

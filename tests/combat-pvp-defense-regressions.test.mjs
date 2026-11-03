@@ -17,6 +17,7 @@ const actor=(name,characterId,positionMeters=0,overrides={})=>({
  magicFieldType:"CONCENTRATED",magicFieldDescription:"Muralla de maná",
  spentTicks:0,spentAp:0,...overrides,
 });
+const makeState=(...args)=>{const state=newCombatState(...args);state.mana={PLAYER:{current:10,max:10},NPC:{current:10,max:10}};return state;};
 const dice={hit:0.5,critical:0.99,defense:0.1};
 const circle={kind:"ATTACK",usesMagic:true,attackType:"PIERCE",areaCenter:{x:0.88,y:0.84}};
 
@@ -45,7 +46,7 @@ test("every location reveals exactly four unique adjacent squares containing its
 
 test("PvP defender can see four-square hint without the true target location",()=>{
  const state=applyCombatCommand(
-  newCombatState(actor("Alice",101),actor("Bob",102,1.5)),"PLAYER",circle);
+  makeState(actor("Alice",101),actor("Bob",102,1.5)),"PLAYER",circle);
  const visible=combatClientView(state);
  assert.equal(visible.pending.areaHint,"inferior derecha");
  assert.deepEqual(magicHintCells(visible.pending.areaHint),[4,5,7,8]);
@@ -60,7 +61,7 @@ test("PvP defender can see four-square hint without the true target location",()
 });
 
 test("PvP magic field is selectable, charged in AP/ticks, and protects HP without wearing the weapon",()=>{
- const original=newCombatState(actor("Alice",101),actor("Bob",102,1.5));
+ const original=makeState(actor("Alice",101),actor("Bob",102,1.5));
  const incoming=applyCombatCommand(original,"PLAYER",circle);
  const withField=applyCombatCommand(incoming,"NPC",{kind:"DEFEND",defense:"MAGIC_FIELD"},dice);
  const unprotected=applyCombatCommand(incoming,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
@@ -74,7 +75,7 @@ test("PvP magic field is selectable, charged in AP/ticks, and protects HP withou
 
 test("magic field uses its own RPS type, not the physical blocking type",()=>{
  const incomingFor=magicFieldType=>applyCombatCommand(
-  newCombatState(actor("Attacker",101),actor("Defender",102,1.5,{
+  makeState(actor("Attacker",101),actor("Defender",102,1.5,{
    defenseType:"SOLID",magicFieldType,
   })),"PLAYER",circle);
  const concentrated=incomingFor("CONCENTRATED");
@@ -89,8 +90,8 @@ test("magic field uses its own RPS type, not the physical blocking type",()=>{
 
 test("a magic field cannot be used to block a physical swing",()=>{
  const first=applyCombatCommand(
-  newCombatState(actor("Attacker",101),actor("Defender",102,1.5)),"PLAYER",
-  {kind:"ATTACK",attackType:"CUT",trajectory:[{x:0.1,y:0.2},{x:0.7,y:0.8}]});
+  makeState(actor("Attacker",101),actor("Defender",102,1.5)),"PLAYER",
+  {kind:"ATTACK",attackType:"BLUNT",trajectory:[{x:0.1,y:0.2},{x:0.7,y:0.8}]});
  assert.throws(
   ()=>applyCombatCommand(first,"NPC",{kind:"DEFEND",defense:"MAGIC_FIELD"},dice),
   /solo puede responder a ataques mágicos/);
@@ -98,7 +99,7 @@ test("a magic field cannot be used to block a physical swing",()=>{
 
 test("training NPC guesses inside the four-cell warning without reading its hidden impact",()=>{
  const initial=applyCombatCommand(
-  newCombatState(actor("Player",101),actor("NPC",null,1.5)),"PLAYER",
+  makeState(actor("Player",101),actor("NPC",null,1.5)),"PLAYER",
   {...circle,areaCenter:{x:0.59,y:0.60}});
  const a=chooseNpcReaction(initial,()=>0.25);
  assert.equal(a.defense,"DODGE");

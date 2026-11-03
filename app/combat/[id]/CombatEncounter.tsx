@@ -482,39 +482,35 @@ export default function CombatEncounter({id}:{id:string}) {
       <button disabled={!ready} onClick={()=>void submit({kind:"WAIT"})}
        className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40"><Undo2 size={17} className="mr-1 inline-block align-[-3px]"/> Terminar turno</button>
      </div>
-     <p className="text-sm text-zinc-300">Distancia al oponente: <b>{Math.abs(state.actors.PLAYER.positionMeters-state.actors.NPC.positionMeters).toFixed(2)} m</b>
-       {" · "}{selectedWeapon?<>Alcance de {selectedWeapon.name}: <b>{selectedWeapon.effectiveRangeMeters}–{selectedWeapon.maximumRangeMeters??selectedWeapon.effectiveRangeMeters} m</b>
-         {selectedWeapon.throwable&&<>{" · "}Arrojar: {selectedWeapon.throwRangeMeters} m</>}</>
-         :<>Alcance de puño: <b>{(actor?.unarmedReachMeters??Math.max(0.3,(actor?.heightMeters??1.7)*0.45)).toFixed(2)} m</b></>}
-       {" · "}Magia básica: {BASIC_MAGIC_RANGE_METERS} m
-     </p>
      <div className="rounded-xl border border-zinc-700 p-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
        <b>{attackMode==="MAGIC_AREA"?(displayedAttackType==="CUT"?"Elige el centro de la línea mágica":displayedAttackType==="PIERCE"?"Elige la punta mágica":"Elige el centro de la explosión"):displayedAttackType==="PIERCE"?"Marca el punto de perforación":displayedAttackType==="BLUNT"?"Dibuja un golpe contundente rígido":"Dibuja la trayectoria del corte"}</b>
        <button onClick={()=>{setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);setAreaCenter(null);}} className="rounded border border-zinc-600 px-3 py-1 text-xs">Restablecer</button>
       </div>
-      <label className="mb-3 block text-sm">Modalidad
-        <select value={attackMode} onChange={e=>setAttackMode(e.target.value as "PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW")}
-          className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
-          <option value="PHYSICAL">Ataque físico cuerpo a cuerpo</option>
-          {selectedWeapon?.mode==="RANGED"&&<option value="RANGED">Proyectil físico ({selectedWeapon.name})</option>}
-          {selectedWeapon?.throwable&&<option value="THROW">Arrojar arma ({selectedWeapon.name})</option>}
-          <option value="MAGIC_AREA">Explosión mágica básica (área)</option>
-        </select>
-      </label>
-      {attackMode!=="MAGIC_AREA"&&<label className="mb-3 block text-sm">Arma o mano para atacar
-        <select value={activeAttackSource} onChange={e=>{
-          const source=e.target.value as PhysicalAttackSource;
-          setAttackSource(source);setAreaCenter(null);
-          setAttackMode(actor&&weaponForSource(actor,source)?.mode==="RANGED"?"RANGED":"PHYSICAL");
-        }} className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
-          {actor?.equippedWeapon&&<option value="MAIN_HAND">Principal · {actor.equippedWeapon.name} · {attackNames[actor.equippedWeapon.attackType]}</option>}
-          {actor?.offhandWeapon&&<option value="OFF_HAND">Secundaria · {actor.offhandWeapon.name} · {attackNames[actor.offhandWeapon.attackType]}</option>}
-          <option value="FIST_RIGHT">Puño derecho · Contundente</option>
-          <option value="FIST_LEFT">Puño izquierdo · Contundente</option>
-          <option value="KICK">Pierna / patada · Contundente</option>
-        </select>
-      </label>}
+      <p className="mb-2 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+       {attackMode==="MAGIC_AREA"?<><WandSparkles size={16}/> Magia básica</>:
+        <><Swords size={16}/> {selectedWeapon?.name??(activeAttackSource==="KICK"?"Patada":activeAttackSource==="FIST_LEFT"?"Puño izquierdo":"Puño derecho")}</>}
+       <span>· Cambia de mano o magia en el panel inferior.</span>
+      </p>
+      {attackMode!=="MAGIC_AREA"&&<details className="mb-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-2">
+       <summary className="cursor-pointer text-xs text-zinc-400">Otras opciones: puños, patada, proyectiles y arrojar armas</summary>
+       <div className="mt-2 flex flex-wrap gap-2">
+        {(["FIST_RIGHT","FIST_LEFT","KICK"] as const).map(source=><button type="button" key={source}
+         aria-pressed={activeAttackSource===source} onClick={()=>{setAttackSource(source);setAttackMode("PHYSICAL");setAreaCenter(null);}}
+         className={"flex min-h-9 items-center gap-1 rounded-lg border px-2 text-xs "+
+          (activeAttackSource===source?"border-cyan-400 text-cyan-200":"border-zinc-700 text-zinc-400")}>
+         {source==="KICK"?<Footprints size={15}/>:<Hand size={15}/>} {source==="KICK"?"Patada":source==="FIST_LEFT"?"Puño izquierdo":"Puño derecho"}
+        </button>)}
+        {selectedWeapon?.throwable&&<button type="button" onClick={()=>{setAttackMode(attackMode==="THROW"?"PHYSICAL":"THROW");setAreaCenter(null);}}
+         aria-pressed={attackMode==="THROW"} className="flex min-h-9 items-center gap-2 rounded-lg border border-zinc-700 px-3 text-xs text-zinc-300">
+         <Send size={15}/> {attackMode==="THROW"?"Volver a cuerpo a cuerpo":"Arrojar arma"}
+        </button>}
+        {selectedWeapon?.mode==="RANGED"&&<button type="button" onClick={()=>{setAttackMode("RANGED");setAreaCenter(null);}}
+         aria-pressed={attackMode==="RANGED"} className="flex min-h-9 items-center gap-2 rounded-lg border border-zinc-700 px-3 text-xs text-zinc-300">
+         <Target size={15}/> Disparo a distancia
+        </button>}
+       </div>
+      </details>
       {enemyMirrors.length>0&&<label className="mb-3 block text-sm">Objetivo del ataque
        <select value={selectedAttackTargetId} onChange={e=>setAttackTargetId(e.target.value)}
         className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
@@ -668,7 +664,7 @@ export default function CombatEncounter({id}:{id:string}) {
     </div>}
    </section>}
 
-    <button type="button" onClick={()=>{openPanel("skills","UTILITY");}} className="mt-3 flex items-center gap-2 rounded-lg border border-cyan-500 px-3 py-2 text-sm text-cyan-200">
+    <button type="button" onClick={()=>{openPanel("skills",null);}} className="mt-3 flex items-center gap-2 rounded-lg border border-cyan-500 px-3 py-2 text-sm text-cyan-200">
      <Sparkles size={16}/> Ver habilidades de creación
     </button>
    </CombatDialog>

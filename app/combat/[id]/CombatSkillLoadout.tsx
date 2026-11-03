@@ -17,11 +17,13 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,categoryFilter,
+ encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,
 }:{encounterId:string;side:Side;authorized:boolean;
  canUseSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
  onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean;
- onConstructionMaterialsChange:(side:Side,materials:string[])=>void;categoryFilter?:string|null}) {
+ onConstructionMaterialsChange:(side:Side,materials:string[])=>void;
+ onConstructionSkillsChange?:(side:Side,skills:CombatSkillPreview[])=>void;
+ categoryFilter?:string|null;distanceMeters?:number}) {
  const [skills,setSkills]=useState<Record<Side,CombatSkillPreview[]>>({PLAYER:[],NPC:[]});
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
@@ -29,6 +31,11 @@ export default function CombatSkillLoadout({
   onConstructionMaterialsChange(side,authorized
    ?availableConstructionMaterials(skills[side]??[]):[]);
  },[side,skills,authorized,onConstructionMaterialsChange]);
+ useEffect(()=>{
+  onConstructionSkillsChange?.(side,authorized
+   ?(skills[side]??[]).filter(skill=>skill.skillKind==="CONSTRUCTION"&&skill.executable&&skill.requirementsSatisfied)
+   :[]);
+ },[side,skills,authorized,onConstructionSkillsChange]);
  useEffect(()=>{
   if(!authorized)return;
   let live=true;
@@ -80,11 +87,15 @@ export default function CombatSkillLoadout({
       {(()=>{
        const nextRound=cooldowns[String(skill.id)]??0;
        const onCooldown=nextRound===-1||nextRound>round;
+       const outOfRange=typeof distanceMeters==="number"&&skill.rangeMeters!==null&&
+         (skill.skillKind==="OFFENSE"||skill.constructionMaterial==="MIRROR")&&distanceMeters>skill.rangeMeters;
        const missingAim=skill.needsAim&&(skill.skillKind==="CONSTRUCTION"
          ?!constructionAimReady:skill.usesMagic&&(aimMode!=="MAGIC_AREA"||!magicAimReady));
        const blocked=!skill.requirementsSatisfied||!canUseSkill||busy||onCooldown||
-         mana===null||mana<skill.manaCost||missingAim;
-       const reason=onCooldown
+         mana===null||mana<skill.manaCost||missingAim||outOfRange;
+       const reason=outOfRange
+         ?"Objetivo fuera del alcance de la habilidad ("+skill.rangeMeters+" m). Muévete primero."
+         :onCooldown
          ? nextRound===-1?"Ya utilizada una vez en este encuentro.":"Cooldown hasta el turno "+nextRound
          : mana===null?"El encuentro no tiene maná de fase 2. Inicia uno nuevo."
          : mana<skill.manaCost?"Maná insuficiente"

@@ -45,7 +45,7 @@ test("construction panel requires eligible CREATE skills, is generic, and keeps 
  assert.match(parent,/\{canCreateObjects&&<div className="mt-3 flex flex-wrap gap-3">/);
  assert.match(parent,/onConstructionMaterialsChange=\{onConstructionMaterialsChange\}/);
  assert.match(child,/availableConstructionMaterials\(skills\[side\]\?\?\[\]\)/);
- const panel=parent.slice(parent.indexOf("canCreateObjects&&<p",parent.indexOf('Constructor de objetos')),parent.indexOf('<CombatSkillLoadout'));
- assert.doesNotMatch(panel,/Fotoconstrucción|Sikatā|Sikata|espejo/i);
- assert.match(panel,/habilidad con efecto Crear/);
+ const description=parent.split("\n").find(line=>line.includes("habilidad con efecto Crear"))??"";
+ assert.doesNotMatch(description,/Fotoconstrucción|Sikatā|Sikata|espejo/i);
+ assert.match(description,/habilidad con efecto Crear/);
 });

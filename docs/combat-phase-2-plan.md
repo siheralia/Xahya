@@ -20,7 +20,17 @@ Vincular **habilidades existentes y estadísticas efectivas** al motor de ticks 
 3. Indicar en la UI coste, objetivos, rango, duración, cooldown y velocidad configurada antes de ejecutarla.
 4. Validar en servidor propiedad de la habilidad, aprobación, alcance y condiciones. Las elecciones de la UI no son autoritativas.
 
-### Hito 2.2 — Maná y efectos temporales
+### Hito 2.2 — Maná y efectos temporales (primer grupo implementado)
+
+**Disponible en PR 112:** ejecución autorizada y transaccional de habilidades aprobadas cuyo conjunto completo de efectos sea interpretable por el motor: `DAMAGE_MULTIPLIER`, `FINAL_DAMAGE_MULTIPLIER`, `IGNORE_PHYS_DEF_MULTIPLIER`, `IGNORE_MAGIC_DEF_MULTIPLIER`, curación instantánea `RESOURCE_BONUS(HP)` y `STAT_BONUS` temporal aplicado a ATQ/DEF físico/mágico, precisión o esquive. Las habilidades ofensivas requieren un tipo de ataque y alcance configurados, usan los mismos trazos físicos o puntos mágicos y el mismo resolutor de daño/defensa que los ataques básicos.
+
+**Maná:** cada encuentro nuevo toma una fotografía del maná actual y máximo de sus combatientes. El coste se descuenta y guarda **solo en el encuentro**, en la misma transacción de `combatSession` que AP/ticks e impactos; por ahora **no se debita ni liquida al recurso global del personaje**, pendiente de definir reglas de persistencia fuera del combate. Los encuentros antiguos sin fotografía de maná conservan su combate básico y no permiten habilidades ejecutables.
+
+**Cooldown:** utiliza el catálogo ya existente, incluido `Igual a duración` y `Una vez por combate`; el descuento PCH de construir la habilidad no modifica sus PA o ticks. Los comandos llevan un ID de solicitud para evitar doble consumo al repetir la misma petición después de una desconexión.
+
+**Restricción deliberada:** se rechazan habilidades con efectos no soportados, condiciones narrativas, reglas mecánicas especiales, pasivas o combinaciones ambiguas; nunca se ejecuta solo una parte del grafo. El motor seguirá ampliándose para barreras duraderas, elementos, copia, robo y demás familias de efectos.
+
+
 1. Reservar y cobrar maná al ejecutar; rechazar recursos insuficientes.
 2. Registrar efectos activos, barreras, buffs y debuffs en un estado de combate versionado. Reusar el motor de efectos centralizado y estadísticas dinámicas.
 3. Aplicar cooldown al reloj de ticks/turnos sin descuentos extra de PA: el descuento PCH de construcción no equivale al coste de ejecución.

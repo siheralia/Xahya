@@ -89,7 +89,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
             WHERE "victimCharacterId"=${characterId}
              AND "sourceSkillId"=${skillId} AND status='ACTIVE' LIMIT 1
           `.returnsRow({taken:"pg/int4@1"}).build();
-          if((await tx.execute(stolen)).rows.length>0)
+          if((await db.runtime().query(stolen) as Array<{taken:number}>).length>0)
             throw new Error("No puedes lanzar una habilidad que te han robado temporalmente.");
           const available=await Skill.where({characterId,status:"APPROVED"}).all();
           const others=available.filter((s:any)=>Number(s.id)!==skillId);

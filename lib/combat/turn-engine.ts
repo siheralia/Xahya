@@ -605,8 +605,29 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       predictionMatched:validArenaPoint(pending.targetCenter)&&validArenaPoint(command.predictedCenter)?Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=(pending.rangedPhysical?0.09:0.19):undefined,
       summary:avoided ? fighter.name + (pending.usesMagic?" escapó de la explosión":" evitó el ataque")
         : attacker.name + (pending.usesMagic?" acertó con su explosión mágica a ":" impactó a ") + fighter.name + " (" + damage + " HP)"});
+    // Magical areas can strike placed mirrors even when the caster targeted
+    // the character. Reflection depends on actual spatial contact, not on a
+    // defender guessing the attack center or choosing a defensive action.
+    if(pending.usesMagic&&validArenaPoint(pending.targetCenter)){
+      const mirrors=(state.constructions??[]).filter(c=>c.owner===by&&
+        c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0&&
+        Math.hypot(c.center.x-pending.targetCenter!.x,c.center.y-pending.targetCenter!.y)
+         <=BASIC_MAGIC_AREA_RADIUS);
+      const reflectionPower=pending.skill
+        ?Math.max(1,Math.round(Math.max(0,power)*pending.skill.damageMultiplier*
+         pending.skill.finalMultiplier))
+        :Math.max(1,Math.round(3+5*Math.max(0,power)/(Math.max(0,power)+20)));
+      for(const mirror of mirrors){
+        const reflected=Math.max(0,Math.round(reflectionPower*mirror.mirror!.reflectionMultiplier));
+        attacker.hp=Math.max(0,attacker.hp-reflected);
+        addLog(state,{kind:"REFLECTION",tick:state.tick,by:mirror.owner,against:pending.by,
+         constructionId:mirror.id,damage:reflected,contact:true,
+         summary:mirror.label+" devolvió "+reflected+" puntos de daño mágico hacia "+attacker.name});
+      }
+    }
     state.pending = null;
     if(fighter.hp<=0)finishEncounter(state,pending.by);
+    else if(attacker.hp<=0)finishEncounter(state,by);
     if(state.status==="ACTIVE")beginNextMirrorRay(state);
     advanceRoundIfComplete(state);
     return state;

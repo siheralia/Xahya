@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { randomInt } from "node:crypto";
 import { db } from "@/lib/db";
 import {
-  applyCombatCommand, canAct, newCombatState, type CombatCommand, type CombatState, type Side,
+  applyCombatCommand, canAct, type CombatCommand, type CombatState, type Side,
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
 
@@ -47,7 +47,14 @@ function npcRespond(state:CombatState):CombatState {
   // After the player's movement or resolved attack, NPC may submit one action,
   // generating a player-facing reaction. It never spams an unbounded loop.
   if(!next.pending && canAct(next,"NPC") && next.actors.NPC.spentTicks<=next.actors.PLAYER.spentTicks) {
-    next=applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:next.actors.NPC.attackType},dice());
+    const npc=next.actors.NPC;
+    const distance=Math.abs(npc.positionMeters-next.actors.PLAYER.positionMeters);
+    if(distance>2) {
+      const step=Math.min(Math.max(1,Math.round(npc.race/10)),distance-1.5);
+      next=applyCombatCommand(next,"NPC",{kind:"MOVE",meters:step,direction:"TOWARD"},dice());
+    } else {
+      next=applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType},dice());
+    }
   }
   return next;
 }
@@ -74,7 +81,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
       if(!state||state.version!==1||String(fresh?.status)!=="ACTIVE")
         throw new Error("El combate ya terminó o no admite estas acciones.");
       let next=applyCombatCommand(state,side,command,dice());
-      if(side==="PLAYER" && next.status==="ACTIVE")next=npcRespond(next);
+      if(side==="PLAYER" && command.kind!=="DEFEND" && next.status==="ACTIVE")next=npcRespond(next);
       let mechanics=fresh.mechanicsState;
       if(next.round>state.round) {
         const Skill=(tx.orm.public as any).Skill;

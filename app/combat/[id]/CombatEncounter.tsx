@@ -74,6 +74,7 @@ export default function CombatEncounter({id}:{id:string}) {
 
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
  const [constructionCenter,setConstructionCenter]=useState<Point|null>(null);
+ const [constructionMaterials,setConstructionMaterials]=useState<Partial<Record<Side,string[]>>>({});
  const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK">("FIELD");
  const [constructionLabel,setConstructionLabel]=useState("");
  const [karmaAllocation,setKarmaAllocation]=useState<Record<string,number>>({});
@@ -109,6 +110,9 @@ export default function CombatEncounter({id}:{id:string}) {
    setError("");
   }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar el combate.");}
  },[id]);
+ const onConstructionMaterialsChange=useCallback((owner:Side,materials:string[])=>{
+  setConstructionMaterials(previous=>({...previous,[owner]:materials}));
+ },[]);
  const encounterFinished=view?.state.status==="FINISHED";
  useEffect(()=>{
   if(encounterFinished)return; // Once FINISHED, no more background requests.
@@ -198,6 +202,9 @@ export default function CombatEncounter({id}:{id:string}) {
   ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
   : (defense==="MAGIC_FIELD"?"DODGE":defense);
  const hasAccess=view?.permissions[side]??false;
+ const creationMaterials=constructionMaterials[side]??[];
+ const canCreateObjects=hasAccess&&creationMaterials.length>0;
+ const canCreateMaterialBlocks=creationMaterials.some(material=>material!=="LIGHT");
  const defending=!!pending&&pending.against===side;
  const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
  const karmaAvailable=view?.karma?.[side]??0;
@@ -492,19 +499,20 @@ export default function CombatEncounter({id}:{id:string}) {
     </div>}
    </section>
    {isPvp&&<p className="mt-4 text-xs text-zinc-400">PvP compartido: el dueño de cada personaje abre esta misma URL en su cuenta. Las acciones aparecen aproximadamente cada 3,5 segundos; no hay invitaciones automáticas todavía.</p>}
-   {state.status==="ACTIVE"&&hasAccess&&<section className="mt-5 rounded-xl border border-cyan-400/30 bg-zinc-950 p-4">
-    <h2 className="font-semibold text-cyan-200">Terreno de construcciones</h2>
-    <p className="mt-1 text-xs text-zinc-400">Marca dónde aparecerá tu creación antes de activar Fotoconstrucción o Sikatā. La luz es decorativa y no bloquea ataques. La arena hereda automáticamente sus pasivas aprobadas; para formar un bloque necesitas crear primero un campo de arena.</p>
+   {state.status==="ACTIVE"&&(canCreateObjects||(state.constructions?.length??0)>0)&&<section className="mt-5 rounded-xl border border-cyan-400/30 bg-zinc-950 p-4">
+    <h2 className="font-semibold text-cyan-200">{canCreateObjects?"Constructor de objetos":"Construcciones en el campo"}</h2>
+    {canCreateObjects&&<p className="mt-1 text-xs text-zinc-400">Selecciona dónde colocar una creación y actívala desde una habilidad con efecto Crear. Sus propiedades dependen del material y de las pasivas configuradas. Los objetos decorativos no bloquean ataques.</p>}
     <svg aria-label="Seleccionar posición de construcción" viewBox="0 0 100 100"
-     role="button" tabIndex={0}
+     role={canCreateObjects?"button":"img"} tabIndex={canCreateObjects?0:undefined}
      onClick={e=>{
+      if(!canCreateObjects)return;
       const rect=e.currentTarget.getBoundingClientRect();
       if(rect.width&&rect.height)setConstructionCenter({
        x:Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width)),
        y:Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height)),
       });
      }}
-     onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setConstructionCenter({x:0.5,y:0.5});}}}
+     onKeyDown={e=>{if(canCreateObjects&&(e.key==="Enter"||e.key===" ")){e.preventDefault();setConstructionCenter({x:0.5,y:0.5});}}}
      className="mt-3 aspect-square w-full max-w-sm cursor-crosshair rounded-lg border border-zinc-600 bg-zinc-900">
       {Array.from({length:9},(_,i)=><g key={i}>
        <line x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth=".4"/>
@@ -518,22 +526,22 @@ export default function CombatEncounter({id}:{id:string}) {
          stroke={c.material==="LIGHT"?"#67e8f9":"#d6ab72"} strokeWidth="2"
          fill={c.material==="LIGHT"?"#67e8f9":"#d6ab72"} fillOpacity=".26"/>}
       </g>)}
-      {constructionCenter&&<circle cx={constructionCenter.x*100} cy={constructionCenter.y*100}
+      {canCreateObjects&&constructionCenter&&<circle cx={constructionCenter.x*100} cy={constructionCenter.y*100}
        r="3" fill="#fb7185" stroke="#fff" strokeWidth="1"/>}
     </svg>
-    <div className="mt-3 flex flex-wrap gap-3">
-     <label className="text-sm">Forma de arena
+    {canCreateObjects&&<div className="mt-3 flex flex-wrap gap-3">
+     {canCreateMaterialBlocks&&<label className="text-sm">Forma del material
       <select value={constructionForm} onChange={e=>setConstructionForm(e.target.value as "FIELD"|"BLOCK")}
        className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2">
-       <option value="FIELD">Campo de arena</option><option value="BLOCK">Bloque defensivo</option>
+       <option value="FIELD">Campo de material</option><option value="BLOCK">Bloque defensivo</option>
       </select>
-     </label>
+     </label>}
      <label className="text-sm">Nombre del objeto (opcional)
       <input value={constructionLabel} maxLength={60} onChange={e=>setConstructionLabel(e.target.value)}
-       className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2" placeholder="Esfera de luz"/>
+       className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2" placeholder="Nombre opcional"/>
      </label>
-    </div>
-    {!constructionCenter&&<p className="mt-2 text-xs text-amber-300">Selecciona una posición en el terreno para crear el objeto.</p>}
+    </div>}
+    {canCreateObjects&&!constructionCenter&&<p className="mt-2 text-xs text-amber-300">Selecciona una posición en el terreno para crear el objeto.</p>}
     {(state.constructions??[]).length>0&&<div className="mt-3 space-y-1">
      {state.constructions?.map(c=><p key={c.id} className="text-xs text-zinc-300">
       {state.actors[c.owner].name}: {c.label} · {c.form==="BLOCK"?"bloque defensivo, resistencia "+c.durability:c.form==="DECOR"?"decorativo, sin efectos":"campo de material"}
@@ -545,7 +553,7 @@ export default function CombatEncounter({id}:{id:string}) {
     canUseSkill={ready} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
-    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={constructionCenter!==null}/>
+    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange}/>
    {state.status==="FINISHED"&&<section className="mt-5 rounded-xl border border-amber-500/40 bg-zinc-950 p-4" aria-label="Crónica del encuentro">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
      <h2 className="text-lg font-bold text-amber-200">Crónica del encuentro</h2>

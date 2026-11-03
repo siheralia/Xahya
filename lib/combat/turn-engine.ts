@@ -593,7 +593,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
  */
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
- aim:{requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource},
+ aim:{requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;
+  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))
@@ -630,6 +631,35 @@ export function applyResolvedCombatSkill(
    const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
    if(historical){historical.skillId=plan.id;historical.skillName=plan.name;historical.summary=event.summary;}
   }
+ }else if(plan.category==="CONSTRUCTION") {
+  if(!plan.construction)throw new Error("La habilidad no tiene una creación configurada.");
+  const point=validateConstructionPlacement(aim.areaCenter);
+  next=structuredClone(original);
+  const owner=next.actors[by];
+  const existing=next.constructions??[];
+  if(existing.length>=120)throw new Error("Hay demasiadas construcciones activas.");
+  const form=resolveConstructionForm(plan.construction.material,aim.constructionForm,
+   existing.some(x=>x.owner===by&&x.sourceSkillId===plan.id&&x.form==="FIELD"));
+  const userLabel=typeof aim.constructionLabel==="string"?aim.constructionLabel.trim():"";
+  if(userLabel.length>60||/[\\x00-\\x1f]/.test(userLabel))throw new Error("Nombre de construcción inválido.");
+  const resistance=plan.creationPassive;
+  const baseRes=resistance
+    ?Math.max(0,Number((owner as unknown as Record<string,number>)[resistance.resistance.baseStat]??owner.magicDefense)):0;
+  const construction:CombatConstruction={
+    id:by+"-"+plan.id+"-"+next.round+"-"+next.tick+"-"+existing.length,
+    owner:by,sourceSkillId:plan.id,material:plan.construction.material,form,
+    label:userLabel||plan.construction.label,center:point,createdRound:next.round,
+    tangible:form==="BLOCK",durability:form==="BLOCK"?Math.max(1,Math.round(baseRes)):undefined,
+    passive:resistance?structuredClone(resistance):undefined,
+  };
+  next.constructions=[...existing,construction];
+  spend(owner,turnTicks(owner)); // casting is one action
+  next.tick=Math.max(next.tick,(next.round-1)*LIMIT+owner.spentTicks);
+  addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,skillName:plan.name,
+    constructionId:construction.id,manaCost:plan.cost,
+    summary:owner.name+" creó "+construction.label+" ("+form+")"+
+     (resistance?" y activó automáticamente la pasiva de resistencia":"")});
+  advanceRoundIfComplete(next);
  }else{
   next=structuredClone(original);
   const actor=next.actors[by];

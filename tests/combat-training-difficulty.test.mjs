@@ -4,7 +4,7 @@ import {TRAINING_DIFFICULTIES,parseTrainingDifficulty,trainingBaseStats,applyTra
 test("difficulty defaults safely and rejects unknown values",()=>{
  assert.equal(parseTrainingDifficulty(undefined),"INTERMEDIATE");
  assert.throws(()=>parseTrainingDifficulty("GODMODE"),/inválida/);
- assert.equal(Object.keys(TRAINING_DIFFICULTIES).length,4);
+ assert.equal(Object.keys(TRAINING_DIFFICULTIES).length,5);
 });
 test("difficulty does not mutate original stats or change preserved speed",()=>{
  const base={agility:30,strength:20,constitution:20};

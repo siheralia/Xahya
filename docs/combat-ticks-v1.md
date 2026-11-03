@@ -10,6 +10,9 @@
 - Posición 1D en metros; el movimiento se acerca o aleja y el ataque físico necesita estar a 2 m o menos.
 - Masa neutral de **70 kg**; `knockbackMeters` compara fuerza con resistencia, ajustada por masa y limitada a 12 m. El género del personaje no presupone una masa.
 - El lienzo SVG guarda la trayectoria normalizada de un ataque. El ángulo de la guardia determina su alineación con la tangente final; desviar compara AGI con STR.
+- **Ataque mágico básico de área (fase 1):** en el mismo lienzo, el lanzador toca un centro y observa un círculo. El motor guarda el punto exacto exclusivamente en `combatV1` del servidor; durante la reacción solo comparte una pista de región 3×3. El defensor puede optar por **Esquivar área**, señalando el centro previsto en un terreno más grande. La predicción espacial se combina con Esquive/Precisión, cuesta PA/ticks y permite comprobar el círculo real después de resolver.
+- Alcance provisional del básico mágico: 10 m frente a 2 m del golpe físico; daño mágico básico limitado con ATQ/DEF mágicos. **Coste de maná provisional 0**, sin habilidades específicas ni efectos elementales. El maná real y los costes de habilidades corresponden a la fase 2.
+- El NPC de entrenamiento varía atributos básicos en **puntos enteros**, conservando la velocidad efectiva del personaje, y puede elegir ocasionalmente una explosión mágica con objetivo aleatorio. Nunca conoce el centro exacto cuando reacciona al ataque mágico de un jugador.
 - Piedra-papel-tijeras: **CUT > DISPERSED, BLUNT > SOLID, PIERCE > CONCENTRATED**. Cada ataque también tiene una desventaja y un enfrentamiento neutral, con ×1.2 / ×0.8 / ×1 de potencia.
 - Flash de pantalla al resolver impactos; aviso de ataque pendiente y registro de eventos.
 - Solo el servidor genera tiradas aleatorias; actualizar el estado del combate es una operación transaccional con bloqueo de fila.
@@ -21,7 +24,7 @@ El estado `combatV1` se guarda en `combatSession.lastAction` para reutilizar la 
 
 ### Pendiente para activar como sistema final
 1. **HP y durabilidad persistentes fuera del encuentro:** los cambios permanecen en la sesión, pero no se vuelcan a `characterResource` ni a la integridad de cada `characterItem`. Hace falta una migración y lectura centralizada de esos valores.
-2. **Ejecutar habilidades reales:** esta versión activa ataques físicos básicos. Las habilidades ofensivas con coste de maná, cooldown, resistencia variable, barreras y efectos narrativos todavía deben pasar por un resolutor de impactos común. El ataque mágico se rechaza hasta integrar el coste de maná.
+2. **Ejecutar habilidades reales:** esta versión admite ataques físicos y mágicos **básicos**; las habilidades aprobadas con gasto de maná, cooldown, resistencia variable, barreras y efectos narrativos todavía deben pasar por un resolutor de impactos común. El coste de maná de la explosión básica es cero provisionalmente; no es un hechizo configurable.
 3. **Trayectorias espaciales completas:** el dibujo se utiliza para calcular el desvío, pero no es un mapa físico 2D ni detecta colisiones contra obstáculos.
 4. **Multijugador completo:** dos personajes registrados ya pueden actuar, pero aún no hay equipos con tres o más personajes, ni notificaciones push del navegador.
 5. **Derrota del laberinto:** el botón de derrota automática del laberinto sigue utilizando su heurística heredada. En una fase posterior debe consultar este resolutor en vez de comparar directamente ATQ > DEF.

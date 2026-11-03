@@ -259,7 +259,7 @@ export default function CombatEncounter({id}:{id:string}) {
       </label>)}
      </div>
      {(pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)&&<div className="space-y-2">
-      <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":"Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo."} Toca el terreno para marcarlo. Siempre se resaltan las cuatro casillas más próximas al impacto, no una casilla exacta; acertar también requiere superar la tirada de Esquive.</p>
+      <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":"Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo."} Toca el terreno para marcarlo. La región resaltada es una pista, no el punto exacto; acertar la predicción también requiere superar la tirada defensiva.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         onPointerDown={e=>setPredictedCenter(toPoint(e))}
         className="aspect-square w-full max-w-xl cursor-crosshair touch-none rounded-lg border border-amber-500/40 bg-zinc-900"
@@ -321,10 +321,10 @@ export default function CombatEncounter({id}:{id:string}) {
        : physicalAnchor
         ? "Tu siguiente ataque físico comienza donde terminó el anterior (punto verde). Dibuja desde allí; moverte permite elegir otro inicio."
         : "Arrastra el dedo o el cursor. La dirección final influye en la posibilidad de desviar el golpe."}</p>
-      <svg ref={canvas} viewBox="0 0 100 100" preserveAspectRatio={attackMode==="MAGIC_AREA"?"xMidYMid meet":"none"}
+      <svg ref={canvas} viewBox="0 0 100 100" preserveAspectRatio={attackMode!=="PHYSICAL"?"xMidYMid meet":"none"}
        onPointerDown={startDraw} onPointerMove={continueDraw}
        onPointerUp={endDraw} onPointerCancel={endDraw}
-       className={attackMode==="MAGIC_AREA"?"aspect-square w-full max-w-md cursor-crosshair touch-none rounded-lg bg-zinc-900":"h-52 w-full touch-none rounded-lg bg-zinc-900"}
+       className={attackMode!=="PHYSICAL"?"aspect-square w-full max-w-md cursor-crosshair touch-none rounded-lg bg-zinc-900":"h-52 w-full touch-none rounded-lg bg-zinc-900"}
        aria-label="Lienzo para dibujar la trayectoria del ataque">
        {Array.from({length:9},(_,i)=><line key={i} x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth="0.3"/>)}
        {attackMode!=="PHYSICAL"?

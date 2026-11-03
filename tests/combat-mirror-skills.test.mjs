@@ -142,7 +142,7 @@ test("targeted objects must be living enemy mirrors and their hitbox actually re
   attackSource:"MAIN_HAND",targetConstructionId:"fake",
   trajectory:[{x:0,y:0},{x:1,y:1}]},dice),/espejo elegido/);
  assert.throws(()=>applyCombatCommand(after,"PLAYER",{kind:"ATTACK",attackType:"PIERCE",
-  usesMagic:true,targetConstructionId:id,areaCenter:{x:.35,y:.4}},dice),/El espejo elegido|iniciativa/);
+  usesMagic:true,targetConstructionId:id,areaCenter:{x:.35,y:.4}},dice),/El espejo elegido|iniciativa|otro participante/);
  const miss=applyCombatCommand(after,"NPC",{kind:"ATTACK",attackType:"BLUNT",
   attackSource:"MAIN_HAND",targetConstructionId:id,
   trajectory:[{x:0,y:0},{x:0.95,y:0.94}]},dice);

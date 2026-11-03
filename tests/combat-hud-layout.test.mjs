@@ -70,3 +70,11 @@ test("bad reach and initiative must remain explained instead of silently doing n
  assert.doesNotMatch(loadEffect,/setError\(""\)/,"polling must not clear a rejected action");
  assert.match(loadout,/La habilidad está lista, pero debes esperar tu iniciativa/);
 });
+
+test("character flair stays on one line inside a wider emblem badge",()=>{
+ assert.match(hud,/h-14 w-\[88px\] shrink-0/);
+ assert.match(hud,/whitespace-nowrap text-base leading-none sm:text-lg/);
+ assert.match(hud,/aria-label="Emblema del personaje"/);
+ assert.match(hud,/\{"⟨"\+flair\+"⟩"\}/);
+ assert.doesNotMatch(hud,/h-14 w-16 shrink-0/);
+});

@@ -51,8 +51,11 @@ export default function CombatCharacterHud({
    </button>
    {open&&<>
     <div className="mt-3 flex items-center gap-3">
-     <div className="flex h-14 w-16 shrink-0 items-center justify-center rounded-xl border border-violet-500/40 bg-violet-950/30 text-xl"
-      aria-label="Emblema del personaje">{flair?<span>{"⟨"+flair+"⟩"}</span>:<Shield size={30} className="text-violet-200"/>}</div>
+     <div className="flex h-14 w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-violet-500/40 bg-violet-950/30"
+      aria-label="Emblema del personaje">{flair?
+       <span className="inline-flex max-w-full items-center justify-center whitespace-nowrap text-base leading-none sm:text-lg" title={flair}>
+        {"⟨"+flair+"⟩"}
+       </span>:<Shield size={30} className="text-violet-200"/>}</div>
      <div className="min-w-0 flex-1">
       <h2 className="truncate text-lg font-semibold">{fighter.name}</h2>
       <p className="text-xs text-zinc-400">Distancia al oponente: <b>{distance.toFixed(2)} m</b></p>

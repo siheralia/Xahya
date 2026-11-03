@@ -63,7 +63,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [shareStatus,setShareStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
  const [attackType,setAttackType]=useState<"CUT"|"BLUNT"|"PIERCE">("CUT");
- const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA">("PHYSICAL");
+ const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA"|"RANGED">("PHYSICAL");
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
  const [predictedCenter,setPredictedCenter]=useState<Point|null>(null);
  const [meters,setMeters]=useState(1);
@@ -130,19 +130,19 @@ export default function CombatEncounter({id}:{id:string}) {
   // Read the SVG's currentTarget synchronously, while React's pointer event
   // is still active. Deferred state updater callbacks must never access it.
   const point=toPoint(e);
-  if(attackMode==="MAGIC_AREA" || attackType==="PIERCE"){setAreaCenter(point);if(attackMode==="PHYSICAL")setPoints(physicalAnchor?[physicalAnchor,point]:[point,point]);return;}
+  if(attackMode!=="PHYSICAL" || attackType==="PIERCE"){setAreaCenter(point);if(attackMode==="PHYSICAL")setPoints(physicalAnchor?[physicalAnchor,point]:[point,point]);return;}
   try { e.currentTarget.setPointerCapture(e.pointerId); }
   catch { /* Some mobile browsers do not support SVG pointer capture. */ }
   setDrawing(true);
   setPoints(physicalAnchor?[physicalAnchor,point]:[point]);
  }
  function continueDraw(e:PointerEvent<SVGSVGElement>) {
-  if(attackMode==="MAGIC_AREA"||attackType==="PIERCE"||!drawing)return;
+  if(attackMode!=="PHYSICAL"||attackType==="PIERCE"||!drawing)return;
   const point=toPoint(e);
   setPoints(previous=>previous.length>=79?previous:[...previous,point]);
  }
  function endDraw(e:PointerEvent<SVGSVGElement>) {
-  if(attackMode==="MAGIC_AREA"||attackType==="PIERCE"||!drawing)return;
+  if(attackMode!=="PHYSICAL"||attackType==="PIERCE"||!drawing)return;
   const point=toPoint(e);
   setDrawing(false);
   setPoints(previous=>previous.length<2?[...previous,point]:previous);
@@ -258,8 +258,8 @@ export default function CombatEncounter({id}:{id:string}) {
        </span>
       </label>)}
      </div>
-     {pending.usesMagic&&selectedDefense==="DODGE"&&<div className="space-y-2">
-      <p className="text-sm text-zinc-300">Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo. Toca el terreno para marcarlo. Siempre se resaltan las cuatro casillas más próximas al impacto, no una casilla exacta; acertar también requiere superar la tirada de Esquive.</p>
+     {(pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)&&<div className="space-y-2">
+      <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":"Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo."} Toca el terreno para marcarlo. Siempre se resaltan las cuatro casillas más próximas al impacto, no una casilla exacta; acertar también requiere superar la tirada de Esquive.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         onPointerDown={e=>setPredictedCenter(toPoint(e))}
         className="aspect-square w-full max-w-xl cursor-crosshair touch-none rounded-lg border border-amber-500/40 bg-zinc-900"
@@ -284,8 +284,8 @@ export default function CombatEncounter({id}:{id:string}) {
       <span className="block text-xs text-zinc-400">Orientación aproximada: {guardHint(deflectionAlignment(pending.trajectory,angle))}. No garantiza desviar el golpe; también intervienen tu agilidad, la fuerza rival y la tirada.</span>
      </label>}
      <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,defenseAngle:angle,
-        predictedCenter:pending.usesMagic&&selectedDefense==="DODGE"?predictedCenter??undefined:undefined})}
-      disabled={busy||(pending.usesMagic&&selectedDefense==="DODGE"&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
+        predictedCenter:(pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
+      disabled={busy||((pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
       {busy?"Resolviendo…":"Responder al ataque"}
      </button>
     </div>}
@@ -309,9 +309,10 @@ export default function CombatEncounter({id}:{id:string}) {
        <button onClick={()=>{setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);setAreaCenter(null);}} className="rounded border border-zinc-600 px-3 py-1 text-xs">Restablecer</button>
       </div>
       <label className="mb-3 block text-sm">Modalidad
-        <select value={attackMode} onChange={e=>setAttackMode(e.target.value as "PHYSICAL"|"MAGIC_AREA")}
+        <select value={attackMode} onChange={e=>setAttackMode(e.target.value as "PHYSICAL"|"MAGIC_AREA"|"RANGED")}
           className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
-          <option value="PHYSICAL">Ataque físico</option>
+          <option value="PHYSICAL">Ataque físico cuerpo a cuerpo</option>
+          <option value="RANGED">Proyectil físico (arco, shuriken, piedra)</option>
           <option value="MAGIC_AREA">Explosión mágica básica (área)</option>
         </select>
       </label>
@@ -326,11 +327,11 @@ export default function CombatEncounter({id}:{id:string}) {
        className={attackMode==="MAGIC_AREA"?"aspect-square w-full max-w-md cursor-crosshair touch-none rounded-lg bg-zinc-900":"h-52 w-full touch-none rounded-lg bg-zinc-900"}
        aria-label="Lienzo para dibujar la trayectoria del ataque">
        {Array.from({length:9},(_,i)=><line key={i} x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth="0.3"/>)}
-       {attackMode==="MAGIC_AREA"?
+       {attackMode!=="PHYSICAL"?
         areaCenter&&<>
           {attackType==="CUT"&&<line x1={Math.max(0,areaCenter.x*100-25)} y1={areaCenter.y*100} x2={Math.min(100,areaCenter.x*100+25)} y2={areaCenter.y*100} stroke="#e9d5ff" strokeWidth="4" strokeLinecap="round"/>}
           <circle cx={areaCenter.x*100} cy={areaCenter.y*100}
-            r={(attackType==="BLUNT"?BASIC_MAGIC_AREA_RADIUS:attackType==="CUT"?0.06:0.035)*100} fill="#c084fc" fillOpacity={0.3}
+            r={(attackMode==="RANGED"?(attackType==="BLUNT"?0.12:attackType==="CUT"?0.085:0.045):attackType==="BLUNT"?BASIC_MAGIC_AREA_RADIUS:attackType==="CUT"?0.06:0.035)*100} fill="#c084fc" fillOpacity={0.3}
             stroke="#e9d5ff" strokeWidth={1.1}/>
           <circle cx={areaCenter.x*100} cy={areaCenter.y*100} r={2.3} fill="#f5d0fe"/>
         </>
@@ -349,12 +350,13 @@ export default function CombatEncounter({id}:{id:string}) {
          <option value="PIERCE">{attackMode==="MAGIC_AREA"?"Descarga perforante":"Penetración"}</option>
         </select>
        </label>
-       <button disabled={!ready||(attackMode==="MAGIC_AREA"?!areaCenter:points.length<2)}
+       <button disabled={!ready||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
            ? {kind:"ATTACK",usesMagic:true,attackType,areaCenter:areaCenter??undefined}
+           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackType,areaCenter:areaCenter??undefined}
            : {kind:"ATTACK",attackType,trajectory:normalizedPath})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
-        {attackMode==="MAGIC_AREA"?"Lanzar explosión mágica":"Atacar"}
+        {attackMode==="MAGIC_AREA"?"Lanzar magia":attackMode==="RANGED"?"Disparar proyectil":"Atacar"}
        </button>
       </div>
      </div>

@@ -115,3 +115,15 @@ export function projectApprovedCombatSkills(
    meetsRequirements(skill,allowed.filter(s=>Number(s.id)!==Number(skill.id)))&&linkedParentSatisfied(skill),
  )).filter((s):s is CombatSkillPreview=>s!==null);
 }
+
+/** Materials enabled for this combatant's construction placement UI.
+ * Only approved, owned, un-stolen and executable CREATE skills are projected
+ * in a usable state by projectApprovedCombatSkills.
+ */
+export function availableConstructionMaterials(roster:readonly CombatSkillPreview[]):string[] {
+ return [...new Set(roster.filter(skill=>
+   skill.executable===true && skill.requirementsSatisfied===true &&
+   skill.skillKind==="CONSTRUCTION" && typeof skill.constructionMaterial==="string" &&
+   skill.constructionMaterial.length>0
+ ).map(skill=>skill.constructionMaterial as string))];
+}

@@ -440,6 +440,7 @@ export default function CombatEncounter({id}:{id:string}) {
           {actor?.offhandWeapon&&<option value="OFF_HAND">Secundaria · {actor.offhandWeapon.name} · {attackNames[actor.offhandWeapon.attackType]}</option>}
           <option value="FIST_RIGHT">Puño derecho · Contundente</option>
           <option value="FIST_LEFT">Puño izquierdo · Contundente</option>
+          <option value="KICK">Pierna / patada · Contundente</option>
         </select>
       </label>}
       <p className="mb-2 text-xs text-zinc-400">{attackMode==="MAGIC_AREA"

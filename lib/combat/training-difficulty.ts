@@ -4,6 +4,7 @@ export const TRAINING_DIFFICULTIES = {
   INTERMEDIATE: {baseMultiplier:1, hpMultiplier:1, defenseMultiplier:1},
   ADVANCED: {baseMultiplier:1.2, hpMultiplier:2, defenseMultiplier:1.25},
   ENDURANCE: {baseMultiplier:1, hpMultiplier:20, defenseMultiplier:1.5},
+  AGGRESSIVE: {baseMultiplier:1.15, hpMultiplier:2, defenseMultiplier:1.05},
 } as const;
 export type TrainingDifficulty = keyof typeof TRAINING_DIFFICULTIES;
 export function parseTrainingDifficulty(value:unknown):TrainingDifficulty {

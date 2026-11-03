@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
 import CombatSkillLoadout from "./CombatSkillLoadout";
+import { narrateCombat } from "@/lib/combat/narration";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {
@@ -63,6 +64,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [shareStatus,setShareStatus]=useState("");
+ const [narrativeCopyStatus,setNarrativeCopyStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
  const [attackSource,setAttackSource]=useState<PhysicalAttackSource>("MAIN_HAND");
  const [recoverSlot,setRecoverSlot]=useState<"MAIN_HAND"|"OFF_HAND">("MAIN_HAND");
@@ -86,7 +88,7 @@ export default function CombatEncounter({id}:{id:string}) {
    const r=await fetch("/api/combat/"+id+"/actions",{cache:"no-store"});
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"Error al consultar el combate.");
-   setView(data);
+   setView(previous=>previous?.state.status==="FINISHED"&&data.state.status!=="FINISHED"?previous:data);
    if(!data.permissions.PLAYER&&data.permissions.NPC)setSide("NPC");
    const events=(data.state as CombatState).log;
    const last=events.filter(e=>e.kind==="RESOLVE").at(-1);
@@ -99,11 +101,13 @@ export default function CombatEncounter({id}:{id:string}) {
    setError("");
   }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar el combate.");}
  },[id]);
+ const encounterFinished=view?.state.status==="FINISHED";
  useEffect(()=>{
+  if(encounterFinished)return; // Once FINISHED, no more background requests.
   void load();
   const handle=window.setInterval(()=>{void load();},3500);
   return ()=>window.clearInterval(handle);
- },[load]);
+ },[load,encounterFinished]);
  async function submit(command:CombatCommand | {kind:"ADVANCE"}) {
   if(busy)return;
   setBusy(true);setError("");
@@ -199,6 +203,16 @@ export default function CombatEncounter({id}:{id:string}) {
    trajectory:skill.usesMagic?undefined:normalizedPath,
    attackSource:skill.usesMagic?undefined:activeAttackSource,
    areaCenter:skill.usesMagic?areaCenter??undefined:undefined});
+ }
+ const chronicle=state?.status==="FINISHED"
+  ?(state.narrativeText??narrateCombat(state.log,state.actors)):"";
+ async function copyChronicle(){
+  try{
+   await navigator.clipboard.writeText(chronicle);
+   setNarrativeCopyStatus("Narración copiada.");
+  }catch{
+   setNarrativeCopyStatus("No se pudo copiar automáticamente. Selecciona el texto y cópialo manualmente.");
+  }
  }
  const hint=pending?.areaHint??"centro";
  const warningCells=magicHintCells(hint);
@@ -422,6 +436,27 @@ export default function CombatEncounter({id}:{id:string}) {
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
     onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null}/>
+   {state.status==="FINISHED"&&<section className="mt-5 rounded-xl border border-amber-500/40 bg-zinc-950 p-4" aria-label="Crónica del encuentro">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+     <h2 className="text-lg font-bold text-amber-200">Crónica del encuentro</h2>
+     <div className="flex flex-wrap gap-2">
+      <button type="button" onClick={()=>void copyChronicle()}
+       className="rounded-lg border border-amber-400 px-3 py-2 text-sm text-amber-100">
+       Copiar narración
+      </button>
+      <button type="button" onClick={()=>void load()}
+       className="rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200">
+       Actualizar resultado
+      </button>
+     </div>
+    </div>
+    <p className="mb-3 text-sm text-zinc-400">Relato automático de las acciones, defensas, habilidades y desenlace. El refresco automático ya está detenido.</p>
+    {narrativeCopyStatus&&<p role="status" className="mb-3 text-sm text-amber-200">{narrativeCopyStatus}</p>}
+    {!state.narrativeText&&<p className="mb-2 text-xs text-zinc-400">Encuentro antiguo: la crónica se reconstruyó a partir de los eventos que aún conserva el registro.</p>}
+    <textarea readOnly value={chronicle} aria-label="Narración completa del encuentro"
+     className="min-h-80 w-full resize-y rounded-lg border border-zinc-700 bg-zinc-900 p-4 text-sm leading-relaxed text-zinc-100"
+     rows={16}/>
+   </section>}
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
     <h2 className="mb-3 text-lg font-bold">Registro de combate</h2>
     {state.log.length===0?<p className="text-sm text-zinc-500">Aún no hay acciones.</p>:

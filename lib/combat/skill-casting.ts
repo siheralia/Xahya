@@ -1,6 +1,6 @@
 import {cooldownTurns} from "../skills/cooldown.ts";
 import {skillEffectMultiplier} from "../skills/pch.ts";
-import {parseConfiguredSkillRange} from "./skill-preview.ts";
+import {parseConfiguredSkillRange} from "./skill-range.ts";
 import type {CombatAttackType} from "./matchup-types.ts";
 
 export type CombatBuffStat = "physicalAttack"|"magicAttack"|"physicalDefense"|"magicDefense"|"precision"|"dodge";

@@ -37,7 +37,11 @@ test("ending player's turn yields NPC actions until a new round without manually
    assert.equal(s.pending?.by,"NPC");
    s=applyCombatCommand(s,"PLAYER",{kind:"DEFEND",defense:"NONE"},dice());
  }
- assert.ok(counter>=5);
+ // Some NPC actions are spent approaching again after physical knockback,
+ // so the number of attack/reaction cycles can be below five.
+ assert.ok(counter>=2);
+ assert.ok(s.log.some(x=>x.kind==="MOVE"&&x.by==="NPC"));
+ assert.ok(s.log.filter(x=>x.kind==="ATTACK"&&x.by==="NPC").length>=2);
  assert.equal(s.round,2);
  assert.ok(canAct(s,"PLAYER"));
  assert.equal(s.actors.NPC.spentAp,0);

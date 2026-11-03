@@ -1,13 +1,15 @@
 import {validateVariableResistance,type VariableResistance} from "../skills/variable-resistance.ts";
 import type {Point,Side} from "./turn-engine.ts";
 
-export type ConstructionForm="FIELD"|"BLOCK"|"DECOR";
+export type ConstructionForm="FIELD"|"BLOCK"|"DECOR"|"MIRROR";
 export type ConstructionPlan={material:string;label:string};
 export type CombatConstruction={
  id:string;owner:Side;sourceSkillId:number;material:string;
  form:ConstructionForm;label:string;center:Point;createdRound:number;
  /** A cosmetic construction cannot intercept attacks or affect stats. */
  tangible:boolean;durability?:number;hitCount?:number;
+ /** A mirror acts independently once per round and reflects only incoming magic. */
+ mirror?:{rayMultiplier:number;reflectionMultiplier:number;rangeMeters:number;attackType:"PIERCE";};
  passive?:{sourceSkillId:number;resistance:VariableResistance};
 };
 const MATERIAL=/^[A-Z][A-Z0-9_]{0,63}$/;
@@ -47,6 +49,7 @@ export function validateConstructionPlacement(raw:unknown):Point {
 export function resolveConstructionForm(material:string,requested:unknown,hasField:boolean):ConstructionForm {
  const form=requested??(material==="LIGHT"?"DECOR":"FIELD");
  if(!["FIELD","BLOCK","DECOR"].includes(String(form)))throw new Error("Forma de construcción inválida.");
+ if(material==="MIRROR"&&form!=="MIRROR")throw new Error("El espejo requiere su forma propia.");
  if(material==="LIGHT"&&form!=="DECOR")throw new Error("Los objetos de luz de esta habilidad son decorativos.");
  if(form==="BLOCK"&&!hasField)throw new Error("Debes crear primero el campo de material.");
  if(form==="DECOR"&&material!=="LIGHT")throw new Error("La construcción de este material no es decorativa.");

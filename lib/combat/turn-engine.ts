@@ -7,12 +7,12 @@ import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
 import {calculateVariableResistance} from "../skills/variable-resistance.ts";
 import {validateConstructionPlacement,resolveConstructionForm,type CombatConstruction} from "./constructs.ts";
-import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
+import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
 export type Point = { x: number; y: number };
-export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FIST_LEFT";
+export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FIST_LEFT" | "KICK";
 export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number};
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
@@ -37,6 +37,8 @@ export type PendingAttack = {
   /** Coarse, public four-cell telegraph; never reveals the exact impact point. */
   areaHint?: string;
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
+  /** Autonomous attack from a placed mirror; does not charge an extra action. */
+  mirrorId?:string; mirrorAuto?:boolean;
 };
 export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
@@ -69,6 +71,8 @@ export type CombatState = {
   karmaBoosts?: Partial<Record<Side,Record<string,number>>>;
   karmaBoostDeltas?: Partial<Record<Side,Record<string,number>>>;
   constructions?: CombatConstruction[];
+  /** Ordered rays to resolve on the start of a new round. */
+  mirrorRayQueue?: string[];
   droppedWeapons?: Array<{owner:Side;weapon:CombatWeapon;slot?:"MAIN_HAND"|"OFF_HAND";positionMeters:number}>;
   /** All chronological events needed to narrate a long fight (not just the last 100 on-screen entries). */
   narrativeHistory?: CombatLog[];
@@ -82,9 +86,9 @@ export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
   | { kind: "WAIT" }
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
-  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point }
+  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; targetConstructionId?:string }
   | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string };
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -216,7 +220,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},physicalPathEnds:{},constructions:[],karmaBoosts:{},karmaBoostDeltas:{},
+    physicalPathEnd:{},physicalPathEnds:{},constructions:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},
     processedKarmaRequests:[],narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
@@ -279,6 +283,55 @@ function settleDroppedWeapons(state:CombatState) {
   }
   state.droppedWeapons=[];
 }
+/** Auto rays are serialized through the same pending-defense workflow.
+ * They are emitted only at a new round (never during the casting round) and
+ * cost neither the summoner additional mana nor an additional PA.
+ */
+function beginNextMirrorRay(state:CombatState) {
+ if(state.status!=="ACTIVE"||state.pending)return;
+ while((state.mirrorRayQueue?.length??0)>0) {
+  const id=state.mirrorRayQueue!.shift()!;
+  const mirror=state.constructions?.find(c=>c.id===id&&c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0);
+  if(!mirror)continue;
+  const owner=state.actors[mirror.owner],rival=state.actors[other(mirror.owner)];
+  const reach=mirror.mirror!.rangeMeters;
+  const distance=Math.abs(owner.positionMeters-rival.positionMeters);
+  if(distance>reach) {
+   addLog(state,{kind:"MIRROR",tick:state.tick,by:mirror.owner,constructionId:id,
+    summary:mirror.label+" no pudo alcanzar a "+rival.name+" con su rayo."});
+   continue;
+  }
+  // Repeated rays use the owner's current magic attack, including temporary buffs.
+  const point={x:0.5,y:0.5};
+  state.pending={by:mirror.owner,against:other(mirror.owner),attackType:"PIERCE",
+   trajectory:[{x:mirror.center.x,y:mirror.center.y},point],
+   launchedAtTick:(state.round-1)*LIMIT,usesMagic:true,areaHint:magicImpactZone(point),
+   targetCenter:point,mirrorId:id,mirrorAuto:true,
+   skill:{id:mirror.sourceSkillId,name:mirror.label+" · Rayo",damageMultiplier:mirror.mirror!.rayMultiplier,
+    defenseFactor:1,finalMultiplier:1}};
+  state.tick=Math.max(state.tick,(state.round-1)*LIMIT);
+  addLog(state,{kind:"ATTACK",tick:state.tick,by:mirror.owner,against:other(mirror.owner),
+   attackType:"PIERCE",usesMagic:true,skillId:mirror.sourceSkillId,
+   constructionId:id,skillName:mirror.label+" · Rayo",
+   summary:mirror.label+" proyectó un rayo mágico perforante hacia "+rival.name+"."});
+  return;
+ }
+}
+/** The terminal encounter cleanup must also run for reflected magic.
+ * Reflection is direct damage and must never be reflected recursively.
+ */
+function finishEncounter(state:CombatState,winner:Side) {
+ if(state.status==="FINISHED")return;
+ const defeated=other(winner);
+ state.status="FINISHED";state.winner=winner;
+ state.pending=null;state.mirrorRayQueue=[];
+ addLog(state,{kind:"END",tick:state.tick,by:winner,against:defeated,
+   summary:state.actors[winner].name+" gana el combate"});
+ settleDroppedWeapons(state);
+ clearKarmaBoostsAtCombatEnd(state);
+ state.narrativeText=narrateCombat(state.narrativeHistory??state.log,state.actors);
+ state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
+}
 function advanceRoundIfComplete(state: CombatState) {
   const finished = (side: Side) => {
     const f = state.actors[side];
@@ -298,6 +351,11 @@ function advanceRoundIfComplete(state: CombatState) {
     }
     state.skillBonuses=active.filter(b=>b.expiresAtRound>state.round);
     addLog(state,{kind:"ROUND",tick:state.tick,by:"PLAYER",summary:"Comienza el turno " + state.round});
+    // Each active mirror fires at most once on the following and later rounds.
+    state.mirrorRayQueue=(state.constructions??[])
+      .filter(c=>c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0)
+      .map(c=>c.id);
+    beginNextMirrorRay(state);
   }
 }
 function spend(f: CombatFighter, ticks: number) {
@@ -330,9 +388,64 @@ export function knockbackMeters(force: number, resistance: number, massKg = mass
  * Pure deterministic transition; server owns the dice. No wall-clock timer
  * consumes action ticks. Reaction is a separate choice, not a free extra dodge.
  */
+/** Direct targeting a visible enemy mirror is an immediate object interaction:
+ * mirrors do not dodge or spend reaction PA; physical hits break them and
+ * magical hits reflect the configured portion to the attacking caster.
+ */
+function resolveTargetedMirrorAttack(
+ state:CombatState,by:Side,command:Extract<CombatCommand,{kind:"ATTACK"}>,
+ mirror:CombatConstruction,rolls:{hit:number;critical:number;defense:number},
+ skill?:{id:number;name:string;damageMultiplier:number;finalMultiplier:number},
+){
+ const actor=state.actors[by];
+ const magic=command.usesMagic===true;
+ const ranged=command.rangedPhysical===true||command.throwWeapon===true;
+ const points=command.trajectory?.length?command.trajectory:[{x:0.1,y:0.5},{x:0.9,y:0.5}];
+ const radius=magic?BASIC_MAGIC_AREA_RADIUS:
+  command.attackType==="BLUNT"?0.17:command.attackType==="CUT"?0.11:0.07;
+ const contact=magic||ranged
+  ?validArenaPoint(command.areaCenter)&&Math.hypot(command.areaCenter.x-mirror.center.x,command.areaCenter.y-mirror.center.y)<=radius
+  :geometricContact(command.attackType,points,mirror.center);
+ const power=magic?actor.magicAttack:actor.physicalAttack;
+ const critical=contact&&rolls.critical<clamp(0.05+actor.critical/(actor.critical+100)*0.20,0.05,0.25);
+ const damage=contact?Math.max(1,Math.round(Math.max(0,power)*(skill?.damageMultiplier??1)
+  *(skill?.finalMultiplier??1)*(critical?1.5:1))):0;
+ state.tick=Math.max(state.tick,(state.round-1)*LIMIT+actor.spentTicks);
+ addLog(state,{kind:"ATTACK",tick:state.tick,by,against:mirror.owner,
+  attackType:command.attackType,usesMagic:magic,rangedPhysical:ranged,
+  constructionId:mirror.id,skillId:skill?.id,skillName:skill?.name,
+  summary:actor.name+" apuntó a "+mirror.label+" con "+(skill?.name??(magic?"magia":"un ataque físico"))});
+ let reflected=0;
+ if(contact){
+  if(magic){
+   reflected=Math.max(0,Math.round(damage*(mirror.mirror?.reflectionMultiplier??0)));
+   actor.hp=Math.max(0,actor.hp-reflected);
+   addLog(state,{kind:"REFLECTION",tick:state.tick,by:mirror.owner,against:by,
+    constructionId:mirror.id,damage:reflected,contact:true,
+    summary:mirror.label+" reflejó "+reflected+" puntos de daño mágico hacia "+actor.name});
+  }else{
+   mirror.durability=Math.max(0,(mirror.durability??0)-damage);
+   if(mirror.durability===0){
+    state.constructions=state.constructions?.filter(c=>c.id!==mirror.id);
+    state.mirrorRayQueue=state.mirrorRayQueue?.filter(id=>id!==mirror.id);
+    addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by,
+     constructionId:mirror.id,damage,contact:true,
+     summary:actor.name+" destruyó "+mirror.label+" con un ataque físico."});
+   }
+  }
+ }
+ addLog(state,{kind:"RESOLVE",tick:state.tick,by,against:mirror.owner,
+  attackType:command.attackType,damage:magic?reflected:damage,contact,critical,
+  constructionId:mirror.id,
+  summary:contact?(magic?mirror.label+" devolvió la magia a "+actor.name:
+   actor.name+" golpeó "+mirror.label+" ("+damage+" HP)"):
+   actor.name+" falló al atacar "+mirror.label});
+ if(actor.hp<=0)finishEncounter(state,mirror.owner);
+}
 export function applyCombatCommand(original: CombatState, by: Side, command: CombatCommand,
   rolls: {hit:number; critical:number; defense:number} = {hit:0.5,critical:0.5,defense:0.5},
-  serverSkillRangeMeters?:number): CombatState {
+  serverSkillRangeMeters?:number,
+  mirrorSkill?:{id:number;name:string;damageMultiplier:number;finalMultiplier:number}): CombatState {
   const state = structuredClone(original);
   if (state.version !== 1 || state.status !== "ACTIVE") throw new Error("El combate no está activo.");
   if (!SIDES.includes(by)) throw new Error("Combatiente no válido.");
@@ -492,16 +605,30 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       predictionMatched:validArenaPoint(pending.targetCenter)&&validArenaPoint(command.predictedCenter)?Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=(pending.rangedPhysical?0.09:0.19):undefined,
       summary:avoided ? fighter.name + (pending.usesMagic?" escapó de la explosión":" evitó el ataque")
         : attacker.name + (pending.usesMagic?" acertó con su explosión mágica a ":" impactó a ") + fighter.name + " (" + damage + " HP)"});
-    state.pending = null;
-    if (fighter.hp <= 0) {
-      state.status = "FINISHED";state.winner = pending.by;
-      addLog(state,{kind:"END",tick:state.tick,by:pending.by,against:by,summary:attacker.name+" gana el combate"});
-      settleDroppedWeapons(state);
-      clearKarmaBoostsAtCombatEnd(state);
-      state.narrativeText=narrateCombat(state.narrativeHistory??state.log,state.actors);
-      state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
-      // Retain server-only source events to allow better interpretations of old encounters.
+    // Magical areas can strike placed mirrors even when the caster targeted
+    // the character. Reflection depends on actual spatial contact, not on a
+    // defender guessing the attack center or choosing a defensive action.
+    if(pending.usesMagic&&validArenaPoint(pending.targetCenter)){
+      const mirrors=(state.constructions??[]).filter(c=>c.owner===by&&
+        c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0&&
+        Math.hypot(c.center.x-pending.targetCenter!.x,c.center.y-pending.targetCenter!.y)
+         <=BASIC_MAGIC_AREA_RADIUS);
+      const reflectionPower=pending.skill
+        ?Math.max(1,Math.round(Math.max(0,power)*pending.skill.damageMultiplier*
+         pending.skill.finalMultiplier))
+        :Math.max(1,Math.round(3+5*Math.max(0,power)/(Math.max(0,power)+20)));
+      for(const mirror of mirrors){
+        const reflected=Math.max(0,Math.round(reflectionPower*mirror.mirror!.reflectionMultiplier));
+        attacker.hp=Math.max(0,attacker.hp-reflected);
+        addLog(state,{kind:"REFLECTION",tick:state.tick,by:mirror.owner,against:pending.by,
+         constructionId:mirror.id,damage:reflected,contact:true,
+         summary:mirror.label+" devolvió "+reflected+" puntos de daño mágico hacia "+attacker.name});
+      }
     }
+    state.pending = null;
+    if(fighter.hp<=0)finishEncounter(state,pending.by);
+    else if(attacker.hp<=0)finishEncounter(state,by);
+    if(state.status==="ACTIVE")beginNextMirrorRay(state);
     advanceRoundIfComplete(state);
     return state;
   }
@@ -541,8 +668,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Trayectoria inválida.");
     const magic=command.usesMagic===true;
     const source=command.attackSource??defaultAttackSource(fighter);
-    if(!["MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT"].includes(source))throw new Error("Origen de ataque inválido.");
+    if(!["MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT","KICK"].includes(source))throw new Error("Origen de ataque inválido.");
     const selectedWeapon=weaponForSource(fighter,source);
+    const targetedMirror=command.targetConstructionId?
+      state.constructions?.find(c=>c.id===command.targetConstructionId&&
+       c.owner===other(by)&&c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0):undefined;
+    if(command.targetConstructionId&&!targetedMirror)
+      throw new Error("El espejo elegido no existe o no pertenece al rival.");
     if(magic&&serverSkillRangeMeters===undefined&&command.attackType!==fighter.attackType)
       throw new Error("La magia básica debe usar el tipo de ataque mágico configurado en la ficha.");
     if(magic&&serverSkillRangeMeters===undefined){
@@ -573,7 +705,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown,source))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance máximo del ataque.");
     const distanceAtLaunch=Math.abs(fighter.positionMeters-rival.positionMeters);
-    const effectiveAtLaunch=selectedWeapon?.effectiveRangeMeters??effectiveWeaponReachMeters(fighter,false,source);
+    // An approved skill owns its declared 2m/5m/etc. effective reach. Do
+    // not apply an unarmed or equipped-weapon range penalty to that technique.
+    const effectiveAtLaunch=serverSkillRangeMeters??
+      (selectedWeapon?.effectiveRangeMeters??effectiveWeaponReachMeters(fighter,false,source));
     spend(fighter,turnTicks(fighter,command.attackType));
     if(magic&&serverSkillRangeMeters===undefined)state.mana![by].current-=1;
     if(thrown&&selectedWeapon){
@@ -591,6 +726,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       state.physicalPathEnds[by]??={};
       state.physicalPathEnds[by]![source]={...points[points.length-1]};
     }
+    if(targetedMirror){
+      // A mirror has no paid reaction: resolve object hits immediately.
+      resolveTargetedMirrorAttack(state,by,command,targetedMirror,rolls,mirrorSkill);
+      advanceRoundIfComplete(state);
+      return state;
+    }
     state.pending = {by,against:other(by),attackType:command.attackType,
       trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
@@ -602,7 +743,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,weaponName:selectedWeapon?.name,manaCost:magic&&serverSkillRangeMeters===undefined?1:undefined,
       summary:magic?fighter.name+" lanzó magia de "+labels[command.attackType]+"; esperando reacción"
         :ranged?fighter.name+" lanzó "+(thrown?"el arma ("+selectedWeapon?.name+") de ":"un proyectil físico de ")+labels[command.attackType]+"; esperando reacción"
-        :fighter.name+" atacó con "+(selectedWeapon?.name??(source==="FIST_LEFT"?"puño izquierdo":"puño derecho"))+" ("+labels[command.attackType]+")"+"; esperando reacción"});
+        :fighter.name+" atacó con "+(selectedWeapon?.name??(source==="FIST_LEFT"?"puño izquierdo":source==="KICK"?"patada":"puño derecho"))+" ("+labels[command.attackType]+")"+"; esperando reacción"});
   } else throw new Error("Acción inválida o habilidad sin autorización del servidor.");
   state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);
   advanceRoundIfComplete(state);
@@ -618,7 +759,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
  aim:{requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;
-  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string},
+  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))
@@ -642,18 +783,24 @@ export function applyResolvedCombatSkill(
   next=applyCombatCommand(original,by,{
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
    trajectory:aim.trajectory,areaCenter:aim.areaCenter,attackSource:aim.attackSource,
-  },rolls,plan.rangeMeters);
-  if(!next.pending)throw new Error("No se pudo preparar el ataque de habilidad.");
-  next.pending.skill={
+   targetConstructionId:aim.targetConstructionId,
+  },rolls,plan.rangeMeters,{
+   id:plan.id,name:plan.name,damageMultiplier:plan.damageMultiplier,finalMultiplier:plan.finalMultiplier,
+  });
+  if(!next.pending&&!aim.targetConstructionId)throw new Error("No se pudo preparar el ataque de habilidad.");
+  if(next.pending)next.pending.skill={
    id:plan.id,name:plan.name,damageMultiplier:plan.damageMultiplier,
    defenseFactor:plan.defenseFactor,finalMultiplier:plan.finalMultiplier,
    damageElement:plan.damageElement,
   };
-  const event=next.log.at(-1);
-  if(event){event.skillId=plan.id;event.manaCost=plan.cost;event.skillName=plan.name;
-   event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";
+  const event=next.pending?next.log.at(-1):next.log.slice().reverse().find(x=>
+    x.kind==="ATTACK"&&x.by===by&&x.skillId===plan.id);
+  if(event){
+   event.skillId=plan.id;event.manaCost=plan.cost;event.skillName=plan.name;
+   if(next.pending)event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";
    const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
-   if(historical){historical.skillId=plan.id;historical.skillName=plan.name;historical.summary=event.summary;}
+   if(historical){historical.skillId=plan.id;historical.manaCost=plan.cost;
+    historical.skillName=plan.name;historical.summary=event.summary;}
   }
  }else if(plan.category==="CONSTRUCTION") {
   if(!plan.construction)throw new Error("La habilidad no tiene una creación configurada.");
@@ -661,6 +808,41 @@ export function applyResolvedCombatSkill(
   next=structuredClone(original);
   const owner=next.actors[by];
   const existing=next.constructions??[];
+  if(plan.mirror){
+    if(aim.constructionForm&&aim.constructionForm!=="FIELD")
+      throw new Error("Un espejo no puede configurarse como bloque o decoración.");
+    if(existing.length>=120)throw new Error("Hay demasiadas construcciones activas.");
+    const userLabel=typeof aim.constructionLabel==="string"?aim.constructionLabel.trim():"";
+    if(userLabel.length>60||/[\x00-\x1f]/.test(userLabel))
+      throw new Error("Nombre de espejo inválido.");
+    if(Math.abs(owner.positionMeters-next.actors[other(by)].positionMeters)>plan.rangeMeters)
+      throw new Error("El objetivo está fuera del alcance de invocación del espejo.");
+    const mirror:CombatConstruction={
+      id:by+"-"+plan.id+"-"+next.round+"-"+next.tick+"-"+existing.length,
+      owner:by,sourceSkillId:plan.id,material:"MIRROR",form:"MIRROR",
+      label:userLabel||plan.construction.label,center:point,createdRound:next.round,
+      tangible:true,durability:plan.mirror.durability,
+      mirror:{rayMultiplier:plan.mirror.rayMultiplier,reflectionMultiplier:plan.mirror.reflectionMultiplier,
+       rangeMeters:plan.rangeMeters,attackType:"PIERCE"},
+    };
+    next.constructions=[...existing,mirror];
+    // The cast itself creates the first magic piercing attack for one PA.
+    next=applyCombatCommand(next,by,{kind:"ATTACK",attackType:"PIERCE",
+     usesMagic:true,areaCenter:point},rolls,plan.rangeMeters);
+    if(!next.pending)throw new Error("No se pudo lanzar el primer rayo del espejo.");
+    next.pending.mirrorId=mirror.id;
+    next.pending.skill={id:plan.id,name:plan.name+" · Rayo",
+     damageMultiplier:plan.mirror.rayMultiplier,defenseFactor:1,finalMultiplier:1};
+    const event=next.log.at(-1);
+    if(event){
+      event.skillId=plan.id;event.skillName=plan.name;event.constructionId=mirror.id;
+      event.manaCost=plan.cost;
+      event.summary=owner.name+" invocó "+mirror.label+" y lanzó un rayo mágico de perforación.";
+      const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
+      if(historical){historical.skillId=plan.id;historical.skillName=plan.name;
+       historical.constructionId=mirror.id;historical.summary=event.summary;}
+    }
+  }else{
   if(existing.length>=120)throw new Error("Hay demasiadas construcciones activas.");
   const form=resolveConstructionForm(plan.construction.material,aim.constructionForm,
    existing.some(x=>x.owner===by&&x.sourceSkillId===plan.id&&x.form==="FIELD"));
@@ -684,6 +866,7 @@ export function applyResolvedCombatSkill(
     summary:owner.name+" creó "+construction.label+" ("+form+")"+
      (resistance?" y activó automáticamente la pasiva de resistencia":"")});
   advanceRoundIfComplete(next);
+  }
  }else{
   next=structuredClone(original);
   const actor=next.actors[by];

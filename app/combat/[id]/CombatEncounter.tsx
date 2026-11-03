@@ -2,11 +2,14 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
 import CombatSkillLoadout from "./CombatSkillLoadout";
+import CombatCharacterHud, {type CombatPanel} from "./CombatCharacterHud";
+import CombatDialog from "./CombatDialog";
+import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {
-  actionPoints, canAct, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  actionPoints, canAct, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, effectiveWeaponReachMeters, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type PhysicalAttackSource, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
@@ -23,6 +26,10 @@ const options: Array<{value:DefenseChoice,label:string,description:string}> = [
  {value:"CONSTRUCTION",label:"Bloque de construcción",description:"Interceptar usando una barrera colocada en el terreno"},
  {value:"NONE",label:"No reaccionar",description:"Recibir el impacto sin respuesta activa"},
 ];
+const defenseIcons:Record<DefenseChoice,typeof Footprints>={
+ DODGE:Footprints,BLOCK:Shield,ENDURE:ShieldCheck,REPEL:MoveUpRight,
+ DEFLECT:Swords,MAGIC_FIELD:WandSparkles,CONSTRUCTION:Box,NONE:Ban,
+};
 const defaultPath:Point[]=[{x:0.1,y:0.5},{x:0.9,y:0.5}];
 const attackNames={CUT:"Corte",BLUNT:"Contundente",PIERCE:"Penetración"} as const;
 const fieldNames={CONCENTRATED:"Concentrada",DISPERSED:"Dispersa",SOLID:"Sólida"} as const;
@@ -63,9 +70,22 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
 }
 export default function CombatEncounter({id}:{id:string}) {
  const [view,setView]=useState<View|null>(null);
+ const [hudOpen,setHudOpen]=useState(false);
+ const [panel,setPanel]=useState<CombatPanel>("none");
+ const [skillCategory,setSkillCategory]=useState<string|null>(null);
+ const [characterData,setCharacterData]=useState<any>(null);
+ const [characterDataError,setCharacterDataError]=useState("");
+ const [advancingNpc,setAdvancingNpc]=useState(false);
+ const lastNpcAdvance=useRef("");
+ const openPanel=useCallback((next:CombatPanel,category:string|null=null)=>{
+  setPanel(next);if(next==="skills")setSkillCategory(category);
+  setHudOpen(false);
+ },[]);
+ const closePanel=useCallback(()=>setPanel("none"),[]);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [shareStatus,setShareStatus]=useState("");
+ const [actionFeedback,setActionFeedback]=useState("");
  const [narrativeCopyStatus,setNarrativeCopyStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
  const [attackSource,setAttackSource]=useState<PhysicalAttackSource>("MAIN_HAND");
@@ -74,8 +94,11 @@ export default function CombatEncounter({id}:{id:string}) {
 
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
  const [constructionCenter,setConstructionCenter]=useState<Point|null>(null);
+ const [constructionMaterials,setConstructionMaterials]=useState<Partial<Record<Side,string[]>>>({});
+ const [constructionSkills,setConstructionSkills]=useState<Partial<Record<Side,CombatSkillPreview[]>>>({});
  const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK">("FIELD");
  const [constructionLabel,setConstructionLabel]=useState("");
+ const [attackTargetId,setAttackTargetId]=useState("");
  const [karmaAllocation,setKarmaAllocation]=useState<Record<string,number>>({});
  const [defenseConstruction,setDefenseConstruction]=useState("");
  const karmaRequestRef=useRef<{key:string;id:string}|null>(null);
@@ -106,9 +129,15 @@ export default function CombatEncounter({id}:{id:string}) {
     window.setTimeout(()=>setFlash(false),330);
    }
    if(key)lastResolution.current=key;
-   setError("");
+   // A successful background poll must never erase a rejected player action.
   }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar el combate.");}
  },[id]);
+ const onConstructionMaterialsChange=useCallback((owner:Side,materials:string[])=>{
+  setConstructionMaterials(previous=>({...previous,[owner]:materials}));
+ },[]);
+ const onConstructionSkillsChange=useCallback((owner:Side,skills:CombatSkillPreview[])=>{
+  setConstructionSkills(previous=>({...previous,[owner]:skills}));
+ },[]);
  const encounterFinished=view?.state.status==="FINISHED";
  useEffect(()=>{
   if(encounterFinished)return; // Once FINISHED, no more background requests.
@@ -118,7 +147,7 @@ export default function CombatEncounter({id}:{id:string}) {
  },[load,encounterFinished]);
  async function submit(command:CombatCommand | {kind:"ADVANCE"}) {
   if(busy)return;
-  setBusy(true);setError("");
+  setBusy(true);setError("");setActionFeedback("");
   try {
    const r=await fetch("/api/combat/"+id+"/actions",{
     method:"POST",headers:{"Content-Type":"application/json"},
@@ -129,7 +158,15 @@ export default function CombatEncounter({id}:{id:string}) {
    setView(v=>v?{...v,state:data.state}:v);
    if(command.kind==="BOOST_KARMA"){setKarmaAllocation({});karmaRequestRef.current=null;void load();}
    if(command.kind==="DEFEND")setPredictedCenter(null);
-   if(command.kind==="CAST_SKILL")castRequestRef.current=null;
+   if(command.kind==="CAST_SKILL"){
+    castRequestRef.current=null;
+    const event=(data.state as CombatState).log.filter(e=>e.skillId===command.skillId).at(-1);
+    setActionFeedback(event?.summary??"Habilidad ejecutada. Revisa el registro de combate.");
+    setPanel("none");setConstructionCenter(null);
+   }else if(command.kind==="BOOST_KARMA"){
+    setActionFeedback("Mini boost aplicado: el karma se descontó y los bonos duran este combate.");
+    setPanel("none");
+   }
    const evt=(data.state as CombatState).log.filter(e=>e.kind==="RESOLVE").at(-1);
    if(evt && evt.tick+":"+evt.summary+":"+evt.defense!==lastResolution.current) {
     setFlash(true);window.setTimeout(()=>setFlash(false),330);
@@ -166,6 +203,7 @@ export default function CombatEncounter({id}:{id:string}) {
   setPoints(previous=>previous.length<2?[...previous,point]:previous);
  }
  const state=view?.state;
+ const opposingSide:Side=side==="PLAYER"?"NPC":"PLAYER";
  const isPvp=state?.actors.NPC.characterId!==null && state?.actors.NPC.characterId!==undefined;
  async function shareEncounter(){
   try {
@@ -198,15 +236,73 @@ export default function CombatEncounter({id}:{id:string}) {
   ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
   : (defense==="MAGIC_FIELD"?"DODGE":defense);
  const hasAccess=view?.permissions[side]??false;
+ useEffect(()=>{
+  const characterId=actor?.characterId;
+  if(!hasAccess||!characterId){setCharacterData(null);setCharacterDataError("");return;}
+  let active=true;
+  setCharacterData(null);setCharacterDataError("");
+  fetch("/api/characters/"+characterId,{cache:"no-store"})
+   .then(async response=>{
+    const data=await response.json();
+    if(!response.ok)throw new Error(data?.error??"No se pudieron cargar datos de ficha.");
+    if(active)setCharacterData(data);
+   }).catch(e=>{if(active)setCharacterDataError(e instanceof Error?e.message:"Datos de ficha no disponibles.");});
+  return ()=>{active=false;};
+ },[actor?.characterId,hasAccess]);
+
+ const creationMaterials=constructionMaterials[side]??[];
+ const canCreateObjects=hasAccess&&creationMaterials.length>0;
+ const canCreateMaterialBlocks=creationMaterials.some(material=>material!=="LIGHT"&&material!=="MIRROR");
+ const enemyMirrors=state?.constructions?.filter(c=>c.owner!==side&&c.form==="MIRROR"&&(c.durability??0)>0)??[];
+ const selectedAttackTargetId=enemyMirrors.some(c=>c.id===attackTargetId)?attackTargetId:"";
  const defending=!!pending&&pending.against===side;
  const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
+ const npcNeedsInitiative=Boolean(state&&state.status==="ACTIVE"&&
+   state.actors.NPC.characterId===null&&hasAccess&&side==="PLAYER"&&!state.pending&&
+   !canAct(state,"PLAYER")&&canAct(state,"NPC"));
+ useEffect(()=>{
+  if(!npcNeedsInitiative||!state||advancingNpc||busy)return;
+  const key=[id,state.round,state.tick,state.actors.NPC.spentTicks,
+   state.actors.PLAYER.spentTicks,state.actors.NPC.spentAp].join(":");
+  if(lastNpcAdvance.current===key)return;
+  lastNpcAdvance.current=key;
+  let active=true;
+  setAdvancingNpc(true);
+  fetch("/api/combat/"+id+"/actions",{
+   method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({side:"PLAYER",command:{kind:"ADVANCE"}}),
+  }).then(async response=>{
+   const data=await response.json();
+   if(!response.ok)throw new Error(data?.error??"No se pudo avanzar la iniciativa rival.");
+   if(active)setView(previous=>previous?{...previous,state:data.state}:previous);
+  }).catch(e=>{if(active)setError(e instanceof Error?e.message:"No se pudo avanzar la iniciativa.");})
+   .finally(()=>{if(active)setAdvancingNpc(false);});
+  return ()=>{active=false;};
+ },[id,npcNeedsInitiative,state?.round,state?.tick,
+    state?.actors.NPC.spentTicks,state?.actors.NPC.spentAp,
+    state?.actors.PLAYER.spentTicks,busy]);
+
  const karmaAvailable=view?.karma?.[side]??0;
  const karmaPoints=Object.values(karmaAllocation).reduce((sum,n)=>sum+(Number.isSafeInteger(n)&&n>0?n:0),0);
  const karmaCost=karmaPoints*2;
  const defenderBlocks=state?.constructions?.filter(c=>c.owner===side&&c.form==="BLOCK"&&
    (c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35)??[];
  const chosenDefenseConstruction=defenderBlocks.some(c=>c.id===defenseConstruction)?defenseConstruction:defenderBlocks[0]?.id;
+ const targetDistance=actor&&state?Math.abs(actor.positionMeters-state.actors[opposingSide].positionMeters):0;
+ const basicReach=attackMode==="MAGIC_AREA"?BASIC_MAGIC_RANGE_METERS:
+   actor?effectiveWeaponReachMeters(actor,attackMode==="THROW",activeAttackSource):0;
+ const basicOutOfRange=targetDistance>basicReach;
  const maxMove=actor?Math.max(1,Math.round(actor.race/10)):1;
+ const chooseAttackMode=(mode:"MAGIC_AREA"|"MAIN_HAND"|"OFF_HAND")=>{
+  setAreaCenter(null);
+  if(mode==="MAGIC_AREA"){setAttackMode("MAGIC_AREA");return;}
+  const source:PhysicalAttackSource=mode==="MAIN_HAND"
+   ?(actor?.equippedWeapon?"MAIN_HAND":"FIST_RIGHT")
+   :(actor?.offhandWeapon?"OFF_HAND":"FIST_LEFT");
+  setAttackSource(source);
+  const weapon=actor?weaponForSource(actor,source):undefined;
+  setAttackMode(weapon?.mode==="RANGED"?"RANGED":"PHYSICAL");
+ };
  const normalizedPath=physicalAnchor
    ? [physicalAnchor,...(points.length>1?points.slice(1):[physicalAnchor])]
    : points.length>1?points:defaultPath;
@@ -228,8 +324,9 @@ export default function CombatEncounter({id}:{id:string}) {
    trajectory:construction||skill.usesMagic?undefined:normalizedPath,
    attackSource:construction||skill.usesMagic?undefined:activeAttackSource,
    areaCenter:construction?constructionCenter??undefined:skill.usesMagic?areaCenter??undefined:undefined,
-   constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":constructionForm):undefined,
-   constructionLabel:construction?constructionLabel.trim():undefined});
+   constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
+   constructionLabel:construction?constructionLabel.trim():undefined,
+   targetConstructionId:!construction&&selectedAttackTargetId?selectedAttackTargetId:undefined});
  }
  const chronicle=state?.status==="FINISHED"
   ?(state.narrativeVersion===2&&state.narrativeText
@@ -242,10 +339,19 @@ export default function CombatEncounter({id}:{id:string}) {
    setNarrativeCopyStatus("No se pudo copiar automáticamente. Selecciona el texto y cópialo manualmente.");
   }
  }
+ const combatStatRows:Array<[string,string|number|undefined]>=[
+  ["HP",actor?actor.hp+"/"+actor.maxHp:"—"],
+  ["Maná",state?.mana?.[side]?state.mana[side].current+"/"+state.mana[side].max:"—"],
+  ["PA",actor?remainingAp(actor)+"/"+actionPoints(actor.constitution):"—"],
+  ["Fuerza",actor?.strength],["Agilidad",actor?.agility],["Constitución",actor?.constitution],
+  ["Ataque físico",actor?.physicalAttack],["Ataque mágico",actor?.magicAttack],
+  ["Defensa física",actor?.physicalDefense],["Defensa mágica",actor?.magicDefense],
+  ["Precisión",actor?.precision],["Esquive",actor?.dodge],["Crítico",actor?.critical],["Suerte",actor?.luck],
+ ];
  const hint=pending?.areaHint??"centro";
  const warningCells=magicHintCells(hint);
  const polyline=normalizedPath.map(p=>(p.x*100).toFixed(1)+","+(p.y*100).toFixed(1)).join(" ");
- return <main className="mx-auto max-w-5xl px-4 py-7 text-zinc-100">
+ return <main className="mx-auto max-w-5xl px-3 py-5 pb-28 text-zinc-100 sm:px-4 sm:py-7 sm:pb-28">
   {state?.droppedWeapons?.length ? <p className="mb-3 text-sm text-amber-200">Armas arrojadas pendientes de recuperar: {state.droppedWeapons.map(w=>w.weapon.name+" ("+state.actors[w.owner].name+")").join(", ")}. Puedes desplazarte hacia ellas y recogerlas durante el encuentro.</p> : null}
   {flash&&<div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[3000] bg-rose-200/50"/>}
   <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
@@ -260,6 +366,7 @@ export default function CombatEncounter({id}:{id:string}) {
   </div>
   {error&&<p role="alert" className="mb-4 rounded-lg border border-rose-600/50 p-3 text-rose-300">{error}</p>}
   {shareStatus&&<p role="status" className="mb-3 text-sm text-cyan-300">{shareStatus}</p>}
+  {actionFeedback&&<p role="status" className="mb-3 rounded-lg border border-emerald-700/50 bg-emerald-950/20 p-3 text-sm text-emerald-200">{actionFeedback}</p>}
   {!state?<p>Cargando combate…</p>:<>
    <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-zinc-700 p-3 text-sm">
     <span>Turno: <b>{state.round}</b></span><span>Tick global: <b>{state.tick}</b></span>
@@ -273,17 +380,23 @@ export default function CombatEncounter({id}:{id:string}) {
     {state.winner&&<b>Ganador: {state.actors[state.winner].name}</b>}
    </div>
 
-   <div className="grid gap-3 sm:grid-cols-2">
-    <Fighter name={state.actors.PLAYER.name} side="PLAYER" state={state}/>
-    <Fighter name={state.actors.NPC.name} side="NPC" state={state}/>
+   <div className="rounded-2xl border border-zinc-800 p-3">
+    <p className="mb-2 text-xs uppercase tracking-[.15em] text-zinc-500">Adversario</p>
+    <Fighter name={state.actors[opposingSide].name} side={opposingSide} state={state}/>
    </div>
+   <CombatCharacterHud fighter={state.actors[side]} opponent={state.actors[opposingSide]}
+    side={side} mana={state.mana?.[side]} flair={characterData?.flair??characterData?.character?.flair}
+    open={hudOpen} onOpenChange={setHudOpen} onPanel={openPanel}
+    canCreate={canCreateObjects} attackMode={attackMode} attackSource={activeAttackSource}
+    onChooseAttack={chooseAttackMode} canActNow={ready} status={state.status}/>
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
-    <label className="block text-sm font-semibold">Controlar
-     <select value={side} onChange={e=>setSide(e.target.value as Side)} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2">
-      {view?.permissions.PLAYER&&<option value="PLAYER">{state.actors.PLAYER.name}</option>}
-      {view?.permissions.NPC&&<option value="NPC">{state.actors.NPC.name}</option>}
+    {view?.permissions.PLAYER&&view?.permissions.NPC&&<label className="mb-3 block text-xs text-zinc-400">Controlar personaje
+     <select value={side} onChange={e=>setSide(e.target.value as Side)}
+      className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm">
+      <option value="PLAYER">{state.actors.PLAYER.name}</option>
+      <option value="NPC">{state.actors.NPC.name}</option>
      </select>
-    </label>
+    </label>}
     {pending?
       <p role="status" className="mt-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-3 text-amber-200">
        <b>Reacción pendiente:</b> {state.actors[pending.by].name} lanzó {pending.usesMagic?<>una explosión mágica básica de <b>{attackNames[pending.attackType]}</b></>:<>un ataque de <b>{attackNames[pending.attackType]}</b></>} contra {state.actors[pending.against].name}.
@@ -302,20 +415,27 @@ export default function CombatEncounter({id}:{id:string}) {
       </button>}
     {defending&&hasAccess&&<div className="mt-4 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
-     <div className="grid gap-2 sm:grid-cols-2">
+     <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Opciones de defensa">
       {options.filter(opt=>pending.usesMagic
         ? ["DODGE","MAGIC_FIELD","CONSTRUCTION","ENDURE","NONE"].includes(opt.value)&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)
-        : opt.value!=="MAGIC_FIELD"&&(opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).map(opt=><label key={opt.value} className="flex gap-2 rounded-lg border border-zinc-700 p-3">
-       <input type="radio" disabled={opt.value==="MAGIC_FIELD"&&(state.mana?.[side]?.current??0)<1} checked={selectedDefense===opt.value} onChange={()=>setDefense(opt.value)}/>
-       <span><b>{opt.label}{opt.value==="MAGIC_FIELD"
-         ? " ("+fieldNames[actor?.magicFieldType??"CONCENTRATED"]+")":""}</b>
-        <small className="block text-zinc-400">{opt.description}</small>
-        {opt.value==="MAGIC_FIELD"&&actor?.magicFieldDescription&&
-          <small className="mt-1 block text-zinc-400">{actor.magicFieldDescription}</small>}
-       </span>
-      </label>)}
+        : opt.value!=="MAGIC_FIELD"&&(opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).map(opt=>{
+       const DefenseIcon=defenseIcons[opt.value];
+       const active=selectedDefense===opt.value;
+       return <button key={opt.value} type="button" aria-pressed={active} aria-label={opt.label} title={opt.label}
+        disabled={opt.value==="MAGIC_FIELD"&&(state.mana?.[side]?.current??0)<1}
+        onClick={()=>setDefense(opt.value)}
+        className={"flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-[10px] transition disabled:opacity-30 "+
+          (active?"border-amber-400 bg-amber-400/15 text-amber-200":"border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:border-zinc-500 hover:text-white")}>
+        <DefenseIcon size={24} strokeWidth={1.7}/><span className="text-center leading-3">{opt.label}</span>
+       </button>;
+      })}
      </div>
+     <p className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-300">
+      {options.find(opt=>opt.value===selectedDefense)?.description}
+      {selectedDefense==="MAGIC_FIELD"&&actor?.magicFieldDescription?" · "+actor.magicFieldDescription:""}
+      {selectedDefense==="MAGIC_FIELD"?" · "+fieldNames[actor?.magicFieldType??"CONCENTRATED"]:""}
+     </p>
      {(pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)&&<div className="space-y-2">
       <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":"Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo."} Toca el terreno para marcarlo. La región resaltada es una pista, no el punto exacto; acertar la predicción también requiere superar la tirada defensiva.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
@@ -385,62 +505,48 @@ export default function CombatEncounter({id}:{id:string}) {
         {droppedForActor.map(w=><option key={(w.slot??"MAIN_HAND")+w.weapon.name} value={w.slot??"MAIN_HAND"}>{w.weapon.name} · {w.slot==="OFF_HAND"?"Secundaria":"Principal"}</option>)}
       </select>}
       <button disabled={!ready} onClick={()=>void submit({kind:"MOVE",meters,direction:moveDirection,weaponSlot:moveDirection==="WEAPON"?activeRecoverSlot:undefined})}
-       className="rounded-lg border border-cyan-500 px-4 py-2 text-cyan-200 disabled:opacity-40">Mover</button>
+       className="rounded-lg border border-cyan-500 px-4 py-2 text-cyan-200 disabled:opacity-40"><Footprints size={17} className="mr-1 inline-block align-[-3px]"/> Mover</button>
       <button disabled={!ready} onClick={()=>void submit({kind:"WAIT"})}
-       className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40">Terminar turno</button>
+       className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40"><Undo2 size={17} className="mr-1 inline-block align-[-3px]"/> Terminar turno</button>
      </div>
-     <p className="text-sm text-zinc-300">Distancia al oponente: <b>{Math.abs(state.actors.PLAYER.positionMeters-state.actors.NPC.positionMeters).toFixed(2)} m</b>
-       {" · "}{selectedWeapon?<>Alcance de {selectedWeapon.name}: <b>{selectedWeapon.effectiveRangeMeters}–{selectedWeapon.maximumRangeMeters??selectedWeapon.effectiveRangeMeters} m</b>
-         {selectedWeapon.throwable&&<>{" · "}Arrojar: {selectedWeapon.throwRangeMeters} m</>}</>
-         :<>Alcance de puño: <b>{(actor?.unarmedReachMeters??Math.max(0.3,(actor?.heightMeters??1.7)*0.45)).toFixed(2)} m</b></>}
-       {" · "}Magia básica: {BASIC_MAGIC_RANGE_METERS} m
-     </p>
-     <section className="rounded-xl border border-amber-400/30 bg-zinc-950 p-3">
-      <h3 className="font-semibold text-amber-200">Mini boost de karma 🪷</h3>
-      <p className="mt-1 text-xs text-zinc-400">2 karma por +1 en una estadística base. Toda la distribución cuesta una sola acción (1 PA); el karma gastado no se recupera y los bonos terminan con el combate.</p>
-      <p className="mt-2 text-sm">Saldo: <b>{karmaAvailable} 🪷</b> · Gasto seleccionado: <b>{karmaCost} 🪷</b> · Coste de acción: <b>1 PA</b></p>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-       {(view?.boostStats??[]).map(stat=><label className="text-xs" key={stat.key}>
-        {stat.label}
-        <input aria-label={"Puntos de "+stat.label} type="number" min="0" step="1"
-         value={karmaAllocation[stat.key]??0}
-         onChange={e=>setKarmaAllocation(old=>({...old,[stat.key]:Number(e.target.value)}))}
-         className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2"/>
-       </label>)}
-      </div>
-      <button type="button" disabled={!ready||karmaPoints<=0||karmaCost>karmaAvailable||
-        Object.values(karmaAllocation).some(n=>!Number.isSafeInteger(n)||n<0)}
-       onClick={boostKarma} className="mt-3 rounded-lg border border-amber-400 px-4 py-2 font-semibold text-amber-200 disabled:opacity-40">
-       Activar boost ({karmaCost} 🪷, 1 PA)
-      </button>
-      {Object.keys(state.karmaBoosts?.[side]??{}).length>0&&
-       <p className="mt-2 text-xs text-amber-300">Bonos de este encuentro: {Object.entries(state.karmaBoosts?.[side]??{}).map(([stat,n])=>stat+" +"+n).join(", ")}</p>}
-     </section>
      <div className="rounded-xl border border-zinc-700 p-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
        <b>{attackMode==="MAGIC_AREA"?(displayedAttackType==="CUT"?"Elige el centro de la línea mágica":displayedAttackType==="PIERCE"?"Elige la punta mágica":"Elige el centro de la explosión"):displayedAttackType==="PIERCE"?"Marca el punto de perforación":displayedAttackType==="BLUNT"?"Dibuja un golpe contundente rígido":"Dibuja la trayectoria del corte"}</b>
        <button onClick={()=>{setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);setAreaCenter(null);}} className="rounded border border-zinc-600 px-3 py-1 text-xs">Restablecer</button>
       </div>
-      <label className="mb-3 block text-sm">Modalidad
-        <select value={attackMode} onChange={e=>setAttackMode(e.target.value as "PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW")}
-          className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
-          <option value="PHYSICAL">Ataque físico cuerpo a cuerpo</option>
-          {selectedWeapon?.mode==="RANGED"&&<option value="RANGED">Proyectil físico ({selectedWeapon.name})</option>}
-          {selectedWeapon?.throwable&&<option value="THROW">Arrojar arma ({selectedWeapon.name})</option>}
-          <option value="MAGIC_AREA">Explosión mágica básica (área)</option>
-        </select>
-      </label>
-      {attackMode!=="MAGIC_AREA"&&<label className="mb-3 block text-sm">Arma o mano para atacar
-        <select value={activeAttackSource} onChange={e=>{
-          const source=e.target.value as PhysicalAttackSource;
-          setAttackSource(source);setAreaCenter(null);
-          setAttackMode(actor&&weaponForSource(actor,source)?.mode==="RANGED"?"RANGED":"PHYSICAL");
-        }} className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
-          {actor?.equippedWeapon&&<option value="MAIN_HAND">Principal · {actor.equippedWeapon.name} · {attackNames[actor.equippedWeapon.attackType]}</option>}
-          {actor?.offhandWeapon&&<option value="OFF_HAND">Secundaria · {actor.offhandWeapon.name} · {attackNames[actor.offhandWeapon.attackType]}</option>}
-          <option value="FIST_RIGHT">Puño derecho · Contundente</option>
-          <option value="FIST_LEFT">Puño izquierdo · Contundente</option>
-        </select>
+      <p className="mb-2 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+       {attackMode==="MAGIC_AREA"?<><WandSparkles size={16}/> Magia básica</>:
+        <><Swords size={16}/> {selectedWeapon?.name??(activeAttackSource==="KICK"?"Patada":activeAttackSource==="FIST_LEFT"?"Puño izquierdo":"Puño derecho")}</>}
+       <span>· Cambia de mano o magia en el panel inferior.</span>
+      </p>
+      {attackMode!=="MAGIC_AREA"&&<details className="mb-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-2">
+       <summary className="cursor-pointer text-xs text-zinc-400">Otras opciones: puños, patada, proyectiles y arrojar armas</summary>
+       <div className="mt-2 flex flex-wrap gap-2">
+        {(["FIST_RIGHT","FIST_LEFT","KICK"] as const).map(source=><button type="button" key={source}
+         aria-pressed={activeAttackSource===source} onClick={()=>{setAttackSource(source);setAttackMode("PHYSICAL");setAreaCenter(null);}}
+         className={"flex min-h-9 items-center gap-1 rounded-lg border px-2 text-xs "+
+          (activeAttackSource===source?"border-cyan-400 text-cyan-200":"border-zinc-700 text-zinc-400")}>
+         {source==="KICK"?<Footprints size={15}/>:<Hand size={15}/>} {source==="KICK"?"Patada":source==="FIST_LEFT"?"Puño izquierdo":"Puño derecho"}
+        </button>)}
+        {selectedWeapon?.throwable&&<button type="button" onClick={()=>{setAttackMode(attackMode==="THROW"?"PHYSICAL":"THROW");setAreaCenter(null);}}
+         aria-pressed={attackMode==="THROW"} className="flex min-h-9 items-center gap-2 rounded-lg border border-zinc-700 px-3 text-xs text-zinc-300">
+         <Send size={15}/> {attackMode==="THROW"?"Volver a cuerpo a cuerpo":"Arrojar arma"}
+        </button>}
+        {selectedWeapon?.mode==="RANGED"&&<button type="button" onClick={()=>{setAttackMode("RANGED");setAreaCenter(null);}}
+         aria-pressed={attackMode==="RANGED"} className="flex min-h-9 items-center gap-2 rounded-lg border border-zinc-700 px-3 text-xs text-zinc-300">
+         <Target size={15}/> Disparo a distancia
+        </button>}
+       </div>
+      </details>}
+      {enemyMirrors.length>0&&<label className="mb-3 block text-sm">Objetivo del ataque
+       <select value={selectedAttackTargetId} onChange={e=>setAttackTargetId(e.target.value)}
+        className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
+        <option value="">Personaje rival</option>
+        {enemyMirrors.map(mirror=><option key={mirror.id} value={mirror.id}>
+         {mirror.label} · resistencia {mirror.durability} · posición {Math.round(mirror.center.x*100)}%, {Math.round(mirror.center.y*100)}%
+        </option>)}
+       </select>
+       <span className="mt-1 block text-xs text-zinc-400">Puedes atacar físicamente el espejo para romperlo. La magia que alcance su posición se reflejará según sus efectos.</span>
       </label>}
       <p className="mb-2 text-xs text-zinc-400">{attackMode==="MAGIC_AREA"
        ? "Toca una posición: el punto será el epicentro y el círculo la zona de explosión. El defensor solo verá la región aproximada. Ataque básico con coste temporal normal y "+BASIC_MAGIC_MANA_COST+" de maná en esta fase; las habilidades con maná llegan en fase 2."
@@ -454,6 +560,13 @@ export default function CombatEncounter({id}:{id:string}) {
        className={attackMode!=="PHYSICAL"?"aspect-square w-full max-w-md cursor-crosshair touch-none rounded-lg bg-zinc-900":"h-52 w-full touch-none rounded-lg bg-zinc-900"}
        aria-label="Lienzo para dibujar la trayectoria del ataque">
        {Array.from({length:9},(_,i)=><line key={i} x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth="0.3"/>)}
+       {enemyMirrors.map(mirror=><g key={mirror.id} pointerEvents="none">
+        <rect x={mirror.center.x*100-3.5} y={mirror.center.y*100-7}
+         width="7" height="14" rx="1.5" stroke={selectedAttackTargetId===mirror.id?"#fbbf24":"#67e8f9"}
+         fill="#164e63" strokeWidth={selectedAttackTargetId===mirror.id?1.5:0.8}/>
+        <path d={`M${mirror.center.x*100-1.8},${mirror.center.y*100-5} l3.5,9`}
+         stroke="#a5f3fc" strokeWidth="0.6"/>
+       </g>)}
        {attackMode!=="MAGIC_AREA"&&<circle cx="50" cy="50" r={displayedAttackType==="BLUNT"?16:displayedAttackType==="CUT"?10:6.5}
          stroke="#fb7185" strokeWidth="0.9" strokeDasharray="2 2" fill="#fb7185" fillOpacity={0.08}/>}
        {attackMode!=="MAGIC_AREA"&&<circle cx="50" cy="50" r="1.2" fill="#fb7185"/>}
@@ -477,12 +590,13 @@ export default function CombatEncounter({id}:{id:string}) {
           <span className="ml-2 text-xs text-zinc-400">Configurado en la ficha o el arma</span>
         </div>
        </div>
-       <button disabled={!ready||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
+       {basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">El objetivo está a {targetDistance.toFixed(2)} m y el alcance máximo seleccionado es {basicReach.toFixed(2)} m. Acércate antes de atacar.</p>}
+       <button disabled={!ready||basicOutOfRange||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
-           ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined}
-           : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
-           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
-           : {kind:"ATTACK",attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath})}
+           ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : {kind:"ATTACK",attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath,targetConstructionId:selectedAttackTargetId||undefined})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
         {attackMode==="MAGIC_AREA"?"Lanzar magia":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
        </button>
@@ -491,60 +605,156 @@ export default function CombatEncounter({id}:{id:string}) {
     </div>}
    </section>
    {isPvp&&<p className="mt-4 text-xs text-zinc-400">PvP compartido: el dueño de cada personaje abre esta misma URL en su cuenta. Las acciones aparecen aproximadamente cada 3,5 segundos; no hay invitaciones automáticas todavía.</p>}
-   {state.status==="ACTIVE"&&hasAccess&&<section className="mt-5 rounded-xl border border-cyan-400/30 bg-zinc-950 p-4">
-    <h2 className="font-semibold text-cyan-200">Terreno de construcciones</h2>
-    <p className="mt-1 text-xs text-zinc-400">Marca dónde aparecerá tu creación antes de activar Fotoconstrucción o Sikatā. La luz es decorativa y no bloquea ataques. La arena hereda automáticamente sus pasivas aprobadas; para formar un bloque necesitas crear primero un campo de arena.</p>
-    <svg aria-label="Seleccionar posición de construcción" viewBox="0 0 100 100"
-     role="button" tabIndex={0}
+
+   <CombatDialog open={panel==="karma"} title="Mini boost de karma" onClose={closePanel}>
+    {error&&<p role="alert" className="mb-3 text-sm text-rose-300">{error}</p>}
+     <section className="rounded-xl border border-amber-400/30 bg-zinc-950 p-3">
+      <h3 className="font-semibold text-amber-200">Mini boost de karma 🪷</h3>
+      <p className="mt-1 text-xs text-zinc-400">2 karma por +1 en una estadística base. Toda la distribución cuesta una sola acción (1 PA); el karma gastado no se recupera y los bonos terminan con el combate.</p>
+      <p className="mt-2 text-sm">Saldo: <b>{karmaAvailable} 🪷</b> · Gasto seleccionado: <b>{karmaCost} 🪷</b> · Coste de acción: <b>1 PA</b></p>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+       {(view?.boostStats??[]).map(stat=><label className="text-xs" key={stat.key}>
+        {stat.label}
+        <input aria-label={"Puntos de "+stat.label} type="number" min="0" step="1"
+         value={karmaAllocation[stat.key]??0}
+         onChange={e=>setKarmaAllocation(old=>({...old,[stat.key]:Number(e.target.value)}))}
+         className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2"/>
+       </label>)}
+      </div>
+      <button type="button" disabled={!ready||karmaPoints<=0||karmaCost>karmaAvailable||
+        Object.values(karmaAllocation).some(n=>!Number.isSafeInteger(n)||n<0)}
+       onClick={boostKarma} className="mt-3 rounded-lg border border-amber-400 px-4 py-2 font-semibold text-amber-200 disabled:opacity-40">
+       Activar boost ({karmaCost} 🪷, 1 PA)
+      </button>
+      {Object.keys(state.karmaBoosts?.[side]??{}).length>0&&
+       <p className="mt-2 text-xs text-amber-300">Bonos de este encuentro: {Object.entries(state.karmaBoosts?.[side]??{}).map(([stat,n])=>stat+" +"+n).join(", ")}</p>}
+     </section>
+
+   </CombatDialog>
+   <CombatDialog open={panel==="construction"&&canCreateObjects&&state.status==="ACTIVE"} title="Constructor de objetos" onClose={closePanel}>
+    {error&&<p role="alert" className="mb-3 rounded-lg border border-rose-700/50 p-2 text-sm text-rose-200">{error}</p>}
+    {!ready&&<p role="status" className="mb-3 text-sm text-amber-300">{advancingNpc?"El adversario está actuando...":"Aún no tienes la iniciativa: puedes preparar la posición y lanzar la creación al llegar tu turno."}</p>}
+   {state.status==="ACTIVE"&&(canCreateObjects||(state.constructions?.length??0)>0)&&<section className="mt-5 rounded-xl border border-cyan-400/30 bg-zinc-950 p-4">
+    <h2 className="font-semibold text-cyan-200">{canCreateObjects?"Constructor de objetos":"Construcciones en el campo"}</h2>
+    {canCreateObjects&&<p className="mt-1 text-xs text-zinc-400">Selecciona dónde colocar una creación y actívala desde una habilidad con efecto Crear. Sus propiedades dependen del material y de las pasivas configuradas. Los objetos decorativos no bloquean ataques.</p>}
+    <svg aria-label={canCreateObjects?"Seleccionar posición de construcción":"Construcciones presentes en el campo"} viewBox="0 0 100 100"
+     role={canCreateObjects?"button":"img"} tabIndex={canCreateObjects?0:undefined}
      onClick={e=>{
+      if(!canCreateObjects)return;
       const rect=e.currentTarget.getBoundingClientRect();
       if(rect.width&&rect.height)setConstructionCenter({
        x:Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width)),
        y:Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height)),
       });
      }}
-     onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setConstructionCenter({x:0.5,y:0.5});}}}
-     className="mt-3 aspect-square w-full max-w-sm cursor-crosshair rounded-lg border border-zinc-600 bg-zinc-900">
+     onKeyDown={e=>{if(canCreateObjects&&(e.key==="Enter"||e.key===" ")){e.preventDefault();setConstructionCenter({x:0.5,y:0.5});}}}
+     className={"mt-3 aspect-square w-full max-w-sm rounded-lg border border-zinc-600 bg-zinc-900"+(canCreateObjects?" cursor-crosshair":"")}>
       {Array.from({length:9},(_,i)=><g key={i}>
        <line x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth=".4"/>
        <line x1="0" x2="100" y1={(i+1)*10} y2={(i+1)*10} stroke="#3f3f46" strokeWidth=".4"/>
       </g>)}
       <circle cx="50" cy="50" r="7" stroke="#a1a1aa" fill="none" strokeDasharray="2 2"/>
       {(state.constructions??[]).map(c=><g key={c.id}>
-       {c.form==="BLOCK"
+       {c.form==="MIRROR"
+        ?<g>
+          <rect x={c.center.x*100-4} y={c.center.y*100-8}
+           width="8" height="16" rx="1.5" fill="#164e63" stroke="#67e8f9" strokeWidth="1.2"/>
+          <path d={`M${c.center.x*100-2.5},${c.center.y*100-5} l5,11`}
+           stroke="#a5f3fc" strokeWidth=".8"/>
+         </g>
+        :c.form==="BLOCK"
         ?<rect x={c.center.x*100-7} y={c.center.y*100-7} width="14" height="14" rx="1" fill="#d6ab72" stroke="#facc15"/>
         :<circle cx={c.center.x*100} cy={c.center.y*100} r={c.form==="FIELD"?11:5}
          stroke={c.material==="LIGHT"?"#67e8f9":"#d6ab72"} strokeWidth="2"
          fill={c.material==="LIGHT"?"#67e8f9":"#d6ab72"} fillOpacity=".26"/>}
       </g>)}
-      {constructionCenter&&<circle cx={constructionCenter.x*100} cy={constructionCenter.y*100}
+      {canCreateObjects&&constructionCenter&&<circle cx={constructionCenter.x*100} cy={constructionCenter.y*100}
        r="3" fill="#fb7185" stroke="#fff" strokeWidth="1"/>}
     </svg>
-    <div className="mt-3 flex flex-wrap gap-3">
-     <label className="text-sm">Forma de arena
+    {canCreateObjects&&<div className="mt-3 flex flex-wrap gap-3">
+     {canCreateMaterialBlocks&&<label className="text-sm">Forma del material
       <select value={constructionForm} onChange={e=>setConstructionForm(e.target.value as "FIELD"|"BLOCK")}
        className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2">
-       <option value="FIELD">Campo de arena</option><option value="BLOCK">Bloque defensivo</option>
+       <option value="FIELD">Campo de material</option><option value="BLOCK">Bloque defensivo</option>
       </select>
-     </label>
+     </label>}
      <label className="text-sm">Nombre del objeto (opcional)
       <input value={constructionLabel} maxLength={60} onChange={e=>setConstructionLabel(e.target.value)}
-       className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2" placeholder="Esfera de luz"/>
+       className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2" placeholder="Nombre opcional"/>
      </label>
-    </div>
-    {!constructionCenter&&<p className="mt-2 text-xs text-amber-300">Selecciona una posición en el terreno para crear el objeto.</p>}
+    </div>}
+    {canCreateObjects&&!constructionCenter&&<p className="mt-2 text-xs text-amber-300">Selecciona una posición en el terreno para crear el objeto.</p>}
     {(state.constructions??[]).length>0&&<div className="mt-3 space-y-1">
      {state.constructions?.map(c=><p key={c.id} className="text-xs text-zinc-300">
-      {state.actors[c.owner].name}: {c.label} · {c.form==="BLOCK"?"bloque defensivo, resistencia "+c.durability:c.form==="DECOR"?"decorativo, sin efectos":"campo de material"}
+      {state.actors[c.owner].name}: {c.label} · {c.form==="MIRROR"?"espejo mágico, resistencia "+c.durability+" · rayo por turno · reflexión "+Math.round((c.mirror?.reflectionMultiplier??0)*100)+"%":c.form==="BLOCK"?"bloque defensivo, resistencia "+c.durability:c.form==="DECOR"?"decorativo, sin efectos":"campo de material"}
       {c.passive?" · pasiva de resistencia automática":""}
      </p>)}
     </div>}
    </section>}
+
+    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+     {(constructionSkills[side]??[]).map(skill=>{
+      const nextRound=state.skillCooldowns?.[side]?.[String(skill.id)]??0;
+      const cooled=nextRound===-1||nextRound>state.round;
+      const disabled=!ready||!constructionCenter||cooled||(state.mana?.[side]?.current??0)<skill.manaCost||
+        (skill.constructionMaterial==="MIRROR"&&targetDistance>(skill.rangeMeters??0));
+      return <button key={skill.id} type="button" disabled={disabled} onClick={()=>castSkill(skill)}
+       className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-cyan-500/70 bg-cyan-950/20 px-3 py-2 text-sm text-cyan-200 disabled:opacity-40">
+       <Plus size={16}/> Crear con {skill.name} · {skill.manaCost} maná
+      </button>;
+     })}
+    </div>
+    {canCreateObjects&&!constructionCenter&&<p className="mt-2 text-xs text-amber-300">Primero indica dónde aparecerá la construcción.</p>}
+    {(constructionSkills[side]??[]).some(skill=>skill.constructionMaterial==="MIRROR"&&targetDistance>(skill.rangeMeters??0))&&
+     <p className="mt-2 text-xs text-amber-300">Hay creaciones fuera de alcance. Acércate al adversario para invocarlas.</p>}
+    <button type="button" onClick={()=>{openPanel("skills",null);}} className="mt-3 flex items-center gap-2 rounded-lg border border-cyan-500 px-3 py-2 text-sm text-cyan-200">
+     <Sparkles size={16}/> Ver habilidades de creación
+    </button>
+   </CombatDialog>
+   <CombatDialog open={panel==="skills"} title="Habilidades de combate" onClose={closePanel}>
+    {error&&<p role="alert" className="mb-3 rounded-lg border border-rose-700/50 p-2 text-sm text-rose-200">{error}</p>}
+    {!ready&&state.status==="ACTIVE"&&<p role="status" className="mb-3 rounded-lg border border-amber-500/40 p-2 text-sm text-amber-300">
+      {advancingNpc?"El adversario está tomando su iniciativa.":defending?"Tienes una reacción pendiente; resuélvela antes de lanzar una habilidad.":"La habilidad estará disponible cuando te corresponda actuar."}
+    </p>}
    <CombatSkillLoadout encounterId={id} side={side} authorized={hasAccess}
     canUseSkill={ready} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
-    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={constructionCenter!==null}/>
+    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={targetDistance}/>
+
+   </CombatDialog>
+   <CombatDialog open={panel==="stats"} title="Estado y estadísticas" onClose={closePanel}>
+    <p className="mb-3 text-xs text-zinc-400">Estadísticas y recursos del encuentro actual. Los modificadores temporales no se guardan en la ficha.</p>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+     {combatStatRows.map(([label,value])=>
+      <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2">
+       <p className="text-xs text-zinc-400">{label}</p><b>{value??"—"}</b>
+      </div>)}
+    </div>
+    {Object.keys(state.karmaBoosts?.[side]??{}).length>0&&
+     <p className="mt-3 text-sm text-amber-200">Boosts de combate: {Object.entries(state.karmaBoosts?.[side]??{}).map(([stat,value])=>stat+" +"+value).join(", ")}</p>}
+    {actor?.characterId&&<Link href={"/characters/"+actor.characterId} className="mt-4 inline-block text-sm text-cyan-300">Ver ficha completa de estadísticas</Link>}
+   </CombatDialog>
+   <CombatDialog open={panel==="inventory"} title="Inventario del personaje" onClose={closePanel}>
+    {characterDataError&&<p role="status" className="mb-3 text-sm text-amber-300">{characterDataError}</p>}
+    <div className="grid gap-2 sm:grid-cols-2">
+     {(Array.isArray(characterData?.equipment)?characterData.equipment:[]).map((entry:any)=>
+      <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2">
+       <div className="flex items-center justify-between gap-2"><b className="text-sm">{entry.item?.name??entry.name??"Objeto"}</b>
+        <span className="text-xs text-zinc-400">×{entry.quantity??1}</span></div>
+       <p className="mt-1 text-xs text-zinc-500">{entry.item?.description??(entry.equipped?"Equipado":"Sin descripción")}</p>
+      </div>)}
+    </div>
+    {!characterData&&<p className="mt-2 text-sm text-zinc-400">Consultando inventario…</p>}
+    {characterData&&(!Array.isArray(characterData.equipment)||characterData.equipment.length===0)&&
+     <p className="mt-2 text-sm text-zinc-400">No hay objetos en el inventario.</p>}
+    <div className="mt-3 rounded-lg border border-zinc-800 p-3 text-sm text-zinc-400">
+     <p>Mano principal: {actor?.equippedWeapon?.name??"Libre"}</p>
+     <p>Mano secundaria: {actor?.offhandWeapon?.name??"Libre"}</p>
+    </div>
+    <p className="mt-2 text-xs text-zinc-500">Los HP y el maná mostrados en combate no se descuentan de la ficha.</p>
+    {actor?.characterId&&<Link href={"/characters/"+actor.characterId} className="mt-3 inline-block text-sm text-cyan-300">Abrir inventario completo en la ficha</Link>}
+   </CombatDialog>
    {state.status==="FINISHED"&&<section className="mt-5 rounded-xl border border-amber-500/40 bg-zinc-950 p-4" aria-label="Crónica del encuentro">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
      <h2 className="text-lg font-bold text-amber-200">Crónica del encuentro</h2>

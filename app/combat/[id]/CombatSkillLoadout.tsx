@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useState} from "react";
 import {EFFECT_LABELS} from "@/lib/effects/catalog";
-import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
+import {availableConstructionMaterials,type CombatSkillPreview} from "@/lib/combat/skill-preview";
 import type {Side} from "@/lib/combat/turn-engine";
 
 type RosterResponse={skills:Record<Side,CombatSkillPreview[]>};
@@ -17,13 +17,25 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,constructionAimReady,
+ encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,
 }:{encounterId:string;side:Side;authorized:boolean;
  canUseSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
- onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean}) {
+ onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean;
+ onConstructionMaterialsChange:(side:Side,materials:string[])=>void;
+ onConstructionSkillsChange?:(side:Side,skills:CombatSkillPreview[])=>void;
+ categoryFilter?:string|null;distanceMeters?:number}) {
  const [skills,setSkills]=useState<Record<Side,CombatSkillPreview[]>>({PLAYER:[],NPC:[]});
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
+ useEffect(()=>{
+  onConstructionMaterialsChange(side,authorized
+   ?availableConstructionMaterials(skills[side]??[]):[]);
+ },[side,skills,authorized,onConstructionMaterialsChange]);
+ useEffect(()=>{
+  onConstructionSkillsChange?.(side,authorized
+   ?(skills[side]??[]).filter(skill=>skill.skillKind==="CONSTRUCTION"&&skill.executable&&skill.requirementsSatisfied)
+   :[]);
+ },[side,skills,authorized,onConstructionSkillsChange]);
  useEffect(()=>{
   if(!authorized)return;
   let live=true;
@@ -41,9 +53,9 @@ export default function CombatSkillLoadout({
   return()=>{live=false;};
  },[encounterId,authorized,side]);
  if(!authorized)return null;
- const roster=skills[side]??[];
+ const roster=(skills[side]??[]).filter(skill=>!categoryFilter||skill.category===categoryFilter);
  return <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
-  <h2 className="text-lg font-semibold">Habilidades del personaje · fase 2.1</h2>
+  <h2 className="text-lg font-semibold">{categoryFilter?("Habilidades "+(categories[categoryFilter]??categoryFilter)):"Habilidades del personaje"}</h2>
   <p className="mt-1 text-sm text-zinc-400">Habilidades aprobadas de tu ficha. Los ataques compatibles usan el lienzo de arriba y consumen maná, PA y ticks del encuentro; los efectos no implementados siguen bloqueados.</p>
   {loading?<p className="mt-3 text-sm text-zinc-400">Consultando habilidades aprobadas…</p>
   :error?<p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>
@@ -75,18 +87,24 @@ export default function CombatSkillLoadout({
       {(()=>{
        const nextRound=cooldowns[String(skill.id)]??0;
        const onCooldown=nextRound===-1||nextRound>round;
+       const outOfRange=typeof distanceMeters==="number"&&skill.rangeMeters!==null&&
+         (skill.skillKind==="OFFENSE"||skill.constructionMaterial==="MIRROR")&&distanceMeters>skill.rangeMeters;
        const missingAim=skill.needsAim&&(skill.skillKind==="CONSTRUCTION"
          ?!constructionAimReady:skill.usesMagic&&(aimMode!=="MAGIC_AREA"||!magicAimReady));
        const blocked=!skill.requirementsSatisfied||!canUseSkill||busy||onCooldown||
-         mana===null||mana<skill.manaCost||missingAim;
-       const reason=onCooldown
+         mana===null||mana<skill.manaCost||missingAim||outOfRange;
+       const reason=outOfRange
+         ?"Objetivo fuera del alcance de la habilidad ("+skill.rangeMeters+" m). Muévete primero."
+         :onCooldown
          ? nextRound===-1?"Ya utilizada una vez en este encuentro.":"Cooldown hasta el turno "+nextRound
          : mana===null?"El encuentro no tiene maná de fase 2. Inicia uno nuevo."
          : mana<skill.manaCost?"Maná insuficiente"
          : missingAim?(skill.skillKind==="CONSTRUCTION"?"Marca la posición de la construcción en el terreno.":"Marca el centro en modalidad Explosión mágica del lienzo superior.")
-         : !canUseSkill?"Esperando tu iniciativa":null;
+         : !canUseSkill?"La habilidad está lista, pero debes esperar tu iniciativa o resolver una reacción pendiente.":null;
        return <div className="space-y-2">
         {reason&&<p className="text-xs text-amber-300">{reason}</p>}
+        {skill.skillKind==="OFFENSE"&&!skill.usesMagic&&skill.attackType==="BLUNT"&&
+         <p className="text-xs text-cyan-300">Si esta técnica se ejecuta con una patada, selecciona «Pierna / patada» en el lienzo de trayectoria antes de lanzarla. Su alcance y maná provienen de la habilidad aprobada.</p>}
         <button type="button" disabled={blocked}
          onClick={()=>onCast(skill)}
          className="rounded-lg border border-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-40">

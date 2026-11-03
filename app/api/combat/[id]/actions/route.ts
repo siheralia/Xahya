@@ -172,6 +172,9 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
           if(!meetsEffectRequirements(requirements,others))
             throw new Error("No se cumplen los requisitos por efecto de esta habilidad.");
           const plan=compileCombatSkill(skill);
+          if(plan.requiredParentSkillId && !others.some((related:any)=>
+            Number(related.id)===plan.requiredParentSkillId))
+            throw new Error("No tienes disponible la habilidad vinculada necesaria para ejecutar esta técnica.");
           if(plan.category==="CONSTRUCTION")plan.creationPassive=attachedCreationPassive(plan.id,available);
           next=applyResolvedCombatSkill(state,side,plan,command,dice());
           if(side==="PLAYER"&&next.status==="ACTIVE")

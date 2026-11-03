@@ -8,8 +8,12 @@ import type {CombatAttackType} from "./matchup-types.ts";
 export type CombatBuffStat = "physicalAttack"|"magicAttack"|"physicalDefense"|"magicDefense"|"precision"|"dodge";
 export type CombatSkillPlan = {
  id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT"|"CONSTRUCTION";
+ /** Linked approved parent skill, but not by itself an active combat effect. */
+ requiredParentSkillId?:number;
  construction?:ConstructionPlan;
  creationPassive?:{sourceSkillId:number;resistance:VariableResistance};
+ /** Executable persistent mirror with one automatic ray per owner's round. */
+ mirror?:{rayMultiplier:number;reflectionMultiplier:number;durability:number};
  attackType?:CombatAttackType;usesMagic?:boolean;damageElement?:string;
  rangeMeters:number;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;
  healing:number;bonuses:{stat:CombatBuffStat;value:number}[];
@@ -40,9 +44,17 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
   fail("Las condiciones narrativas de esta habilidad todavía no tienen resolutor.");
  const mechanics=(row.mechanics&&typeof row.mechanics==="object"&&!Array.isArray(row.mechanics))
    ?row.mechanics as Record<string,unknown>:{};
+ // A parentSkillId is an ownership/prerequisite link, not an action or
+ // an advanced mechanics rule. Its presence alone must not disable an attack.
+ const linkedParent=mechanics.parentSkillId;
+ if(linkedParent!==undefined && linkedParent!==null &&
+    (!Number.isSafeInteger(linkedParent)||Number(linkedParent)<=0||linkedParent===id))
+  fail("Referencia de habilidad vinculada inválida.");
+ const requiredParentSkillId=linkedParent===undefined||linkedParent===null
+  ?undefined:Number(linkedParent);
  if((Array.isArray(mechanics.rules)&&mechanics.rules.length>0)
    ||(Array.isArray(mechanics.activationConditions)&&mechanics.activationConditions.length>0)
-   ||mechanics.variableResistance || mechanics.parentSkillId)
+   ||mechanics.variableResistance)
   fail("Esta habilidad necesita el resolutor de mecánicas avanzadas.");
  const cost=Number(row.cost);
  if(!Number.isSafeInteger(cost)||cost<0||cost>1000000)
@@ -56,6 +68,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
  let damageElement:string|undefined;
  let multiplier=1,defenseFactor=1,final=1,healing=0;
  let construction:ConstructionPlan|undefined;
+ const mirrorEffects=new Map<string,number>();
  const bonuses:{stat:CombatBuffStat;value:number}[]=[];
  for(const entry of effects){
   if(!entry||typeof entry!=="object")fail("Efecto de habilidad inválido.");
@@ -63,6 +76,15 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
   if(!positive(e.value))fail("Potencia de habilidad inválida.");
   const value=e.value as number, target=String(e.target??"");
   switch(String(e.type)){
+   case "SUMMON_MIRROR":
+   case "MIRROR_RAY":
+   case "MAGIC_REFLECTION": {
+    const effectType=String(e.type);
+    if(mirrorEffects.has(effectType))fail("La habilidad contiene un efecto de espejo duplicado.");
+    if(value>1000)fail("El poder del espejo excede el límite permitido.");
+    mirrorEffects.set(effectType,value);
+    break;
+   }
    case "DAMAGE_MULTIPLIER":{
     const kind=["PHYS_ATK","PHYSICAL_ATTACK"].includes(target)?"PHYSICAL":
       ["MAGIC_ATK","MAGIC_ATTACK"].includes(target)?"MAGICAL":null;
@@ -104,6 +126,23 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
    default:fail("Este efecto todavía no puede ejecutarse en combate: "+e.type);
   }
  }
+ let mirror:CombatSkillPlan["mirror"];
+ if(mirrorEffects.size>0){
+  if(mirrorEffects.size!==3||!["SUMMON_MIRROR","MIRROR_RAY","MAGIC_REFLECTION"].every(k=>mirrorEffects.has(k)))
+   fail("El espejo necesita invocación, rayo y reflexión configurados.");
+  if(mirrorEffects.get("SUMMON_MIRROR")!==1)
+   fail("La invocación de varios espejos en una sola acción requiere una posición por espejo.");
+  if(effects.length!==3||mode!==null||construction||bonuses.length>0||healing>0)
+   fail("La invocación de espejo no admite efectos adicionales sin resolutor.");
+  if(row.attackType!=="PIERCE")
+   fail("El rayo de espejo requiere un ataque mágico de perforación.");
+  if(range.rangeMeters===null||range.rangeMeters<=0)
+   fail("El espejo necesita alcance máximo válido.");
+  construction={material:"MIRROR",label:"Espejo mágico"};
+  mirror={rayMultiplier:mirrorEffects.get("MIRROR_RAY")!/100,
+   reflectionMultiplier:mirrorEffects.get("MAGIC_REFLECTION")!/100,
+   durability:mirrorEffects.get("SUMMON_MIRROR")!};
+ }
  const isAttack=mode!==null;
  if(construction&&(isAttack||bonuses.length>0||healing>0))
   fail("Combinar la construcción con otros efectos requiere un resolutor propio.");
@@ -131,9 +170,9 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
  if(!Number.isFinite(limit)||limit>1000||healing>1000000)
   fail("La combinación de potencias supera los límites del motor.");
  return {
-  id,name,cost,category:construction?"CONSTRUCTION":isAttack?"OFFENSE":"SUPPORT",construction,
+  id,name,cost,requiredParentSkillId,category:construction?"CONSTRUCTION":isAttack?"OFFENSE":"SUPPORT",construction,mirror,
   attackType:isAttack?String(row.attackType) as CombatAttackType:undefined,
-  usesMagic:mode==="MAGICAL",damageElement:isAttack?damageElement:undefined,rangeMeters:range.rangeMeters??0,
+  usesMagic:mode==="MAGICAL"||Boolean(mirror),damageElement:isAttack?damageElement:undefined,rangeMeters:range.rangeMeters??0,
   damageMultiplier:multiplier,defenseFactor,finalMultiplier:final,
   healing,bonuses,durationTurns,cooldownRounds:cooldownTurns(cooldown,duration),
   oncePerCombat:cooldown==="Una vez por combate",

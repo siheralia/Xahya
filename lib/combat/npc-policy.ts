@@ -48,16 +48,17 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   const npc = state.actors.NPC, attacker = state.actors[state.pending.by];
   if (remainingAp(npc) < 1 || npc.spentTicks >= 100) return {kind:"DEFEND",defense:"NONE"};
   if (state.pending.usesMagic) {
-    // Do not inspect the true hidden blast center. An NPC guesses within
-    // the same coarse 3x3 warning area visible to a human defender.
-    const hint=state.pending.areaHint??"centro";
-    const col=hint.includes("izquierda")?0:hint.includes("derecha")?2:1;
-    const row=hint.includes("superior")?0:hint.includes("inferior")?2:1;
+    // Never inspect targetCenter: the NPC has only the same four-cell
+    // quadrant hint available to a human defender.
+    const hint=state.pending.areaHint??"superior izquierda";
+    const startX=hint.includes("derecha")?1/3:0;
+    const startY=hint.includes("inferior")?1/3:0;
     const choice=random();
-    if (choice<0.6) return {kind:"DEFEND",defense:"DODGE",
-      predictedCenter:{x:(col+cap(random(),0,0.999999))/3,
-        y:(row+cap(random(),0,0.999999))/3}};
-    return choice<0.9 ? {kind:"DEFEND",defense:"ENDURE"} : {kind:"DEFEND",defense:"NONE"};
+    if (choice<0.50) return {kind:"DEFEND",defense:"DODGE",
+      predictedCenter:{x:startX+cap(random(),0,0.999999)*2/3,
+        y:startY+cap(random(),0,0.999999)*2/3}};
+    if (choice<0.85) return {kind:"DEFEND",defense:"MAGIC_FIELD"};
+    return choice<0.95 ? {kind:"DEFEND",defense:"ENDURE"} : {kind:"DEFEND",defense:"NONE"};
   }
   const factor = matchupMultiplier(state.pending.attackType,npc.defenseType);
   // On tight action budgets, the NPC may take a survivable hit to preserve

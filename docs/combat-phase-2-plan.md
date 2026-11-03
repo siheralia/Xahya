@@ -1,5 +1,18 @@
 # Combate de Xahya — fase 2: habilidades y recursos
 
+## Estado de la fase 2 — 3 noviembre 2026 (PR #125, sin fusionar)
+- La PR #124 (flair del HUD) está desplegada en producción, commit `55fd635fdd7e374247d56587f9b59c95c05109d8`.
+- Primer incremento de NPC configurables en `feature/combat-training-npc-difficulty`: perfiles Básico, Intermedio, Avanzado, Resistencia y Agresivo; selector en `DuelLauncher`.
+- Agresivo aumenta presión ofensiva y frecuencia de habilidades, pero **no altera el daño del jugador**. Resistencia multiplica la reserva de HP del NPC sin reducir el daño recibido.
+- Cada nuevo NPC recibe una raza activa y tres perks de estadística sin duplicados: se priorizan perks raciales y se completa con perks del catálogo activo compatibles. Los bonos afectan solo al estado del combate, nunca a la ficha persistente.
+- La carga de habilidades del NPC incluye hasta tres plantillas públicas habilitadas, elegidas al inicio y compiladas con `compileCombatSkill`. La IA usa `applyResolvedCombatSkill`, pagando maná, PA, ticks y cooldown. No se interpretan efectos sin resolutor ni se conceden habilidades personales a jugadores.
+- La selección y los planes se guardan en el `combatV1` del encuentro para que sobrevivan a reconexiones sin repetir el sorteo. El PvP conserva sus reglas.
+- Validar pruebas, build y vista previa de Vercel antes de solicitar fusión. No confundir esta PR con producción.
+- Próximas prioridades: ataques de área configurables, luego inventario persistente y resolutor avanzado; no avanzar a fases posteriores hasta estabilizar estos sistemas.
+
+> **Nota histórica:** las subsecciones antiguas de esta página, incluidas las referencias a PR #112 como trabajo pendiente y a liquidación de HP/maná, describen decisiones anteriores. La regla actual es mantener HP/maná como recursos exclusivos del encuentro.
+
+
 ## Línea base confirmada (batallas 1–3 y nueva fase 1 básica)
 - El combate usa 100 ticks por turno y 9 + CON PA por personaje. Las reacciones cobran ticks y PA; a velocidades iguales se alternan las iniciativas.
 - Un NPC puede actuar, defenderse y contraatacar. Un duelo suspendido conserva estado en `combatSession.lastAction.combatV1` y se reanuda al iniciar sesión.

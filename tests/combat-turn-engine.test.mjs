@@ -108,7 +108,11 @@ test("Monte Carlo: 1000 complete equal-stat duels produce no runaway winner bias
  const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
  let first=0,second=0;
  for(let trial=0;trial<1000;trial++) {
-  let state=newCombatState(fighter("A"),fighter("B",100,{positionMeters:1.5}));
+  // Balance first-mover probability: equal-speed encounters randomly
+  // choose their starting initiative. Use a fixed 50/50 tie-break for a
+  // reproducible Monte Carlo without assuming PLAYER always starts.
+  let state=newCombatState(fighter("A"),fighter("B",100,{positionMeters:1.5}),
+    trial%2===0?"PLAYER":"NPC");
   let n=0;
   while(state.status==="ACTIVE"&&n++<1000) {
    if(state.pending) {

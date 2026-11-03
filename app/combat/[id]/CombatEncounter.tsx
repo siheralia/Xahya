@@ -388,20 +388,27 @@ export default function CombatEncounter({id}:{id:string}) {
       </button>}
     {defending&&hasAccess&&<div className="mt-4 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
-     <div className="grid gap-2 sm:grid-cols-2">
+     <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Opciones de defensa">
       {options.filter(opt=>pending.usesMagic
         ? ["DODGE","MAGIC_FIELD","CONSTRUCTION","ENDURE","NONE"].includes(opt.value)&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)
-        : opt.value!=="MAGIC_FIELD"&&(opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).map(opt=><label key={opt.value} className="flex gap-2 rounded-lg border border-zinc-700 p-3">
-       <input type="radio" disabled={opt.value==="MAGIC_FIELD"&&(state.mana?.[side]?.current??0)<1} checked={selectedDefense===opt.value} onChange={()=>setDefense(opt.value)}/>
-       <span><b>{opt.label}{opt.value==="MAGIC_FIELD"
-         ? " ("+fieldNames[actor?.magicFieldType??"CONCENTRATED"]+")":""}</b>
-        <small className="block text-zinc-400">{opt.description}</small>
-        {opt.value==="MAGIC_FIELD"&&actor?.magicFieldDescription&&
-          <small className="mt-1 block text-zinc-400">{actor.magicFieldDescription}</small>}
-       </span>
-      </label>)}
+        : opt.value!=="MAGIC_FIELD"&&(opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).map(opt=>{
+       const DefenseIcon=defenseIcons[opt.value];
+       const active=selectedDefense===opt.value;
+       return <button key={opt.value} type="button" aria-pressed={active} aria-label={opt.label} title={opt.label}
+        disabled={opt.value==="MAGIC_FIELD"&&(state.mana?.[side]?.current??0)<1}
+        onClick={()=>setDefense(opt.value)}
+        className={"flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-[10px] transition disabled:opacity-30 "+
+          (active?"border-amber-400 bg-amber-400/15 text-amber-200":"border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:border-zinc-500 hover:text-white")}>
+        <DefenseIcon size={24} strokeWidth={1.7}/><span className="text-center leading-3">{opt.label}</span>
+       </button>;
+      })}
      </div>
+     <p className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-300">
+      {options.find(opt=>opt.value===selectedDefense)?.description}
+      {selectedDefense==="MAGIC_FIELD"&&actor?.magicFieldDescription?" · "+actor.magicFieldDescription:""}
+      {selectedDefense==="MAGIC_FIELD"?" · "+fieldNames[actor?.magicFieldType??"CONCENTRATED"]:""}
+     </p>
      {(pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)&&<div className="space-y-2">
       <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":"Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo."} Toca el terreno para marcarlo. La región resaltada es una pista, no el punto exacto; acertar la predicción también requiere superar la tirada defensiva.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
@@ -471,9 +478,9 @@ export default function CombatEncounter({id}:{id:string}) {
         {droppedForActor.map(w=><option key={(w.slot??"MAIN_HAND")+w.weapon.name} value={w.slot??"MAIN_HAND"}>{w.weapon.name} · {w.slot==="OFF_HAND"?"Secundaria":"Principal"}</option>)}
       </select>}
       <button disabled={!ready} onClick={()=>void submit({kind:"MOVE",meters,direction:moveDirection,weaponSlot:moveDirection==="WEAPON"?activeRecoverSlot:undefined})}
-       className="rounded-lg border border-cyan-500 px-4 py-2 text-cyan-200 disabled:opacity-40">Mover</button>
+       className="rounded-lg border border-cyan-500 px-4 py-2 text-cyan-200 disabled:opacity-40"><Footprints size={17} className="mr-1 inline-block align-[-3px]"/> Mover</button>
       <button disabled={!ready} onClick={()=>void submit({kind:"WAIT"})}
-       className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40">Terminar turno</button>
+       className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40"><Undo2 size={17} className="mr-1 inline-block align-[-3px]"/> Terminar turno</button>
      </div>
      <p className="text-sm text-zinc-300">Distancia al oponente: <b>{Math.abs(state.actors.PLAYER.positionMeters-state.actors.NPC.positionMeters).toFixed(2)} m</b>
        {" · "}{selectedWeapon?<>Alcance de {selectedWeapon.name}: <b>{selectedWeapon.effectiveRangeMeters}–{selectedWeapon.maximumRangeMeters??selectedWeapon.effectiveRangeMeters} m</b>

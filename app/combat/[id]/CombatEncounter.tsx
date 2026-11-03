@@ -338,15 +338,27 @@ export default function CombatEncounter({id}:{id:string}) {
         <select value={attackMode} onChange={e=>setAttackMode(e.target.value as "PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW")}
           className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
           <option value="PHYSICAL">Ataque físico cuerpo a cuerpo</option>
-          {actor?.equippedWeapon?.mode==="RANGED"&&<option value="RANGED">Proyectil físico ({actor.equippedWeapon.name})</option>}
-          {actor?.equippedWeapon?.throwable&&<option value="THROW">Arrojar arma ({actor.equippedWeapon.name})</option>}
+          {selectedWeapon?.mode==="RANGED"&&<option value="RANGED">Proyectil físico ({selectedWeapon.name})</option>}
+          {selectedWeapon?.throwable&&<option value="THROW">Arrojar arma ({selectedWeapon.name})</option>}
           <option value="MAGIC_AREA">Explosión mágica básica (área)</option>
         </select>
       </label>
+      {attackMode!=="MAGIC_AREA"&&<label className="mb-3 block text-sm">Arma o mano para atacar
+        <select value={activeAttackSource} onChange={e=>{
+          const source=e.target.value as PhysicalAttackSource;
+          setAttackSource(source);setAreaCenter(null);
+          setAttackMode(actor&&weaponForSource(actor,source)?.mode==="RANGED"?"RANGED":"PHYSICAL");
+        }} className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
+          {actor?.equippedWeapon&&<option value="MAIN_HAND">Principal · {actor.equippedWeapon.name} · {attackNames[actor.equippedWeapon.attackType]}</option>}
+          {actor?.offhandWeapon&&<option value="OFF_HAND">Secundaria · {actor.offhandWeapon.name} · {attackNames[actor.offhandWeapon.attackType]}</option>}
+          <option value="FIST_RIGHT">Puño derecho · Contundente</option>
+          <option value="FIST_LEFT">Puño izquierdo · Contundente</option>
+        </select>
+      </label>}
       <p className="mb-2 text-xs text-zinc-400">{attackMode==="MAGIC_AREA"
        ? "Toca una posición: el punto será el epicentro y el círculo la zona de explosión. El defensor solo verá la región aproximada. Ataque básico con coste temporal normal y "+BASIC_MAGIC_MANA_COST+" de maná en esta fase; las habilidades con maná llegan en fase 2."
        : physicalAnchor
-        ? "Tu siguiente ataque físico comienza donde terminó el anterior (punto verde). Dibuja desde allí; moverte permite elegir otro inicio."
+        ? "Esta arma o mano continúa desde su último ataque (punto verde). Cambiar de arma o mano conserva su propia trayectoria."
         : "Arrastra el dedo o el cursor. La dirección final influye en la posibilidad de desviar el golpe."}</p>
       {attackMode!=="MAGIC_AREA"&&<p className="mb-2 text-xs text-rose-200">El objetivo está marcado en rojo. El corte debe cruzarlo; el golpe y la perforación deben terminar dentro de su zona. Fuera del alcance efectivo disminuye la precisión.</p>}
       <svg ref={canvas} viewBox="0 0 100 100" preserveAspectRatio={attackMode!=="PHYSICAL"?"xMidYMid meet":"none"}
@@ -378,12 +390,12 @@ export default function CombatEncounter({id}:{id:string}) {
           <span className="ml-2 text-xs text-zinc-400">Configurado en la ficha o el arma</span>
         </div>
        </div>
-       <button disabled={!ready||(attackMode==="RANGED"&&actor?.equippedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!actor?.equippedWeapon?.throwable)||(attackMode==="PHYSICAL"&&actor?.equippedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
+       <button disabled={!ready||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
-           ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??attackType,areaCenter:areaCenter??undefined}
-           : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
-           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
-           : {kind:"ATTACK",attackType:displayedAttackType,trajectory:normalizedPath})}
+           ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined}
+           : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
+           : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined}
+           : {kind:"ATTACK",attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
         {attackMode==="MAGIC_AREA"?"Lanzar magia":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
        </button>

@@ -96,7 +96,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
    }
    case "NARRATIVE": {
     const create=creationPlanFromEffect(e);
-    if(!create)fail("Este efecto narrativo no crea una construcción ejecutable.");
+    if(create===null)throw new Error("Este efecto narrativo no crea una construcción ejecutable.");
     if(construction)fail("Una habilidad solo puede crear un objeto por ejecución.");
     construction=create;
     break;

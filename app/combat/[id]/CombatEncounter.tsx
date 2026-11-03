@@ -335,7 +335,7 @@ export default function CombatEncounter({id}:{id:string}) {
       {state.log.slice().reverse().map((entry,index)=>
        <li key={state.log.length-index} className="border-b border-zinc-800 pb-2">
         <span className="text-zinc-500">Tick {entry.tick} · </span>{entry.summary}
-        {entry.defense&&<span className="ml-2 text-cyan-300">[{entry.defense}]</span>}
+        {entry.defense&&<span className="ml-2 text-cyan-300">[{entry.defense==="MAGIC_FIELD"?"Campo mágico":entry.defense}]</span>}
         {entry.critical&&<strong className="ml-2 text-amber-300">¡Crítico!</strong>}
         {entry.knockbackMeters!==undefined&&entry.knockbackMeters>0&&
          <small className="ml-2 text-zinc-400">Desplazamiento: {entry.knockbackMeters} m</small>}

@@ -25,6 +25,11 @@ test("the next physical attack must start at the exact previous endpoint, even a
  let s=afterPlayerStrike();
  assert.deepEqual(physicalAttackStart(s,"PLAYER"),first[1]);
  s=applyCombatCommand(s,"NPC",{kind:"WAIT"});
+ s=applyCombatCommand(s,"PLAYER",{kind:"WAIT"});
+ assert.equal(s.round,2);
+ // Alternating tie initiative opens round 2 with NPC, but the path anchor
+ // survives the round boundary and the absence of movement.
+ s=applyCombatCommand(s,"NPC",{kind:"WAIT"});
  assert.equal(canAct(s,"PLAYER"),true);
  assert.throws(()=>applyCombatCommand(s,"PLAYER",attack(free)),/comenzar donde terminó/);
  s=applyCombatCommand(s,"PLAYER",attack(next));
@@ -74,7 +79,7 @@ test("NPC next physical trajectory begins at the stored endpoint, including near
 });
 test("NPC can perform subsequent physical attacks under the continuity rule",()=>{
  const player=fighter("Guha",0,{physicalAttack:2,physicalDefense:18});
- const npc=fighter("NPC",1.5,{magicAttack:0,physicalAttack:2});
+ const npc=fighter("NPC",1.5,{magicAttack:0,physicalAttack:2,strength:1});
  let s=newCombatState(player,npc,"NPC");
  s=progressTrainingNpc(s,()=>dice,()=>0.6);
  assert.equal(s.pending?.by,"NPC");

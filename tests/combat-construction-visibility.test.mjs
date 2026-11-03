@@ -40,14 +40,12 @@ test("unsupported narrative effects and abilities without executable constructio
 test("construction panel requires eligible CREATE skills, is generic, and keeps existing structures visible",()=>{
  const parent=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
  const child=readFileSync(new URL("../app/combat/[id]/CombatSkillLoadout.tsx",import.meta.url),"utf8");
- const start=parent.indexOf('{"',parent.indexOf("Terreno de construcciones"));
  assert.match(parent,/const canCreateObjects=hasAccess&&creationMaterials\.length>0/);
- assert.match(parent,/state\.status==="ACTIVE"&&\(canCreateObjects\|\| \(state\.constructions\?\.length\?\?0\)>0\)/);
+ assert.ok(parent.includes('state.status==="ACTIVE"&&(canCreateObjects||(state.constructions?.length??0)>0)'));
  assert.match(parent,/\{canCreateObjects&&<div className="mt-3 flex flex-wrap gap-3">/);
  assert.match(parent,/onConstructionMaterialsChange=\{onConstructionMaterialsChange\}/);
  assert.match(child,/availableConstructionMaterials\(skills\[side\]\?\?\[\]\)/);
  const panel=parent.slice(parent.indexOf("canCreateObjects&&<p",parent.indexOf('Constructor de objetos')),parent.indexOf('<CombatSkillLoadout'));
  assert.doesNotMatch(panel,/Fotoconstrucción|Sikatā|Sikata|espejo/i);
  assert.match(panel,/habilidad con efecto Crear/);
- assert.ok(start>=-1);
 });

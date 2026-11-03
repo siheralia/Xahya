@@ -8,7 +8,8 @@ const fighter=(name,location=0,overrides={})=>({
  strength:1,constitution:1,precision:30,dodge:30,physicalAttack:18,
  physicalDefense:6,magicAttack:150,magicDefense:10,critical:0,luck:10,
  race:20,massKg:70,positionMeters:location,weaponIntegrity:100,
- attackType:"CUT",defenseType:"SOLID",spentTicks:0,spentAp:0,...overrides,
+ attackType:"CUT",defenseType:"SOLID", equippedWeapon:{name:"Arma de entrenamiento",attackType:"CUT",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2},
+ spentTicks:0,spentAp:0,...overrides,
 });
 const attack=trajectory=>({kind:"ATTACK",attackType:"CUT",trajectory});
 const first=[{x:0.1,y:0.2},{x:0.8,y:0.7}];
@@ -17,6 +18,7 @@ const free=[{x:0.3,y:0.2},{x:0.55,y:0.8}];
 const dice={hit:0.2,critical:0.99,defense:0.5};
 function afterPlayerStrike(){
  let s=newCombatState(fighter("Guha"),fighter("Rival",1.5));
+ s.mana={PLAYER:{current:10,max:10},NPC:{current:10,max:10}};
  s=applyCombatCommand(s,"PLAYER",attack(first));
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
  return s;
@@ -54,7 +56,7 @@ test("an opponent's movement does not reset your stroke anchor; magic also prese
  s=applyCombatCommand(s,"NPC",{kind:"MOVE",meters:0.1,direction:"TOWARD"});
  assert.deepEqual(physicalAttackStart(s,"PLAYER"),first[1]);
  s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",usesMagic:true,
-   attackType:"PIERCE",areaCenter:{x:0.4,y:0.3}});
+   attackType:"CUT",areaCenter:{x:0.4,y:0.3}});
  assert.deepEqual(physicalAttackStart(s,"PLAYER"),first[1]);
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
  s=applyCombatCommand(s,"NPC",{kind:"WAIT"});
@@ -98,7 +100,8 @@ test("magic basic CUT BLUNT PIERCE preserve the same physical RPS matrix",()=>{
  }
  const damages={};
  for(const type of types){
-  let s=newCombatState(fighter("Mage"),fighter("Target",2,{defenseType:"SOLID"}));
+  let s=newCombatState(fighter("Mage",0,{attackType:type}),fighter("Target",2,{defenseType:"SOLID"}));
+  s.mana={PLAYER:{current:10,max:10},NPC:{current:10,max:10}};
   s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",usesMagic:true,
     attackType:type,areaCenter:{x:0.2,y:0.6}});
   assert.equal(s.pending.attackType,type);

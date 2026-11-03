@@ -10,6 +10,7 @@ const fighter = (name, agility = 100, overrides = {}) => ({
   precision:30,dodge:30,physicalAttack:18,physicalDefense:6,
   magicAttack:12,magicDefense:4,critical:10,luck:10,race:20,
   massKg:70,positionMeters:0,weaponIntegrity:100,attackType:"CUT",defenseType:"SOLID",
+  equippedWeapon:{name:"Arma de entrenamiento",attackType:"CUT",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2},
   spentTicks:0,spentAp:0,...overrides,
 });
 const move = {kind:"MOVE",meters:1};
@@ -63,7 +64,7 @@ test("dodge resolves a single contested roll, not two dodges",()=>{
   assert.ok(s.actors.NPC.hp<100);
 });
 test("weapon durability 100 cannot make a weak child resist a very strong blow",()=>{
-  let s=newCombatState(fighter("Troll",50,{strength:180,physicalAttack:160}),
+  let s=newCombatState(fighter("Troll",50,{strength:180,physicalAttack:160,equippedWeapon:{name:"Martillo",attackType:"BLUNT",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2}}),
     fighter("Niño",40,{constitution:1,weaponIntegrity:100,physicalDefense:2}));
   s=applyCombatCommand(s,"PLAYER",{...attack,attackType:"BLUNT"});
   s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"BLOCK"},{hit:0.2,critical:0.9,defense:0.99});

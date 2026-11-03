@@ -43,6 +43,15 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (!name || name.length > 100) return "El nombre debe tener entre 1 y 100 caracteres.";
   if (!ITEM_TYPES.includes(itemType as any)) return "Tipo de objeto inválido.";
   if (attackType !== null && (!ATTACK_TYPES.includes(attackType as any) || itemType !== "WEAPON")) return "Tipo de ataque físico inválido.";
+  if(itemType==="WEAPON"){
+    const mode=String(body.weaponMode??"MELEE");
+    const effective=Number(body.effectiveRangeMeters??1.5);
+    const maximum=Number(body.maximumRangeMeters??effective);
+    const throwRange=Number(body.throwRangeMeters??0);
+    if(!["MELEE","RANGED"].includes(mode)||![effective,maximum,throwRange].every(Number.isFinite)||effective<=0||maximum<effective||throwRange<0||maximum>1000)
+      return "Modalidad o distancias del arma inválidas.";
+    if(body.throwable===true&&throwRange<=0)return "Un arma arrojadiza necesita alcance de lanzamiento.";
+  }
   if (itemType === "WEAPON" && attackType === null) return "Las armas deben tener un tipo de ataque físico.";
   if (!ACQUISITION_TYPES.includes(acquisitionType as any)) return "Tipo de obtención inválido.";
   if (ITEM_TYPES_WITHOUT_STORE.has(itemType) && acquisitionType === "PURCHASABLE") return "Las propiedades no se venden en la tienda general.";
@@ -91,6 +100,11 @@ export async function POST(request: Request) {
     itemType: String(body.itemType),
     itemSubtype: typeof body.itemSubtype === "string" ? body.itemSubtype.trim() || null : null,
     attackType: String(body.itemType) === "WEAPON" ? attackType : null,
+    weaponMode:String(body.weaponMode??"MELEE"),
+    effectiveRangeMeters:Number(body.effectiveRangeMeters??1.5),
+    maximumRangeMeters:Number(body.maximumRangeMeters??body.effectiveRangeMeters??1.5),
+    throwable:body.throwable===true,
+    throwRangeMeters:Number(body.throwRangeMeters??0),
     acquisitionType: String(body.acquisitionType),
     price: Number(body.price ?? 0),
     effects: body.effects,

@@ -10,7 +10,8 @@ import {
   type CombatCommand, type CombatState, type DefenseChoice, type PhysicalAttackSource, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
-type View = {state:CombatState;permissions:{PLAYER:boolean;NPC:boolean};
+type View = {state:CombatState;karma?:Partial<Record<Side,number>>;
+ boostStats?:Array<{key:string;label:string}>;permissions:{PLAYER:boolean;NPC:boolean};
  canMove:{PLAYER:boolean;NPC:boolean}};
 const options: Array<{value:DefenseChoice,label:string,description:string}> = [
  {value:"DODGE",label:"Esquivar",description:"Precisión vs Esquive"},
@@ -19,6 +20,7 @@ const options: Array<{value:DefenseChoice,label:string,description:string}> = [
  {value:"REPEL",label:"Repeler",description:"STR vs STR; empuje"},
  {value:"DEFLECT",label:"Desviar",description:"STR vs AGI y orientación de guardia"},
  {value:"MAGIC_FIELD",label:"Campo defensivo mágico",description:"DEF mágica vs ataque mágico y ventajas por tipo de campo"},
+ {value:"CONSTRUCTION",label:"Bloque de construcción",description:"Interceptar usando una barrera colocada en el terreno"},
  {value:"NONE",label:"No reaccionar",description:"Recibir el impacto sin respuesta activa"},
 ];
 const defaultPath:Point[]=[{x:0.1,y:0.5},{x:0.9,y:0.5}];
@@ -71,6 +73,12 @@ export default function CombatEncounter({id}:{id:string}) {
  const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW">("PHYSICAL");
 
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
+ const [constructionCenter,setConstructionCenter]=useState<Point|null>(null);
+ const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK">("FIELD");
+ const [constructionLabel,setConstructionLabel]=useState("");
+ const [karmaAllocation,setKarmaAllocation]=useState<Record<string,number>>({});
+ const [defenseConstruction,setDefenseConstruction]=useState("");
+ const karmaRequestRef=useRef<{key:string;id:string}|null>(null);
  const [predictedCenter,setPredictedCenter]=useState<Point|null>(null);
  const [meters,setMeters]=useState(1);
  const [moveDirection,setMoveDirection]=useState<"TOWARD"|"AWAY"|"WEAPON">("TOWARD");
@@ -119,6 +127,7 @@ export default function CombatEncounter({id}:{id:string}) {
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"Acción rechazada");
    setView(v=>v?{...v,state:data.state}:v);
+   if(command.kind==="BOOST_KARMA"){setKarmaAllocation({});karmaRequestRef.current=null;void load();}
    if(command.kind==="DEFEND")setPredictedCenter(null);
    if(command.kind==="CAST_SKILL")castRequestRef.current=null;
    const evt=(data.state as CombatState).log.filter(e=>e.kind==="RESOLVE").at(-1);
@@ -190,19 +199,36 @@ export default function CombatEncounter({id}:{id:string}) {
  const hasAccess=view?.permissions[side]??false;
  const defending=!!pending&&pending.against===side;
  const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
+ const karmaAvailable=view?.karma?.[side]??0;
+ const karmaPoints=Object.values(karmaAllocation).reduce((sum,n)=>sum+(Number.isSafeInteger(n)&&n>0?n:0),0);
+ const karmaCost=karmaPoints*2;
+ const defenderBlocks=state?.constructions?.filter(c=>c.owner===side&&c.form==="BLOCK"&&
+   (c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35)??[];
+ const chosenDefenseConstruction=defenderBlocks.some(c=>c.id===defenseConstruction)?defenseConstruction:defenderBlocks[0]?.id;
  const maxMove=actor?Math.max(1,Math.round(actor.race/10)):1;
  const normalizedPath=physicalAnchor
    ? [physicalAnchor,...(points.length>1?points.slice(1):[physicalAnchor])]
    : points.length>1?points:defaultPath;
+ function boostKarma(){
+  const allocation=Object.fromEntries(Object.entries(karmaAllocation).filter(([,n])=>Number.isSafeInteger(n)&&n>0));
+  const key=side+":"+JSON.stringify(allocation);
+  const previous=karmaRequestRef.current;
+  const requestId=previous?.key===key?previous.id:crypto.randomUUID();
+  karmaRequestRef.current={key,id:requestId};
+  void submit({kind:"BOOST_KARMA",requestId,allocation});
+ }
  function castSkill(skill:CombatSkillPreview){
   const key=side+":"+skill.id+":"+state?.round;
   const previous=castRequestRef.current;
   const requestId=previous?.key===key?previous.id:crypto.randomUUID();
   castRequestRef.current={key,id:requestId};
+  const construction=skill.skillKind==="CONSTRUCTION";
   void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
-   trajectory:skill.usesMagic?undefined:normalizedPath,
-   attackSource:skill.usesMagic?undefined:activeAttackSource,
-   areaCenter:skill.usesMagic?areaCenter??undefined:undefined});
+   trajectory:construction||skill.usesMagic?undefined:normalizedPath,
+   attackSource:construction||skill.usesMagic?undefined:activeAttackSource,
+   areaCenter:construction?constructionCenter??undefined:skill.usesMagic?areaCenter??undefined:undefined,
+   constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":constructionForm):undefined,
+   constructionLabel:construction?constructionLabel.trim():undefined});
  }
  const chronicle=state?.status==="FINISHED"
   ?(state.narrativeVersion===2&&state.narrativeText

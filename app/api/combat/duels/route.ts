@@ -16,17 +16,23 @@ async function snapshotEquippedWeapon(characterId:number):Promise<CombatFighter[
   const Item=(db.orm.public as any).Item;
   if(!CharacterItem||!Item)return undefined;
   const owned=await CharacterItem.where({characterId}).all();
-  const equipped=owned.find((entry:any)=>entry.equipped&&["MAIN_HAND","OFF_HAND"].includes(String(entry.equippedSlot)));
-  if(!equipped)return undefined;
-  const item=await Item.where({id:Number(equipped.itemId)}).first();
-  if(!item||item.itemType!=="WEAPON")return undefined;
-  const attackType=String(item.attackType);
-  if(!["CUT","BLUNT","PIERCE"].includes(attackType))return undefined;
-  return {name:String(item.name),attackType:attackType as CombatFighter["attackType"],
-    mode:item.weaponMode==="RANGED"?"RANGED":"MELEE",
-    effectiveRangeMeters:Number(item.effectiveRangeMeters??1.5),
-    maximumRangeMeters:Number(item.maximumRangeMeters??item.effectiveRangeMeters??1.5),
-    throwable:Boolean(item.throwable),throwRangeMeters:Number(item.throwRangeMeters??0),itemId:Number(item.id)};
+  // Prioritize main hand and skip shields/other non-weapons in occupied slots.
+  const candidates=owned.filter((entry:any)=>entry.equipped&&["MAIN_HAND","OFF_HAND"].includes(String(entry.equippedSlot)))
+    .sort((a:any,b:any)=>Number(b.equippedSlot==="MAIN_HAND")-Number(a.equippedSlot==="MAIN_HAND"));
+  for(const equipped of candidates){
+    const item=await Item.where({id:Number(equipped.itemId)}).first();
+    if(!item||item.itemType!=="WEAPON"||!["CUT","BLUNT","PIERCE"].includes(String(item.attackType)))continue;
+    const effective=Number(item.effectiveRangeMeters??1.5);
+    const maximum=Number(item.maximumRangeMeters??effective);
+    const throwRange=Number(item.throwRangeMeters??0);
+    if(!Number.isFinite(effective)||effective<=0||!Number.isFinite(maximum)||maximum<effective||
+      !Number.isFinite(throwRange)||throwRange<0)continue;
+    return {name:String(item.name),attackType:String(item.attackType) as CombatFighter["attackType"],
+      mode:item.weaponMode==="RANGED"?"RANGED":"MELEE",
+      effectiveRangeMeters:effective,maximumRangeMeters:maximum,
+      throwable:Boolean(item.throwable)&&throwRange>0,throwRangeMeters:throwRange,itemId:Number(item.id)};
+  }
+  return undefined;
 }
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
 async function currentUser() {

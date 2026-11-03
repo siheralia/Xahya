@@ -57,7 +57,7 @@ export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON" }
   | { kind: "WAIT" }
   | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; areaCenter?: Point }
-  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point }
+  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON" }
   | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
@@ -275,6 +275,21 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const success = rolls.defense < contestChance(fighter.agility * (0.5+alignment), attacker.strength);
       avoided = success && (pending.rangedPhysical ? spatialAlignment : alignment >= 0.55);
       if (!avoided) damageScale = 0.85;
+    }
+    if(defense==="DODGE"&&avoided&&command.dodgeDirection){
+      const direction=command.dodgeDirection;
+      if(!["AWAY","TOWARD","WEAPON"].includes(direction))throw new Error("Dirección de esquive inválida.");
+      const dropped=state.droppedWeapons?.find(w=>w.owner===by);
+      if(direction==="WEAPON"&&!dropped)throw new Error("No hay arma arrojada hacia la cual esquivar.");
+      const target=direction==="WEAPON"?dropped!.positionMeters:attacker.positionMeters;
+      const sign=Math.sign(target-fighter.positionMeters)||1;
+      const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
+      fighter.positionMeters+=sign*(direction==="AWAY"?-0.5:step);
+      if(state.physicalPathEnd)delete state.physicalPathEnd[by];
+      if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&!fighter.equippedWeapon){
+        fighter.equippedWeapon={...dropped.weapon};
+        state.droppedWeapons=state.droppedWeapons?.filter(w=>w!==dropped);
+      }
     }
     // No selected dodge means contact is checked against a small base margin,
     // not another invisible full Esquive roll.

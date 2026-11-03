@@ -331,16 +331,15 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(defense==="DODGE"&&avoided&&command.dodgeDirection){
       const direction=command.dodgeDirection;
       if(!["AWAY","TOWARD","WEAPON"].includes(direction))throw new Error("Dirección de esquive inválida.");
-      const dropped=state.droppedWeapons?.find(w=>w.owner===by);
+      const dropped=activeDroppedWeapon(state,by,command.weaponSlot);
       if(direction==="WEAPON"&&!dropped)throw new Error("No hay arma arrojada hacia la cual esquivar.");
       const target=direction==="WEAPON"?dropped!.positionMeters:attacker.positionMeters;
       const sign=Math.sign(target-fighter.positionMeters)||1;
       const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
       fighter.positionMeters+=sign*(direction==="AWAY"?-0.5:step);
-      if(state.physicalPathEnd)delete state.physicalPathEnd[by];
-      if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&!fighter.equippedWeapon){
-        fighter.equippedWeapon={...dropped.weapon};
-        state.droppedWeapons=state.droppedWeapons?.filter(w=>w!==dropped);
+      clearPhysicalStrokes(state,by);
+      if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2){
+        restoreWeapon(state,dropped);
       }
     }
     // No selected dodge means contact is checked against a small base margin,
@@ -373,11 +372,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         const sign = Math.sign(attacker.positionMeters - fighter.positionMeters) || 1;
         attacker.positionMeters += sign * displaced;
         // An involuntary displacement also breaks the continuity of a stroke.
-        if(state.physicalPathEnd)delete state.physicalPathEnd[pending.by];
+        clearPhysicalStrokes(state,pending.by);
       } else {
         const sign = Math.sign(fighter.positionMeters - attacker.positionMeters) || 1;
         fighter.positionMeters += sign * displaced;
-        if(state.physicalPathEnd)delete state.physicalPathEnd[by];
+        clearPhysicalStrokes(state,by);
       }
     }
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT + attacker.spentTicks,(state.round-1)*LIMIT + fighter.spentTicks);
@@ -407,19 +406,17 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Desplazamiento fuera del alcance por acción: " + maximum + " m.");
     const direction = command.direction??"TOWARD";
     if (!["TOWARD","AWAY","WEAPON"].includes(direction)) throw new Error("Dirección inválida.");
-    const dropped=state.droppedWeapons?.find(w=>w.owner===by);
+    const dropped=activeDroppedWeapon(state,by,command.weaponSlot);
     if(direction==="WEAPON"&&!dropped)throw new Error("No hay un arma arrojada que recuperar.");
     const target=direction==="WEAPON"?dropped!.positionMeters:rival.positionMeters;
     const sign = Math.sign(target-fighter.positionMeters)||1;
     const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(target-fighter.positionMeters));
     fighter.positionMeters += sign*magnitude;
     let recoveredWeapon:string|undefined;
-    if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&!fighter.equippedWeapon){
+    if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&restoreWeapon(state,dropped)){
       recoveredWeapon=dropped.weapon.name;
-      fighter.equippedWeapon={...dropped.weapon};
-      state.droppedWeapons=state.droppedWeapons?.filter(w=>w!==dropped);
     }
-    if(magnitude!==0 && state.physicalPathEnd)delete state.physicalPathEnd[by];
+    if(magnitude!==0)clearPhysicalStrokes(state,by);
     spend(fighter,turnTicks(fighter));
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     addLog(state,{kind:"MOVE",tick:state.tick,by,

@@ -101,3 +101,33 @@ test("simulation: 10k symmetric contests avoid first-player bias",()=>{
   assert.ok(hits>4700 && hits<5300,`expect ~50% accuracy; got ${hits}`);
   assert.equal(contestChance(100,100),0.5);
 });
+
+test("Monte Carlo: 1000 complete equal-stat duels produce no runaway winner bias",()=>{
+ let seed=20261103;
+ const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+ let first=0,second=0;
+ for(let trial=0;trial<1000;trial++) {
+  let state=newCombatState(fighter("A"),fighter("B",100,{positionMeters:1.5}));
+  let n=0;
+  while(state.status==="ACTIVE"&&n++<1000) {
+   if(state.pending) {
+    const against=state.pending.against;
+    state=applyCombatCommand(state,against,{kind:"DEFEND",defense:"DODGE"},
+      {hit:random(),defense:random(),critical:random()});
+    continue;
+   }
+   const canPlayer=canAct(state,"PLAYER"),canNpc=canAct(state,"NPC");
+   if(!canPlayer&&!canNpc)throw Error("Combat scheduler deadlocked");
+   let by=canPlayer?"PLAYER":"NPC";
+   if(canPlayer&&canNpc) {
+    const delta=state.actors.PLAYER.spentTicks-state.actors.NPC.spentTicks;
+    by=delta<0?"PLAYER":delta>0?"NPC":random()<0.5?"PLAYER":"NPC";
+   }
+   state=applyCombatCommand(state,by,attack);
+  }
+  assert.equal(state.status,"FINISHED");
+  if(state.winner==="PLAYER")first++; else second++;
+ }
+ assert.equal(first+second,1000);
+ assert.ok(first>430&&first<570,`biased complete duel winners: ${first}/1000`);
+});

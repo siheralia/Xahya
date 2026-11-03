@@ -40,7 +40,7 @@ export function guessedMagicCenter(actual:Point,guess:Point):boolean {
  * including when a request has moderator access to both combatants.
  */
 export function combatClientView(state:CombatState):CombatState {
- if(!state.pending?.usesMagic||!state.pending.targetCenter)return state;
+ if(!(state.pending?.usesMagic||state.pending?.rangedPhysical)||!state.pending.targetCenter)return state;
  const clone=structuredClone(state);
  if(clone.pending) {
   // Upgrade old pending 3×3 hints without exposing their exact epicenter.

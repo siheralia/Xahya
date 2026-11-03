@@ -214,11 +214,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(rival.positionMeters-fighter.positionMeters));
     fighter.positionMeters += sign*magnitude;
     spend(fighter,turnTicks(fighter));
-    addLog(state,{kind:"MOVE",tick:(state.round-1)*LIMIT+fighter.spentTicks,by,
+    state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
+    addLog(state,{kind:"MOVE",tick:state.tick,by,
       summary:fighter.name+" se desplazó "+command.meters+" m ("+direction+")"});
   } else if (command.kind === "WAIT") {
     fighter.spentTicks = LIMIT;
     fighter.spentAp = actionPoints(fighter.constitution);
+    state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     addLog(state,{kind:"WAIT",tick:state.tick,by,summary:fighter.name+" finaliza su participación en el turno"});
   } else if (command.kind === "ATTACK") {
     if (!["CUT","BLUNT","PIERCE"].includes(command.attackType)) throw new Error("Tipo de ataque inválido.");
@@ -230,7 +232,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     spend(fighter,turnTicks(fighter,command.attackType));
     state.pending = {by,against:other(by),attackType:command.attackType,
       trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:command.usesMagic===true};
-    addLog(state,{kind:"ATTACK",tick:(state.round-1)*LIMIT+fighter.spentTicks,by,against:other(by),summary:fighter.name+" atacó; esperando reacción"});
+    state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
+    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),summary:fighter.name+" atacó; esperando reacción"});
   } else throw new Error("Acción inválida.");
   state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);
   advanceRoundIfComplete(state);

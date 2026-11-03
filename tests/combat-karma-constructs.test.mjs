@@ -111,7 +111,7 @@ test("boosted stats are removed from the finished combat snapshot, never from a 
  let s=state();
  s=applyResolvedKarmaBoost(s,"PLAYER","boost-expire-123456",{strength:2},4,{strength:2,physicalAttack:4});
  assert.equal(s.actors.PLAYER.strength,22);
- s.pending={by:"PLAYER",against:"NPC",attackType:"BLUNT",trajectory:[{x:0,y:0.5},{x:1,y:0.5}],launchedAtTick:10,usesMagic:false};
+ s.pending={by:"PLAYER",against:"NPC",attackType:"BLUNT",trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}],launchedAtTick:10,usesMagic:false};
  s.actors.NPC.hp=1;
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
  assert.equal(s.status,"FINISHED");

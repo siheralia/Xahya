@@ -253,7 +253,7 @@ export default function CombatEncounter({id}:{id:string}) {
       {options.filter(opt=>pending.usesMagic
         ? ["DODGE","MAGIC_FIELD","ENDURE","NONE"].includes(opt.value)
         : opt.value!=="MAGIC_FIELD").map(opt=><label key={opt.value} className="flex gap-2 rounded-lg border border-zinc-700 p-3">
-       <input type="radio" checked={selectedDefense===opt.value} onChange={()=>setDefense(opt.value)}/>
+       <input type="radio" disabled={opt.value==="MAGIC_FIELD"&&(state.mana?.[side]?.current??0)<1} checked={selectedDefense===opt.value} onChange={()=>setDefense(opt.value)}/>
        <span><b>{opt.label}{opt.value==="MAGIC_FIELD"
          ? " ("+fieldNames[actor?.magicFieldType??"CONCENTRATED"]+")":""}</b>
         <small className="block text-zinc-400">{opt.description}</small>

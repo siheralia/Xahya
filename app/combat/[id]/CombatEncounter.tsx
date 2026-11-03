@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
 import {
-  actionPoints, canAct, deflectionAlignment, remainingAp, turnTicks,
+  actionPoints, canAct, deflectionAlignment, effectiveCombatSpeed, remainingAp, turnTicks,
   type CombatCommand, type CombatState, type DefenseChoice, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
@@ -115,6 +115,7 @@ export default function CombatEncounter({id}:{id:string}) {
   setPoints(previous=>previous.length<2?[...previous,toPoint(e)]:previous);
  }
  const state=view?.state;
+ const tiedSpeed=!!state&&effectiveCombatSpeed(state.actors.PLAYER)===effectiveCombatSpeed(state.actors.NPC);
  const actor=state?.actors[side];
  const pending=state?.pending;
  const hasAccess=view?.permissions[side]??false;
@@ -134,6 +135,12 @@ export default function CombatEncounter({id}:{id:string}) {
    <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-zinc-700 p-3 text-sm">
     <span>Turno: <b>{state.round}</b></span><span>Tick global: <b>{state.tick}</b></span>
     <span>{state.status==="ACTIVE"?"En curso":"Finalizado"}</span>
+    {tiedSpeed&&state.status==="ACTIVE"&&
+      <span>Iniciativa alternada: <b>{
+        state.pending?("Reacción de "+state.actors[state.pending.against].name)
+          : canAct(state,"PLAYER")?state.actors.PLAYER.name
+          : canAct(state,"NPC")?state.actors.NPC.name:"Sin acciones disponibles"
+      }</b></span>}
     {state.winner&&<b>Ganador: {state.actors[state.winner].name}</b>}
    </div>
    <p className="mb-3 text-sm text-zinc-300">Distancia entre combatientes: <b>{Math.abs(state.actors.PLAYER.positionMeters-state.actors.NPC.positionMeters).toFixed(2)} m</b> · Alcance del ataque físico: 2 m</p>
@@ -155,7 +162,7 @@ export default function CombatEncounter({id}:{id:string}) {
       </p>:
       <p className="mt-4 text-sm text-zinc-400">
        {ready?"Puedes actuar.":"En espera: el oponente debe avanzar sus ticks o se agotaron tus PA."}
-       {" "}El turno se comparte: 100 ticks y 9 + CON puntos de acción por combatiente. Los ataques y las reacciones consumen recursos; el NPC de entrenamiento actúa automáticamente.
+       {" "}El turno se comparte: 100 ticks y 9 + CON puntos de acción por combatiente. Si ambos tienen igual velocidad, alternan iniciativas (la defensa no consume iniciativa, pero sí PA y ticks). El NPC de entrenamiento actúa automáticamente.
       </p>}
     {state.status==="ACTIVE" && !pending && !ready && side==="PLAYER" && hasAccess
       && state.actors.NPC.characterId===null &&

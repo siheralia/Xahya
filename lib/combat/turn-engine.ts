@@ -92,6 +92,58 @@ const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(h
 const other = (side: Side): Side => side === "PLAYER" ? "NPC" : "PLAYER";
 const finite = (n: unknown) => typeof n === "number" && Number.isFinite(n);
 const normalize = (n: number) => Math.max(0, finite(n) ? n : 0);
+/** Only the server supplies resolved deltas and charges the real karma wallet in
+ * the same transaction as the updated encounter state. One activation is one
+ * action, irrespective of the amount of karma or number of base stats.
+ */
+export function applyResolvedKarmaBoost(
+ original:CombatState,by:Side,requestId:string,allocation:Record<string,number>,
+ cost:number,deltas:Record<string,number>,
+):CombatState {
+ if(original.processedKarmaRequests?.includes(requestId))return original;
+ if(original.status!=="ACTIVE"||!canAct(original,by))throw new Error("No tienes la iniciativa para aumentar estadísticas.");
+ if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(requestId))throw new Error("Identificador de boost inválido.");
+ const points=Object.values(allocation).reduce((sum,n)=>sum+n,0);
+ if(!Number.isSafeInteger(points)||points<=0||cost!==points*2)throw new Error("Coste de karma inválido.");
+ const state=structuredClone(original),actor=state.actors[by];
+ for(const [key,value] of Object.entries(deltas)) {
+  if(!Number.isFinite(value))throw new Error("Delta estadístico inválido.");
+  if(key==="manaMax"){
+   if(state.mana?.[by])state.mana[by].max=Math.max(state.mana[by].current,state.mana[by].max+value);
+  } else if(key in actor && typeof (actor as unknown as Record<string,unknown>)[key]==="number"){
+   const fields=actor as unknown as Record<string,number>;
+   fields[key]=Math.max(0,fields[key]+value);
+   if(key==="maxHp")actor.hp=Math.min(actor.hp,actor.maxHp);
+  }
+ }
+ state.karmaBoosts??={};state.karmaBoosts[by]??={};
+ for(const [key,value] of Object.entries(allocation))state.karmaBoosts[by]![key]=(state.karmaBoosts[by]![key]??0)+value;
+ state.karmaBoostDeltas??={};state.karmaBoostDeltas[by]??={};
+ for(const [key,value] of Object.entries(deltas))state.karmaBoostDeltas[by]![key]=(state.karmaBoostDeltas[by]![key]??0)+value;
+ state.processedKarmaRequests??=[];state.processedKarmaRequests.push(requestId);
+ spend(actor,turnTicks(actor)); // exactly one PA, independently of allocated points
+ state.tick=Math.max(state.tick,(state.round-1)*LIMIT+actor.spentTicks);
+ addLog(state,{kind:"KARMA",tick:state.tick,by,karmaSpent:cost,karmaAllocation:{...allocation},
+  summary:actor.name+" gastó "+cost+" karma para aumentar "+Object.entries(allocation).map(([key,n])=>key+" +"+n).join(", ")});
+ advanceRoundIfComplete(state);
+ return state;
+}
+function clearKarmaBoostsAtCombatEnd(state:CombatState){
+ for(const side of SIDES) {
+  const actor=state.actors[side];
+  for(const [key,amount] of Object.entries(state.karmaBoostDeltas?.[side]??{})) {
+   if(key==="manaMax") {
+    if(state.mana?.[side])state.mana[side].max=Math.max(0,state.mana[side].max-amount);
+   }else if(key in actor&&typeof (actor as unknown as Record<string,unknown>)[key]==="number"){
+    const fields=actor as unknown as Record<string,number>;
+    fields[key]=Math.max(0,fields[key]-amount);
+   }
+  }
+  actor.hp=Math.min(actor.hp,actor.maxHp);
+  if(state.mana?.[side])state.mana[side].current=Math.min(state.mana[side].current,state.mana[side].max);
+ }
+ state.karmaBoosts={};state.karmaBoostDeltas={};
+}
 /** The duel canvas represents the defender at its normalized center.
  * Its world-space separation is checked independently in meters. */
 export const targetHitboxCenter: Point = {x:0.5,y:0.5};
@@ -421,6 +473,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       state.status = "FINISHED";state.winner = pending.by;
       addLog(state,{kind:"END",tick:state.tick,by:pending.by,against:by,summary:attacker.name+" gana el combate"});
       settleDroppedWeapons(state);
+      clearKarmaBoostsAtCombatEnd(state);
       state.narrativeText=narrateCombat(state.narrativeHistory??state.log,state.actors);
       state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
       // Retain server-only source events to allow better interpretations of old encounters.
@@ -430,6 +483,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   }
   if (command.kind === "DEFEND") throw new Error("No existe un ataque pendiente.");
   if (!canAct(state,by)) throw new Error("Espera el movimiento del otro participante o el siguiente turno.");
+  if(command.kind==="BOOST_KARMA")throw new Error("El boost de karma debe ser aprobado por el servidor.");
   if (command.kind === "MOVE") {
     const maximum = Math.max(1,Math.round(normalize(fighter.race)/10));
     if (!finite(command.meters) || command.meters < 0 || command.meters > maximum)

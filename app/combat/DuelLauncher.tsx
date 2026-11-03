@@ -10,6 +10,7 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
  const [options,setOptions]=useState<LaunchOptions|null>(null);
  const [characterId,setCharacterId]=useState(initialCharacterId);
  const [opponentCharacterId,setOpponentCharacterId]=useState("");
+ const [npcDifficulty,setNpcDifficulty]=useState("INTERMEDIATE");
  const [busy,setBusy]=useState(false);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
@@ -40,7 +41,8 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
    const resp=await fetch("/api/combat/duels",{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({characterId:Number(characterId),
-      opponentCharacterId:options.canApprovePvP&&opponentCharacterId?Number(opponentCharacterId):undefined})
+      opponentCharacterId:options.canApprovePvP&&opponentCharacterId?Number(opponentCharacterId):undefined,
+      npcDifficulty:options.canApprovePvP&&opponentCharacterId?undefined:npcDifficulty})
    });
    const data=await resp.json();
    if(!resp.ok)throw new Error(data.error??"No fue posible iniciar el combate");
@@ -51,7 +53,7 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
  const availableOpponents=options?.characters.filter(c=>String(c.id)!==characterId)??[];
  return <main className="mx-auto max-w-2xl px-4 py-10 text-zinc-100">
   <div className="mb-7 flex items-center justify-between"><h1 className="text-3xl font-bold">⚔️ Combate</h1><Link href="/" className="text-sm text-cyan-300">Inicio</Link></div>
-  <p className="mb-5 text-zinc-400">Inicia un entrenamiento con un NPC de estadísticas parecidas a las tuyas, pero ligeramente variables. El combate conserva su estado aunque cierres sesión.</p>
+  <p className="mb-5 text-zinc-400">Entrena contra NPC de dificultad configurable, con una raza, tres perks y habilidades del catálogo público. Sus estadísticas y recursos existen solo durante el encuentro.</p>
   <div className="space-y-4 rounded-2xl border border-zinc-700 bg-zinc-950/70 p-5">
    <label className="block text-sm">Tu personaje
     <select value={characterId} disabled={busy||loading} onChange={e=>{setCharacterId(e.target.value);setOpponentCharacterId("");}}
@@ -70,12 +72,23 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
     </select>
     <span className="mt-1 block text-xs text-zinc-400">Este selector solo aparece para quienes pueden aprobar combates PvP.</span>
    </label>}
+   {!(options?.canApprovePvP&&opponentCharacterId)&&<label className="block text-sm">Dificultad del NPC
+    <select value={npcDifficulty} disabled={busy||loading} onChange={e=>setNpcDifficulty(e.target.value)}
+      className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
+      <option value="BASIC">Básico · aprender acciones</option>
+      <option value="INTERMEDIATE">Intermedio · combate equilibrado</option>
+      <option value="ADVANCED">Avanzado · mejores defensas</option>
+      <option value="ENDURANCE">Resistencia · grandes cantidades de HP</option>
+      <option value="AGGRESSIVE">Agresivo · presión constante y habilidades</option>
+    </select>
+    <span className="mt-1 block text-xs text-zinc-400">La raza y los tres perks se sortean del catálogo activo; las habilidades compatibles consumen el maná y PA reales del NPC.</span>
+   </label>}
    {error&&<p role="alert" className="text-rose-400">{error}</p>}
    <button type="button" onClick={()=>void start()} disabled={busy||loading||!characterId}
     className="rounded-lg bg-cyan-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
     {busy?"Iniciando…":"Iniciar combate"}
    </button>
   </div>
-  <p className="mt-5 text-xs text-zinc-500">Los HP y la integridad del arma siguen siendo valores del encuentro, no de la ficha. La integración de habilidades y recursos persistentes corresponde a la próxima fase.</p>
+  <p className="mt-5 text-xs text-zinc-500">El combate no descuenta HP ni maná persistentes de la ficha. La persistencia de consumibles y durabilidad de armas continúa pendiente.</p>
  </main>;
 }

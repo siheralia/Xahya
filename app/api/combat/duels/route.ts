@@ -11,7 +11,7 @@ import { combatClientView } from "@/lib/combat/magic-area";
 import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
 import { applyTrainingDifficulty, parseTrainingDifficulty, trainingBaseStats } from "@/lib/combat/training-difficulty";
 import {selectTrainingIdentity,applyTrainingBasePerks,applyTrainingDerivedPerks} from "@/lib/combat/training-identity";
-import {compileTrainingNpcSkills} from "@/lib/combat/training-npc-skills";
+import {compileTrainingNpcSkills,selectTrainingNpcSkills} from "@/lib/combat/training-npc-skills";
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { racialDamageFactors } from "@/lib/combat/innate-traits";
 
@@ -183,11 +183,11 @@ export async function POST(req:Request) {
       null,perkedBase,derived,"CUT","SOLID",
       (character as any).fieldDefenseType);
     opponent=applyTrainingDerivedPerks(applyTrainingDifficulty(opponent,trainingDifficulty),trainingIdentity.perks);
-    npcPlans=compileTrainingNpcSkills(templates.map((t:any)=>({
+    npcPlans=selectTrainingNpcSkills(compileTrainingNpcSkills(templates.map((t:any)=>({
       id:Number(t.id),name:String(t.name),description:t.description??null,
       parentTemplateId:t.parentTemplateId==null?null:Number(t.parentTemplateId),
       payload:t.payload??{},elementChoice:Boolean(t.elementChoice),enabled:Boolean(t.enabled),
-    })),opponent.attackType);
+    })),opponent.attackType),()=>randomInt(1_000_000)/1_000_000);
     opponentManaMax=Math.max(0,Math.floor(numeric(derived.maxMana)));
     opponent.massKg=massDefaultKg;
     opponent.heightMeters=player.heightMeters;

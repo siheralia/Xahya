@@ -46,7 +46,7 @@ function npcRespond(state:CombatState):CombatState {
   }
   // After the player's movement or resolved attack, NPC may submit one action,
   // generating a player-facing reaction. It never spams an unbounded loop.
-  if(!next.pending && canAct(next,"NPC") && next.actors.NPC.spentTicks<=next.actors.PLAYER.spentTicks) {
+  if(!next.pending && canAct(next,"NPC") && !canAct(next,"PLAYER") && next.actors.NPC.spentTicks<=next.actors.PLAYER.spentTicks) {
     const npc=next.actors.NPC;
     const distance=Math.abs(npc.positionMeters-next.actors.PLAYER.positionMeters);
     if(distance>2) {

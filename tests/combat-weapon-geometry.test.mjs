@@ -110,7 +110,7 @@ test("switching from katana to dagger and back preserves independent stroke endp
  assert.equal(s.pending.attackSource,"OFF_HAND");
 });
 test("each fist has its own continuity with the other hand still equipped",()=>{
- let s=newCombatState(dual(),f("B",1));
+ let s=newCombatState(dual(),f("B",0.5));
  const punch=(attackSource,trajectory)=>({kind:"ATTACK",attackSource,attackType:"BLUNT",trajectory});
  const right=[{x:0.1,y:0.5},{x:0.5,y:0.5}],left=[{x:0.8,y:0.5},{x:0.5,y:0.5}];
  s=applyCombatCommand(s,"PLAYER",punch("FIST_RIGHT",right),roll);

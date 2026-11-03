@@ -9,7 +9,7 @@ import { narrateCombat } from "@/lib/combat/narration";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {
-  actionPoints, canAct, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  actionPoints, canAct, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, effectiveWeaponReachMeters, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type PhysicalAttackSource, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
@@ -85,6 +85,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [shareStatus,setShareStatus]=useState("");
+ const [actionFeedback,setActionFeedback]=useState("");
  const [narrativeCopyStatus,setNarrativeCopyStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
  const [attackSource,setAttackSource]=useState<PhysicalAttackSource>("MAIN_HAND");
@@ -94,6 +95,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
  const [constructionCenter,setConstructionCenter]=useState<Point|null>(null);
  const [constructionMaterials,setConstructionMaterials]=useState<Partial<Record<Side,string[]>>>({});
+ const [constructionSkills,setConstructionSkills]=useState<Partial<Record<Side,CombatSkillPreview[]>>>({});
  const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK">("FIELD");
  const [constructionLabel,setConstructionLabel]=useState("");
  const [attackTargetId,setAttackTargetId]=useState("");
@@ -133,6 +135,9 @@ export default function CombatEncounter({id}:{id:string}) {
  const onConstructionMaterialsChange=useCallback((owner:Side,materials:string[])=>{
   setConstructionMaterials(previous=>({...previous,[owner]:materials}));
  },[]);
+ const onConstructionSkillsChange=useCallback((owner:Side,skills:CombatSkillPreview[])=>{
+  setConstructionSkills(previous=>({...previous,[owner]:skills}));
+ },[]);
  const encounterFinished=view?.state.status==="FINISHED";
  useEffect(()=>{
   if(encounterFinished)return; // Once FINISHED, no more background requests.
@@ -142,7 +147,7 @@ export default function CombatEncounter({id}:{id:string}) {
  },[load,encounterFinished]);
  async function submit(command:CombatCommand | {kind:"ADVANCE"}) {
   if(busy)return;
-  setBusy(true);setError("");
+  setBusy(true);setError("");setActionFeedback("");
   try {
    const r=await fetch("/api/combat/"+id+"/actions",{
     method:"POST",headers:{"Content-Type":"application/json"},
@@ -153,7 +158,15 @@ export default function CombatEncounter({id}:{id:string}) {
    setView(v=>v?{...v,state:data.state}:v);
    if(command.kind==="BOOST_KARMA"){setKarmaAllocation({});karmaRequestRef.current=null;void load();}
    if(command.kind==="DEFEND")setPredictedCenter(null);
-   if(command.kind==="CAST_SKILL")castRequestRef.current=null;
+   if(command.kind==="CAST_SKILL"){
+    castRequestRef.current=null;
+    const event=(data.state as CombatState).log.filter(e=>e.skillId===command.skillId).at(-1);
+    setActionFeedback(event?.summary??"Habilidad ejecutada. Revisa el registro de combate.");
+    setPanel("none");setConstructionCenter(null);
+   }else if(command.kind==="BOOST_KARMA"){
+    setActionFeedback("Mini boost aplicado: el karma se descontó y los bonos duran este combate.");
+    setPanel("none");
+   }
    const evt=(data.state as CombatState).log.filter(e=>e.kind==="RESOLVE").at(-1);
    if(evt && evt.tick+":"+evt.summary+":"+evt.defense!==lastResolution.current) {
     setFlash(true);window.setTimeout(()=>setFlash(false),330);
@@ -267,7 +280,7 @@ export default function CombatEncounter({id}:{id:string}) {
   return ()=>{active=false;};
  },[id,npcNeedsInitiative,state?.round,state?.tick,
     state?.actors.NPC.spentTicks,state?.actors.NPC.spentAp,
-    state?.actors.PLAYER.spentTicks,advancingNpc,busy]);
+    state?.actors.PLAYER.spentTicks,busy]);
 
  const karmaAvailable=view?.karma?.[side]??0;
  const karmaPoints=Object.values(karmaAllocation).reduce((sum,n)=>sum+(Number.isSafeInteger(n)&&n>0?n:0),0);
@@ -275,6 +288,10 @@ export default function CombatEncounter({id}:{id:string}) {
  const defenderBlocks=state?.constructions?.filter(c=>c.owner===side&&c.form==="BLOCK"&&
    (c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35)??[];
  const chosenDefenseConstruction=defenderBlocks.some(c=>c.id===defenseConstruction)?defenseConstruction:defenderBlocks[0]?.id;
+ const targetDistance=actor&&state?Math.abs(actor.positionMeters-state.actors[opposingSide].positionMeters):0;
+ const basicReach=attackMode==="MAGIC_AREA"?BASIC_MAGIC_RANGE_METERS:
+   actor?effectiveWeaponReachMeters(actor,attackMode==="THROW",activeAttackSource):0;
+ const basicOutOfRange=targetDistance>basicReach;
  const maxMove=actor?Math.max(1,Math.round(actor.race/10)):1;
  const chooseAttackMode=(mode:"MAGIC_AREA"|"MAIN_HAND"|"OFF_HAND")=>{
   setAreaCenter(null);

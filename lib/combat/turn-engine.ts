@@ -793,11 +793,14 @@ export function applyResolvedCombatSkill(
    defenseFactor:plan.defenseFactor,finalMultiplier:plan.finalMultiplier,
    damageElement:plan.damageElement,
   };
-  const event=next.log.at(-1);
-  if(event){event.skillId=plan.id;event.manaCost=plan.cost;event.skillName=plan.name;
-   event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";
+  const event=next.pending?next.log.at(-1):next.log.slice().reverse().find(x=>
+    x.kind==="ATTACK"&&x.by===by&&x.skillId===plan.id);
+  if(event){
+   event.skillId=plan.id;event.manaCost=plan.cost;event.skillName=plan.name;
+   if(next.pending)event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";
    const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
-   if(historical){historical.skillId=plan.id;historical.skillName=plan.name;historical.summary=event.summary;}
+   if(historical){historical.skillId=plan.id;historical.manaCost=plan.cost;
+    historical.skillName=plan.name;historical.summary=event.summary;}
   }
  }else if(plan.category==="CONSTRUCTION") {
   if(!plan.construction)throw new Error("La habilidad no tiene una creación configurada.");

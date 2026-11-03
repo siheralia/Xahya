@@ -35,6 +35,8 @@ export type CombatState = {
   winner: Side | null; actors: Record<Side, CombatFighter>;
   /** Randomly resolved initial initiative tie; absent in older persisted fights. */
   tieOpener?: Side;
+  /** Last physical stroke endpoint for each combatant; cleared on movement. */
+  physicalPathEnd?: Partial<Record<Side, Point>>;
   pending: PendingAttack | null; log: CombatLog[];
 };
 export type CombatCommand =
@@ -86,7 +88,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    pending:null,log:[]};
+    physicalPathEnd:{},pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
   Math.max(1, f.speedValue ?? f.agility);
@@ -158,6 +160,12 @@ function direction(path: Point[]) {
   const a = path.length > 1 ? path[path.length-2] : {x:0.1,y:0.5};
   const b = path.length ? path[path.length-1] : {x:0.9,y:0.5};
   return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+}
+/** A character resumes a physical stroke at the previous endpoint until moved.
+ * Older saved encounters without this optional property remain usable. */
+export function physicalAttackStart(state: CombatState, by: Side): Point | null {
+  const anchor=state.physicalPathEnd?.[by];
+  return anchor && safePoint(anchor) ? anchor : null;
 }
 export function deflectionAlignment(trajectory: Point[], guardAngle: number) {
   // Guard should cross the incoming tangent at ~90 degrees.
@@ -243,9 +251,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       if (defense === "REPEL" && damageScale < 1) {
         const sign = Math.sign(attacker.positionMeters - fighter.positionMeters) || 1;
         attacker.positionMeters += sign * displaced;
+        // An involuntary displacement also breaks the continuity of a stroke.
+        if(state.physicalPathEnd)delete state.physicalPathEnd[pending.by];
       } else {
         const sign = Math.sign(fighter.positionMeters - attacker.positionMeters) || 1;
         fighter.positionMeters += sign * displaced;
+        if(state.physicalPathEnd)delete state.physicalPathEnd[by];
       }
     }
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT + attacker.spentTicks,(state.round-1)*LIMIT + fighter.spentTicks);
@@ -274,6 +285,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const sign = Math.sign(rival.positionMeters-fighter.positionMeters)||1;
     const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(rival.positionMeters-fighter.positionMeters));
     fighter.positionMeters += sign*magnitude;
+    if(magnitude!==0 && state.physicalPathEnd)delete state.physicalPathEnd[by];
     spend(fighter,turnTicks(fighter));
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     addLog(state,{kind:"MOVE",tick:state.tick,by,
@@ -289,11 +301,20 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (!Array.isArray(points) || points.length < 2 || points.length > 80 || points.some(p => !safePoint(p)))
       throw new Error("Trayectoria inválida.");
     const magic=command.usesMagic===true;
+    if(!magic) {
+      const previous=physicalAttackStart(state,by);
+      if(previous && Math.hypot(points[0].x-previous.x,points[0].y-previous.y)>0.000001)
+        throw new Error("El ataque físico debe comenzar donde terminó el anterior. Muévete para cambiar el punto de inicio.");
+    }
     if (magic && !validArenaPoint(command.areaCenter))
       throw new Error("Marca el centro de la explosión mágica en el lienzo.");
     if (Math.abs(fighter.positionMeters-rival.positionMeters)>(magic?BASIC_MAGIC_RANGE_METERS:2))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 10 m.":"El objetivo está fuera del alcance físico de 2 m.");
     spend(fighter,turnTicks(fighter,command.attackType));
+    if(!magic){
+      state.physicalPathEnd??={};
+      state.physicalPathEnd[by]={...points[points.length-1]};
+    }
     state.pending = {by,against:other(by),attackType:command.attackType,
       trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,
       targetCenter:magic?command.areaCenter:undefined,
@@ -301,7 +322,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,
-      summary:magic?fighter.name+" lanzó una explosión mágica básica; esperando reacción"
+      summary:magic?fighter.name+" lanzó una explosión mágica básica de "+labels[command.attackType]+"; esperando reacción"
         :fighter.name+" lanzó un ataque de "+labels[command.attackType]+"; esperando reacción"});
   } else throw new Error("Acción inválida.");
   state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);

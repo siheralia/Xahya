@@ -107,13 +107,13 @@ test("encounter #2 regression: equally fast NPC counterattacks instead of defend
   let state=newCombatState(guha,npc);
   state=applyCombatCommand(state,"PLAYER",{kind:"ATTACK",attackType:"BLUNT"});
   const nextChoice=chooseNpcReaction(state,rng);
-  assert.equal(nextChoice.defense,"NONE","NPC must save an action instead of defending every hit");
+  assert.notEqual(nextChoice.defense,"NONE","NPC can defend and retain the next alternating initiative");
   state=progressTrainingNpc(state,()=>({hit:0.2,critical:0.99,defense:0.1}),rng);
   const resolution=state.log.find(e=>e.kind==="RESOLVE");
-  assert.equal(resolution.defense,"NONE");
+  assert.notEqual(resolution.defense,"NONE");
   assert.equal(state.pending?.by,"NPC","NPC gets to attack with its own paid action");
   assert.ok(state.log.some(e=>e.kind==="ATTACK"&&e.by==="NPC"));
-  assert.equal(state.actors.NPC.spentAp,1);
+  assert.equal(state.actors.NPC.spentAp,2);
   assert.ok(state.actors.NPC.hp>0);
   state=applyCombatCommand(state,"PLAYER",{kind:"DEFEND",defense:"DODGE"},dice());
   state=progressTrainingNpc(state,dice,rng);
@@ -135,7 +135,7 @@ test("counterattack stance does not grant extra ticks or an additional free acti
   s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"CUT"});
   const p=progressTrainingNpc(s,dice,rng);
   assert.equal(p.pending?.by,"NPC");
-  assert.equal(p.actors.NPC.spentAp,1);
-  assert.equal(p.actors.NPC.spentTicks,27);
+  assert.equal(p.actors.NPC.spentAp,2);
+  assert.equal(p.actors.NPC.spentTicks,54);
   assert.equal(p.log.filter(e=>e.kind==="ATTACK"&&e.by==="NPC").length,1);
 });

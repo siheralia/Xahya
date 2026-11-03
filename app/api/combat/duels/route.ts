@@ -22,10 +22,11 @@ async function snapshotEquippedWeapon(characterId:number):Promise<CombatFighter[
   if(!item||item.itemType!=="WEAPON")return undefined;
   const attackType=String(item.attackType);
   if(!["CUT","BLUNT","PIERCE"].includes(attackType))return undefined;
-  const subtype=String(item.itemSubtype??"").toUpperCase();
-  const ranged=/BOW|CROSSBOW|ARCO|BALLESTA|RANGED|DISTANCIA/.test(subtype);
   return {name:String(item.name),attackType:attackType as CombatFighter["attackType"],
-    mode:ranged?"RANGED":"MELEE",effectiveRangeMeters:ranged?10:1.5};
+    mode:item.weaponMode==="RANGED"?"RANGED":"MELEE",
+    effectiveRangeMeters:Number(item.effectiveRangeMeters??1.5),
+    maximumRangeMeters:Number(item.maximumRangeMeters??item.effectiveRangeMeters??1.5),
+    throwable:Boolean(item.throwable),throwRangeMeters:Number(item.throwRangeMeters??0),itemId:Number(item.id)};
 }
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
 async function currentUser() {

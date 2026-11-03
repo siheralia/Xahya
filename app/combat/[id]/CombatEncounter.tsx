@@ -197,6 +197,7 @@ export default function CombatEncounter({id}:{id:string}) {
   castRequestRef.current={key,id:requestId};
   void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
    trajectory:skill.usesMagic?undefined:normalizedPath,
+   attackSource:skill.usesMagic?undefined:activeAttackSource,
    areaCenter:skill.usesMagic?areaCenter??undefined:undefined});
  }
  const hint=pending?.areaHint??"centro";

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   actionPoints, applyCombatCommand, canAct, contestChance, deflectionAlignment,
-  knockbackMeters, matchupMultiplier, newCombatState, remainingAp, turnTicks,
+  knockbackMeters, matchupMultiplier, newCombatState, physicalAttackStart, remainingAp, turnTicks,
 } from "../lib/combat/turn-engine.ts";
 
 const fighter = (name, agility = 100, overrides = {}) => ({
@@ -132,7 +132,14 @@ test("Monte Carlo: 1000 complete equal-stat duels produce no runaway winner bias
    if(distance>2) {
     const step=Math.min(Math.max(1,Math.round(state.actors[by].race/10)),distance-1.5);
     state=applyCombatCommand(state,by,{kind:"MOVE",meters:step,direction:"TOWARD"});
-   } else state=applyCombatCommand(state,by,attack);
+   } else {
+     // Every uninterrupted sword stroke starts where the previous ended.
+     const anchor=physicalAttackStart(state,by);
+     const trajectory=anchor
+       ? [anchor,{x:anchor.x>0.5?0:1,y:0.5}]
+       : attack.trajectory;
+     state=applyCombatCommand(state,by,{...attack,trajectory});
+   }
   }
   assert.equal(state.status,"FINISHED");
   if(state.winner==="PLAYER")first++; else second++;

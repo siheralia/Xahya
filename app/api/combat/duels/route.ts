@@ -98,13 +98,18 @@ export async function POST(req:Request) {
     }
     // A small, server-generated variation makes each training opponent unique.
     // Preserve mirrored AGI/speed so equal-speed initiative can still be tested.
-    const npcBase=gm&&body?.npcStats&&typeof body.npcStats==="object"
+    const scripted=gm&&body?.npcStats&&typeof body.npcStats==="object";
+    const npcBase=scripted
       ? base:varyTrainingNpcStats(base,()=>randomInt(1_000_000)/1_000_000,mechanics.combatSpeed);
     const derived=await calculateConfiguredDerivedStats(npcBase);
     opponent=buildFighter(String(body?.npcName||"Oponente de entrenamiento").slice(0,80),
       null,npcBase,derived);
     opponent.massKg=massDefaultKg;
-    opponent.speedValue=numeric((npcBase as Record<string,number>)[mechanics.combatSpeed]??(derived as Record<string,number>)[mechanics.combatSpeed],opponent.agility);
+    // Sparring mirrors the challenger’s *effective* speed even when the
+    // configured combat-speed formula is a derived stat of varied attributes.
+    opponent.speedValue=scripted
+      ? numeric((npcBase as Record<string,number>)[mechanics.combatSpeed]??(derived as Record<string,number>)[mechanics.combatSpeed],opponent.agility)
+      : player.speedValue;
   }
   // Server-side random tie-break prevents a permanent first-mover advantage.
   // The next round opens with the other fighter, then alternates.

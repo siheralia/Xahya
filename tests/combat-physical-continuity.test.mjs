@@ -5,7 +5,7 @@ import { applyCombatCommand, canAct, matchupMultiplier, newCombatState,
 import { npcAttackTrajectory, progressTrainingNpc } from "../lib/combat/npc-policy.ts";
 const fighter=(name,location=0,overrides={})=>({
  characterId:null,name,hp:100,maxHp:100,agility:100,speedValue:100,
- strength:10,constitution:1,precision:30,dodge:30,physicalAttack:18,
+ strength:1,constitution:1,precision:30,dodge:30,physicalAttack:18,
  physicalDefense:6,magicAttack:150,magicDefense:10,critical:0,luck:10,
  race:20,massKg:70,positionMeters:location,weaponIntegrity:100,
  attackType:"CUT",defenseType:"SOLID",spentTicks:0,spentAp:0,...overrides,

@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'2feaf5a2d25f7e3ddc3aa280619fd1edfd4d7f3762ff686f28183eb5429be506'>;
+  StorageHashBase<'6791e0f4aca2b453c8a2fcd262c4973ce30c62f72ed048722adfecce5ab71928'>;
 export type ExecutionHash =
   ExecutionHashBase<'c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96'>;
 export type ProfileHash =
@@ -506,6 +506,11 @@ export type FieldOutputTypes = {
       readonly itemType: CodecTypes['pg/text@1']['output'];
       readonly itemSubtype: CodecTypes['pg/text@1']['output'] | null;
       readonly attackType: CodecTypes['pg/text@1']['output'] | null;
+      readonly weaponMode: CodecTypes['pg/text@1']['output'];
+      readonly effectiveRangeMeters: CodecTypes['pg/float8@1']['output'];
+      readonly maximumRangeMeters: CodecTypes['pg/float8@1']['output'];
+      readonly throwable: CodecTypes['pg/bool@1']['output'];
+      readonly throwRangeMeters: CodecTypes['pg/float8@1']['output'];
       readonly acquisitionType: CodecTypes['pg/text@1']['output'];
       readonly price: CodecTypes['pg/int4@1']['output'];
       readonly effects: CodecTypes['pg/json@1']['output'];
@@ -1079,6 +1084,11 @@ export type FieldInputTypes = {
       readonly itemType: CodecTypes['pg/text@1']['input'];
       readonly itemSubtype: CodecTypes['pg/text@1']['input'] | null;
       readonly attackType: CodecTypes['pg/text@1']['input'] | null;
+      readonly weaponMode: CodecTypes['pg/text@1']['input'];
+      readonly effectiveRangeMeters: CodecTypes['pg/float8@1']['input'];
+      readonly maximumRangeMeters: CodecTypes['pg/float8@1']['input'];
+      readonly throwable: CodecTypes['pg/bool@1']['input'];
+      readonly throwRangeMeters: CodecTypes['pg/float8@1']['input'];
       readonly acquisitionType: CodecTypes['pg/text@1']['input'];
       readonly price: CodecTypes['pg/int4@1']['input'];
       readonly effects: CodecTypes['pg/json@1']['input'];
@@ -1651,14 +1661,19 @@ export type StorageColumnTypes = {
       readonly attackType: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly effectiveRangeMeters: CodecTypes['pg/float8@1']['output'];
       readonly effects: CodecTypes['pg/json@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly imagePath: CodecTypes['pg/text@1']['output'] | null;
       readonly itemSubtype: CodecTypes['pg/text@1']['output'] | null;
       readonly itemType: CodecTypes['pg/text@1']['output'];
+      readonly maximumRangeMeters: CodecTypes['pg/float8@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly price: CodecTypes['pg/int4@1']['output'];
       readonly propertyBusinessId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly throwable: CodecTypes['pg/bool@1']['output'];
+      readonly throwRangeMeters: CodecTypes['pg/float8@1']['output'];
+      readonly weaponMode: CodecTypes['pg/text@1']['output'];
     };
     readonly maze: {
       readonly allowDeath: CodecTypes['pg/bool@1']['output'];
@@ -2224,14 +2239,19 @@ export type StorageColumnInputTypes = {
       readonly attackType: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly effectiveRangeMeters: CodecTypes['pg/float8@1']['input'];
       readonly effects: CodecTypes['pg/json@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly imagePath: CodecTypes['pg/text@1']['input'] | null;
       readonly itemSubtype: CodecTypes['pg/text@1']['input'] | null;
       readonly itemType: CodecTypes['pg/text@1']['input'];
+      readonly maximumRangeMeters: CodecTypes['pg/float8@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly price: CodecTypes['pg/int4@1']['input'];
       readonly propertyBusinessId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly throwable: CodecTypes['pg/bool@1']['input'];
+      readonly throwRangeMeters: CodecTypes['pg/float8@1']['input'];
+      readonly weaponMode: CodecTypes['pg/text@1']['input'];
     };
     readonly maze: {
       readonly allowDeath: CodecTypes['pg/bool@1']['input'];
@@ -2755,6 +2775,11 @@ export namespace Models {
     itemType: CodecTypes['pg/text@1']['output'];
     itemSubtype: CodecTypes['pg/text@1']['output'] | null;
     attackType: CodecTypes['pg/text@1']['output'] | null;
+    weaponMode: CodecTypes['pg/text@1']['output'];
+    effectiveRangeMeters: CodecTypes['pg/float8@1']['output'];
+    maximumRangeMeters: CodecTypes['pg/float8@1']['output'];
+    throwable: CodecTypes['pg/bool@1']['output'];
+    throwRangeMeters: CodecTypes['pg/float8@1']['output'];
     acquisitionType: CodecTypes['pg/text@1']['output'];
     price: CodecTypes['pg/int4@1']['output'];
     effects: CodecTypes['pg/json@1']['output'];
@@ -5933,6 +5958,51 @@ type ContractBase = Omit<
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
+                };
+                readonly weaponMode: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'MELEE'>;
+                  };
+                };
+                readonly effectiveRangeMeters: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/float8@1', 1.5>;
+                  };
+                };
+                readonly maximumRangeMeters: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/float8@1', 1.5>;
+                  };
+                };
+                readonly throwable: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly throwRangeMeters: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/float8@1', 0>;
+                  };
                 };
                 readonly acquisitionType: {
                   readonly nativeType: 'text';
@@ -11095,6 +11165,26 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly weaponMode: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly effectiveRangeMeters: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly maximumRangeMeters: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly throwable: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly throwRangeMeters: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
               readonly acquisitionType: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -11172,6 +11262,11 @@ type ContractBase = Omit<
                 readonly itemType: { readonly column: 'itemType' };
                 readonly itemSubtype: { readonly column: 'itemSubtype' };
                 readonly attackType: { readonly column: 'attackType' };
+                readonly weaponMode: { readonly column: 'weaponMode' };
+                readonly effectiveRangeMeters: { readonly column: 'effectiveRangeMeters' };
+                readonly maximumRangeMeters: { readonly column: 'maximumRangeMeters' };
+                readonly throwable: { readonly column: 'throwable' };
+                readonly throwRangeMeters: { readonly column: 'throwRangeMeters' };
                 readonly acquisitionType: { readonly column: 'acquisitionType' };
                 readonly price: { readonly column: 'price' };
                 readonly effects: { readonly column: 'effects' };

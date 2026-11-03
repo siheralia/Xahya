@@ -3793,6 +3793,13 @@
                   "kind": "scalar"
                 }
               },
+              "effectiveRangeMeters": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/float8@1",
+                  "kind": "scalar"
+                }
+              },
               "effects": {
                 "nullable": false,
                 "type": {
@@ -3828,6 +3835,13 @@
                   "kind": "scalar"
                 }
               },
+              "maximumRangeMeters": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/float8@1",
+                  "kind": "scalar"
+                }
+              },
               "name": {
                 "nullable": false,
                 "type": {
@@ -3846,6 +3860,27 @@
                 "nullable": true,
                 "type": {
                   "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "throwRangeMeters": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/float8@1",
+                  "kind": "scalar"
+                }
+              },
+              "throwable": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "weaponMode": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
                   "kind": "scalar"
                 }
               }
@@ -3914,6 +3949,9 @@
                 "description": {
                   "column": "description"
                 },
+                "effectiveRangeMeters": {
+                  "column": "effectiveRangeMeters"
+                },
                 "effects": {
                   "column": "effects"
                 },
@@ -3929,6 +3967,9 @@
                 "itemType": {
                   "column": "itemType"
                 },
+                "maximumRangeMeters": {
+                  "column": "maximumRangeMeters"
+                },
                 "name": {
                   "column": "name"
                 },
@@ -3937,6 +3978,15 @@
                 },
                 "propertyBusinessId": {
                   "column": "propertyBusinessId"
+                },
+                "throwRangeMeters": {
+                  "column": "throwRangeMeters"
+                },
+                "throwable": {
+                  "column": "throwable"
+                },
+                "weaponMode": {
+                  "column": "weaponMode"
                 }
               },
               "namespaceId": "public",
@@ -10819,6 +10869,15 @@
                   "nativeType": "text",
                   "nullable": true
                 },
+                "effectiveRangeMeters": {
+                  "codecId": "pg/float8@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 1.5
+                  },
+                  "nativeType": "float8",
+                  "nullable": false
+                },
                 "effects": {
                   "codecId": "pg/json@1",
                   "nativeType": "json",
@@ -10852,6 +10911,15 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "maximumRangeMeters": {
+                  "codecId": "pg/float8@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 1.5
+                  },
+                  "nativeType": "float8",
+                  "nullable": false
+                },
                 "name": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -10870,6 +10938,33 @@
                   "codecId": "pg/int4@1",
                   "nativeType": "int4",
                   "nullable": true
+                },
+                "throwRangeMeters": {
+                  "codecId": "pg/float8@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "float8",
+                  "nullable": false
+                },
+                "throwable": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "weaponMode": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "MELEE"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
                 }
               },
               "foreignKeys": [],
@@ -14145,7 +14240,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "2feaf5a2d25f7e3ddc3aa280619fd1edfd4d7f3762ff686f28183eb5429be506"
+    "storageHash": "6791e0f4aca2b453c8a2fcd262c4973ce30c62f72ed048722adfecce5ab71928"
   },
   "execution": {
     "executionHash": "c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96",

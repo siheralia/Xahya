@@ -4,6 +4,7 @@ import {readFileSync} from "node:fs";
 import {compileCombatSkill,previewSkillExecution} from "../lib/combat/skill-casting.ts";
 import {projectApprovedCombatSkills,availableConstructionMaterials} from "../lib/combat/skill-preview.ts";
 import {newCombatState,applyCombatCommand,applyResolvedCombatSkill} from "../lib/combat/turn-engine.ts";
+import {progressTrainingNpc} from "../lib/combat/npc-policy.ts";
 const skill={
  id:1,name:"Espejo mágico",status:"APPROVED",category:"OFFENSIVE",cost:15,
  areaOfEffect:"100m | Alcance máximo: 5 m",speed:"Ataque mágico",
@@ -154,4 +155,40 @@ test("mirror user interface renders distinct mirror symbol and physical-target s
  assert.match(src,/c\.form==="MIRROR"/);
  assert.match(src,/enemyMirrors\.map/);
  assert.match(src,/Los objetos decorativos no bloquean ataques/);
+});
+
+test("two mirrors stay active and each fires exactly once next round without additional PA or mana",()=>{
+ let s=cast(initial());
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ s.actors.PLAYER.spentTicks=100;
+ s.actors.NPC.spentTicks=80;
+ s=applyCombatCommand(s,"NPC",{kind:"WAIT"},dice);
+ assert.equal(s.round,2);
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ s=cast(s,"magic-mirror-second-12345",{x:.63,y:.34});
+ assert.equal(s.constructions.length,2);
+ assert.equal(s.mana.PLAYER.current,30);
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ s.actors.PLAYER.spentTicks=100;
+ s.actors.NPC.spentTicks=80;
+ s=applyCombatCommand(s,"NPC",{kind:"WAIT"},dice);
+ assert.equal(s.round,3);
+ const ids=s.constructions.map(c=>c.id);
+ assert.equal(s.pending.mirrorId,ids[0]);
+ assert.equal(s.pending.mirrorAuto,true);
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ assert.equal(s.pending.mirrorId,ids[1]);
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ assert.equal(s.pending,null);
+ assert.equal(s.actors.PLAYER.spentAp,0);
+ assert.equal(s.mana.PLAYER.current,30);
+ assert.equal(s.constructions.length,2);
+});
+test("NPC deliberately breaks a mirror with a physical attack when within reach",()=>{
+ let s=cast(initial());
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ s.actors.PLAYER.spentTicks=100;
+ const result=progressTrainingNpc(s,()=>dice,()=>0.30);
+ assert.ok(result.log.some(e=>e.kind==="CONSTRUCTION"&&e.summary.includes("destruyó")));
+ assert.ok(result.constructions.every(c=>c.form!=="MIRROR"));
 });

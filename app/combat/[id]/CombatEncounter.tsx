@@ -193,7 +193,8 @@ export default function CombatEncounter({id}:{id:string}) {
   setDrawing(false);
   setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);
  },[side,activeAttackSource,physicalAnchor?.x,physicalAnchor?.y]);
- const selectedDefense=pending?.usesMagic
+ const hasAvailableBlock=state?.constructions?.some(c=>c.owner===side&&c.form==="BLOCK"&&(c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35);
+ const selectedDefense=(defense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
   ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
   : (defense==="MAGIC_FIELD"?"DODGE":defense);
  const hasAccess=view?.permissions[side]??false;
@@ -535,7 +536,7 @@ export default function CombatEncounter({id}:{id:string}) {
     {(state.constructions??[]).length>0&&<div className="mt-3 space-y-1">
      {state.constructions?.map(c=><p key={c.id} className="text-xs text-zinc-300">
       {state.actors[c.owner].name}: {c.label} · {c.form==="BLOCK"?"bloque defensivo, resistencia "+c.durability:c.form==="DECOR"?"decorativo, sin efectos":"campo de material"}
-      {c.passive?" · Resistencia no newtoniana automática":""}
+      {c.passive?" · pasiva de resistencia automática":""}
      </p>)}
     </div>}
    </section>}

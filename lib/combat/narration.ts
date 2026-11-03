@@ -12,14 +12,12 @@ const numbers=["cero","uno","dos","tres","cuatro","cinco","seis","siete","ocho",
  "diecinueve","veinte"];
 const quantity=(value:number)=>Number.isInteger(value)&&value>=0&&value<=20?numbers[value]:String(value);
 const damagePhrase=(n:number)=>n===1?"un punto de daño":quantity(n)+" puntos de daño";
-const lifePhrase=(n:number)=>n===1?"un punto de vida":quantity(n)+" puntos de vida";
 const noun=(type:CombatAttackType|undefined,magic=false,ranged=false,thrown=false,weapon?:string)=>{
  if(thrown)return "el lanzamiento de "+(weapon||"su arma");
  if(ranged)return type==="PIERCE"?"un proyectil perforante":type==="BLUNT"?"un proyectil contundente":"un proyectil cortante";
  if(magic)return type==="PIERCE"?"una explosión mágica perforante":type==="BLUNT"?"una explosión mágica contundente":"una explosión mágica cortante";
  return type==="PIERCE"?"una estocada":type==="BLUNT"?"un golpe contundente":"un corte";
 };
-const attackDefinite=(type:CombatAttackType|undefined)=>type==="PIERCE"?"la estocada":type==="BLUNT"?"el golpe":"el corte";
 const roundName=(n:number)=>({2:"segundo",3:"tercer",4:"cuarto",5:"quinto",6:"sexto",
  7:"séptimo",8:"octavo",9:"noveno",10:"décimo"} as Record<number,string>)[n]??String(n)+".º";
 const other=(side:Side):Side=>side==="PLAYER"?"NPC":"PLAYER";
@@ -121,7 +119,7 @@ function describeAttack(
   phrase=stem+". Ni siquiera el campo defensivo de "+target+
    " pudo impedir que recibiera "+damagePhrase(damage)+".";
  }else if(repeat>1&&type==="CUT"&&!magic&&!ranged){
-  phrase=(repeat===2?"Un segundo corte de ":"Otro corte de ")+actor+" volvió a alcanzar a "+target
+  phrase=(repeat===2?"Un segundo corte de ":"Otro corte de ")+actor+" volvió a alcanzar a "+target+
    " y causó "+damagePhrase(damage)+".";
  }else if(first){
   phrase=stem+" que "+(reaction?", pese "+reaction+", ":"")+

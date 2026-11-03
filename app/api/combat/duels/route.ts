@@ -67,6 +67,8 @@ export async function POST(req:Request) {
     (character as any).magicAttackType,(character as any).blockDefenseType,
     (character as any).fieldDefenseType,(character as any).fieldDefenseDescription);
   player.speedValue=numeric(first.effectiveStats[mechanics.combatSpeed]??first.derived[mechanics.combatSpeed],player.agility);
+  player.heightMeters=Math.max(0.3,numeric((character as any).height,170)/100);
+  player.unarmedReachMeters=Math.round(player.heightMeters*0.45*100)/100;
   const opponentId=Number(body?.opponentCharacterId??0);
   let opponent:CombatFighter;
   let opponentManaMax=0;
@@ -80,6 +82,8 @@ export async function POST(req:Request) {
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
       (rival as any).magicAttackType,(rival as any).blockDefenseType,
       (rival as any).fieldDefenseType,(rival as any).fieldDefenseDescription);
+    opponent.heightMeters=Math.max(0.3,numeric((rival as any).height,170)/100);
+    opponent.unarmedReachMeters=Math.round(opponent.heightMeters*0.45*100)/100;
     opponentManaMax=Math.max(0,Math.floor(numeric(stats.derived.maxMana)));
     opponent.positionMeters=1.5;
     opponent.speedValue=numeric(stats.effectiveStats[mechanics.combatSpeed]??stats.derived[mechanics.combatSpeed],opponent.agility);
@@ -113,6 +117,8 @@ export async function POST(req:Request) {
       (character as any).fieldDefenseType);
     opponentManaMax=Math.max(0,Math.floor(numeric(derived.maxMana)));
     opponent.massKg=massDefaultKg;
+    opponent.heightMeters=player.heightMeters;
+    opponent.unarmedReachMeters=player.unarmedReachMeters;
     // Sparring mirrors the challenger’s *effective* speed even when the
     // configured combat-speed formula is a derived stat of varied attributes.
     opponent.speedValue=scripted

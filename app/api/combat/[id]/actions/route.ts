@@ -8,6 +8,7 @@ import {
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
+import { canApproveCombat } from "@/lib/combat/permissions";
 
 const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
   critical:randomInt(1_000_000)/1_000_000,defense:randomInt(1_000_000)/1_000_000});
@@ -23,7 +24,7 @@ async function access(id:string) {
   const state=(session.lastAction as any)?.combatV1 as CombatState|undefined;
   if(!state||state.version!==1)return null;
   const player=await db.orm.public.Character.where({id:Number(session.playerCharacterId)}).first();
-  const gm=["ADMIN","GM"].includes(String(user.role));
+  const gm=await canApproveCombat(user);
   const opponentId=Number(state.actors.NPC.characterId??0);
   const opponent=opponentId?await db.orm.public.Character.where({id:opponentId}).first():null;
   const canPlayer=gm||Number(player?.userId)===Number(user.id);

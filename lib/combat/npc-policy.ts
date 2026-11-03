@@ -7,6 +7,14 @@ export type NpcDice = { hit: number; critical: number; defense: number };
 export type NpcRandom = () => number;
 const cap = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
+/** The training NPC varies the incoming strike orientation, not just its dice.
+ * Points remain inside the combat editor's normalized [0,1] arena. */
+export function npcAttackTrajectory(random: NpcRandom): Point[] {
+  const angle=cap(random(),0,0.999999)*Math.PI*2;
+  const dx=Math.cos(angle)*0.35,dy=Math.sin(angle)*0.35;
+  return [{x:0.5-dx,y:0.5-dy},{x:0.5+dx,y:0.5+dy}];
+}
+
 /** This function only applies to training NPCs: never advance a second human character. */
 export function isTrainingNpc(state: CombatState) {
   return state.actors.NPC.characterId === null;
@@ -106,7 +114,7 @@ export function progressTrainingNpc(
       const meters=Math.min(maximum,Math.max(0.01,distance-1.5));
       next=applyCombatCommand(next,"NPC",{kind:"MOVE",meters,direction:"TOWARD"},makeDice());
     } else {
-      next=applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType},makeDice());
+      next=applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType,trajectory:npcAttackTrajectory(random)},makeDice());
     }
   }
   throw new Error("La IA alcanzó el límite de acciones por actualización.");

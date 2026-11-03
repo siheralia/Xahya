@@ -502,7 +502,7 @@ export default function CombatEncounter({id}:{id:string}) {
    {state.status==="ACTIVE"&&(canCreateObjects||(state.constructions?.length??0)>0)&&<section className="mt-5 rounded-xl border border-cyan-400/30 bg-zinc-950 p-4">
     <h2 className="font-semibold text-cyan-200">{canCreateObjects?"Constructor de objetos":"Construcciones en el campo"}</h2>
     {canCreateObjects&&<p className="mt-1 text-xs text-zinc-400">Selecciona dónde colocar una creación y actívala desde una habilidad con efecto Crear. Sus propiedades dependen del material y de las pasivas configuradas. Los objetos decorativos no bloquean ataques.</p>}
-    <svg aria-label="Seleccionar posición de construcción" viewBox="0 0 100 100"
+    <svg aria-label={canCreateObjects?"Seleccionar posición de construcción":"Construcciones presentes en el campo"} viewBox="0 0 100 100"
      role={canCreateObjects?"button":"img"} tabIndex={canCreateObjects?0:undefined}
      onClick={e=>{
       if(!canCreateObjects)return;
@@ -513,7 +513,7 @@ export default function CombatEncounter({id}:{id:string}) {
       });
      }}
      onKeyDown={e=>{if(canCreateObjects&&(e.key==="Enter"||e.key===" ")){e.preventDefault();setConstructionCenter({x:0.5,y:0.5});}}}
-     className="mt-3 aspect-square w-full max-w-sm cursor-crosshair rounded-lg border border-zinc-600 bg-zinc-900">
+     className={"mt-3 aspect-square w-full max-w-sm rounded-lg border border-zinc-600 bg-zinc-900"+(canCreateObjects?" cursor-crosshair":"")}>
       {Array.from({length:9},(_,i)=><g key={i}>
        <line x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth=".4"/>
        <line x1="0" x2="100" y1={(i+1)*10} y2={(i+1)*10} stroke="#3f3f46" strokeWidth=".4"/>

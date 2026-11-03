@@ -71,6 +71,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [points,setPoints]=useState<Point[]>(defaultPath);
  const [drawing,setDrawing]=useState(false);
  const [defense,setDefense]=useState<DefenseChoice>("DODGE");
+ const [dodgeDirection,setDodgeDirection]=useState<"AWAY"|"TOWARD"|"WEAPON">("AWAY");
  const [angle,setAngle]=useState(90);
  const [flash,setFlash]=useState(false);
  const lastResolution=useRef("");
@@ -283,7 +284,13 @@ export default function CombatEncounter({id}:{id:string}) {
        onChange={e=>setAngle(Number(e.target.value))}/>
       <span className="block text-xs text-zinc-400">Orientación aproximada: {guardHint(deflectionAlignment(pending.trajectory,angle))}. No garantiza desviar el golpe; también intervienen tu agilidad, la fuerza rival y la tirada.</span>
      </label>}
-     <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,defenseAngle:angle,
+     {selectedDefense==="DODGE"&&<label className="block text-sm">Desplazamiento al esquivar
+       <select value={dodgeDirection} onChange={e=>setDodgeDirection(e.target.value as "AWAY"|"TOWARD"|"WEAPON")} className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2">
+         <option value="AWAY">Alejarse</option><option value="TOWARD">Acercarse</option>
+         {state.droppedWeapons?.some(w=>w.owner===side)&&<option value="WEAPON">Hacia el arma arrojada</option>}
+       </select>
+     </label>}
+     <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,defenseAngle:angle,dodgeDirection:selectedDefense==="DODGE"?dodgeDirection:undefined,
         predictedCenter:(pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
       disabled={busy||((pending.usesMagic||pending.rangedPhysical)&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
       {busy?"Resolviendo…":"Responder al ataque"}

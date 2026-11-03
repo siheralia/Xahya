@@ -82,3 +82,26 @@ test("unequal speeds still allow two actions before the slower actor's one",()=>
   assert.equal(canAct(s,"PLAYER"),false);
   assert.equal(canAct(s,"NPC"),true);
 });
+
+test("a training NPC opening a random speed tie starts attacking automatically",()=>{
+  let s=newCombatState(fighter("Guha"),fighter("Training NPC",38,{positionMeters:1.5}),"NPC");
+  assert.equal(canAct(s,"NPC"),true);
+  assert.equal(canAct(s,"PLAYER"),false);
+  s=progressTrainingNpc(s,dice,()=>0.35);
+  assert.equal(s.pending?.by,"NPC");
+  assert.equal(s.pending?.against,"PLAYER");
+  assert.equal(s.log.filter(e=>e.kind==="ATTACK").length,1);
+  s=applyCombatCommand(s,"PLAYER",{kind:"DEFEND",defense:"DODGE"},dice());
+  s=progressTrainingNpc(s,dice,()=>0.35);
+  assert.equal(canAct(s,"PLAYER"),true);
+  assert.equal(canAct(s,"NPC"),false);
+});
+
+test("tie opener rotates to the opposite combatant next round",()=>{
+  let s=newCombatState(fighter("Guha"),fighter("NPC",38,{positionMeters:1.5}),"NPC");
+  s=applyCombatCommand(s,"NPC",{kind:"WAIT"});
+  s=applyCombatCommand(s,"PLAYER",{kind:"WAIT"});
+  assert.equal(s.round,2);
+  assert.equal(canAct(s,"PLAYER"),true);
+  assert.equal(canAct(s,"NPC"),false);
+});

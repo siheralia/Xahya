@@ -5,10 +5,12 @@ import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
 import { geometricContact } from "./geometry.ts";
 import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
+import {calculateVariableResistance} from "../skills/variable-resistance.ts";
+import {validateConstructionPlacement,resolveConstructionForm,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 
 export type Side = "PLAYER" | "NPC";
-export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "NONE";
+export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
 export type Point = { x: number; y: number };
 export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FIST_LEFT";
 export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number};
@@ -47,6 +49,7 @@ export type CombatLog = {
   /** Narration metadata; optional for encounters created before this feature. */
   usesMagic?:boolean; thrownWeapon?:boolean; weaponName?:string;
   skillName?:string; healingPoints?:number;
+  karmaSpent?:number; karmaAllocation?:Record<string,number>; constructionId?:string;
   movementDirection?:"TOWARD"|"AWAY"|"WEAPON"; moveMeters?:number;
 };
 export type CombatState = {
@@ -62,6 +65,10 @@ export type CombatState = {
   skillCooldowns?: Partial<Record<Side,Record<string,number>>>;
   skillBonuses?: Array<{by:Side;skillId:number;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
   processedSkillRequests?: string[];
+  processedKarmaRequests?: string[];
+  karmaBoosts?: Partial<Record<Side,Record<string,number>>>;
+  karmaBoostDeltas?: Partial<Record<Side,Record<string,number>>>;
+  constructions?: CombatConstruction[];
   droppedWeapons?: Array<{owner:Side;weapon:CombatWeapon;slot?:"MAIN_HAND"|"OFF_HAND";positionMeters:number}>;
   /** All chronological events needed to narrate a long fight (not just the last 100 on-screen entries). */
   narrativeHistory?: CombatLog[];
@@ -74,9 +81,10 @@ export type CombatState = {
 export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
   | { kind: "WAIT" }
+  | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
   | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point }
-  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource };
+  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -156,7 +164,8 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},physicalPathEnds:{},narrativeHistory:[],pending:null,log:[]};
+    physicalPathEnd:{},physicalPathEnds:{},constructions:[],karmaBoosts:{},karmaBoostDeltas:{},
+    processedKarmaRequests:[],narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
   Math.max(1, f.speedValue ?? f.agility);
@@ -181,7 +190,7 @@ function lastInitiativeSide(state: CombatState): Side | null {
   for (let i = state.log.length - 1; i >= 0; i--) {
     const {kind, by} = state.log[i];
     if (kind === "ROUND") break;
-    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT" || kind === "SKILL") return by;
+    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT" || kind === "SKILL" || kind==="KARMA") return by;
   }
   return null;
 }

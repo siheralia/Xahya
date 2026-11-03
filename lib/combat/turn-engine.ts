@@ -13,6 +13,7 @@ export type CombatFighter = {
   dodge: number; physicalAttack: number; physicalDefense: number;
   magicAttack: number; magicDefense: number; critical: number; luck: number;
   race: number; massKg: number; positionMeters: number; attackType: CombatAttackType;
+  heightMeters?: number; unarmedReachMeters?: number;
   defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
   magicFieldDescription?: string | null; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
@@ -217,6 +218,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (!pending.usesMagic && defense === "MAGIC_FIELD")
       throw new Error("El campo defensivo mágico solo puede responder a ataques mágicos.");
     if (remainingAp(fighter) <= 0 || fighter.spentTicks >= LIMIT) defense = "NONE";
+    if(defense==="MAGIC_FIELD"){
+      const mana=state.mana?.[by];
+      if(!mana || mana.current<1)throw new Error("Necesitas 1 punto de maná para activar el campo mágico.");
+      mana.current-=1;
+    }
     if (defense !== "NONE") spend(fighter, turnTicks(fighter));
     const power = pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack;
     const protection = pending.usesMagic ? fighter.magicDefense : fighter.physicalDefense;
@@ -341,6 +347,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (!Array.isArray(points) || points.length < 2 || points.length > 80 || points.some(p => !safePoint(p)))
       throw new Error("Trayectoria inválida.");
     const magic=command.usesMagic===true;
+    if(magic&&!serverSkillRangeMeters){
+      const mana=state.mana?.[by];
+      if(!mana||mana.current<1)throw new Error("Necesitas 1 punto de maná para lanzar magia básica.");
+    }
     const ranged=command.rangedPhysical===true;
     if(magic&&ranged)throw new Error("El ataque no puede ser mágico y proyectil físico a la vez.");
     if(ranged&&!validArenaPoint(command.areaCenter))throw new Error("Marca el punto de impacto del proyectil.");
@@ -351,9 +361,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     if (magic && !validArenaPoint(command.areaCenter))
       throw new Error("Marca el centro de la explosión mágica en el lienzo.");
-    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:ranged?10:2)))
+    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:ranged?10:(fighter.unarmedReachMeters??Math.max(0.3,(fighter.heightMeters??1.7)*0.45)))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 10 m.":"El objetivo está fuera del alcance físico de 2 m.");
     spend(fighter,turnTicks(fighter,command.attackType));
+    if(magic&&!serverSkillRangeMeters)state.mana![by].current-=1;
     if(!magic&&!ranged){
       state.physicalPathEnd??={};
       state.physicalPathEnd[by]={...points[points.length-1]};
@@ -364,7 +375,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       areaHint:magic||ranged?magicImpactZone(command.areaCenter!):undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
-    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,
+    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,manaCost:magic&&!serverSkillRangeMeters?1:undefined,
       summary:magic?fighter.name+" lanzó magia de "+labels[command.attackType]+"; esperando reacción"
         :ranged?fighter.name+" lanzó un proyectil físico de "+labels[command.attackType]+"; esperando reacción"
         :fighter.name+" lanzó un ataque de "+labels[command.attackType]+"; esperando reacción"});

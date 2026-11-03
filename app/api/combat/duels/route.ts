@@ -10,7 +10,7 @@ import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 import { combatClientView } from "@/lib/combat/magic-area";
 import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
 import { applyTrainingDifficulty, parseTrainingDifficulty, trainingBaseStats } from "@/lib/combat/training-difficulty";
-import {selectTrainingIdentity,applyTrainingBasePerks,applyTrainingDerivedPerks} from "@/lib/combat/training-identity";
+import {selectTrainingIdentity,allTrainingPerks,applyTrainingBasePerks,applyTrainingDerivedPerks,trainingResourceBonus} from "@/lib/combat/training-identity";
 import {compileTrainingNpcSkills,selectTrainingNpcSkills} from "@/lib/combat/training-npc-skills";
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { racialDamageFactors } from "@/lib/combat/innate-traits";
@@ -177,24 +177,29 @@ export async function POST(req:Request) {
     trainingIdentity=selectTrainingIdentity(races,perks,links,
       ()=>randomInt(1_000_000)/1_000_000);
     const difficultyBase=trainingBaseStats(npcBase,trainingDifficulty,mechanics.combatSpeed);
-    const perkedBase=applyTrainingBasePerks(difficultyBase,trainingIdentity.perks);
+    const npcPerks=allTrainingPerks(trainingIdentity);
+    const perkedBase=applyTrainingBasePerks(difficultyBase,npcPerks);
     const derived=await calculateConfiguredDerivedStats(perkedBase);
     opponent=buildFighter(String(body?.npcName||"Oponente de entrenamiento").slice(0,60)+" · "+trainingIdentity.race.name,
       null,perkedBase,derived,"CUT","SOLID",
       (character as any).fieldDefenseType);
-    opponent=applyTrainingDerivedPerks(applyTrainingDifficulty(opponent,trainingDifficulty),trainingIdentity.perks);
+    opponent=applyTrainingDerivedPerks(applyTrainingDifficulty(opponent,trainingDifficulty),npcPerks);
+    // Resource perks only increase the encounter snapshot, not the character sheet.
+    const bonusHp=trainingResourceBonus(npcPerks,"HP");
+    opponent.maxHp=Math.max(1,opponent.maxHp+bonusHp);
+    opponent.hp=opponent.maxHp;
     npcPlans=selectTrainingNpcSkills(compileTrainingNpcSkills(templates.map((t:any)=>({
       id:Number(t.id),name:String(t.name),description:t.description??null,
       parentTemplateId:t.parentTemplateId==null?null:Number(t.parentTemplateId),
       payload:t.payload??{},elementChoice:Boolean(t.elementChoice),enabled:Boolean(t.enabled),
     })),opponent.attackType),()=>randomInt(1_000_000)/1_000_000);
-    opponentManaMax=Math.max(0,Math.floor(numeric(derived.maxMana)));
+    opponentManaMax=Math.max(0,Math.floor(numeric(derived.maxMana))+trainingResourceBonus(npcPerks,"MANA"));
     opponent.massKg=massDefaultKg;
     opponent.heightMeters=player.heightMeters;
     opponent.unarmedReachMeters=player.unarmedReachMeters;
     // Sparring mirrors the challenger’s *effective* speed even when the
     // configured combat-speed formula is a derived stat of varied attributes.
-    const speedPerk=trainingIdentity.perks.some(p=>p.effects.some(e=>
+    const speedPerk=npcPerks.some(p=>p.effects.some(e=>
       ({"AGI":"agility","STR":"strength","CON":"constitution","INT":"intelligence",
         "WIS":"wisdom","CHA":"charisma","SPI":"spirit","LUCK":"luck"} as Record<string,string>)[e.target]===mechanics.combatSpeed
       ||e.target.toLowerCase()===mechanics.combatSpeed));
@@ -210,7 +215,8 @@ export async function POST(req:Request) {
   const initial=newCombatState(player,opponent,starter);
   if(trainingIdentity)initial.trainingNpc={
     difficulty:trainingDifficulty,race:trainingIdentity.race,
-    perks:trainingIdentity.perks.map(p=>({id:p.id,name:p.name})),skills:npcPlans,
+    racialPerks:trainingIdentity.racialPerks.map(p=>({id:p.id,name:p.name,mechanical:p.mechanical})),
+    extraPerks:trainingIdentity.extraPerks.map(p=>({id:p.id,name:p.name})),skills:npcPlans,
   };
   // Encounter-local mana snapshots: costs are persisted with the combat
   // transaction, never deducted from the shared character sheet in a test.
@@ -234,7 +240,8 @@ export async function POST(req:Request) {
     playerCharacterId:characterId,npcName:opponent.name,
     npcStats:{opponentCharacterId:opponent.characterId,...(trainingIdentity?{
       difficulty:trainingDifficulty,raceId:trainingIdentity.race.id,
-      perkIds:trainingIdentity.perks.map(p=>p.id),
+      racialPerkIds:trainingIdentity.racialPerks.map(p=>p.id),
+      extraPerkIds:trainingIdentity.extraPerks.map(p=>p.id),
       genericTemplateIds:npcPlans.map(p=>p.id-1_000_000_000),
     }: {})},
     currentTick:state.tick,turn:state.round,

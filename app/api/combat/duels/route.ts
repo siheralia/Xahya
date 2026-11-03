@@ -54,6 +54,7 @@ export async function POST(req:Request) {
     if(!rival||!stats)return NextResponse.json({error:"Oponente no encontrado."},{status:404});
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
       (rival as any).magicAttackType,(rival as any).blockDefenseType);
+    opponent.positionMeters=1.5;
   } else {
     const base={strength:10,agility:10,constitution:10,intelligence:10,wisdom:10,
       charisma:10,spirit:10,luck:10};

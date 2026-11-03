@@ -28,9 +28,12 @@ export async function GET() {
  return NextResponse.json({characters,canApprovePvP});
 }
 function buildFighter(name:string, characterId:number|null, base:Record<string,number>,
- derived:Record<string,number>, weaponType:unknown="CUT", defenseType:unknown="SOLID"):CombatFighter {
+ derived:Record<string,number>, weaponType:unknown="CUT", defenseType:unknown="SOLID",
+ fieldType:unknown="CONCENTRATED", fieldDescription:unknown=null):CombatFighter {
   const aType=["CUT","BLUNT","PIERCE"].includes(String(weaponType)) ? weaponType as CombatFighter["attackType"]:"CUT";
   const dType=["CONCENTRATED","DISPERSED","SOLID"].includes(String(defenseType)) ? defenseType as CombatFighter["defenseType"]:"SOLID";
+  const mType=["CONCENTRATED","DISPERSED","SOLID"].includes(String(fieldType))
+    ? fieldType as NonNullable<CombatFighter["magicFieldType"]>:"CONCENTRATED";
   return {
     characterId,name,hp:Math.max(1,Math.floor(numeric(derived.maxHp,10))),
     maxHp:Math.max(1,Math.floor(numeric(derived.maxHp,10))),
@@ -41,6 +44,8 @@ function buildFighter(name:string, characterId:number|null, base:Record<string,n
     magicDefense:numeric(derived.magicDefense),critical:numeric(derived.critical),
     luck:numeric(base.luck),race:numeric(derived.race),
     massKg:massDefaultKg,positionMeters:characterId===null?1.5:0,attackType:aType,defenseType:dType,
+    magicFieldType:mType,
+    magicFieldDescription:typeof fieldDescription==="string"?fieldDescription.slice(0,500):null,
     weaponIntegrity:weaponIntegrityDefault,spentTicks:0,spentAp:0,
   };
 }
@@ -59,7 +64,8 @@ export async function POST(req:Request) {
   if(!first)return NextResponse.json({error:"Faltan estadísticas del personaje."},{status:400});
   const mechanics=await readMechanics();
   const player=buildFighter(String(character.name),characterId,first.effectiveStats,first.derived,
-    (character as any).magicAttackType,(character as any).blockDefenseType);
+    (character as any).magicAttackType,(character as any).blockDefenseType,
+    (character as any).fieldDefenseType,(character as any).fieldDefenseDescription);
   player.speedValue=numeric(first.effectiveStats[mechanics.combatSpeed]??first.derived[mechanics.combatSpeed],player.agility);
   const opponentId=Number(body?.opponentCharacterId??0);
   let opponent:CombatFighter;
@@ -71,7 +77,8 @@ export async function POST(req:Request) {
     const stats=await getEffectiveCharacterStats(opponentId);
     if(!rival||!stats)return NextResponse.json({error:"Oponente no encontrado."},{status:404});
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
-      (rival as any).magicAttackType,(rival as any).blockDefenseType);
+      (rival as any).magicAttackType,(rival as any).blockDefenseType,
+      (rival as any).fieldDefenseType,(rival as any).fieldDefenseDescription);
     opponent.positionMeters=1.5;
     opponent.speedValue=numeric(stats.effectiveStats[mechanics.combatSpeed]??stats.derived[mechanics.combatSpeed],opponent.agility);
   } else {
@@ -100,7 +107,8 @@ export async function POST(req:Request) {
       ? base:varyTrainingNpcStats(base,()=>randomInt(1_000_000)/1_000_000,mechanics.combatSpeed);
     const derived=await calculateConfiguredDerivedStats(npcBase);
     opponent=buildFighter(String(body?.npcName||"Oponente de entrenamiento").slice(0,80),
-      null,npcBase,derived);
+      null,npcBase,derived,"CUT","SOLID",
+      (character as any).fieldDefenseType);
     opponent.massKg=massDefaultKg;
     // Sparring mirrors the challenger’s *effective* speed even when the
     // configured combat-speed formula is a derived stat of varied attributes.

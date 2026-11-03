@@ -4,12 +4,14 @@ import { randomInt } from "node:crypto";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import {
-  applyCombatCommand, canAct, type CombatCommand, type CombatState, type Side,
+  applyCombatCommand, applyResolvedCombatSkill, canAct, type CombatCommand, type CombatState, type Side,
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 import { combatClientView } from "@/lib/combat/magic-area";
 import { canApproveCombat } from "@/lib/combat/permissions";
+import { compileCombatSkill } from "@/lib/combat/skill-casting";
+import { meetsEffectRequirements } from "@/lib/skills/effect-requirements";
 
 const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
   critical:randomInt(1_000_000)/1_000_000,defense:randomInt(1_000_000)/1_000_000});
@@ -67,6 +69,38 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
         next=progressTrainingNpc(state,dice,()=>randomInt(1_000_000)/1_000_000);
         if(JSON.stringify(next)===JSON.stringify(state))
           throw new Error("No hay ninguna acción automática pendiente del NPC.");
+      } else if(command.kind==="CAST_SKILL") {
+        // The client supplies ONLY a skill id and aim. Its effects, cost and
+        // cooldown are compiled exclusively from the approved DB row here,
+        // inside the same serialized session transaction.
+        const characterId=state.actors[side].characterId;
+        if(characterId===null)throw new Error("El NPC de entrenamiento no posee habilidades personales.");
+        const skillId=Number(command.skillId);
+        if(!Number.isSafeInteger(skillId)||skillId<=0)throw new Error("Habilidad inválida.");
+        const requestId=String(command.requestId??"");
+        if(state.processedSkillRequests?.includes(requestId)){
+          next=state; // Same request retransmitted: no extra mana, PA or NPC action.
+        }else{
+          const Skill=(tx.orm.public as any).Skill;
+          const skill=await Skill.where({id:skillId,characterId,status:"APPROVED"}).first();
+          if(!skill)throw new Error("Esta habilidad no está aprobada para tu personaje.");
+          const stolen=db.raw.sql`
+            SELECT 1 AS "taken" FROM public."skillTheft"
+            WHERE "victimCharacterId"=${characterId}
+             AND "sourceSkillId"=${skillId} AND status='ACTIVE' LIMIT 1
+          `.returnsRow({taken:"pg/int4@1"}).build();
+          if((await tx.execute(stolen)).rows.length>0)
+            throw new Error("No puedes lanzar una habilidad que te han robado temporalmente.");
+          const available=await Skill.where({characterId,status:"APPROVED"}).all();
+          const others=available.filter((s:any)=>Number(s.id)!==skillId);
+          const requirements=Array.isArray(skill.effectRequirements)?skill.effectRequirements:[];
+          if(!meetsEffectRequirements(requirements,others))
+            throw new Error("No se cumplen los requisitos por efecto de esta habilidad.");
+          const plan=compileCombatSkill(skill);
+          next=applyResolvedCombatSkill(state,side,plan,command,dice());
+          if(side==="PLAYER"&&next.status==="ACTIVE")
+            next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);
+        }
       } else {
         next=applyCombatCommand(state,side,command,dice());
         // In particular, progress after PLAYER's DEFEND; previously this was

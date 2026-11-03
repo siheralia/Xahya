@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getEffectiveCharacterStats } from "@/lib/stats/effective";
 import { calculateDerivedStats } from "@/lib/stats/derived";
+import { readMechanics } from "@/lib/stats/mechanics";
 import { massDefaultKg, newCombatState, weaponIntegrityDefault, type CombatFighter } from "@/lib/combat/turn-engine";
 
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
@@ -41,8 +42,10 @@ export async function POST(req:Request) {
     return NextResponse.json({error:"Sin permiso sobre este personaje."},{status:403});
   const first=await getEffectiveCharacterStats(characterId);
   if(!first)return NextResponse.json({error:"Faltan estadísticas del personaje."},{status:400});
+  const mechanics=await readMechanics();
   const player=buildFighter(String(character.name),characterId,first.effectiveStats,first.derived,
     (character as any).magicAttackType,(character as any).blockDefenseType);
+  player.speedValue=numeric(first.effectiveStats[mechanics.combatSpeed]??first.derived[mechanics.combatSpeed],player.agility);
   const opponentId=Number(body?.opponentCharacterId??0);
   let opponent:CombatFighter;
   if(Number.isSafeInteger(opponentId) && opponentId>0) {
@@ -55,6 +58,7 @@ export async function POST(req:Request) {
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
       (rival as any).magicAttackType,(rival as any).blockDefenseType);
     opponent.positionMeters=1.5;
+    opponent.speedValue=numeric(stats.effectiveStats[mechanics.combatSpeed]??stats.derived[mechanics.combatSpeed],opponent.agility);
   } else {
     // Fair sparring partner: mirror the challenger's effective base stats,
     // then let a GM override specific values for a scripted NPC.
@@ -78,6 +82,7 @@ export async function POST(req:Request) {
     opponent=buildFighter(String(body?.npcName||"Oponente de entrenamiento").slice(0,80),
       null,base,derived);
     opponent.massKg=massDefaultKg;
+    opponent.speedValue=numeric((base as Record<string,number>)[mechanics.combatSpeed]??(derived as Record<string,number>)[mechanics.combatSpeed],opponent.agility);
   }
   const state=newCombatState(player,opponent);
   const Session=(db.orm.public as any).CombatSession;

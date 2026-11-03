@@ -88,7 +88,7 @@ const katana={name:"Katana",attackType:"CUT",mode:"MELEE",effectiveRangeMeters:1
 const secondDagger={name:"Daga",attackType:"PIERCE",mode:"MELEE",effectiveRangeMeters:1.1,maximumRangeMeters:1.3,throwable:true,throwRangeMeters:5,itemId:92};
 const dual=()=>{const a=f("A",0,katana);a.offhandWeapon=secondDagger;return a;};
 test("switching from katana to dagger and back preserves independent stroke endpoints",()=>{
- let s=newCombatState(dual(),f("B",1));
+ let s=newCombatState({...dual(),strength:0},f("B",1));
  const cut=(trajectory)=>({kind:"ATTACK",attackSource:"MAIN_HAND",attackType:"CUT",trajectory});
  const pierce=(trajectory)=>({kind:"ATTACK",attackSource:"OFF_HAND",attackType:"PIERCE",trajectory});
  const k1=[{x:0.1,y:0.5},{x:0.9,y:0.5}], d1=[{x:0.2,y:0.5},{x:0.5,y:0.5}];

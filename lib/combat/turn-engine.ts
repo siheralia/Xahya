@@ -1,6 +1,6 @@
-import { calculateActionTicks, COMBAT_TICKS_PER_TURN } from "./ticks";
+import { calculateActionTicks, COMBAT_TICKS_PER_TURN } from "./ticks.ts";
 import type { CombatAttackType } from "./ticks";
-import type { CombatDefenseType } from "./matchup-types";
+import type { CombatDefenseType } from "./matchup-types.ts";
 
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "NONE";

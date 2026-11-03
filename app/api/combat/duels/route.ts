@@ -69,6 +69,7 @@ export async function POST(req:Request) {
   player.speedValue=numeric(first.effectiveStats[mechanics.combatSpeed]??first.derived[mechanics.combatSpeed],player.agility);
   const opponentId=Number(body?.opponentCharacterId??0);
   let opponent:CombatFighter;
+  let opponentManaMax=0;
   if(Number.isSafeInteger(opponentId) && opponentId>0) {
     // A GM must initiate PvP. Both owners may act afterward.
     if(!gm)return NextResponse.json({error:"El PvP requiere que un GM inicie el encuentro."},{status:403});
@@ -79,6 +80,7 @@ export async function POST(req:Request) {
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
       (rival as any).magicAttackType,(rival as any).blockDefenseType,
       (rival as any).fieldDefenseType,(rival as any).fieldDefenseDescription);
+    opponentManaMax=Math.max(0,Math.floor(numeric(stats.derived.maxMana)));
     opponent.positionMeters=1.5;
     opponent.speedValue=numeric(stats.effectiveStats[mechanics.combatSpeed]??stats.derived[mechanics.combatSpeed],opponent.agility);
   } else {
@@ -109,6 +111,7 @@ export async function POST(req:Request) {
     opponent=buildFighter(String(body?.npcName||"Oponente de entrenamiento").slice(0,80),
       null,npcBase,derived,"CUT","SOLID",
       (character as any).fieldDefenseType);
+    opponentManaMax=Math.max(0,Math.floor(numeric(derived.maxMana)));
     opponent.massKg=massDefaultKg;
     // Sparring mirrors the challenger’s *effective* speed even when the
     // configured combat-speed formula is a derived stat of varied attributes.
@@ -121,7 +124,23 @@ export async function POST(req:Request) {
   const starter=randomInt(2)===0?"PLAYER":"NPC";
   const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
     critical:randomInt(1_000_000)/1_000_000,defense:randomInt(1_000_000)/1_000_000});
-  const state=progressTrainingNpc(newCombatState(player,opponent,starter),dice,
+  const initial=newCombatState(player,opponent,starter);
+  // Encounter-local mana snapshots: costs are persisted with the combat
+  // transaction, never deducted from the shared character sheet in a test.
+  const firstMax=Math.max(0,Math.floor(numeric(first.derived.maxMana)));
+  const ownerResource=await db.orm.public.CharacterResource.where({characterId}).first();
+  const rivalResource=opponent.characterId!==null
+    ? await db.orm.public.CharacterResource.where({characterId:opponent.characterId}).first()
+    : null;
+  const snapshot=(stored:unknown,maximum:number)=>{
+    const n=stored===null||stored===undefined?maximum:Number(stored);
+    return Math.max(0,Math.min(maximum,Number.isFinite(n)?Math.floor(n):maximum));
+  };
+  initial.mana={
+    PLAYER:{current:snapshot(ownerResource?.currentMana,firstMax),max:firstMax},
+    NPC:{current:snapshot(rivalResource?.currentMana,opponentManaMax),max:opponentManaMax},
+  };
+  const state=progressTrainingNpc(initial,dice,
     ()=>randomInt(1_000_000)/1_000_000);
   const Session=(db.orm.public as any).CombatSession;
   const session=await Session.create({

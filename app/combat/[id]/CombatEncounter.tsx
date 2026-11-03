@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
+import CombatSkillLoadout from "./CombatSkillLoadout";
+import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {
   actionPoints, canAct, deflectionAlignment, effectiveCombatSpeed, physicalAttackStart, remainingAp, turnTicks,
@@ -50,6 +52,7 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <span>CON: {f.constitution}</span>
    <span>Arma: {f.weaponIntegrity}/100</span>
    <span>Masa: {f.massKg} kg</span>
+   {state.mana?.[side]&&<span className="font-semibold text-violet-300">Maná combate: {state.mana[side].current}/{state.mana[side].max}</span>}
   </div>
  </div>;
 }
@@ -57,6 +60,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [view,setView]=useState<View|null>(null);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
+ const [shareStatus,setShareStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
  const [attackType,setAttackType]=useState<"CUT"|"BLUNT"|"PIERCE">("CUT");
  const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA">("PHYSICAL");
@@ -71,6 +75,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [flash,setFlash]=useState(false);
  const lastResolution=useRef("");
  const canvas=useRef<SVGSVGElement|null>(null);
+ const castRequestRef=useRef<{key:string;id:string}|null>(null);
  const load=useCallback(async()=>{
   try {
    const r=await fetch("/api/combat/"+id+"/actions",{cache:"no-store"});
@@ -106,6 +111,7 @@ export default function CombatEncounter({id}:{id:string}) {
    if(!r.ok)throw new Error(data.error??"Acción rechazada");
    setView(v=>v?{...v,state:data.state}:v);
    if(command.kind==="DEFEND")setPredictedCenter(null);
+   if(command.kind==="CAST_SKILL")castRequestRef.current=null;
    const evt=(data.state as CombatState).log.filter(e=>e.kind==="RESOLVE").at(-1);
    if(evt && evt.tick+":"+evt.summary+":"+evt.defense!==lastResolution.current) {
     setFlash(true);window.setTimeout(()=>setFlash(false),330);
@@ -142,6 +148,15 @@ export default function CombatEncounter({id}:{id:string}) {
   setPoints(previous=>previous.length<2?[...previous,point]:previous);
  }
  const state=view?.state;
+ const isPvp=state?.actors.NPC.characterId!==null && state?.actors.NPC.characterId!==undefined;
+ async function shareEncounter(){
+  try {
+   await navigator.clipboard.writeText(window.location.href);
+   setShareStatus("Enlace copiado. Compártelo con el otro jugador.");
+  }catch{
+   setShareStatus("Copia la dirección de esta página y envíasela al otro jugador.");
+  }
+ }
  const tiedSpeed=!!state&&effectiveCombatSpeed(state.actors.PLAYER)===effectiveCombatSpeed(state.actors.NPC);
  const actor=state?.actors[side];
  const pending=state?.pending;
@@ -162,6 +177,15 @@ export default function CombatEncounter({id}:{id:string}) {
  const normalizedPath=physicalAnchor
    ? [physicalAnchor,...(points.length>1?points.slice(1):[physicalAnchor])]
    : points.length>1?points:defaultPath;
+ function castSkill(skill:CombatSkillPreview){
+  const key=side+":"+skill.id+":"+state?.round;
+  const previous=castRequestRef.current;
+  const requestId=previous?.key===key?previous.id:crypto.randomUUID();
+  castRequestRef.current={key,id:requestId};
+  void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
+   trajectory:skill.usesMagic?undefined:normalizedPath,
+   areaCenter:skill.usesMagic?areaCenter??undefined:undefined});
+ }
  const hint=pending?.areaHint??"centro";
  const warningCells=magicHintCells(hint);
  const polyline=normalizedPath.map(p=>(p.x*100).toFixed(1)+","+(p.y*100).toFixed(1)).join(" ");
@@ -169,9 +193,16 @@ export default function CombatEncounter({id}:{id:string}) {
   {flash&&<div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[3000] bg-rose-200/50"/>}
   <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
    <h1 className="text-2xl font-bold">⚔️ Encuentro #{id}</h1>
-   <Link className="text-cyan-300" href="/combat">Nuevo encuentro</Link>
+   <div className="flex flex-wrap items-center gap-3">
+    {isPvp&&<button type="button" onClick={()=>void shareEncounter()}
+      className="rounded-lg border border-cyan-500/70 px-3 py-2 text-sm text-cyan-200">
+      Compartir encuentro PvP
+    </button>}
+    <Link className="text-cyan-300" href="/combat">Nuevo encuentro</Link>
+   </div>
   </div>
   {error&&<p role="alert" className="mb-4 rounded-lg border border-rose-600/50 p-3 text-rose-300">{error}</p>}
+  {shareStatus&&<p role="status" className="mb-3 text-sm text-cyan-300">{shareStatus}</p>}
   {!state?<p>Cargando combate…</p>:<>
    <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-zinc-700 p-3 text-sm">
     <span>Turno: <b>{state.round}</b></span><span>Tick global: <b>{state.tick}</b></span>
@@ -328,6 +359,12 @@ export default function CombatEncounter({id}:{id:string}) {
      </div>
     </div>}
    </section>
+   {isPvp&&<p className="mt-4 text-xs text-zinc-400">PvP compartido: el dueño de cada personaje abre esta misma URL en su cuenta. Las acciones aparecen aproximadamente cada 3,5 segundos; no hay invitaciones automáticas todavía.</p>}
+   <CombatSkillLoadout encounterId={id} side={side} authorized={hasAccess}
+    canUseSkill={ready} busy={busy} round={state.round}
+    mana={state.mana?.[side]?.current??null}
+    cooldowns={state.skillCooldowns?.[side]??{}}
+    onCast={castSkill} aimMode={attackMode} magicAimReady={areaCenter!==null}/>
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
     <h2 className="mb-3 text-lg font-bold">Registro de combate</h2>
     {state.log.length===0?<p className="text-sm text-zinc-500">Aún no hay acciones.</p>:

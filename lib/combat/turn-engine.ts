@@ -432,6 +432,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (!Array.isArray(points) || points.length < 2 || points.length > 80 || points.some(p => !safePoint(p)))
       throw new Error("Trayectoria inválida.");
     const magic=command.usesMagic===true;
+    const source=command.attackSource??defaultAttackSource(fighter);
+    if(!["MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT"].includes(source))throw new Error("Origen de ataque inválido.");
+    const selectedWeapon=weaponForSource(fighter,source);
     if(magic&&serverSkillRangeMeters===undefined&&command.attackType!==fighter.attackType)
       throw new Error("La magia básica debe usar el tipo de ataque mágico configurado en la ficha.");
     if(magic&&serverSkillRangeMeters===undefined){
@@ -441,10 +444,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const thrown=command.throwWeapon===true;
     const ranged=command.rangedPhysical===true||thrown;
     if(thrown&&serverSkillRangeMeters!==undefined)throw new Error("Las habilidades no pueden arrojar armas automáticamente.");
-    if(thrown&&(!fighter.equippedWeapon?.throwable||!fighter.equippedWeapon.throwRangeMeters))throw new Error("El arma equipada no puede arrojarse.");
+    if(thrown&&(!selectedWeapon?.throwable||!selectedWeapon.throwRangeMeters))throw new Error("El arma equipada no puede arrojarse.");
     if(magic&&ranged)throw new Error("El ataque no puede ser mágico y proyectil físico a la vez.");
     if(!magic&&serverSkillRangeMeters===undefined){
-      const weapon=fighter.equippedWeapon;
+      const weapon=selectedWeapon;
+      if(["MAIN_HAND","OFF_HAND"].includes(source)&&!weapon)throw new Error("No tienes un arma equipada en la mano seleccionada.");
       if(ranged&&!thrown&&(!weapon||weapon.mode!=="RANGED"))throw new Error("Necesitas un arma a distancia equipada para disparar.");
       if(!weapon&&command.attackType!=="BLUNT")throw new Error("Sin arma equipada solo puedes golpear con los puños (contundente).");
       if(weapon&&weapon.attackType!==command.attackType)throw new Error("El tipo de ataque debe coincidir con el arma equipada.");
@@ -452,38 +456,44 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     if(ranged&&!validArenaPoint(command.areaCenter))throw new Error("Marca el punto de impacto del proyectil.");
     if(!magic&&!ranged) {
-      const previous=physicalAttackStart(state,by);
+      const previous=physicalAttackStart(state,by,source);
       if(previous && Math.hypot(points[0].x-previous.x,points[0].y-previous.y)>0.000001)
         throw new Error("El ataque físico debe comenzar donde terminó el anterior. Muévete para cambiar el punto de inicio.");
     }
     if (magic && !validArenaPoint(command.areaCenter))
       throw new Error("Marca el centro de la explosión mágica en el lienzo.");
-    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown))))
+    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown,source))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance máximo del ataque.");
     const distanceAtLaunch=Math.abs(fighter.positionMeters-rival.positionMeters);
-    const effectiveAtLaunch=fighter.equippedWeapon?.effectiveRangeMeters??effectiveWeaponReachMeters(fighter);
+    const effectiveAtLaunch=selectedWeapon?.effectiveRangeMeters??effectiveWeaponReachMeters(fighter,false,source);
     spend(fighter,turnTicks(fighter,command.attackType));
     if(magic&&serverSkillRangeMeters===undefined)state.mana![by].current-=1;
-    if(thrown&&fighter.equippedWeapon){
+    if(thrown&&selectedWeapon){
+      const slot=source as "MAIN_HAND"|"OFF_HAND";
       state.droppedWeapons??=[];
-      state.droppedWeapons.push({owner:by,weapon:{...fighter.equippedWeapon},positionMeters:rival.positionMeters});
-      fighter.equippedWeapon=undefined;
+      state.droppedWeapons.push({owner:by,slot,weapon:{...selectedWeapon},positionMeters:rival.positionMeters});
+      if(slot==="MAIN_HAND")fighter.equippedWeapon=undefined;
+      else fighter.offhandWeapon=undefined;
+      if(state.physicalPathEnds?.[by])delete state.physicalPathEnds[by]![source];
     }
     if(!magic&&!ranged){
       state.physicalPathEnd??={};
       state.physicalPathEnd[by]={...points[points.length-1]};
+      state.physicalPathEnds??={};
+      state.physicalPathEnds[by]??={};
+      state.physicalPathEnds[by]![source]={...points[points.length-1]};
     }
     state.pending = {by,against:other(by),attackType:command.attackType,
-      trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,
+      trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
       targetCenter:magic||ranged?command.areaCenter:undefined,
       areaHint:magic||ranged?magicImpactZone(command.areaCenter!):undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
-    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,manaCost:magic&&serverSkillRangeMeters===undefined?1:undefined,
+    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,attackSource:source,manaCost:magic&&serverSkillRangeMeters===undefined?1:undefined,
       summary:magic?fighter.name+" lanzó magia de "+labels[command.attackType]+"; esperando reacción"
-        :ranged?fighter.name+" lanzó un proyectil físico de "+labels[command.attackType]+"; esperando reacción"
-        :fighter.name+" lanzó un ataque de "+labels[command.attackType]+"; esperando reacción"});
+        :ranged?fighter.name+" lanzó "+(thrown?"el arma ("+selectedWeapon?.name+") de ":"un proyectil físico de ")+labels[command.attackType]+"; esperando reacción"
+        :fighter.name+" atacó con "+(selectedWeapon?.name??(source==="FIST_LEFT"?"puño izquierdo":"puño derecho"))+" ("+labels[command.attackType]+")"+"; esperando reacción"});
   } else throw new Error("Acción inválida o habilidad sin autorización del servidor.");
   state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);
   advanceRoundIfComplete(state);

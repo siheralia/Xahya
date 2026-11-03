@@ -87,6 +87,8 @@ export default function CombatSkillLoadout({
          : !canUseSkill?"Esperando tu iniciativa":null;
        return <div className="space-y-2">
         {reason&&<p className="text-xs text-amber-300">{reason}</p>}
+        {skill.skillKind==="OFFENSE"&&!skill.usesMagic&&skill.attackType==="BLUNT"&&
+         <p className="text-xs text-cyan-300">Si esta técnica se ejecuta con una patada, selecciona «Pierna / patada» en el lienzo de trayectoria antes de lanzarla. Su alcance y maná provienen de la habilidad aprobada.</p>}
         <button type="button" disabled={blocked}
          onClick={()=>onCast(skill)}
          className="rounded-lg border border-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-40">

@@ -64,7 +64,7 @@ export type CombatCommand =
   | { kind: "WAIT" }
   | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point }
   | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point };
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -508,7 +508,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
  */
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
- aim:{requestId:string;trajectory?:Point[];areaCenter?:Point},
+ aim:{requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))
@@ -531,7 +531,7 @@ export function applyResolvedCombatSkill(
   if(!plan.attackType)throw new Error("La habilidad no tiene tipo de ataque.");
   next=applyCombatCommand(original,by,{
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
-   trajectory:aim.trajectory,areaCenter:aim.areaCenter,
+   trajectory:aim.trajectory,areaCenter:aim.areaCenter,attackSource:aim.attackSource,
   },rolls,plan.rangeMeters);
   if(!next.pending)throw new Error("No se pudo preparar el ataque de habilidad.");
   next.pending.skill={

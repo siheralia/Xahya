@@ -260,6 +260,51 @@ Rows in derived layer:
 
 These are the fallback formulas in `lib/stats/derived.ts`. `lib/stats/engine.ts` can calculate an administrator-configured derived-stat catalogue from `statistics.catalog.v1`. The live catalogue takes precedence for the actual character environment. The formula `min(AGI,STR)` is piecewise: its local influence changes when AGI and STR exchange which is smaller. Mark such regions instead of pretending one global linear coefficient exists.
 
+#### Explicit fallback coefficient matrix `J_BD^{fallback}` (`DERIVED-FROM-CODE`)
+
+Columns are input base statistics; rows are output derived statistics. Values are local formula coefficients, not empirical importance weights. A dash denotes zero direct influence.
+
+| Derived output | STR | AGI | CON | INT | WIS | CHA | SPI | LCK |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Max HP | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 0 |
+| Max mana | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
+| Physical attack | 1 | 0.25 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Magic attack | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
+| Physical defense | 0 | 0.25 | 1 | 0 | 0 | 0 | 0 | 0 |
+| Magic defense | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
+| Precision | 0 | 0.5 | 0 | 0.5 | 0.5 | 0 | 0.5 | 0.3333… |
+| Critical | 0 | 0.05 | 0 | 0.05 | 0.55 | 0 | 0.05 | 2.0333… |
+| Discovery | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 1 |
+| Miracle | 0 | 0 | 0 | 0 | 0 | 0.5 | 0.5 | 1 |
+| Intimidation | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| Conquest | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1 |
+| Race | conditional | conditional | 0.25 | 0 | 0 | 0 | 0 | 0 |
+| Dodge | 0 | 1 | 0 | 0 | 0.5 | 0 | 0 | 3 |
+| Stealth | 0 | 1 | 0 | 0.5 | 0 | 0 | -0.1 | 0 |
+| Detection | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0.3333… |
+
+**Critical row notes**
+- `Critical` includes the indirect contribution through `precision/10`; its WIS coefficient is `0.5 + 0.5/10 = 0.55`, and its LCK coefficient is `2 + (1/3)/10 = 2.0333…`.
+- `Race` is not a fixed linear row: when STR<AGI, the STR coefficient is 1 and AGI is 0; when AGI<STR, AGI is 1 and STR is 0; at equality the function is non-differentiable. CON remains 0.25.
+- Values above describe the *fallback* formulas only. Apply the live `statistics.catalog.v1`, including custom stats, when reconstructing actual character snapshots.
+
+#### Default general-mechanic mapping `M_{default}` (`CODE-VERIFIED`)
+
+Source: `lib/stats/mechanics.ts`. This is a default mapping, not proof of the live administrator-selected mapping.
+
+| Mechanic key | Default controlling stat |
+|---|---|
+| `mazeStealth` | `stealth` |
+| `mazeDetection` | `detection` |
+| `casinoInfluence` | `luck` |
+| `blackjackInfluence` | `luck` |
+| `mazeRoomGeneration` | `luck` |
+| `mazeItemChance` | `luck` |
+| `mazeTreasureMoney` | `luck` |
+| `combatSpeed` | `agility` |
+
+These mappings are administrator-overridable through `statistics.mechanics.v1`; import that live setting and record every difference before treating this matrix as operative.
+
 #### Required matrix metadata
 
 Every cell or edge must carry:

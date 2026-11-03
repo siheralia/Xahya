@@ -339,6 +339,15 @@ export default function CombatEncounter({id}:{id:string}) {
    setNarrativeCopyStatus("No se pudo copiar automáticamente. Selecciona el texto y cópialo manualmente.");
   }
  }
+ const combatStatRows:Array<[string,string|number|undefined]>=[
+  ["HP",actor?actor.hp+"/"+actor.maxHp:"—"],
+  ["Maná",state?.mana?.[side]?state.mana[side].current+"/"+state.mana[side].max:"—"],
+  ["PA",actor?remainingAp(actor)+"/"+actionPoints(actor.constitution):"—"],
+  ["Fuerza",actor?.strength],["Agilidad",actor?.agility],["Constitución",actor?.constitution],
+  ["Ataque físico",actor?.physicalAttack],["Ataque mágico",actor?.magicAttack],
+  ["Defensa física",actor?.physicalDefense],["Defensa mágica",actor?.magicDefense],
+  ["Precisión",actor?.precision],["Esquive",actor?.dodge],["Crítico",actor?.critical],["Suerte",actor?.luck],
+ ];
  const hint=pending?.areaHint??"centro";
  const warningCells=magicHintCells(hint);
  const polyline=normalizedPath.map(p=>(p.x*100).toFixed(1)+","+(p.y*100).toFixed(1)).join(" ");
@@ -717,12 +726,7 @@ export default function CombatEncounter({id}:{id:string}) {
    <CombatDialog open={panel==="stats"} title="Estado y estadísticas" onClose={closePanel}>
     <p className="mb-3 text-xs text-zinc-400">Estadísticas y recursos del encuentro actual. Los modificadores temporales no se guardan en la ficha.</p>
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-     {([["HP",actor?.hp+"/"+actor?.maxHp],["Maná",state.mana?.[side]?.current+"/"+state.mana?.[side]?.max],["PA",actor?remainingAp(actor)+"/"+actionPoints(actor.constitution):"—"],
-      ["Fuerza",actor?.strength],["Agilidad",actor?.agility],["Constitución",actor?.constitution],
-      ["Ataque físico",actor?.physicalAttack],["Ataque mágico",actor?.magicAttack],
-      ["Defensa física",actor?.physicalDefense],["Defensa mágica",actor?.magicDefense],
-      ["Precisión",actor?.precision],["Esquive",actor?.dodge],["Crítico",actor?.critical],["Suerte",actor?.luck]]
-      as Array<[string,string|number|undefined]>).map(([label,value])=>
+     {combatStatRows.map(([label,value])=>
       <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2">
        <p className="text-xs text-zinc-400">{label}</p><b>{value??"—"}</b>
       </div>)}

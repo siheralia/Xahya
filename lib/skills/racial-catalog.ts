@@ -11,7 +11,7 @@ export type RacialEffect = {
 export type RacialSkill = {
   id: number; raceId: number; raceName?: string;
   name: string; description: string | null; category: string;
-  effect: RacialEffect[]; manaCost: number; maintenanceCost: number; cooldown:string; active: boolean;
+  effect: RacialEffect[]; manaCost: number; maintenanceCost: number; duration:string; cooldown:string; active: boolean;
 };
 const CATEGORIES = ["OFFENSIVE","PASSIVE","SUPPORT","UTILITY"];
 
@@ -27,6 +27,7 @@ export function validateRacialSkill(input: unknown): string | null {
     if (!Number.isSafeInteger(n) || Number(n) < 0 || Number(n) > 1000000) return "Los costes deben ser enteros no negativos.";
   }
   if (typeof value.active !== "boolean") return "Estado inválido.";
+  if (value.duration !== undefined && (!["Instantánea","1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(String(value.duration)))) return "Duración inválida.";
   if (value.cooldown!==undefined && !COOLDOWN_OPTIONS.some(c=>c.value===value.cooldown)) return "Cooldown inválido.";
   if (!Array.isArray(value.effect) || value.effect.length > 20) return "La habilidad admite hasta 20 efectos.";
   for (const row of value.effect) {
@@ -46,18 +47,18 @@ export function validateRacialSkill(input: unknown): string | null {
 const rowCodec = {
   id:"pg/int4@1", raceId:"pg/int4@1", name:"pg/text@1",
   description:"pg/text@1", category:"pg/text@1", effectText:"pg/text@1",
-  manaCost:"pg/int4@1", maintenanceCost:"pg/int4@1",cooldown:"pg/text@1",activeText:"pg/text@1",
+  manaCost:"pg/int4@1", maintenanceCost:"pg/int4@1",duration:"pg/text@1",cooldown:"pg/text@1",activeText:"pg/text@1",
 } as const;
 
 export async function readRacialSkills(): Promise<RacialSkill[]> {
   const query = db.raw.sql`
     SELECT id, "raceId", name, description, category, effect::text AS "effectText",
-      "manaCost", "maintenanceCost", cooldown, active::text AS "activeText"
+      "manaCost", "maintenanceCost", duration, cooldown, active::text AS "activeText"
     FROM public."raceSkill" ORDER BY "raceId", name, id
   `.returnsRow(rowCodec).build();
   const rows = await db.runtime().query(query) as Array<{
     id:number;raceId:number;name:string;description:string|null;category:string;
-    effectText:string;manaCost:number;maintenanceCost:number;cooldown:string;activeText:string;
+    effectText:string;manaCost:number;maintenanceCost:number;duration:string;cooldown:string;activeText:string;
   }>;
   return rows.map(({effectText,activeText,...row})=>({
     ...row, effect: JSON.parse(effectText) as RacialEffect[], active:activeText==="true"

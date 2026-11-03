@@ -1,3 +1,4 @@
+import type { VariableResistance } from "./variable-resistance";
 /** Printable, shareable summary of a single character skill. */
 export type ShareableSkillEffect = {
   type:string;
@@ -28,7 +29,7 @@ export type ShareableSkill = {
   condition?:string | null;
   effect?: readonly ShareableSkillEffect[];
   effectRequirements?: readonly {effect:string;element?:string}[];
-  mechanics?: {family?:string;parentSkillId?:number};
+  mechanics?: {family?:string;parentSkillId?:number;variableResistance?:VariableResistance};
 };
 
 const categories:Record<string,string> = {
@@ -59,6 +60,13 @@ export function formatSkillForClipboard(
     ...(skill.mechanics?.family ? [`Familia: ${skill.mechanics.family}`] : []),
     ...(skill.mechanics?.parentSkillId ? [`Habilidad madre: #${skill.mechanics.parentSkillId}`] : []),
     ...(skill.description ? ["",skill.description] : []),
+    ...(skill.mechanics?.variableResistance ? [
+      "", "*RESISTENCIA VARIABLE*",
+      `Base: ${skill.mechanics.variableResistance.baseStat}`,
+      `Variable: ${skill.mechanics.variableResistance.input}`,
+      `Fórmula: ${skill.mechanics.variableResistance.formula}`,
+      `Máximo: ×${skill.mechanics.variableResistance.maxMultiplier}; mínimo: ×${skill.mechanics.variableResistance.minMultiplier}; umbral: ${skill.mechanics.variableResistance.threshold}; coeficiente: ${skill.mechanics.variableResistance.coefficient}`,
+    ] : []),
   ];
   if(skill.effect?.length) {
     lines.push("","*EFECTOS*");

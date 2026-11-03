@@ -124,7 +124,11 @@ test("Monte Carlo: 1000 complete equal-stat duels produce no runaway winner bias
     const delta=state.actors.PLAYER.spentTicks-state.actors.NPC.spentTicks;
     by=delta<0?"PLAYER":delta>0?"NPC":random()<0.5?"PLAYER":"NPC";
    }
-   state=applyCombatCommand(state,by,attack);
+   const distance=Math.abs(state.actors.PLAYER.positionMeters-state.actors.NPC.positionMeters);
+   if(distance>2) {
+    const step=Math.min(Math.max(1,Math.round(state.actors[by].race/10)),distance-1.5);
+    state=applyCombatCommand(state,by,{kind:"MOVE",meters:step,direction:"TOWARD"});
+   } else state=applyCombatCommand(state,by,attack);
   }
   assert.equal(state.status,"FINISHED");
   if(state.winner==="PLAYER")first++; else second++;

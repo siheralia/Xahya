@@ -1,10 +1,10 @@
 # Combate de Xahya — fase 2: habilidades y recursos
 
-## Línea base confirmada (batallas 1–3)
+## Línea base confirmada (batallas 1–3 y nueva fase 1 básica)
 - El combate usa 100 ticks por turno y 9 + CON PA por personaje. Las reacciones cobran ticks y PA; a velocidades iguales se alternan las iniciativas.
 - Un NPC puede actuar, defenderse y contraatacar. Un duelo suspendido conserva estado en `combatSession.lastAction.combatV1` y se reanuda al iniciar sesión.
 - En el encuentro #3 ambos realizaron ataques: 9 cada uno, 5 turnos, desenlace en tick 454. El defensor pudo escoger Desviar. La precisión visual del ángulo requería una estimación cualitativa, y el tipo de ataque tenía que mostrarse en la reacción.
-- La ficha, las habilidades, el inventario y los recursos todavía NO reciben daño/coste persistente desde este motor de prueba.
+- La fase 1 también dispone de una **explosión mágica básica** con coste temporal normal, alcance 10 m, daño modesto y coste de maná 0 de forma provisional. El defensor predice el centro de un área circular a partir de una pista regional; el centro exacto se oculta hasta resolver el impacto. No sustituye habilidades configurables.\n- La ficha, las habilidades, el inventario y los recursos todavía NO reciben daño/coste persistente desde este motor de prueba.
 
 ## Objetivo de la fase 2
 Vincular **habilidades existentes y estadísticas efectivas** al motor de ticks sin introducir reglas paralelas: ataque, defensa, barrera y daño comparten un solo resolutor. El coste de maná, la duración y el cooldown deben aplicarse de forma transaccional y reconstruible después de desconectar.

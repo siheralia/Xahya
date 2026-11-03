@@ -1,7 +1,8 @@
 /**
  * Training NPCs are comparable to the challenger's base statistics, not exact
- * clones. Vary the non-speed attributes by at most ±8% on each encounter.
- * AGI is deliberately mirrored so equal-speed sparring keeps exercising the
+ * clones. Vary non-speed base stats in whole points (roughly ±8%,
+ * minimum ±1 possible for small attributes). AGI is deliberately mirrored
+ * so equal-speed sparring keeps exercising the
  * alternating-initiative mechanic. A GM may explicitly override the base stats.
  * Caller supplies server-only randomness; never generate stats in the client.
  */
@@ -16,9 +17,12 @@ export function varyTrainingNpcStats<T extends BaseStats>(base:T,random:()=>numb
   if(key===preserveStat)continue;
   const value=base[key];
   if(!Number.isFinite(value))continue;
+  const integer=Math.max(0,Math.round(value));
+  if(integer===0){varied[key]=0;continue;}
+  const maxChange=Math.max(1,Math.round(integer*NPC_STAT_VARIANCE));
   const roll=Math.min(0.999999,Math.max(0,random()));
-  const result=value*(1+(roll*2-1)*NPC_STAT_VARIANCE);
-  varied[key]=Math.round(Math.max(0,result)*100)/100;
+  const delta=Math.floor(roll*(maxChange*2+1))-maxChange;
+  varied[key]=Math.max(1,integer+delta);
  }
  return varied as T;
 }

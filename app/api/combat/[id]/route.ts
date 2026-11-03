@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { Temporal } from "@js-temporal/polyfill";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { combatClientView } from "@/lib/combat/magic-area";
+import type { CombatState } from "@/lib/combat/turn-engine";
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { resolvePingPongAction, type CombatAttackType } from "@/lib/combat/engine";
 import { advanceCombatMechanics, encounterAgilityMultiplier } from "@/lib/skills/mechanics-runtime";
@@ -32,7 +34,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  return NextResponse.json({ session });
+  // The legacy read endpoint must not leak the unrevealed magic blast
+  // center stored in combatV1. Project it the same way as /actions GET/POST.
+  const rawCombat=(session.lastAction as any)?.combatV1 as CombatState|undefined;
+  const safeSession=rawCombat ? {...session,lastAction:{
+    ...(session.lastAction as Record<string,unknown>),combatV1:combatClientView(rawCombat),
+  }} : session;
+  return NextResponse.json({ session:safeSession });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {

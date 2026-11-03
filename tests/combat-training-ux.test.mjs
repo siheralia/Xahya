@@ -13,18 +13,21 @@ const fighter=(name,positionMeters=0)=>({
  attackType:"CUT",defenseType:"SOLID",spentTicks:0,spentAp:0,
 });
 
-test("NPC variation stays within 8 percent, keeps speed exactly equal, and does not mutate input",()=>{
+test("NPC variation uses whole-point changes, keeps speed equal and does not mutate input",()=>{
  const a=varyTrainingNpcStats(base,()=>0);
  const b=varyTrainingNpcStats(base,()=>0.999999);
  assert.equal(NPC_STAT_VARIANCE,0.08);
  assert.equal(a.agility,38);
  assert.equal(b.agility,38);
  assert.equal(base.strength,10);
- assert.equal(a.strength,9.2);
- assert.equal(b.strength,10.8);
+ assert.equal(a.strength,9);
+ assert.equal(b.strength,11);
  for(const key of ["strength","constitution","intelligence","wisdom","charisma","spirit","luck"]) {
-   assert.ok(a[key]>=base[key]*0.92-0.01);
-   assert.ok(b[key]<=base[key]*1.08+0.01);
+   const delta=Math.max(1,Math.round(base[key]*NPC_STAT_VARIANCE));
+   assert.ok(a[key]>=base[key]-delta);
+   assert.ok(b[key]<=base[key]+delta);
+   assert.ok(Number.isInteger(a[key]));
+   assert.ok(Number.isInteger(b[key]));
  }
  assert.notDeepEqual(a,b);
 });
@@ -56,4 +59,15 @@ test("combat attack log identifies attack kind for subsequent replay",()=>{
  s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",attackType:"PIERCE"});
  assert.equal(s.log[0].attackType,"PIERCE");
  assert.match(s.log[0].summary,/perforación/);
+});
+
+test("very small NPC attributes never become decimals or negative",()=>{
+ const small={...base,strength:1,constitution:1,intelligence:1};
+ const a=varyTrainingNpcStats(small,()=>0.999999);
+ assert.equal(a.strength,2);
+ assert.equal(a.constitution,2);
+ assert.ok(Object.values(a).every(Number.isInteger));
+ const b=varyTrainingNpcStats(small,()=>0);
+ assert.equal(b.strength,1);
+ assert.equal(b.constitution,1);
 });

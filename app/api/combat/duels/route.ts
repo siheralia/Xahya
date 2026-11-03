@@ -7,6 +7,7 @@ import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { readMechanics } from "@/lib/stats/mechanics";
 import { canAct, massDefaultKg, newCombatState, weaponIntegrityDefault, type CombatFighter } from "@/lib/combat/turn-engine";
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
+import { combatClientView } from "@/lib/combat/magic-area";
 import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
 import { canApproveCombat } from "@/lib/combat/permissions";
 
@@ -124,5 +125,5 @@ export async function POST(req:Request) {
     playerNextActionTick:state.actors.PLAYER.spentTicks,
     npcNextActionTick:state.actors.NPC.spentTicks,
   });
-  return NextResponse.json({id:Number(session.id),state},{status:201});
+  return NextResponse.json({id:Number(session.id),state:combatClientView(state)},{status:201});
 }

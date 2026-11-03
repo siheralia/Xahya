@@ -8,6 +8,7 @@ import {
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
+import { combatClientView } from "@/lib/combat/magic-area";
 import { canApproveCombat } from "@/lib/combat/permissions";
 
 const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
@@ -35,7 +36,7 @@ async function access(id:string) {
 export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}) {
   const a=await access((await params).id);
   if(!a)return NextResponse.json({error:"Combate no encontrado o sin permiso."},{status:403});
-  return NextResponse.json({state:a.state,permissions:{PLAYER:a.canPlayer,
+  return NextResponse.json({state:combatClientView(a.state),permissions:{PLAYER:a.canPlayer,
     NPC:a.canOpponent},canMove:{PLAYER:canAct(a.state,"PLAYER"),NPC:canAct(a.state,"NPC")}});
 }
 export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
@@ -49,8 +50,6 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
     return NextResponse.json({error:"No controlas a este combatiente."},{status:403});
   const advanceNpcOnly=body.command.kind==="ADVANCE";
   const command=body.command as CombatCommand;
-  if(command.kind==="ATTACK"&&command.usesMagic===true)
-    return NextResponse.json({error:"Los ataques mágicos requieren integrar primero su coste de maná."},{status:400});
   try {
     const result=await db.transaction(async tx=>{
       // Serialize both players and NPC replies to prevent lost update/double spending.
@@ -94,7 +93,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
       });
       return next;
     });
-    return NextResponse.json({state:result});
+    return NextResponse.json({state:combatClientView(result)});
   }catch(e) {
     return NextResponse.json({error:e instanceof Error?e.message:"No se pudo ejecutar la acción."},{status:400});
   }

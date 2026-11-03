@@ -1,7 +1,8 @@
 import {
-  applyCombatCommand, canAct, contestChance, matchupMultiplier, remainingAp, turnTicks,
+  applyCombatCommand, canAct, contestChance, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks,
   type CombatCommand, type CombatState, type DefenseChoice, type Point,
 } from "./turn-engine.ts";
+import { BASIC_MAGIC_RANGE_METERS } from "./magic-area.ts";
 
 export type NpcDice = { hit: number; critical: number; defense: number };
 export type NpcRandom = () => number;
@@ -9,9 +10,19 @@ const cap = (v: number, min: number, max: number) => Math.max(min, Math.min(max,
 
 /** The training NPC varies the incoming strike orientation, not just its dice.
  * Points remain inside the combat editor's normalized [0,1] arena. */
-export function npcAttackTrajectory(random: NpcRandom): Point[] {
+export function npcAttackTrajectory(random: NpcRandom, anchoredAt?: Point | null): Point[] {
   const angle=cap(random(),0,0.999999)*Math.PI*2;
   const dx=Math.cos(angle)*0.35,dy=Math.sin(angle)*0.35;
+  if(anchoredAt) {
+    // Do not teleport the NPC's weapon stroke. Keep the inherited starting
+    // point exactly, then draw toward a randomized reachable endpoint.
+    const toward={x:cap(anchoredAt.x+dx*2,0,1),y:cap(anchoredAt.y+dy*2,0,1)};
+    const distance=Math.hypot(toward.x-anchoredAt.x,toward.y-anchoredAt.y);
+    const end=distance<0.08
+      ? {x:cap(anchoredAt.x-dx*2,0,1),y:cap(anchoredAt.y-dy*2,0,1)}
+      : toward;
+    return [{...anchoredAt},end];
+  }
   return [{x:0.5-dx,y:0.5-dy},{x:0.5+dx,y:0.5+dy}];
 }
 
@@ -36,6 +47,18 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   if (state.pending?.against !== "NPC") throw new Error("El NPC no tiene un ataque pendiente.");
   const npc = state.actors.NPC, attacker = state.actors[state.pending.by];
   if (remainingAp(npc) < 1 || npc.spentTicks >= 100) return {kind:"DEFEND",defense:"NONE"};
+  if (state.pending.usesMagic) {
+    // Do not inspect the true hidden blast center. An NPC guesses within
+    // the same coarse 3x3 warning area visible to a human defender.
+    const hint=state.pending.areaHint??"centro";
+    const col=hint.includes("izquierda")?0:hint.includes("derecha")?2:1;
+    const row=hint.includes("superior")?0:hint.includes("inferior")?2:1;
+    const choice=random();
+    if (choice<0.6) return {kind:"DEFEND",defense:"DODGE",
+      predictedCenter:{x:(col+cap(random(),0,0.999999))/3,
+        y:(row+cap(random(),0,0.999999))/3}};
+    return choice<0.9 ? {kind:"DEFEND",defense:"ENDURE"} : {kind:"DEFEND",defense:"NONE"};
+  }
   const factor = matchupMultiplier(state.pending.attackType,npc.defenseType);
   // On tight action budgets, the NPC may take a survivable hit to preserve
   // its next initiative. Otherwise it actually defends and still counterattacks
@@ -109,12 +132,18 @@ export function progressTrainingNpc(
     const npcSlotReady = npc.spentTicks + turnTicks(npc) <= player.spentTicks;
     if(playerReady&&!npcSlotReady)return next;
     const distance=Math.abs(npc.positionMeters-player.positionMeters);
-    if(distance>2) {
+    const castMagic=npc.magicAttack>0 && distance<=BASIC_MAGIC_RANGE_METERS && random()<0.25;
+    if(distance>2 && !castMagic) {
       const maximum=Math.max(1,Math.round(npc.race/10));
       const meters=Math.min(maximum,Math.max(0.01,distance-1.5));
       next=applyCombatCommand(next,"NPC",{kind:"MOVE",meters,direction:"TOWARD"},makeDice());
     } else {
-      next=applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType,trajectory:npcAttackTrajectory(random)},makeDice());
+      const magicTypes=["CUT","BLUNT","PIERCE"] as const;
+      next=castMagic
+        ? applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:magicTypes[Math.floor(cap(random(),0,0.999999)*3)],usesMagic:true,
+            areaCenter:{x:cap(random(),0,0.999999),y:cap(random(),0,0.999999)}},makeDice())
+        : applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType,
+            trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC"))},makeDice());
     }
   }
   throw new Error("La IA alcanzó el límite de acciones por actualización.");

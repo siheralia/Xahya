@@ -283,6 +283,55 @@ function settleDroppedWeapons(state:CombatState) {
   }
   state.droppedWeapons=[];
 }
+/** Auto rays are serialized through the same pending-defense workflow.
+ * They are emitted only at a new round (never during the casting round) and
+ * cost neither the summoner additional mana nor an additional PA.
+ */
+function beginNextMirrorRay(state:CombatState) {
+ if(state.status!=="ACTIVE"||state.pending)return;
+ while((state.mirrorRayQueue?.length??0)>0) {
+  const id=state.mirrorRayQueue!.shift()!;
+  const mirror=state.constructions?.find(c=>c.id===id&&c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0);
+  if(!mirror)continue;
+  const owner=state.actors[mirror.owner],rival=state.actors[other(mirror.owner)];
+  const reach=mirror.mirror!.rangeMeters;
+  const distance=Math.abs(owner.positionMeters-rival.positionMeters);
+  if(distance>reach) {
+   addLog(state,{kind:"MIRROR",tick:state.tick,by:mirror.owner,constructionId:id,
+    summary:mirror.label+" no pudo alcanzar a "+rival.name+" con su rayo."});
+   continue;
+  }
+  // Repeated rays use the owner's current magic attack, including temporary buffs.
+  const point={x:0.5,y:0.5};
+  state.pending={by:mirror.owner,against:other(mirror.owner),attackType:"PIERCE",
+   trajectory:[{x:mirror.center.x,y:mirror.center.y},point],
+   launchedAtTick:(state.round-1)*LIMIT,usesMagic:true,areaHint:magicImpactZone(point),
+   targetCenter:point,mirrorId:id,mirrorAuto:true,
+   skill:{id:mirror.sourceSkillId,name:mirror.label+" · Rayo",damageMultiplier:mirror.mirror!.rayMultiplier,
+    defenseFactor:1,finalMultiplier:1}};
+  state.tick=Math.max(state.tick,(state.round-1)*LIMIT);
+  addLog(state,{kind:"ATTACK",tick:state.tick,by:mirror.owner,against:other(mirror.owner),
+   attackType:"PIERCE",usesMagic:true,skillId:mirror.sourceSkillId,
+   constructionId:id,skillName:mirror.label+" · Rayo",
+   summary:mirror.label+" proyectó un rayo mágico perforante hacia "+rival.name+"."});
+  return;
+ }
+}
+/** The terminal encounter cleanup must also run for reflected magic.
+ * Reflection is direct damage and must never be reflected recursively.
+ */
+function finishEncounter(state:CombatState,winner:Side) {
+ if(state.status==="FINISHED")return;
+ const defeated=other(winner);
+ state.status="FINISHED";state.winner=winner;
+ state.pending=null;state.mirrorRayQueue=[];
+ addLog(state,{kind:"END",tick:state.tick,by:winner,against:defeated,
+   summary:state.actors[winner].name+" gana el combate"});
+ settleDroppedWeapons(state);
+ clearKarmaBoostsAtCombatEnd(state);
+ state.narrativeText=narrateCombat(state.narrativeHistory??state.log,state.actors);
+ state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
+}
 function advanceRoundIfComplete(state: CombatState) {
   const finished = (side: Side) => {
     const f = state.actors[side];
@@ -302,6 +351,11 @@ function advanceRoundIfComplete(state: CombatState) {
     }
     state.skillBonuses=active.filter(b=>b.expiresAtRound>state.round);
     addLog(state,{kind:"ROUND",tick:state.tick,by:"PLAYER",summary:"Comienza el turno " + state.round});
+    // Each active mirror fires at most once on the following and later rounds.
+    state.mirrorRayQueue=(state.constructions??[])
+      .filter(c=>c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0)
+      .map(c=>c.id);
+    beginNextMirrorRay(state);
   }
 }
 function spend(f: CombatFighter, ticks: number) {
@@ -497,15 +551,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       summary:avoided ? fighter.name + (pending.usesMagic?" escapó de la explosión":" evitó el ataque")
         : attacker.name + (pending.usesMagic?" acertó con su explosión mágica a ":" impactó a ") + fighter.name + " (" + damage + " HP)"});
     state.pending = null;
-    if (fighter.hp <= 0) {
-      state.status = "FINISHED";state.winner = pending.by;
-      addLog(state,{kind:"END",tick:state.tick,by:pending.by,against:by,summary:attacker.name+" gana el combate"});
-      settleDroppedWeapons(state);
-      clearKarmaBoostsAtCombatEnd(state);
-      state.narrativeText=narrateCombat(state.narrativeHistory??state.log,state.actors);
-      state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
-      // Retain server-only source events to allow better interpretations of old encounters.
-    }
+    if(fighter.hp<=0)finishEncounter(state,pending.by);
+    if(state.status==="ACTIVE")beginNextMirrorRay(state);
     advanceRoundIfComplete(state);
     return state;
   }

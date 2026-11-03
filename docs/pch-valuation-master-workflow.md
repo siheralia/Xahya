@@ -523,7 +523,7 @@ The owner and assistant then discuss the recommendation and settle its theory. N
 
 ## 3. Master objective map
 
-Objectives O0–O9 are sequentially gated where evidence dependencies require it. O2 and O3 can be researched in parallel after O1's data manifest is ready. O4–O7 can then run as independent workstreams with shared read-only evidence. O8 integrates the theory. O9 is the final sign-off.
+O0 and O1 establish the shared evidence base. RD1–RD9 are the nine independent formula research directions and may proceed in parallel where their evidence dependencies permit. O10 is the final synthesis/sign-off gate.
 
 | Track | Research direction | Main dependencies | Completion artifact |
 |---|---|---|---|
@@ -781,7 +781,7 @@ Each new conversation/workstream begins with:
 - claims already established vs open hypotheses;
 - checklist and acceptance criteria;
 - branch and target branch;
-- explicit prohibition on computational work before O9.
+- explicit prohibition on computational work before O10 approval.
 
 Each RD conversation/branch ends with:
 - completed checklist;
@@ -832,7 +832,7 @@ This is the decision tree's required reasoning order. The team can change it onl
 
 The source audit establishes that Xahya has the structural fields and much of the runtime model needed for this research. It does **not** establish the actual distribution of character builds, production skill ownership, observed skill frequency, win rate, success rate, or time-series resource variation.
 
-The immediate blocker for O1 is therefore a read-only anonymized export (or authorized live database read access) for the relevant tables and settings. Until that evidence is available:
+The immediate blocker for O1 (and therefore the evidence-dependent portions of RD1–RD9) is a read-only anonymized export (or authorized live database read access) for the relevant tables and settings. Until that evidence is available:
 - do not invent real character snapshots;
 - do not use the fabricated unit-test actors as player examples;
 - do not assign scenario frequencies;
@@ -840,4 +840,4 @@ The immediate blocker for O1 is therefore a read-only anonymized export (or auth
 - do not claim empirical skill success or balance;
 - do not begin the computational phase.
 
-**Current phase status:** O0 source-baseline inspection is substantially prepared; O1 production-data import is blocked on database access/export; O2–O9 are not started/accepted. No valuation algorithm or production price has been changed by this workflow.
+**Current phase status:** O0 source-baseline inspection is substantially prepared; O1 production-data import is blocked on database access/export; RD1–RD9 and O10 are not started/accepted. No valuation algorithm or production price has been changed by this workflow.

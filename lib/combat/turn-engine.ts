@@ -2,7 +2,7 @@ import { calculateActionTicks, COMBAT_TICKS_PER_TURN } from "./ticks.ts";
 import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
 import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
-import { geometricContact } from "./geometry";
+import { geometricContact } from "./geometry.ts";
 import { BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 
 export type Side = "PLAYER" | "NPC";
@@ -66,6 +66,15 @@ const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(h
 const other = (side: Side): Side => side === "PLAYER" ? "NPC" : "PLAYER";
 const finite = (n: unknown) => typeof n === "number" && Number.isFinite(n);
 const normalize = (n: number) => Math.max(0, finite(n) ? n : 0);
+/** The duel canvas represents the defender at its normalized center.
+ * Its world-space separation is checked independently in meters. */
+export const targetHitboxCenter: Point = {x:0.5,y:0.5};
+export function effectiveWeaponReachMeters(f:CombatFighter, thrown=false):number {
+ const weapon=f.equippedWeapon;
+ if(thrown)return weapon?.throwable?Math.max(0,weapon.throwRangeMeters??0):0;
+ if(weapon)return Math.max(0,weapon.maximumRangeMeters??weapon.effectiveRangeMeters);
+ return Math.max(0.3,f.unarmedReachMeters??(f.heightMeters??1.7)*0.45);
+}
 const safePoint = (p: Point) => finite(p?.x) && finite(p?.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
 const addLog = (state: CombatState, entry: CombatLog) => { state.log.push(entry); state.log = state.log.slice(-100); };
 export const actionPoints = (constitution: number) => Math.max(1, Math.floor(9 + normalize(constitution)));
@@ -276,6 +285,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       avoided = success && (pending.rangedPhysical ? spatialAlignment : alignment >= 0.55);
       if (!avoided) damageScale = 0.85;
     }
+    if(command.dodgeDirection && defense!=="DODGE")throw new Error("Solo puedes elegir desplazamiento para Esquivar.");
     if(defense==="DODGE"&&avoided&&command.dodgeDirection){
       const direction=command.dodgeDirection;
       if(!["AWAY","TOWARD","WEAPON"].includes(direction))throw new Error("Dirección de esquive inválida.");
@@ -294,9 +304,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // No selected dodge means contact is checked against a small base margin,
     // not another invisible full Esquive roll.
     const contact = !avoided && (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (pending.usesMagic || pending.rangedPhysical
-      ? validArenaPoint(pending.targetCenter) && Math.hypot(pending.targetCenter.x-0.5,pending.targetCenter.y-0.5)
+      ? validArenaPoint(pending.targetCenter) && Math.hypot(pending.targetCenter.x-targetHitboxCenter.x,pending.targetCenter.y-targetHitboxCenter.y)
         <= (pending.attackType==="BLUNT"?0.17:pending.attackType==="CUT"?0.11:0.07)
-      : geometricContact(pending.attackType,pending.trajectory));
+      : geometricContact(pending.attackType,pending.trajectory,targetHitboxCenter));
     const critical = contact && rolls.critical < clamp(0.05 + attacker.critical / (attacker.critical + fighter.luck + 100)*0.20,0.05,0.25);
     // A free phase-1 magical *basic* strike is intentionally bounded.
     // Full skill damage, mana expenditure and elemental effects belong to phase 2.
@@ -355,7 +365,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const sign = Math.sign(target-fighter.positionMeters)||1;
     const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(target-fighter.positionMeters));
     fighter.positionMeters += sign*magnitude;
+    let recoveredWeapon:string|undefined;
     if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&!fighter.equippedWeapon){
+      recoveredWeapon=dropped.weapon.name;
       fighter.equippedWeapon={...dropped.weapon};
       state.droppedWeapons=state.droppedWeapons?.filter(w=>w!==dropped);
     }
@@ -363,7 +375,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     spend(fighter,turnTicks(fighter));
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     addLog(state,{kind:"MOVE",tick:state.tick,by,
-      summary:fighter.name+" se desplazó "+command.meters+" m ("+direction+")"});
+      summary:recoveredWeapon?fighter.name+" recuperó "+recoveredWeapon+" tras desplazarse":fighter.name+" se desplazó "+command.meters+" m ("+direction+")"});
   } else if (command.kind === "WAIT") {
     fighter.spentTicks = LIMIT;
     fighter.spentAp = actionPoints(fighter.constitution);
@@ -389,6 +401,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(!magic&&serverSkillRangeMeters===undefined){
       const weapon=fighter.equippedWeapon;
       if(ranged&&!thrown&&(!weapon||weapon.mode!=="RANGED"))throw new Error("Necesitas un arma a distancia equipada para disparar.");
+      if(!weapon&&command.attackType!=="BLUNT")throw new Error("Sin arma equipada solo puedes golpear con los puños (contundente).");
       if(weapon&&weapon.attackType!==command.attackType)throw new Error("El tipo de ataque debe coincidir con el arma equipada.");
       if(!ranged&&weapon?.mode==="RANGED")throw new Error("Esta arma está configurada para ataques a distancia.");
     }
@@ -400,8 +413,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     if (magic && !validArenaPoint(command.areaCenter))
       throw new Error("Marca el centro de la explosión mágica en el lienzo.");
-    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:ranged?(thrown?fighter.equippedWeapon?.throwRangeMeters??0:fighter.equippedWeapon?.maximumRangeMeters??fighter.equippedWeapon?.effectiveRangeMeters??0):(fighter.equippedWeapon?.maximumRangeMeters??fighter.equippedWeapon?.effectiveRangeMeters??fighter.unarmedReachMeters??Math.max(0.3,(fighter.heightMeters??1.7)*0.45)))))
-      throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance efectivo del arma.");
+    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown))))
+      throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance máximo del ataque.");
+    const distanceAtLaunch=Math.abs(fighter.positionMeters-rival.positionMeters);
+    const effectiveAtLaunch=fighter.equippedWeapon?.effectiveRangeMeters??effectiveWeaponReachMeters(fighter);
     spend(fighter,turnTicks(fighter,command.attackType));
     if(magic&&serverSkillRangeMeters===undefined)state.mana![by].current-=1;
     if(thrown&&fighter.equippedWeapon){
@@ -415,7 +430,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     state.pending = {by,against:other(by),attackType:command.attackType,
       trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,
-      beyondEffectiveRange:!magic&&!thrown&&Math.abs(fighter.positionMeters-rival.positionMeters)>(fighter.equippedWeapon?.effectiveRangeMeters??fighter.unarmedReachMeters??0.8),
+      beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
       targetCenter:magic||ranged?command.areaCenter:undefined,
       areaHint:magic||ranged?magicImpactZone(command.areaCenter!):undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);

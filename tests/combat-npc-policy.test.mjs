@@ -8,7 +8,8 @@ const fighter = (name, agility=100, overrides={}) => ({
  precision:30,dodge:30,physicalAttack:18,physicalDefense:6,
  magicAttack:12,magicDefense:4,critical:10,luck:10,race:20,
  massKg:70,positionMeters:0,weaponIntegrity:100,
- attackType:"CUT",defenseType:"SOLID",spentTicks:0,spentAp:0,...overrides,
+ attackType:"CUT",defenseType:"SOLID", equippedWeapon:{name:"Arma de entrenamiento",attackType:"CUT",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2},
+ spentTicks:0,spentAp:0,...overrides,
 });
 const dice=()=>({hit:0.2,critical:0.9,defense:0.2});
 const rng=()=>0.35;
@@ -96,7 +97,7 @@ test("encounter #2 regression: equally fast NPC counterattacks instead of defend
     hp:12,maxHp:12,speedValue:38,agility:38,strength:1,
     precision:62.33,physicalAttack:10.5,physicalDefense:45.5,
     constitution:1,race:1.25,dodge:136,critical:73.23,luck:31,
-    attackType:"BLUNT",defenseType:"CONCENTRATED"
+    attackType:"BLUNT",equippedWeapon:{name:"Martillo",attackType:"BLUNT",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2},defenseType:"CONCENTRATED"
   });
   const npc=fighter("Training NPC",38,{
     hp:12,maxHp:12,speedValue:38,agility:38,strength:1,

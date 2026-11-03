@@ -2276,10 +2276,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
 
               {skills.map((skill) => (
                 <div key={skill.id} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 lg:flex-1">
                       <div className="flex items-center gap-3">
-                        <SkillEmblem category={skill.category} effects={Array.isArray(skill.effect) ? skill.effect : []} size={48}/>
+                        <div className="shrink-0">
+                          <SkillEmblem category={skill.category} effects={Array.isArray(skill.effect) ? skill.effect : []} size={48}/>
+                        </div>
                         <h3 className="min-w-0 break-words text-base font-semibold text-zinc-100">{skill.name}</h3>
                       </div>
                       <p className="mt-1 text-xs" style={{ color: themePalette.muted }}>
@@ -2287,11 +2289,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                         {" · "}Coste {skill.cost}{Number(skill.maintenanceCost ?? 0) > 0 ? " · Mantenimiento/turno " + skill.maintenanceCost : ""}{Number(skill.accumulationPerTick ?? 0) > 0 ? " · +" + skill.accumulationPerTick + " acumulación/tick" : ""}
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-emerald-400/25 px-2 py-1 text-xs text-emerald-300">Aprobada</span>
+                    <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+                      <span className="shrink-0 whitespace-nowrap rounded-full border border-emerald-400/25 px-2 py-1 text-xs text-emerald-300">Aprobada</span>
                       <button type="button" onClick={()=>copySkillToClipboard(skill)}
                         aria-label={"Copiar habilidad "+skill.name+" al portapapeles"}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-600 px-3 py-2 text-xs font-semibold text-zinc-100 transition hover:border-cyan-400 hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+                        className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-zinc-600 px-3 py-2 text-xs font-semibold text-zinc-100 transition hover:border-cyan-400 hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
                         {copiedSkillId===skill.id?<Check size={15} aria-hidden="true"/>:<Copy size={15} aria-hidden="true"/>}
                         {copiedSkillId===skill.id?"Copiada":"Copiar habilidad"}
                       </button>

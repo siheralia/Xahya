@@ -1,21 +1,46 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+type CharacterOption={id:number;name:string;mine:boolean};
+type LaunchOptions={characters:CharacterOption[];canApprovePvP:boolean};
 export default function DuelLauncher({initialCharacterId}:{initialCharacterId:string}) {
  const router=useRouter();
+ const [options,setOptions]=useState<LaunchOptions|null>(null);
  const [characterId,setCharacterId]=useState(initialCharacterId);
  const [opponentCharacterId,setOpponentCharacterId]=useState("");
  const [busy,setBusy]=useState(false);
+ const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
+ useEffect(()=>{
+  let live=true;
+  (async()=>{
+   try {
+    const response=await fetch("/api/combat/duels",{cache:"no-store"});
+    const payload=await response.json();
+    if(!response.ok)throw new Error(payload.error??"No se pudieron cargar tus personajes.");
+    if(!live)return;
+    const fetched=payload as LaunchOptions;
+    setOptions(fetched);
+    // Honor characterId from the sheet only if the server allows it.
+    // Otherwise prefer the user's own character even for administrators.
+    const initial=fetched.characters.find(c=>String(c.id)===initialCharacterId);
+    const selected=initial??fetched.characters.find(c=>c.mine)??fetched.characters[0];
+    setCharacterId(selected?String(selected.id):"");
+   }catch(e){if(live)setError(e instanceof Error?e.message:"No se pudieron cargar tus personajes.");}
+   finally{if(live)setLoading(false);}
+  })();
+  return()=>{live=false;};
+ },[initialCharacterId]);
  async function start() {
+  if(!options || !characterId || busy)return;
   setBusy(true);setError("");
   try {
    const resp=await fetch("/api/combat/duels",{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({characterId:Number(characterId),
-      opponentCharacterId:opponentCharacterId.trim()?Number(opponentCharacterId):undefined})
+      opponentCharacterId:options.canApprovePvP&&opponentCharacterId?Number(opponentCharacterId):undefined})
    });
    const data=await resp.json();
    if(!resp.ok)throw new Error(data.error??"No fue posible iniciar el combate");
@@ -23,25 +48,34 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
   }catch(e){setError(e instanceof Error?e.message:"Error inesperado");}
   finally{setBusy(false);}
  }
+ const availableOpponents=options?.characters.filter(c=>String(c.id)!==characterId)??[];
  return <main className="mx-auto max-w-2xl px-4 py-10 text-zinc-100">
   <div className="mb-7 flex items-center justify-between"><h1 className="text-3xl font-bold">⚔️ Combate</h1><Link href="/" className="text-sm text-cyan-300">Inicio</Link></div>
-  <p className="mb-5 text-zinc-400">Prueba el motor de 100 ticks por turno, reacciones elegibles y trayectorias dibujadas. Puedes iniciar un entrenamiento contra un NPC. Un GM también puede abrir un enfrentamiento entre dos personajes registrados.</p>
+  <p className="mb-5 text-zinc-400">Inicia un entrenamiento con un NPC de estadísticas parecidas a las tuyas, pero ligeramente variables. El combate conserva su estado aunque cierres sesión.</p>
   <div className="space-y-4 rounded-2xl border border-zinc-700 bg-zinc-950/70 p-5">
-   <label className="block text-sm">ID del personaje
-    <input value={characterId} onChange={e=>setCharacterId(e.target.value)} type="number" min="1"
-     className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"/>
+   <label className="block text-sm">Tu personaje
+    <select value={characterId} disabled={busy||loading} onChange={e=>{setCharacterId(e.target.value);setOpponentCharacterId("");}}
+     className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
+     {loading&&<option value="">Cargando personajes…</option>}
+     {!loading&&!options?.characters.length&&<option value="">No tienes personajes disponibles</option>}
+     {options?.characters.map(c=><option key={c.id} value={c.id}>{c.name}{c.mine?"":" · Otro jugador"}</option>)}
+    </select>
    </label>
-   <label className="block text-sm">ID del oponente (opcional, solo GM)
-    <input value={opponentCharacterId} onChange={e=>setOpponentCharacterId(e.target.value)} type="number" min="1"
-     placeholder="Vacío para entrenamiento contra NPC"
-     className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"/>
-   </label>
+   {options?.canApprovePvP&&<label className="block text-sm">Oponente (combate entre personajes autorizado)
+    <select value={opponentCharacterId} disabled={busy||!availableOpponents.length}
+      onChange={e=>setOpponentCharacterId(e.target.value)}
+      className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
+      <option value="">NPC de entrenamiento</option>
+      {availableOpponents.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+    </select>
+    <span className="mt-1 block text-xs text-zinc-400">Este selector solo aparece para quienes pueden aprobar combates PvP.</span>
+   </label>}
    {error&&<p role="alert" className="text-rose-400">{error}</p>}
-   <button type="button" onClick={start} disabled={busy||!characterId}
+   <button type="button" onClick={()=>void start()} disabled={busy||loading||!characterId}
     className="rounded-lg bg-cyan-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
-    {busy?"Iniciando...":"Iniciar combate"}
+    {busy?"Iniciando…":"Iniciar combate"}
    </button>
   </div>
-  <p className="mt-5 text-xs text-zinc-500">Los combates de esta versión guardan los HP y la integridad del arma durante el encuentro. Todavía no descuentan el HP global de la ficha ni ejecutan habilidades de coste de maná.</p>
+  <p className="mt-5 text-xs text-zinc-500">Los HP y la integridad del arma siguen siendo valores del encuentro, no de la ficha. La integración de habilidades y recursos persistentes corresponde a la próxima fase.</p>
  </main>;
 }

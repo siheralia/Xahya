@@ -350,9 +350,9 @@ export default function CombatEncounter({id}:{id:string}) {
          <option value="PIERCE">{attackMode==="MAGIC_AREA"?"Descarga perforante":"Penetración"}</option>
         </select>
        </label>
-       <button disabled={!ready||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)}
+       <button disabled={!ready||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
-           ? {kind:"ATTACK",usesMagic:true,attackType,areaCenter:areaCenter??undefined}
+           ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??attackType,areaCenter:areaCenter??undefined}
            : attackMode==="RANGED"?{kind:"ATTACK",rangedPhysical:true,attackType,areaCenter:areaCenter??undefined}
            : {kind:"ATTACK",attackType,trajectory:normalizedPath})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">

@@ -7,7 +7,7 @@ export type CombatConstruction={
  id:string;owner:Side;sourceSkillId:number;material:string;
  form:ConstructionForm;label:string;center:Point;createdRound:number;
  /** A cosmetic construction cannot intercept attacks or affect stats. */
- tangible:boolean;durability?:number;
+ tangible:boolean;durability?:number;hitCount?:number;
  passive?:{sourceSkillId:number;resistance:VariableResistance};
 };
 const MATERIAL=/^[A-Z][A-Z0-9_]{0,63}$/;

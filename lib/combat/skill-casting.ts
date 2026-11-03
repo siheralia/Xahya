@@ -8,6 +8,8 @@ import type {CombatAttackType} from "./matchup-types.ts";
 export type CombatBuffStat = "physicalAttack"|"magicAttack"|"physicalDefense"|"magicDefense"|"precision"|"dodge";
 export type CombatSkillPlan = {
  id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT"|"CONSTRUCTION";
+ /** Linked approved parent skill, but not by itself an active combat effect. */
+ requiredParentSkillId?:number;
  construction?:ConstructionPlan;
  creationPassive?:{sourceSkillId:number;resistance:VariableResistance};
  attackType?:CombatAttackType;usesMagic?:boolean;damageElement?:string;
@@ -40,9 +42,17 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
   fail("Las condiciones narrativas de esta habilidad todavía no tienen resolutor.");
  const mechanics=(row.mechanics&&typeof row.mechanics==="object"&&!Array.isArray(row.mechanics))
    ?row.mechanics as Record<string,unknown>:{};
+ // A parentSkillId is an ownership/prerequisite link, not an action or
+ // an advanced mechanics rule. Its presence alone must not disable an attack.
+ const linkedParent=mechanics.parentSkillId;
+ if(linkedParent!==undefined && linkedParent!==null &&
+    (!Number.isSafeInteger(linkedParent)||Number(linkedParent)<=0||linkedParent===id))
+  fail("Referencia de habilidad vinculada inválida.");
+ const requiredParentSkillId=linkedParent===undefined||linkedParent===null
+  ?undefined:Number(linkedParent);
  if((Array.isArray(mechanics.rules)&&mechanics.rules.length>0)
    ||(Array.isArray(mechanics.activationConditions)&&mechanics.activationConditions.length>0)
-   ||mechanics.variableResistance || mechanics.parentSkillId)
+   ||mechanics.variableResistance)
   fail("Esta habilidad necesita el resolutor de mecánicas avanzadas.");
  const cost=Number(row.cost);
  if(!Number.isSafeInteger(cost)||cost<0||cost>1000000)
@@ -131,7 +141,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
  if(!Number.isFinite(limit)||limit>1000||healing>1000000)
   fail("La combinación de potencias supera los límites del motor.");
  return {
-  id,name,cost,category:construction?"CONSTRUCTION":isAttack?"OFFENSE":"SUPPORT",construction,
+  id,name,cost,requiredParentSkillId,category:construction?"CONSTRUCTION":isAttack?"OFFENSE":"SUPPORT",construction,
   attackType:isAttack?String(row.attackType) as CombatAttackType:undefined,
   usesMagic:mode==="MAGICAL",damageElement:isAttack?damageElement:undefined,rangeMeters:range.rangeMeters??0,
   damageMultiplier:multiplier,defenseFactor,finalMultiplier:final,

@@ -4,7 +4,7 @@
 - La PR #124 (flair del HUD) está desplegada en producción, commit `55fd635fdd7e374247d56587f9b59c95c05109d8`.
 - Primer incremento de NPC configurables en `feature/combat-training-npc-difficulty`: perfiles Básico, Intermedio, Avanzado, Resistencia y Agresivo; selector en `DuelLauncher`.
 - Agresivo aumenta presión ofensiva y frecuencia de habilidades, pero **no altera el daño del jugador**. Resistencia multiplica la reserva de HP del NPC sin reducir el daño recibido.
-- Cada nuevo NPC recibe una raza activa y tres perks de estadística sin duplicados: se priorizan perks raciales y se completa con perks del catálogo activo compatibles. Los bonos afectan solo al estado del combate, nunca a la ficha persistente.
+- Cada nuevo NPC recibe una raza activa con **todos sus perks raciales activos**, más **tres perks adicionales del catálogo** distintos de los innatos. Todos los raciales se registran; aquellos con efectos aún no resueltos se muestran como narrativos. Los tres extras deben ser compatibles con el motor; sus bonos de estadísticas y recursos HP/maná afectan exclusivamente al encuentro, nunca a la ficha persistente.
 - La carga de habilidades del NPC incluye hasta tres plantillas públicas habilitadas, elegidas al inicio y compiladas con `compileCombatSkill`. La IA usa `applyResolvedCombatSkill`, pagando maná, PA, ticks y cooldown. No se interpretan efectos sin resolutor ni se conceden habilidades personales a jugadores.
 - La selección y los planes se guardan en el `combatV1` del encuentro para que sobrevivan a reconexiones sin repetir el sorteo. El PvP conserva sus reglas.
 - Validar pruebas, build y vista previa de Vercel antes de solicitar fusión. No confundir esta PR con producción.

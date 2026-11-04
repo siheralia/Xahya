@@ -74,7 +74,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {wrap("Duración","duration",select("duration",durations.map(x=>[x,x] as const)))}
     {wrap("Cooldown","cooldown",<><select value={form.cooldown} onChange={e=>set("cooldown",e.target.value)} className={cls}>{cooldowns.map(c=><option key={c} value={c}>{c}{cooldownDiscountPercent(c,form.duration,form.category)>0?" (−"+cooldownDiscountPercent(c,form.duration,form.category)+"% PCH)":""}</option>)}</select>{form.cooldown==="Igual a duración" && cooldownDiscountPercent(form.cooldown,form.duration,form.category)===0 && <span className="mt-1 block text-xs text-amber-300">La duración no es finita en turnos, por lo que no aplica descuento.</span>}</>)}
     {wrap("Velocidad","speed",select("speed",speeds))}
-    {wrap("Área de efecto","areaOfEffect",<input value={form.areaOfEffect} onChange={e=>set("areaOfEffect",e.target.value)} placeholder="Objetivo único / Área circular de 3 m" className={cls}/>)}
+    {wrap("Área de efecto","areaOfEffect",<><input value={form.areaOfEffect} onChange={e=>set("areaOfEffect",e.target.value)} placeholder="Objetivo único / Área circular de 3 m" className={cls}/><span className="mt-1 block text-xs text-zinc-500">En combate: «Área circular de 3 m» indica radio de 3 m. El alcance máximo se configura por separado; otras formas aún no son ejecutables.</span></>)}
     {wrap("Distancia máxima (m)","maxRangeMeters",number("maxRangeMeters",0,100))}
     {form.duration !== "Instantánea" && wrap("Costo por turno","maintenanceCost",number("maintenanceCost"))}
     {wrap("Acumulaciones por tick","accumulationPerTick",number("accumulationPerTick"))}

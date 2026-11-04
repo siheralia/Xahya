@@ -94,3 +94,44 @@ test("catalog remains unchanged; empty Nada, 0%, inactive and all racial entries
   perk(10,"Cero",stat("STR",5),0),
  ],links,()=>0),/tres perks generales/);
 });
+
+
+test("ghost NPC keeps combat damage perks even when floating is maze-only (encounter 46)",()=>{
+ const ghostEffects=[
+   {type:"DAMAGE_REDUCTION",target:"PHYSICAL",value:10},
+   {type:"DAMAGE_INCREASE",target:"MAGICAL",value:300},
+   {type:"MAZE_UTILITY",target:"FLOATING",value:0},
+ ];
+ const pool=[
+   perk(16,"Cuerpo ethereo",ghostEffects),
+   perk(5,"Fuerte",stat("STR",10),10),
+   perk(6,"Mana",[{type:"RESOURCE_BONUS",target:"MANA",value:100}],10),
+   perk(7,"HP",[{type:"RESOURCE_BONUS",target:"HP",value:100}],10),
+ ];
+ const profile=selectTrainingIdentity([{id:4,name:"Fantasma",active:true}],pool,
+   [{raceId:4,perkId:16}],()=>0);
+ assert.equal(profile.racialPerks.length,1);
+ assert.equal(profile.racialPerks[0].mechanical,true);
+ assert.deepEqual(profile.racialPerks[0].effects,ghostEffects.slice(0,2));
+ assert.equal(allTrainingPerks(profile).length,4);
+});
+
+test("partially supported perks preserve only valid combat effects",()=>{
+ const pool=[
+   perk(16,"Racial mezclada",[
+     {type:"NARRATIVE",target:"OTHER",value:1},
+     {type:"DAMAGE_REDUCTION",target:"PHYSICAL",value:10},
+     {type:"DAMAGE_INCREASE",target:"MAGICAL",value:99999},
+     {type:"MAZE_UTILITY",target:"FLOATING",value:0},
+   ]),
+   perk(5,"Fuerte",stat("STR",10),10),
+   perk(6,"Mana",[{type:"RESOURCE_BONUS",target:"MANA",value:100}],10),
+   perk(7,"HP",[{type:"RESOURCE_BONUS",target:"HP",value:100}],10),
+ ];
+ const profile=selectTrainingIdentity([{id:4,name:"Fantasma",active:true}],pool,
+   [{raceId:4,perkId:16}],()=>0);
+ assert.deepEqual(profile.racialPerks[0].effects,[
+   {type:"DAMAGE_REDUCTION",target:"PHYSICAL",value:10}
+ ]);
+ assert.equal(profile.racialPerks[0].mechanical,true);
+});

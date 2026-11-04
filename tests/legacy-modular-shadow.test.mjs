@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {
-  cloneLegacySkillAsMicro,legacyShadowCombatNumbers,evaluateLegacyShadowParts,
+  cloneLegacySkillAsMicro,legacyShadowCombatNumbers,evaluateLegacyShadowParts,legacyShadowCopyConfig,
 } from "../lib/effects/legacy-modular-shadow.ts";
 import {compileCombatSkill} from "../lib/combat/skill-casting.ts";
 import {racialDamageFactors} from "../lib/combat/innate-traits.ts";
@@ -96,8 +96,24 @@ test("maze invisibility creates an executable capability token, preserving origi
  assert.equal(p.coverage,"COMPLETE");
  assert.deepEqual(evaluateLegacyShadowParts(p.parts),[{kind:"BONUS",stat:"MAZE_INVISIBILITY",amount:1}]);
 });
-test("special copy and non-mechanical narrative remain explicitly unsupported in clone",()=>{
- assert.equal(preview("skill",13).coverage,"UNSUPPORTED");
+test("copy capability is reconstructed by 7 modules and still uses legacy permission/approval services",()=>{
+ const original=def("skill",13).effect[0];
+ const copy=legacyShadowCopyConfig(original);
+ assert.equal(preview("skill",13).coverage,"COMPLETE");
+ assert.equal(copy.type,"COPY_SKILL");
+ assert.equal(copy.value,original.value);
+ assert.equal(copy.copyMode,original.copyMode??"PERMANENT");
+ assert.equal(copy.copyFidelityPercent,original.copyFidelityPercent??100);
+ assert.equal(copy.copyAllowRacial,original.copyAllowRacial===true);
+ assert.equal(copy.copyAllowSpecial,original.copyAllowSpecial!==false);
+ assert.equal(legacyShadowCopyConfig({...original,copyCapacity:-1}),null);
+ const server=readFileSync(new URL("../app/api/characters/[id]/skills/copies/route.ts",import.meta.url),"utf8");
+ const search=readFileSync(new URL("../app/api/characters/[id]/skills/copies/search/route.ts",import.meta.url),"utf8");
+ assert.match(server,/legacyShadowCopyConfig\(sourceCopyEffect\)/);
+ assert.match(search,/legacyShadowCopyConfig\(sourceCopyEffect\)/);
+ assert.match(server,/canCopySkill\(copyEffect/);
+});
+test("non-mechanical narrative still requires a typed resolver",()=>{
  const e=preview("skill",7);
  assert.equal(e.coverage,"UNSUPPORTED");
  assert.throws(()=>evaluateLegacyShadowParts(e.parts),/resolutor/);

@@ -84,9 +84,29 @@ export function modularStepsForLegacyEffect(raw:unknown):{
       return ["ALL","PHYSICAL","MAGICAL"].includes(target) && value>=10 && value<=500
         ?{status:"EXECUTABLE",steps:[modifier("DAMAGE_TAKEN:"+target,value)]}
         :{status:"UNSUPPORTED",steps:[],reason:"Reducción/aumento fuera de límites"};
-    case "COPY_SKILL":
+    case "COPY_SKILL": {
+      const modes=["PERMANENT","TEMPORARY","IMITATION","COLLECTION"] as const;
+      const mode=String(e.copyMode??"PERMANENT");
+      const cap=e.copyCapacity??5,turns=e.copyDurationTurns??3,fidelity=e.copyFidelityPercent??100;
+      if(!modes.some(x=>x===mode)||!Number.isSafeInteger(value)||
+         !Number.isSafeInteger(cap)||Number(cap)<1||Number(cap)>100||
+         !Number.isSafeInteger(turns)||Number(turns)<1||Number(turns)>100||
+         !Number.isSafeInteger(fidelity)||Number(fidelity)<1||Number(fidelity)>100||
+         (e.copyAllowSpecial!==undefined&&typeof e.copyAllowSpecial!=="boolean")||
+         (e.copyAllowRacial!==undefined&&typeof e.copyAllowRacial!=="boolean"))
+        return {status:"UNSUPPORTED",steps:[],reason:"Parámetros de copia no válidos"};
+      return {status:"EXECUTABLE",steps:[
+        bonus("COPY_MAX_PCH",value),
+        bonus("COPY_MODE:"+mode,1),
+        bonus("COPY_CAPACITY",Number(cap)),
+        bonus("COPY_DURATION_TURNS",Number(turns)),
+        bonus("COPY_FIDELITY_PERCENT",Number(fidelity)),
+        bonus("COPY_ALLOW_SPECIAL",e.copyAllowSpecial===false?0:1),
+        bonus("COPY_ALLOW_RACIAL",e.copyAllowRacial===true?1:0),
+      ]};
+    }
     case "STEAL_SKILL":
-      return {status:"UNSUPPORTED",steps:[],reason:"La copia o robo requiere permisos, selección, almacenamiento y un resolutor especializado"};
+      return {status:"UNSUPPORTED",steps:[],reason:"El robo requiere un resolutor de autorización y voluntad"};
     default:
       return {status:"UNSUPPORTED",steps:[],reason:"Tipo no implementado como micromódulo"};
   }
@@ -178,4 +198,39 @@ export function legacyShadowCombatNumbers(raw:unknown):{
     result.mirror={durability:mirrorDurability,rayMultiplier:mirrorRay,reflectionMultiplier:mirrorReflect};
   }
   return result;
+}
+
+/**
+ * Server-side COPY_SKILL capability reconstructed exclusively from a validated
+ * modular clone. The existing copy authorization/persistence routines remain
+ * responsible for checking skill ownership, price, approval and limits.
+ */
+export function legacyShadowCopyConfig(raw:unknown):{
+  type:"COPY_SKILL";value:number;copyMode:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";
+  copyCapacity:number;copyDurationTurns:number;copyFidelityPercent:number;
+  copyAllowSpecial:boolean;copyAllowRacial:boolean;
+}|null{
+  const projection=modularStepsForLegacyEffect(raw);
+  if(projection.status!=="EXECUTABLE" || !raw || typeof raw!=="object" || Array.isArray(raw) ||
+    (raw as {type?:unknown}).type!=="COPY_SKILL")return null;
+  const intents=evaluateLegacyShadowParts([{
+    sourceIndex:0,sourceType:"COPY_SKILL",status:"EXECUTABLE",
+    modules:[{id:"COPY_SHADOW",name:"Capacidad de copia",type:"LEGACY_MICRO",
+      description:"",trigger:"PASSIVE",steps:projection.steps}]
+  }]);
+  const values=new Map<string,number>();
+  for(const intent of intents){
+    if(intent.kind!=="BONUS" || values.has(intent.stat))return null;
+    values.set(intent.stat,intent.amount);
+  }
+  const mode=["PERMANENT","TEMPORARY","IMITATION","COLLECTION"].find(m=>
+    values.get("COPY_MODE:"+m)===1) as "PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION"|undefined;
+  if(!mode || values.size!==7)return null;
+  return {type:"COPY_SKILL",value:values.get("COPY_MAX_PCH")!,
+    copyMode:mode,copyCapacity:values.get("COPY_CAPACITY")!,
+    copyDurationTurns:values.get("COPY_DURATION_TURNS")!,
+    copyFidelityPercent:values.get("COPY_FIDELITY_PERCENT")!,
+    copyAllowSpecial:values.get("COPY_ALLOW_SPECIAL")===1,
+    copyAllowRacial:values.get("COPY_ALLOW_RACIAL")===1,
+  };
 }

@@ -8,7 +8,7 @@ La función `cloneLegacySkillAsMicro(row, source)` conserva el original en memor
 Se puede inspeccionar desde Gestión de efectos → **Copias modulares y equivalencia**. Un endpoint protegido por permiso `management.skills.view` consulta los datos vigentes y devuelve las copias con su procedencia y cada parte marcada:
 - **EXECUTABLE**: el valor mecánico está representado mediante un paso numérico de micromódulo, incluido en las rutas comparadas abajo.
 - **DESCRIPTION_ONLY**: narrativa sin acción mecánica tipada; sin conversión falsa.
-- **UNSUPPORTED**: aún no hay representación segura, por ejemplo copiar/robar habilidades con permisos y persistencia especializados.
+- **UNSUPPORTED**: aún no hay representación segura, por ejemplo robar habilidades con mecánicas de voluntad sin resolver.
 
 `coverage=COMPLETE` significa que **todos los efectos tienen pasos representables**, NO que todas las funcionalidades de la habilidad estén conectadas al motor. Los metadatos como cooldown, coste, requisitos, áreas, familia y permisos siguen gobernados por las reglas existentes. Algunos sistemas (bonos de estadísticas raciales, efectos de objetos, requisitos y mecánicas avanzadas) necesitan adaptadores adicionales.
 
@@ -18,10 +18,11 @@ Se puede inspeccionar desde Gestión de efectos → **Copias modulares y equival
 - **Espejo mágico:** la copia modular describe durabilidad, rayo y reflexión; una vez comprobada la equivalencia, el plan alimenta el motor existente de invocación, ataque y reflexión, sin alterar sus reglas de ataque.
 - **Resistencias raciales** (`CONDITIONAL_DAMAGE_TAKEN_MULTIPLIER`): usan valores del motor modular, conservando sus límites y orden de acumulación.
 - **Laberinto**: evasión de trampas, probabilidad de objeto y bonos de dinero raciales se leen de módulos con la misma operación MAX del resolutor actual; invisibilidad de habilidad aprobada se consulta desde la copia modular cuando su conversión es completa. Si hay una parte incompatible, se usa la ruta heredada intacta.
+- **Copia de habilidades**: el límite PCH, modalidad, fidelidad, duración, capacidad y permisos se convierten en siete módulos numéricos. Las búsquedas y solicitudes usan su configuración convertida, pero mantienen las comprobaciones de propiedad, aprobación, complejidad y persistencia del servicio original.
 - Construcciones narrativas con capacidad `CREATE` tienen un marcador tipado de material y comparan con el resolutor de construcciones del motor. Las narrativas sin capacidad concreta siguen siendo descriptivas.
 
 ## No migrado / no activado
-- Copiar o robar habilidades, efectos narrativos sin operación tipada, bonificaciones raciales generales fuera de los resolutores comprobados, reglas de efectos múltiples/temporales especializadas, y las nuevas ramas de impacto de Retribución divina.
+- Robar habilidades, efectos narrativos sin operación tipada, bonificaciones raciales generales fuera de los resolutores comprobados, reglas de efectos múltiples/temporales especializadas, y las nuevas ramas de impacto de Retribución divina.
 - No se modificó ningún registro de producción ni se cobraron PCH. No se crean copias **en la base de datos**; se generan al consultar y pueden guardarse posteriormente solo mediante un flujo administrativo específico y verificado.
 - El sistema no sustituye todavía todos los intérpretes antiguos. Un módulo no soportado no debe marcarse como funcional.
 

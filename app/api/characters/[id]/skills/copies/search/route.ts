@@ -1,3 +1,4 @@
+import {legacyShadowCopyConfig} from "@/lib/effects/legacy-modular-shadow";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -41,8 +42,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const copier = await (db.orm.public as any).Skill
     .where({ id: copierSkillId, characterId, status: "APPROVED" }).first();
-  const copyEffect = (Array.isArray(copier?.effect) ? copier.effect : [] as CopyEffect[])
+  const sourceCopyEffect = (Array.isArray(copier?.effect) ? copier.effect : [] as CopyEffect[])
     .find((effect: CopyEffect) => effect?.type === "COPY_SKILL" && (effect.copyMode ?? "PERMANENT") === mode) as CopyEffect | undefined;
+  const copyEffect=sourceCopyEffect?(legacyShadowCopyConfig(sourceCopyEffect)??sourceCopyEffect):undefined;
   if (!copyEffect)
     return NextResponse.json({ error: "No tienes una habilidad de copia aprobada con esa modalidad." }, { status: 403 });
   if (term.length < 2) return NextResponse.json({ skills: [] }, { headers: { "Cache-Control": "private, no-store" } });

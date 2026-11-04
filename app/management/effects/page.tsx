@@ -107,6 +107,7 @@ export default function EffectsManagementPage() {
         <Link href="/management" className="text-sm text-cyan-300 hover:underline">← Administración</Link>
         <h1 className="text-3xl font-bold">Gestión de efectos</h1>
         <Link href="/management/effects/modules" className="inline-block rounded-lg border border-cyan-700 bg-cyan-950/30 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-400">Constructor de efectos modulares · borradores y revisión</Link>
+        <Link href="/management/effects/legacy-shadows" className="ml-2 inline-block rounded-lg border border-violet-700 bg-violet-950/30 px-4 py-2 text-sm text-violet-200 hover:border-violet-400">Copias modulares y equivalencia</Link>
         <p className="text-sm text-zinc-400">Catálogo central de efectos mecánicos y narrativos elegibles para habilidades, perks y objetos. Las propuestas pendientes de mecánica funcionan como narrativas. Los precios se pueden editar aquí; las habilidades existentes conservan su costo histórico.</p>
       </div>
 

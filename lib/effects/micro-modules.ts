@@ -4,6 +4,9 @@
  * DAMAGE and MODIFIER produce intents for that resolver; HEAL updates HP here.
  * No eval, arbitrary source code, database I/O, or skill-name special cases.
  */
+import {calculateVariableResistance,validateVariableResistance,
+  resistanceBaseOwner,resistanceInputOwner,type VariableResistance} from "../skills/variable-resistance.ts";
+
 export type MicroEvent = "DAMAGE_RESOLVED" | "TURN_START" | "IMPACT" | "PASSIVE";
 export type ImpactKind = "CHARACTER" | "GROUND";
 export type NumericExpr = number
@@ -13,10 +16,20 @@ export type MicroCondition = { left: NumericExpr; compare: "EQ" | "NE" | "GT" | 
 export type MicroStep = (
   | { kind: "STORE"; accumulator: string; capacity: number; value: NumericExpr }
   | { kind: "CONSUME"; accumulator: string; output: string; charges: "ALL" | number }
+  /** Read a combatant's actual stat into a named output (no mutation). */
+  | { kind: "READ_STAT"; actor: "USER" | "OPPONENT"; stat: string; output: string }
+  /** Read stored charges without consuming them. */
+  | { kind: "READ_STORED"; accumulator: string; metric: "TOTAL" | "COUNT"; output: string }
   | { kind: "HEAL"; amount: NumericExpr }
   | { kind: "DAMAGE"; amount: NumericExpr; channel: "PHYSICAL" | "MAGICAL"; element?: string; radiusMeters?: NumericExpr }
   | { kind: "MODIFIER"; stat: string; multiplier: NumericExpr }
   | { kind: "BONUS"; stat: string; amount: NumericExpr }
+  /** Structured legacy narrative: retains capability, no automatic numerical benefit. */
+  | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
+  /** Dynamic construction defense using the existing validated resistance formula. */
+  | { kind: "VARIABLE_RESISTANCE"; config: VariableResistance;
+      /** Values may come from outputs of READ_STAT/READ_STORED/CONSUME, event or math. */
+      base?: NumericExpr; input?: NumericExpr }
 ) & { when?: MicroCondition[] };
 export type EffectContainer = {
   id: string; name: string; type: string; description: string;
@@ -30,6 +43,9 @@ export type MicroContext = {
   impactKind?: ImpactKind;
   /** Resolved damage (mitigatedDamage etc.) computed by the regular combat engine. */
   event?: Record<string, number>;
+  /** Server-resolved combat roles relative to the skill owner. OPPONENT
+   * must be supplied explicitly; it never aliases the owner. */
+  actors?: { USER?: Record<string, number>; OPPONENT?: Record<string, number> };
   /** Owner's combat stats BEFORE this event, e.g. STR, HP, MAX_HP. */
   stats: Record<string, number>;
 };
@@ -37,7 +53,9 @@ export type MicroIntent =
   | { kind: "HEAL"; requested: number; applied: number }
   | { kind: "DAMAGE"; amount: number; channel: "PHYSICAL" | "MAGICAL"; element?: string; radiusMeters?: number }
   | { kind: "MODIFIER"; stat: string; multiplier: number }
-  | { kind: "BONUS"; stat: string; amount: number };
+  | { kind: "BONUS"; stat: string; amount: number }
+  | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
+  | { kind: "VARIABLE_RESISTANCE"; stat: string; input: string; multiplier: number; resistance: number };
 export type MicroResult = { state: MicroState; hp: number; intents: MicroIntent[]; skipped: boolean };
 
 const KEY = /^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/;
@@ -63,6 +81,16 @@ function checkExpr(expr: NumericExpr, depth = 0): void {
     || !Array.isArray(expr.args) || expr.args.length < 1 || expr.args.length > 8
     || (["SUBTRACT", "DIVIDE", "PERCENT"].includes(expr.operator) && expr.args.length !== 2)) fail("operación inválida");
   for (const arg of expr.args) checkExpr(arg, depth + 1);
+}
+/** Output connections are local to an effect and must point backwards in the graph. */
+function checkSourceLinks(expr:NumericExpr,previous:ReadonlySet<string>):void {
+  if(typeof expr==="number")return;
+  if("source" in expr) {
+    if(expr.source==="OUTPUT"&&!previous.has(expr.key))
+      fail("conexión OUTPUT sin módulo productor anterior: "+expr.key);
+    return;
+  }
+  for(const arg of expr.args)checkSourceLinks(arg,previous);
 }
 export function validateEffectContainers(effects: readonly EffectContainer[]): string | null {
   try {
@@ -102,6 +130,14 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
             if (!validKey(step.accumulator) || !validKey(step.output) || outputs.has(step.output)
               || (step.charges !== "ALL" && !integer(step.charges, 1, 100))) fail("consumo inválido");
             outputs.add(step.output); break;
+          case "READ_STAT":
+            if (!["USER","OPPONENT"].includes(step.actor) || !validKey(step.stat) ||
+              !validKey(step.output) || outputs.has(step.output)) fail("lectura de estadística inválida");
+            outputs.add(step.output); break;
+          case "READ_STORED":
+            if (!validKey(step.accumulator) || !["TOTAL","COUNT"].includes(step.metric) ||
+              !validKey(step.output) || outputs.has(step.output)) fail("lectura de acumulador inválida");
+            outputs.add(step.output); break;
           case "HEAL": checkExpr(step.amount); break;
           case "DAMAGE":
             if (!["PHYSICAL", "MAGICAL"].includes(step.channel) || (step.element !== undefined && !validKey(step.element))) fail("tipo de daño inválido");
@@ -112,6 +148,22 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
           case "BONUS":
             if (!validKey(step.stat)) fail("estadística inválida");
             checkExpr(step.amount); break;
+          case "CAPABILITY":
+            if (!/^(CARD:W[0-9]{3}|NARRATIVE:OTHER)$/.test(step.code)
+              || typeof step.description !== "string" || step.description.length > 1500
+              || (step.target !== undefined && (typeof step.target !== "string" || step.target.length > 120))
+              || (step.element !== undefined && !validKey(step.element))
+              || (step.targetKind !== undefined && (typeof step.targetKind !== "string" || step.targetKind.length > 60))
+              || (step.targetReference !== undefined && (typeof step.targetReference !== "string" || step.targetReference.length > 200))
+              || (step.durationMovements !== undefined && !integer(step.durationMovements,1,100))
+              || (step.activationCondition !== undefined && (typeof step.activationCondition !== "string" || step.activationCondition.length > 60))
+              || (step.value !== undefined && !finite(step.value))) fail("capacidad narrativa inválida");
+            break;
+          case "VARIABLE_RESISTANCE":
+            if (validateVariableResistance(step.config)) fail("resistencia variable inválida");
+            if(step.base!==undefined){checkExpr(step.base);checkSourceLinks(step.base,outputs);}
+            if(step.input!==undefined){checkExpr(step.input);checkSourceLinks(step.input,outputs);}
+            break;
           default: fail("operación desconocida");
         }
       }
@@ -220,6 +272,17 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
           outputs[step.output] = bounded(spent.reduce((sum,v)=>sum+v,0));
           break;
         }
+        case "READ_STAT": {
+          const source=step.actor==="USER"?(ctx.actors?.USER ?? ctx.stats):ctx.actors?.OPPONENT;
+          const value=step.actor==="USER"&&step.stat==="HP"?hp:source?.[step.stat];
+          if (!finite(value)) fail("estadística no disponible: "+step.actor+":"+step.stat);
+          outputs[step.output]=value;
+          break;
+        }
+        case "READ_STORED":
+          outputs[step.output]=step.metric==="TOTAL"?
+            totalStored(state,ctx.ownerId,step.accumulator):chargeCount(state,ctx.ownerId,step.accumulator);
+          break;
         case "HEAL": {
           const requested = Math.max(0,evaluate(step.amount,ctx,state,outputs,hp));
           const applied = Math.min(requested,ctx.stats.MAX_HP-hp);
@@ -243,6 +306,31 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
         case "BONUS": {
           const amount = evaluate(step.amount,ctx,state,outputs,hp);
           intents.push({kind:"BONUS",stat:step.stat,amount});
+          break;
+        }
+        case "CAPABILITY":
+          // Adjudicated or narrative-only: never grant an unconfigured bonus.
+          intents.push({kind:"CAPABILITY",code:step.code,description:step.description,
+            target:step.target,element:step.element,targetKind:step.targetKind,
+            targetReference:step.targetReference,durationMovements:step.durationMovements,
+            activationCondition:step.activationCondition,value:step.value});
+          break;
+        case "VARIABLE_RESISTANCE": {
+          // Backwards-compatible event/stat defaults for older skills; new
+          // compositions resolve explicit inputs through named module outputs.
+          const defaultBase=resistanceBaseOwner(step.config)==="USER"?
+            (ctx.actors?.USER??ctx.stats)[step.config.baseStat]:
+            ctx.actors?.OPPONENT?.[step.config.baseStat];
+          const defaultInput=resistanceInputOwner(step.config)==="USER"?
+            (ctx.actors?(ctx.actors.USER?.[step.config.input]):ctx.event?.[step.config.input]):
+            (ctx.actors?(ctx.actors.OPPONENT?.[step.config.input]):ctx.event?.[step.config.input]);
+          const base=step.base===undefined?defaultBase:evaluate(step.base,ctx,state,outputs,hp);
+          const input=step.input===undefined?defaultInput:evaluate(step.input,ctx,state,outputs,hp);
+          if(!finite(input)||input<0||!finite(base)||base<0)
+            fail("la defensa dinámica requiere velocidad/entrada y estadística base válidas");
+          const resolved=calculateVariableResistance(step.config,base,input);
+          intents.push({kind:"VARIABLE_RESISTANCE",stat:step.config.baseStat,
+            input:step.config.input,multiplier:resolved.multiplier,resistance:resolved.resistance});
           break;
         }
       }

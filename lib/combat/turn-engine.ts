@@ -6,7 +6,7 @@ import { geometricContact } from "./geometry.ts";
 import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
 import { executeMicroEvent, emptyMicroState, validateEffectContainers, type EffectContainer, type MicroState } from "../effects/micro-modules.ts";
-import {calculateVariableResistance} from "../skills/variable-resistance.ts";
+import {calculateModularVariableResistance} from "../effects/legacy-modular-shadow.ts";
 import {validateConstructionPlacement,resolveConstructionForm,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 import {circularAreaHits,type CombatAttackArea} from "./skill-area.ts";
@@ -627,13 +627,27 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         (c.durability??0)>0&&Math.hypot(c.center.x-targetHitboxCenter.x,c.center.y-targetHitboxCenter.y)<=0.35);
       if(!block)throw new Error("Selecciona un bloque defensivo cercano al personaje.");
       const resistance=block.passive?.resistance;
-      const base=resistance
-        ?Math.max(0,Number((fighter as unknown as Record<string,number>)[resistance.baseStat]??fighter.magicDefense))
-        :fighter.magicDefense;
-      const input=resistance?.input==="INCOMING_DAMAGE"?power:
-        resistance?.input==="HP_PERCENT"?100*fighter.hp/Math.max(1,fighter.maxHp):
-        resistance?.input==="HIT_COUNT"?(block.hitCount??0):effectiveCombatSpeed(attacker);
-      const blockDefense=resistance?calculateVariableResistance(resistance,base,input).resistance:base;
+      // USER is the owner of this defense/construction (fighter). OPPONENT is
+      // the attacker. Keep both sides separate in the micro-module context.
+      // Hit count belongs to the defensive block, not the attacking character.
+      const blockDefense=resistance?calculateModularVariableResistance(resistance,{
+        user:{
+          stats:fighter as unknown as Record<string,number>,
+          inputs:{
+            ATTACK_SPEED:effectiveCombatSpeed(fighter),
+            HP_PERCENT:100*fighter.hp/Math.max(1,fighter.maxHp),
+            HIT_COUNT:block.hitCount??0,
+          },
+        },
+        opponent:{
+          stats:attacker as unknown as Record<string,number>,
+          inputs:{
+            ATTACK_SPEED:effectiveCombatSpeed(attacker),
+            INCOMING_DAMAGE:power,
+            HP_PERCENT:100*attacker.hp/Math.max(1,attacker.maxHp),
+          },
+        },
+      }).resistance:fighter.magicDefense;
       const previous=block.durability??0;
       const pressure=Math.max(1,Math.round(power/typeFactor));
       const held=blockDefense>=power && previous>=pressure;

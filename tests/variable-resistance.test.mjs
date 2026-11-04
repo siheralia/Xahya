@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {DEFAULT_VARIABLE_RESISTANCE,calculateVariableResistance,validateVariableResistance,variableResistancePchCost} from "../lib/skills/variable-resistance.ts";
+import {DEFAULT_VARIABLE_RESISTANCE,calculateVariableResistance,validateVariableResistance,variableResistancePchCost,withResistanceOwners,resistanceBaseOwner,resistanceInputOwner} from "../lib/skills/variable-resistance.ts";
 import {validateSkillMechanics} from "../lib/skills/interaction-engine.ts";
 import {mechanicsPchCost} from "../lib/skills/mechanics-pricing.ts";
 
@@ -35,4 +35,21 @@ test("strict validation prevents script injection and unbounded power",()=>{
  assert.match(validateVariableResistance({...c,threshold:0}),/Parámetros/i);
  assert.match(validateVariableResistance({...c,input:"HP_PERCENT",formula:"HITS"}),/impactos/i);
  assert.throws(()=>calculateVariableResistance(c,100,Infinity),/finitas/);
+});
+
+test("actor attribution is explicit, validated and backward compatible",()=>{
+ const c=DEFAULT_VARIABLE_RESISTANCE;
+ assert.equal(c.baseOwner,"USER");
+ assert.equal(c.inputOwner,"OPPONENT");
+ assert.equal(resistanceBaseOwner(c),"USER");
+ assert.equal(resistanceInputOwner(c),"OPPONENT");
+ const old={...c};
+ delete old.baseOwner;delete old.inputOwner;
+ assert.deepEqual(withResistanceOwners(old),c);
+ assert.equal(resistanceInputOwner({...old,input:"HIT_COUNT"}),"USER");
+ assert.equal(resistanceInputOwner({...old,input:"HP_PERCENT"}),"USER");
+ assert.match(validateVariableResistance({...c,baseOwner:"UNTRUSTED"}),/Origen/);
+ assert.match(validateVariableResistance({...c,inputOwner:"SELF"}),/Origen/);
+ assert.equal(variableResistancePchCost({...c,baseOwner:"OPPONENT",inputOwner:"USER"}),
+   variableResistancePchCost(c),"owner selection does not silently change the PCH formula");
 });

@@ -1,3 +1,4 @@
+import {legacyShadowCopyConfig} from "@/lib/effects/legacy-modular-shadow";
 import {auth} from "@clerk/nextjs/server";
 import {NextResponse} from "next/server";
 import {db} from "@/lib/db";
@@ -45,7 +46,8 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
   const [copier,source]=await Promise.all([Skill.where({id:copierId,characterId:id,status:"APPROVED"}).first(),Skill.where({id:sourceId,status:"APPROVED"}).first()]);
   if(!copier||!source)return NextResponse.json({error:"La habilidad de copia o la habilidad original no está aprobada."},{status:404});
   const effects=(Array.isArray(copier.effect)?copier.effect:[]) as CopyEffect[];
-  const copyEffect=effects.find(e=>e.type==="COPY_SKILL"&&(e.copyMode??"PERMANENT")===mode);
+  const sourceCopyEffect=effects.find(e=>e.type==="COPY_SKILL"&&(e.copyMode??"PERMANENT")===mode);
+  const copyEffect=sourceCopyEffect?(legacyShadowCopyConfig(sourceCopyEffect)??sourceCopyEffect):undefined;
   if(!copyEffect)return NextResponse.json({error:"La habilidad no dispone de esta modalidad de copia."},{status:400});
   const undiscounted = copyComplexityPch(source,{
     ...defaultEffectPricing(),...await readEffectPricing()

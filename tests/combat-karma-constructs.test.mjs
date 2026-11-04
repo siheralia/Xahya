@@ -70,6 +70,8 @@ test("Sikata material inherits the approved passive automatically and block acti
  const plan=makePlan(sand);
  plan.creationPassive=attachedCreationPassive(140,[passive]);
  assert.equal(plan.creationPassive.sourceSkillId,150);
+ assert.equal(plan.creationPassive.resistance.baseOwner,"USER");
+ assert.equal(plan.creationPassive.resistance.inputOwner,"OPPONENT");
  let s=applyResolvedCombatSkill(state(),"PLAYER",plan,{
   requestId:"create-field-123456",areaCenter:{x:0.5,y:0.5},constructionForm:"FIELD"},dice);
  assert.equal(s.constructions[0].form,"FIELD");

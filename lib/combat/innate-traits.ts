@@ -1,3 +1,4 @@
+import {cloneLegacySkillAsMicro,evaluateLegacyShadowParts} from "../effects/legacy-modular-shadow.ts";
 /** Data-defined damage multipliers. Percent 100 = unchanged, 10 = one tenth, 300 = triple. */
 export const DAMAGE_TRAIT_TARGETS = ["CUT","BLUNT","PIERCE","FIRE"] as const;
 export const DAMAGE_PERK_TARGETS = ["ALL","PHYSICAL","MAGICAL"] as const;
@@ -21,6 +22,24 @@ export function racialDamageFactors(skills:readonly Skill[]):DamageTakenFactors 
     if(skill.category!=="PASSIVE"||skill.status!=="APPROVED"||
        !Number.isSafeInteger(Number(skill.grantedByRaceSkillId)) ||
        Number(skill.grantedByRaceSkillId)<=0 || !Array.isArray(skill.effect))continue;
+    // Prefer the micro clone only for a fully covered racial damage passive.
+    // Reject unknown intent types and fall back to the unchanged legacy path.
+    const clone=cloneLegacySkillAsMicro({
+      id:Number(skill.grantedByRaceSkillId),name:"Racial",effect:skill.effect
+    },"raceSkill");
+    if(clone.coverage==="COMPLETE" && clone.parts.every(p=>p.sourceType==="CONDITIONAL_DAMAGE_TAKEN_MULTIPLIER")){
+      const intents=evaluateLegacyShadowParts(clone.parts);
+      if(intents.length===clone.parts.length && intents.every(i=>i.kind==="MODIFIER" &&
+          i.stat.startsWith("DAMAGE_TAKEN:"))){
+        for(const intent of intents){
+          if(intent.kind!=="MODIFIER")continue;
+          const target=intent.stat.slice("DAMAGE_TAKEN:".length);
+          if(!validTarget(target) || intent.multiplier<0.1 || intent.multiplier>3)continue;
+          result[target]=Math.min(3,Math.max(0.1,(result[target]??1)*intent.multiplier));
+        }
+        continue;
+      }
+    }
     for(const raw of skill.effect as Effect[]){
       if(!raw || raw.type!=="CONDITIONAL_DAMAGE_TAKEN_MULTIPLIER")continue;
       const target=String(raw.target??"").toUpperCase(),percent=Number(raw.value);

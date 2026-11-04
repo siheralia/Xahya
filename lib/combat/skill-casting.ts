@@ -2,6 +2,7 @@ import {cooldownTurns} from "../skills/cooldown.ts";
 import {skillEffectMultiplier} from "../skills/pch.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
 import {compileCombatAttackArea,type CombatAttackArea} from "./skill-area.ts";
+import {parseSkillArea} from "../skills/area-of-effect.ts";
 import {creationPlanFromEffect,type ConstructionPlan} from "./constructs.ts";
 import type {VariableResistance} from "../skills/variable-resistance.ts";
 import type {CombatAttackType} from "./matchup-types.ts";
@@ -147,6 +148,8 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
    durability:mirrorEffects.get("SUMMON_MIRROR")!};
  }
  const isAttack=mode!==null;
+ if(isAttack && !["SINGLE","CONTACT","CIRCLE"].includes(parseSkillArea(range.area).kind))
+  fail("El área de ataque no está clasificada como objetivo único, contacto o círculo ejecutable.");
  const attackArea=isAttack?compileCombatAttackArea(range.area):undefined;
  if(mirror&&compileCombatAttackArea(range.area))
   fail("El espejo no admite un área circular adicional.");

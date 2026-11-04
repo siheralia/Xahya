@@ -1,0 +1,141 @@
+"use client";
+
+import type {EffectContainer,MicroStep,MicroCondition,NumericExpr,MicroEvent} from "@/lib/effects/micro-modules";
+
+const field="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm text-zinc-100";
+const key="^[A-Za-z][A-Za-z0-9_.:-]{0,63}$";
+const sources=["EVENT","STAT","CHARGES","STORED_TOTAL","OUTPUT"] as const;
+const ops=["ADD","SUBTRACT","MULTIPLY","DIVIDE","MIN","MAX","PERCENT"] as const;
+const events:MicroEvent[]=["DAMAGE_RESOLVED","TURN_START","IMPACT","PASSIVE"];
+const defaultCondition=():MicroCondition=>({left:{source:"CHARGES",key:"DIVINE_GRACE"},compare:"GTE",right:1});
+const ref=():NumericExpr=>({source:"STAT",key:"MAX_HP"});
+const op=():NumericExpr=>({operator:"PERCENT",args:[ref(),10]});
+const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
+  switch(kind){
+    case "STORE":return {kind,accumulator:"ENERGY",capacity:5,value:{source:"EVENT",key:"MITIGATED_DAMAGE"}};
+    case "CONSUME":return {kind,accumulator:"ENERGY",output:"energy",charges:"ALL"};
+    case "HEAL":return {kind,amount:op()};
+    case "DAMAGE":return {kind,amount:10,channel:"MAGICAL"};
+    case "MODIFIER":return {kind,stat:"RESISTANCE",multiplier:1.3};
+    case "BONUS":return {kind,stat:"STR",amount:10};
+  }
+};
+export function freshMicroEffect():EffectContainer{
+  return {id:"MODULE_"+crypto.randomUUID().replaceAll("-",""),name:"Nuevo efecto",
+    type:"COMPOSED",description:"",trigger:"PASSIVE",steps:[defaultStep("MODIFIER")]};
+}
+function NumericEditor({value,onChange,depth=0}:{value:NumericExpr;onChange:(value:NumericExpr)=>void;depth?:number}){
+  const kind=typeof value==="number"?"NUMBER":"source" in value?"REFERENCE":"OPERATION";
+  return <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/70 p-2">
+    <select aria-label="Tipo de valor" className={field} value={kind} onChange={e=>{
+      const v=e.target.value;
+      onChange(v==="NUMBER"?1:v==="REFERENCE"?{source:"STAT",key:"MAX_HP"}:{operator:"ADD",args:[1,1]});
+    }}>
+      <option value="NUMBER">Número fijo</option><option value="REFERENCE">Referencia</option><option value="OPERATION">Operación</option>
+    </select>
+    {typeof value==="number"?<input aria-label="Número" type="number" step="any" className={field} value={value} onChange={e=>onChange(Number(e.target.value))}/>:
+      "source" in value?<div className="grid grid-cols-2 gap-2">
+        <select aria-label="Origen de referencia" className={field} value={value.source} onChange={e=>onChange({...value,source:e.target.value as typeof value.source})}>
+          {sources.map(source=><option key={source} value={source}>{source}</option>)}
+        </select>
+        <input aria-label="Clave de referencia" pattern={key} className={field} value={value.key} onChange={e=>onChange({...value,key:e.target.value})} placeholder="HP, STR, ENERGY…"/>
+      </div>:
+      <div className="space-y-2">
+        <select aria-label="Operación matemática" className={field} value={value.operator} onChange={e=>{
+          const next=e.target.value as typeof value.operator;
+          const binary=["DIVIDE","SUBTRACT","PERCENT"].includes(next);
+          onChange({operator:next,args:binary?value.args.slice(0,2).concat(Array(Math.max(0,2-value.args.length)).fill(1)):value.args});
+        }}>{ops.map(n=><option key={n} value={n}>{n}</option>)}</select>
+        {depth>=4?<p role="note" className="text-xs text-amber-300">Expresión demasiado profunda para esta vista; reduce los niveles.</p>:
+          value.args.map((arg,i)=><div key={i} className="space-y-1">
+            <span className="text-xs text-zinc-400">Argumento {i+1}</span>
+            <NumericEditor value={arg} depth={depth+1} onChange={next=>onChange({...value,args:value.args.map((x,j)=>j===i?next:x)})}/>
+            {!["DIVIDE","SUBTRACT","PERCENT"].includes(value.operator)&&value.args.length>1&&
+              <button type="button" className="text-xs text-rose-300" onClick={()=>onChange({...value,args:value.args.filter((_,j)=>j!==i)})}>Quitar argumento</button>}
+          </div>)}
+        {!["DIVIDE","SUBTRACT","PERCENT"].includes(value.operator)&&value.args.length<8&&<button type="button" className="rounded border border-zinc-600 px-2 py-1 text-xs" onClick={()=>onChange({...value,args:[...value.args,1]})}>+ Argumento</button>}
+      </div>}
+  </div>;
+}
+function ConditionsEditor({value,onChange,title}:{value:MicroCondition[];onChange:(next:MicroCondition[])=>void;title:string}){
+  return <section className="space-y-2 rounded-lg border border-zinc-700 bg-zinc-950/40 p-3">
+    <div className="flex items-center justify-between gap-2"><h4 className="text-sm font-semibold">{title}</h4>
+      <button type="button" disabled={value.length>=12} onClick={()=>onChange([...value,defaultCondition()])} className="rounded border border-zinc-600 px-2 py-1 text-xs disabled:opacity-40">+ Condición</button>
+    </div>
+    <p className="text-xs text-zinc-500">Se deben cumplir todas las condiciones. Vacío = siempre.</p>
+    {value.map((item,i)=><div key={i} className="space-y-2 rounded-lg border border-zinc-700 p-2">
+      <div className="flex items-center justify-between"><span className="text-xs text-zinc-400">Condición {i+1}</span><button type="button" className="text-xs text-rose-300" onClick={()=>onChange(value.filter((_,j)=>j!==i))}>Quitar</button></div>
+      <span className="text-xs">Valor izquierdo</span>
+      <NumericEditor value={item.left} onChange={left=>onChange(value.map((x,j)=>j===i?{...x,left}:x))}/>
+      <select aria-label="Comparador" value={item.compare} className={field} onChange={e=>onChange(value.map((x,j)=>j===i?{...x,compare:e.target.value as MicroCondition["compare"]}:x))}>
+        {["EQ","NE","GT","GTE","LT","LTE"].map(c=><option key={c} value={c}>{c}</option>)}
+      </select>
+      <span className="text-xs">Valor derecho</span>
+      <NumericEditor value={item.right} onChange={right=>onChange(value.map((x,j)=>j===i?{...x,right}:x))}/>
+    </div>)}
+  </section>;
+}
+function StepEditor({step,onChange,onDelete,index}:{step:MicroStep;onChange:(s:MicroStep)=>void;onDelete:()=>void;index:number}){
+  const change=(patch:Partial<MicroStep>)=>onChange({...step,...patch} as MicroStep);
+  return <section className="space-y-3 rounded-xl border border-cyan-900/60 bg-zinc-900/70 p-3">
+    <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold">Micromódulo {index+1}</h4>
+      <button type="button" onClick={onDelete} className="text-xs text-rose-300">Eliminar</button></div>
+    <label className="block text-xs">Operación<select className={"mt-1 "+field} value={step.kind} onChange={e=>onChange({...defaultStep(e.target.value as MicroStep["kind"]),when:step.when})}>
+      {["STORE","CONSUME","HEAL","DAMAGE","MODIFIER","BONUS"].map(kind=><option key={kind} value={kind}>{kind}</option>)}
+    </select></label>
+    {step.kind==="STORE"&&<div className="grid gap-2 sm:grid-cols-2">
+      <label className="text-xs">Acumulador<input className={"mt-1 "+field} value={step.accumulator} onChange={e=>change({accumulator:e.target.value})}/></label>
+      <label className="text-xs">Máximo de cargas<input className={"mt-1 "+field} type="number" min={1} max={100} value={step.capacity} onChange={e=>change({capacity:Number(e.target.value)})}/></label>
+      <div className="sm:col-span-2"><p className="mb-1 text-xs">Valor a almacenar</p><NumericEditor value={step.value} onChange={value=>change({value})}/></div>
+    </div>}
+    {step.kind==="CONSUME"&&<div className="grid gap-2 sm:grid-cols-3">
+      <label className="text-xs">Acumulador<input className={"mt-1 "+field} value={step.accumulator} onChange={e=>change({accumulator:e.target.value})}/></label>
+      <label className="text-xs">Guardar total en<input className={"mt-1 "+field} value={step.output} onChange={e=>change({output:e.target.value})}/></label>
+      <label className="text-xs">Cargas a consumir<select className={"mt-1 "+field} value={step.charges==="ALL"?"ALL":"NUMBER"} onChange={e=>change({charges:e.target.value==="ALL"?"ALL":1})}>
+        <option value="ALL">Todas</option><option value="NUMBER">Cantidad</option></select>
+        {step.charges!=="ALL"&&<input type="number" min={1} max={100} className={"mt-1 "+field} value={step.charges} onChange={e=>change({charges:Number(e.target.value)})}/>}</label>
+    </div>}
+    {(step.kind==="HEAL"||step.kind==="DAMAGE"||step.kind==="BONUS"||step.kind==="MODIFIER")&&
+      <div className="space-y-2">
+        {step.kind==="DAMAGE"&&<div className="grid gap-2 sm:grid-cols-2">
+          <label className="text-xs">Canal<select className={"mt-1 "+field} value={step.channel} onChange={e=>change({channel:e.target.value as "PHYSICAL"|"MAGICAL"})}>
+            <option value="PHYSICAL">Físico</option><option value="MAGICAL">Mágico</option></select></label>
+          <label className="text-xs">Elemento (opcional)<input className={"mt-1 "+field} value={step.element??""} onChange={e=>change({element:e.target.value||undefined})}/></label>
+        </div>}
+        {(step.kind==="BONUS"||step.kind==="MODIFIER")&&<label className="block text-xs">Estadística o destino<input className={"mt-1 "+field} value={step.stat} onChange={e=>change({stat:e.target.value})}/></label>}
+        <p className="text-xs">{step.kind==="MODIFIER"?"Multiplicador":step.kind==="HEAL"?"Curación":step.kind==="DAMAGE"?"Daño":"Bono a sumar"}</p>
+        <NumericEditor value={step.kind==="MODIFIER"?step.multiplier:step.amount} onChange={value=>change(step.kind==="MODIFIER"?{multiplier:value}:{amount:value})}/>
+        {step.kind==="DAMAGE"&&<div className="space-y-2">
+          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={step.radiusMeters!==undefined} onChange={e=>change({radiusMeters:e.target.checked?1:undefined})}/>Área circular</label>
+          {step.radiusMeters!==undefined&&<NumericEditor value={step.radiusMeters} onChange={radiusMeters=>change({radiusMeters})}/>}
+        </div>}
+      </div>}
+    <ConditionsEditor title="Condicionales de este micromódulo" value={step.when??[]} onChange={when=>change({when})}/>
+  </section>;
+}
+export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onChange:(next:EffectContainer)=>void}){
+  const update=(patch:Partial<EffectContainer>)=>onChange({...value,...patch});
+  return <section className="space-y-4">
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="text-xs">Nombre<input className={"mt-1 "+field} maxLength={120} value={value.name} onChange={e=>update({name:e.target.value})}/></label>
+      <label className="text-xs">Tipo<input className={"mt-1 "+field} maxLength={64} value={value.type} onChange={e=>update({type:e.target.value})}/></label>
+      <label className="sm:col-span-2 text-xs">Descripción<textarea className={"mt-1 "+field} rows={2} maxLength={2000} value={value.description} onChange={e=>update({description:e.target.value})}/></label>
+      <label className="text-xs">Disparador<select className={"mt-1 "+field} value={value.trigger} onChange={e=>update({trigger:e.target.value as MicroEvent,impactKind:e.target.value==="IMPACT"?value.impactKind:undefined})}>
+        {events.map(t=><option key={t} value={t}>{t}</option>)}</select></label>
+      {value.trigger==="IMPACT"&&<label className="text-xs">Impacto<select className={"mt-1 "+field} value={value.impactKind??""} onChange={e=>update({impactKind:e.target.value?e.target.value as "GROUND"|"CHARACTER":undefined})}>
+        <option value="">Cualquier impacto</option><option value="CHARACTER">Personaje</option><option value="GROUND">Suelo</option></select></label>}
+    </div>
+    <ConditionsEditor title="Requisitos para ejecutar este efecto" value={value.requirements??[]} onChange={requirements=>update({requirements})}/>
+    <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">Micromódulos y orden de ejecución</h3>
+      <button type="button" disabled={value.steps.length>=24} className="rounded border border-cyan-800 px-3 py-2 text-xs disabled:opacity-40" onClick={()=>update({steps:[...value.steps,defaultStep("HEAL")]})}>+ Micromódulo</button>
+    </div>
+    {value.steps.map((step,index)=><div key={index} className="space-y-1">
+      <div className="flex justify-end gap-2 text-xs">
+        <button type="button" disabled={index===0} onClick={()=>{const next=[...value.steps];[next[index-1],next[index]]=[next[index],next[index-1]];update({steps:next});}} className="disabled:opacity-30">↑ Subir</button>
+        <button type="button" disabled={index===value.steps.length-1} onClick={()=>{const next=[...value.steps];[next[index+1],next[index]]=[next[index],next[index+1]];update({steps:next});}} className="disabled:opacity-30">↓ Bajar</button>
+      </div>
+      <StepEditor step={step} index={index} onChange={next=>update({steps:value.steps.map((x,i)=>i===index?next:x)})} onDelete={()=>update({steps:value.steps.filter((_,i)=>i!==index)})}/>
+    </div>)}
+    <p className="text-xs text-zinc-500">Los módulos se evalúan en el orden indicado. Referencias de OUTPUT solamente leen resultados anteriores del mismo efecto; CHARGES y STORED_TOTAL usan acumuladores compartidos por personaje en un combate.</p>
+  </section>;
+}

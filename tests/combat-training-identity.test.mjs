@@ -5,25 +5,34 @@ import {
  applyTrainingDerivedPerks,trainingResourceBonus,
 } from "../lib/combat/training-identity.ts";
 
-const perk=(id,name,effects)=>({id,name,active:true,effects});
+const perk=(id,name,effects,probability=0,active=true)=>({id,name,active,probability,effects});
 const stat=(target,value)=>[{type:"STAT_BONUS",target,value}];
 const catalog=[
  perk(1,"Fuerza racial",stat("STR",7)),
- perk(2,"Resistencia racial",stat("PHYSICAL_DEFENSE",10)),
- perk(3,"Resistencia extra racial",stat("DODGE",25)),
- perk(4,"Instinto racial sin resolutor",[{type:"NARRATIVE",target:"RACE",value:1}]),
- perk(5,"Fuerte",stat("STR",10)),
- perk(6,"Maná Masivo",[{type:"RESOURCE_BONUS",target:"MANA",value:100}]),
- perk(7,"HP Masivo",[{type:"RESOURCE_BONUS",target:"HP",value:100}]),
- perk(8,"Narrativa no compatible",[{type:"NARRATIVE",target:"HP",value:20}]),
+ perk(2,"Testarudo enano",stat("PHYSICAL_DEFENSE",10),7),
+ perk(3,"Reflejos raciales",stat("DODGE",25)),
+ perk(4,"Instinto racial narrativo",[{type:"NARRATIVE",target:"RACE",value:1}]),
+ perk(5,"Fuerte",stat("STR",10),10),
+ perk(6,"Maná Masivo",[{type:"RESOURCE_BONUS",target:"MANA",value:100}],"8"),
+ perk(7,"HP Masivo",[{type:"RESOURCE_BONUS",target:"HP",value:100}],8),
+ perk(8,"Karma Extra",[{type:"RESOURCE_BONUS",target:"KARMA",value:100}],9),
+ perk(9,"Nada",[],50),
+ perk(10,"Perk general al 0%",stat("STR",99),0),
+ perk(11,"General desactivado",stat("STR",3),50,false),
+ perk(12,"Agilidad felina",stat("AGI",10),5),
+ perk(13,"Pisada sin eco sombría",stat("AGI",5),0),
 ];
+const links=[
+ {raceId:4,perkId:1},{raceId:4,perkId:2},
+ {raceId:4,perkId:3},{raceId:4,perkId:4},
+ {raceId:5,perkId:12},{raceId:15,perkId:13},
+];
+const enano=[{id:4,name:"Enano",active:true}];
 
-test("race receives ALL of its native perks plus exactly three nonduplicated catalog perks",()=>{
- const profile=selectTrainingIdentity([{id:4,name:"Enano",active:true}],catalog,
-  [{raceId:4,perkId:1},{raceId:4,perkId:2},{raceId:4,perkId:3},{raceId:4,perkId:4}],()=>0);
+test("receives all racial perks (including 0%) plus 3 positive-probability non-racial perks",()=>{
+ const profile=selectTrainingIdentity(enano,catalog,links,()=>0);
  assert.equal(profile.race.name,"Enano");
  assert.deepEqual(profile.racialPerks.map(p=>p.id),[1,2,3,4]);
- assert.equal(profile.extraPerks.length,3);
  assert.deepEqual(profile.extraPerks.map(p=>p.id),[5,6,7]);
  assert.equal(new Set(allTrainingPerks(profile).map(p=>p.id)).size,7);
  assert.equal(profile.racialPerks[3].mechanical,false);
@@ -42,23 +51,46 @@ test("race receives ALL of its native perks plus exactly three nonduplicated cat
  assert.equal(trainingResourceBonus(npcPerks,"MANA"),100);
 });
 
-test("racial perks remain intrinsic even if unsupported; extras never overlap racial IDs",()=>{
- const profile=selectTrainingIdentity([{id:9,name:"Fantasma",active:true}],catalog,
-  [{raceId:9,perkId:4}],()=>0);
- assert.equal(profile.racialPerks.length,1);
- assert.equal(profile.racialPerks[0].mechanical,false);
+test("Sombrío cannot draw Enano or Felino perks, even if their chance is >0%",()=>{
+ const profile=selectTrainingIdentity([{id:15,name:"Sombrío",active:true}],catalog,links,()=>0.99999);
+ assert.deepEqual(profile.racialPerks.map(p=>p.id),[13]);
  assert.equal(profile.extraPerks.length,3);
- assert.ok(profile.extraPerks.every(p=>p.id!==4));
- assert.ok(profile.extraPerks.every(p=>p.mechanical));
+ assert.ok(profile.extraPerks.every(p=>![1,2,3,4,9,10,11,12,13].includes(p.id)));
+ assert.equal(new Set(profile.extraPerks.map(p=>p.id)).size,3);
 });
 
-test("selection does not alter the catalog or admit unsupported extras",()=>{
+test("unsupported GENERAL perks can be drawn but do not invent combat effects",()=>{
+ const sequence=[0,0.999999,0,0];
+ const profile=selectTrainingIdentity(enano,catalog,links,()=>sequence.shift()??0);
+ assert.equal(profile.extraPerks[0].id,8);
+ assert.equal(profile.extraPerks[0].mechanical,false);
+ assert.deepEqual(profile.extraPerks[0].effects,[]);
+ assert.equal(trainingResourceBonus(profile.extraPerks,"HP"),0);
+});
+
+test("positive probabilities are weighted, with 3 draws without replacement",()=>{
+ const pool=[
+  perk(5,"Fuerte",stat("STR",10),10),
+  perk(6,"Maná",[{type:"RESOURCE_BONUS",target:"MANA",value:100}],40),
+  perk(7,"HP",[{type:"RESOURCE_BONUS",target:"HP",value:100}],50),
+ ];
+ const rolls=[0,0.15,0.9,0];
+ const profile=selectTrainingIdentity([{id:15,name:"Sombrío",active:true}],pool,[],()=>rolls.shift()??0);
+ assert.deepEqual(profile.extraPerks.map(p=>p.id),[6,7,5]);
+ assert.deepEqual(profile.racialPerks,[]);
+});
+
+test("catalog remains unchanged; empty Nada, 0%, inactive and all racial entries are excluded",()=>{
  const before=JSON.stringify(catalog);
- const noExtras=selectTrainingIdentity([{id:1,name:"Uno",active:true}],catalog,
-  [{raceId:1,perkId:1}],()=>0);
- assert.ok(!noExtras.extraPerks.some(p=>p.id===8));
+ const profile=selectTrainingIdentity(enano,catalog,links,()=>0.3);
+ assert.ok(profile.extraPerks.every(p=>[5,6,7,8].includes(p.id)));
  assert.equal(JSON.stringify(catalog),before);
- assert.throws(()=>selectTrainingIdentity([{id:1,name:"Uno",active:true}],
-  catalog.slice(0,5),[{raceId:1,perkId:1},{raceId:1,perkId:2},{raceId:1,perkId:3}],()=>0),
- /tres perks adicionales/);
+ assert.throws(()=>selectTrainingIdentity(enano,[
+  perk(1,"Racial",stat("STR",5),0),
+  perk(2,"Dwarf",stat("CON",5),7),
+  perk(5,"Fuerte",stat("STR",10),10),
+  perk(6,"Mana",[{type:"RESOURCE_BONUS",target:"MANA",value:100}],8),
+  perk(9,"Nada",[],50),
+  perk(10,"Cero",stat("STR",5),0),
+ ],links,()=>0),/tres perks generales/);
 });

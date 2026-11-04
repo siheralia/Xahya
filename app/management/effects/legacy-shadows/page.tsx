@@ -2,6 +2,8 @@
 import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
 import type {LegacyModularShadow} from "@/lib/effects/legacy-modular-shadow";
+import type {ModularCutoverSetting,ModularCutoverMode} from "@/lib/effects/modular-cutover";
+import {MicroEffectFlowEditor} from "@/components/effects/MicroEffectFlowEditor";
 
 type Response={
   readonly:boolean;counts:{originals:number;duplicates:number;represented:number;complete:number;partial:number;unsupported:number};
@@ -14,11 +16,32 @@ export default function LegacyShadowGallery(){
   const [scope,setScope]=useState("ALL");
   const [coverage,setCoverage]=useState("ALL");
   const [open,setOpen]=useState<string|null>(null);
+  const [cutover,setCutover]=useState<ModularCutoverSetting|null>(null);
+  const [savingMode,setSavingMode]=useState(false);
+  const [modeError,setModeError]=useState("");
+  const changeMode=async(mode:ModularCutoverMode)=>{
+    if(!cutover||savingMode||mode===cutover.mode)return;
+    setSavingMode(true);setModeError("");
+    try{
+      const response=await fetch("/api/management/effects/modular-cutover",{
+        method:"PATCH",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({mode,expectedRevision:cutover.revision}),
+      });
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.error??"No se pudo cambiar el modo.");
+      setCutover(result.setting);
+    }catch(e){setModeError(e instanceof Error?e.message:"Error de configuración");}
+    finally{setSavingMode(false);}
+  };
   useEffect(()=>{
     const controller=new AbortController();
     fetch("/api/management/effects/legacy-shadows",{signal:controller.signal,cache:"no-store"})
       .then(async r=>{const body=await r.json();if(!r.ok)throw Error(body.error??"Error al consultar copias");return body;})
       .then(setData).catch(e=>{if(!controller.signal.aborted)setError(e instanceof Error?e.message:"Error");});
+    fetch("/api/management/effects/modular-cutover",{signal:controller.signal,cache:"no-store"})
+      .then(async r=>{const body=await r.json();if(!r.ok)throw Error(body.error??"Sin permiso de migración");return body;})
+      .then(body=>setCutover(body.setting))
+      .catch(e=>{if(!controller.signal.aborted)setModeError(e instanceof Error?e.message:"Error");});
     return ()=>controller.abort();
   },[]);
   const filtered=useMemo(()=>data?.duplicates.filter(d=>
@@ -27,7 +50,24 @@ export default function LegacyShadowGallery(){
     <Link href="/management/effects" className="text-sm text-cyan-300">← Gestión de efectos</Link>
     <div className="space-y-2">
       <h1 className="text-2xl font-bold">Copias modulares de habilidades existentes</h1>
-      <p className="text-sm text-zinc-400">Comparador de solo lectura. Cada copia toma la definición vigente y construye micromódulos equivalentes cuando hay resolutor. No altera el personaje, no crea habilidades adicionales, no descuenta PCH y no activa automáticamente las copias. Las capacidades declarativas mantienen su significado sin producir bonos automáticos; solo los módulos con resolutor participan en el cálculo.</p>
+      <p className="text-sm text-zinc-400">Migración masiva con respaldo automático: las definiciones originales se conservan en la base de datos. Los valores equivalentes usan micromódulos; los casos todavía no resueltos mantienen el motor clásico. Puedes revisar cada copia visualmente sin comprarla ni pagar PCH.</p>
+      <section className="rounded-xl border border-cyan-900 bg-zinc-900/70 p-4">
+        <h2 className="font-semibold">Motor para lanzar habilidades en combate</h2>
+        <p className="mt-1 text-sm text-zinc-400">El cambio se aplica al próximo lanzamiento; no altera habilidades, saldos de PCH ni encuentros ya resueltos. La reversión afecta al cálculo de lanzamientos; las pasivas del laberinto y otras rutas conservan sus adaptadores existentes.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" disabled={!cutover||savingMode} onClick={()=>changeMode("MODULAR_FIRST")}
+            className={"rounded-lg border px-3 py-2 text-sm disabled:opacity-40 "+(cutover?.mode==="MODULAR_FIRST"?"border-emerald-500 bg-emerald-950 text-emerald-200":"border-zinc-600 text-zinc-300")}>
+            Priorizar módulos con respaldo
+          </button>
+          <button type="button" disabled={!cutover||savingMode} onClick={()=>changeMode("LEGACY_ONLY")}
+            className={"rounded-lg border px-3 py-2 text-sm disabled:opacity-40 "+(cutover?.mode==="LEGACY_ONLY"?"border-amber-500 bg-amber-950 text-amber-200":"border-zinc-600 text-zinc-300")}>
+            Volver al cálculo original
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-zinc-400">{cutover?"Modo: "+(cutover.mode==="MODULAR_FIRST"?"Modular preferido, con fallback":"Motor clásico")+
+          " · Revisión "+cutover.revision:"Consultando configuración…"}</p>
+        {modeError&&<p role="alert" className="mt-2 text-sm text-rose-300">{modeError}</p>}
+      </section>
     </div>
     {error&&<p role="alert" className="rounded border border-red-700 p-3 text-red-300">{error}</p>}
     {!data&&!error&&<p className="text-zinc-400">Recopilando habilidades…</p>}
@@ -67,7 +107,11 @@ export default function LegacyShadowGallery(){
                 <h3 className="text-sm font-semibold">{part.sourceType} <span className="text-xs font-normal text-zinc-400">· {part.status==="EXECUTABLE"?"parámetros ejecutables":part.status==="DESCRIPTION_ONLY"?"capacidad declarativa convertida, falta ejecución automática":"sin representación"}</span></h3>
                 {part.reason&&<p className="mt-2 text-xs text-amber-300">{part.reason}</p>}
                 {part.modules.map(module=><div key={module.id} className="mt-2 space-y-2">
-                  {module.steps.map((step,i)=><pre key={i} className="overflow-x-auto rounded-lg bg-zinc-950 p-2 text-xs text-cyan-200">{JSON.stringify(step,null,2)}</pre>)}
+                  <MicroEffectFlowEditor value={module} readOnly onChange={()=>{}}/>
+                  <details className="rounded border border-zinc-700 p-2">
+                    <summary className="cursor-pointer text-xs text-zinc-400">Datos técnicos de la copia modular</summary>
+                    <pre className="mt-2 overflow-x-auto text-xs text-cyan-200">{JSON.stringify(module.steps,null,2)}</pre>
+                  </details>
                 </div>)}
               </section>)}
             </div>}

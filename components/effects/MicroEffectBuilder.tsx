@@ -1,6 +1,8 @@
 "use client";
 
 import type {EffectContainer,MicroStep,MicroCondition,NumericExpr,MicroEvent} from "@/lib/effects/micro-modules";
+import {useState} from "react";
+import {MicroEffectFlowEditor} from "./MicroEffectFlowEditor";
 import {DEFAULT_VARIABLE_RESISTANCE} from "@/lib/skills/variable-resistance";
 
 const field="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm text-zinc-100";
@@ -214,6 +216,8 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
   </section>;
 }
 export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onChange:(next:EffectContainer)=>void}){
+  const [showFlow,setShowFlow]=useState(true);
+  const [selectedStep,setSelectedStep]=useState<number|null>(null);
   const update=(patch:Partial<EffectContainer>)=>onChange({...value,...patch});
   return <section className="space-y-4">
     <div className="grid gap-3 sm:grid-cols-2">
@@ -226,6 +230,13 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
         <option value="">Cualquier impacto</option><option value="CHARACTER">Personaje</option><option value="GROUND">Suelo</option></select></label>}
     </div>
     <ConditionsEditor title="Requisitos para ejecutar este efecto" value={value.requirements??[]} onChange={requirements=>update({requirements})}/>
+    <div className="flex items-center justify-end gap-2">
+      <button type="button" className="rounded-lg border border-cyan-700 bg-cyan-950/30 px-3 py-2 text-xs text-cyan-200"
+        aria-expanded={showFlow} onClick={()=>setShowFlow(v=>!v)}>
+        {showFlow?"Ocultar diagrama React Flow":"Mostrar diagrama React Flow"}
+      </button>
+    </div>
+    {showFlow&&<MicroEffectFlowEditor value={value} onChange={onChange} onEditStep={setSelectedStep}/>}
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Micromódulos y orden de ejecución</h3>
       <button type="button" disabled={value.steps.length>21}
         className="rounded border border-violet-700 px-3 py-2 text-xs disabled:opacity-40"
@@ -241,10 +252,13 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
         }}>+ Resistencia con fuentes conectadas</button>
       <button type="button" disabled={value.steps.length>=24} className="rounded border border-cyan-800 px-3 py-2 text-xs disabled:opacity-40" onClick={()=>update({steps:[...value.steps,defaultStep("HEAL")]})}>+ Micromódulo</button>
     </div>
-    {value.steps.map((step,index)=><div key={index} className="space-y-1">
-      <div className="flex justify-end gap-2 text-xs">
+    {value.steps.map((step,index)=><div key={index} className={"space-y-1 rounded-xl "+(selectedStep===index?"ring-2 ring-cyan-500":"")}>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        {selectedStep===index?<span className="pl-2 font-semibold text-cyan-300">Nodo seleccionado en el diagrama</span>:<span/>}
+        <div className="flex gap-2">
         <button type="button" disabled={index===0} onClick={()=>{const next=[...value.steps];[next[index-1],next[index]]=[next[index],next[index-1]];update({steps:next});}} className="disabled:opacity-30">↑ Subir</button>
         <button type="button" disabled={index===value.steps.length-1} onClick={()=>{const next=[...value.steps];[next[index+1],next[index]]=[next[index],next[index+1]];update({steps:next});}} className="disabled:opacity-30">↓ Bajar</button>
+        </div>
       </div>
       <StepEditor step={step} index={index}
         availableOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{output:string}>=>"output" in s).map(s=>s.output)}

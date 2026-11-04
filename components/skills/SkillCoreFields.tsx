@@ -6,6 +6,7 @@ import type { SkillMechanics } from "@/lib/skills/interaction-engine";
 import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import {COOLDOWN_OPTIONS,cooldownDiscountPercent} from "@/lib/skills/cooldown";
 import {COMBAT_ATTACK_TYPE_OPTIONS,COMBAT_DEFENSE_TYPE_OPTIONS} from "@/lib/combat/matchup-types";
+import {SKILL_AREA_OPTIONS,editorSkillArea,formatSkillArea} from "@/lib/skills/area-of-effect";
 
 export type SkillCore = {
   name: string; description: string; category: string; cost: number; duration: string; cooldown: string; speed: string;
@@ -20,6 +21,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
   useEffect(()=>{fetch("/api/management/effects").then(r=>r.ok?r.json():null).then(d=>{if(d?.attackSpeedStats?.length)setSpeedSettings({defaultKey:d.defaultAttackSpeedStat??"agility",stats:d.attackSpeedStats});}).catch(()=>{});},[]);
   const defaultSpeedName=speedSettings.stats.find(stat=>stat.key===speedSettings.defaultKey)?.name??speedSettings.defaultKey;
   const passiveConditionMissing = isPassiveConditionMissing(form.category, form.condition);
+  const areaState=editorSkillArea(form.areaOfEffect);
   const speeds:[string,string][]=[["DEFAULT",`Predeterminada (${defaultSpeedName})`],...speedSettings.stats.map(stat=>[stat.key,`${stat.name} (+5 PCH)`] as [string,string])];
   if(form.speed&&!speeds.some(([key])=>key===form.speed))speeds.push([form.speed,`${form.speed} (valor anterior)`]);
   const set = <K extends keyof SkillCore>(key:K,value:SkillCore[K]) => onChange({...form,[key]:value});
@@ -74,7 +76,29 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {wrap("Duración","duration",select("duration",durations.map(x=>[x,x] as const)))}
     {wrap("Cooldown","cooldown",<><select value={form.cooldown} onChange={e=>set("cooldown",e.target.value)} className={cls}>{cooldowns.map(c=><option key={c} value={c}>{c}{cooldownDiscountPercent(c,form.duration,form.category)>0?" (−"+cooldownDiscountPercent(c,form.duration,form.category)+"% PCH)":""}</option>)}</select>{form.cooldown==="Igual a duración" && cooldownDiscountPercent(form.cooldown,form.duration,form.category)===0 && <span className="mt-1 block text-xs text-amber-300">La duración no es finita en turnos, por lo que no aplica descuento.</span>}</>)}
     {wrap("Velocidad","speed",select("speed",speeds))}
-    {wrap("Área de efecto","areaOfEffect",<><input value={form.areaOfEffect} onChange={e=>set("areaOfEffect",e.target.value)} placeholder="Objetivo único / Área circular de 3 m" className={cls}/><span className="mt-1 block text-xs text-zinc-500">En combate: «Área circular de 3 m» indica radio de 3 m. El alcance máximo se configura por separado; otras formas aún no son ejecutables.</span></>)}
+    {wrap("Área de efecto","areaOfEffect",<div className="space-y-2">
+      <select value={areaState.kind} aria-label="Tipo de área de la habilidad"
+        onChange={e=>set("areaOfEffect",formatSkillArea(e.target.value as Exclude<typeof areaState.kind,"LEGACY">,
+         e.target.value==="CIRCLE"?areaState.radiusMeters:undefined))}
+        className={cls}>
+        {SKILL_AREA_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
+        {areaState.kind==="LEGACY"&&<option value="LEGACY" disabled>Descripción anterior (pendiente de clasificar)</option>}
+      </select>
+      {areaState.kind==="CIRCLE"&&<label className="block text-xs text-zinc-300">
+       Radio del círculo (m)
+       <input type="number" aria-label="Radio del área circular en metros"
+         min={0.1} max={10} step={0.1} value={areaState.radiusMeters}
+         onChange={e=>{const n=Number(e.target.value);
+          if(Number.isFinite(n)&&n>=0.1&&n<=10&&Math.round(n*100)===n*100)
+           set("areaOfEffect",formatSkillArea("CIRCLE",n));}}
+         className={cls}/>
+       <span className="mt-1 block text-zinc-500">El radio es distinto del alcance de lanzamiento. En el combate se representa sobre un lienzo local de 10 × 10 m.</span>
+      </label>}
+      {areaState.kind==="LEGACY"&&<p className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-2 text-xs text-amber-200">
+       Área antigua: «{areaState.legacyValue}». Se conserva sin alterar hasta que selecciones una categoría normalizada. No se interpretará como círculo automáticamente.
+      </p>}
+      {areaState.kind==="SELF_FIELD"&&<p className="text-xs text-zinc-400">Campo centrado en el usuario. Sus dimensiones mecánicas requieren una habilidad compatible; no presupone un radio.</p>}
+    </div>)}
     {wrap("Distancia máxima (m)","maxRangeMeters",number("maxRangeMeters",0,100))}
     {form.duration !== "Instantánea" && wrap("Costo por turno","maintenanceCost",number("maintenanceCost"))}
     {wrap("Acumulaciones por tick","accumulationPerTick",number("accumulationPerTick"))}

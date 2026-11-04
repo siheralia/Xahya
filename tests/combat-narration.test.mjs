@@ -55,7 +55,7 @@ test("newly completed encounters retain a full narration even after the 100-even
  assert.match(state.narrativeText,/Paso inicial memorable/);
  assert.match(state.narrativeText,/Elena obtuvo la victoria/);
  assert.equal(state.narrativeHistory.length,148,"the full history is kept server-side for future reinterpretations");
- assert.equal(state.narrativeVersion,2);
+ assert.equal(state.narrativeVersion,3);
  const publicState=combatClientView(state);
  assert.equal(publicState.narrativeText,state.narrativeText);
  assert.equal(publicState.narrativeHistory,undefined);
@@ -130,7 +130,7 @@ test("pre-versioned concluded fights are regenerated from surviving facts, not f
  ];
  state.narrativeText="Crónica del encuentro: Elena contra Sombra.\n\nElena lanzó una estocada.";
  const publicState=combatClientView(state);
- assert.equal(publicState.narrativeVersion,2);
+ assert.equal(publicState.narrativeVersion,3);
  assert.match(publicState.narrativeText,/Elena se enfrentó a Sombra/);
  assert.match(publicState.narrativeText,/63 puntos de daño/);
  assert.doesNotMatch(publicState.narrativeText,/Crónica del encuentro:/);

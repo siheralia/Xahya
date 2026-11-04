@@ -175,3 +175,91 @@ test("interface prepares, previews, casts and labels actual circles",()=>{
  assert.match(roster,/Preparar área circular/);
  assert.match(roster,/preparedAreaSkillId!==skill\.id/);
 });
+
+
+// Approved skill #38 on encounter #47: a Capoeira kick sweeping around its caster.
+const meiaLua={
+ id:38,name:"Meia-lua de compasso",status:"APPROVED",category:"OFFENSIVE",
+ cost:30,attackType:"BLUNT",duration:"Instantánea",cooldown:"Sin cooldown",
+ areaOfEffect:"Campo alrededor del usuario | Alcance máximo: 2 m",
+ mechanics:{family:"CAPOEIRA",parentSkillId:37},
+ effect:[{type:"DAMAGE_MULTIPLIER",value:200,target:"PHYSICAL_ATTACK",
+   targetKind:"OPPONENT",targetReference:"Cualquiera alrededor "}],
+};
+const nearbyEncounter=()=>{
+ const s=initial();
+ s.actors.NPC.positionMeters=1.5;
+ return s;
+};
+
+test("encounter 47 Meia-lua compasso compiles as a self-centered physical sweep",()=>{
+ const plan=compileCombatSkill(meiaLua);
+ const preview=previewSkillExecution(meiaLua);
+ assert.equal(preview.executable,true);
+ assert.equal(preview.needsAim,false);
+ assert.equal(preview.disabledReason,null);
+ assert.equal(plan.requiredParentSkillId,37);
+ assert.equal(plan.category,"OFFENSE");
+ assert.equal(plan.usesMagic,false);
+ assert.equal(plan.damageMultiplier,2);
+ assert.equal(plan.attackType,"BLUNT");
+ assert.equal(plan.rangeMeters,2);
+ assert.deepEqual(plan.attackArea,{shape:"SELF_FIELD",radiusMeters:2,radiusNormalized:0.2});
+ assert.equal(compileCombatAttackArea("Campo alrededor del usuario",2).shape,"SELF_FIELD");
+});
+
+test("Meia-lua spends mana and PA, deals physical damage without selecting an epicenter",()=>{
+ const plan=compileCombatSkill(meiaLua);
+ let s=applyResolvedCombatSkill(nearbyEncounter(),"PLAYER",plan,
+   {requestId:"meia-lua-47-cast-001"},dice);
+ assert.equal(s.mana.PLAYER.current,30);
+ assert.equal(s.actors.PLAYER.spentAp,1);
+ assert.equal(s.pending.usesMagic,false);
+ assert.equal(s.pending.attackSource,"KICK");
+ assert.equal(s.pending.targetCenter,undefined);
+ assert.equal(s.pending.areaHint,undefined);
+ assert.equal(s.pending.attackArea.shape,"SELF_FIELD");
+ assert.deepEqual(s.physicalPathEnds,{},"sweeps do not move the origin of drawn weapon strokes");
+ assert.throws(()=>applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"DEFLECT"},dice),/circulares|área/);
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ assert.ok(s.actors.NPC.hp<180);
+ assert.match(s.log.at(-1).summary,/barrido/);
+ assert.equal(s.log.at(-1).areaCenter,undefined);
+});
+
+test("self-centered sweeps cannot hit enemies beyond reach and do not spend mana on failure",()=>{
+ const plan=compileCombatSkill(meiaLua);
+ const far=initial();
+ assert.throws(()=>applyResolvedCombatSkill(far,"PLAYER",plan,
+   {requestId:"meia-lua-out-range-01"},dice),/alcance/);
+ assert.equal(far.mana.PLAYER.current,60);
+ const dry=nearbyEncounter();
+ dry.mana.PLAYER.current=29;
+ assert.throws(()=>applyResolvedCombatSkill(dry,"PLAYER",plan,
+   {requestId:"meia-lua-not-mana-001"},dice),/Maná insuficiente/);
+ assert.throws(()=>applyResolvedCombatSkill(nearbyEncounter(),"PLAYER",plan,
+   {requestId:"meia-lua-mirror-001",targetConstructionId:"fake"},dice),/no permite elegir/);
+});
+
+test("self-centered sweeps allow a normal physical dodge, no prediction puzzle",()=>{
+ let s=applyResolvedCombatSkill(nearbyEncounter(),"PLAYER",compileCombatSkill(meiaLua),
+   {requestId:"meia-lua-47-dodge-001"},dice);
+ const projected=combatClientView(s);
+ assert.equal(projected.pending.targetCenter,undefined);
+ assert.equal(projected.pending.areaHint,undefined);
+ assert.equal(chooseNpcReaction(s,()=>0.1).predictedCenter,undefined);
+ assert.equal(chooseNpcReaction(s,()=>0.1).defense,"DODGE");
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"DODGE"},
+   {...dice,hit:0.99});
+ assert.equal(s.actors.NPC.hp,180);
+ assert.equal(s.actors.NPC.spentAp,1);
+});
+
+test("combat UI offers a one-tap self-centered sweep, not a circular placement",()=>{
+ const roster=readFileSync(new URL("../app/combat/[id]/CombatSkillLoadout.tsx",import.meta.url),"utf8");
+ const page=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
+ assert.match(roster,/Ejecutar barrido/);
+ assert.match(roster,/skill\.attackArea\?\.shape==="SELF_FIELD"/);
+ assert.match(page,/skill\.attackArea\?\.shape==="SELF_FIELD"\?undefined/);
+ assert.match(page,/pending\.attackArea\?\.shape==="SELF_FIELD"/);
+});

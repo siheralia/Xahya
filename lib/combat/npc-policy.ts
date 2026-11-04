@@ -47,6 +47,13 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   if (state.pending?.against !== "NPC") throw new Error("El NPC no tiene un ataque pendiente.");
   const npc = state.actors.NPC, attacker = state.actors[state.pending.by];
   if (remainingAp(npc) < 1 || npc.spentTicks >= 100) return {kind:"DEFEND",defense:"NONE"};
+  if(state.pending.attackArea?.shape==="SELF_FIELD"){
+    // The sweep has no hidden target center; dodge is a normal physical contest.
+    const choice=random();
+    if(choice<0.5)return {kind:"DEFEND",defense:"DODGE"};
+    if(choice<0.85)return {kind:"DEFEND",defense:"ENDURE"};
+    return {kind:"DEFEND",defense:"NONE"};
+  }
   if (state.pending.usesMagic||state.pending.attackArea) {
     // Never inspect targetCenter: the NPC has only the same four-cell
     // quadrant hint available to a human defender.
@@ -165,7 +172,8 @@ export function progressTrainingNpc(
       const plan=selected[Math.min(selected.length-1,Math.floor(cap(random(),0,0.999999)*selected.length))];
       const source=defaultAttackSource(npc);
       const aim=plan.category==="OFFENSE"
-        ?plan.usesMagic||plan.attackArea
+        ?plan.attackArea?.shape==="SELF_FIELD"?{}
+         :plan.usesMagic||plan.attackArea
           ?{areaCenter:{x:0.4+0.2*cap(random(),0,0.999999),y:0.4+0.2*cap(random(),0,0.999999)}}
           :{trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC",source)),attackSource:source}
         :{};

@@ -148,9 +148,11 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
    durability:mirrorEffects.get("SUMMON_MIRROR")!};
  }
  const isAttack=mode!==null;
- if(isAttack && !["SINGLE","CONTACT","CIRCLE"].includes(parseSkillArea(range.area).kind))
-  fail("El área de ataque no está clasificada como objetivo único, contacto o círculo ejecutable.");
- const attackArea=isAttack?compileCombatAttackArea(range.area):undefined;
+ if(isAttack && !["SINGLE","CONTACT","CIRCLE","SELF_FIELD"].includes(parseSkillArea(range.area).kind))
+  fail("El área de ataque no está clasificada como objetivo único, contacto, círculo o campo alrededor del usuario.");
+ const attackArea=isAttack?compileCombatAttackArea(range.area,range.rangeMeters):undefined;
+ if(attackArea?.shape==="SELF_FIELD" && mode!=="PHYSICAL")
+  fail("El barrido alrededor del usuario requiere un ataque físico.");
  if(mirror&&compileCombatAttackArea(range.area))
   fail("El espejo no admite un área circular adicional.");
  if(construction&&(isAttack||bonuses.length>0||healing>0))
@@ -195,7 +197,7 @@ export function previewSkillExecution(row:Record<string,unknown>){
  try {
   const plan=compileCombatSkill(row);
   return {executable:true as const,skillKind:plan.category,
-   needsAim:plan.category!=="SUPPORT",usesMagic:plan.usesMagic===true,
+   needsAim:plan.category!=="SUPPORT"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
    attackArea:plan.attackArea??null,
    constructionMaterial:plan.construction?.material??null,
    disabledReason:null};

@@ -1,7 +1,7 @@
 "use client";
 
 import type {EffectContainer,MicroStep,MicroCondition,NumericExpr,MicroEvent} from "@/lib/effects/micro-modules";
-import {DEFAULT_VARIABLE_RESISTANCE} from "@/lib/skills/variable-resistance";
+import {DEFAULT_VARIABLE_RESISTANCE,resistanceBaseOwner,resistanceInputOwner,type ResistanceActor} from "@/lib/skills/variable-resistance";
 
 const field="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm text-zinc-100";
 const key="^[A-Za-z][A-Za-z0-9_.:-]{0,63}$";
@@ -96,8 +96,21 @@ function StepEditor({step,onChange,onDelete,index}:{step:MicroStep;onChange:(s:M
     {step.kind==="VARIABLE_RESISTANCE"&&<div className="space-y-2">
       <p className="text-xs text-amber-200">La defensa variable necesita un contexto real de impacto y estadística base. No funciona como bono global del personaje.</p>
       <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs">¿De quién es la estadística base?
+          <select className={"mt-1 "+field} value={resistanceBaseOwner(step.config)} onChange={e=>change({config:{...step.config,baseOwner:e.target.value as ResistanceActor}})}>
+            <option value="USER">Usuario de la habilidad</option>
+            <option value="OPPONENT">Oponente</option>
+          </select>
+        </label>
+        <label className="text-xs">¿De quién es la variable de entrada?
+          <select className={"mt-1 "+field} value={resistanceInputOwner(step.config)} onChange={e=>change({config:{...step.config,inputOwner:e.target.value as ResistanceActor}})}>
+            <option value="USER">Usuario de la habilidad</option>
+            <option value="OPPONENT">Oponente</option>
+          </select>
+        </label>
+        <p className="col-span-full text-xs text-cyan-300">Ejemplo de Sikatā: Defensa mágica del usuario × función de la velocidad de ataque del oponente.</p>
         <label className="text-xs">Estadística base<input className={"mt-1 "+field} value={step.config.baseStat} onChange={e=>change({config:{...step.config,baseStat:e.target.value}})}/></label>
-        <label className="text-xs">Variable<select className={"mt-1 "+field} value={step.config.input} onChange={e=>change({config:{...step.config,input:e.target.value as typeof step.config.input}})}>
+        <label className="text-xs">Variable<select className={"mt-1 "+field} value={step.config.input} onChange={e=>{const input=e.target.value as typeof step.config.input;change({config:{...step.config,input,inputOwner:input==="HIT_COUNT"||input==="HP_PERCENT"?"USER":"OPPONENT"}});}}>
           {["ATTACK_SPEED","INCOMING_DAMAGE","HIT_COUNT","HP_PERCENT"].map(v=><option key={v} value={v}>{v}</option>)}</select></label>
         <label className="text-xs">Fórmula<select className={"mt-1 "+field} value={step.config.formula} onChange={e=>change({config:{...step.config,formula:e.target.value as typeof step.config.formula}})}>
           {["PROGRESSIVE","LINEAR","DECREASING","THRESHOLD","HITS"].map(v=><option key={v} value={v}>{v}</option>)}</select></label>

@@ -1,4 +1,4 @@
-import {validateVariableResistance,type VariableResistance} from "../skills/variable-resistance.ts";
+import {validateVariableResistance,withResistanceOwners,type VariableResistance} from "../skills/variable-resistance.ts";
 import type {Point,Side} from "./turn-engine.ts";
 
 export type ConstructionForm="FIELD"|"BLOCK"|"DECOR"|"MIRROR";
@@ -37,7 +37,7 @@ export function attachedCreationPassive(sourceSkillId:number,skills:ReadonlyArra
   if(!conditions.some(c=>c&&typeof c==="object"&&
    (c as Record<string,unknown>).kind==="SKILL_ACTIVE"&&Number((c as Record<string,unknown>).skillId)===sourceSkillId))continue;
   if(!mechanics.variableResistance||validateVariableResistance(mechanics.variableResistance))continue;
-  return {sourceSkillId:Number(skill.id),resistance:mechanics.variableResistance as VariableResistance};
+  return {sourceSkillId:Number(skill.id),resistance:withResistanceOwners(mechanics.variableResistance as VariableResistance)};
  }
  return undefined;
 }

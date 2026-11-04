@@ -7,7 +7,7 @@ import {
   emptyMicroState,executeMicroEvent,validateEffectContainers,
   type EffectContainer,type MicroIntent,type MicroStep,
 } from "./micro-modules.ts";
-import {validateVariableResistance,type VariableResistance} from "../skills/variable-resistance.ts";
+import {validateVariableResistance,withResistanceOwners,type VariableResistance} from "../skills/variable-resistance.ts";
 
 export type LegacyShadowPart={
   sourceIndex:number; sourceType:string; status:"EXECUTABLE"|"DESCRIPTION_ONLY"|"UNSUPPORTED";
@@ -150,7 +150,7 @@ export function cloneLegacySkillAsMicro(
     // The existing Sikatā parent/activation check stays in attachedCreationPassive;
     // a dynamic block is resolved only when a block is actually defending.
     const steps:MicroStep[]=dynamic?
-      [...projection.steps,{kind:"VARIABLE_RESISTANCE",config:resistance as VariableResistance}]:projection.steps;
+      [...projection.steps,{kind:"VARIABLE_RESISTANCE",config:withResistanceOwners(resistance as VariableResistance)}]:projection.steps;
     const modules:EffectContainer[]=steps.length?[{
       id:"LEGACY_"+id+"_"+index,name:name+" / "+effectType,type:"LEGACY_MICRO",
       description:typeof (e as Record<string,unknown>)?.description==="string"
@@ -284,21 +284,29 @@ export function legacyShadowCopyConfig(raw:unknown):{
  * the shadow gallery displays. Authorization/ownership remains in constructs.ts.
  * The returned value is numeric, never a client-provided defense claim.
  */
-export function calculateModularVariableResistance(config:VariableResistance,base:number,input:number):{
-  multiplier:number;resistance:number;
-}{
+export type ModularResistanceActorSnapshot={
+  stats:Record<string,number>;
+  inputs?:Partial<Record<VariableResistance["input"],number>>;
+};
+export type ModularResistanceSources={
+  user:ModularResistanceActorSnapshot;
+  opponent:ModularResistanceActorSnapshot;
+};
+export function calculateModularVariableResistance(
+  config:VariableResistance,sources:ModularResistanceSources,
+):{multiplier:number;resistance:number}{
   if(validateVariableResistance(config))throw new Error("Resistencia variable no autorizada.");
-  if(!Number.isFinite(base)||base<0||!Number.isFinite(input)||input<0)
-    throw new Error("Defensa y velocidad/entrada inválidas.");
   const effect:EffectContainer={
     id:"CONSTRUCTION_DYNAMIC_RESISTANCE",name:"Resistencia dinámica",
     type:"PASSIVE",description:"",trigger:"PASSIVE",
     steps:[{kind:"VARIABLE_RESISTANCE",config}],
   };
+  // The micro evaluator sees two distinct actors, not unlabelled scalar inputs.
   const result=executeMicroEvent(emptyMicroState(),[effect],{
     eventId:"CONSTRUCTION_RESOLVE",ownerId:1,trigger:"PASSIVE",
-    stats:{HP:0,MAX_HP:1,[config.baseStat]:base},
-    event:{[config.input]:input},
+    stats:{HP:0,MAX_HP:1,...sources.user.stats},
+    opponentStats:sources.opponent.stats,
+    inputByOwner:{USER:sources.user.inputs??{},OPPONENT:sources.opponent.inputs??{}},
   });
   const intent=result.intents[0];
   if(intent?.kind!=="VARIABLE_RESISTANCE"||result.intents.length!==1)

@@ -4,7 +4,7 @@
  * DAMAGE and MODIFIER produce intents for that resolver; HEAL updates HP here.
  * No eval, arbitrary source code, database I/O, or skill-name special cases.
  */
-import {calculateVariableResistance,validateVariableResistance,type VariableResistance} from "../skills/variable-resistance.ts";
+import {calculateVariableResistance,validateVariableResistance,resistanceBaseOwner,resistanceInputOwner,type VariableResistance,type ResistanceActor} from "../skills/variable-resistance.ts";
 
 export type MicroEvent = "DAMAGE_RESOLVED" | "TURN_START" | "IMPACT" | "PASSIVE";
 export type ImpactKind = "CHARACTER" | "GROUND";
@@ -36,8 +36,12 @@ export type MicroContext = {
   impactKind?: ImpactKind;
   /** Resolved damage (mitigatedDamage etc.) computed by the regular combat engine. */
   event?: Record<string, number>;
-  /** Owner's combat stats BEFORE this event, e.g. STR, HP, MAX_HP. */
+  /** Skill owner's combat stats BEFORE the event. */
   stats: Record<string, number>;
+  /** Opponent's stats at the same event; never inferred from owner stats. */
+  opponentStats?: Record<string, number>;
+  /** Actor-tagged event measurements. Unavailable actor/input pairs must fail closed. */
+  inputByOwner?: Partial<Record<ResistanceActor,Record<string,number>>>;
 };
 export type MicroIntent =
   | { kind: "HEAL"; requested: number; applied: number }
@@ -45,7 +49,7 @@ export type MicroIntent =
   | { kind: "MODIFIER"; stat: string; multiplier: number }
   | { kind: "BONUS"; stat: string; amount: number }
   | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
-  | { kind: "VARIABLE_RESISTANCE"; stat: string; input: string; multiplier: number; resistance: number };
+  | { kind: "VARIABLE_RESISTANCE"; stat: string; baseOwner: ResistanceActor; input: string; inputOwner: ResistanceActor; multiplier: number; resistance: number };
 export type MicroResult = { state: MicroState; hp: number; intents: MicroIntent[]; skipped: boolean };
 
 const KEY = /^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/;
@@ -275,12 +279,19 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
             activationCondition:step.activationCondition,value:step.value});
           break;
         case "VARIABLE_RESISTANCE": {
-          const input=ctx.event?.[step.config.input],base=ctx.stats[step.config.baseStat];
+          const baseOwner=resistanceBaseOwner(step.config);
+          const inputOwner=resistanceInputOwner(step.config);
+          const sourceStats=baseOwner==="USER"?ctx.stats:ctx.opponentStats;
+          const base=sourceStats?.[step.config.baseStat];
+          const input=ctx.inputByOwner?.[inputOwner]?.[step.config.input];
+          // Never silently use the owner's speed for an opponent-sourced attack,
+          // nor use the opponent's defense for a user-sourced base stat.
           if(!finite(input)||input<0||!finite(base)||base<0)
-            fail("la defensa dinámica requiere velocidad/entrada y estadística base válidas");
+            fail("la defensa dinámica requiere estadística y entrada del actor configurado");
           const resolved=calculateVariableResistance(step.config,base,input);
           intents.push({kind:"VARIABLE_RESISTANCE",stat:step.config.baseStat,
-            input:step.config.input,multiplier:resolved.multiplier,resistance:resolved.resistance});
+            baseOwner,input:step.config.input,inputOwner,
+            multiplier:resolved.multiplier,resistance:resolved.resistance});
           break;
         }
       }

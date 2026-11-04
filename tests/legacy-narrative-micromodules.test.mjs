@@ -7,6 +7,10 @@ import {
 import {executeMicroEvent,emptyMicroState,validateEffectContainers} from "../lib/effects/micro-modules.ts";
 import {calculateVariableResistance,DEFAULT_VARIABLE_RESISTANCE} from "../lib/skills/variable-resistance.ts";
 const snapshot=JSON.parse(readFileSync(new URL("./fixtures/legacy-modular-shadow-2026-11-04.json",import.meta.url),"utf8"));
+const resistanceActors=(userDefense,opponentSpeed,userSpeed=12,opponentDefense=41)=>({
+ user:{stats:{HP:100,MAX_HP:100,magicDefense:userDefense},inputs:{ATTACK_SPEED:userSpeed}},
+ opponent:{stats:{HP:100,MAX_HP:100,magicDefense:opponentDefense},inputs:{ATTACK_SPEED:opponentSpeed}},
+});
 const pending=[
  ["genericSkillTemplate",3],["genericSkillTemplate",4],["genericSkillTemplate",7],
  ["genericSkillTemplate",8],["genericSkillTemplate",9],["genericSkillTemplate",11],
@@ -68,11 +72,11 @@ test("Sikatā progressive resistance matches old numeric formula across attack s
  const c=DEFAULT_VARIABLE_RESISTANCE;
  for(const speed of [0,10,25,50,100,1000]){
   const expected=calculateVariableResistance(c,90,speed);
-  const actual=calculateModularVariableResistance(c,90,speed);
+  const actual=calculateModularVariableResistance(c,resistanceActors(90,speed));
   assert.deepEqual(actual,{multiplier:expected.multiplier,resistance:expected.resistance});
   assert.equal(actual.resistance,90*(1+2*speed*speed/(speed*speed+2500)));
  }
- assert.throws(()=>calculateModularVariableResistance(c,90,-1),/inválid/);
+ assert.throws(()=>calculateModularVariableResistance(c,resistanceActors(90,-1)),/actor configurado/);
 });
 test("non Newtonian passive shadow carries contextual resistance and doesn't grant permanent defense",()=>{
  const config={...DEFAULT_VARIABLE_RESISTANCE};
@@ -90,10 +94,12 @@ test("non Newtonian passive shadow carries contextual resistance and doesn't gra
  const effect=legacy.parts[0].modules[0];
  assert.throws(()=>executeMicroEvent(emptyMicroState(),[effect],{
   ownerId:1,eventId:"NoSpeed",trigger:"PASSIVE",stats:{HP:100,MAX_HP:100,magicDefense:90}
- }),/requiere/);
+ }),/actor configurado/);
  const result=executeMicroEvent(emptyMicroState(),[effect],{
   ownerId:1,eventId:"WithSpeed",trigger:"PASSIVE",
-  stats:{HP:100,MAX_HP:100,magicDefense:90},event:{ATTACK_SPEED:50}
+  stats:{HP:100,MAX_HP:100,magicDefense:90},
+  opponentStats:{HP:100,MAX_HP:100,magicDefense:41},
+  inputByOwner:{USER:{ATTACK_SPEED:12},OPPONENT:{ATTACK_SPEED:50}}
  });
  assert.equal(result.intents[1].kind,"VARIABLE_RESISTANCE");
  assert.equal(result.intents[1].resistance,180);
@@ -101,9 +107,42 @@ test("non Newtonian passive shadow carries contextual resistance and doesn't gra
 });
 test("combat construction defense derives its dynamic value from micro interpreter only",()=>{
  const source=readFileSync(new URL("../lib/combat/turn-engine.ts",import.meta.url),"utf8");
- assert.match(source,/calculateModularVariableResistance\(resistance,base,input\)/);
+ assert.match(source,/calculateModularVariableResistance\(resistance,\{/);
  assert.doesNotMatch(source,/calculateVariableResistance\(resistance,base,input\)/);
+ assert.match(source,/ATTACK_SPEED:effectiveCombatSpeed\(attacker\)/);
  const editor=readFileSync(new URL("../components/effects/MicroEffectBuilder.tsx",import.meta.url),"utf8");
  assert.match(editor,/VARIABLE_RESISTANCE/);
  assert.match(editor,/CAPABILITY/);
+});
+
+test("the configured actors determine both operands, never the unlabelled fighter",()=>{
+ const c=DEFAULT_VARIABLE_RESISTANCE;
+ const separate=resistanceActors(90,50,10,41);
+ assert.equal(c.baseOwner,"USER");
+ assert.equal(c.inputOwner,"OPPONENT");
+ assert.equal(calculateModularVariableResistance(c,separate).resistance,180);
+ // Changing the user speed must not alter the default result.
+ assert.equal(calculateModularVariableResistance(c,resistanceActors(90,50,200,41)).resistance,180);
+ // Changing only the opponent's speed must alter the result.
+ assert.equal(calculateModularVariableResistance(c,resistanceActors(90,0,10,41)).resistance,90);
+ const flipped=calculateModularVariableResistance({...c,baseOwner:"OPPONENT",inputOwner:"USER"},separate);
+ assert.ok(Math.abs(flipped.resistance - 41*(1+2*100/(100+2500)))<1e-10);
+ assert.notEqual(flipped.resistance,180);
+ const originalShape={...c};delete originalShape.baseOwner;delete originalShape.inputOwner;
+ assert.equal(calculateModularVariableResistance(originalShape,separate).resistance,180,
+   "old persisted Sikatā configurations retain defender defense and attacker speed");
+});
+test("missing owner-specific opponent data fails closed, even if USER has a matching value",()=>{
+ const c=DEFAULT_VARIABLE_RESISTANCE;
+ const module={id:"VARIABLE_ACTORS",name:"Resistance",type:"PASSIVE",description:"",
+  trigger:"PASSIVE",steps:[{kind:"VARIABLE_RESISTANCE",config:c}]};
+ const base={eventId:"NoOppSpeed",ownerId:1,trigger:"PASSIVE",
+   stats:{HP:100,MAX_HP:100,magicDefense:90},
+   opponentStats:{HP:100,MAX_HP:100,magicDefense:41},
+   inputByOwner:{USER:{ATTACK_SPEED:90}}};
+ assert.throws(()=>executeMicroEvent(emptyMicroState(),[module],base),/actor configurado/);
+ assert.throws(()=>calculateModularVariableResistance({...c,baseOwner:"OPPONENT"},{
+   user:{stats:{magicDefense:90},inputs:{ATTACK_SPEED:10}},
+   opponent:{stats:{},inputs:{ATTACK_SPEED:50}},
+ }),/actor configurado/);
 });

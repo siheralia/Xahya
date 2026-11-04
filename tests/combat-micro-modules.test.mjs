@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {combatClientView} from "../lib/combat/magic-area.ts";
 import {
   newCombatState,applyCombatCommand,installEncounterMicroEffects
 } from "../lib/combat/turn-engine.ts";
@@ -28,7 +29,7 @@ const sanctuaryRegen={id:"sanctuary-regen",name:"Santuario Interior",type:"PASSI
 const effects=[grace,sanctuaryDefense,sanctuaryRegen];
 const castHit=(state,defense="NONE",rolls=chance)=>{
   const sent=applyCombatCommand(state,"PLAYER",{kind:"ATTACK",attackType:"BLUNT",attackSource:"MAIN_HAND",
-    trajectory:[{x:0.1,y:0.5},{x:0.9,y:0.5}]},rolls);
+    trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}]},rolls);
   return applyCombatCommand(sent,"NPC",{kind:"DEFEND",defense},rolls);
 };
 const charges=(state,side="NPC")=>state.microEffects?.state.accumulators[(side==="NPC"?"2":"1")+":"+chargeKey]?.charges??[];
@@ -58,7 +59,7 @@ test("after one charge, defense bonus is off for subsequent attacks",()=>{
 test("an evaded strike stores no charge, even when it would have dealt damage",()=>{
   const loaded=installEncounterMicroEffects(encounter(),"NPC",effects);
   const first=applyCombatCommand(loaded,"PLAYER",{kind:"ATTACK",attackType:"BLUNT",attackSource:"MAIN_HAND",
-    trajectory:[{x:0.1,y:0.5},{x:0.9,y:0.5}]},chance);
+    trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}]},chance);
   const dodged=applyCombatCommand(first,"NPC",{kind:"DEFEND",defense:"DODGE"},
     {hit:0.99,critical:0.99,defense:0.99});
   assert.equal(dodged.actors.NPC.hp,100);
@@ -110,4 +111,12 @@ test("existing locked combat endpoint persists combatV1 atomically; no player-co
   assert.match(source,/UPDATE public\."combatSession" SET id=id/);
   assert.match(source,/lastAction:\{combatV1:next\}/);
   assert.doesNotMatch(source,/installEncounterMicroEffects/);
+});
+
+test("public combat projections conceal private charge values and replay tokens",()=>{
+  const seeded=installEncounterMicroEffects(encounter(),"NPC",effects);
+  seeded.microEffects.state.accumulators["2:"+chargeKey]={capacity:5,charges:[123,456]};
+  const publicView=combatClientView(seeded);
+  assert.equal(publicView.microEffects,undefined);
+  assert.equal(seeded.microEffects.state.accumulators["2:"+chargeKey].charges[1],456);
 });

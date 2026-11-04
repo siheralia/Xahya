@@ -53,6 +53,9 @@ export function combatClientView(state:CombatState):CombatState {
  // The complete chronology belongs to the server until it is converted into
  // the final chronicle. Do not send an ever-growing private history on each poll.
  delete clone.narrativeHistory;
+ // Encounter micro definitions, stored charges and event replay tokens belong
+ // exclusively to the server. Never reveal opponent-private accumulator values.
+ delete clone.microEffects;
  if((state.pending?.usesMagic||state.pending?.rangedPhysical||state.pending?.attackArea)&&state.pending.targetCenter&&clone.pending) {
   // Upgrade old pending 3×3 hints without exposing their exact epicenter.
   clone.pending.areaHint=magicImpactZone(state.pending.targetCenter);

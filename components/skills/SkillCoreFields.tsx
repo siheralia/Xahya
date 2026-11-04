@@ -89,7 +89,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
        <input type="number" aria-label="Radio del área circular en metros"
          min={0.1} max={10} step={0.1} value={areaState.radiusMeters}
          onChange={e=>{const n=Number(e.target.value);
-          if(Number.isFinite(n)&&n>=0.1&&n<=10&&Math.round(n*100)===n*100)
+          if(Number.isFinite(n)&&n>=0.1&&n<=10&&Math.abs(Math.round(n*100)-n*100)<=1e-7)
            set("areaOfEffect",formatSkillArea("CIRCLE",n));}}
          className={cls}/>
        <span className="mt-1 block text-zinc-500">El radio es distinto del alcance de lanzamiento. En el combate se representa sobre un lienzo local de 10 × 10 m.</span>

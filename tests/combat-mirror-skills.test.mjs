@@ -247,12 +247,16 @@ test("mirror resolution and its historical chronicle say ray, never generic expl
  assert.equal(impact.kind,"RESOLVE");
  assert.equal(impact.mirrorShot,true);
  assert.equal(impact.constructionId,s.constructions[0].id);
+ assert.deepEqual(impact.mirrorOrigin,s.constructions[0].center);
  assert.match(impact.summary,/rayo de Espejo mágico impactó/);
  assert.doesNotMatch(impact.summary,/explosión/i);
  const narrative=narrateCombat(s.narrativeHistory,s.actors);
  assert.match(narrative,/rayo mágico perforante desde el espejo/);
  assert.doesNotMatch(narrative,/explosión mágica/i);
  assert.ok(COMBAT_NARRATIVE_VERSION>=3);
+ const ui=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
+ assert.match(ui,/Rayo del espejo revelado/);
+ assert.match(ui,/entry.mirrorOrigin/);
  const oldEvents=[
   {kind:"ATTACK",tick:33,by:"PLAYER",against:"NPC",usesMagic:true,attackType:"PIERCE",
    skillName:"Espejo mágico",summary:"Ariana invocó Espejo mágico y lanzó un rayo mágico de perforación."},

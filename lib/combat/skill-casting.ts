@@ -1,6 +1,7 @@
 import {cooldownTurns} from "../skills/cooldown.ts";
 import {skillEffectMultiplier} from "../skills/pch.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
+import {compileCombatAttackArea,type CombatAttackArea} from "./skill-area.ts";
 import {creationPlanFromEffect,type ConstructionPlan} from "./constructs.ts";
 import type {VariableResistance} from "../skills/variable-resistance.ts";
 import type {CombatAttackType} from "./matchup-types.ts";
@@ -15,6 +16,8 @@ export type CombatSkillPlan = {
  /** Executable persistent mirror with one automatic ray per owner's round. */
  mirror?:{rayMultiplier:number;reflectionMultiplier:number;durability:number};
  attackType?:CombatAttackType;usesMagic?:boolean;damageElement?:string;
+ /** Explicit server-derived circular footprint; undefined means legacy single-target. */
+ attackArea?:CombatAttackArea;
  rangeMeters:number;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;
  healing:number;bonuses:{stat:CombatBuffStat;value:number}[];
  durationTurns:number;cooldownRounds:number;oncePerCombat:boolean;
@@ -144,6 +147,9 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
    durability:mirrorEffects.get("SUMMON_MIRROR")!};
  }
  const isAttack=mode!==null;
+ const attackArea=isAttack?compileCombatAttackArea(range.area):undefined;
+ if(mirror&&compileCombatAttackArea(range.area))
+  fail("El espejo no admite un área circular adicional.");
  if(construction&&(isAttack||bonuses.length>0||healing>0))
   fail("Combinar la construcción con otros efectos requiere un resolutor propio.");
  if(isAttack && (bonuses.length>0||healing>0))
@@ -172,7 +178,8 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
  return {
   id,name,cost,requiredParentSkillId,category:construction?"CONSTRUCTION":isAttack?"OFFENSE":"SUPPORT",construction,mirror,
   attackType:isAttack?String(row.attackType) as CombatAttackType:undefined,
-  usesMagic:mode==="MAGICAL"||Boolean(mirror),damageElement:isAttack?damageElement:undefined,rangeMeters:range.rangeMeters??0,
+  usesMagic:mode==="MAGICAL"||Boolean(mirror),damageElement:isAttack?damageElement:undefined,
+  attackArea:attackArea??undefined,rangeMeters:range.rangeMeters??0,
   damageMultiplier:multiplier,defenseFactor,finalMultiplier:final,
   healing,bonuses,durationTurns,cooldownRounds:cooldownTurns(cooldown,duration),
   oncePerCombat:cooldown==="Una vez por combate",
@@ -186,11 +193,12 @@ export function previewSkillExecution(row:Record<string,unknown>){
   const plan=compileCombatSkill(row);
   return {executable:true as const,skillKind:plan.category,
    needsAim:plan.category!=="SUPPORT",usesMagic:plan.usesMagic===true,
+   attackArea:plan.attackArea??null,
    constructionMaterial:plan.construction?.material??null,
    disabledReason:null};
  }catch(e) {
   return {executable:false as const,skillKind:null,
-   needsAim:false,usesMagic:false,
+   needsAim:false,usesMagic:false,attackArea:null,
    disabledReason:e instanceof Error?e.message:"No disponible."};
  }
 }

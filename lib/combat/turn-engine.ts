@@ -51,6 +51,8 @@ export type CombatLog = {
   /** Narration metadata; optional for encounters created before this feature. */
   usesMagic?:boolean; thrownWeapon?:boolean; weaponName?:string;
   skillName?:string; healingPoints?:number;
+  /** Rayo emitido por un espejo, no una explosión mágica genérica. */
+  mirrorShot?:boolean;
   karmaSpent?:number; karmaAllocation?:Record<string,number>; constructionId?:string;
   movementDirection?:"TOWARD"|"AWAY"|"WEAPON"; moveMeters?:number;
 };
@@ -290,6 +292,22 @@ function settleDroppedWeapons(state:CombatState) {
   }
   state.droppedWeapons=[];
 }
+/** The aiming canvas (0..1) is not a meter-based map. At invocation a mirror
+ * is anchored at the targeted fighter's longitudinal world position. This
+ * origin stays fixed when either combatant moves. Older encounters fall back
+ * to the caster's position, preserving the previous range behaviour.
+ */
+export function mirrorRayDistanceMeters(state:CombatState,mirror:CombatConstruction):number {
+ const stored=mirror.positionMeters;
+ const origin=typeof stored==="number"&&Number.isFinite(stored)
+  ?stored:state.actors[mirror.owner].positionMeters;
+ return Math.abs(origin-state.actors[other(mirror.owner)].positionMeters);
+}
+/** Both initial and recurring rays originate at the placed mirror, aimed at
+ * the opponent's center in the shared defender-facing arena. */
+function mirrorRayTrajectory(mirror:CombatConstruction):Point[] {
+ return [{...mirror.center},{...targetHitboxCenter}];
+}
 /** Auto rays are serialized through the same pending-defense workflow.
  * They are emitted only at a new round (never during the casting round) and
  * cost neither the summoner additional mana nor an additional PA.
@@ -300,18 +318,18 @@ function beginNextMirrorRay(state:CombatState) {
   const id=state.mirrorRayQueue!.shift()!;
   const mirror=state.constructions?.find(c=>c.id===id&&c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0);
   if(!mirror)continue;
-  const owner=state.actors[mirror.owner],rival=state.actors[other(mirror.owner)];
+  const rival=state.actors[other(mirror.owner)];
   const reach=mirror.mirror!.rangeMeters;
-  const distance=Math.abs(owner.positionMeters-rival.positionMeters);
+  const distance=mirrorRayDistanceMeters(state,mirror);
   if(distance>reach) {
    addLog(state,{kind:"MIRROR",tick:state.tick,by:mirror.owner,constructionId:id,
-    summary:mirror.label+" no pudo alcanzar a "+rival.name+" con su rayo."});
+    summary:mirror.label+" no alcanzó a "+rival.name+": "+Number(distance.toFixed(2))+" m desde el espejo (alcance "+reach+" m)."});
    continue;
   }
   // Repeated rays use the owner's current magic attack, including temporary buffs.
-  const point={x:0.5,y:0.5};
+  const point={...targetHitboxCenter};
   state.pending={by:mirror.owner,against:other(mirror.owner),attackType:"PIERCE",
-   trajectory:[{x:mirror.center.x,y:mirror.center.y},point],
+   trajectory:mirrorRayTrajectory(mirror),
    launchedAtTick:(state.round-1)*LIMIT,usesMagic:true,areaHint:magicImpactZone(point),
    targetCenter:point,mirrorId:id,mirrorAuto:true,
    skill:{id:mirror.sourceSkillId,name:mirror.label+" · Rayo",damageMultiplier:mirror.mirror!.rayMultiplier,
@@ -319,7 +337,7 @@ function beginNextMirrorRay(state:CombatState) {
   state.tick=Math.max(state.tick,(state.round-1)*LIMIT);
   addLog(state,{kind:"ATTACK",tick:state.tick,by:mirror.owner,against:other(mirror.owner),
    attackType:"PIERCE",usesMagic:true,skillId:mirror.sourceSkillId,
-   constructionId:id,skillName:mirror.label+" · Rayo",
+   constructionId:id,skillName:mirror.label+" · Rayo",mirrorShot:true,
    summary:mirror.label+" proyectó un rayo mágico perforante hacia "+rival.name+"."});
   return;
  }
@@ -603,14 +621,21 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       }
     }
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT + attacker.spentTicks,(state.round-1)*LIMIT + fighter.spentTicks);
+    const mirrorLabel=pending.mirrorId
+      ?state.constructions?.find(c=>c.id===pending.mirrorId)?.label??"espejo mágico"
+      :null;
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
       contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
+      constructionId:pending.mirrorId,mirrorShot:Boolean(pending.mirrorId),
       skillId:pending.skill?.id,
       areaCenter:pending.usesMagic||pending.rangedPhysical?pending.targetCenter:undefined,
       rangedPhysical:pending.rangedPhysical,
       predictedCenter:(pending.usesMagic&&defense==="DODGE"||pending.rangedPhysical&&["DODGE","DEFLECT"].includes(defense))?command.predictedCenter:undefined,
       predictionMatched:validArenaPoint(pending.targetCenter)&&validArenaPoint(command.predictedCenter)?Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=(pending.rangedPhysical?0.09:0.19):undefined,
-      summary:avoided ? fighter.name + (pending.usesMagic?" escapó de la explosión":" evitó el ataque")
+      summary:mirrorLabel
+        ?(avoided?fighter.name+" esquivó el rayo de "+mirrorLabel
+          :"El rayo de "+mirrorLabel+" impactó a "+fighter.name+" ("+damage+" HP)")
+        :avoided ? fighter.name + (pending.usesMagic?" escapó de la explosión":" evitó el ataque")
         : attacker.name + (pending.usesMagic?" acertó con su explosión mágica a ":" impactó a ") + fighter.name + " (" + damage + " HP)"});
     // Magical areas can strike placed mirrors even when the caster targeted
     // the character. Reflection depends on actual spatial contact, not on a
@@ -828,6 +853,9 @@ export function applyResolvedCombatSkill(
       id:by+"-"+plan.id+"-"+next.round+"-"+next.tick+"-"+existing.length,
       owner:by,sourceSkillId:plan.id,material:"MIRROR",form:"MIRROR",
       label:userLabel||plan.construction.label,center:point,createdRound:next.round,
+      // The canvas is a defender-facing placement plane; anchor the mirror
+      // at that target's world depth, not at the moving caster's position.
+      positionMeters:next.actors[other(by)].positionMeters,
       tangible:true,durability:plan.mirror.durability,
       mirror:{rayMultiplier:plan.mirror.rayMultiplier,reflectionMultiplier:plan.mirror.reflectionMultiplier,
        rangeMeters:plan.rangeMeters,attackType:"PIERCE"},
@@ -835,7 +863,8 @@ export function applyResolvedCombatSkill(
     next.constructions=[...existing,mirror];
     // The cast itself creates the first magic piercing attack for one PA.
     next=applyCombatCommand(next,by,{kind:"ATTACK",attackType:"PIERCE",
-     usesMagic:true,areaCenter:point},rolls,plan.rangeMeters);
+     usesMagic:true,areaCenter:{...targetHitboxCenter},
+     trajectory:mirrorRayTrajectory(mirror)},rolls,plan.rangeMeters);
     if(!next.pending)throw new Error("No se pudo lanzar el primer rayo del espejo.");
     next.pending.mirrorId=mirror.id;
     next.pending.skill={id:plan.id,name:plan.name+" · Rayo",
@@ -843,11 +872,11 @@ export function applyResolvedCombatSkill(
     const event=next.log.at(-1);
     if(event){
       event.skillId=plan.id;event.skillName=plan.name;event.constructionId=mirror.id;
-      event.manaCost=plan.cost;
+      event.mirrorShot=true;event.manaCost=plan.cost;
       event.summary=owner.name+" invocó "+mirror.label+" y lanzó un rayo mágico de perforación.";
       const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
       if(historical){historical.skillId=plan.id;historical.skillName=plan.name;
-       historical.constructionId=mirror.id;historical.summary=event.summary;}
+       historical.constructionId=mirror.id;historical.mirrorShot=true;historical.summary=event.summary;}
     }
   }else{
   if(existing.length>=120)throw new Error("Hay demasiadas construcciones activas.");

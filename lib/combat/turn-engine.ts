@@ -53,6 +53,8 @@ export type CombatLog = {
   skillName?:string; healingPoints?:number;
   /** Rayo emitido por un espejo, no una explosión mágica genérica. */
   mirrorShot?:boolean;
+  /** Visible only after resolution; canvas origin of a mirror ray. */
+  mirrorOrigin?:Point;
   karmaSpent?:number; karmaAllocation?:Record<string,number>; constructionId?:string;
   movementDirection?:"TOWARD"|"AWAY"|"WEAPON"; moveMeters?:number;
 };
@@ -627,6 +629,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
       contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
       constructionId:pending.mirrorId,mirrorShot:Boolean(pending.mirrorId),
+      mirrorOrigin:pending.mirrorId&&validArenaPoint(pending.trajectory[0])?{...pending.trajectory[0]}:undefined,
       skillId:pending.skill?.id,
       areaCenter:pending.usesMagic||pending.rangedPhysical?pending.targetCenter:undefined,
       rangedPhysical:pending.rangedPhysical,

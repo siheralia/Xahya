@@ -191,8 +191,13 @@ test("encounter 49: an exhausted Arissa can resolve Robin Hood's arrow without a
  },{hit:0.99,critical:0.99,defense:0.99});
  const resolve=next.log.findLast(e=>e.kind==="RESOLVE");
  assert.equal(resolve.defense,"NONE","exhausted fighters still cannot gain a free dodge");
- assert.equal(next.actors.PLAYER.positionMeters,0,"no unauthorized displacement");
+ const noReaction=applyCombatCommand(original,"PLAYER",{kind:"DEFEND",defense:"NONE"},
+  {hit:0.99,critical:0.99,defense:0.99});
+ assert.equal(next.actors.PLAYER.positionMeters,noReaction.actors.PLAYER.positionMeters,
+  "the fallback cannot grant a dodge displacement (natural knockback remains allowed)");
  assert.equal(next.actors.PLAYER.spentAp,1,"no extra AP is spent");
+ assert.equal(next.actors.PLAYER.hp,noReaction.actors.PLAYER.hp,
+  "a downgraded dodge and an explicit no-reaction take identical damage");
  assert.equal(original.pending.rangedPhysical,true,"the original state stays immutable");
  assert.throws(()=>applyCombatCommand(state,"PLAYER",{
    kind:"DEFEND",defense:"NONE",dodgeDirection:"AWAY",

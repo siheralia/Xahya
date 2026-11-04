@@ -575,6 +575,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Para la explosión mágica básica puedes esquivar, levantar un campo mágico, resistir o no reaccionar.");
     if (!pending.usesMagic && defense === "MAGIC_FIELD")
       throw new Error("El campo defensivo mágico solo puede responder a ataques mágicos.");
+    // Validate the player's requested defense, not the effective one: when all
+    // action ticks are spent the requested dodge is correctly downgraded to
+    // NONE without misreporting its displacement as an illegal choice.
+    if(command.dodgeDirection && command.defense!=="DODGE")
+      throw new Error("Solo puedes elegir desplazamiento para Esquivar.");
     if (remainingAp(fighter) <= 0 || fighter.spentTicks >= LIMIT) defense = "NONE";
     if(defense==="MAGIC_FIELD"){
       const mana=state.mana?.[by];
@@ -656,7 +661,6 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       avoided = success && (pending.rangedPhysical ? spatialAlignment : alignment >= 0.55);
       if (!avoided) damageScale = 0.85;
     }
-    if(command.dodgeDirection && defense!=="DODGE")throw new Error("Solo puedes elegir desplazamiento para Esquivar.");
     if(defense==="DODGE"&&avoided&&command.dodgeDirection){
       const direction=command.dodgeDirection;
       if(!["AWAY","TOWARD","WEAPON"].includes(direction))throw new Error("Dirección de esquive inválida.");

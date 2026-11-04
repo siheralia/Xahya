@@ -48,6 +48,12 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
  const f=state.actors[side];
  return <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4">
   <p className="font-bold">{name}</p>
+  {side==="NPC"&&state.trainingNpc&&<div className="mt-2 space-y-1 text-xs text-zinc-300">
+    <p><span className="text-amber-300">Raza:</span> {state.trainingNpc.race.name}</p>
+    <p><span className="text-amber-300">Perks raciales:</span> {state.trainingNpc.racialPerks?.length?state.trainingNpc.racialPerks.map(p=>p.name+(p.mechanical?"":" (narrativo)")).join(", "):state.trainingNpc.extraPerks?"Sin perks raciales activos":"Formato anterior"}</p>
+    <p><span className="text-cyan-300">Tres perks adicionales:</span> {(state.trainingNpc.extraPerks??state.trainingNpc.perks??[]).map(p=>p.name).join(", ")}</p>
+    <p><span className="text-violet-300">Habilidades públicas:</span> {state.trainingNpc.skills.length?state.trainingNpc.skills.map(p=>p.name).join(", "):"Sin habilidades compatibles"}</p>
+  </div>}
   <div className="mt-3 flex items-center justify-between text-sm"><span>❤️ HP</span>
    <span>{f.hp}/{f.maxHp}</span></div>
   <div className="mt-1 h-2 overflow-hidden rounded bg-zinc-700">

@@ -1,5 +1,5 @@
 import {
-  applyCombatCommand, canAct, contestChance, defaultAttackSource, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  applyCombatCommand, applyResolvedCombatSkill, canAct, contestChance, defaultAttackSource, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type Point,
 } from "./turn-engine.ts";
 import { BASIC_MAGIC_RANGE_METERS } from "./magic-area.ts";
@@ -87,6 +87,9 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   const protection = state.pending.usesMagic ? npc.magicDefense : npc.physicalDefense;
   const worstDirectDamage = Math.max(1,Math.round(
     power*1.5*factor - protection*0.75));
+  if(state.trainingNpc?.difficulty==="AGGRESSIVE" && canCounterNow && npc.hp>2*worstDirectDamage && random()<0.45) {
+    return {kind:"DEFEND",defense:"NONE"};
+  }
   if(!attackedThisRound && canCounterNow && !canDefendAndCounter && npc.hp>worstDirectDamage) {
     return {kind:"DEFEND",defense:"NONE"};
   }
@@ -143,7 +146,35 @@ export function progressTrainingNpc(
     const npcSlotReady = npc.spentTicks + turnTicks(npc) <= player.spentTicks;
     if(playerReady&&!npcSlotReady)return next;
     const distance=Math.abs(npc.positionMeters-player.positionMeters);
-    const castMagic=npc.magicAttack>0 && (next.mana?.NPC?.current??0)>=1 && distance<=BASIC_MAGIC_RANGE_METERS && random()<0.25;
+    const profile=next.trainingNpc?.difficulty??"INTERMEDIATE";
+    const skillChance=profile==="AGGRESSIVE"?0.75:profile==="ADVANCED"?0.48:profile==="ENDURANCE"?0.35:profile==="BASIC"?0.12:0.25;
+    // Skills are compiled from the published catalog at encounter creation.
+    // Reuse the same engine, paid PA/ticks, encounter mana and cooldowns.
+    const options=(next.trainingNpc?.skills??[]).filter(plan=>{
+      if((next.mana?.NPC?.current??0)<plan.cost)return false;
+      const ready=next.skillCooldowns?.NPC?.[String(plan.id)]??0;
+      if(ready===-1||ready>next.round)return false;
+      if(plan.category==="SUPPORT")return (plan.healing>0&&npc.hp<npc.maxHp*0.70)
+        ||(plan.bonuses.length>0&&!next.skillBonuses?.some(b=>b.by==="NPC"&&b.skillId===plan.id));
+      return plan.category==="OFFENSE"&&plan.rangeMeters>0&&distance<=plan.rangeMeters;
+    });
+    if(options.length&&random()<skillChance) {
+      // Aggressive opponents favor offensive actions; wounded opponents can still heal.
+      const offensive=options.filter(p=>p.category==="OFFENSE");
+      const selected=profile==="AGGRESSIVE"&&offensive.length?offensive:options;
+      const plan=selected[Math.min(selected.length-1,Math.floor(cap(random(),0,0.999999)*selected.length))];
+      const source=defaultAttackSource(npc);
+      const aim=plan.category==="OFFENSE"
+        ?plan.usesMagic
+          ?{areaCenter:{x:0.4+0.2*cap(random(),0,0.999999),y:0.4+0.2*cap(random(),0,0.999999)}}
+          :{trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC",source)),attackSource:source}
+        :{};
+      next=applyResolvedCombatSkill(next,"NPC",plan,{
+        ...aim,requestId:"npc-skill-"+next.round+"-"+npc.spentTicks+"-"+plan.id,
+      },makeDice());
+      continue;
+    }
+    const castMagic=npc.magicAttack>0 && (next.mana?.NPC?.current??0)>=1 && distance<=BASIC_MAGIC_RANGE_METERS && random()<(profile==="AGGRESSIVE"?0.6:0.25);
     const attackSource=defaultAttackSource(npc);
     const weapon=weaponForSource(npc,attackSource);
     const physicalReach=effectiveWeaponReachMeters(npc,false,attackSource);

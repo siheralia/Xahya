@@ -191,7 +191,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
    same(shadow.healing,healing) &&
    shadow.bonuses.length===bonuses.length &&
    shadow.bonuses.every((b,i)=>b.stat===bonuses[i].stat&&same(b.value,bonuses[i].value)) &&
-   (construction ? shadow.constructionMaterial===construction.material : shadow.constructionMaterial===undefined) &&
+   (construction ? (mirror ? shadow.constructionMaterial===undefined : shadow.constructionMaterial===construction.material) : shadow.constructionMaterial===undefined) &&
    (mirror
      ? Boolean(shadow.mirror&&same(mirror.durability,shadow.mirror.durability)&&
        same(mirror.rayMultiplier,shadow.mirror.rayMultiplier)&&

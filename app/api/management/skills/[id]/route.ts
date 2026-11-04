@@ -1,4 +1,15 @@
 import { validEffectRequirements, effectRequirementDiscount, meetsEffectRequirements } from "@/lib/skills/effect-requirements";
+import {validateComposedSkillList,isComposedSkillEffect} from "@/lib/skills/composed-effects";
+import {configuredSkillEffectPch} from "@/lib/skills/configured-effect-pricing";
+import {defaultEffectPricing} from "@/lib/skills/pch";
+import {readEffectPricing} from "@/lib/effects/pricing";
+import {readNarrativeEffectCards} from "@/lib/effects/narrative-cards";
+import {readDurationPricing} from "@/lib/effects/duration-pricing-settings";
+import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
+import {manaAdjustedPch} from "@/lib/skills/mana-pricing";
+import {speedSurcharge} from "@/lib/skills/speed-settings";
+import {applyRangePch} from "@/lib/skills/range-pricing";
+import {applyCooldownPch} from "@/lib/skills/cooldown";
 import { validateSkillPrerequisites, hasPrerequisiteCycle } from "@/lib/skills/prerequisites";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
@@ -55,6 +66,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.reject !== true && isPassiveConditionMissing(category,nextCondition))
     return NextResponse.json({error:PASSIVE_CONDITION_REQUIRED_MESSAGE},{status:400});
   const effect = Array.isArray(body.effect) ? body.effect : (Array.isArray(skill.effect) ? skill.effect : []);
+  const hasComposed=effect.some(isComposedSkillEffect);
+  if(hasComposed && body.reject!==true) {
+    const anyReviewed=effect.some((row:unknown)=>isComposedSkillEffect(row)&&row.reviewedPch!==undefined);
+    const problem=validateComposedSkillList(effect,body.approve===true||anyReviewed?"REVIEW":"PLAYER");
+    if(problem)return NextResponse.json({error:problem},{status:400});
+    // Editing an approved skill may not silently activate new unreviewed modules.
+    if(body.approve!==true && skill.status==="APPROVED" &&
+      JSON.stringify(effect)!==JSON.stringify(skill.effect))
+      return NextResponse.json({error:"Para cambiar efectos modulares aprobados, vuelve a aprobar y revisar su costo."},{status:400});
+  }
   if (!name || name.length > 120 || !description || !Number.isInteger(cost) || cost < 0 || !Number.isInteger(maintenanceCost) || maintenanceCost < 0 || !Number.isInteger(accumulationCost) || accumulationCost < 0 || !Number.isInteger(accumulationPerTick) || accumulationPerTick < 0) {
     return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
   }
@@ -69,6 +90,33 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const requestedPchCost = body.pchCost === undefined ? Number((skill as any).pchCost ?? 0) : Number(body.pchCost);
   if (!Number.isInteger(requestedPchCost) || requestedPchCost < 0) return NextResponse.json({ error: "Costo PCH inválido." }, { status: 400 });
+  // A provisional quote is not a charge authorization. For modular skills,
+  // only the approval action may reconcile a revised total with player PCH.
+  if(hasComposed && body.approve!==true && body.reject!==true &&
+    requestedPchCost!==Number((skill as any).pchCost??0))
+    return NextResponse.json({error:"El PCH modular definitivo se liquida al aprobar la habilidad; guarda el resto sin alterar el costo."},{status:400});
+  if(body.approve===true && hasComposed) {
+    // A player's provisional reservation NEVER counts as an admin-reviewed price.
+    const pricing={...defaultEffectPricing(),...await readEffectPricing()};
+    const cards=await readNarrativeEffectCards();
+    const durations=await readDurationPricing();
+    const base=effect.reduce((sum:number,entry:any)=>
+      sum+configuredSkillEffectPch(entry,cards,pricing,durations),0)+mechanicsPchCost(mechanics);
+    const range=body.maxRangeMeters===undefined
+      ?Number(parseConfiguredSkillRange(skill.areaOfEffect).rangeMeters??5)
+      :Number(body.maxRangeMeters);
+    const exact=effectRequirementDiscount(
+      applyCooldownPch(
+        applyRangePch(
+          manaAdjustedPch(base,cost)+speedSurcharge(body.speed??skill.speed),range),
+        body.cooldown??skill.cooldown,
+        body.duration??skill.duration,
+        category),
+      effectRequirements);
+    if(requestedPchCost!==exact)return NextResponse.json({
+      error:"El PCH aprobado no coincide con la valoración completa de los efectos: "+exact+" PCH."
+    },{status:400});
+  }
 
   const approve = body.approve === true;
   const reject = body.reject === true;
@@ -101,10 +149,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           UPDATE public."character"
           SET "pchBalance" = "pchBalance" + ${difference}
           WHERE id = ${Number(freshSkill.characterId)}
-            AND "pchBalance" + ${difference} BETWEEN -2147483648 AND 2147483647
+            AND "pchBalance" + ${difference} BETWEEN ${hasComposed ? 0 : -2147483648} AND 2147483647
         `.affectedCount().build();
         const { affectedRows } = await tx.execute(adjust);
-        if (affectedRows !== 1) throw new Error("PCH_ADJUST_CONFLICT");
+        if (affectedRows !== 1) throw new Error(hasComposed ? "PCH_INSUFFICIENT" : "PCH_ADJUST_CONFLICT");
         const character = await TxCharacter.where({ id: Number(freshSkill.characterId) }).first();
         pchBalance = Number(character?.pchBalance ?? 0);
       }
@@ -152,6 +200,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     console.error("[management/skills] PATCH failed", error);
     if (error instanceof Error && error.message === "SKILL_NOT_FOUND") {
       return NextResponse.json({ error: "Habilidad no encontrada." }, { status: 404 });
+    }
+    if (error instanceof Error && error.message === "PCH_INSUFFICIENT") {
+      return NextResponse.json({error:"El personaje necesita completar el PCH restante antes de aprobar esta habilidad."},{status:400});
     }
     if (error instanceof Error && error.message === "CHARACTER_NOT_FOUND") {
       return NextResponse.json({ error: "No se encontró el personaje de la habilidad." }, { status: 500 });

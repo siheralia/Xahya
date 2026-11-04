@@ -1,5 +1,6 @@
-import { durationPchCost, type DurationPricing } from "@/lib/effects/duration-pricing";
-import { effectPchCost, elementPchCost, type EffectPricingMap, type PricedEffect } from "@/lib/skills/pch";
+import { durationPchCost, type DurationPricing } from "../effects/duration-pricing.ts";
+import {isComposedSkillEffect,composedEffectBasePch} from "./composed-effects.ts";
+import { effectPchCost, elementPchCost, type EffectPricingMap, type PricedEffect } from "./pch.ts";
 
 export type ConfiguredSkillEffect = PricedEffect & {
   durationTurns?: number;
@@ -20,6 +21,7 @@ export function configuredSkillEffectPch(
   effectPricing: EffectPricingMap,
   durationPricing: DurationPricing,
 ): number {
+  if(isComposedSkillEffect(effect))return composedEffectBasePch(effect);
   const cardId = effect.type === "NARRATIVE" && effect.target?.startsWith("CARD:")
     ? effect.target.slice("CARD:".length) : null;
   const base = cardId !== null

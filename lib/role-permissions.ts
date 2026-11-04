@@ -13,7 +13,7 @@ export const ROLE_PERMISSIONS = {
  "management.labyrinth": ["view", "edit", "operate"],
  "management.finances": ["view", "adjust", "audit"],
  "management.statistics": ["view", "edit"],
- "management.effects": ["view", "create", "edit", "delete"],
+ "management.effects": ["view", "create", "edit", "delete", "approve", "reject"],
  "management.elements": ["view", "edit"],
  "management.races": ["view", "create", "edit", "delete"],
  "management.enemies": ["view", "create", "edit", "delete"],

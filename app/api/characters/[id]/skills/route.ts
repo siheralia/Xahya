@@ -24,6 +24,7 @@ import { readEffectPricing } from "@/lib/effects/pricing";
 import { readNarrativeEffectCards } from "@/lib/effects/narrative-cards";
 import { readDurationPricing } from "@/lib/effects/duration-pricing-settings";
 import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
+import {isComposedSkillEffect,validateComposedSkillList,canonicalPlayerComposedEffects} from "@/lib/skills/composed-effects";
 import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
 import {validateSkillCombatTypes,normalizeSkillCombatType} from "@/lib/combat/matchup-types";
 
@@ -60,7 +61,10 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (body.cooldown && !isConfiguredCooldown(body.cooldown)) return "Cooldown inválido.";
   if (isPassiveConditionMissing(category, body.condition)) return PASSIVE_CONDITION_REQUIRED_MESSAGE;
   if (effect.length > 20) return "Una habilidad no puede tener más de 20 efectos.";
+  const moduleError=validateComposedSkillList(effect,"PLAYER");
+  if(moduleError)return moduleError;
   for (const row of effect) {
+    if(isComposedSkillEffect(row))continue;
     if (!row || typeof row !== "object" || !EFFECT_TYPES.includes(String(row.type) as any)) return "Efecto de habilidad inválido.";
     const parameterError = validateSkillParameters(row) ?? validateCopyEffect(row) ?? validateTheftEffect(row);
     if (parameterError) return parameterError;
@@ -153,17 +157,19 @@ export async function POST(
   const Skill = (db.orm.public as any).Skill;
   if (!Skill) return NextResponse.json({ error: "El sistema de habilidades aún no está disponible." }, { status: 500 });
 
+  // A player can submit custom modules but cannot set the final reviewed PCH.
+  const effects=canonicalPlayerComposedEffects(Array.isArray(body.effect)?body.effect:[]) as typeof body.effect;
   const effectRequirements = body.effectRequirements ?? [];
   if (!validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Requisitos por efecto inválidos."},{status:400});
   const available = await Skill.where({characterId}).all();
 
   const pricing = { ...defaultEffectPricing(), ...await readEffectPricing() };
-  if (body.effect.some((effect: { type: string }) => pricing[effect.type]?.enabled === false)) return NextResponse.json({ error: "Uno de los efectos ya no está disponible para habilidades nuevas." }, { status: 400 });
+  if (effects.some((effect: { type: string }) => pricing[effect.type]?.enabled === false)) return NextResponse.json({ error: "Uno de los efectos ya no está disponible para habilidades nuevas." }, { status: 400 });
   const narrativeCards = await readNarrativeEffectCards();
   const durationPricing = await readDurationPricing();
-  if (body.effect.some((effect: {durationTurns?:number;durationMovements?:number}) => (effect.durationTurns && effect.durationTurns > durationPricing.maxTurns) || (effect.durationMovements && effect.durationMovements > (durationPricing.maxMovements ?? 20)))) return NextResponse.json({error:"La duración supera el máximo configurado."},{status:400});
+  if (effects.some((effect: {durationTurns?:number;durationMovements?:number}) => (effect.durationTurns && effect.durationTurns > durationPricing.maxTurns) || (effect.durationMovements && effect.durationMovements > (durationPricing.maxMovements ?? 20)))) return NextResponse.json({error:"La duración supera el máximo configurado."},{status:400});
   let pchCost = 0;
-  for (const effect of body.effect) {
+  for (const effect of effects) {
     if (effect.type === "NARRATIVE" && String(effect.target ?? "").startsWith("CARD:")) {
       const card = narrativeCards.find(c => c.id === String(effect.target).slice(5));
       if (!card || !card.enabled || String(effect.description ?? "") !== card.name + ": " + card.description)
@@ -202,7 +208,7 @@ export async function POST(
       areaOfEffect: serializeSkillRange(String(body.areaOfEffect??"Objetivo único"),Number(body.maxRangeMeters??5)),
       speed: typeof body.speed === "string" ? body.speed.trim() || "DEFAULT" : "DEFAULT",
       cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : null,
-      effect: body.effect,
+      effect: effects,
       condition: typeof body.condition === "string" ? body.condition.trim() || null : null,
       status: "PENDING",
     });
@@ -215,7 +221,8 @@ export async function POST(
       entityId: Number(skill.id),
       characterId,
       targetUserId: null,
-      details: JSON.stringify({ pchCost, pchBalance: Number(fresh.pchBalance), name: skill.name }),
+      details: JSON.stringify({ pchCost, pchBalance: Number(fresh.pchBalance), name: skill.name,
+        composedEffects:effects.filter(isComposedSkillEffect).length, provisionalPch:effects.some(isComposedSkillEffect) }),
     });
     return { skill, balance: Number(fresh.pchBalance) };
   }).catch((error) => {

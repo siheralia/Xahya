@@ -23,9 +23,12 @@ function load(file, dependencies = {}) {
 
 const effects=load("lib/skills/pch.ts");
 const duration=load("lib/effects/duration-pricing.ts");
+const micro=load("lib/effects/micro-modules.ts");
+const composed=load("lib/skills/composed-effects.ts",{"../effects/micro-modules.ts":micro});
 const configured=load("lib/skills/configured-effect-pricing.ts",{
-  "@/lib/skills/pch":effects,
-  "@/lib/effects/duration-pricing":duration,
+  "./pch.ts":effects,
+  "../effects/duration-pricing.ts":duration,
+  "./composed-effects.ts":composed,
 });
 const mana=load("lib/skills/mana-pricing.ts");
 const range=load("lib/skills/range-pricing.ts");

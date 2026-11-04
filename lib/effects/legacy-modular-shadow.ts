@@ -331,8 +331,20 @@ export function calculateModularVariableResistance(config:VariableResistance,
     throw new Error("La resistencia requiere datos de ambos combatientes.");
   // The real engine supplies actor snapshots. Event/derived measurements
   // are merged into the matching actor, never treated as user-owned by default.
-  const userStats={...actors.user.stats,...actors.user.inputs};
-  const opponentStats={...actors.opponent.stats,...actors.opponent.inputs};
+  const normalize=(actor:ModularResistanceActor):Record<string,number>=>{
+    const values={...actor.stats,...actor.inputs};
+    const hp=values.HP??values.hp;
+    const maxHp=values.MAX_HP??values.maxHp;
+    return {
+      ...values,
+      ...(Number.isFinite(hp)?{HP:hp}:{}),
+      ...(Number.isFinite(maxHp)?{MAX_HP:maxHp}:{}),
+    };
+  };
+  const userStats=normalize(actors.user);
+  const opponentStats=normalize(actors.opponent);
+  const ownerHp=userStats.HP??0;
+  const ownerMaxHp=userStats.MAX_HP??Math.max(1,ownerHp);
   const effect:EffectContainer={
     id:"CONSTRUCTION_DYNAMIC_RESISTANCE",name:"Resistencia dinámica",
     type:"PASSIVE",description:"",trigger:"PASSIVE",
@@ -340,7 +352,7 @@ export function calculateModularVariableResistance(config:VariableResistance,
   };
   const result=executeMicroEvent(emptyMicroState(),[effect],{
     eventId:"CONSTRUCTION_RESOLVE",ownerId:1,trigger:"PASSIVE",
-    stats:{...userStats,HP:0,MAX_HP:1},
+    stats:{...userStats,HP:ownerHp,MAX_HP:ownerMaxHp},
     actors:{USER:userStats,OPPONENT:opponentStats},
   });
   const intent=result.intents.find(i=>i.kind==="VARIABLE_RESISTANCE");

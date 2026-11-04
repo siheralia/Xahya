@@ -60,6 +60,17 @@ test("ownership configuration on reusable resistance is followed by the server g
  assert.ok(Math.abs(calculateModularVariableResistance(owned,actorPayload).resistance-expected)<1e-8);
 });
 
+test("combat fighter HP aliases are available to either actor without fake zero values",()=>{
+ const hpConfig={...c,baseStat:"HP",baseOwner:"OPPONENT",input:"HP_PERCENT",inputOwner:"USER"};
+ const sources={
+   user:{stats:{hp:40,maxHp:100},inputs:{HP_PERCENT:40}},
+   opponent:{stats:{hp:30,maxHp:100},inputs:{HP_PERCENT:30}},
+ };
+ const result=calculateModularVariableResistance(hpConfig,sources);
+ const expected=30*(1+2*40*40/(40*40+2500));
+ assert.ok(Math.abs(result.resistance-expected)<1e-9);
+});
+
 test("stored total and count can be wired to resistance without consuming any charges",()=>{
  const store=effect("Store",[{
   kind:"STORE",accumulator:"DIVINE_GRACE",capacity:5,value:{source:"EVENT",key:"MITIGATED_DAMAGE"}

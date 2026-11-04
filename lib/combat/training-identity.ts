@@ -1,3 +1,5 @@
+import { parseDamagePerkEffect } from "./innate-traits.ts";
+
 /** Training NPC identity: all active native racial perks plus exactly three extra catalog perks. */
 export type TrainingPerkEffect = {type:string;target:string;value:number};
 export type TrainingPerk = {
@@ -31,21 +33,26 @@ function weightedIndex(items:readonly {weight:number}[],random:()=>number):numbe
  return items.length-1;
 }
 
-/** Entire perk must be interpretable, not an unsupported action silently ignored. */
+/** Keep combat-compatible effects even if a perk also has maze or narrative effects. */
 function parsedCombatEffects(value:unknown):TrainingPerkEffect[]|null {
  if(!Array.isArray(value)||value.length<1)return null;
  const effects:TrainingPerkEffect[]=[];
  for(const raw of value) {
-  if(!raw||typeof raw!=="object")return null;
+  if(!raw||typeof raw!=="object")continue;
   const e=raw as Record<string,unknown>;
   const type=String(e.type??""),target=String(e.target??"");
   const num=e.value;
-  if(typeof num!=="number"||!Number.isFinite(num)||Math.abs(num)>1000)return null;
-  if(!(type==="STAT_BONUS"&&validTargets.has(target)) &&
-     !(type==="RESOURCE_BONUS"&&["HP","MANA"].includes(target)&&num>=0))return null;
-  effects.push({type,target,value:num});
+  if(typeof num!=="number"||!Number.isFinite(num)||Math.abs(num)>1000)continue;
+  if(type==="STAT_BONUS"&&validTargets.has(target)) {
+   effects.push({type,target,value:num});
+  } else if(type==="RESOURCE_BONUS"&&["HP","MANA"].includes(target)&&num>=0) {
+   effects.push({type,target,value:num});
+  } else {
+   const damage=parseDamagePerkEffect(raw);
+   if(damage)effects.push(damage);
+  }
  }
- return effects;
+ return effects.length?effects:null;
 }
 function toTrainingPerk(row:PerkRow):TrainingPerk {
  const supported=parsedCombatEffects(row.effects);

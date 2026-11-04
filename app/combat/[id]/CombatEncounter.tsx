@@ -610,7 +610,7 @@ export default function CombatEncounter({id}:{id:string}) {
           <span className="ml-2 text-xs text-zinc-400">{preparedAreaSkill&&attackMode==="MAGIC_AREA"?"Configurado en la habilidad":"Configurado en la ficha o el arma"}</span>
         </div>
        </div>
-       {!preparedAreaSkill&&basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">El ataque básico está fuera de alcance: {targetDistance.toFixed(2)} m frente a {basicReach.toFixed(2)} m.</p>}
+       {!preparedAreaSkill&&basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">El objetivo está a {targetDistance.toFixed(2)} m y el alcance máximo del ataque básico es {basicReach.toFixed(2)} m. Acércate antes de atacar.</p>}
        {!(attackMode==="MAGIC_AREA"&&preparedAreaSkill)&&<button disabled={!ready||basicOutOfRange||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
            ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}

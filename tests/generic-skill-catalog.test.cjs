@@ -6,6 +6,11 @@ const ts=require("typescript");
 
 const source=fs.readFileSync(require("node:path").join(__dirname,"../lib/skills/generic-catalog.ts"),"utf8");
 const catalogExports={};
+const areaExports={};
+const areaSource=fs.readFileSync(require("node:path").join(__dirname,"../lib/skills/area-of-effect.ts"),"utf8");
+vm.runInNewContext(ts.transpileModule(areaSource,{
+ compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}
+}).outputText,{exports:areaExports,Number,Object,Array,String,Error,RegExp}, {filename:"area-of-effect.ts"});
 const quotePayload=async payload=>{
  if(!Array.isArray(payload.effect)||payload.effect.length===0)throw Error("Missing effects");
  if(payload.effect.some(e=>e.element==="$ELEMENT"))throw Error("Unresolved element");
@@ -16,6 +21,7 @@ vm.runInNewContext(ts.transpileModule(source,{
 }).outputText,{exports:catalogExports,require:(name)=>{
  if(name==="../../lib/skills/upgrade"||name==="@/lib/skills/upgrade")return {priceUpgrade:quotePayload};
  if(name==="@/lib/combat/matchup-types")return {validateSkillCombatTypes:()=>null};
+ if(name==="@/lib/skills/area-of-effect")return areaExports;
  throw Error("Unexpected dependency: "+name);
 },Set,Number,Object,Array,String,Error}, {filename:"generic-catalog.ts"});
 const {genericTemplateChain,resolveGenericSkill,quoteGenericSkill,normalizeGenericPayload,validateGenericTemplateSettings,evolveGenericSkillSnapshot}=catalogExports;

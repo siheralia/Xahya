@@ -36,7 +36,7 @@ const numberText=(n:number)=>String(Number(n.toFixed(2)));
 export function validateSkillAreaRadius(value:unknown):number {
  const number=typeof value==="number"?value:Number(String(value).replace(",","."));
  if(!Number.isFinite(number)||number<MIN_SKILL_AREA_RADIUS_METERS||
-    number>MAX_SKILL_AREA_RADIUS_METERS||Math.round(number*100)!==number*100)
+    number>MAX_SKILL_AREA_RADIUS_METERS||Math.abs(Math.round(number*100)-number*100)>1e-7)
   throw new Error("El radio debe estar entre 0,1 y 10 m, con hasta dos decimales.");
  return number;
 }

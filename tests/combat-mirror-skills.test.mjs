@@ -267,12 +267,16 @@ test("mirror resolution and its historical chronicle say ray, never generic expl
 test("multiple mirror rays still allow separate defenses on the same round",()=>{
  let s=cast(initial());
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ s.actors.PLAYER.spentTicks=100;
+ s.actors.NPC.spentTicks=80;
+ s=applyCombatCommand(s,"NPC",{kind:"WAIT"},dice);
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
  s=cast(s,"mirror-second-ray-12345",{x:.7,y:.6});
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
  s.actors.PLAYER.spentTicks=100;
  s.actors.NPC.spentTicks=80;
  s=applyCombatCommand(s,"NPC",{kind:"WAIT"},dice);
- assert.equal(s.round,2);
+ assert.equal(s.round,3);
  assert.equal(s.pending?.mirrorAuto,true);
  const firstId=s.pending.mirrorId;
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);

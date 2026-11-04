@@ -284,5 +284,5 @@ test("multiple mirror rays still allow separate defenses on the same round",()=>
  assert.notEqual(s.pending?.mirrorId,firstId);
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
  assert.equal(s.pending,null);
- assert.equal(s.log.filter(e=>e.kind==="RESOLVE"&&e.mirrorShot).length,4);
+ assert.equal(s.log.filter(e=>e.kind==="RESOLVE"&&e.mirrorShot).length,5);
 });

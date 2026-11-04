@@ -4,7 +4,8 @@
  * DAMAGE and MODIFIER produce intents for that resolver; HEAL updates HP here.
  * No eval, arbitrary source code, database I/O, or skill-name special cases.
  */
-import {calculateVariableResistance,validateVariableResistance,type VariableResistance} from "../skills/variable-resistance.ts";
+import {calculateVariableResistance,validateVariableResistance,
+  resistanceBaseOwner,resistanceInputOwner,type VariableResistance} from "../skills/variable-resistance.ts";
 
 export type MicroEvent = "DAMAGE_RESOLVED" | "TURN_START" | "IMPACT" | "PASSIVE";
 export type ImpactKind = "CHARACTER" | "GROUND";
@@ -317,10 +318,14 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
         case "VARIABLE_RESISTANCE": {
           // Backwards-compatible event/stat defaults for older skills; new
           // compositions resolve explicit inputs through named module outputs.
-          const base=step.base===undefined?ctx.stats[step.config.baseStat]:
-            evaluate(step.base,ctx,state,outputs,hp);
-          const input=step.input===undefined?ctx.event?.[step.config.input]:
-            evaluate(step.input,ctx,state,outputs,hp);
+          const defaultBase=resistanceBaseOwner(step.config)==="USER"?
+            (ctx.actors?.USER??ctx.stats)[step.config.baseStat]:
+            ctx.actors?.OPPONENT?.[step.config.baseStat];
+          const defaultInput=resistanceInputOwner(step.config)==="USER"?
+            (ctx.actors?(ctx.actors.USER?.[step.config.input]):ctx.event?.[step.config.input]):
+            (ctx.actors?(ctx.actors.OPPONENT?.[step.config.input]):ctx.event?.[step.config.input]);
+          const base=step.base===undefined?defaultBase:evaluate(step.base,ctx,state,outputs,hp);
+          const input=step.input===undefined?defaultInput:evaluate(step.input,ctx,state,outputs,hp);
           if(!finite(input)||input<0||!finite(base)||base<0)
             fail("la defensa dinámica requiere velocidad/entrada y estadística base válidas");
           const resolved=calculateVariableResistance(step.config,base,input);

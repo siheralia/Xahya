@@ -7,7 +7,8 @@ import {
   emptyMicroState,executeMicroEvent,validateEffectContainers,
   type EffectContainer,type MicroIntent,type MicroStep,
 } from "./micro-modules.ts";
-import {validateVariableResistance,type VariableResistance} from "../skills/variable-resistance.ts";
+import {validateVariableResistance,resistanceBaseOwner,resistanceInputOwner,
+  type VariableResistance,type ResistanceInput} from "../skills/variable-resistance.ts";
 
 export type LegacyShadowPart={
   sourceIndex:number; sourceType:string; status:"EXECUTABLE"|"DESCRIPTION_ONLY"|"UNSUPPORTED";
@@ -134,11 +135,9 @@ export function modularStepsForLegacyEffect(raw:unknown):{
 /** Default role wiring; abilities may replace either READ_* producer with a
  * compatible stat source, event value, or stored accumulator output. */
 export function variableResistanceStatGraph(config:VariableResistance):MicroStep[] {
-  const inputActor:"USER"|"OPPONENT"=
-    config.input==="HP_PERCENT"||config.input==="HIT_COUNT"?"USER":"OPPONENT";
   return [
-    {kind:"READ_STAT",actor:"USER",stat:config.baseStat,output:"resistanceBase"},
-    {kind:"READ_STAT",actor:inputActor,stat:config.input,output:"resistanceInput"},
+    {kind:"READ_STAT",actor:resistanceBaseOwner(config),stat:config.baseStat,output:"resistanceBase"},
+    {kind:"READ_STAT",actor:resistanceInputOwner(config),stat:config.input,output:"resistanceInput"},
     {kind:"VARIABLE_RESISTANCE",config,
       base:{source:"OUTPUT",key:"resistanceBase"},
       input:{source:"OUTPUT",key:"resistanceInput"}},
@@ -298,18 +297,42 @@ export function legacyShadowCopyConfig(raw:unknown):{
  * the shadow gallery displays. Authorization/ownership remains in constructs.ts.
  * The returned value is numeric, never a client-provided defense claim.
  */
-export function calculateModularVariableResistance(config:VariableResistance,base:number,input:number):{
-  multiplier:number;resistance:number;
-}{
+export type ModularResistanceActor={
+  stats:Record<string,number>;
+  /** Values measured by the combat resolver, such as effective attack speed. */
+  inputs?:Partial<Record<ResistanceInput,number>>;
+};
+export type ModularResistanceActors={user:ModularResistanceActor;opponent:ModularResistanceActor};
+export function calculateModularVariableResistance(config:VariableResistance,
+  actors:ModularResistanceActors):{multiplier:number;resistance:number};
+export function calculateModularVariableResistance(config:VariableResistance,
+  base:number,input:number):{multiplier:number;resistance:number};
+export function calculateModularVariableResistance(config:VariableResistance,
+  actorsOrBase:ModularResistanceActors|number,oldInput?:number):{
+    multiplier:number;resistance:number;
+  }{
   if(validateVariableResistance(config))throw new Error("Resistencia variable no autorizada.");
-  if(!Number.isFinite(base)||base<0||!Number.isFinite(input)||input<0)
-    throw new Error("Defensa y velocidad/entrada inválidas.");
-  const inputActor=config.input==="HP_PERCENT"||config.input==="HIT_COUNT"?"USER":"OPPONENT";
-  if(inputActor==="USER" && config.baseStat===config.input && base!==input)
-    throw new Error("Dos valores incompatibles para la misma estadística del usuario.");
-  const userStats={HP:0,MAX_HP:1,[config.baseStat]:base,
-    ...(inputActor==="USER"?{[config.input]:input}:{})};
-  const opponentStats=inputActor==="OPPONENT"?{[config.input]:input}:{};
+  let actors:ModularResistanceActors;
+  if(typeof actorsOrBase==="number"){
+    if(!Number.isFinite(actorsOrBase)||actorsOrBase<0||
+      !Number.isFinite(oldInput)||oldInput===undefined||oldInput<0)
+      throw new Error("Defensa y velocidad/entrada inválidas.");
+    const baseOwner=resistanceBaseOwner(config),inputOwner=resistanceInputOwner(config);
+    actors={
+      user:{stats:baseOwner==="USER"?{[config.baseStat]:actorsOrBase}:{},
+        inputs:inputOwner==="USER"?{[config.input]:oldInput}:{}},
+      opponent:{stats:baseOwner==="OPPONENT"?{[config.baseStat]:actorsOrBase}:{},
+        inputs:inputOwner==="OPPONENT"?{[config.input]:oldInput}:{}},
+    };
+  }else{
+    actors=actorsOrBase;
+  }
+  if(!actors?.user?.stats||!actors?.opponent?.stats)
+    throw new Error("La resistencia requiere datos de ambos combatientes.");
+  // The real engine supplies actor snapshots. Event/derived measurements
+  // are merged into the matching actor, never treated as user-owned by default.
+  const userStats={...actors.user.stats,...actors.user.inputs};
+  const opponentStats={...actors.opponent.stats,...actors.opponent.inputs};
   const effect:EffectContainer={
     id:"CONSTRUCTION_DYNAMIC_RESISTANCE",name:"Resistencia dinámica",
     type:"PASSIVE",description:"",trigger:"PASSIVE",
@@ -317,7 +340,8 @@ export function calculateModularVariableResistance(config:VariableResistance,bas
   };
   const result=executeMicroEvent(emptyMicroState(),[effect],{
     eventId:"CONSTRUCTION_RESOLVE",ownerId:1,trigger:"PASSIVE",
-    stats:userStats,actors:{USER:userStats,OPPONENT:opponentStats},
+    stats:{...userStats,HP:0,MAX_HP:1},
+    actors:{USER:userStats,OPPONENT:opponentStats},
   });
   const intent=result.intents.find(i=>i.kind==="VARIABLE_RESISTANCE");
   if(intent?.kind!=="VARIABLE_RESISTANCE"||result.intents.length!==1)

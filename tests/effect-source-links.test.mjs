@@ -45,6 +45,21 @@ test("changing the owner of either connector changes the inputs, not the formula
  assert.ok(Math.abs(x.intents[0].resistance-expected)<1e-8);
  assert.notEqual(x.intents[0].resistance,180);
 });
+test("ownership configuration on reusable resistance is followed by the server graph",()=>{
+ const owned={...c,baseOwner:"OPPONENT",inputOwner:"USER"};
+ const steps=variableResistanceStatGraph(owned);
+ assert.equal(steps[0].actor,"OPPONENT");
+ assert.equal(steps[1].actor,"USER");
+ const resolved=executeMicroEvent(emptyMicroState(),[effect("Ownership",steps)],ctx("Sowner"));
+ const expected=500*(1+2*10*10/(10*10+2500));
+ assert.ok(Math.abs(resolved.intents[0].resistance-expected)<1e-8);
+ const actorPayload={
+  user:{stats:{magicDefense:90},inputs:{ATTACK_SPEED:10}},
+  opponent:{stats:{magicDefense:500},inputs:{ATTACK_SPEED:50}},
+ };
+ assert.ok(Math.abs(calculateModularVariableResistance(owned,actorPayload).resistance-expected)<1e-8);
+});
+
 test("stored total and count can be wired to resistance without consuming any charges",()=>{
  const store=effect("Store",[{
   kind:"STORE",accumulator:"DIVINE_GRACE",capacity:5,value:{source:"EVENT",key:"MITIGATED_DAMAGE"}
@@ -103,5 +118,5 @@ test("role wiring is offered in the visual editor and combat supplies server-der
  assert.match(editor,/outputOptions=\{availableOutputs\}/);
  assert.match(editor,/Resistencia con fuentes conectadas/);
  assert.match(combat,/effectiveCombatSpeed\(attacker\)/);
- assert.match(combat,/calculateModularVariableResistance\(resistance,base,input\)/);
+ assert.match(combat,/calculateModularVariableResistance\(resistance,\{/);
 });

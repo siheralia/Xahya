@@ -102,7 +102,7 @@ test("non Newtonian passive shadow carries contextual resistance and doesn't gra
 });
 test("combat construction defense derives its dynamic value from micro interpreter only",()=>{
  const source=readFileSync(new URL("../lib/combat/turn-engine.ts",import.meta.url),"utf8");
- assert.match(source,/calculateModularVariableResistance\(resistance,base,input\)/);
+ assert.match(source,/calculateModularVariableResistance\(resistance,\{/);
  assert.doesNotMatch(source,/calculateVariableResistance\(resistance,base,input\)/);
  const editor=readFileSync(new URL("../components/effects/MicroEffectBuilder.tsx",import.meta.url),"utf8");
  assert.match(editor,/VARIABLE_RESISTANCE/);

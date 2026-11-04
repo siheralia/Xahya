@@ -143,6 +143,19 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
       <p className="text-xs text-amber-200">La defensa variable necesita un contexto real de impacto y estadística base. No funciona como bono global del personaje.</p>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs">Estadística de destino (si no hay conexión)<input className={"mt-1 "+field} value={step.config.baseStat} onChange={e=>change({config:{...step.config,baseStat:e.target.value}})}/></label>
+        <label className="text-xs">Propietario de la estadística base (sin conexión)
+          <select className={"mt-1 "+field} value={step.config.baseOwner??"USER"}
+            onChange={e=>change({config:{...step.config,baseOwner:e.target.value as "USER"|"OPPONENT"}})}>
+            <option value="USER">Usuario</option><option value="OPPONENT">Oponente</option>
+          </select>
+        </label>
+        <label className="text-xs">Propietario de la variable (sin conexión)
+          <select className={"mt-1 "+field}
+            value={step.config.inputOwner??(["HIT_COUNT","HP_PERCENT"].includes(step.config.input)?"USER":"OPPONENT")}
+            onChange={e=>change({config:{...step.config,inputOwner:e.target.value as "USER"|"OPPONENT"}})}>
+            <option value="USER">Usuario</option><option value="OPPONENT">Oponente</option>
+          </select>
+        </label>
         <label className="text-xs">Variable<select className={"mt-1 "+field} value={step.config.input} onChange={e=>change({config:{...step.config,input:e.target.value as typeof step.config.input}})}>
           {["ATTACK_SPEED","INCOMING_DAMAGE","HIT_COUNT","HP_PERCENT"].map(v=><option key={v} value={v}>{v}</option>)}</select></label>
         <label className="text-xs">Fórmula<select className={"mt-1 "+field} value={step.config.formula} onChange={e=>change({config:{...step.config,formula:e.target.value as typeof step.config.formula}})}>

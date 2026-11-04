@@ -1,0 +1,859 @@
+{
+  "capturedDate": "2026-11-04",
+  "description": "Sanitized skill effect configurations used for shadow compatibility; names and narrative text excluded.",
+  "definitions": [
+    {
+      "source": "genericSkillTemplate",
+      "id": 1,
+      "category": "OFFENSIVE",
+      "effect": [
+        {
+          "type": "DAMAGE_MULTIPLIER",
+          "value": 100,
+          "target": "PHYS_ATK"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 2,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "RESOURCE_BONUS",
+          "value": 8,
+          "target": "HP"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 3,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W068"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 4,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W062"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 5,
+      "category": "OFFENSIVE",
+      "effect": [
+        {
+          "type": "DAMAGE_MULTIPLIER",
+          "value": 100,
+          "target": "MAGIC_ATTACK",
+          "element": "FIRE"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 6,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 2,
+          "target": "STR"
+        },
+        {
+          "type": "STAT_BONUS",
+          "value": 2,
+          "target": "AGI"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 7,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W066"
+        },
+        {
+          "type": "STAT_BONUS",
+          "value": 1,
+          "target": "DODGE"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 8,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W027"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 9,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W048"
+        },
+        {
+          "type": "STAT_BONUS",
+          "value": 1,
+          "target": "PHYSICAL_DEFENSE"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 10,
+      "category": "OFFENSIVE",
+      "effect": [
+        {
+          "type": "DAMAGE_MULTIPLIER",
+          "value": 100,
+          "target": "MAGIC_ATK",
+          "element": "ICE"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 11,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W045"
+        },
+        {
+          "type": "STAT_BONUS",
+          "value": 1,
+          "target": "MAGIC_DEFENSE"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 12,
+      "category": "OFFENSIVE",
+      "effect": [
+        {
+          "type": "DAMAGE_MULTIPLIER",
+          "value": 100,
+          "target": "MAGIC_ATTACK",
+          "element": "LIGHTNING"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 13,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "DAMAGE_REDUCTION",
+          "value": 5,
+          "target": "PHYSICAL"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 14,
+      "category": "UTILITY",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W032"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 15,
+      "category": "OFFENSIVE",
+      "effect": [
+        {
+          "type": "DAMAGE_MULTIPLIER",
+          "value": 150,
+          "target": "PHYS_ATK"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 16,
+      "category": "OFFENSIVE",
+      "effect": [
+        {
+          "type": "DAMAGE_MULTIPLIER",
+          "value": 150,
+          "target": "MAGIC_ATK"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 17,
+      "category": "UTILITY",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W022"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 18,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W040"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 19,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W066"
+        }
+      ]
+    },
+    {
+      "source": "genericSkillTemplate",
+      "id": 20,
+      "category": "UTILITY",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W031"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 1,
+      "category": "UTILITY",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W002",
+          "element": "LIGHT",
+          "capability": "CREATE"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 2,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "PHYSICAL_DEFENSE",
+          "element": "FIRE"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 3,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "DODGE",
+          "element": "NATURE"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 4,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "PHYSICAL_DEFENSE",
+          "element": "NEUTRAL"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 5,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "PRECISION",
+          "element": "LIGHTNING"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 6,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "MAGIC_DEFENSE",
+          "element": "WATER"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 7,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "PHYSICAL_DEFENSE",
+          "element": "EARTH"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 8,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "DODGE",
+          "element": "NEUTRAL"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 9,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "MAGIC_ATTACK",
+          "element": "NEUTRAL"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 10,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "MAGIC_DEFENSE",
+          "element": "HOLY"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 11,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "DODGE",
+          "element": "SHADOW"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 12,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "PHYSICAL_DEFENSE",
+          "element": "NATURE"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 13,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "STAT_BONUS",
+          "value": 5,
+          "target": "DODGE",
+          "element": "AIR"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 14,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "RESOURCE_BONUS",
+          "value": 18,
+          "target": "HP"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 15,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "OTHER",
+          "element": "FIRE"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 16,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "OTHER",
+          "element": "EARTH"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 17,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "CONDITIONAL_DAMAGE_TAKEN_MULTIPLIER",
+          "value": 50,
+          "target": "BLUNT",
+          "element": "NATURE"
+        },
+        {
+          "type": "CONDITIONAL_DAMAGE_TAKEN_MULTIPLIER",
+          "value": 50,
+          "target": "PIERCE",
+          "element": "NATURE"
+        },
+        {
+          "type": "CONDITIONAL_DAMAGE_TAKEN_MULTIPLIER",
+          "value": 175,
+          "target": "FIRE",
+          "element": "FIRE"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 18,
+      "category": "UTILITY",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "OTHER",
+          "element": "AIR"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 22,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "MAZE_TRAP_EVASION",
+          "value": 50,
+          "target": "TRAP"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 23,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "MAZE_TREASURE_ITEM_CHANCE",
+          "value": 20,
+          "target": "TREASURE"
+        }
+      ]
+    },
+    {
+      "source": "raceSkill",
+      "id": 24,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "MAZE_TREASURE_MONEY_BONUS",
+          "value": 30,
+          "target": "TREASURE"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 1,
+      "category": "OFFENSIVE",
+      "effect": [
+        {
+          "type": "SUMMON_MIRROR",
+          "value": 1,
+          "target": "OTHER"
+        },
+        {
+          "type": "MIRROR_RAY",
+          "value": 100,
+          "target": "MAGIC_ATTACK"
+        },
+        {
+          "type": "MAGIC_REFLECTION",
+          "value": 100,
+          "target": "OTHER"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 2,
+      "category": "OFFENSIVE",
+      "effect": [
+        {
+          "type": "DAMAGE_MULTIPLIER",
+          "value": 100,
+          "target": "PHYSICAL_ATTACK"
+        },
+        {
+          "type": "IGNORE_PHYS_DEF_MULTIPLIER",
+          "value": 50,
+          "target": "STR"
+        },
+        {
+          "type": "FINAL_DAMAGE_MULTIPLIER",
+          "value": 300,
+          "target": "STR"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 3,
+      "category": "OFFENSIVE",
+      "effect": [
+        {
+          "type": "DAMAGE_MULTIPLIER",
+          "value": 100,
+          "target": "MAGIC_ATTACK"
+        },
+        {
+          "type": "IGNORE_MAGIC_DEF_MULTIPLIER",
+          "value": 50,
+          "target": "STR"
+        },
+        {
+          "type": "FINAL_DAMAGE_MULTIPLIER",
+          "value": 300,
+          "target": "STR"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 4,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "MAZE_UTILITY",
+          "value": 533,
+          "target": "INVISIBILITY",
+          "element": "LIGHT"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 7,
+      "category": "UTILITY",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W002"
+        },
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W003"
+        },
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "OTHER"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 12,
+      "category": "UTILITY",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W002",
+          "element": "LIGHT",
+          "capability": "CREATE"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 13,
+      "category": "UTILITY",
+      "effect": [
+        {
+          "type": "COPY_SKILL",
+          "value": 25
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 14,
+      "category": "UTILITY",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W002",
+          "element": "EARTH",
+          "capability": "CREATE"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 15,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "NARRATIVE",
+          "value": 1,
+          "target": "CARD:W006"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 17,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "RESOURCE_BONUS",
+          "value": 18,
+          "target": "HP"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 18,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "RESOURCE_BONUS",
+          "value": 18,
+          "target": "HP"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 19,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "RESOURCE_BONUS",
+          "value": 18,
+          "target": "HP"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 20,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "RESOURCE_BONUS",
+          "value": 18,
+          "target": "HP"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 21,
+      "category": "SUPPORT",
+      "effect": [
+        {
+          "type": "RESOURCE_BONUS",
+          "value": 18,
+          "target": "HP"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 31,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "MAZE_TRAP_EVASION",
+          "value": 50,
+          "target": "TRAP"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 32,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "MAZE_TRAP_EVASION",
+          "value": 50,
+          "target": "TRAP"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 33,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "MAZE_TREASURE_ITEM_CHANCE",
+          "value": 20,
+          "target": "TREASURE"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 34,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "MAZE_TREASURE_ITEM_CHANCE",
+          "value": 20,
+          "target": "TREASURE"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 35,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "MAZE_TREASURE_ITEM_CHANCE",
+          "value": 20,
+          "target": "TREASURE"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 36,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "MAZE_TREASURE_MONEY_BONUS",
+          "value": 30,
+          "target": "TREASURE"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 37,
+      "category": "PASSIVE",
+      "effect": [
+        {
+          "type": "STAT_MULTIPLIER",
+          "value": 150,
+          "target": "DODGE"
+        }
+      ]
+    },
+    {
+      "source": "skill",
+      "id": 38,
+      "category": "OFFENSIVE",
+      "effect": [
+        {
+          "type": "DAMAGE_MULTIPLIER",
+          "value": 200,
+          "target": "PHYSICAL_ATTACK"
+        }
+      ]
+    }
+  ]
+}

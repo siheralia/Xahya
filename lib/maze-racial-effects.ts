@@ -1,3 +1,4 @@
+import {cloneLegacySkillAsMicro,evaluateLegacyShadowParts} from "./effects/legacy-modular-shadow.ts";
 /** Maze passives are effects granted by approved RACIAL skills, not race names or client claims. */
 export type RacialMazeBonuses = {
   trapEvasionPercent: number;
@@ -24,6 +25,29 @@ export function racialMazeBonuses(skills: readonly Skill[]): RacialMazeBonuses {
     if(skill.status!=="APPROVED" || skill.category!=="PASSIVE"
       || !Number.isSafeInteger(Number(skill.grantedByRaceSkillId))
       || Number(skill.grantedByRaceSkillId)<=0 || !Array.isArray(skill.effect)) continue;
+    // Execute the converted bonus modules for supported racial maze perks.
+    const clone=cloneLegacySkillAsMicro({
+      id:Number(skill.grantedByRaceSkillId),name:"Racial del laberinto",effect:skill.effect
+    },"raceSkill");
+    const mazeKeys:Record<string,keyof RacialMazeBonuses>={
+      MAZE_TRAP_EVASION:"trapEvasionPercent",
+      MAZE_ITEM_CHANCE:"treasureItemChancePercent",
+      MAZE_MONEY_BONUS:"treasureMoneyBonusPercent",
+    };
+    if(clone.coverage==="COMPLETE" &&
+      clone.parts.every(part=>["MAZE_TRAP_EVASION","MAZE_TREASURE_ITEM_CHANCE","MAZE_TREASURE_MONEY_BONUS"].includes(part.sourceType))){
+      const intents=evaluateLegacyShadowParts(clone.parts);
+      if(intents.length===clone.parts.length && intents.every(intent=>
+        intent.kind==="BONUS" && mazeKeys[intent.stat]!==undefined)){
+        for(const intent of intents){
+          if(intent.kind==="BONUS" && intent.amount>0 && intent.amount<=100){
+            const key=mazeKeys[intent.stat];
+            result[key]=Math.max(result[key],intent.amount);
+          }
+        }
+        continue;
+      }
+    }
     for(const raw of skill.effect as Effect[]) {
       if(!raw || typeof raw!=="object")continue;
       const power=Number(raw.value);

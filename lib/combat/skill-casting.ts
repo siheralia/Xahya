@@ -1,4 +1,5 @@
 import {cooldownTurns} from "../skills/cooldown.ts";
+import {legacyShadowCombatNumbers} from "../effects/legacy-modular-shadow.ts";
 import {skillEffectMultiplier} from "../skills/pch.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
 import {compileCombatAttackArea,type CombatAttackArea} from "./skill-area.ts";
@@ -22,6 +23,8 @@ export type CombatSkillPlan = {
  rangeMeters:number;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;
  healing:number;bonuses:{stat:CombatBuffStat;value:number}[];
  durationTurns:number;cooldownRounds:number;oncePerCombat:boolean;
+ /** Number-only effects are resolved by the micro interpreter when parity holds. */
+ microEquivalent?:boolean;
 };
 const aliases:Record<string,CombatBuffStat>={
  PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",
@@ -148,9 +151,11 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
    durability:mirrorEffects.get("SUMMON_MIRROR")!};
  }
  const isAttack=mode!==null;
- if(isAttack && !["SINGLE","CONTACT","CIRCLE"].includes(parseSkillArea(range.area).kind))
-  fail("El área de ataque no está clasificada como objetivo único, contacto o círculo ejecutable.");
- const attackArea=isAttack?compileCombatAttackArea(range.area):undefined;
+ if(isAttack && !["SINGLE","CONTACT","CIRCLE","SELF_FIELD"].includes(parseSkillArea(range.area).kind))
+  fail("El área de ataque no está clasificada como objetivo único, contacto, círculo o campo alrededor del usuario.");
+ const attackArea=isAttack?compileCombatAttackArea(range.area,range.rangeMeters):undefined;
+ if(attackArea?.shape==="SELF_FIELD" && mode!=="PHYSICAL")
+  fail("El barrido alrededor del usuario requiere un ataque físico.");
  if(mirror&&compileCombatAttackArea(range.area))
   fail("El espejo no admite un área circular adicional.");
  if(construction&&(isAttack||bonuses.length>0||healing>0))
@@ -172,6 +177,36 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
  const durationTurns=parsed?Number(parsed[1]):0;
  if(bonuses.length>0&&(!Number.isSafeInteger(durationTurns)||durationTurns<1||durationTurns>20))
   fail("Los bonos temporales requieren una duración de 1 a 20 turnos.");
+
+ // Execute the independent modular clone in parallel with the legacy parser.
+ // Only use the micro-derived numeric plan when every supported intent matches
+ // the authoritative parser; unresolved narrative/special actions retain the
+ // original engine, without an implicit conversion.
+ const shadow=legacyShadowCombatNumbers(effects);
+ const same=(a:number,b:number)=>Math.abs(a-b)<=1e-9*Math.max(1,Math.abs(a),Math.abs(b));
+ const shadowEquivalent=Boolean(shadow &&
+   same(shadow.damageMultiplier,multiplier) &&
+   same(shadow.defenseFactor,defenseFactor) &&
+   same(shadow.finalMultiplier,final) &&
+   same(shadow.healing,healing) &&
+   shadow.bonuses.length===bonuses.length &&
+   shadow.bonuses.every((b,i)=>b.stat===bonuses[i].stat&&same(b.value,bonuses[i].value)) &&
+   (construction ? shadow.constructionMaterial===construction.material : shadow.constructionMaterial===undefined) &&
+   (mirror
+     ? Boolean(shadow.mirror&&same(mirror.durability,shadow.mirror.durability)&&
+       same(mirror.rayMultiplier,shadow.mirror.rayMultiplier)&&
+       same(mirror.reflectionMultiplier,shadow.mirror.reflectionMultiplier))
+     : shadow.mirror===undefined)
+ );
+ if(shadowEquivalent && shadow){
+   multiplier=shadow.damageMultiplier;
+   defenseFactor=shadow.defenseFactor;
+   final=shadow.finalMultiplier;
+   healing=shadow.healing;
+   bonuses.splice(0,bonuses.length,...shadow.bonuses);
+   if(mirror && shadow.mirror)mirror=shadow.mirror;
+ }
+
  const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
  if(cooldown && !["Sin cooldown","Una vez por combate","Igual a duración","1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(cooldown))
   fail("Cooldown no reconocido.");
@@ -185,7 +220,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
   attackArea:attackArea??undefined,rangeMeters:range.rangeMeters??0,
   damageMultiplier:multiplier,defenseFactor,finalMultiplier:final,
   healing,bonuses,durationTurns,cooldownRounds:cooldownTurns(cooldown,duration),
-  oncePerCombat:cooldown==="Una vez por combate",
+  oncePerCombat:cooldown==="Una vez por combate",microEquivalent:shadowEquivalent,
  };
 }
 
@@ -195,7 +230,7 @@ export function previewSkillExecution(row:Record<string,unknown>){
  try {
   const plan=compileCombatSkill(row);
   return {executable:true as const,skillKind:plan.category,
-   needsAim:plan.category!=="SUPPORT",usesMagic:plan.usesMagic===true,
+   needsAim:plan.category!=="SUPPORT"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
    attackArea:plan.attackArea??null,
    constructionMaterial:plan.construction?.material??null,
    disabledReason:null};

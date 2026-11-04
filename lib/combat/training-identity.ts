@@ -2,7 +2,7 @@
 export type TrainingPerkEffect = {type:string;target:string;value:number};
 export type TrainingPerk = {
  id:number;name:string;effects:TrainingPerkEffect[];
- /** False when a racial perk has mechanics the current combat engine cannot resolve. */
+ /** False when this perk has mechanics the combat engine cannot resolve. */
  mechanical:boolean;
 };
 export type TrainingRace = {id:number;name:string};
@@ -19,7 +19,17 @@ export const TRAINING_DERIVED_PERK_KEYS:Record<string,string>={
 const validTargets=new Set([...Object.keys(TRAINING_BASE_PERK_KEYS),...Object.keys(TRAINING_DERIVED_PERK_KEYS)]);
 const index=(length:number,random:()=>number)=>
  Math.min(length-1,Math.floor(Math.max(0,Math.min(0.999999,random()))*length));
-type PerkRow={id:number;name:string;active:boolean;effects:unknown};
+type PerkRow={id:number;name:string;active:boolean;probability:unknown;effects:unknown};
+
+function weightedIndex(items:readonly {weight:number}[],random:()=>number):number {
+ const total=items.reduce((sum,item)=>sum+item.weight,0);
+ let roll=Math.max(0,Math.min(0.9999999999999999,random()))*total;
+ for(let i=0;i<items.length;i++) {
+  roll-=items[i].weight;
+  if(roll<0)return i;
+ }
+ return items.length-1;
+}
 
 /** Entire perk must be interpretable, not an unsupported action silently ignored. */
 function parsedCombatEffects(value:unknown):TrainingPerkEffect[]|null {
@@ -42,10 +52,11 @@ function toTrainingPerk(row:PerkRow):TrainingPerk {
  return {id:row.id,name:row.name,effects:supported??[],mechanical:supported!==null};
 }
 /**
- * Every active perk linked to the selected race is intrinsic. Extra perks are
- * drawn separately from active, combat-compatible catalog entries not already
- * granted by that race. Their IDs cannot overlap, even for races with 3+ perks.
- * Unsupported intrinsic effects remain visible but grant no invented mechanics.
+ * All active perks linked to this NPC's race are innate, even at 0% probability.
+ * The 3 extras are drawn WITHOUT replacement from active, nonempty catalog
+ * perks with probability > 0% that are not linked to ANY race. The probability
+ * field supplies each extra's relative draw weight; "Nada" is not a perk.
+ * Effects that are not supported in combat remain visible, not fabricated.
  */
 export function selectTrainingIdentity(
  races:readonly {id:number;name:string;active:boolean}[],
@@ -62,14 +73,21 @@ export function selectTrainingIdentity(
   const perk=perkById.get(id);
   return perk?[toTrainingPerk(perk)]:[];
  });
- const inherited=new Set(racialPerks.map(p=>p.id));
- const available=[...perkById.values()].filter(p=>!inherited.has(p.id)&&parsedCombatEffects(p.effects)!==null);
+ // Exclude perks belonging to ANY race, not just the selected one. Otherwise
+ // a Sombrío can receive a racial perk of Enano as a supposedly general extra.
+ const allRacialIds=new Set(links.map(l=>l.perkId));
+ const available=[...perkById.values()].flatMap(p=>{
+  const weight=Number(p.probability);
+  if(allRacialIds.has(p.id)||!Number.isFinite(weight)||weight<=0||weight>100||
+     !Array.isArray(p.effects)||p.effects.length===0)return [];
+  return [{perk:p,weight}];
+ });
  if(available.length<3)
-  throw new Error("El catálogo necesita tres perks adicionales activos y compatibles.");
+  throw new Error("El catálogo necesita tres perks generales activos con probabilidad mayor que 0%.");
  const extraPerks:TrainingPerk[]=[];
  for(let i=0;i<3;i++) {
-  const chosen=available.splice(index(available.length,random),1)[0];
-  extraPerks.push(toTrainingPerk(chosen));
+  const drawn=available.splice(weightedIndex(available,random),1)[0];
+  extraPerks.push(toTrainingPerk(drawn.perk));
  }
  return {race:{id:race.id,name:race.name},racialPerks,extraPerks};
 }

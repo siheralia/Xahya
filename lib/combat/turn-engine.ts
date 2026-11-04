@@ -63,7 +63,7 @@ export type CombatState = {
   trainingNpc?: {difficulty:"BASIC"|"INTERMEDIATE"|"ADVANCED"|"ENDURANCE"|"AGGRESSIVE";
     race:{id:number;name:string};
     racialPerks?:Array<{id:number;name:string;mechanical:boolean}>;
-    extraPerks?:Array<{id:number;name:string}>;
+    extraPerks?:Array<{id:number;name:string;mechanical?:boolean}>;
     /** Compatibility with early PR #125 preview encounters. */
     perks?:Array<{id:number;name:string}>;skills:CombatSkillPlan[]};
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";

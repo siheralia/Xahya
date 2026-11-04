@@ -216,7 +216,7 @@ export async function POST(req:Request) {
   if(trainingIdentity)initial.trainingNpc={
     difficulty:trainingDifficulty,race:trainingIdentity.race,
     racialPerks:trainingIdentity.racialPerks.map(p=>({id:p.id,name:p.name,mechanical:p.mechanical})),
-    extraPerks:trainingIdentity.extraPerks.map(p=>({id:p.id,name:p.name})),skills:npcPlans,
+    extraPerks:trainingIdentity.extraPerks.map(p=>({id:p.id,name:p.name,mechanical:p.mechanical})),skills:npcPlans,
   };
   // Encounter-local mana snapshots: costs are persisted with the combat
   // transaction, never deducted from the shared character sheet in a test.

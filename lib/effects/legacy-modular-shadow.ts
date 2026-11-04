@@ -332,7 +332,11 @@ export function calculateModularVariableResistance(config:VariableResistance,
   // The real engine supplies actor snapshots. Event/derived measurements
   // are merged into the matching actor, never treated as user-owned by default.
   const normalize=(actor:ModularResistanceActor):Record<string,number>=>{
-    const values={...actor.stats,...actor.inputs};
+    const values:Record<string,number>={...actor.stats};
+    // Synthetic inputs are optional; do not replace a valid stat with undefined.
+    for(const [key,value] of Object.entries(actor.inputs??{})){
+      if(typeof value==="number"&&Number.isFinite(value))values[key]=value;
+    }
     const hp=values.HP??values.hp;
     const maxHp=values.MAX_HP??values.maxHp;
     return {

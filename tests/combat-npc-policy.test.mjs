@@ -211,3 +211,18 @@ test("combat UI explains exhausted reaction instead of offering impossible aim/p
  assert.match(page,/agotaste los 100 ticks de este turno/);
  assert.match(page,/Recibir impacto \(sin reacción\)/);
 });
+
+
+test("own combat HUD shows remaining ticks in both compact and expanded modes",()=>{
+ const hud=readFileSync(new URL("../app/combat/[id]/CombatCharacterHud.tsx",import.meta.url),"utf8");
+ assert.match(hud,/const usedTicks=Math\.max\(0,Math\.min\(100,fighter\.spentTicks\)\)/);
+ assert.match(hud,/const remainingTicks=100-usedTicks/);
+ assert.match(hud,/const ticks=remainingTicks\+"\/"\+100|const ticks=remainingTicks\+"\/100"/);
+ assert.match(hud,/Ticks disponibles: /);
+ assert.match(hud,/Ticks gastados:/);
+ assert.match(hud,/grid-cols-4/);
+ assert.match(hud,/remainingTicks===0\?"Sin ticks disponibles/);
+ const fighterProfile=fighter("Arissa",11,{spentTicks:100,spentAp:1});
+ assert.equal(100-Math.min(100,fighterProfile.spentTicks),0);
+ assert.ok(remainingAp(fighterProfile)>0,"PA remaining does not imply a viable dodge");
+});

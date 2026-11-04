@@ -1,5 +1,5 @@
-import {normalizeSkillArea} from "@/lib/skills/area-of-effect";
 "use client";
+import {normalizeSkillArea} from "@/lib/skills/area-of-effect";
 import { effectRequirementDiscount } from "@/lib/skills/effect-requirements";
 import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";

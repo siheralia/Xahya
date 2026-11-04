@@ -18,6 +18,7 @@ export default function LegacyShadowGallery(){
   const [open,setOpen]=useState<string|null>(null);
   const [cutover,setCutover]=useState<ModularCutoverSetting|null>(null);
   const [savingMode,setSavingMode]=useState(false);
+  const [environment,setEnvironment]=useState("local");
   const [modeError,setModeError]=useState("");
   const changeMode=async(mode:ModularCutoverMode)=>{
     if(!cutover||savingMode||mode===cutover.mode)return;
@@ -40,7 +41,7 @@ export default function LegacyShadowGallery(){
       .then(setData).catch(e=>{if(!controller.signal.aborted)setError(e instanceof Error?e.message:"Error");});
     fetch("/api/management/effects/modular-cutover",{signal:controller.signal,cache:"no-store"})
       .then(async r=>{const body=await r.json();if(!r.ok)throw Error(body.error??"Sin permiso de migración");return body;})
-      .then(body=>setCutover(body.setting))
+      .then(body=>{setCutover(body.setting);setEnvironment(body.environment??"local");})
       .catch(e=>{if(!controller.signal.aborted)setModeError(e instanceof Error?e.message:"Error");});
     return ()=>controller.abort();
   },[]);
@@ -65,7 +66,7 @@ export default function LegacyShadowGallery(){
           </button>
         </div>
         <p className="mt-2 text-xs text-zinc-400">{cutover?"Modo: "+(cutover.mode==="MODULAR_FIRST"?"Modular preferido, con fallback":"Motor clásico")+
-          " · Revisión "+cutover.revision:"Consultando configuración…"}</p>
+          " · Revisión "+cutover.revision+" · "+(environment==="production"?"Producción":"Pruebas aisladas de producción"):"Consultando configuración…"}</p>
         {modeError&&<p role="alert" className="mt-2 text-sm text-rose-300">{modeError}</p>}
       </section>
     </div>

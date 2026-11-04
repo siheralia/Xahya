@@ -4,7 +4,7 @@ import {readFileSync} from "node:fs";
 import {compileCombatSkill} from "../lib/combat/skill-casting.ts";
 import {cloneLegacySkillAsMicro} from "../lib/effects/legacy-modular-shadow.ts";
 import {
- readModularCutoverSetting,decideModularExecution,DEFAULT_MODULAR_CUTOVER
+ readModularCutoverSetting,decideModularExecution,DEFAULT_MODULAR_CUTOVER,modularCutoverStorageKey
 } from "../lib/effects/modular-cutover.ts";
 
 const fixtures=JSON.parse(readFileSync(new URL("./fixtures/legacy-modular-shadow-2026-11-04.json",import.meta.url),"utf8"));
@@ -28,6 +28,9 @@ test("bulk modular migration evaluates all 63 historical definitions, leaving or
 });
 test("the bulk runtime switch is reversible and doesn't claim unsupported abilities are executable",()=>{
  assert.deepEqual(readModularCutoverSetting(null),DEFAULT_MODULAR_CUTOVER);
+ assert.equal(modularCutoverStorageKey("production"),"skills.modular-cutover.v1");
+ assert.equal(modularCutoverStorageKey("preview"),"skills.modular-cutover.v1:preview");
+ assert.equal(modularCutoverStorageKey(undefined),"skills.modular-cutover.v1:preview");
  assert.equal(decideModularExecution("MODULAR_FIRST",true),"MODULAR");
  assert.equal(decideModularExecution("MODULAR_FIRST",false),"LEGACY_FALLBACK");
  assert.equal(decideModularExecution("LEGACY_ONLY",true),"LEGACY_ROLLBACK");

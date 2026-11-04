@@ -35,3 +35,6 @@ En Gestión de efectos → Copias modulares y equivalencia:
 - Pruebas generales de Xahya, integración PostgreSQL, TypeScript y compilación Next.js.
 
 Para inspección manual, abrir el constructor desde Gestión de efectos, o entrar en Gestión de efectos → Copias modulares y equivalencia. La vista gráfica aparece al expandir una copia con pasos definidos.
+
+### Aislamiento de pruebas
+El modo de migración usa la clave `skills.modular-cutover.v1` en **producción** y `skills.modular-cutover.v1:preview` en **Vercel Preview o desarrollo**. Esto evita que los interruptores de la vista previa alteren el modo de producción aunque compartan una instancia de base de datos.

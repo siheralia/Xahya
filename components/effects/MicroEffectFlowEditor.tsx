@@ -87,14 +87,14 @@ export function MicroEffectFlowEditor({
            id:nodeId(source)+"-"+targetHandle+"-"+nodeId(target),
            source:nodeId(source),sourceHandle:"value",
            target:nodeId(target),targetHandle,
-           type:"smoothstep",animated:false,
+           type:"smoothstep",animated:false,deletable:!readOnly,
            style:{stroke:targetHandle==="base"?"#22d3ee":"#c084fc",strokeWidth:2.5},
          });
        }
      }
    }
    return result;
- },[value.steps]);
+ },[value.steps,readOnly]);
  const onNodesChange=useCallback((changes:NodeChange<FlowNode>[])=>{
    setPositions(current=>{
      let next=current;
@@ -145,7 +145,7 @@ export function MicroEffectFlowEditor({
        onConnect={onConnect} onEdgesDelete={onEdgesDelete}
        onNodeClick={(_event,node)=>onEditStep?.(indexOfNode(node.id))}
        colorMode="dark" fitView fitViewOptions={{padding:0.22}}
-       minZoom={0.2} maxZoom={1.7} nodesConnectable={!readOnly} edgesDeletable={!readOnly} edgesReconnectable={false}
+       minZoom={0.2} maxZoom={1.7} nodesConnectable={!readOnly} edgesReconnectable={false}
        deleteKeyCode={["Backspace","Delete"]}
        isValidConnection={link=>{
          const from=indexOfNode(link.source),to=indexOfNode(link.target);

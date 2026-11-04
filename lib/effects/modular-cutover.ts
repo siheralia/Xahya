@@ -10,6 +10,10 @@
  * COMPOSED skills to run in combat.
  */
 export const MODULAR_CUTOVER_KEY="skills.modular-cutover.v1" as const;
+/** Never let toggles from branch previews modify the live production switch
+ * when both Vercel environments happen to share a database. */
+export const modularCutoverStorageKey=(env:string|undefined=process.env.VERCEL_ENV):string=>
+  env==="production"?MODULAR_CUTOVER_KEY:MODULAR_CUTOVER_KEY+":preview";
 export type ModularCutoverMode="MODULAR_FIRST"|"LEGACY_ONLY";
 export type ModularCutoverSetting={
   version:1;mode:ModularCutoverMode;revision:number;

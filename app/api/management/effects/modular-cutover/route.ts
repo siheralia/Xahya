@@ -4,7 +4,7 @@ import {db} from "@/lib/db";
 import {hasRolePermission} from "@/lib/role-permissions";
 import {recordAuditEvent} from "@/lib/audit";
 import {
-  DEFAULT_MODULAR_CUTOVER,MODULAR_CUTOVER_KEY,
+  DEFAULT_MODULAR_CUTOVER,modularCutoverStorageKey,
   readModularCutoverSetting,type ModularCutoverMode
 } from "@/lib/effects/modular-cutover";
 import {readModularCutover} from "@/lib/effects/modular-cutover-registry";
@@ -19,7 +19,7 @@ async function gate(action:"view"|"edit"){
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 export async function GET(){
  if(!await gate("view"))return error("Sin permiso de gestión de efectos.",403);
- return NextResponse.json({setting:await readModularCutover(),
+ return NextResponse.json({setting:await readModularCutover(),environment:process.env.VERCEL_ENV??"local",
   explanation:"MODULAR_FIRST utiliza los efectos equivalentes y mantiene el original como respaldo; LEGACY_ONLY fuerza el cálculo numérico original. Las capacidades narrativas siguen limitadas por sus resolutores."},
  {headers:{"Cache-Control":"private, no-store"}});
 }
@@ -31,7 +31,7 @@ export async function PATCH(req:Request){
    !Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)
    return error("Modo o versión inválidos.");
  const mode=body.mode as ModularCutoverMode;
- const key=MODULAR_CUTOVER_KEY;
+ const key=modularCutoverStorageKey();
  let next:ReturnType<typeof readModularCutoverSetting>;
  try{
   next=await db.transaction(async tx=>{
@@ -56,5 +56,5 @@ export async function PATCH(req:Request){
     entityType:"EFFECT_ENGINE",details:{revision:next.revision,mode,
       rollbackAvailable:true,originalSkillRowsUntouched:true}});
  }catch(e){console.error("[modular-cutover] audit failed",e);}
- return NextResponse.json({setting:next});
+ return NextResponse.json({setting:next,environment:process.env.VERCEL_ENV??"local"});
 }

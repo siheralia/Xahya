@@ -57,7 +57,7 @@ test("approved skill review verifies final cost and sufficient PCH inside existi
  const submit=readFileSync(new URL("../app/api/characters/[id]/skills/route.ts",import.meta.url),"utf8");
  const approve=readFileSync(new URL("../app/api/management/skills/[id]/route.ts",import.meta.url),"utf8");
  assert.match(submit,/validateComposedSkillList\(effect,"PLAYER"\)/);
- assert.match(submit,/canonicalPlayerComposedEffects\(body\.effect\)/);
+ assert.match(submit,/canonicalPlayerComposedEffects\(Array\.isArray\(body\.effect\)/);
  assert.match(submit,/pchBalance" >=/);
  assert.match(submit,/status: "PENDING"/);
  assert.match(approve,/validateComposedSkillList\(effect,/);

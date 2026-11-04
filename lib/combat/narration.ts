@@ -86,10 +86,11 @@ function describeAttack(
  const mirrorShot=Boolean(launch?.mirrorShot||impact?.mirrorShot||
   /invocó .+ y lanzó un rayo mágico|proyectó un rayo mágico/i.test(launch?.summary??""));
  const descriptor=mirrorShot?"un rayo mágico perforante desde el espejo":
+  launch?.attackArea?`un ataque circular de ${launch.attackArea.radiusMeters} m de radio`:
   noun(type,magic,ranged,thrown,launch?.weaponName);
  const withWeapon=!magic&&!ranged&&!thrown&&launch?.weaponName?descriptor+" con "+launch.weaponName:descriptor;
  const act=technique?"la técnica «"+technique+"» ("+withWeapon+")":withWeapon;
- const key=side+":"+(magic?"MAGIC":ranged?"RANGED":"PHYSICAL")+":"+(type??"OTHER");
+ const key=side+":"+(launch?.attackArea?"AREA":magic?"MAGIC":ranged?"RANGED":"PHYSICAL")+":"+(type??"OTHER");
  ctx.counts[key]=(ctx.counts[key]??0)+1;
  const repeat=ctx.counts[key];
  const first=ctx.attacks===0;

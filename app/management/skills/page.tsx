@@ -1,4 +1,5 @@
 "use client";
+import {normalizeSkillArea} from "@/lib/skills/area-of-effect";
 import { effectRequirementDiscount } from "@/lib/skills/effect-requirements";
 import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
@@ -100,7 +101,7 @@ export default function SkillsManagementPage(){
     setSelected(skill.id);
     setForm({
       characterId:String(skill.characterId),name:skill.name,cost:Number(skill.cost),pchCost:Number(skill.pchCost??0),accumulationCost:Number(skill.accumulationCost??0),accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),description:skill.description??"",
-      duration:skill.duration??"",category:skill.category,attackType:skill.attackType??null,defenseType:skill.defenseType??null,areaOfEffect:skill.areaOfEffect??"",maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\d+) m/)?.[1]??5),speed:skill.speed??"DEFAULT",
+      duration:skill.duration??"",category:skill.category,attackType:skill.attackType??null,defenseType:skill.defenseType??null,areaOfEffect:normalizeSkillArea(skill.areaOfEffect),maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\d+) m/)?.[1]??5),speed:skill.speed??"DEFAULT",
       cooldown:skill.cooldown??"",condition:skill.condition??"",mechanics:skill.mechanics??{},effectRequirements:skill.effectRequirements??[],effect:Array.isArray(skill.effect)?skill.effect:[],
     });
     setModal(true);setError("");setSuccess("");

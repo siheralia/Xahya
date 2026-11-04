@@ -3,6 +3,8 @@ import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
 import { validateSkillPrerequisites } from "@/lib/skills/prerequisites";
 import { readDefaultAttackSpeedStat, speedSurcharge } from "@/lib/skills/speed-settings";
 import { applyRangePch } from "@/lib/skills/range-pricing";
+import {serializeSkillRange} from "@/lib/skills/range-storage";
+import {parseSkillArea} from "@/lib/skills/area-of-effect";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { applyCooldownPch, isConfiguredCooldown } from "@/lib/skills/cooldown";
 import { validateSkillParameters } from "@/lib/effects/skill-conditions";
@@ -52,6 +54,7 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (!Number.isSafeInteger(cost) || cost < 0 || cost > 1000000) return "El coste debe ser un entero no negativo.";
   if (!Number.isInteger(maintenanceCost) || maintenanceCost < 0 || !Number.isInteger(accumulationCost) || accumulationCost < 0 || !Number.isInteger(accumulationPerTick) || accumulationPerTick < 0) return "El costo de mantenimiento por turno debe ser un entero no negativo.";
   if (body.maxRangeMeters !== undefined && (!Number.isSafeInteger(body.maxRangeMeters) || body.maxRangeMeters < 0 || body.maxRangeMeters > 100)) return "La distancia máxima debe ser entre 0 y 100 metros.";
+  if(parseSkillArea(body.areaOfEffect??"Objetivo único").kind==="LEGACY")return "Elige un tipo de área normalizado. Las descripciones antiguas no pueden utilizarse para crear habilidades nuevas.";
   if (body.duration && !/^(Instantánea|No termina|[1-9]\\d* turnos?)$/.test(String(body.duration))) return "Duración inválida.";
   if (body.speed && !["DEFAULT","Instantánea","1 turno","2 turnos","3 turnos","No requiere"].includes(String(body.speed))) return "Velocidad inválida.";
   if (body.cooldown && !isConfiguredCooldown(body.cooldown)) return "Cooldown inválido.";
@@ -196,7 +199,7 @@ export async function POST(
       category: String(body.category),
       attackType: normalizeSkillCombatType(body.attackType),
       defenseType: normalizeSkillCombatType(body.defenseType),
-      areaOfEffect: `${String(body.areaOfEffect || "Objetivo único").trim()} | Alcance máximo: ${Number(body.maxRangeMeters ?? 5)} m`,
+      areaOfEffect: serializeSkillRange(String(body.areaOfEffect??"Objetivo único"),Number(body.maxRangeMeters??5)),
       speed: typeof body.speed === "string" ? body.speed.trim() || "DEFAULT" : "DEFAULT",
       cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : null,
       effect: body.effect,

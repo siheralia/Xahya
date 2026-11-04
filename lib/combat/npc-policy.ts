@@ -47,7 +47,7 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   if (state.pending?.against !== "NPC") throw new Error("El NPC no tiene un ataque pendiente.");
   const npc = state.actors.NPC, attacker = state.actors[state.pending.by];
   if (remainingAp(npc) < 1 || npc.spentTicks >= 100) return {kind:"DEFEND",defense:"NONE"};
-  if (state.pending.usesMagic) {
+  if (state.pending.usesMagic||state.pending.attackArea) {
     // Never inspect targetCenter: the NPC has only the same four-cell
     // quadrant hint available to a human defender.
     const hint=state.pending.areaHint??"superior izquierda";
@@ -57,7 +57,7 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
     if (choice<0.50) return {kind:"DEFEND",defense:"DODGE",
       predictedCenter:{x:startX+cap(random(),0,0.999999)*2/3,
         y:startY+cap(random(),0,0.999999)*2/3}};
-    if (choice<0.85 && (state.mana?.NPC?.current??0)>=1) return {kind:"DEFEND",defense:"MAGIC_FIELD"};
+    if (choice<0.85 && state.pending.usesMagic && (state.mana?.NPC?.current??0)>=1) return {kind:"DEFEND",defense:"MAGIC_FIELD"};
     return choice<0.95 ? {kind:"DEFEND",defense:"ENDURE"} : {kind:"DEFEND",defense:"NONE"};
   }
   if (state.pending.rangedPhysical) {
@@ -165,7 +165,7 @@ export function progressTrainingNpc(
       const plan=selected[Math.min(selected.length-1,Math.floor(cap(random(),0,0.999999)*selected.length))];
       const source=defaultAttackSource(npc);
       const aim=plan.category==="OFFENSE"
-        ?plan.usesMagic
+        ?plan.usesMagic||plan.attackArea
           ?{areaCenter:{x:0.4+0.2*cap(random(),0,0.999999),y:0.4+0.2*cap(random(),0,0.999999)}}
           :{trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC",source)),attackSource:source}
         :{};

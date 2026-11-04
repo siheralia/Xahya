@@ -1,3 +1,4 @@
+import {serializeSkillRange} from "../skills/range-storage.ts";
 import {compileCombatSkill,type CombatSkillPlan} from "./skill-casting.ts";
 import {genericTemplateChain,resolveGenericSkill,type GenericSkillTemplateRow} from "../skills/generic-catalog.ts";
 import type {CombatAttackType} from "./ticks.ts";
@@ -25,7 +26,7 @@ export function compileTrainingNpcSkills(rows:readonly GenericSkillTemplateRow[]
    const plan=compileCombatSkill({
     ...resolved,id:1_000_000_000+row.id,status:"APPROVED",
     name:row.name,attackType,
-    areaOfEffect:String(resolved.areaOfEffect??"Objetivo único")+" | Alcance máximo: "+range+" m",
+    areaOfEffect:serializeSkillRange(resolved.areaOfEffect,range),
    });
    if(plan.category==="CONSTRUCTION"||plan.requiredParentSkillId||plan.rangeMeters===0&&plan.category==="OFFENSE")continue;
    result.push(plan);

@@ -8,6 +8,7 @@
  */
 import {previewSkillExecution} from "./skill-casting.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
+import type {CombatAttackArea} from "./skill-area.ts";
 export {parseConfiguredSkillRange} from "./skill-range.ts";
 export type CombatSkillPreview = {
  id: number;
@@ -32,6 +33,7 @@ export type CombatSkillPreview = {
  executable: boolean;
  skillKind?: "OFFENSE"|"SUPPORT"|"CONSTRUCTION"|null;
  needsAim?: boolean;
+ attackArea?:CombatAttackArea|null;
  constructionMaterial?:string|null;
  usesMagic?: boolean;
  disabledReason?:string|null;

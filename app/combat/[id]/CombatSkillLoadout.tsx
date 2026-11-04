@@ -17,10 +17,12 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,
+ encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,onPrepareArea,preparedAreaSkillId,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,
 }:{encounterId:string;side:Side;authorized:boolean;
  canUseSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
- onCast:(skill:CombatSkillPreview)=>void;aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean;
+ onCast:(skill:CombatSkillPreview)=>void;
+ onPrepareArea:(skill:CombatSkillPreview)=>void;preparedAreaSkillId:number|null;
+ aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean;
  onConstructionMaterialsChange:(side:Side,materials:string[])=>void;
  onConstructionSkillsChange?:(side:Side,skills:CombatSkillPreview[])=>void;
  categoryFilter?:string|null;distanceMeters?:number}) {
@@ -74,7 +76,7 @@ export default function CombatSkillLoadout({
       <span>Mantenimiento: <b>{skill.maintenanceCost}</b></span>
       <span>Acumulación: <b>{skill.accumulationCost}</b></span>
       <span>Alcance: <b>{skill.rangeMeters===null?"Por definir":skill.rangeMeters+" m"}</b></span>
-      <span>Área: <b>{skill.area}</b></span>
+      <span>Área: <b>{skill.attackArea?`Círculo de ${skill.attackArea.radiusMeters} m de radio`:skill.area}</b></span>
       <span>Velocidad: <b>{skill.speed==="DEFAULT"?"Predeterminada":skill.speed}</b></span>
       <span>Duración: <b>{skill.duration??"Sin especificar"}</b></span>
       <span>Cooldown: <b>{skill.cooldown??"Sin cooldown"}</b></span>
@@ -90,7 +92,9 @@ export default function CombatSkillLoadout({
        const outOfRange=typeof distanceMeters==="number"&&skill.rangeMeters!==null&&
          (skill.skillKind==="OFFENSE"||skill.constructionMaterial==="MIRROR")&&distanceMeters>skill.rangeMeters;
        const missingAim=skill.needsAim&&(skill.skillKind==="CONSTRUCTION"
-         ?!constructionAimReady:skill.usesMagic&&(aimMode!=="MAGIC_AREA"||!magicAimReady));
+         ?!constructionAimReady:skill.attackArea
+          ?(preparedAreaSkillId!==skill.id||aimMode!=="MAGIC_AREA"||!magicAimReady)
+          :skill.usesMagic&&(aimMode!=="MAGIC_AREA"||!magicAimReady));
        const blocked=!skill.requirementsSatisfied||!canUseSkill||busy||onCooldown||
          mana===null||mana<skill.manaCost||missingAim||outOfRange;
        const reason=outOfRange
@@ -99,12 +103,17 @@ export default function CombatSkillLoadout({
          ? nextRound===-1?"Ya utilizada una vez en este encuentro.":"Cooldown hasta el turno "+nextRound
          : mana===null?"El encuentro no tiene maná de fase 2. Inicia uno nuevo."
          : mana<skill.manaCost?"Maná insuficiente"
-         : missingAim?(skill.skillKind==="CONSTRUCTION"?"Marca la posición de la construcción en el terreno.":"Marca el centro en modalidad Explosión mágica del lienzo superior.")
+         : missingAim?(skill.skillKind==="CONSTRUCTION"?"Marca la posición de la construcción en el terreno.":skill.attackArea?"Prepara esta área en el lienzo superior y marca el epicentro.":"Marca el centro en modalidad Explosión mágica del lienzo superior.")
          : !canUseSkill?"La habilidad está lista, pero debes esperar tu iniciativa o resolver una reacción pendiente.":null;
        return <div className="space-y-2">
         {reason&&<p className="text-xs text-amber-300">{reason}</p>}
         {skill.skillKind==="OFFENSE"&&!skill.usesMagic&&skill.attackType==="BLUNT"&&
          <p className="text-xs text-cyan-300">Si esta técnica se ejecuta con una patada, selecciona «Pierna / patada» en el lienzo de trayectoria antes de lanzarla. Su alcance y maná provienen de la habilidad aprobada.</p>}
+        {skill.skillKind==="OFFENSE"&&skill.attackArea&&<button type="button"
+          onClick={()=>onPrepareArea(skill)}
+          className="rounded-lg border border-violet-400 px-4 py-2 text-sm text-violet-200">
+          Preparar área circular de {skill.attackArea.radiusMeters} m de radio
+         </button>}
         <button type="button" disabled={blocked}
          onClick={()=>onCast(skill)}
          className="rounded-lg border border-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-40">

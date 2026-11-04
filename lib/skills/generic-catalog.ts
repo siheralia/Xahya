@@ -1,3 +1,4 @@
+import {normalizeSkillArea} from "@/lib/skills/area-of-effect";
 import {priceUpgrade, type UpgradePayload} from "@/lib/skills/upgrade";
 import type {SkillMechanics} from "@/lib/skills/interaction-engine";
 import {validateSkillCombatTypes} from "@/lib/combat/matchup-types";
@@ -120,7 +121,7 @@ export async function quoteGenericSkill(
 /** Transforms only the current template's new imbuement effects into element slots. */
 export function normalizeGenericPayload(input:unknown,elementChoice:boolean):Record<string,any>{
   const payload=asObject(input);
-  const normalized={...payload,effect:array(payload.effect).map(effect=>{
+  const normalized={...payload,areaOfEffect:normalizeSkillArea(payload.areaOfEffect),effect:array(payload.effect).map(effect=>{
     const row={...effect};
     if(elementChoice && row.type==="ELEMENTAL_IMBUE") row.element=GENERIC_ELEMENT_PLACEHOLDER;
     return row;

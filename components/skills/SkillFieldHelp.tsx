@@ -18,7 +18,7 @@ export const SKILL_FIELD_HELP = {
   duration: "Tiempo durante el cual permanece activa. Instantánea significa que ocurre al usarla.",
   cooldown: "Tiempo o condición que debe pasar antes de poder usarla nuevamente.",
   speed: "Determina la velocidad con la que se efectúa o resuelve la habilidad, no el momento en que comienza a activarse. Elegir una velocidad distinta de la predeterminada aumenta el precio de creación en 5 PCH.",
-  areaOfEffect: "Objetivo único afecta a uno solo; un área puede alcanzar varios objetivos.",
+  areaOfEffect: "Selecciona objetivo único, personal, contacto, campo propio o área circular con radio de 0,1 a 10 m. El tamaño del área es independiente del alcance de lanzamiento. Las descripciones antiguas se mantienen hasta que se reclasifiquen.",
   maxRangeMeters: "Distancia máxima a la que puedes utilizar la habilidad. Cinco metros no modifica el PCH; más distancia cuesta más y menos distancia descuenta.",
   maintenanceCost: "Maná que se consume por cada turno que permanece activa. Solo aplica a duraciones no instantáneas.",
   accumulationPerTick: "Cantidad de acumulaciones que gana la habilidad en cada tick o actualización de su estado.",

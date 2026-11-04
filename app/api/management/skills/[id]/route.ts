@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import { serializeSkillRange } from "@/lib/skills/range-storage";
+import {parseSkillArea,normalizeSkillArea} from "@/lib/skills/area-of-effect";
+import {parseConfiguredSkillRange} from "@/lib/combat/skill-range";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
@@ -34,6 +36,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!skill) return NextResponse.json({ error: "Habilidad no encontrada." }, { status: 404 });
 
   const body = await request.json().catch(() => null);
+  if(!body||typeof body!=="object")return NextResponse.json({error:"Datos inválidos."},{status:400});
+  if(typeof body.areaOfEffect==="string"&&
+    parseSkillArea(body.areaOfEffect).kind==="LEGACY"&&
+    normalizeSkillArea(body.areaOfEffect)!==normalizeSkillArea(skill.areaOfEffect))
+   return NextResponse.json({error:"Elige un tipo normalizado; una descripción antigua solo se puede conservar sin cambios."},{status:400});
   const combatTypeError=validateSkillCombatTypes(body);
   if(combatTypeError)return NextResponse.json({error:combatTypeError},{status:400});
   const name = typeof body.name === "string" ? body.name.trim() : String(skill.name);
@@ -116,7 +123,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         category,
         attackType: Object.prototype.hasOwnProperty.call(body,"attackType") ? normalizeSkillCombatType(body.attackType) : (freshSkill.attackType??null),
         defenseType: Object.prototype.hasOwnProperty.call(body,"defenseType") ? normalizeSkillCombatType(body.defenseType) : (freshSkill.defenseType??null),
-        areaOfEffect: body.maxRangeMeters!==undefined ? serializeSkillRange(typeof body.areaOfEffect==="string"?body.areaOfEffect:freshSkill.areaOfEffect,body.maxRangeMeters) : (typeof body.areaOfEffect === "string" ? body.areaOfEffect.trim() || null : (freshSkill.areaOfEffect ?? null)),
+        areaOfEffect: body.maxRangeMeters!==undefined||typeof body.areaOfEffect==="string"
+          ?serializeSkillRange(typeof body.areaOfEffect==="string"?body.areaOfEffect:freshSkill.areaOfEffect,
+             body.maxRangeMeters??parseConfiguredSkillRange(freshSkill.areaOfEffect).rangeMeters??5)
+          :(freshSkill.areaOfEffect??null),
         speed: typeof body.speed === "string" ? body.speed.trim() || null : (freshSkill.speed ?? null),
         cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : (freshSkill.cooldown ?? null),
         effect,

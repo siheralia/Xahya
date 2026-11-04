@@ -13,7 +13,8 @@ import { applyTrainingDifficulty, parseTrainingDifficulty, trainingBaseStats } f
 import {selectTrainingIdentity,allTrainingPerks,applyTrainingBasePerks,applyTrainingDerivedPerks,trainingResourceBonus} from "@/lib/combat/training-identity";
 import {compileTrainingNpcSkills,selectTrainingNpcSkills} from "@/lib/combat/training-npc-skills";
 import { canApproveCombat } from "@/lib/combat/permissions";
-import { racialDamageFactors } from "@/lib/combat/innate-traits";
+import { racialDamageFactors,perkDamageFactors,mergeDamageTakenFactors } from "@/lib/combat/innate-traits";
+import { getPerkEffects } from "@/lib/perks";
 
 async function snapshotEquippedWeapons(characterId:number):Promise<{
   main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
@@ -49,8 +50,20 @@ async function snapshotEquippedWeapons(characterId:number):Promise<{
 
 const numeric = (n:unknown, fallback=0) => Number.isFinite(Number(n)) ? Number(n) : fallback;
 async function racialTraitsForCharacter(characterId:number) {
-  const skills=await db.orm.public.Skill.where({characterId,status:"APPROVED"}).all();
-  return racialDamageFactors(skills);
+  const [skills,assigned,definitions]=await Promise.all([
+    db.orm.public.Skill.where({characterId,status:"APPROVED"}).all(),
+    db.orm.public.CharacterPerk.where({characterId}).all(),
+    db.orm.public.Perk.where({active:true}).all(),
+  ]);
+  const byId=new Map(definitions.map(perk=>[Number(perk.id),perk]));
+  const equipped=assigned.flatMap(entry=>{
+    const perk=byId.get(Number(entry.perkId));
+    return perk?[{...entry,perk}]:[];
+  });
+  return mergeDamageTakenFactors(
+    racialDamageFactors(skills),
+    perkDamageFactors(getPerkEffects(equipped)),
+  );
 }
 async function currentUser() {
   const {userId}=await auth();
@@ -184,6 +197,7 @@ export async function POST(req:Request) {
       null,perkedBase,derived,"CUT","SOLID",
       (character as any).fieldDefenseType);
     opponent=applyTrainingDerivedPerks(applyTrainingDifficulty(opponent,trainingDifficulty),npcPerks);
+    opponent.damageTakenFactors=perkDamageFactors(npcPerks.flatMap(perk=>perk.effects));
     // Resource perks only increase the encounter snapshot, not the character sheet.
     const bonusHp=trainingResourceBonus(npcPerks,"HP");
     opponent.maxHp=Math.max(1,opponent.maxHp+bonusHp);

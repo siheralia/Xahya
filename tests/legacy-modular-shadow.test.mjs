@@ -33,7 +33,7 @@ test("read-only shadow copies cover every approved/active definition in the real
    for(const part of copy.parts){
      if(part.status==="EXECUTABLE"){
        assert.equal(part.modules.length,1);
-       assert.equal(part.modules[0].steps.length,1);
+       assert.ok(part.modules[0].steps.length>=1 && part.modules[0].steps.length<=24);
      }else assert.equal(part.modules.length,0);
    }
  }

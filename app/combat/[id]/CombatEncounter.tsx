@@ -241,7 +241,10 @@ export default function CombatEncounter({id}:{id:string}) {
   setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);
  },[side,activeAttackSource,physicalAnchor?.x,physicalAnchor?.y]);
  const hasAvailableBlock=state?.constructions?.some(c=>c.owner===side&&c.form==="BLOCK"&&(c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35);
- const selectedDefense=(defense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
+ // A fully spent 100-tick turn (or exhausted PA) cannot pay a defense.
+ // Reflect the authoritative server fallback before the user draws an aim point.
+ const hasReactionBudget=!!actor&&remainingAp(actor)>0&&actor.spentTicks<100;
+ const selectedDefense:DefenseChoice=!hasReactionBudget?"NONE":(defense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
   ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
   : (defense==="MAGIC_FIELD"||(pending?.attackArea&&defense==="DEFLECT")?"DODGE":defense);
  const hasAccess=view?.permissions[side]??false;
@@ -432,8 +435,11 @@ export default function CombatEncounter({id}:{id:string}) {
       </button>}
     {defending&&hasAccess&&<div className="mt-4 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
+     {!hasReactionBudget&&<p role="status" className="rounded-lg border border-amber-400/50 bg-amber-400/10 p-3 text-sm text-amber-200">
+      No puedes esquivar ni defenderte activamente: {actor&&remainingAp(actor)<=0?"agotaste tus puntos de acción":"agotaste los 100 ticks de este turno"}. Puedes recibir el impacto sin gastar otra acción.
+     </p>}
      <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Opciones de defensa">
-      {options.filter(opt=>pending.usesMagic
+      {options.filter(opt=>!hasReactionBudget?opt.value==="NONE":pending.usesMagic
         ? ["DODGE","MAGIC_FIELD","CONSTRUCTION","ENDURE","NONE"].includes(opt.value)&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)
         : opt.value!=="MAGIC_FIELD"&&(!pending.attackArea||opt.value!=="DEFLECT")&&
@@ -505,7 +511,7 @@ export default function CombatEncounter({id}:{id:string}) {
      <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,constructionId:selectedDefense==="CONSTRUCTION"?chosenDefenseConstruction:undefined,defenseAngle:angle,weaponSlot:dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,dodgeDirection:selectedDefense==="DODGE"?dodgeDirection:undefined,
         predictedCenter:(pending.usesMagic||pending.rangedPhysical||pending.attackArea?.shape==="CIRCLE")&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
       disabled={busy||((pending.usesMagic||pending.rangedPhysical||pending.attackArea?.shape==="CIRCLE")&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
-      {busy?"Resolviendo…":"Responder al ataque"}
+      {busy?"Resolviendo…":!hasReactionBudget?"Recibir impacto (sin reacción)":"Responder al ataque"}
      </button>
     </div>}
     {!pending&&state.status==="ACTIVE"&&hasAccess&&<div className="mt-5 space-y-4">

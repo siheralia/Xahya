@@ -8,6 +8,8 @@ Los campos \`base\` e \`input\` de VARIABLE_RESISTANCE admiten expresiones numé
 
 ### Nuevas fuentes conectables
 
+Para la resistencia de Sikatā, la selección inicial corresponde a USER.magicDefense y OPPONENT.ATTACK_SPEED; cambiar cualquier selector afecta la evaluación real y no solo la presentación.
+
 - \`READ_STAT(actor:USER|OPPONENT, stat, output)\`: lee un dato auténtico del combatiente elegido. USER es el propietario/defensor del efecto, OPPONENT es su adversario. No altera ninguna estadística.
 - \`READ_STORED(accumulator, metric:TOTAL|COUNT, output)\`: lee del acumulador del propietario del efecto (valor almacenado o número de cargas). No consume ni transfiere cargas; sigue limitado por \`ownerId\`.
 - \`CONSUME\` ya publicaba la suma de cargas consumidas en una salida. Puede seguir conectándose a otras operaciones.
@@ -38,7 +40,7 @@ O usa el número de cargas con \`COUNT\`; otro módulo READ_STAT puede leer una 
 
 ## Compatibilidad y activación
 
-- Las definiciones antiguas sin \`base\`/\`input\` siguen leyendo \`ctx.stats[config.baseStat]\` y \`ctx.event[config.input]\`; sus resultados históricos permanecen iguales.
+- Las definiciones sin conexiones explícitas usan los propietarios seleccionados en la configuración de resistencia (USER u OPPONENT); las configuraciones históricas sin esos campos conservan sus valores por defecto. El combate proporciona ambas fuentes por separado y falla si falta un dato.
 - Los nuevos módulos de lectura no producen intenciones de daño, escudo ni curación; únicamente ofrecen valores a los módulos siguientes.
 - La interfaz administrativa permite añadir los tres módulos conectados automáticamente, o añadir cada módulo de lectura, almacenamiento y resistencia por separado.
 - La instalación de módulos en combates sigue protegida por la lista blanca del motor. Solo la resistencia de construcciones ya vinculadas utiliza el grafo por el camino de ataque existente; una plantilla editable no ejecuta un efecto por aprobarse.

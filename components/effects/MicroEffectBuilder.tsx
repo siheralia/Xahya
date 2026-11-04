@@ -22,8 +22,7 @@ const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
     case "MODIFIER":return {kind,stat:"RESISTANCE",multiplier:1.3};
     case "BONUS":return {kind,stat:"STR",amount:10};
     case "CAPABILITY":return {kind,code:"NARRATIVE:OTHER",description:""};
-    case "VARIABLE_RESISTANCE":return {kind,config:{...DEFAULT_VARIABLE_RESISTANCE},
-      base:{source:"STAT",key:"magicDefense"},input:{source:"EVENT",key:"ATTACK_SPEED"}};
+    case "VARIABLE_RESISTANCE":return {kind,config:{...DEFAULT_VARIABLE_RESISTANCE}};
   }
 };
 export function freshMicroEffect():EffectContainer{
@@ -163,15 +162,23 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
         {(["threshold","coefficient","minMultiplier","maxMultiplier"] as const).map(k=><label key={k} className="text-xs">{k}<input type="number" step="any" className={"mt-1 "+field} value={step.config[k]} onChange={e=>change({config:{...step.config,[k]:Number(e.target.value)}})}/></label>)}
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
-          <p className="text-xs font-medium">Conectar valor base (defensa)</p>
-          <NumericEditor value={step.base??{source:"STAT",key:step.config.baseStat}}
-            outputOptions={availableOutputs} onChange={base=>change({base})}/>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={step.base!==undefined}
+              onChange={e=>change({base:e.target.checked?(availableOutputs.length?{source:"OUTPUT",key:availableOutputs[availableOutputs.length-1]}:1):undefined})}/>
+            Conectar un valor base personalizado
+          </label>
+          {step.base===undefined?<p className="text-xs text-cyan-300">Se lee {step.config.baseStat} del {step.config.baseOwner==="OPPONENT"?"oponente":"usuario"}.</p>:
+            <NumericEditor value={step.base} outputOptions={availableOutputs} onChange={base=>change({base})}/>}
         </div>
-        <div className="space-y-1">
-          <p className="text-xs font-medium">Conectar variable de respuesta</p>
-          <NumericEditor value={step.input??{source:"EVENT",key:step.config.input}}
-            outputOptions={availableOutputs} onChange={input=>change({input})}/>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={step.input!==undefined}
+              onChange={e=>change({input:e.target.checked?(availableOutputs.length?{source:"OUTPUT",key:availableOutputs[availableOutputs.length-1]}:1):undefined})}/>
+            Conectar una variable personalizada
+          </label>
+          {step.input===undefined?<p className="text-xs text-cyan-300">Se lee {step.config.input} del {(step.config.inputOwner??(["HIT_COUNT","HP_PERCENT"].includes(step.config.input)?"USER":"OPPONENT"))==="USER"?"usuario":"oponente"}.</p>:
+            <NumericEditor value={step.input} outputOptions={availableOutputs} onChange={input=>change({input})}/>}
         </div>
       </div>
       <p className="text-xs text-zinc-400">Usa OUTPUT para conectar módulos anteriores de estadísticas, acumuladores o consumo. También puedes usar números, eventos o fórmulas.</p>

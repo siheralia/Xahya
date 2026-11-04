@@ -131,3 +131,14 @@ test("role wiring is offered in the visual editor and combat supplies server-der
  assert.match(combat,/effectiveCombatSpeed\(attacker\)/);
  assert.match(combat,/calculateModularVariableResistance\(resistance,\{/);
 });
+
+test("new resistance step uses configured actor owners unless explicit links override them",()=>{
+ const editor=readFileSync(new URL("../components/effects/MicroEffectBuilder.tsx",import.meta.url),"utf8");
+ assert.match(editor,/case "VARIABLE_RESISTANCE":return \{kind,config:\{\.\.\.DEFAULT_VARIABLE_RESISTANCE\}\};/);
+ assert.match(editor,/checked=\{step\.base!==undefined\}/);
+ assert.match(editor,/checked=\{step\.input!==undefined\}/);
+ const config={...c,baseOwner:"OPPONENT",inputOwner:"USER"};
+ const result=executeMicroEvent(emptyMicroState(),[effect("ConfiguredNoWires",[{kind:"VARIABLE_RESISTANCE",config}])],ctx("Unconnected1"));
+ const expected=500*(1+2*10*10/(10*10+2500));
+ assert.ok(Math.abs(result.intents[0].resistance-expected)<1e-8);
+});

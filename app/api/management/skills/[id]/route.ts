@@ -90,6 +90,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const requestedPchCost = body.pchCost === undefined ? Number((skill as any).pchCost ?? 0) : Number(body.pchCost);
   if (!Number.isInteger(requestedPchCost) || requestedPchCost < 0) return NextResponse.json({ error: "Costo PCH inválido." }, { status: 400 });
+  // A provisional quote is not a charge authorization. For modular skills,
+  // only the approval action may reconcile a revised total with player PCH.
+  if(hasComposed && body.approve!==true && body.reject!==true &&
+    requestedPchCost!==Number((skill as any).pchCost??0))
+    return NextResponse.json({error:"El PCH modular definitivo se liquida al aprobar la habilidad; guarda el resto sin alterar el costo."},{status:400});
   if(body.approve===true && hasComposed) {
     // A player's provisional reservation NEVER counts as an admin-reviewed price.
     const pricing={...defaultEffectPricing(),...await readEffectPricing()};
@@ -144,10 +149,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           UPDATE public."character"
           SET "pchBalance" = "pchBalance" + ${difference}
           WHERE id = ${Number(freshSkill.characterId)}
-            AND "pchBalance" + ${difference} BETWEEN ${approve && hasComposed ? 0 : -2147483648} AND 2147483647
+            AND "pchBalance" + ${difference} BETWEEN ${hasComposed ? 0 : -2147483648} AND 2147483647
         `.affectedCount().build();
         const { affectedRows } = await tx.execute(adjust);
-        if (affectedRows !== 1) throw new Error(approve && hasComposed ? "PCH_INSUFFICIENT" : "PCH_ADJUST_CONFLICT");
+        if (affectedRows !== 1) throw new Error(hasComposed ? "PCH_INSUFFICIENT" : "PCH_ADJUST_CONFLICT");
         const character = await TxCharacter.where({ id: Number(freshSkill.characterId) }).first();
         pchBalance = Number(character?.pchBalance ?? 0);
       }

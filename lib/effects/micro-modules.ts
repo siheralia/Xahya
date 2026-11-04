@@ -16,6 +16,7 @@ export type MicroStep = (
   | { kind: "HEAL"; amount: NumericExpr }
   | { kind: "DAMAGE"; amount: NumericExpr; channel: "PHYSICAL" | "MAGICAL"; element?: string; radiusMeters?: NumericExpr }
   | { kind: "MODIFIER"; stat: string; multiplier: NumericExpr }
+  | { kind: "BONUS"; stat: string; amount: NumericExpr }
 ) & { when?: MicroCondition[] };
 export type EffectContainer = {
   id: string; name: string; type: string; description: string;
@@ -35,7 +36,8 @@ export type MicroContext = {
 export type MicroIntent =
   | { kind: "HEAL"; requested: number; applied: number }
   | { kind: "DAMAGE"; amount: number; channel: "PHYSICAL" | "MAGICAL"; element?: string; radiusMeters?: number }
-  | { kind: "MODIFIER"; stat: string; multiplier: number };
+  | { kind: "MODIFIER"; stat: string; multiplier: number }
+  | { kind: "BONUS"; stat: string; amount: number };
 export type MicroResult = { state: MicroState; hp: number; intents: MicroIntent[]; skipped: boolean };
 
 const KEY = /^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/;
@@ -107,6 +109,9 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
           case "MODIFIER":
             if (!validKey(step.stat)) fail("estadística inválida");
             checkExpr(step.multiplier); break;
+          case "BONUS":
+            if (!validKey(step.stat)) fail("estadística inválida");
+            checkExpr(step.amount); break;
           default: fail("operación desconocida");
         }
       }
@@ -233,6 +238,11 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
           const multiplier = evaluate(step.multiplier,ctx,state,outputs,hp);
           if (multiplier < 0 || multiplier > 100) fail("multiplicador fuera de límites");
           intents.push({kind:"MODIFIER",stat:step.stat,multiplier});
+          break;
+        }
+        case "BONUS": {
+          const amount = evaluate(step.amount,ctx,state,outputs,hp);
+          intents.push({kind:"BONUS",stat:step.stat,amount});
           break;
         }
       }

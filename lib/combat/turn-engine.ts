@@ -5,6 +5,7 @@ import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
 import { geometricContact } from "./geometry.ts";
 import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
+import { executeMicroEvent, emptyMicroState, validateEffectContainers, type EffectContainer, type MicroState } from "../effects/micro-modules.ts";
 import {calculateVariableResistance} from "../skills/variable-resistance.ts";
 import {validateConstructionPlacement,resolveConstructionForm,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
@@ -46,6 +47,8 @@ export type PendingAttack = {
 export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
   damage?: number; critical?: boolean; contact?: boolean;
+  /** The amount prevented specifically by the physical/magical defense stat. */
+  mitigatedByResistance?:number;
   knockbackMeters?: number; weaponIntegrity?: number; defense?: DefenseChoice;
   attackType?: CombatAttackType; rangedPhysical?: boolean; predictionMatched?: boolean;
   attackSource?: PhysicalAttackSource;
@@ -87,6 +90,8 @@ export type CombatState = {
   karmaBoosts?: Partial<Record<Side,Record<string,number>>>;
   karmaBoostDeltas?: Partial<Record<Side,Record<string,number>>>;
   constructions?: CombatConstruction[];
+  /** Opt-in modules persist with combatV1. Preexisting encounters omit this property. */
+  microEffects?: { definitions:Partial<Record<Side,EffectContainer[]>>; state:MicroState; sequence:number };
   /** Ordered rays to resolve on the start of a new round. */
   mirrorRayQueue?: string[];
   droppedWeapons?: Array<{owner:Side;weapon:CombatWeapon;slot?:"MAIN_HAND"|"OFF_HAND";positionMeters:number}>;
@@ -201,6 +206,77 @@ const addLog = (state: CombatState, entry: CombatLog) => {
   state.log.push(entry);
   state.log = state.log.slice(-100);
 };
+/**
+ * Server-only opt-in for already-authorized encounter modules.
+ * No API accepts user-supplied module definitions; pricing/approval integration
+ * is deliberately deferred. Only supported phases can be installed.
+ */
+export function installEncounterMicroEffects(original:CombatState,side:Side,definitions:readonly EffectContainer[]):CombatState {
+  const error=validateEffectContainers(definitions);
+  if(error)throw new Error(error);
+  for(const effect of definitions){
+    const allowed=effect.trigger==="DAMAGE_RESOLVED"?["STORE"]:
+      effect.trigger==="TURN_START"?["HEAL"]:
+      effect.trigger==="PASSIVE"?["MODIFIER"]:[];
+    if(!allowed.length || effect.steps.some(step=>!allowed.includes(step.kind)
+      || (effect.trigger==="PASSIVE" && (step.kind!=="MODIFIER" || step.stat!=="RESISTANCE"))))
+      throw new Error("Micromódulo de fase de combate no implementada.");
+  }
+  const next=structuredClone(original);
+  next.microEffects??={definitions:{},state:emptyMicroState(),sequence:0};
+  next.microEffects.definitions[side]=structuredClone(definitions) as EffectContainer[];
+  return next;
+}
+const microActorId=(side:Side)=>side==="PLAYER"?1:2;
+function microStats(fighter:CombatFighter):Record<string,number>{
+  return {HP:fighter.hp,MAX_HP:fighter.maxHp,STR:fighter.strength,
+    PHYSICAL_DEFENSE:fighter.physicalDefense,MAGIC_DEFENSE:fighter.magicDefense};
+}
+function microForSide(state:CombatState,side:Side){
+  return state.microEffects?.definitions[side]??[];
+}
+function microResistanceMultiplier(state:CombatState,side:Side):number {
+  const definitions=microForSide(state,side);
+  if(!definitions.some(e=>e.trigger==="PASSIVE"))return 1;
+  const result=executeMicroEvent(state.microEffects!.state,definitions,{
+    eventId:"PassiveDefense",ownerId:microActorId(side),trigger:"PASSIVE",
+    stats:microStats(state.actors[side]),
+  });
+  let factor=1;
+  for(const intent of result.intents){
+    if(intent.kind!=="MODIFIER"||intent.stat!=="RESISTANCE")
+      throw new Error("Micromódulo pasivo sin resolutor defensivo.");
+    factor*=intent.multiplier;
+  }
+  if(!Number.isFinite(factor)||factor<0||factor>100)
+    throw new Error("Multiplicador de resistencia fuera de límites.");
+  return factor;
+}
+function dispatchCombatMicroEvent(state:CombatState,side:Side,
+  trigger:"DAMAGE_RESOLVED"|"TURN_START",event?:Record<string,number>):void{
+  const runtime=state.microEffects;
+  const definitions=microForSide(state,side);
+  if(!runtime || !definitions.some(e=>e.trigger===trigger))return;
+  // Sequence lives inside the existing locked session transaction.
+  if(!Number.isSafeInteger(runtime.sequence)||runtime.sequence<0||runtime.sequence>=1_000_000_000)
+    throw new Error("Secuencia de micromódulos inválida.");
+  const eventId="CombatEvent"+(++runtime.sequence);
+  const result=executeMicroEvent(runtime.state,definitions,{
+    eventId,ownerId:microActorId(side),trigger,
+    stats:microStats(state.actors[side]),event,
+  });
+  for(const intent of result.intents){
+    if(trigger!=="TURN_START" || intent.kind!=="HEAL")
+      throw new Error("Micromódulo sin resolutor de combate autorizado.");
+    if(intent.applied>0){
+      state.actors[side].hp=result.hp;
+      addLog(state,{kind:"REGEN",tick:state.tick,by:side,healingPoints:intent.applied,
+        summary:state.actors[side].name+" regeneró "+intent.applied+" HP al comenzar el turno"});
+    }
+  }
+  runtime.state=result.state;
+}
+
 export const actionPoints = (constitution: number) => Math.max(1, Math.floor(9 + normalize(constitution)));
 export const weaponIntegrityDefault = 100;
 export const massDefaultKg = 70;
@@ -383,6 +459,7 @@ function advanceRoundIfComplete(state: CombatState) {
     }
     state.skillBonuses=active.filter(b=>b.expiresAtRound>state.round);
     addLog(state,{kind:"ROUND",tick:state.tick,by:"PLAYER",summary:"Comienza el turno " + state.round});
+    for(const side of SIDES)dispatchCombatMicroEvent(state,side,"TURN_START");
     // Each active mirror fires at most once on the following and later rounds.
     state.mirrorRayQueue=(state.constructions??[])
       .filter(c=>c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0)
@@ -506,7 +583,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     if (defense !== "NONE") spend(fighter, turnTicks(fighter));
     const power = pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack;
-    const protection = pending.usesMagic ? fighter.magicDefense : fighter.physicalDefense;
+    const baseProtection = pending.usesMagic ? fighter.magicDefense : fighter.physicalDefense;
+    const protection = baseProtection * microResistanceMultiplier(state,by);
     // The magical field uses its own basic RPS type from the character sheet;
     // physical blocking retains the separately configured blockDefenseType.
     const defenseType=pending.usesMagic?(fighter.magicFieldType??fighter.defenseType):fighter.defenseType;
@@ -535,7 +613,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     } else if (defense === "MAGIC_FIELD") {
       // Basic defensive field: active reaction, paid AP/ticks, no persistent
       // barrier or mana expenditure until the configurable-skills phase.
-      const effectiveField=Math.max(0,fighter.magicDefense)/typeFactor;
+      const effectiveField=Math.max(0,protection)/typeFactor;
       const held=rolls.defense < contestChance(effectiveField,attacker.magicAttack);
       damageScale=held ? 0.25 : 0.75;
     } else if(defense==="CONSTRUCTION") {
@@ -618,6 +696,16 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor-protection*0.75));
     const racialFactor=racialDamageFactor(fighter.damageTakenFactors,pending.attackType,pending.usesMagic,skill?.damageElement);
     const damage = contact ? Math.max(0, Math.round(raw * damageScale * (skill?.finalMultiplier??1) * racialFactor)) : 0;
+    // Only defense-stat mitigation counts; reaction-blocking/dodge and
+    // construction reductions cannot be added to the stored value.
+    const noResistanceRaw=skill
+      ?Math.max(1,Math.round(power*skill.damageMultiplier*(critical?1.5:1)*typeFactor))
+      :pending.usesMagic
+        ?Math.max(1,Math.round((3+5*power/(power+20))*(critical?1.5:1)*typeFactor))
+        :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor));
+    const noResistanceDamage=contact?Math.max(0,Math.round(
+      noResistanceRaw*damageScale*(skill?.finalMultiplier??1)*racialFactor)):0;
+    const mitigatedByResistance=contact?Math.max(0,noResistanceDamage-damage):0;
     fighter.hp = Math.max(0, fighter.hp - damage);
     if (contact && damage > 0 && displaced === 0 && !pending.usesMagic)
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
@@ -638,7 +726,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       ?state.constructions?.find(c=>c.id===pending.mirrorId)?.label??"espejo mágico"
       :null;
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
-      contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
+      mitigatedByResistance,contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
       constructionId:pending.mirrorId,mirrorShot:Boolean(pending.mirrorId),
       mirrorOrigin:pending.mirrorId&&validArenaPoint(pending.trajectory[0])?{...pending.trajectory[0]}:undefined,
       skillId:pending.skill?.id,
@@ -695,6 +783,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
        }
       }
     }
+    if(contact)dispatchCombatMicroEvent(state,by,"DAMAGE_RESOLVED",{
+      MITIGATED_DAMAGE:mitigatedByResistance,APPLIED_DAMAGE:damage,
+      UNPROTECTED_DAMAGE:noResistanceDamage,
+    });
     state.pending = null;
     if(fighter.hp<=0)finishEncounter(state,pending.by);
     else if(attacker.hp<=0)finishEncounter(state,by);

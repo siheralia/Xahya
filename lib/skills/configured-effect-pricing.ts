@@ -1,6 +1,6 @@
-import { durationPchCost, type DurationPricing } from "@/lib/effects/duration-pricing";
-import {isComposedSkillEffect,composedEffectBasePch} from "@/lib/skills/composed-effects";
-import { effectPchCost, elementPchCost, type EffectPricingMap, type PricedEffect } from "@/lib/skills/pch";
+import { durationPchCost, type DurationPricing } from "../effects/duration-pricing.ts";
+import {isComposedSkillEffect,composedEffectBasePch} from "./composed-effects.ts";
+import { effectPchCost, elementPchCost, type EffectPricingMap, type PricedEffect } from "./pch.ts";
 
 export type ConfiguredSkillEffect = PricedEffect & {
   durationTurns?: number;

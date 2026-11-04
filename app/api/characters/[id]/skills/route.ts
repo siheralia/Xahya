@@ -158,7 +158,7 @@ export async function POST(
   if (!Skill) return NextResponse.json({ error: "El sistema de habilidades aún no está disponible." }, { status: 500 });
 
   // A player can submit custom modules but cannot set the final reviewed PCH.
-  const effects=canonicalPlayerComposedEffects(body.effect) as typeof body.effect;
+  const effects=canonicalPlayerComposedEffects(Array.isArray(body.effect)?body.effect:[]) as typeof body.effect;
   const effectRequirements = body.effectRequirements ?? [];
   if (!validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Requisitos por efecto inválidos."},{status:400});
   const available = await Skill.where({characterId}).all();

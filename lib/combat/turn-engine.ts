@@ -675,6 +675,26 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
          summary:mirror.label+" devolvió "+reflected+" puntos de daño mágico hacia "+attacker.name});
       }
     }
+    // A physical circular blast also intersects objects in its actual footprint.
+    // It is not a free strike against every object: only mirrors overlapping the
+    // selected zone take damage. Magical circles use the reflection path above.
+    if(pending.attackArea&&!pending.usesMagic&&validArenaPoint(pending.targetCenter)){
+      const mirrors=(state.constructions??[]).filter(c=>c.owner===by&&
+       c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0&&
+       circularAreaHits(pending.targetCenter!,c.center,pending.attackArea!));
+      const direct=Math.max(1,Math.round(Math.max(0,power)*
+       (pending.skill?.damageMultiplier??1)*(pending.skill?.finalMultiplier??1)));
+      for(const mirror of mirrors){
+       mirror.durability=Math.max(0,(mirror.durability??0)-direct);
+       if(mirror.durability===0){
+        state.constructions=state.constructions?.filter(c=>c.id!==mirror.id);
+        state.mirrorRayQueue=state.mirrorRayQueue?.filter(id=>id!==mirror.id);
+        addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by:pending.by,
+         constructionId:mirror.id,damage:direct,contact:true,
+         summary:attacker.name+" destruyó "+mirror.label+" con un ataque circular físico."});
+       }
+      }
+    }
     state.pending = null;
     if(fighter.hp<=0)finishEncounter(state,pending.by);
     else if(attacker.hp<=0)finishEncounter(state,by);
@@ -791,7 +811,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,attackSource:source,
-      usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,weaponName:selectedWeapon?.name,manaCost:magic&&serverSkillRangeMeters===undefined?1:undefined,
+      usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,weaponName:selectedWeapon?.name,
+      attackArea:serverSkillArea,manaCost:magic&&serverSkillRangeMeters===undefined?1:undefined,
       summary:serverSkillArea?fighter.name+" lanzó un ataque circular de "+serverSkillArea.radiusMeters+" m de radio; esperando reacción"
         :magic?fighter.name+" lanzó magia de "+labels[command.attackType]+"; esperando reacción"
         :ranged?fighter.name+" lanzó "+(thrown?"el arma ("+selectedWeapon?.name+") de ":"un proyectil físico de ")+labels[command.attackType]+"; esperando reacción"

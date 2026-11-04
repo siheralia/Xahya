@@ -5,6 +5,8 @@ import {compileCombatSkill,previewSkillExecution} from "../lib/combat/skill-cast
 import {projectApprovedCombatSkills,availableConstructionMaterials} from "../lib/combat/skill-preview.ts";
 import {newCombatState,applyCombatCommand,applyResolvedCombatSkill} from "../lib/combat/turn-engine.ts";
 import {progressTrainingNpc} from "../lib/combat/npc-policy.ts";
+import {combatClientView} from "../lib/combat/magic-area.ts";
+import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "../lib/combat/narration.ts";
 const skill={
  id:1,name:"Espejo mágico",status:"APPROVED",category:"OFFENSIVE",cost:15,
  areaOfEffect:"100m | Alcance máximo: 5 m",speed:"Ataque mágico",
@@ -191,4 +193,92 @@ test("NPC deliberately breaks a mirror with a physical attack when within reach"
  const result=progressTrainingNpc(s,()=>dice,()=>0.30);
  assert.ok(result.log.some(e=>e.kind==="CONSTRUCTION"&&e.summary.includes("destruyó")));
  assert.ok(result.constructions.every(c=>c.form!=="MIRROR"));
+});
+
+test("first mirror ray starts at mirror's chosen position and aims at opponent, not at the placement itself",()=>{
+ const s=cast(initial(),"mirror-placement-12345",{x:0.92,y:0.13});
+ const mirror=s.constructions[0];
+ assert.equal(mirror.positionMeters,1.5);
+ assert.deepEqual(s.pending.trajectory,[{x:0.92,y:0.13},{x:0.5,y:0.5}]);
+ assert.deepEqual(s.pending.targetCenter,{x:0.5,y:0.5});
+ assert.equal(s.pending.mirrorId,mirror.id);
+ assert.equal(s.log.at(-1).mirrorShot,true);
+ const visible=combatClientView(s);
+ assert.equal(visible.pending.targetCenter,undefined);
+ assert.deepEqual(visible.pending.trajectory,[],"exact ray endpoint must not leak through public view");
+ assert.ok(visible.pending.areaHint);
+});
+
+test("surviving mirror range is measured from its fixed world origin, not the moving caster",()=>{
+ const start=cast(initial());
+ const mirror=start.constructions[0];
+ assert.equal(mirror.positionMeters,1.5);
+ let s=applyCombatCommand(start,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ s.actors.PLAYER.spentTicks=100;
+ s.actors.NPC.spentTicks=80;
+ // The caster is adjacent to the target, but the fixed mirror is 5.5 m away.
+ s.actors.PLAYER.positionMeters=6.7;
+ s.actors.NPC.positionMeters=7;
+ s=applyCombatCommand(s,"NPC",{kind:"WAIT"},dice);
+ assert.equal(s.round,2);
+ assert.equal(s.pending,null,"no ray should launch from the caster's new position");
+ assert.match(s.log.at(-1).summary,/5.5 m desde el espejo/);
+ assert.ok(s.constructions.some(c=>c.id===mirror.id),"out-of-range ray does not break the mirror");
+});
+
+test("mirror still fires when caster moves far away while target remains in mirror range",()=>{
+ let s=cast(initial());
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ s.actors.PLAYER.spentTicks=100;
+ s.actors.NPC.spentTicks=80;
+ s.actors.PLAYER.positionMeters=50;
+ s.actors.NPC.positionMeters=2.1;
+ s=applyCombatCommand(s,"NPC",{kind:"WAIT"},dice);
+ assert.equal(s.round,2);
+ assert.equal(s.pending?.mirrorAuto,true);
+ assert.deepEqual(s.pending.trajectory,[{x:.35,y:.4},{x:.5,y:.5}]);
+ assert.deepEqual(s.pending.targetCenter,{x:.5,y:.5});
+});
+
+test("mirror resolution and its historical chronicle say ray, never generic explosion",()=>{
+ let s=cast(initial());
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ const impact=s.log.at(-1);
+ assert.equal(impact.kind,"RESOLVE");
+ assert.equal(impact.mirrorShot,true);
+ assert.equal(impact.constructionId,s.constructions[0].id);
+ assert.match(impact.summary,/rayo de Espejo mágico impactó/);
+ assert.doesNotMatch(impact.summary,/explosión/i);
+ const narrative=narrateCombat(s.narrativeHistory,s.actors);
+ assert.match(narrative,/rayo mágico perforante desde el espejo/);
+ assert.doesNotMatch(narrative,/explosión mágica/i);
+ assert.ok(COMBAT_NARRATIVE_VERSION>=3);
+ const oldEvents=[
+  {kind:"ATTACK",tick:33,by:"PLAYER",against:"NPC",usesMagic:true,attackType:"PIERCE",
+   skillName:"Espejo mágico",summary:"Ariana invocó Espejo mágico y lanzó un rayo mágico de perforación."},
+  {kind:"RESOLVE",tick:33,by:"PLAYER",against:"NPC",damage:20,contact:true,critical:false,
+   summary:"Ariana acertó con su explosión mágica a Rival (20 HP)"}
+ ];
+ const oldNarrative=narrateCombat(oldEvents,s.actors);
+ assert.match(oldNarrative,/rayo mágico perforante desde el espejo/);
+ assert.doesNotMatch(oldNarrative,/explosión mágica/);
+});
+
+test("multiple mirror rays still allow separate defenses on the same round",()=>{
+ let s=cast(initial());
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ s=cast(s,"mirror-second-ray-12345",{x:.7,y:.6});
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ s.actors.PLAYER.spentTicks=100;
+ s.actors.NPC.spentTicks=80;
+ s=applyCombatCommand(s,"NPC",{kind:"WAIT"},dice);
+ assert.equal(s.round,2);
+ assert.equal(s.pending?.mirrorAuto,true);
+ const firstId=s.pending.mirrorId;
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ assert.equal(s.pending?.mirrorAuto,true);
+ assert.notEqual(s.pending?.mirrorId,firstId);
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ assert.equal(s.pending,null);
+ assert.equal(s.log.filter(e=>e.kind==="RESOLVE"&&e.mirrorShot).length,4);
 });

@@ -241,7 +241,10 @@ export default function CombatEncounter({id}:{id:string}) {
   setPoints(physicalAnchor?[physicalAnchor,physicalAnchor]:defaultPath);
  },[side,activeAttackSource,physicalAnchor?.x,physicalAnchor?.y]);
  const hasAvailableBlock=state?.constructions?.some(c=>c.owner===side&&c.form==="BLOCK"&&(c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35);
- const selectedDefense=(defense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
+ // A fully spent 100-tick turn (or exhausted PA) cannot pay a defense.
+ // Reflect the authoritative server fallback before the user draws an aim point.
+ const hasReactionBudget=!!actor&&remainingAp(actor)>0&&actor.spentTicks<100;
+ const selectedDefense:DefenseChoice=!hasReactionBudget?"NONE":(defense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
   ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
   : (defense==="MAGIC_FIELD"||(pending?.attackArea&&defense==="DEFLECT")?"DODGE":defense);
  const hasAccess=view?.permissions[side]??false;
@@ -324,7 +327,7 @@ export default function CombatEncounter({id}:{id:string}) {
   void submit({kind:"BOOST_KARMA",requestId,allocation});
  }
  function prepareAreaSkill(skill:CombatSkillPreview){
-  if(!skill.attackArea||skill.skillKind!=="OFFENSE")return;
+  if(skill.attackArea?.shape!=="CIRCLE"||skill.skillKind!=="OFFENSE")return;
   setPreparedAreaSkill(skill);
   setAreaCenter(null);
   setAttackTargetId("");
@@ -340,10 +343,10 @@ export default function CombatEncounter({id}:{id:string}) {
   void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
    trajectory:construction||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
    attackSource:construction||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
-   areaCenter:construction?constructionCenter??undefined:skill.usesMagic||skill.attackArea?areaCenter??undefined:undefined,
+   areaCenter:skill.attackArea?.shape==="SELF_FIELD"?undefined:construction?constructionCenter??undefined:skill.usesMagic||skill.attackArea?areaCenter??undefined:undefined,
    constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
    constructionLabel:construction?constructionLabel.trim():undefined,
-   targetConstructionId:!construction&&selectedAttackTargetId?selectedAttackTargetId:undefined});
+   targetConstructionId:!construction&&skill.attackArea?.shape!=="SELF_FIELD"&&selectedAttackTargetId?selectedAttackTargetId:undefined});
  }
  const chronicle=state?.status==="FINISHED"
   ?((state.narrativeVersion??0)>=2&&state.narrativeText
@@ -416,8 +419,8 @@ export default function CombatEncounter({id}:{id:string}) {
     </label>}
     {pending?
       <p role="status" className="mt-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-3 text-amber-200">
-       <b>Reacción pendiente:</b> {state.actors[pending.by].name} lanzó {pending.attackArea?<>un ataque circular de <b>{pending.attackArea.radiusMeters} m de radio</b></>:pending.usesMagic?<>un ataque mágico de <b>{attackNames[pending.attackType]}</b></>:<>un ataque de <b>{attackNames[pending.attackType]}</b></>} contra {state.actors[pending.against].name}.
-       {" "}{pending.usesMagic||pending.attackArea?<>Región aproximada: <b>{hint}</b> (cuatro casillas resaltadas). El centro exacto está oculto.</>:<>Trayectoria aparente: <b>{attackDirection(pending.trajectory)}</b>.</>}
+       <b>Reacción pendiente:</b> {state.actors[pending.by].name} lanzó {pending.attackArea?.shape==="SELF_FIELD"?<>un barrido físico a su alrededor de <b>{pending.attackArea.radiusMeters} m</b></>:pending.attackArea?<>un ataque circular de <b>{pending.attackArea.radiusMeters} m de radio</b></>:pending.usesMagic?<>un ataque mágico de <b>{attackNames[pending.attackType]}</b></>:<>un ataque de <b>{attackNames[pending.attackType]}</b></>} contra {state.actors[pending.against].name}.
+       {" "}{pending.usesMagic||pending.attackArea?.shape==="CIRCLE"?<>Región aproximada: <b>{hint}</b> (cuatro casillas resaltadas). El centro exacto está oculto.</>:<>Trayectoria aparente: <b>{attackDirection(pending.trajectory)}</b>.</>}
        {defending?" Elige cómo responder.":" Esperando la decisión del defensor."}
       </p>:
       <p className="mt-4 text-sm text-zinc-400">
@@ -432,8 +435,11 @@ export default function CombatEncounter({id}:{id:string}) {
       </button>}
     {defending&&hasAccess&&<div className="mt-4 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
+     {!hasReactionBudget&&<p role="status" className="rounded-lg border border-amber-400/50 bg-amber-400/10 p-3 text-sm text-amber-200">
+      No puedes esquivar ni defenderte activamente: {actor&&remainingAp(actor)<=0?"agotaste tus puntos de acción":"agotaste los 100 ticks de este turno"}. Puedes recibir el impacto sin gastar otra acción.
+     </p>}
      <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Opciones de defensa">
-      {options.filter(opt=>pending.usesMagic
+      {options.filter(opt=>!hasReactionBudget?opt.value==="NONE":pending.usesMagic
         ? ["DODGE","MAGIC_FIELD","CONSTRUCTION","ENDURE","NONE"].includes(opt.value)&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)
         : opt.value!=="MAGIC_FIELD"&&(!pending.attackArea||opt.value!=="DEFLECT")&&
@@ -454,8 +460,8 @@ export default function CombatEncounter({id}:{id:string}) {
       {selectedDefense==="MAGIC_FIELD"&&actor?.magicFieldDescription?" · "+actor.magicFieldDescription:""}
       {selectedDefense==="MAGIC_FIELD"?" · "+fieldNames[actor?.magicFieldType??"CONCENTRATED"]:""}
      </p>
-     {(pending.usesMagic||pending.rangedPhysical||pending.attackArea)&&["DODGE","DEFLECT"].includes(selectedDefense)&&<div className="space-y-2">
-      <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":pending.attackArea?"Predice el epicentro del ataque circular; NO marques una zona segura.":"Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo."} Toca el terreno para marcarlo. La región resaltada es una pista, no el punto exacto; acertar la predicción también requiere superar la tirada defensiva.</p>
+     {(pending.usesMagic||pending.rangedPhysical||pending.attackArea?.shape==="CIRCLE")&&["DODGE","DEFLECT"].includes(selectedDefense)&&<div className="space-y-2">
+      <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":pending.attackArea?.shape==="CIRCLE"?"Predice el epicentro del ataque circular; NO marques una zona segura.":"Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo."} Toca el terreno para marcarlo. La región resaltada es una pista, no el punto exacto; acertar la predicción también requiere superar la tirada defensiva.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         onPointerDown={e=>setPredictedCenter(toPoint(e))}
         className="aspect-square w-full max-w-xl cursor-crosshair touch-none rounded-lg border border-amber-500/40 bg-zinc-900"
@@ -503,9 +509,9 @@ export default function CombatEncounter({id}:{id:string}) {
        </select>
       </label>}
      <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,constructionId:selectedDefense==="CONSTRUCTION"?chosenDefenseConstruction:undefined,defenseAngle:angle,weaponSlot:dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,dodgeDirection:selectedDefense==="DODGE"?dodgeDirection:undefined,
-        predictedCenter:(pending.usesMagic||pending.rangedPhysical||pending.attackArea)&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
-      disabled={busy||((pending.usesMagic||pending.rangedPhysical||pending.attackArea)&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
-      {busy?"Resolviendo…":"Responder al ataque"}
+        predictedCenter:(pending.usesMagic||pending.rangedPhysical||pending.attackArea?.shape==="CIRCLE")&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
+      disabled={busy||((pending.usesMagic||pending.rangedPhysical||pending.attackArea?.shape==="CIRCLE")&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
+      {busy?"Resolviendo…":!hasReactionBudget?"Recibir impacto (sin reacción)":"Responder al ataque"}
      </button>
     </div>}
     {!pending&&state.status==="ACTIVE"&&hasAccess&&<div className="mt-5 space-y-4">

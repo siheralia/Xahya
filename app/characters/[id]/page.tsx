@@ -25,6 +25,7 @@ import { calculateSkillPch, skillEffectMultiplier, type EffectPricingMap } from 
 
 import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
 import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
+import type {EffectContainer} from "@/lib/effects/micro-modules";
 import Link from "next/link";
 import { Swords, Shield, Heart, Droplets, Sparkles, Wind, Orbit, Copy, Check } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
@@ -38,7 +39,7 @@ type EquipmentItem = {
   item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; stat?: string; value: number; description?: string; action?: string }[] } | null;
 };
 
-type SkillEffect = { type: string; target?: string; value?: number; description?: string;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean; durationTurns?: number; durationMovements?: number; targetKind?: "SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT"; targetReference?: string; activationCondition?: "NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT" };
+type SkillEffect = { type: string; module?:EffectContainer; pricingNotes?:string;reviewedPch?:number; target?: string; value?: number; description?: string;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean; durationTurns?: number; durationMovements?: number; targetKind?: "SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT"; targetReference?: string; activationCondition?: "NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT" };
 type SkillState = { id:number; characterId:number; skillId:number; active:boolean; accumulations:number; totalTicks:number; lastTickAt:string|null; };
 type Skill = {
   id: number; characterId: number; name: string; cost: number; accumulationCost: number; accumulationPerTick: number; maintenanceCost: number; description: string | null; duration: string | null;
@@ -1425,7 +1426,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       setPendingSkills((current) => [data.skill, ...current]);
       setSkillModalOpen(false);
       setSkillForm({ name: "", cost: 0, accumulationCost: 0, accumulationPerTick: 0, maintenanceCost: 0, description: "", duration: "Instantánea", category: "OFFENSIVE", attackType: null, defenseType: null, areaOfEffect: "Objetivo único", maxRangeMeters: 5, speed: "DEFAULT", cooldown: "Sin cooldown", condition: "", mechanics:{}, effectRequirements: [], effect: [] });
-      setSuccess("Habilidad enviada. Quedó pendiente de aprobación administrativa.");
+      setSuccess(skillForm.effect.some(e=>e.type==="COMPOSED")?"Habilidad y efectos modulares enviados juntos a aprobación. Se reservó el PCH provisional; administración confirmará el costo definitivo.":"Habilidad enviada. Quedó pendiente de aprobación administrativa.");
       const refreshed = await fetch("/api/characters/" + character.id + "/skills", { cache: "no-store" });
       if (refreshed.ok) {
         const skillData = await refreshed.json();

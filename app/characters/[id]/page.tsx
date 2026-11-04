@@ -1,3 +1,4 @@
+import {normalizeSkillArea} from "@/lib/skills/area-of-effect";
 "use client";
 import { effectRequirementDiscount } from "@/lib/skills/effect-requirements";
 import { prerequisiteAdjustedPch } from "@/lib/skills/prerequisite-discount";
@@ -1454,7 +1455,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       name:skill.name,cost:Number(skill.cost),accumulationCost:Number(skill.accumulationCost??0),
       accumulationPerTick:Number(skill.accumulationPerTick??0),maintenanceCost:Number(skill.maintenanceCost??0),
       description:skill.description??"",duration:skill.duration??"Instantánea",category:skill.category,attackType:skill.attackType??null,defenseType:skill.defenseType??null,
-      areaOfEffect:skill.areaOfEffect?.split("|")[0]?.trim()??"Objetivo único",
+      areaOfEffect:normalizeSkillArea(skill.areaOfEffect),
       maxRangeMeters:Number(skill.areaOfEffect?.match(/Alcance máximo: (\d+) m/)?.[1]??5),
       speed:skill.speed??"DEFAULT",cooldown:skill.cooldown??"Sin cooldown",
       condition:skill.condition??"",mechanics:skill.mechanics??{},effectRequirements:skill.effectRequirements??[],effect:skill.effect??[]

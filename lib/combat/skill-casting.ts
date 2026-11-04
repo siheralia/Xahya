@@ -203,7 +203,8 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
    defenseFactor=shadow.defenseFactor;
    final=shadow.finalMultiplier;
    healing=shadow.healing;
-   bonuses.splice(0,bonuses.length,...shadow.bonuses);
+   // Stats keep the validated CombatBuffStat aliases from the legacy compiler.
+   bonuses.splice(0,bonuses.length,...shadow.bonuses.map((b,i)=>({stat:bonuses[i].stat,value:b.value})));
    if(mirror && shadow.mirror)mirror=shadow.mirror;
  }
 

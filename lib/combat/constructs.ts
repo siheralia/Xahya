@@ -6,6 +6,8 @@ export type ConstructionPlan={material:string;label:string};
 export type CombatConstruction={
  id:string;owner:Side;sourceSkillId:number;material:string;
  form:ConstructionForm;label:string;center:Point;createdRound:number;
+ /** For mirrors only: longitudinal world coordinate (m) where it was summoned. */
+ positionMeters?:number;
  /** A cosmetic construction cannot intercept attacks or affect stats. */
  tangible:boolean;durability?:number;hitCount?:number;
  /** A mirror acts independently once per round and reflects only incoming magic. */

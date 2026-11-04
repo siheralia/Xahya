@@ -1,7 +1,7 @@
 import type {CombatAttackType} from "./ticks.ts";
 import type {CombatFighter,CombatLog,Side} from "./turn-engine.ts";
 
-export const COMBAT_NARRATIVE_VERSION=2;
+export const COMBAT_NARRATIVE_VERSION=3;
 type Fighters=Record<Side,Pick<CombatFighter,"name">&Partial<Pick<CombatFighter,"hp"|"maxHp">>>;
 type Beat=
  | {kind:"ATTACK";launch?:CombatLog;result?:CombatLog}
@@ -81,7 +81,12 @@ function describeAttack(
  const ranged=Boolean(launch?.rangedPhysical||launch?.summary?.includes("proyectil"));
  const type=launch?.attackType??impact?.attackType;
  const technique=launch?.skillName;
- const descriptor=noun(type,magic,ranged,thrown,launch?.weaponName);
+ // Historic mirror logs (before mirrorShot existed) explicitly say the
+ // construction launched a ray. Reconstruct their chronicles correctly too.
+ const mirrorShot=Boolean(launch?.mirrorShot||impact?.mirrorShot||
+  /invocó .+ y lanzó un rayo mágico|proyectó un rayo mágico/i.test(launch?.summary??""));
+ const descriptor=mirrorShot?"un rayo mágico perforante desde el espejo":
+  noun(type,magic,ranged,thrown,launch?.weaponName);
  const withWeapon=!magic&&!ranged&&!thrown&&launch?.weaponName?descriptor+" con "+launch.weaponName:descriptor;
  const act=technique?"la técnica «"+technique+"» ("+withWeapon+")":withWeapon;
  const key=side+":"+(magic?"MAGIC":ranged?"RANGED":"PHYSICAL")+":"+(type??"OTHER");
@@ -92,7 +97,7 @@ function describeAttack(
  const followingMiss=ctx.lastAttacker===side&&ctx.lastMissed;
  const damage=typeof impact?.damage==="number"?Math.max(0,impact.damage):0;
  const landed=Boolean(impact?.contact&&damage>0);
- const avoided=Boolean(impact&&/evitó el ataque|escapó de la explosión/i.test(impact.summary));
+ const avoided=Boolean(impact&&/evitó el ataque|escapó de la explosión|esquivó el rayo/i.test(impact.summary));
  const defended=impact?.defense;
  const reaction=defended==="DEFLECT"?"al intento de desvío":
   defended==="BLOCK"?"al bloqueo":

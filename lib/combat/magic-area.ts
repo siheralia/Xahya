@@ -57,6 +57,9 @@ export function combatClientView(state:CombatState):CombatState {
   // Upgrade old pending 3×3 hints without exposing their exact epicenter.
   clone.pending.areaHint=magicImpactZone(state.pending.targetCenter);
   delete clone.pending.targetCenter;
+  // The real mirror ray geometry is server-side until the defender reacts.
+  // Otherwise the trajectory endpoint would disclose the hidden aim point.
+  if(state.pending.mirrorId)clone.pending.trajectory=[];
  }
  return clone;
 }

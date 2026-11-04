@@ -796,10 +796,17 @@ export default function CombatEncounter({id}:{id:string}) {
          <small className="ml-2 text-zinc-400">Desplazamiento: {entry.knockbackMeters} m</small>}
         {entry.kind==="RESOLVE"&&entry.areaCenter&&
          <div className="mt-2 max-w-[200px]">
-          <p className="text-xs text-zinc-400">Explosión revelada (morado){entry.predictedCenter?" · predicción (azul)":""}</p>
-          <svg viewBox="0 0 100 100" className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900" aria-label="Resultado de predicción e impacto mágico">
-           <circle cx={entry.areaCenter.x*100} cy={entry.areaCenter.y*100} r={BASIC_MAGIC_AREA_RADIUS*100}
-             fill="#c084fc" fillOpacity={0.4} stroke="#e9d5ff" strokeWidth={1}/>
+          <p className="text-xs text-zinc-400">{entry.mirrorShot?"Rayo del espejo revelado (cian) · impacto (morado)":"Explosión revelada (morado)"}{entry.predictedCenter?" · predicción (azul)":""}</p>
+          <svg viewBox="0 0 100 100" className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900" aria-label={entry.mirrorShot?"Trayectoria del rayo e impacto revelados":"Resultado de predicción e impacto mágico"}>
+           {entry.mirrorShot
+            ?entry.mirrorOrigin&&<line x1={entry.mirrorOrigin.x*100} y1={entry.mirrorOrigin.y*100}
+              x2={entry.areaCenter.x*100} y2={entry.areaCenter.y*100}
+              stroke="#67e8f9" strokeWidth={1.5} strokeLinecap="round"/>
+            :<circle cx={entry.areaCenter.x*100} cy={entry.areaCenter.y*100} r={BASIC_MAGIC_AREA_RADIUS*100}
+              fill="#c084fc" fillOpacity={0.4} stroke="#e9d5ff" strokeWidth={1}/>}
+           {entry.mirrorShot&&entry.mirrorOrigin&&<rect x={entry.mirrorOrigin.x*100-1.8}
+             y={entry.mirrorOrigin.y*100-3.5} width={3.6} height={7} rx={0.7}
+             fill="#164e63" stroke="#67e8f9" strokeWidth={0.8}/>}
            <circle cx={entry.areaCenter.x*100} cy={entry.areaCenter.y*100} r={2} fill="#f5d0fe"/>
            {entry.predictedCenter&&<circle cx={entry.predictedCenter.x*100} cy={entry.predictedCenter.y*100} r={2.8} fill="#38bdf8"/>}
           </svg>

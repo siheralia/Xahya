@@ -94,10 +94,12 @@ export default function CombatEncounter({id}:{id:string}) {
  const [actionFeedback,setActionFeedback]=useState("");
  const [narrativeCopyStatus,setNarrativeCopyStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
+ useEffect(()=>{setPreparedAreaSkill(null);},[side]);
  const [attackSource,setAttackSource]=useState<PhysicalAttackSource>("MAIN_HAND");
  const [recoverSlot,setRecoverSlot]=useState<"MAIN_HAND"|"OFF_HAND">("MAIN_HAND");
  const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW">("PHYSICAL");
  const [preparedAreaSkill,setPreparedAreaSkill]=useState<CombatSkillPreview|null>(null);
+
 
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
  const [constructionCenter,setConstructionCenter]=useState<Point|null>(null);
@@ -605,11 +607,11 @@ export default function CombatEncounter({id}:{id:string}) {
       <div className="mt-3 flex flex-wrap items-end gap-3">
        <div className="text-sm">{attackMode==="MAGIC_AREA"?(preparedAreaSkill?"Tipo de ataque de la habilidad":"Tipo de magia básica"):"Tipo de ataque físico"}
         <div className="mt-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">{attackNames[displayedAttackType]}
-          <span className="ml-2 text-xs text-zinc-400">Configurado en la ficha o el arma</span>
+          <span className="ml-2 text-xs text-zinc-400">{preparedAreaSkill&&attackMode==="MAGIC_AREA"?"Configurado en la habilidad":"Configurado en la ficha o el arma"}</span>
         </div>
        </div>
-       {basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">El ataque básico está fuera de alcance: {targetDistance.toFixed(2)} m frente a {basicReach.toFixed(2)} m.</p>}
-       <button disabled={!ready||basicOutOfRange||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
+       {!preparedAreaSkill&&basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">El ataque básico está fuera de alcance: {targetDistance.toFixed(2)} m frente a {basicReach.toFixed(2)} m.</p>}
+       {!(attackMode==="MAGIC_AREA"&&preparedAreaSkill)&&<button disabled={!ready||basicOutOfRange||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
            ? {kind:"ATTACK",usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
            : attackMode==="THROW"?{kind:"ATTACK",throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
@@ -617,7 +619,7 @@ export default function CombatEncounter({id}:{id:string}) {
            : {kind:"ATTACK",attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath,targetConstructionId:selectedAttackTargetId||undefined})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
         {attackMode==="MAGIC_AREA"?"Lanzar magia básica":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
-       </button>
+       </button>}
        {attackMode==="MAGIC_AREA"&&preparedAreaSkill?.attackArea&&<button type="button"
          disabled={!ready||!areaCenter||targetDistance>(preparedAreaSkill.rangeMeters??0)||
            (state.mana?.[side]?.current??0)<preparedAreaSkill.manaCost}
@@ -625,6 +627,9 @@ export default function CombatEncounter({id}:{id:string}) {
          className="rounded-lg bg-violet-500 px-5 py-2 font-bold text-white disabled:opacity-40">
          Lanzar {preparedAreaSkill.name} · {preparedAreaSkill.manaCost} maná
        </button>}
+       {attackMode==="MAGIC_AREA"&&preparedAreaSkill&&<button type="button"
+         onClick={()=>{setPreparedAreaSkill(null);setAreaCenter(null);}}
+         className="rounded-lg border border-zinc-600 px-3 py-2 text-xs text-zinc-300">Cancelar preparación</button>}
       </div>
      </div>
     </div>}

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { applyCombatCommand, canAct, newCombatState, remainingAp } from "../lib/combat/turn-engine.ts";
 import { chooseNpcReaction, progressTrainingNpc } from "../lib/combat/npc-policy.ts";
 import { compileCombatSkill } from "../lib/combat/skill-casting.ts";
@@ -165,4 +166,43 @@ test("aggressive NPC casts a real published-style ability using encounter mana a
  assert.equal(s.skillCooldowns.NPC[String(plan.id)],4);
  assert.equal(s.trainingNpc.extraPerks.length,3);
  assert.equal(s.trainingNpc.racialPerks.length,1);
+});
+
+
+test("encounter 49: an exhausted Arissa can resolve Robin Hood's arrow without an illegal dodge-direction error",()=>{
+ const arissa=fighter("Arissa Grazzi",11,{positionMeters:0,hp:80,maxHp:80});
+ const robin=fighter("Robin Hood",31,{positionMeters:1.5,attackType:"PIERCE",
+  equippedWeapon:{name:"Ballesta",attackType:"PIERCE",mode:"RANGED",
+   effectiveRangeMeters:14,maximumRangeMeters:28}});
+ let state=newCombatState(arissa,robin,"NPC");
+ // Her opening Meia-lua (BLUNT at speed 11) has consumed the whole tick budget.
+ state.actors.PLAYER.spentTicks=100;
+ state.actors.PLAYER.spentAp=1;
+ state=applyCombatCommand(state,"NPC",{
+   kind:"ATTACK",attackType:"PIERCE",rangedPhysical:true,
+   attackSource:"MAIN_HAND",areaCenter:{x:0.5,y:0.5},
+ },{hit:0.01,critical:0.99,defense:0.99});
+ assert.equal(state.pending?.against,"PLAYER");
+ assert.equal(state.pending?.rangedPhysical,true);
+ const original=structuredClone(state);
+ const next=applyCombatCommand(state,"PLAYER",{
+   kind:"DEFEND",defense:"DODGE",dodgeDirection:"AWAY",
+   predictedCenter:{x:0.5,y:0.5},
+ },{hit:0.99,critical:0.99,defense:0.99});
+ const resolve=next.log.findLast(e=>e.kind==="RESOLVE");
+ assert.equal(resolve.defense,"NONE","exhausted fighters still cannot gain a free dodge");
+ assert.equal(next.actors.PLAYER.positionMeters,0,"no unauthorized displacement");
+ assert.equal(next.actors.PLAYER.spentAp,1,"no extra AP is spent");
+ assert.equal(original.pending.rangedPhysical,true,"the original state stays immutable");
+ assert.throws(()=>applyCombatCommand(state,"PLAYER",{
+   kind:"DEFEND",defense:"NONE",dodgeDirection:"AWAY",
+ }),/Solo puedes elegir desplazamiento para Esquivar/,"invalid explicit displacement remains rejected");
+});
+
+test("combat UI explains exhausted reaction instead of offering impossible aim/prediction",()=>{
+ const page=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
+ assert.match(page,/const hasReactionBudget=.*remainingAp\(actor\)>0&&actor\.spentTicks<100/);
+ assert.match(page,/!hasReactionBudget\?opt\.value==="NONE"/);
+ assert.match(page,/agotaste los 100 ticks de este turno/);
+ assert.match(page,/Recibir impacto \(sin reacción\)/);
 });

@@ -1,3 +1,4 @@
+import {serializeSkillRange} from "@/lib/skills/range-storage";
 import {auth} from "@clerk/nextjs/server";
 import {NextResponse} from "next/server";
 import {db} from "@/lib/db";
@@ -130,7 +131,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     characterId:access.characterId,name:p.name,description:p.description,
     cost:p.cost,maintenanceCost:p.maintenanceCost,
     accumulationCost:p.accumulationCost,accumulationPerTick:p.accumulationPerTick,
-    duration:p.duration,category:p.category,areaOfEffect:String(p.areaOfEffect??"Objetivo único")+" | Alcance máximo: "+p.maxRangeMeters+" m",
+    duration:p.duration,category:p.category,areaOfEffect:serializeSkillRange(p.areaOfEffect,p.maxRangeMeters),
     speed:p.speed,cooldown:p.cooldown,condition:p.condition,
     attackType:p.attackType,defenseType:p.defenseType,
     effect:p.effect,effectRequirements:p.effectRequirements,

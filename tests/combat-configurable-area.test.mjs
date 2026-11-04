@@ -80,7 +80,7 @@ test("magical circular attack only hits when the target is inside its configured
 test("physical circular strike uses physical attack, spatial contact, and no phantom hand-stroke",()=>{
  let s=cast(initial(),circle(106,false));
  assert.equal(s.pending.usesMagic,false);
- assert.equal(s.pending.rangedPhysical,undefined);
+ assert.equal(s.pending.rangedPhysical,false);
  assert.equal(s.pending.attackArea.radiusMeters,3);
  assert.deepEqual(s.physicalPathEnds,{},"an area attack does not set the next weapon stroke origin");
  assert.throws(()=>applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"DEFLECT"},dice),/circulares/);

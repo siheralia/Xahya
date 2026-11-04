@@ -7,7 +7,7 @@ import {
   emptyMicroState,executeMicroEvent,validateEffectContainers,
   type EffectContainer,type MicroIntent,type MicroStep,
 } from "./micro-modules.ts";
-import {validateVariableResistance,withResistanceOwners,type VariableResistance} from "../skills/variable-resistance.ts";
+import {validateVariableResistance,type VariableResistance} from "../skills/variable-resistance.ts";
 
 export type LegacyShadowPart={
   sourceIndex:number; sourceType:string; status:"EXECUTABLE"|"DESCRIPTION_ONLY"|"UNSUPPORTED";
@@ -131,6 +131,20 @@ export function modularStepsForLegacyEffect(raw:unknown):{
       return {status:"UNSUPPORTED",steps:[],reason:"Tipo no implementado como micromódulo"};
   }
 }
+/** Default role wiring; abilities may replace either READ_* producer with a
+ * compatible stat source, event value, or stored accumulator output. */
+export function variableResistanceStatGraph(config:VariableResistance):MicroStep[] {
+  const inputActor:"USER"|"OPPONENT"=
+    config.input==="HP_PERCENT"||config.input==="HIT_COUNT"?"USER":"OPPONENT";
+  return [
+    {kind:"READ_STAT",actor:"USER",stat:config.baseStat,output:"resistanceBase"},
+    {kind:"READ_STAT",actor:inputActor,stat:config.input,output:"resistanceInput"},
+    {kind:"VARIABLE_RESISTANCE",config,
+      base:{source:"OUTPUT",key:"resistanceBase"},
+      input:{source:"OUTPUT",key:"resistanceInput"}},
+  ];
+}
+
 export function cloneLegacySkillAsMicro(
   row:Record<string,unknown>,
   source:LegacyModularShadow["origin"]["source"]="skill",
@@ -150,7 +164,7 @@ export function cloneLegacySkillAsMicro(
     // The existing Sikatā parent/activation check stays in attachedCreationPassive;
     // a dynamic block is resolved only when a block is actually defending.
     const steps:MicroStep[]=dynamic?
-      [...projection.steps,{kind:"VARIABLE_RESISTANCE",config:withResistanceOwners(resistance as VariableResistance)}]:projection.steps;
+      [...projection.steps,...variableResistanceStatGraph(resistance as VariableResistance)]:projection.steps;
     const modules:EffectContainer[]=steps.length?[{
       id:"LEGACY_"+id+"_"+index,name:name+" / "+effectType,type:"LEGACY_MICRO",
       description:typeof (e as Record<string,unknown>)?.description==="string"
@@ -284,31 +298,28 @@ export function legacyShadowCopyConfig(raw:unknown):{
  * the shadow gallery displays. Authorization/ownership remains in constructs.ts.
  * The returned value is numeric, never a client-provided defense claim.
  */
-export type ModularResistanceActorSnapshot={
-  stats:Record<string,number>;
-  inputs?:Partial<Record<VariableResistance["input"],number>>;
-};
-export type ModularResistanceSources={
-  user:ModularResistanceActorSnapshot;
-  opponent:ModularResistanceActorSnapshot;
-};
-export function calculateModularVariableResistance(
-  config:VariableResistance,sources:ModularResistanceSources,
-):{multiplier:number;resistance:number}{
+export function calculateModularVariableResistance(config:VariableResistance,base:number,input:number):{
+  multiplier:number;resistance:number;
+}{
   if(validateVariableResistance(config))throw new Error("Resistencia variable no autorizada.");
+  if(!Number.isFinite(base)||base<0||!Number.isFinite(input)||input<0)
+    throw new Error("Defensa y velocidad/entrada inválidas.");
+  const inputActor=config.input==="HP_PERCENT"||config.input==="HIT_COUNT"?"USER":"OPPONENT";
+  if(inputActor==="USER" && config.baseStat===config.input && base!==input)
+    throw new Error("Dos valores incompatibles para la misma estadística del usuario.");
+  const userStats={HP:0,MAX_HP:1,[config.baseStat]:base,
+    ...(inputActor==="USER"?{[config.input]:input}:{})};
+  const opponentStats=inputActor==="OPPONENT"?{[config.input]:input}:{};
   const effect:EffectContainer={
     id:"CONSTRUCTION_DYNAMIC_RESISTANCE",name:"Resistencia dinámica",
     type:"PASSIVE",description:"",trigger:"PASSIVE",
-    steps:[{kind:"VARIABLE_RESISTANCE",config}],
+    steps:variableResistanceStatGraph(config),
   };
-  // The micro evaluator sees two distinct actors, not unlabelled scalar inputs.
   const result=executeMicroEvent(emptyMicroState(),[effect],{
     eventId:"CONSTRUCTION_RESOLVE",ownerId:1,trigger:"PASSIVE",
-    stats:{HP:0,MAX_HP:1,...sources.user.stats},
-    opponentStats:sources.opponent.stats,
-    inputByOwner:{USER:sources.user.inputs??{},OPPONENT:sources.opponent.inputs??{}},
+    stats:userStats,actors:{USER:userStats,OPPONENT:opponentStats},
   });
-  const intent=result.intents[0];
+  const intent=result.intents.find(i=>i.kind==="VARIABLE_RESISTANCE");
   if(intent?.kind!=="VARIABLE_RESISTANCE"||result.intents.length!==1)
     throw new Error("El módulo de defensa no produjo una resistencia válida.");
   return {multiplier:intent.multiplier,resistance:intent.resistance};

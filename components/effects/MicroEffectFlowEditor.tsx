@@ -17,7 +17,7 @@ type FlowNode=Node<{
 
 const nodeTypes={skillStep:StepNode};
 const nodeId=(i:number)=>"step-"+i;
-const indexOfNode=(id:string)=>id.startsWith("step-")?Number(id.slice(5)):-1;
+const indexOfNode=(id:string|null|undefined)=>id?.startsWith("step-")?Number(id.slice(5)):-1;
 const outputOf=(step:MicroStep):string|undefined=>"output" in step?step.output:undefined;
 const connectionsFrom=(value:NumericExpr|undefined):string[]=>{
   if(value===undefined||typeof value==="number")return [];

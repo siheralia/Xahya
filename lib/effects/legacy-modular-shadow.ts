@@ -162,8 +162,14 @@ export function cloneLegacySkillAsMicro(
       resistance!==undefined && validateVariableResistance(resistance)===null;
     // The existing Sikatā parent/activation check stays in attachedCreationPassive;
     // a dynamic block is resolved only when a block is actually defending.
+    // Every legacy effect gets a visible copy. An unresolved type is carried
+    // as an inert CAPABILITY marker, never granted damage, buffs or permissions.
+    const inert:MicroStep={kind:"CAPABILITY",code:"NARRATIVE:OTHER",
+      target:effectType.slice(0,120),
+      description:"Pendiente de resolutor: "+(projection.reason??"Efecto no implementado")};
     const steps:MicroStep[]=dynamic?
-      [...projection.steps,...variableResistanceStatGraph(resistance as VariableResistance)]:projection.steps;
+      [...projection.steps,...variableResistanceStatGraph(resistance as VariableResistance)]:
+      projection.steps.length?projection.steps:[inert];
     const modules:EffectContainer[]=steps.length?[{
       id:"LEGACY_"+id+"_"+index,name:name+" / "+effectType,type:"LEGACY_MICRO",
       description:typeof (e as Record<string,unknown>)?.description==="string"

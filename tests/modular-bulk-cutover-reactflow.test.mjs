@@ -39,7 +39,7 @@ test("the bulk runtime switch is reversible and doesn't claim unsupported abilit
 });
 test("complete combat skill uses the module and rollback produces the exact same combat plan values",()=>{
  const skill={id:4237,status:"APPROVED",name:"Alfa",category:"OFFENSIVE",
-  cost:20,attackType:"CUT",areaOfEffect:"Alcance máximo: 5 m",
+  cost:20,attackType:"CUT",areaOfEffect:"Objetivo único | Alcance máximo: 5 m",
   cooldown:"1 turno",duration:"Instantánea",
   effect:[{type:"DAMAGE_MULTIPLIER",target:"PHYS_ATK",value:100},
     {type:"IGNORE_PHYS_DEF_MULTIPLIER",target:"PHYS_DEF",value:50},

@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { serializeSkillRange } from "@/lib/skills/range-storage";
+import {parseSkillArea} from "@/lib/skills/area-of-effect";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
@@ -22,6 +23,12 @@ async function getAdmin(action: "view" | "edit") {
 const CATEGORIES = ["OFFENSIVE", "PASSIVE", "SUPPORT", "UTILITY", "BASIC"] as const;
 
 function validate(body: any) {
+  if(!body||typeof body!=="object")return "Datos de habilidad inválidos.";
+  if(parseSkillArea(body.areaOfEffect??"Objetivo único").kind==="LEGACY")
+   return "Elige un tipo de área normalizado para nuevas habilidades.";
+  if(body.maxRangeMeters!==undefined &&
+   (!Number.isSafeInteger(body.maxRangeMeters)||body.maxRangeMeters<0||body.maxRangeMeters>100))
+   return "Distancia máxima inválida.";
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : "";
   const category = String(body.category ?? "UTILITY");

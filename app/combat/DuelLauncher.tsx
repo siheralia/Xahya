@@ -81,7 +81,7 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
       <option value="ENDURANCE">Resistencia · grandes cantidades de HP</option>
       <option value="AGGRESSIVE">Agresivo · presión constante y habilidades</option>
     </select>
-    <span className="mt-1 block text-xs text-zinc-400">El NPC hereda todos los perks de su raza y recibe otros tres, distintos, del catálogo activo. Las habilidades compatibles consumen maná y PA del combate.</span>
+    <span className="mt-1 block text-xs text-zinc-400">El NPC hereda sus perks raciales y sortea tres perks generales con probabilidad mayor que 0%, sin repetir. Algunos perks generales no tienen efectos aplicables al combate.</span>
    </label>}
    {error&&<p role="alert" className="text-rose-400">{error}</p>}
    <button type="button" onClick={()=>void start()} disabled={busy||loading||!characterId}

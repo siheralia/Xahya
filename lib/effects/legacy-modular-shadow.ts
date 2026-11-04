@@ -7,6 +7,7 @@ import {
   emptyMicroState,executeMicroEvent,validateEffectContainers,
   type EffectContainer,type MicroIntent,type MicroStep,
 } from "./micro-modules.ts";
+import {validateVariableResistance,type VariableResistance} from "../skills/variable-resistance.ts";
 
 export type LegacyShadowPart={
   sourceIndex:number; sourceType:string; status:"EXECUTABLE"|"DESCRIPTION_ONLY"|"UNSUPPORTED";
@@ -17,6 +18,11 @@ export type LegacyModularShadow={
   label:string;
   /** Virtual duplicate, never an approved skill or an automatic PCH purchase. */
   enabled:false;uncharged:true;parts:LegacyShadowPart[];
+  /** Every source effect gets a typed representation even when it requires human adjudication. */
+  represented:boolean;
+  /** Historical requirements belong to the skill, not to the narrated effect. */
+  rules:{category?:string;condition?:string;duration?:string;cooldown?:string;
+    maintenanceCost?:number;mechanics?:Record<string,unknown>};
   coverage:"COMPLETE"|"PARTIAL"|"UNSUPPORTED";
 };
 const pct=(value:number)=>value/100;
@@ -35,9 +41,23 @@ export function modularStepsForLegacyEffect(raw:unknown):{
   const type=String(e.type??""),target=String(e.target??"");
   const value=valueOf(e);
   if(type==="NARRATIVE"){
+    // A capability is a first-class micro-step, NOT a numeric combat effect.
+    // Retain the old card identifier, element, target and description verbatim.
+    const code=target.startsWith("CARD:W")?target:"NARRATIVE:OTHER";
+    if(!/^(CARD:W[0-9]{3}|NARRATIVE:OTHER)$/.test(code))
+      return {status:"UNSUPPORTED",steps:[],reason:"Código narrativo desconocido"};
+    const capability:MicroStep={kind:"CAPABILITY",code,
+      description:typeof e.description==="string"?e.description.slice(0,1500):"",
+      target:target||undefined,element:typeof e.element==="string"?e.element.toUpperCase():undefined,
+      targetKind:typeof e.targetKind==="string"?e.targetKind:undefined,
+      targetReference:typeof e.targetReference==="string"?e.targetReference:undefined,
+      durationMovements:typeof e.durationMovements==="number"?e.durationMovements:undefined,
+      activationCondition:typeof e.activationCondition==="string"?e.activationCondition:undefined,
+      value:typeof e.value==="number"?e.value:undefined};
     if(e.capability==="CREATE" && typeof e.element==="string" && validKey(e.element.toUpperCase()))
-      return {status:"EXECUTABLE",steps:[bonus("CONSTRUCTION:"+e.element.toUpperCase(),1)]};
-    return {status:"DESCRIPTION_ONLY",steps:[],reason:"Narrativa sin resolutor modular; se conserva en el original"};
+      return {status:"EXECUTABLE",steps:[capability,bonus("CONSTRUCTION:"+e.element.toUpperCase(),1)]};
+    return {status:"DESCRIPTION_ONLY",steps:[capability],
+      reason:"Capacidad modular declarativa, sin bonificación automática ni resolutor de acción"};
   }
   if(!good(value))return {status:"UNSUPPORTED",steps:[],reason:"Valor no numérico o fuera de límites"};
   switch(type){
@@ -121,18 +141,43 @@ export function cloneLegacySkillAsMicro(
   const parts:LegacyShadowPart[]=row.effect.map((e,index)=>{
     const projection=modularStepsForLegacyEffect(e);
     const effectType=e&&typeof e==="object"&&!Array.isArray(e)?String((e as Record<string,unknown>).type??""):"";
-    const modules:EffectContainer[]=projection.steps.length?[{
+    const mechanics=row.mechanics&&typeof row.mechanics==="object"&&!Array.isArray(row.mechanics)
+      ?row.mechanics as Record<string,unknown>:null;
+    const resistance=mechanics?.variableResistance;
+    const dynamic=source==="skill"&&row.category==="PASSIVE"&&
+      (e as Record<string,unknown>)?.type==="NARRATIVE" &&
+      resistance!==undefined && validateVariableResistance(resistance)===null;
+    // The existing Sikatā parent/activation check stays in attachedCreationPassive;
+    // a dynamic block is resolved only when a block is actually defending.
+    const steps:MicroStep[]=dynamic?
+      [...projection.steps,{kind:"VARIABLE_RESISTANCE",config:resistance as VariableResistance}]:projection.steps;
+    const modules:EffectContainer[]=steps.length?[{
       id:"LEGACY_"+id+"_"+index,name:name+" / "+effectType,type:"LEGACY_MICRO",
-      description:"Versión modular de prueba",trigger:"PASSIVE",steps:projection.steps,
+      description:typeof (e as Record<string,unknown>)?.description==="string"
+        ?String((e as Record<string,unknown>).description).slice(0,2000):"Versión modular de prueba",
+      trigger:"PASSIVE",steps,
     }]:[];
     const error=validateEffectContainers(modules);
     if(error)throw new Error(error);
-    return {sourceIndex:index,sourceType:effectType,status:projection.status,
-      ...(projection.reason?{reason:projection.reason}:{}),modules};
+    return {sourceIndex:index,sourceType:effectType,
+      status:dynamic?"EXECUTABLE":projection.status,
+      ...(dynamic?{reason:"Defensa dinámica conectada al resolutor de construcciones autorizado"}:
+        projection.reason?{reason:projection.reason}:{}),modules};
   });
   const coverage=parts.every(p=>p.status==="EXECUTABLE")?"COMPLETE":
     parts.some(p=>p.status==="EXECUTABLE")?"PARTIAL":"UNSUPPORTED";
-  return {origin:{source,id,name},label:name+" · copia modular",enabled:false,uncharged:true,parts,coverage};
+  const ruleString=(key:string)=>typeof row[key]==="string"?String(row[key]):undefined;
+  return {origin:{source,id,name},label:name+" · copia modular",
+    enabled:false,uncharged:true,parts,coverage,
+    represented:parts.every(p=>p.modules.length>0),
+    rules:{
+      category:ruleString("category"),condition:ruleString("condition"),
+      duration:ruleString("duration"),cooldown:ruleString("cooldown"),
+      maintenanceCost:typeof row.maintenanceCost==="number"?row.maintenanceCost:undefined,
+      mechanics:row.mechanics&&typeof row.mechanics==="object"&&!Array.isArray(row.mechanics)
+        ?structuredClone(row.mechanics as Record<string,unknown>):undefined,
+    },
+  };
 }
 export function evaluateLegacyShadowParts(parts:readonly LegacyShadowPart[]):MicroIntent[] {
   if(parts.some(p=>p.status!=="EXECUTABLE"))throw new Error("La copia requiere un resolutor antes de ejecutarse.");
@@ -233,4 +278,30 @@ export function legacyShadowCopyConfig(raw:unknown):{
     copyAllowSpecial:values.get("COPY_ALLOW_SPECIAL")===1,
     copyAllowRacial:values.get("COPY_ALLOW_RACIAL")===1,
   };
+}
+
+/** Use the same pure modular step for the approved construction passive that
+ * the shadow gallery displays. Authorization/ownership remains in constructs.ts.
+ * The returned value is numeric, never a client-provided defense claim.
+ */
+export function calculateModularVariableResistance(config:VariableResistance,base:number,input:number):{
+  multiplier:number;resistance:number;
+}{
+  if(validateVariableResistance(config))throw new Error("Resistencia variable no autorizada.");
+  if(!Number.isFinite(base)||base<0||!Number.isFinite(input)||input<0)
+    throw new Error("Defensa y velocidad/entrada inválidas.");
+  const effect:EffectContainer={
+    id:"CONSTRUCTION_DYNAMIC_RESISTANCE",name:"Resistencia dinámica",
+    type:"PASSIVE",description:"",trigger:"PASSIVE",
+    steps:[{kind:"VARIABLE_RESISTANCE",config}],
+  };
+  const result=executeMicroEvent(emptyMicroState(),[effect],{
+    eventId:"CONSTRUCTION_RESOLVE",ownerId:1,trigger:"PASSIVE",
+    stats:{HP:0,MAX_HP:1,[config.baseStat]:base},
+    event:{[config.input]:input},
+  });
+  const intent=result.intents[0];
+  if(intent?.kind!=="VARIABLE_RESISTANCE"||result.intents.length!==1)
+    throw new Error("El módulo de defensa no produjo una resistencia válida.");
+  return {multiplier:intent.multiplier,resistance:intent.resistance};
 }

@@ -6,7 +6,7 @@ import { geometricContact } from "./geometry.ts";
 import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
 import { executeMicroEvent, emptyMicroState, validateEffectContainers, type EffectContainer, type MicroState } from "../effects/micro-modules.ts";
-import {calculateVariableResistance} from "../skills/variable-resistance.ts";
+import {calculateModularVariableResistance} from "../effects/legacy-modular-shadow.ts";
 import {validateConstructionPlacement,resolveConstructionForm,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 import {circularAreaHits,type CombatAttackArea} from "./skill-area.ts";
@@ -633,7 +633,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const input=resistance?.input==="INCOMING_DAMAGE"?power:
         resistance?.input==="HP_PERCENT"?100*fighter.hp/Math.max(1,fighter.maxHp):
         resistance?.input==="HIT_COUNT"?(block.hitCount??0):effectiveCombatSpeed(attacker);
-      const blockDefense=resistance?calculateVariableResistance(resistance,base,input).resistance:base;
+      const blockDefense=resistance?calculateModularVariableResistance(resistance,base,input).resistance:base;
       const previous=block.durability??0;
       const pressure=Math.max(1,Math.round(power/typeFactor));
       const held=blockDefense>=power && previous>=pressure;

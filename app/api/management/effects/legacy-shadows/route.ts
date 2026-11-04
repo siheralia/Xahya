@@ -30,7 +30,11 @@ export async function GET(){
       .map(row=>({source:"raceSkill" as const,row})),
     ...generics.filter((g:any)=>g.enabled)
       .map((g:any)=>({source:"genericSkillTemplate" as const,
-        row:{id:Number(g.id),name:String(g.name),effect:g.payload?.effect??[]}})),
+        row:{id:Number(g.id),name:String(g.name),category:g.payload?.category,
+          mechanics:g.payload?.mechanics??{},condition:g.payload?.condition??null,
+          duration:g.payload?.duration,cooldown:g.payload?.cooldown,
+          maintenanceCost:g.payload?.maintenanceCost,
+          effect:g.payload?.effect??[]}})),
   ];
   const duplicates:LegacyModularShadow[]=[];
   const errors:Array<{source:string;id:number;error:string}>=[];
@@ -45,6 +49,7 @@ export async function GET(){
     readonly:true,chargedPch:0,activated:false,
     counts:{
       originals:originals.length,duplicates:duplicates.length,
+      represented:duplicates.filter(d=>d.represented).length,
       complete:duplicates.filter(d=>d.coverage==="COMPLETE").length,
       partial:duplicates.filter(d=>d.coverage==="PARTIAL").length,
       unsupported:duplicates.filter(d=>d.coverage==="UNSUPPORTED").length,

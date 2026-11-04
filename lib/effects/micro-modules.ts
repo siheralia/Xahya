@@ -4,6 +4,8 @@
  * DAMAGE and MODIFIER produce intents for that resolver; HEAL updates HP here.
  * No eval, arbitrary source code, database I/O, or skill-name special cases.
  */
+import {calculateVariableResistance,validateVariableResistance,type VariableResistance} from "../skills/variable-resistance.ts";
+
 export type MicroEvent = "DAMAGE_RESOLVED" | "TURN_START" | "IMPACT" | "PASSIVE";
 export type ImpactKind = "CHARACTER" | "GROUND";
 export type NumericExpr = number
@@ -17,6 +19,10 @@ export type MicroStep = (
   | { kind: "DAMAGE"; amount: NumericExpr; channel: "PHYSICAL" | "MAGICAL"; element?: string; radiusMeters?: NumericExpr }
   | { kind: "MODIFIER"; stat: string; multiplier: NumericExpr }
   | { kind: "BONUS"; stat: string; amount: NumericExpr }
+  /** Structured legacy narrative: retains capability, no automatic numerical benefit. */
+  | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
+  /** Dynamic construction defense using the existing validated resistance formula. */
+  | { kind: "VARIABLE_RESISTANCE"; config: VariableResistance }
 ) & { when?: MicroCondition[] };
 export type EffectContainer = {
   id: string; name: string; type: string; description: string;
@@ -37,7 +43,9 @@ export type MicroIntent =
   | { kind: "HEAL"; requested: number; applied: number }
   | { kind: "DAMAGE"; amount: number; channel: "PHYSICAL" | "MAGICAL"; element?: string; radiusMeters?: number }
   | { kind: "MODIFIER"; stat: string; multiplier: number }
-  | { kind: "BONUS"; stat: string; amount: number };
+  | { kind: "BONUS"; stat: string; amount: number }
+  | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
+  | { kind: "VARIABLE_RESISTANCE"; stat: string; input: string; multiplier: number; resistance: number };
 export type MicroResult = { state: MicroState; hp: number; intents: MicroIntent[]; skipped: boolean };
 
 const KEY = /^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/;
@@ -112,6 +120,20 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
           case "BONUS":
             if (!validKey(step.stat)) fail("estadística inválida");
             checkExpr(step.amount); break;
+          case "CAPABILITY":
+            if (!/^(CARD:W[0-9]{3}|NARRATIVE:OTHER)$/.test(step.code)
+              || typeof step.description !== "string" || step.description.length > 1500
+              || (step.target !== undefined && (typeof step.target !== "string" || step.target.length > 120))
+              || (step.element !== undefined && !validKey(step.element))
+              || (step.targetKind !== undefined && (typeof step.targetKind !== "string" || step.targetKind.length > 60))
+              || (step.targetReference !== undefined && (typeof step.targetReference !== "string" || step.targetReference.length > 200))
+              || (step.durationMovements !== undefined && !integer(step.durationMovements,1,100))
+              || (step.activationCondition !== undefined && (typeof step.activationCondition !== "string" || step.activationCondition.length > 60))
+              || (step.value !== undefined && !finite(step.value))) fail("capacidad narrativa inválida");
+            break;
+          case "VARIABLE_RESISTANCE":
+            if (validateVariableResistance(step.config)) fail("resistencia variable inválida");
+            break;
           default: fail("operación desconocida");
         }
       }
@@ -243,6 +265,22 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
         case "BONUS": {
           const amount = evaluate(step.amount,ctx,state,outputs,hp);
           intents.push({kind:"BONUS",stat:step.stat,amount});
+          break;
+        }
+        case "CAPABILITY":
+          // Adjudicated or narrative-only: never grant an unconfigured bonus.
+          intents.push({kind:"CAPABILITY",code:step.code,description:step.description,
+            target:step.target,element:step.element,targetKind:step.targetKind,
+            targetReference:step.targetReference,durationMovements:step.durationMovements,
+            activationCondition:step.activationCondition,value:step.value});
+          break;
+        case "VARIABLE_RESISTANCE": {
+          const input=ctx.event?.[step.config.input],base=ctx.stats[step.config.baseStat];
+          if(!finite(input)||input<0||!finite(base)||base<0)
+            fail("la defensa dinámica requiere velocidad/entrada y estadística base válidas");
+          const resolved=calculateVariableResistance(step.config,base,input);
+          intents.push({kind:"VARIABLE_RESISTANCE",stat:step.config.baseStat,
+            input:step.config.input,multiplier:resolved.multiplier,resistance:resolved.resistance});
           break;
         }
       }

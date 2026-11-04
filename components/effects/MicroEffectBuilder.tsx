@@ -1,6 +1,7 @@
 "use client";
 
 import type {EffectContainer,MicroStep,MicroCondition,NumericExpr,MicroEvent} from "@/lib/effects/micro-modules";
+import {DEFAULT_VARIABLE_RESISTANCE} from "@/lib/skills/variable-resistance";
 
 const field="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm text-zinc-100";
 const key="^[A-Za-z][A-Za-z0-9_.:-]{0,63}$";
@@ -18,6 +19,8 @@ const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
     case "DAMAGE":return {kind,amount:10,channel:"MAGICAL"};
     case "MODIFIER":return {kind,stat:"RESISTANCE",multiplier:1.3};
     case "BONUS":return {kind,stat:"STR",amount:10};
+    case "CAPABILITY":return {kind,code:"NARRATIVE:OTHER",description:""};
+    case "VARIABLE_RESISTANCE":return {kind,config:{...DEFAULT_VARIABLE_RESISTANCE}};
   }
 };
 export function freshMicroEffect():EffectContainer{
@@ -81,8 +84,26 @@ function StepEditor({step,onChange,onDelete,index}:{step:MicroStep;onChange:(s:M
     <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold">Micromódulo {index+1}</h4>
       <button type="button" onClick={onDelete} className="text-xs text-rose-300">Eliminar</button></div>
     <label className="block text-xs">Operación<select className={"mt-1 "+field} value={step.kind} onChange={e=>onChange({...defaultStep(e.target.value as MicroStep["kind"]),when:step.when})}>
-      {["STORE","CONSUME","HEAL","DAMAGE","MODIFIER","BONUS"].map(kind=><option key={kind} value={kind}>{kind}</option>)}
+      {["STORE","CONSUME","HEAL","DAMAGE","MODIFIER","BONUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{kind}</option>)}
     </select></label>
+    {step.kind==="CAPABILITY"&&<div className="space-y-2">
+      <p className="text-xs text-amber-200">Capacidad declarativa: no modifica daño, PV ni estadísticas hasta que tenga un resolutor autorizado.</p>
+      <label className="block text-xs">Código de capacidad<input className={"mt-1 "+field} value={step.code} onChange={e=>change({code:e.target.value})} placeholder="CARD:W032 o NARRATIVE:OTHER"/></label>
+      <label className="block text-xs">Descripción<textarea className={"mt-1 "+field} rows={3} value={step.description} maxLength={1500} onChange={e=>change({description:e.target.value})}/></label>
+      <label className="block text-xs">Objetivo<input className={"mt-1 "+field} value={step.target??""} onChange={e=>change({target:e.target.value||undefined})}/></label>
+      <label className="block text-xs">Elemento<input className={"mt-1 "+field} value={step.element??""} onChange={e=>change({element:e.target.value||undefined})}/></label>
+    </div>}
+    {step.kind==="VARIABLE_RESISTANCE"&&<div className="space-y-2">
+      <p className="text-xs text-amber-200">La defensa variable necesita un contexto real de impacto y estadística base. No funciona como bono global del personaje.</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs">Estadística base<input className={"mt-1 "+field} value={step.config.baseStat} onChange={e=>change({config:{...step.config,baseStat:e.target.value}})}/></label>
+        <label className="text-xs">Variable<select className={"mt-1 "+field} value={step.config.input} onChange={e=>change({config:{...step.config,input:e.target.value as typeof step.config.input}})}>
+          {["ATTACK_SPEED","INCOMING_DAMAGE","HIT_COUNT","HP_PERCENT"].map(v=><option key={v} value={v}>{v}</option>)}</select></label>
+        <label className="text-xs">Fórmula<select className={"mt-1 "+field} value={step.config.formula} onChange={e=>change({config:{...step.config,formula:e.target.value as typeof step.config.formula}})}>
+          {["PROGRESSIVE","LINEAR","DECREASING","THRESHOLD","HITS"].map(v=><option key={v} value={v}>{v}</option>)}</select></label>
+        {(["threshold","coefficient","minMultiplier","maxMultiplier"] as const).map(k=><label key={k} className="text-xs">{k}<input type="number" step="any" className={"mt-1 "+field} value={step.config[k]} onChange={e=>change({config:{...step.config,[k]:Number(e.target.value)}})}/></label>)}
+      </div>
+    </div>}
     {step.kind==="STORE"&&<div className="grid gap-2 sm:grid-cols-2">
       <label className="text-xs">Acumulador<input className={"mt-1 "+field} value={step.accumulator} onChange={e=>change({accumulator:e.target.value})}/></label>
       <label className="text-xs">Máximo de cargas<input className={"mt-1 "+field} type="number" min={1} max={100} value={step.capacity} onChange={e=>change({capacity:Number(e.target.value)})}/></label>

@@ -4,7 +4,7 @@ import {useEffect,useMemo,useState} from "react";
 import type {LegacyModularShadow} from "@/lib/effects/legacy-modular-shadow";
 
 type Response={
-  readonly:boolean;counts:{originals:number;duplicates:number;complete:number;partial:number;unsupported:number};
+  readonly:boolean;counts:{originals:number;duplicates:number;represented:number;complete:number;partial:number;unsupported:number};
   duplicates:LegacyModularShadow[];errors:Array<{source:string;id:number;error:string}>;
 };
 const sourceNames:Record<string,string>={skill:"Personajes",raceSkill:"Raciales",genericSkillTemplate:"Genéricas"};
@@ -27,13 +27,13 @@ export default function LegacyShadowGallery(){
     <Link href="/management/effects" className="text-sm text-cyan-300">← Gestión de efectos</Link>
     <div className="space-y-2">
       <h1 className="text-2xl font-bold">Copias modulares de habilidades existentes</h1>
-      <p className="text-sm text-zinc-400">Comparador de solo lectura. Cada copia toma la definición vigente y construye micromódulos equivalentes cuando hay resolutor. No altera el personaje, no crea habilidades adicionales, no descuenta PCH y no activa automáticamente las copias.</p>
+      <p className="text-sm text-zinc-400">Comparador de solo lectura. Cada copia toma la definición vigente y construye micromódulos equivalentes cuando hay resolutor. No altera el personaje, no crea habilidades adicionales, no descuenta PCH y no activa automáticamente las copias. Las capacidades declarativas mantienen su significado sin producir bonos automáticos; solo los módulos con resolutor participan en el cálculo.</p>
     </div>
     {error&&<p role="alert" className="rounded border border-red-700 p-3 text-red-300">{error}</p>}
     {!data&&!error&&<p className="text-zinc-400">Recopilando habilidades…</p>}
     {data&&<>
       <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-        {[["Definiciones",data.counts.originals],["Conversión completa",data.counts.complete],["Parcial",data.counts.partial],["No convertida",data.counts.unsupported]].map(([label,n])=>
+        {[["Definiciones",data.counts.originals],["Con módulo",data.counts.represented],["Mecánica completa",data.counts.complete],["Pendiente de resolutor",data.counts.partial+data.counts.unsupported]].map(([label,n])=>
           <div key={label} className="rounded-lg border border-zinc-700 p-3"><span className="block text-xs text-zinc-400">{label}</span><strong className="text-2xl">{n}</strong></div>)}
       </div>
       <div className="flex flex-wrap gap-3">
@@ -51,15 +51,20 @@ export default function LegacyShadowGallery(){
           return <article key={token} className="rounded-xl border border-zinc-700 bg-zinc-900/60">
             <button type="button" onClick={()=>setOpen(expanded?null:token)} aria-expanded={expanded} className="flex w-full flex-wrap items-center justify-between gap-2 p-4 text-left">
               <div><strong className="block">{item.label}</strong>
-                <span className="text-xs text-zinc-400">{sourceNames[item.origin.source]} · origen #{item.origin.id} · {item.parts.length} efectos</span>
+                <span className="text-xs text-zinc-400">{sourceNames[item.origin.source]} · origen #{item.origin.id} · {item.parts.length} efectos · {item.represented?"Representación completa":"Conversión incompleta"}</span>
               </div>
               <span className={"text-xs "+(item.coverage==="COMPLETE"?"text-emerald-300":item.coverage==="PARTIAL"?"text-amber-300":"text-zinc-400")}>
-                {item.coverage==="COMPLETE"?"Todas las partes representadas":item.coverage==="PARTIAL"?"Representación parcial":"Necesita nuevos resolutores"} {expanded?"−":"+"}
+                {item.coverage==="COMPLETE"?"Parámetros mecánicos cubiertos":item.coverage==="PARTIAL"?"Representación parcial":"Necesita nuevos resolutores"} {expanded?"−":"+"}
               </span>
             </button>
             {expanded&&<div className="space-y-3 border-t border-zinc-700 p-4">
+              <div className="rounded-lg border border-zinc-700 bg-zinc-950/60 p-3">
+                <h3 className="text-sm font-semibold">Condiciones originales de la habilidad</h3>
+                <p className="text-xs text-zinc-400">Las reglas de la habilidad continúan bajo el motor original; el módulo CAPABILITY nunca las sustituye sin validación.</p>
+                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs text-cyan-200">{JSON.stringify(item.rules,null,2)}</pre>
+              </div>
               {item.parts.map(part=><section key={part.sourceIndex} className="rounded-lg border border-zinc-800 p-3">
-                <h3 className="text-sm font-semibold">{part.sourceType} <span className="text-xs font-normal text-zinc-400">· {part.status==="EXECUTABLE"?"micromódulo generado":part.status==="DESCRIPTION_ONLY"?"solo narrativo":"no convertido"}</span></h3>
+                <h3 className="text-sm font-semibold">{part.sourceType} <span className="text-xs font-normal text-zinc-400">· {part.status==="EXECUTABLE"?"parámetros ejecutables":part.status==="DESCRIPTION_ONLY"?"capacidad declarativa convertida, falta ejecución automática":"sin representación"}</span></h3>
                 {part.reason&&<p className="mt-2 text-xs text-amber-300">{part.reason}</p>}
                 {part.modules.map(module=><div key={module.id} className="mt-2 space-y-2">
                   {module.steps.map((step,i)=><pre key={i} className="overflow-x-auto rounded-lg bg-zinc-950 p-2 text-xs text-cyan-200">{JSON.stringify(step,null,2)}</pre>)}

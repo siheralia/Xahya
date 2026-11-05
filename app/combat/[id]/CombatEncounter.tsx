@@ -535,11 +535,11 @@ export default function CombatEncounter({id}:{id:string}) {
       <p className="mt-1 text-xs text-zinc-400">Las pociones gastan una acción, PA y ticks. Las de personajes reales se descuentan del inventario al usarlas.</p>
       <div className="mt-3 flex flex-wrap gap-2">
        {(state.consumables?.[side]??[]).filter(item=>item.quantity>0).map((item,index)=>{
-        const full=item.action==="HEAL_HP"?actor.hp>=actor.maxHp:
+        const full=item.action==="HEAL_HP"?(actor?.hp??0)>=(actor?.maxHp??0):
          (state.mana?.[side]?.current??0)>=(state.mana?.[side]?.max??0);
         return <button type="button" key={item.itemId+":"+(item.characterItemId??index)}
          onClick={()=>{
-          const key=side+":"+item.itemId+":"+(item.characterItemId??"npc")+":"+state.round+":"+actor.spentTicks;
+          const key=side+":"+item.itemId+":"+(item.characterItemId??"npc")+":"+state.round+":"+(actor?.spentTicks??0);
           const previous=itemRequestRef.current;
           const requestId=previous?.key===key?previous.id:crypto.randomUUID();
           itemRequestRef.current={key,id:requestId};

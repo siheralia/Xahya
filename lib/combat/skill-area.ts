@@ -26,7 +26,9 @@ export function compileCombatAttackArea(raw:unknown,rangeMeters?:number|null):Co
    widthNormalized:widthMeters/AREA_CANVAS_METERS};
  }
  if(parsed.kind==="LEGACY"&&/(?:área|circular|círculo|radio|explosión|cono|línea|rectángulo|franja)/i.test(parsed.label))
-  throw new Error("Área de ataque aún no compatible. Selecciona un área tipada y configura sus dimensiones.");
+  throw new Error(/radio/i.test(parsed.label)
+   ?"El radio del área es inválido o aún no compatible. Configura un radio de 0,1 a 10 m.":
+   "Área de ataque aún no compatible. Selecciona un área tipada y configura sus dimensiones.");
  return null;
 }
 export function validateStripAngle(value:unknown):number {

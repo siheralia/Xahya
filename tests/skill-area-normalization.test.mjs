@@ -11,7 +11,7 @@ import {compileCombatAttackArea} from "../lib/combat/skill-area.ts";
 
 test("typed area choices are finite, localized and have dedicated radius",()=>{
  assert.deepEqual(SKILL_AREA_OPTIONS.map(v=>v.value),
-  ["SINGLE","SELF","CONTACT","CIRCLE","SELF_FIELD","UNSPECIFIED"]);
+  ["SINGLE","SELF","CONTACT","CIRCLE","STRIP","SELF_FIELD","UNSPECIFIED"]);
  for(const kind of ["SINGLE","SELF","CONTACT","SELF_FIELD","UNSPECIFIED"]){
   const label=formatSkillArea(kind);
   assert.equal(parseSkillArea(label).kind,kind);

@@ -154,7 +154,7 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
    durability:mirrorEffects.get("SUMMON_MIRROR")!};
  }
  const isAttack=mode!==null;
- if(isAttack && !["SINGLE","CONTACT","CIRCLE","SELF_FIELD"].includes(parseSkillArea(range.area).kind))
+ if(isAttack && !["SINGLE","CONTACT","CIRCLE","STRIP","SELF_FIELD"].includes(parseSkillArea(range.area).kind))
   fail("El área de ataque no está clasificada como objetivo único, contacto, círculo o campo alrededor del usuario.");
  const attackArea=isAttack?compileCombatAttackArea(range.area,range.rangeMeters):undefined;
  if(attackArea?.shape==="SELF_FIELD" && mode!=="PHYSICAL")

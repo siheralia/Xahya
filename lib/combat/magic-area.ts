@@ -53,6 +53,8 @@ export function combatClientView(state:CombatState):CombatState {
  // The complete chronology belongs to the server until it is converted into
  // the final chronicle. Do not send an ever-growing private history on each poll.
  delete clone.narrativeHistory;
+ // Keep an oriented strip direction private until the attack is resolved.
+ if(clone.pending?.attackArea?.shape==="STRIP")delete clone.pending.areaAngleDegrees;
  // Encounter micro definitions, stored charges and event replay tokens belong
  // exclusively to the server. Never reveal opponent-private accumulator values.
  delete clone.microEffects;

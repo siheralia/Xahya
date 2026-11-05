@@ -9,7 +9,7 @@ import { executeMicroEvent, emptyMicroState, validateEffectContainers, type Effe
 import {calculateModularVariableResistance} from "../effects/legacy-modular-shadow.ts";
 import {validateConstructionPlacement,resolveConstructionForm,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
-import {circularAreaHits,type CombatAttackArea} from "./skill-area.ts";
+import {attackAreaHits,validateStripAngle,type CombatAttackArea} from "./skill-area.ts";
 
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
@@ -40,6 +40,8 @@ export type PendingAttack = {
   areaHint?: string;
   /** Server-derived configured circle. Undefined keeps historic targeting. */
   attackArea?:CombatAttackArea;
+  /** Private until resolved for an oriented rectangular strike. */
+  areaAngleDegrees?:number;
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
   mirrorId?:string; mirrorAuto?:boolean;
@@ -55,6 +57,7 @@ export type CombatLog = {
   areaCenter?: Point; predictedCenter?: Point;
   /** Disclosed only after resolution, for the area diagram/chronicle. */
   attackArea?:CombatAttackArea;
+  areaAngleDegrees?:number;
   skillId?: number; manaCost?: number;
   /** Narration metadata; optional for encounters created before this feature. */
   usesMagic?:boolean; thrownWeapon?:boolean; weaponName?:string;
@@ -107,9 +110,9 @@ export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
   | { kind: "WAIT" }
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
-  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; targetConstructionId?:string }
+  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -515,10 +518,12 @@ function resolveTargetedMirrorAttack(
  const magic=command.usesMagic===true;
  const ranged=command.rangedPhysical===true||command.throwWeapon===true;
  const points=command.trajectory?.length?command.trajectory:[{x:0.1,y:0.5},{x:0.9,y:0.5}];
- const radius=skillArea?.radiusNormalized??(magic?BASIC_MAGIC_AREA_RADIUS:
-  command.attackType==="BLUNT"?0.17:command.attackType==="CUT"?0.11:0.07);
+ const radius=magic?BASIC_MAGIC_AREA_RADIUS:
+  command.attackType==="BLUNT"?0.17:command.attackType==="CUT"?0.11:0.07;
  const contact=magic||ranged||skillArea
-  ?validArenaPoint(command.areaCenter)&&Math.hypot(command.areaCenter.x-mirror.center.x,command.areaCenter.y-mirror.center.y)<=radius
+  ?validArenaPoint(command.areaCenter)&&(skillArea
+    ?attackAreaHits(command.areaCenter,mirror.center,skillArea,command.areaAngleDegrees)
+    :Math.hypot(command.areaCenter.x-mirror.center.x,command.areaCenter.y-mirror.center.y)<=radius)
   :geometricContact(command.attackType,points,mirror.center);
  const power=magic?actor.magicAttack:actor.physicalAttack;
  const critical=contact&&rolls.critical<clamp(0.05+actor.critical/(actor.critical+100)*0.20,0.05,0.25);
@@ -574,7 +579,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const attacker = state.actors[pending.by];
     let defense = command.defense;
     if(pending.attackArea&&defense==="DEFLECT")
-      throw new Error("Los ataques circulares no se pueden desviar con una guardia lineal.");
+      throw new Error("Los ataques circulares o en franjas no se pueden desviar con una guardia lineal.");
     if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(defense))
       throw new Error("Para la explosión mágica básica puedes esquivar, levantar un campo mágico, resistir o no reaccionar.");
     if (!pending.usesMagic && defense === "MAGIC_FIELD")
@@ -602,7 +607,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     let damageScale = 1;
     let displaced = 0;
     if (defense === "DODGE") {
-      if (pending.usesMagic || pending.rangedPhysical || pending.attackArea?.shape==="CIRCLE") {
+      if (pending.usesMagic || pending.rangedPhysical || pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD") {
         if (!validArenaPoint(pending.targetCenter)) throw new Error("Centro de ataque ausente.");
         if (!validArenaPoint(command.predictedCenter)) throw new Error("Marca dónde crees que caerá la explosión.");
         // Spatial prediction plus a genuine agility/precision contest.
@@ -701,7 +706,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       pending.attackArea?.shape==="SELF_FIELD"
         ?true // Launch reach was checked against the caster, no detachable epicenter.
         :pending.attackArea
-        ?validArenaPoint(pending.targetCenter)&&circularAreaHits(pending.targetCenter,targetHitboxCenter,pending.attackArea)
+        ?validArenaPoint(pending.targetCenter)&&attackAreaHits(pending.targetCenter,targetHitboxCenter,pending.attackArea,pending.areaAngleDegrees)
         :pending.usesMagic || (pending.rangedPhysical
         ? validArenaPoint(pending.targetCenter) && Math.hypot(
           pending.targetCenter.x-targetHitboxCenter.x,pending.targetCenter.y-targetHitboxCenter.y
@@ -754,10 +759,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       constructionId:pending.mirrorId,mirrorShot:Boolean(pending.mirrorId),
       mirrorOrigin:pending.mirrorId&&validArenaPoint(pending.trajectory[0])?{...pending.trajectory[0]}:undefined,
       skillId:pending.skill?.id,
-      areaCenter:pending.usesMagic||pending.rangedPhysical||pending.attackArea?.shape==="CIRCLE"?pending.targetCenter:undefined,
+      areaCenter:pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD")?pending.targetCenter:undefined,
       attackArea:pending.attackArea,
+      areaAngleDegrees:pending.attackArea?.shape==="STRIP"?pending.areaAngleDegrees:undefined,
       rangedPhysical:pending.rangedPhysical,
-      predictedCenter:(pending.usesMagic&&defense==="DODGE"||pending.attackArea?.shape==="CIRCLE"&&defense==="DODGE"||pending.rangedPhysical&&["DODGE","DEFLECT"].includes(defense))?command.predictedCenter:undefined,
+      predictedCenter:(pending.usesMagic&&defense==="DODGE"||pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"&&defense==="DODGE"||pending.rangedPhysical&&["DODGE","DEFLECT"].includes(defense))?command.predictedCenter:undefined,
       predictionMatched:validArenaPoint(pending.targetCenter)&&validArenaPoint(command.predictedCenter)?Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=(pending.rangedPhysical?0.09:0.19):undefined,
       summary:mirrorLabel
         ?(avoided?fighter.name+" esquivó el rayo de "+mirrorLabel
@@ -766,6 +772,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         :pending.attackArea?.shape==="SELF_FIELD"
           ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
             " con su barrido de "+pending.attackArea.radiusMeters+" m alrededor del usuario ("+damage+" HP)"
+        :pending.attackArea?.shape==="STRIP"
+          ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
+            " con su franja de "+pending.attackArea.lengthMeters+" × "+pending.attackArea.widthMeters+" m ("+damage+" HP)"
         :pending.attackArea
           ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
             " con su ataque circular de "+pending.attackArea.radiusMeters+" m de radio ("+damage+" HP)"
@@ -776,8 +785,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(pending.usesMagic&&validArenaPoint(pending.targetCenter)){
       const mirrors=(state.constructions??[]).filter(c=>c.owner===by&&
         c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0&&
-        Math.hypot(c.center.x-pending.targetCenter!.x,c.center.y-pending.targetCenter!.y)
-         <=(pending.attackArea?.radiusNormalized??BASIC_MAGIC_AREA_RADIUS));
+        (pending.attackArea?attackAreaHits(pending.targetCenter!,c.center,pending.attackArea,pending.areaAngleDegrees):
+         Math.hypot(c.center.x-pending.targetCenter!.x,c.center.y-pending.targetCenter!.y)<=BASIC_MAGIC_AREA_RADIUS));
       const reflectionPower=pending.skill
         ?Math.max(1,Math.round(Math.max(0,power)*pending.skill.damageMultiplier*
          pending.skill.finalMultiplier))
@@ -793,10 +802,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // A physical circular blast also intersects objects in its actual footprint.
     // It is not a free strike against every object: only mirrors overlapping the
     // selected zone take damage. Magical circles use the reflection path above.
-    if(pending.attackArea?.shape==="CIRCLE"&&!pending.usesMagic&&validArenaPoint(pending.targetCenter)){
+    if(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"&&!pending.usesMagic&&validArenaPoint(pending.targetCenter)){
       const mirrors=(state.constructions??[]).filter(c=>c.owner===by&&
        c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0&&
-       circularAreaHits(pending.targetCenter!,c.center,pending.attackArea!));
+       attackAreaHits(pending.targetCenter!,c.center,pending.attackArea!,pending.areaAngleDegrees));
       const direct=Math.max(1,Math.round(Math.max(0,power)*
        (pending.skill?.damageMultiplier??1)*(pending.skill?.finalMultiplier??1)));
       for(const mirror of mirrors){
@@ -889,8 +898,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       if(previous && Math.hypot(points[0].x-previous.x,points[0].y-previous.y)>0.000001)
         throw new Error("El ataque físico debe comenzar donde terminó el anterior. Muévete para cambiar el punto de inicio.");
     }
-    if ((magic||serverSkillArea?.shape==="CIRCLE") && !validArenaPoint(command.areaCenter))
+    if ((magic||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")) && !validArenaPoint(command.areaCenter))
       throw new Error("Marca el centro del ataque de área en el lienzo.");
+    if(serverSkillArea?.shape==="STRIP")validateStripAngle(command.areaAngleDegrees);
+    else if(command.areaAngleDegrees!==undefined)throw new Error("Dirección de franja no permitida para este ataque.");
     if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown,source))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance máximo del ataque.");
     const distanceAtLaunch=Math.abs(fighter.positionMeters-rival.positionMeters);
@@ -930,9 +941,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     state.pending = {by,against:other(by),attackType:command.attackType,
       trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
-      targetCenter:magic||ranged||serverSkillArea?.shape==="CIRCLE"?command.areaCenter:undefined,
-      areaHint:magic||ranged||serverSkillArea?.shape==="CIRCLE"?magicImpactZone(command.areaCenter!):undefined,
-      attackArea:serverSkillArea};
+      targetCenter:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?command.areaCenter:undefined,
+      areaHint:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?magicImpactZone(command.areaCenter!):undefined,
+      attackArea:serverSkillArea,areaAngleDegrees:serverSkillArea?.shape==="STRIP"?command.areaAngleDegrees:undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,attackSource:source,
@@ -940,6 +951,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       attackArea:serverSkillArea,manaCost:magic&&serverSkillRangeMeters===undefined?1:undefined,
       summary:serverSkillArea?.shape==="SELF_FIELD"
         ?fighter.name+" ejecutó un barrido a su alrededor (alcance "+serverSkillArea.radiusMeters+" m); esperando reacción"
+        :serverSkillArea?.shape==="STRIP"?fighter.name+" lanzó una franja de "+serverSkillArea.lengthMeters+" × "+serverSkillArea.widthMeters+" m; esperando reacción"
         :serverSkillArea?fighter.name+" lanzó un ataque circular de "+serverSkillArea.radiusMeters+" m de radio; esperando reacción"
         :magic?fighter.name+" lanzó magia de "+labels[command.attackType]+"; esperando reacción"
         :ranged?fighter.name+" lanzó "+(thrown?"el arma ("+selectedWeapon?.name+") de ":"un proyectil físico de ")+labels[command.attackType]+"; esperando reacción"
@@ -958,7 +970,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
  */
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
- aim:{requestId:string;trajectory?:Point[];areaCenter?:Point;attackSource?:PhysicalAttackSource;
+ aim:{requestId:string;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
   constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
@@ -987,6 +999,7 @@ export function applyResolvedCombatSkill(
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
    trajectory:selfField?undefined:aim.trajectory,
    areaCenter:selfField?undefined:aim.areaCenter,
+   areaAngleDegrees:plan.attackArea?.shape==="STRIP"?aim.areaAngleDegrees:undefined,
    attackSource:selfField?"KICK":aim.attackSource,
    targetConstructionId:selfField?undefined:aim.targetConstructionId,
   },rolls,plan.rangeMeters,{

@@ -119,6 +119,19 @@ test("NPC potion is paid and never changes real stock; action respects initiativ
  assert.equal(after.consumables.PLAYER[0].quantity,2);
 });
 
+test("multiple stacks of one potion preserve individual inventory identity",()=>{
+ const before=state();
+ before.consumables.PLAYER.push({...before.consumables.PLAYER[0],
+  characterItemId:503,quantity:3});
+ const second=before.consumables.PLAYER.find(x=>x.characterItemId===503);
+ const after=applyResolvedCombatConsumable(before,"PLAYER",second,"item-second-stack-0001");
+ assert.equal(after.consumables.PLAYER.find(x=>x.characterItemId===501).quantity,2);
+ assert.equal(after.consumables.PLAYER.find(x=>x.characterItemId===503).quantity,2);
+ const api=readFileSync(new URL("../app/api/combat/[id]/actions/route.ts",import.meta.url),"utf8");
+ assert.match(api,/entry.characterItemId===characterItemId/);
+ assert.match(api,/"characterItem" SET quantity=quantity-1/);
+});
+
 test("migration contains secure material catalog and 2 priced potions; UI wires dynamic catalog",()=>{
  const load=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
  const sql=load("supabase/migrations/20261105152000_materials_and_potions.sql");
@@ -139,6 +152,10 @@ test("migration contains secure material catalog and 2 priced potions; UI wires 
  assert.match(materials,/Resistencia física/);
  const combat=load("app/combat/[id]/CombatEncounter.tsx");
  assert.match(combat,/Consumibles del encuentro/);
+ assert.match(combat,/characterItemId:item.characterItemId/);
+ assert.match(load("app/api/combat/[id]/actions/route.ts"),/durability=LEAST\(durability/);
+ assert.match(load("app/api/combat/duels/route.ts"),/durability:\s*Math.max/);
+ assert.match(load("app/store/page.tsx"),/item.material/);
  const action=load("app/api/combat/[id]/actions/route.ts");
  assert.match(action,/quantity=quantity-1/);
  assert.match(action,/processedItemRequests/);

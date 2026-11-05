@@ -410,10 +410,10 @@ const hasInitiativeBudget = (f: CombatFighter) =>
 /** Reserve the extra PA/ticks atomically. For AFTER, do not move before the
  * defender has resolved: the attack still launches from the original range.
  */
-function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEFORE"|"AFTER"="BEFORE"){
+function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEFORE"|"AFTER"="BEFORE",actionTicks?:number){
  const fighter=state.actors[by],vector=validatePlanarMove(requested);
  if(remainingAp(fighter)<2)throw new Error("Moverse y actuar a la vez requiere 2 PA.");
- if(fighter.spentTicks+turnTicks(fighter)*2>LIMIT)
+ if(fighter.spentTicks+turnTicks(fighter)+(actionTicks??turnTicks(fighter))>LIMIT)
   throw new Error("No quedan ticks suficientes para combinar movimiento y acción.");
  spend(fighter,turnTicks(fighter));
  if(order==="BEFORE")finishCompositeStep(state,by,vector);
@@ -1023,8 +1023,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Elige un desplazamiento antes de combinar movimiento y ataque.");
     if(command.movementOrder!==undefined&&!["BEFORE","AFTER"].includes(command.movementOrder))
       throw new Error("El orden del movimiento no es válido.");
-    if(command.planarMove!==undefined)
-      applyCompositeStep(state,by,command.planarMove,command.movementOrder??"BEFORE");
+    if(command.planarMove!==undefined){
+      const plannedSource=command.attackSource??defaultAttackSource(fighter);
+      const plannedWeapon=weaponForSource(fighter,plannedSource);
+      const weaponStrike=command.usesMagic!==true&&!!plannedWeapon&&
+        (serverSkillRangeMeters===undefined||plannedSource==="MAIN_HAND"||plannedSource==="OFF_HAND");
+      const actionTicks=turnTicks(fighter,weaponStrike?command.attackType:undefined);
+      applyCompositeStep(state,by,command.planarMove,command.movementOrder??"BEFORE",actionTicks);
+    }
     const points = command.trajectory?.length ? command.trajectory : [{x:0.1,y:0.5},{x:0.9,y:0.5}];
     if (!Array.isArray(points) || points.length < 2 || points.length > 80 || points.some(p => !safePoint(p)))
       throw new Error("Trayectoria inválida.");

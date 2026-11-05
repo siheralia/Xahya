@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'6791e0f4aca2b453c8a2fcd262c4973ce30c62f72ed048722adfecce5ab71928'>;
+  StorageHashBase<'a7cacc6af2b31df836da8fbdfacefd8ae753bedba6d77c3efe9fa8a5768d6fdb'>;
 export type ExecutionHash =
   ExecutionHashBase<'c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96'>;
 export type ProfileHash =
@@ -363,6 +363,7 @@ export type FieldOutputTypes = {
       readonly equipped: CodecTypes['pg/bool@1']['output'];
       readonly equippedSlot: CodecTypes['pg/text@1']['output'] | null;
       readonly flair: CodecTypes['pg/text@1']['output'] | null;
+      readonly durability: CodecTypes['pg/int4@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
     readonly CharacterModifier: {
@@ -505,6 +506,7 @@ export type FieldOutputTypes = {
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly itemType: CodecTypes['pg/text@1']['output'];
       readonly itemSubtype: CodecTypes['pg/text@1']['output'] | null;
+      readonly materialId: CodecTypes['pg/int4@1']['output'] | null;
       readonly attackType: CodecTypes['pg/text@1']['output'] | null;
       readonly weaponMode: CodecTypes['pg/text@1']['output'];
       readonly effectiveRangeMeters: CodecTypes['pg/float8@1']['output'];
@@ -518,6 +520,28 @@ export type FieldOutputTypes = {
       readonly imagePath: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly propertyBusinessId: CodecTypes['pg/int4@1']['output'] | null;
+    };
+    readonly Material: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly type: CodecTypes['pg/text@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly weightPerUnitKg: CodecTypes['pg/float8@1']['output'] | null;
+      readonly hardness: CodecTypes['pg/int4@1']['output'];
+      readonly physicalResistance: CodecTypes['pg/int4@1']['output'];
+      readonly magicResistance: CodecTypes['pg/int4@1']['output'];
+      readonly attackGrant: CodecTypes['pg/int4@1']['output'];
+      readonly defenseGrant: CodecTypes['pg/int4@1']['output'];
+      readonly specialEffect: CodecTypes['pg/text@1']['output'] | null;
+      readonly naturalForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly minimumForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly rawForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly marketForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly fireReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly lightningReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly iceReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
     readonly Maze: {
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -941,6 +965,7 @@ export type FieldInputTypes = {
       readonly equipped: CodecTypes['pg/bool@1']['input'];
       readonly equippedSlot: CodecTypes['pg/text@1']['input'] | null;
       readonly flair: CodecTypes['pg/text@1']['input'] | null;
+      readonly durability: CodecTypes['pg/int4@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
     readonly CharacterModifier: {
@@ -1083,6 +1108,7 @@ export type FieldInputTypes = {
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly itemType: CodecTypes['pg/text@1']['input'];
       readonly itemSubtype: CodecTypes['pg/text@1']['input'] | null;
+      readonly materialId: CodecTypes['pg/int4@1']['input'] | null;
       readonly attackType: CodecTypes['pg/text@1']['input'] | null;
       readonly weaponMode: CodecTypes['pg/text@1']['input'];
       readonly effectiveRangeMeters: CodecTypes['pg/float8@1']['input'];
@@ -1096,6 +1122,28 @@ export type FieldInputTypes = {
       readonly imagePath: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly propertyBusinessId: CodecTypes['pg/int4@1']['input'] | null;
+    };
+    readonly Material: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly type: CodecTypes['pg/text@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly weightPerUnitKg: CodecTypes['pg/float8@1']['input'] | null;
+      readonly hardness: CodecTypes['pg/int4@1']['input'];
+      readonly physicalResistance: CodecTypes['pg/int4@1']['input'];
+      readonly magicResistance: CodecTypes['pg/int4@1']['input'];
+      readonly attackGrant: CodecTypes['pg/int4@1']['input'];
+      readonly defenseGrant: CodecTypes['pg/int4@1']['input'];
+      readonly specialEffect: CodecTypes['pg/text@1']['input'] | null;
+      readonly naturalForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly minimumForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly rawForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly marketForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly fireReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly lightningReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly iceReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
     readonly Maze: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -1514,6 +1562,7 @@ export type StorageColumnTypes = {
     readonly characterItem: {
       readonly characterId: CodecTypes['pg/int4@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly durability: CodecTypes['pg/int4@1']['output'];
       readonly equipped: CodecTypes['pg/bool@1']['output'];
       readonly equippedSlot: CodecTypes['pg/text@1']['output'] | null;
       readonly flair: CodecTypes['pg/text@1']['output'] | null;
@@ -1667,6 +1716,7 @@ export type StorageColumnTypes = {
       readonly imagePath: CodecTypes['pg/text@1']['output'] | null;
       readonly itemSubtype: CodecTypes['pg/text@1']['output'] | null;
       readonly itemType: CodecTypes['pg/text@1']['output'];
+      readonly materialId: CodecTypes['pg/int4@1']['output'] | null;
       readonly maximumRangeMeters: CodecTypes['pg/float8@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly price: CodecTypes['pg/int4@1']['output'];
@@ -1674,6 +1724,28 @@ export type StorageColumnTypes = {
       readonly throwable: CodecTypes['pg/bool@1']['output'];
       readonly throwRangeMeters: CodecTypes['pg/float8@1']['output'];
       readonly weaponMode: CodecTypes['pg/text@1']['output'];
+    };
+    readonly material: {
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly attackGrant: CodecTypes['pg/int4@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly defenseGrant: CodecTypes['pg/int4@1']['output'];
+      readonly description: CodecTypes['pg/text@1']['output'] | null;
+      readonly fireReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly hardness: CodecTypes['pg/int4@1']['output'];
+      readonly iceReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly lightningReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly magicResistance: CodecTypes['pg/int4@1']['output'];
+      readonly marketForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly minimumForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly naturalForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly physicalResistance: CodecTypes['pg/int4@1']['output'];
+      readonly rawForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly specialEffect: CodecTypes['pg/text@1']['output'] | null;
+      readonly type: CodecTypes['pg/text@1']['output'];
+      readonly weightPerUnitKg: CodecTypes['pg/float8@1']['output'] | null;
     };
     readonly maze: {
       readonly allowDeath: CodecTypes['pg/bool@1']['output'];
@@ -2092,6 +2164,7 @@ export type StorageColumnInputTypes = {
     readonly characterItem: {
       readonly characterId: CodecTypes['pg/int4@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly durability: CodecTypes['pg/int4@1']['input'];
       readonly equipped: CodecTypes['pg/bool@1']['input'];
       readonly equippedSlot: CodecTypes['pg/text@1']['input'] | null;
       readonly flair: CodecTypes['pg/text@1']['input'] | null;
@@ -2245,6 +2318,7 @@ export type StorageColumnInputTypes = {
       readonly imagePath: CodecTypes['pg/text@1']['input'] | null;
       readonly itemSubtype: CodecTypes['pg/text@1']['input'] | null;
       readonly itemType: CodecTypes['pg/text@1']['input'];
+      readonly materialId: CodecTypes['pg/int4@1']['input'] | null;
       readonly maximumRangeMeters: CodecTypes['pg/float8@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly price: CodecTypes['pg/int4@1']['input'];
@@ -2252,6 +2326,28 @@ export type StorageColumnInputTypes = {
       readonly throwable: CodecTypes['pg/bool@1']['input'];
       readonly throwRangeMeters: CodecTypes['pg/float8@1']['input'];
       readonly weaponMode: CodecTypes['pg/text@1']['input'];
+    };
+    readonly material: {
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly attackGrant: CodecTypes['pg/int4@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly defenseGrant: CodecTypes['pg/int4@1']['input'];
+      readonly description: CodecTypes['pg/text@1']['input'] | null;
+      readonly fireReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly hardness: CodecTypes['pg/int4@1']['input'];
+      readonly iceReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly lightningReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly magicResistance: CodecTypes['pg/int4@1']['input'];
+      readonly marketForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly minimumForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly naturalForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly physicalResistance: CodecTypes['pg/int4@1']['input'];
+      readonly rawForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly specialEffect: CodecTypes['pg/text@1']['input'] | null;
+      readonly type: CodecTypes['pg/text@1']['input'];
+      readonly weightPerUnitKg: CodecTypes['pg/float8@1']['input'] | null;
     };
     readonly maze: {
       readonly allowDeath: CodecTypes['pg/bool@1']['input'];
@@ -2768,12 +2864,37 @@ export namespace Models {
     targetUser: public_User | null;
     readonly [RelationKeys]?: 'actorUser' | 'character' | 'targetUser';
   };
+  export type public_Material = {
+    id: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    type: CodecTypes['pg/text@1']['output'];
+    description: CodecTypes['pg/text@1']['output'] | null;
+    weightPerUnitKg: CodecTypes['pg/float8@1']['output'] | null;
+    hardness: CodecTypes['pg/int4@1']['output'];
+    physicalResistance: CodecTypes['pg/int4@1']['output'];
+    magicResistance: CodecTypes['pg/int4@1']['output'];
+    attackGrant: CodecTypes['pg/int4@1']['output'];
+    defenseGrant: CodecTypes['pg/int4@1']['output'];
+    specialEffect: CodecTypes['pg/text@1']['output'] | null;
+    naturalForm: CodecTypes['pg/text@1']['output'] | null;
+    minimumForm: CodecTypes['pg/text@1']['output'] | null;
+    rawForm: CodecTypes['pg/text@1']['output'] | null;
+    marketForm: CodecTypes['pg/text@1']['output'] | null;
+    fireReaction: CodecTypes['pg/text@1']['output'] | null;
+    lightningReaction: CodecTypes['pg/text@1']['output'] | null;
+    iceReaction: CodecTypes['pg/text@1']['output'] | null;
+    active: CodecTypes['pg/bool@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    items: public_Item[];
+    readonly [RelationKeys]?: 'items';
+  };
   export type public_Item = {
     id: CodecTypes['pg/int4@1']['output'];
     name: CodecTypes['pg/text@1']['output'];
     description: CodecTypes['pg/text@1']['output'] | null;
     itemType: CodecTypes['pg/text@1']['output'];
     itemSubtype: CodecTypes['pg/text@1']['output'] | null;
+    materialId: CodecTypes['pg/int4@1']['output'] | null;
     attackType: CodecTypes['pg/text@1']['output'] | null;
     weaponMode: CodecTypes['pg/text@1']['output'];
     effectiveRangeMeters: CodecTypes['pg/float8@1']['output'];
@@ -2789,8 +2910,9 @@ export namespace Models {
     propertyBusinessId: CodecTypes['pg/int4@1']['output'] | null;
     businessProducts: public_BusinessProduct[];
     characterItems: public_CharacterItem[];
+    material: public_Material | null;
     properties: public_CharacterProperty[];
-    readonly [RelationKeys]?: 'businessProducts' | 'characterItems' | 'properties';
+    readonly [RelationKeys]?: 'businessProducts' | 'characterItems' | 'material' | 'properties';
   };
   export type public_CharacterItem = {
     id: CodecTypes['pg/int4@1']['output'];
@@ -2800,6 +2922,7 @@ export namespace Models {
     equipped: CodecTypes['pg/bool@1']['output'];
     equippedSlot: CodecTypes['pg/text@1']['output'] | null;
     flair: CodecTypes['pg/text@1']['output'] | null;
+    durability: CodecTypes['pg/int4@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     character: public_Character;
     item: public_Item;
@@ -3376,6 +3499,7 @@ export declare const models: {
     CharacterResource: Models.public_CharacterResource;
     CharacterModifier: Models.public_CharacterModifier;
     AuditLog: Models.public_AuditLog;
+    Material: Models.public_Material;
     Item: Models.public_Item;
     CharacterItem: Models.public_CharacterItem;
     CharacterRelationship: Models.public_CharacterRelationship;
@@ -4562,6 +4686,15 @@ type ContractBase = Omit<
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
+                };
+                readonly durability: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 100>;
+                  };
                 };
                 readonly createdAt: {
                   readonly nativeType: 'timestamptz';
@@ -5954,6 +6087,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
                 };
+                readonly materialId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
                 readonly attackType: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
@@ -6055,6 +6193,163 @@ type ContractBase = Omit<
               };
               primaryKey: { readonly columns: readonly ['id'] };
               uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'item_materialId_idx_e0f85a6d';
+                  readonly prefix: 'item_materialId_idx';
+                  readonly columns: readonly ['materialId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'item';
+                    readonly columns: readonly ['materialId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'material';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly material: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly type: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly weightPerUnitKg: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: true;
+                };
+                readonly hardness: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly physicalResistance: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly magicResistance: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly attackGrant: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly defenseGrant: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly specialEffect: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly naturalForm: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly minimumForm: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly rawForm: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly marketForm: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly fireReaction: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly lightningReaction: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly iceReaction: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly active: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['name'] }];
               indexes: readonly [];
               foreignKeys: readonly [];
             };
@@ -8739,6 +9034,7 @@ type ContractBase = Omit<
       readonly model: 'CharacterModifier';
     };
     readonly auditLog: { readonly namespace: 'public' & NamespaceId; readonly model: 'AuditLog' };
+    readonly material: { readonly namespace: 'public' & NamespaceId; readonly model: 'Material' };
     readonly item: { readonly namespace: 'public' & NamespaceId; readonly model: 'Item' };
     readonly characterItem: {
       readonly namespace: 'public' & NamespaceId;
@@ -10057,6 +10353,10 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly durability: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly createdAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -10099,6 +10399,7 @@ type ContractBase = Omit<
                 readonly equipped: { readonly column: 'equipped' };
                 readonly equippedSlot: { readonly column: 'equippedSlot' };
                 readonly flair: { readonly column: 'flair' };
+                readonly durability: { readonly column: 'durability' };
                 readonly createdAt: { readonly column: 'createdAt' };
               };
             };
@@ -11161,6 +11462,10 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly materialId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly attackType: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -11240,6 +11545,18 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['itemId'];
                 };
               };
+              readonly material: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Material';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['materialId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
               readonly properties: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -11261,6 +11578,7 @@ type ContractBase = Omit<
                 readonly description: { readonly column: 'description' };
                 readonly itemType: { readonly column: 'itemType' };
                 readonly itemSubtype: { readonly column: 'itemSubtype' };
+                readonly materialId: { readonly column: 'materialId' };
                 readonly attackType: { readonly column: 'attackType' };
                 readonly weaponMode: { readonly column: 'weaponMode' };
                 readonly effectiveRangeMeters: { readonly column: 'effectiveRangeMeters' };
@@ -11274,6 +11592,129 @@ type ContractBase = Omit<
                 readonly imagePath: { readonly column: 'imagePath' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly propertyBusinessId: { readonly column: 'propertyBusinessId' };
+              };
+            };
+          };
+          readonly Material: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly type: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly weightPerUnitKg: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly hardness: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly physicalResistance: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly magicResistance: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly attackGrant: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly defenseGrant: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly specialEffect: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly naturalForm: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly minimumForm: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly rawForm: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly marketForm: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly fireReaction: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly lightningReaction: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly iceReaction: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly active: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly items: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'Item' };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['materialId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'material';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+                readonly type: { readonly column: 'type' };
+                readonly description: { readonly column: 'description' };
+                readonly weightPerUnitKg: { readonly column: 'weightPerUnitKg' };
+                readonly hardness: { readonly column: 'hardness' };
+                readonly physicalResistance: { readonly column: 'physicalResistance' };
+                readonly magicResistance: { readonly column: 'magicResistance' };
+                readonly attackGrant: { readonly column: 'attackGrant' };
+                readonly defenseGrant: { readonly column: 'defenseGrant' };
+                readonly specialEffect: { readonly column: 'specialEffect' };
+                readonly naturalForm: { readonly column: 'naturalForm' };
+                readonly minimumForm: { readonly column: 'minimumForm' };
+                readonly rawForm: { readonly column: 'rawForm' };
+                readonly marketForm: { readonly column: 'marketForm' };
+                readonly fireReaction: { readonly column: 'fireReaction' };
+                readonly lightningReaction: { readonly column: 'lightningReaction' };
+                readonly iceReaction: { readonly column: 'iceReaction' };
+                readonly active: { readonly column: 'active' };
+                readonly createdAt: { readonly column: 'createdAt' };
               };
             };
           };

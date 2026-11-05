@@ -104,6 +104,10 @@
       "model": "Item",
       "namespace": "public"
     },
+    "material": {
+      "model": "Material",
+      "namespace": "public"
+    },
     "maze": {
       "model": "Maze",
       "namespace": "public"
@@ -2024,6 +2028,13 @@
                   "kind": "scalar"
                 }
               },
+              "durability": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "equipped": {
                 "nullable": false,
                 "type": {
@@ -2108,6 +2119,9 @@
                 },
                 "createdAt": {
                   "column": "createdAt"
+                },
+                "durability": {
+                  "column": "durability"
                 },
                 "equipped": {
                   "column": "equipped"
@@ -3835,6 +3849,13 @@
                   "kind": "scalar"
                 }
               },
+              "materialId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "maximumRangeMeters": {
                 "nullable": false,
                 "type": {
@@ -3916,6 +3937,22 @@
                   "namespace": "public"
                 }
               },
+              "material": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "materialId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Material",
+                  "namespace": "public"
+                }
+              },
               "properties": {
                 "cardinality": "1:N",
                 "on": {
@@ -3967,6 +4004,9 @@
                 "itemType": {
                   "column": "itemType"
                 },
+                "materialId": {
+                  "column": "materialId"
+                },
                 "maximumRangeMeters": {
                   "column": "maximumRangeMeters"
                 },
@@ -3991,6 +4031,233 @@
               },
               "namespaceId": "public",
               "table": "item"
+            }
+          },
+          "Material": {
+            "fields": {
+              "active": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "attackGrant": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "defenseGrant": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "description": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "fireReaction": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "hardness": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "iceReaction": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "lightningReaction": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "magicResistance": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "marketForm": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "minimumForm": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "naturalForm": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "physicalResistance": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "rawForm": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "specialEffect": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "type": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "weightPerUnitKg": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/float8@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "items": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "materialId"
+                  ]
+                },
+                "to": {
+                  "model": "Item",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "active": {
+                  "column": "active"
+                },
+                "attackGrant": {
+                  "column": "attackGrant"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "defenseGrant": {
+                  "column": "defenseGrant"
+                },
+                "description": {
+                  "column": "description"
+                },
+                "fireReaction": {
+                  "column": "fireReaction"
+                },
+                "hardness": {
+                  "column": "hardness"
+                },
+                "iceReaction": {
+                  "column": "iceReaction"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "lightningReaction": {
+                  "column": "lightningReaction"
+                },
+                "magicResistance": {
+                  "column": "magicResistance"
+                },
+                "marketForm": {
+                  "column": "marketForm"
+                },
+                "minimumForm": {
+                  "column": "minimumForm"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "naturalForm": {
+                  "column": "naturalForm"
+                },
+                "physicalResistance": {
+                  "column": "physicalResistance"
+                },
+                "rawForm": {
+                  "column": "rawForm"
+                },
+                "specialEffect": {
+                  "column": "specialEffect"
+                },
+                "type": {
+                  "column": "type"
+                },
+                "weightPerUnitKg": {
+                  "column": "weightPerUnitKg"
+                }
+              },
+              "namespaceId": "public",
+              "table": "material"
             }
           },
           "Maze": {
@@ -9129,6 +9396,15 @@
                   "nativeType": "timestamptz",
                   "nullable": false
                 },
+                "durability": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 100
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
                 "equipped": {
                   "codecId": "pg/bool@1",
                   "default": {
@@ -10911,6 +11187,11 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "materialId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
                 "maximumRangeMeters": {
                   "codecId": "pg/float8@1",
                   "default": {
@@ -10967,6 +11248,177 @@
                   "nullable": false
                 }
               },
+              "foreignKeys": [
+                {
+                  "onDelete": "setNull",
+                  "source": {
+                    "columns": [
+                      "materialId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "item"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "material"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "materialId"
+                  ],
+                  "name": "item_materialId_idx_e0f85a6d",
+                  "prefix": "item_materialId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
+            "material": {
+              "columns": {
+                "active": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "attackGrant": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "defenseGrant": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "description": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "fireReaction": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "hardness": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "iceReaction": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "lightningReaction": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "magicResistance": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "marketForm": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "minimumForm": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "naturalForm": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "physicalResistance": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "rawForm": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "specialEffect": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "type": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "weightPerUnitKg": {
+                  "codecId": "pg/float8@1",
+                  "nativeType": "float8",
+                  "nullable": true
+                }
+              },
               "foreignKeys": [],
               "indexes": [],
               "primaryKey": {
@@ -10974,7 +11426,13 @@
                   "id"
                 ]
               },
-              "uniques": []
+              "uniques": [
+                {
+                  "columns": [
+                    "name"
+                  ]
+                }
+              ]
             },
             "maze": {
               "columns": {
@@ -14240,7 +14698,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "6791e0f4aca2b453c8a2fcd262c4973ce30c62f72ed048722adfecce5ab71928"
+    "storageHash": "a7cacc6af2b31df836da8fbdfacefd8ae753bedba6d77c3efe9fa8a5768d6fdb"
   },
   "execution": {
     "executionHash": "c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96",

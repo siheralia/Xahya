@@ -1,5 +1,5 @@
 import {
-  applyCombatCommand, applyResolvedCombatSkill, canAct, contestChance, defaultAttackSource, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, canAct, contestChance, defaultAttackSource, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type Point,
 } from "./turn-engine.ts";
 import { BASIC_MAGIC_RANGE_METERS } from "./magic-area.ts";
@@ -154,6 +154,17 @@ export function progressTrainingNpc(
     if(playerReady&&!npcSlotReady)return next;
     const distance=Math.abs(npc.positionMeters-player.positionMeters);
     const profile=next.trainingNpc?.difficulty??"INTERMEDIATE";
+    // A training NPC may use each free potion at a random useful opportunity.
+    const availablePotions=(next.consumables?.NPC??[]).filter(p=>p.quantity>0&&
+      (p.action==="HEAL_HP"?npc.maxHp>npc.hp:npc.magicAttack>0&&
+       (next.mana?.NPC?.current??0)<(next.mana?.NPC?.max??0)));
+    if(availablePotions.length&&random()<0.32){
+      const chosen=availablePotions[Math.min(availablePotions.length-1,
+       Math.floor(cap(random(),0,0.999999)*availablePotions.length))];
+      next=applyResolvedCombatConsumable(next,"NPC",chosen,
+        "npc-potion-"+next.round+"-"+npc.spentTicks+"-"+chosen.itemId);
+      continue;
+    }
     const skillChance=profile==="AGGRESSIVE"?0.75:profile==="ADVANCED"?0.48:profile==="ENDURANCE"?0.35:profile==="BASIC"?0.12:0.25;
     // Skills are compiled from the published catalog at encounter creation.
     // Reuse the same engine, paid PA/ticks, encounter mana and cooldowns.

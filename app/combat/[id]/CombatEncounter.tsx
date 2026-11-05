@@ -4,6 +4,8 @@ import Link from "next/link";
 import CombatSkillLoadout from "./CombatSkillLoadout";
 import CombatCharacterHud, {type CombatPanel} from "./CombatCharacterHud";
 import CombatDialog from "./CombatDialog";
+import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
+import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
 import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
@@ -104,7 +106,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [actionFeedback,setActionFeedback]=useState("");
  const [narrativeCopyStatus,setNarrativeCopyStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
- useEffect(()=>{setPreparedAreaSkill(null);},[side]);
+ useEffect(()=>{setPreparedAreaSkill(null);setFieldMove(null);setConstructionFieldPoint(null);},[side]);
  const [attackSource,setAttackSource]=useState<PhysicalAttackSource>("MAIN_HAND");
  const [recoverSlot,setRecoverSlot]=useState<"MAIN_HAND"|"OFF_HAND">("MAIN_HAND");
  const [blockWeaponSlot,setBlockWeaponSlot]=useState<"MAIN_HAND"|"OFF_HAND">("MAIN_HAND");
@@ -115,6 +117,10 @@ export default function CombatEncounter({id}:{id:string}) {
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
  const [areaAngleDegrees,setAreaAngleDegrees]=useState(0);
  const [constructionCenter,setConstructionCenter]=useState<Point|null>(null);
+ const [constructionFieldPoint,setConstructionFieldPoint]=useState<Point|null>(null);
+ const [constructionHeightMeters,setConstructionHeightMeters]=useState(5);
+ const [fieldMode,setFieldMode]=useState<FieldMode>("MOVE");
+ const [fieldMove,setFieldMove]=useState<Point|null>(null);
  const [constructionMaterials,setConstructionMaterials]=useState<Partial<Record<Side,string[]>>>({});
  const [constructionSkills,setConstructionSkills]=useState<Partial<Record<Side,CombatSkillPreview[]>>>({});
  const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK">("FIELD");
@@ -131,6 +137,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [defense,setDefense]=useState<DefenseChoice>("DODGE");
  const [dodgeDirection,setDodgeDirection]=useState<"AWAY"|"TOWARD"|"WEAPON">("AWAY");
  const [angle,setAngle]=useState(90);
+ const [guardDrawing,setGuardDrawing]=useState(false);
  const [flash,setFlash]=useState(false);
  const lastResolution=useRef("");
  const canvas=useRef<SVGSVGElement|null>(null);
@@ -189,7 +196,7 @@ export default function CombatEncounter({id}:{id:string}) {
     castRequestRef.current=null;
     const event=(data.state as CombatState).log.filter(e=>e.skillId===command.skillId).at(-1);
     setActionFeedback(event?.summary??"Habilidad ejecutada. Revisa el registro de combate.");
-    setPanel("none");setConstructionCenter(null);setPreparedAreaSkill(null);
+    setPanel("none");setConstructionCenter(null);setConstructionFieldPoint(null);setPreparedAreaSkill(null);
    }else if(command.kind==="BOOST_KARMA"){
     setActionFeedback("Mini boost aplicado: el karma se descontó y los bonos duran este combate.");
     setPanel("none");
@@ -322,10 +329,18 @@ export default function CombatEncounter({id}:{id:string}) {
  const defenderBlocks=state?.constructions?.filter(c=>c.owner===side&&c.form==="BLOCK"&&
    (c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35)??[];
  const chosenDefenseConstruction=defenderBlocks.some(c=>c.id===defenseConstruction)?defenseConstruction:defenderBlocks[0]?.id;
- const targetDistance=actor&&state?Math.abs(actor.positionMeters-state.actors[opposingSide].positionMeters):0;
+ const targetDistance=actor&&state?fieldDistance(actor,state.actors[opposingSide]):0;
+ const preparedMovement=fieldMode==="MOVE"&&panel!=="construction"&&fieldMove&&
+  Math.hypot(fieldMove.x,fieldMove.y)>=0.01?fieldMove:undefined;
+ const movedPosition=actor&&preparedMovement?{x:fieldPosition(actor).x+preparedMovement.x,
+  y:fieldPosition(actor).y+preparedMovement.y}:actor?fieldPosition(actor):null;
+ const attackDistance=movedPosition&&state?Math.hypot(
+  movedPosition.x-fieldPosition(state.actors[opposingSide]).x,
+  movedPosition.y-fieldPosition(state.actors[opposingSide]).y):targetDistance;
+ const canCombine=!!actor&&remainingAp(actor)>=2&&actor.spentTicks+turnTicks(actor)*2<=100;
  const basicReach=attackMode==="MAGIC_AREA"?BASIC_MAGIC_RANGE_METERS:
    actor?effectiveWeaponReachMeters(actor,attackMode==="THROW",activeAttackSource):0;
- const basicOutOfRange=targetDistance>basicReach;
+ const basicOutOfRange=attackDistance>basicReach;
  const maxMove=actor?Math.max(1,Math.round(actor.race/10)):1;
  const chooseAttackMode=(mode:"MAGIC_AREA"|"MAIN_HAND"|"OFF_HAND")=>{
   setAreaCenter(null);setPreparedAreaSkill(null);
@@ -365,6 +380,9 @@ export default function CombatEncounter({id}:{id:string}) {
   void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
    trajectory:construction||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
    attackSource:construction||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
+   planarMove:!construction&&skill.skillKind==="OFFENSE"?preparedMovement:undefined,
+   constructionFieldPoint:construction?constructionFieldPoint??undefined:undefined,
+   constructionHeightMeters:construction?constructionHeightMeters:undefined,
    areaCenter:skill.attackArea?.shape==="SELF_FIELD"?undefined:construction?constructionCenter??undefined:skill.usesMagic||skill.attackArea?areaCenter??undefined:undefined,
    areaAngleDegrees:isOrientedCombatArea(skill.attackArea)?areaAngleDegrees:undefined,
    constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
@@ -394,7 +412,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const hint=pending?.areaHint??"centro";
  const warningCells=magicHintCells(hint);
  const polyline=normalizedPath.map(p=>(p.x*100).toFixed(1)+","+(p.y*100).toFixed(1)).join(" ");
- return <main className="mx-auto max-w-5xl px-3 py-5 pb-28 text-zinc-100 sm:px-4 sm:py-7 sm:pb-28">
+ return <main className="mx-auto max-w-7xl px-3 py-5 pb-28 text-zinc-100 sm:px-4 sm:py-7 sm:pb-28">
   {state?.droppedWeapons?.length ? <p className="mb-3 text-sm text-amber-200">Armas arrojadas pendientes de recuperar: {state.droppedWeapons.map(w=>w.weapon.name+" ("+state.actors[w.owner].name+")").join(", ")}. Puedes desplazarte hacia ellas y recogerlas durante el encuentro.</p> : null}
   {flash&&<div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[3000] bg-rose-200/50"/>}
   <div className="mb-5 flex flex-wrap items-center justify-between gap-2">

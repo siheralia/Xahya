@@ -543,7 +543,7 @@ export default function CombatEncounter({id}:{id:string}) {
           const previous=itemRequestRef.current;
           const requestId=previous?.key===key?previous.id:crypto.randomUUID();
           itemRequestRef.current={key,id:requestId};
-          void submit({kind:"USE_ITEM",itemId:item.itemId,requestId});
+          void submit({kind:"USE_ITEM",itemId:item.itemId,characterItemId:item.characterItemId,requestId});
          }}
          disabled={!ready||busy||full} title={full?"Ya tienes el recurso al máximo":item.name}
          className="rounded-lg border border-emerald-400/40 bg-zinc-900 px-3 py-2 text-sm text-emerald-200 disabled:opacity-40">

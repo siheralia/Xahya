@@ -551,7 +551,7 @@ export default function CombatEncounter({id}:{id:string}) {
         </button>;
        })}
       </div>
-     </section>
+     </section>}
      <div className="flex flex-wrap items-end gap-3">
       <label className="text-sm">Avanzar (máx. {maxMove} m)
        <input type="number" min="0" max={maxMove} step="0.5" value={meters}

@@ -67,9 +67,18 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <span>{turnTicks(f)} ticks/acción</span>
    <span>STR: {f.strength}</span>
    <span>CON: {f.constitution}</span>
-   <span>Integridad: {f.weaponIntegrity}/100</span>
-   <span className="col-span-2">Mano principal: {f.equippedWeapon?.name??"Libre"}</span>
-   <span className="col-span-2">Mano secundaria: {f.offhandWeapon?.name??"Libre"}</span>
+   <span className="col-span-2">Integridad (último bloqueo): {f.weaponIntegrity}/100</span>
+   {(["MAIN_HAND","OFF_HAND"] as const).map(slot=>{
+    const weapon=slot==="MAIN_HAND"?f.equippedWeapon:f.offhandWeapon;
+    const resistance=weapon?.materialPhysicalResistance&&weapon.materialPhysicalResistance>0
+     ?weapon.materialPhysicalResistance:100;
+    return <span key={slot} className="col-span-2">
+     {slot==="MAIN_HAND"?"Mano principal":"Mano secundaria"}: {weapon
+      ?weapon.name+" · "+(weapon.durability??f.weaponIntegrity)+"/100 durabilidad · resistencia "+resistance+
+        (weapon.materialName?" ("+weapon.materialName+")":" (neutra)")
+      :"Libre"}
+    </span>;
+   })}
    <span>Masa: {f.massKg} kg</span>
    {state.mana?.[side]&&<span className="font-semibold text-violet-300">Maná combate: {state.mana[side].current}/{state.mana[side].max}</span>}
   </div>
@@ -98,6 +107,7 @@ export default function CombatEncounter({id}:{id:string}) {
  useEffect(()=>{setPreparedAreaSkill(null);},[side]);
  const [attackSource,setAttackSource]=useState<PhysicalAttackSource>("MAIN_HAND");
  const [recoverSlot,setRecoverSlot]=useState<"MAIN_HAND"|"OFF_HAND">("MAIN_HAND");
+ const [blockWeaponSlot,setBlockWeaponSlot]=useState<"MAIN_HAND"|"OFF_HAND">("MAIN_HAND");
  const [attackMode,setAttackMode]=useState<"PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW">("PHYSICAL");
  const [preparedAreaSkill,setPreparedAreaSkill]=useState<CombatSkillPreview|null>(null);
 
@@ -237,6 +247,10 @@ export default function CombatEncounter({id}:{id:string}) {
    (attackSource==="MAIN_HAND"&&!actor.equippedWeapon)||(attackSource==="OFF_HAND"&&!actor.offhandWeapon)
  )?defaultAttackSource(actor):attackSource;
  const selectedWeapon=actor?weaponForSource(actor,activeAttackSource):undefined;
+ const activeBlockSlot=(blockWeaponSlot==="MAIN_HAND"&&actor?.equippedWeapon)
+   ||(blockWeaponSlot==="OFF_HAND"&&actor?.offhandWeapon)
+     ?blockWeaponSlot:actor?.equippedWeapon?"MAIN_HAND":actor?.offhandWeapon?"OFF_HAND":undefined;
+ const activeBlockingWeapon=actor&&activeBlockSlot?weaponForSource(actor,activeBlockSlot):undefined;
  const displayedAttackType=attackMode==="MAGIC_AREA"?(preparedAreaSkill?.attackType??actor?.attackType??"CUT"):(selectedWeapon?.attackType??"BLUNT");
  const physicalAnchor=state?physicalAttackStart(state,side,activeAttackSource):null;
  const droppedForActor=state?.droppedWeapons?.filter(w=>w.owner===side)??[];
@@ -512,6 +526,16 @@ export default function CombatEncounter({id}:{id:string}) {
          {state.droppedWeapons?.some(w=>w.owner===side)&&<option value="WEAPON">Hacia el arma arrojada</option>}
        </select>
      </label>}
+     {selectedDefense==="BLOCK"&&activeBlockSlot&&<label className="block text-sm">Arma con la que bloquear
+      <select aria-label="Arma para bloquear" value={activeBlockSlot}
+       onChange={e=>setBlockWeaponSlot(e.target.value as "MAIN_HAND"|"OFF_HAND")}
+       className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2">
+       {actor?.equippedWeapon&&<option value="MAIN_HAND">Principal · {actor.equippedWeapon.name} ({actor.equippedWeapon.durability??actor.weaponIntegrity}/100)</option>}
+       {actor?.offhandWeapon&&<option value="OFF_HAND">Secundaria · {actor.offhandWeapon.name} ({actor.offhandWeapon.durability??actor.weaponIntegrity}/100)</option>}
+      </select>
+      <span className="mt-1 block text-xs text-zinc-400">Resistencia física del material: {activeBlockingWeapon?.materialPhysicalResistance&&activeBlockingWeapon.materialPhysicalResistance>0
+       ?activeBlockingWeapon.materialPhysicalResistance:100} · el acero (100) tiene desgaste neutro.</span>
+     </label>}
      {selectedDefense==="CONSTRUCTION"&&defenderBlocks.length>0&&
       <label className="block text-sm">Bloque que interceptará el golpe
        <select value={chosenDefenseConstruction} onChange={e=>setDefenseConstruction(e.target.value)}
@@ -522,7 +546,9 @@ export default function CombatEncounter({id}:{id:string}) {
         </option>)}
        </select>
       </label>}
-     <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,constructionId:selectedDefense==="CONSTRUCTION"?chosenDefenseConstruction:undefined,defenseAngle:angle,weaponSlot:dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,dodgeDirection:selectedDefense==="DODGE"?dodgeDirection:undefined,
+     <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,constructionId:selectedDefense==="CONSTRUCTION"?chosenDefenseConstruction:undefined,defenseAngle:angle,weaponSlot:selectedDefense==="BLOCK"?activeBlockSlot:
+        selectedDefense==="DODGE"&&dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,
+       dodgeDirection:selectedDefense==="DODGE"?dodgeDirection:undefined,
         predictedCenter:(pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
       disabled={busy||((pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
       {busy?"Resolviendo…":!hasReactionBudget?"Recibir impacto (sin reacción)":"Responder al ataque"}

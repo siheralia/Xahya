@@ -108,6 +108,10 @@
       "model": "Material",
       "namespace": "public"
     },
+    "materialType": {
+      "model": "MaterialType",
+      "namespace": "public"
+    },
     "maze": {
       "model": "Maze",
       "namespace": "public"
@@ -4049,6 +4053,20 @@
                   "kind": "scalar"
                 }
               },
+              "bonusAgainstPerkAttack": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "bonusAgainstPerkId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "createdAt": {
                 "nullable": false,
                 "type": {
@@ -4177,6 +4195,22 @@
               }
             },
             "relations": {
+              "bonusAgainstPerk": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "bonusAgainstPerkId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Perk",
+                  "namespace": "public"
+                }
+              },
               "items": {
                 "cardinality": "1:N",
                 "on": {
@@ -4191,6 +4225,22 @@
                   "model": "Item",
                   "namespace": "public"
                 }
+              },
+              "materialType": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "type"
+                  ],
+                  "targetFields": [
+                    "code"
+                  ]
+                },
+                "to": {
+                  "model": "MaterialType",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
@@ -4200,6 +4250,12 @@
                 },
                 "attackGrant": {
                   "column": "attackGrant"
+                },
+                "bonusAgainstPerkAttack": {
+                  "column": "bonusAgainstPerkAttack"
+                },
+                "bonusAgainstPerkId": {
+                  "column": "bonusAgainstPerkId"
                 },
                 "createdAt": {
                   "column": "createdAt"
@@ -4258,6 +4314,153 @@
               },
               "namespaceId": "public",
               "table": "material"
+            }
+          },
+          "MaterialType": {
+            "fields": {
+              "active": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "code": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "fireReaction": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "iceReaction": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "lightningReaction": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "marketForm": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "minimumForm": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "naturalForm": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "obtaining": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "rawForm": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "materials": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "code"
+                  ],
+                  "targetFields": [
+                    "type"
+                  ]
+                },
+                "to": {
+                  "model": "Material",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "active": {
+                  "column": "active"
+                },
+                "code": {
+                  "column": "code"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "fireReaction": {
+                  "column": "fireReaction"
+                },
+                "iceReaction": {
+                  "column": "iceReaction"
+                },
+                "lightningReaction": {
+                  "column": "lightningReaction"
+                },
+                "marketForm": {
+                  "column": "marketForm"
+                },
+                "minimumForm": {
+                  "column": "minimumForm"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "naturalForm": {
+                  "column": "naturalForm"
+                },
+                "obtaining": {
+                  "column": "obtaining"
+                },
+                "rawForm": {
+                  "column": "rawForm"
+                }
+              },
+              "namespaceId": "public",
+              "table": "materialType"
             }
           },
           "Maze": {
@@ -5263,6 +5466,21 @@
                 },
                 "to": {
                   "model": "CharacterPerk",
+                  "namespace": "public"
+                }
+              },
+              "materials": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "bonusAgainstPerkId"
+                  ]
+                },
+                "to": {
+                  "model": "Material",
                   "namespace": "public"
                 }
               },
@@ -11304,6 +11522,20 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "bonusAgainstPerkAttack": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "bonusAgainstPerkId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "default": {
@@ -11419,11 +11651,150 @@
                   "nullable": true
                 }
               },
+              "foreignKeys": [
+                {
+                  "onDelete": "restrict",
+                  "onUpdate": "restrict",
+                  "source": {
+                    "columns": [
+                      "type"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "material"
+                  },
+                  "target": {
+                    "columns": [
+                      "code"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "materialType"
+                  }
+                },
+                {
+                  "onDelete": "setNull",
+                  "source": {
+                    "columns": [
+                      "bonusAgainstPerkId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "material"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "perk"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "bonusAgainstPerkId"
+                  ],
+                  "name": "material_bonusAgainstPerkId_idx_73aa7256",
+                  "prefix": "material_bonusAgainstPerkId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "type"
+                  ],
+                  "name": "material_type_idx_b6b604ea",
+                  "prefix": "material_type_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "name"
+                  ]
+                }
+              ]
+            },
+            "materialType": {
+              "columns": {
+                "active": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "code": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "fireReaction": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "iceReaction": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "lightningReaction": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "marketForm": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "minimumForm": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "naturalForm": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "obtaining": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "rawForm": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                }
+              },
               "foreignKeys": [],
               "indexes": [],
               "primaryKey": {
                 "columns": [
-                  "id"
+                  "code"
                 ]
               },
               "uniques": [
@@ -14698,7 +15069,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "a7cacc6af2b31df836da8fbdfacefd8ae753bedba6d77c3efe9fa8a5768d6fdb"
+    "storageHash": "b9c09446c4a30a682a6f04901c33dc7cf254fd004b03f5069f4037e4e6fcf3fc"
   },
   "execution": {
     "executionHash": "c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96",

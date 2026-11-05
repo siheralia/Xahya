@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'a7cacc6af2b31df836da8fbdfacefd8ae753bedba6d77c3efe9fa8a5768d6fdb'>;
+  StorageHashBase<'b9c09446c4a30a682a6f04901c33dc7cf254fd004b03f5069f4037e4e6fcf3fc'>;
 export type ExecutionHash =
   ExecutionHashBase<'c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96'>;
 export type ProfileHash =
@@ -533,6 +533,22 @@ export type FieldOutputTypes = {
       readonly attackGrant: CodecTypes['pg/int4@1']['output'];
       readonly defenseGrant: CodecTypes['pg/int4@1']['output'];
       readonly specialEffect: CodecTypes['pg/text@1']['output'] | null;
+      readonly bonusAgainstPerkId: CodecTypes['pg/int4@1']['output'] | null;
+      readonly bonusAgainstPerkAttack: CodecTypes['pg/int4@1']['output'];
+      readonly naturalForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly minimumForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly rawForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly marketForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly fireReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly lightningReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly iceReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
+    readonly MaterialType: {
+      readonly code: CodecTypes['pg/text@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly obtaining: CodecTypes['pg/text@1']['output'] | null;
       readonly naturalForm: CodecTypes['pg/text@1']['output'] | null;
       readonly minimumForm: CodecTypes['pg/text@1']['output'] | null;
       readonly rawForm: CodecTypes['pg/text@1']['output'] | null;
@@ -1135,6 +1151,22 @@ export type FieldInputTypes = {
       readonly attackGrant: CodecTypes['pg/int4@1']['input'];
       readonly defenseGrant: CodecTypes['pg/int4@1']['input'];
       readonly specialEffect: CodecTypes['pg/text@1']['input'] | null;
+      readonly bonusAgainstPerkId: CodecTypes['pg/int4@1']['input'] | null;
+      readonly bonusAgainstPerkAttack: CodecTypes['pg/int4@1']['input'];
+      readonly naturalForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly minimumForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly rawForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly marketForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly fireReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly lightningReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly iceReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly MaterialType: {
+      readonly code: CodecTypes['pg/text@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly obtaining: CodecTypes['pg/text@1']['input'] | null;
       readonly naturalForm: CodecTypes['pg/text@1']['input'] | null;
       readonly minimumForm: CodecTypes['pg/text@1']['input'] | null;
       readonly rawForm: CodecTypes['pg/text@1']['input'] | null;
@@ -1728,6 +1760,8 @@ export type StorageColumnTypes = {
     readonly material: {
       readonly active: CodecTypes['pg/bool@1']['output'];
       readonly attackGrant: CodecTypes['pg/int4@1']['output'];
+      readonly bonusAgainstPerkAttack: CodecTypes['pg/int4@1']['output'];
+      readonly bonusAgainstPerkId: CodecTypes['pg/int4@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly defenseGrant: CodecTypes['pg/int4@1']['output'];
       readonly description: CodecTypes['pg/text@1']['output'] | null;
@@ -1746,6 +1780,20 @@ export type StorageColumnTypes = {
       readonly specialEffect: CodecTypes['pg/text@1']['output'] | null;
       readonly type: CodecTypes['pg/text@1']['output'];
       readonly weightPerUnitKg: CodecTypes['pg/float8@1']['output'] | null;
+    };
+    readonly materialType: {
+      readonly active: CodecTypes['pg/bool@1']['output'];
+      readonly code: CodecTypes['pg/text@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly fireReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly iceReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly lightningReaction: CodecTypes['pg/text@1']['output'] | null;
+      readonly marketForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly minimumForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly naturalForm: CodecTypes['pg/text@1']['output'] | null;
+      readonly obtaining: CodecTypes['pg/text@1']['output'] | null;
+      readonly rawForm: CodecTypes['pg/text@1']['output'] | null;
     };
     readonly maze: {
       readonly allowDeath: CodecTypes['pg/bool@1']['output'];
@@ -2330,6 +2378,8 @@ export type StorageColumnInputTypes = {
     readonly material: {
       readonly active: CodecTypes['pg/bool@1']['input'];
       readonly attackGrant: CodecTypes['pg/int4@1']['input'];
+      readonly bonusAgainstPerkAttack: CodecTypes['pg/int4@1']['input'];
+      readonly bonusAgainstPerkId: CodecTypes['pg/int4@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly defenseGrant: CodecTypes['pg/int4@1']['input'];
       readonly description: CodecTypes['pg/text@1']['input'] | null;
@@ -2348,6 +2398,20 @@ export type StorageColumnInputTypes = {
       readonly specialEffect: CodecTypes['pg/text@1']['input'] | null;
       readonly type: CodecTypes['pg/text@1']['input'];
       readonly weightPerUnitKg: CodecTypes['pg/float8@1']['input'] | null;
+    };
+    readonly materialType: {
+      readonly active: CodecTypes['pg/bool@1']['input'];
+      readonly code: CodecTypes['pg/text@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly fireReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly iceReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly lightningReaction: CodecTypes['pg/text@1']['input'] | null;
+      readonly marketForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly minimumForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly naturalForm: CodecTypes['pg/text@1']['input'] | null;
+      readonly obtaining: CodecTypes['pg/text@1']['input'] | null;
+      readonly rawForm: CodecTypes['pg/text@1']['input'] | null;
     };
     readonly maze: {
       readonly allowDeath: CodecTypes['pg/bool@1']['input'];
@@ -2864,6 +2928,22 @@ export namespace Models {
     targetUser: public_User | null;
     readonly [RelationKeys]?: 'actorUser' | 'character' | 'targetUser';
   };
+  export type public_MaterialType = {
+    code: CodecTypes['pg/text@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    obtaining: CodecTypes['pg/text@1']['output'] | null;
+    naturalForm: CodecTypes['pg/text@1']['output'] | null;
+    minimumForm: CodecTypes['pg/text@1']['output'] | null;
+    rawForm: CodecTypes['pg/text@1']['output'] | null;
+    marketForm: CodecTypes['pg/text@1']['output'] | null;
+    fireReaction: CodecTypes['pg/text@1']['output'] | null;
+    lightningReaction: CodecTypes['pg/text@1']['output'] | null;
+    iceReaction: CodecTypes['pg/text@1']['output'] | null;
+    active: CodecTypes['pg/bool@1']['output'];
+    createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    materials: public_Material[];
+    readonly [RelationKeys]?: 'materials';
+  };
   export type public_Material = {
     id: CodecTypes['pg/int4@1']['output'];
     name: CodecTypes['pg/text@1']['output'];
@@ -2876,6 +2956,8 @@ export namespace Models {
     attackGrant: CodecTypes['pg/int4@1']['output'];
     defenseGrant: CodecTypes['pg/int4@1']['output'];
     specialEffect: CodecTypes['pg/text@1']['output'] | null;
+    bonusAgainstPerkId: CodecTypes['pg/int4@1']['output'] | null;
+    bonusAgainstPerkAttack: CodecTypes['pg/int4@1']['output'];
     naturalForm: CodecTypes['pg/text@1']['output'] | null;
     minimumForm: CodecTypes['pg/text@1']['output'] | null;
     rawForm: CodecTypes['pg/text@1']['output'] | null;
@@ -2885,8 +2967,10 @@ export namespace Models {
     iceReaction: CodecTypes['pg/text@1']['output'] | null;
     active: CodecTypes['pg/bool@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    bonusAgainstPerk: public_Perk | null;
     items: public_Item[];
-    readonly [RelationKeys]?: 'items';
+    materialType: public_MaterialType;
+    readonly [RelationKeys]?: 'bonusAgainstPerk' | 'items' | 'materialType';
   };
   export type public_Item = {
     id: CodecTypes['pg/int4@1']['output'];
@@ -3086,8 +3170,9 @@ export namespace Models {
     active: CodecTypes['pg/bool@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     characterPerks: public_CharacterPerk[];
+    materials: public_Material[];
     racePerks: public_RacePerk[];
-    readonly [RelationKeys]?: 'characterPerks' | 'racePerks';
+    readonly [RelationKeys]?: 'characterPerks' | 'materials' | 'racePerks';
   };
   export type public_Race = {
     id: CodecTypes['pg/int4@1']['output'];
@@ -3499,6 +3584,7 @@ export declare const models: {
     CharacterResource: Models.public_CharacterResource;
     CharacterModifier: Models.public_CharacterModifier;
     AuditLog: Models.public_AuditLog;
+    MaterialType: Models.public_MaterialType;
     Material: Models.public_Material;
     Item: Models.public_Item;
     CharacterItem: Models.public_CharacterItem;
@@ -6297,6 +6383,20 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
                 };
+                readonly bonusAgainstPerkId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
+                readonly bonusAgainstPerkAttack: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
                 readonly naturalForm: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
@@ -6349,6 +6449,117 @@ type ContractBase = Omit<
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['name'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'material_type_idx_b6b604ea';
+                  readonly prefix: 'material_type_idx';
+                  readonly columns: readonly ['type'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'material_bonusAgainstPerkId_idx_73aa7256';
+                  readonly prefix: 'material_bonusAgainstPerkId_idx';
+                  readonly columns: readonly ['bonusAgainstPerkId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'material';
+                    readonly columns: readonly ['type'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'materialType';
+                    readonly columns: readonly ['code'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'material';
+                    readonly columns: readonly ['bonusAgainstPerkId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'perk';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly materialType: {
+              columns: {
+                readonly code: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly obtaining: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly naturalForm: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly minimumForm: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly rawForm: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly marketForm: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly fireReaction: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly lightningReaction: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly iceReaction: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly active: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['code'] };
               uniques: readonly [{ readonly columns: readonly ['name'] }];
               indexes: readonly [];
               foreignKeys: readonly [];
@@ -9034,6 +9245,10 @@ type ContractBase = Omit<
       readonly model: 'CharacterModifier';
     };
     readonly auditLog: { readonly namespace: 'public' & NamespaceId; readonly model: 'AuditLog' };
+    readonly materialType: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'MaterialType';
+    };
     readonly material: { readonly namespace: 'public' & NamespaceId; readonly model: 'Material' };
     readonly item: { readonly namespace: 'public' & NamespaceId; readonly model: 'Item' };
     readonly characterItem: {
@@ -11641,6 +11856,14 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly bonusAgainstPerkId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly bonusAgainstPerkAttack: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly naturalForm: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -11682,12 +11905,33 @@ type ContractBase = Omit<
               };
             };
             readonly relations: {
+              readonly bonusAgainstPerk: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'Perk' };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['bonusAgainstPerkId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
               readonly items: {
                 readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'Item' };
                 readonly cardinality: '1:N';
                 readonly on: {
                   readonly localFields: readonly ['id'];
                   readonly targetFields: readonly ['materialId'];
+                };
+              };
+              readonly materialType: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'MaterialType';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['type'];
+                  readonly targetFields: readonly ['code'];
                 };
               };
             };
@@ -11706,6 +11950,94 @@ type ContractBase = Omit<
                 readonly attackGrant: { readonly column: 'attackGrant' };
                 readonly defenseGrant: { readonly column: 'defenseGrant' };
                 readonly specialEffect: { readonly column: 'specialEffect' };
+                readonly bonusAgainstPerkId: { readonly column: 'bonusAgainstPerkId' };
+                readonly bonusAgainstPerkAttack: { readonly column: 'bonusAgainstPerkAttack' };
+                readonly naturalForm: { readonly column: 'naturalForm' };
+                readonly minimumForm: { readonly column: 'minimumForm' };
+                readonly rawForm: { readonly column: 'rawForm' };
+                readonly marketForm: { readonly column: 'marketForm' };
+                readonly fireReaction: { readonly column: 'fireReaction' };
+                readonly lightningReaction: { readonly column: 'lightningReaction' };
+                readonly iceReaction: { readonly column: 'iceReaction' };
+                readonly active: { readonly column: 'active' };
+                readonly createdAt: { readonly column: 'createdAt' };
+              };
+            };
+          };
+          readonly MaterialType: {
+            readonly fields: {
+              readonly code: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly obtaining: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly naturalForm: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly minimumForm: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly rawForm: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly marketForm: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly fireReaction: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly lightningReaction: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly iceReaction: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly active: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly materials: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Material';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['code'];
+                  readonly targetFields: readonly ['type'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'materialType';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly code: { readonly column: 'code' };
+                readonly name: { readonly column: 'name' };
+                readonly obtaining: { readonly column: 'obtaining' };
                 readonly naturalForm: { readonly column: 'naturalForm' };
                 readonly minimumForm: { readonly column: 'minimumForm' };
                 readonly rawForm: { readonly column: 'rawForm' };
@@ -12350,6 +12682,17 @@ type ContractBase = Omit<
                 readonly on: {
                   readonly localFields: readonly ['id'];
                   readonly targetFields: readonly ['perkId'];
+                };
+              };
+              readonly materials: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Material';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['bonusAgainstPerkId'];
                 };
               };
               readonly racePerks: {

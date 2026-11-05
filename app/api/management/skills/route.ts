@@ -9,7 +9,6 @@ import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
 import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
-import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import {validateSkillCombatTypes,normalizeSkillCombatType} from "@/lib/combat/matchup-types";
 
 async function getAdmin(action: "view" | "edit") {
@@ -41,7 +40,6 @@ function validate(body: any) {
   if (!name || name.length > 120) return "El nombre debe tener entre 1 y 120 caracteres.";
   if (!description || description.length > 5000) return "La descripción es obligatoria.";
   if (!CATEGORIES.includes(category as any)) return "Categoría inválida.";
-  if (body.reject !== true && isPassiveConditionMissing(category,body.condition)) return PASSIVE_CONDITION_REQUIRED_MESSAGE;
   const maintenanceCost = Number(body.maintenanceCost ?? 0);
   const accumulationCost = Number(body.accumulationCost ?? 0);
   const accumulationPerTick = Number(body.accumulationPerTick ?? 0);

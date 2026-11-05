@@ -43,8 +43,11 @@ test("construction plus button is conditional on an approved usable CREATE roste
  assert.match(page,/Crear con \{skill\.name\}/);
  assert.doesNotMatch(page.split("\n").find(line=>line.includes("habilidad con efecto Crear"))??"",/Sikat[aā]|Fotoconstrucci[oó]n|Espejo/i);
 });
-test("karma, construction and skills are modal content, never always-visible encounter sections",()=>{
- for(const panel of ["karma","construction","skills","inventory","stats"])assert.ok(page.includes('open={panel==="'+panel+'"'),panel);
+test("karma, skills, inventory and stats are dialogs, while construction uses accessible dual planes",()=>{
+ for(const panel of ["karma","skills","inventory","stats"])assert.ok(page.includes('open={panel==="'+panel+'"'),panel);
+ assert.match(page,/panel==="construction"&&canCreateObjects&&state.status==="ACTIVE"/);
+ assert.match(page,/Plano horizontal · terreno/);
+ assert.match(page,/Plano vertical · altura/);
  assert.match(page,/<CombatDialog open=\{panel==="skills"\}/);
  assert.match(page,/categoryFilter=\{skillCategory\}/);
  assert.match(modal,/aria-modal=\{open\|\|undefined\}/);
@@ -59,9 +62,9 @@ test("defenses are icon buttons with pressed state rather than dense radio cards
  assert.doesNotMatch(page,/<input type="radio"/);
 });
 test("bad reach and initiative must remain explained instead of silently doing nothing",()=>{
- assert.match(page,/const basicOutOfRange=targetDistance>basicReach/);
+ assert.match(page,/const basicOutOfRange=attackDistance>basicReach/);
  assert.match(page,/disabled=\{!ready\|\|basicOutOfRange/);
- assert.match(page,/El objetivo está a \{targetDistance\.toFixed\(2\)\} m/);
+ assert.match(page,/El objetivo está a \{attackDistance\.toFixed\(2\)\} m/);
  assert.match(page,/const npcNeedsInitiative=Boolean/);
  assert.match(page,/command:\{kind:"ADVANCE"\}/);
  assert.match(page,/setActionFeedback\(event\?\.summary/);

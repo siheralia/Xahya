@@ -55,10 +55,10 @@ export function modularStepsForLegacyEffect(raw:unknown):{
       durationMovements:typeof e.durationMovements==="number"?e.durationMovements:undefined,
       activationCondition:typeof e.activationCondition==="string"?e.activationCondition:undefined,
       value:typeof e.value==="number"?e.value:undefined};
-    if(e.capability==="CREATE" && typeof e.element==="string" && validKey(e.element.toUpperCase()))
-      return {status:"EXECUTABLE",steps:[capability,bonus("CONSTRUCTION:"+e.element.toUpperCase(),1)]};
     return {status:"DESCRIPTION_ONLY",steps:[capability],
-      reason:"Capacidad modular declarativa, sin bonificación automática ni resolutor de acción"};
+      reason:e.capability==="CREATE"?
+        "Crear materia sigue requiriendo un resolutor de objetos, propietario y espacio. No se inventa un bono de construcción.":
+        "Capacidad modular declarativa, sin bonificación automática ni resolutor de acción"};
   }
   if(!good(value))return {status:"UNSUPPORTED",steps:[],reason:"Valor no numérico o fuera de límites"};
   switch(type){
@@ -132,6 +132,30 @@ export function modularStepsForLegacyEffect(raw:unknown):{
       return {status:"UNSUPPORTED",steps:[],reason:"Tipo no implementado como micromódulo"};
   }
 }
+/** Expand legacy numeric intents into true dataflow: value → normalizer → action.
+ * No extra intents are introduced, and the original skill calculation remains
+ * authoritative for parity, costing, targeting and unsupported mechanics. */
+export function connectLegacyNumericalSteps(steps:readonly MicroStep[],raw:unknown):MicroStep[]{
+ const effect=raw&&typeof raw==="object"&&!Array.isArray(raw)?raw as Record<string,unknown>:{};
+ const power=typeof effect.value==="number"&&Number.isFinite(effect.value)?effect.value:undefined;
+ return steps.flatMap((step,index):MicroStep[]=>{
+   if(step.kind==="MODIFIER"&&typeof step.multiplier==="number"){
+     const rawName="sourcePower"+index,scaled="scaledPower"+index;
+     return [
+       {kind:"CALCULATE",output:rawName,expression:power??step.multiplier*100},
+       {kind:"CALCULATE",output:scaled,expression:{operator:"DIVIDE",
+         args:[{source:"OUTPUT",key:rawName},100]}},
+       {...step,multiplier:{source:"OUTPUT",key:scaled}},
+     ];
+   }
+   if((step.kind==="BONUS"||step.kind==="HEAL")&&typeof step.amount==="number"){
+     const output="sourcePower"+index;
+     return [{kind:"CALCULATE",output,expression:step.amount},
+       {...step,amount:{source:"OUTPUT",key:output}}];
+   }
+   return [step];
+ });
+}
 /** Default role wiring; abilities may replace either READ_* producer with a
  * compatible stat source, event value, or stored accumulator output. */
 export function variableResistanceStatGraph(config:VariableResistance):MicroStep[] {
@@ -167,9 +191,11 @@ export function cloneLegacySkillAsMicro(
     const inert:MicroStep={kind:"CAPABILITY",code:"NARRATIVE:OTHER",
       target:effectType.slice(0,120),
       description:"Pendiente de resolutor: "+(projection.reason??"Efecto no implementado")};
+    const numeric=projection.status==="EXECUTABLE"&&effectType!=="NARRATIVE"?
+      connectLegacyNumericalSteps(projection.steps,e):projection.steps;
     const steps:MicroStep[]=dynamic?
-      [...projection.steps,...variableResistanceStatGraph(resistance as VariableResistance)]:
-      projection.steps.length?projection.steps:[inert];
+      [...numeric,...variableResistanceStatGraph(resistance as VariableResistance)]:
+      numeric.length?numeric:[inert];
     const modules:EffectContainer[]=steps.length?[{
       id:"LEGACY_"+id+"_"+index,name:name+" / "+effectType,type:"LEGACY_MICRO",
       description:typeof (e as Record<string,unknown>)?.description==="string"

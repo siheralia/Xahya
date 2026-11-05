@@ -3,6 +3,7 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 import ManagementModal from "../_components/ManagementModal";
 import {materialTypeCodeFromName,type MaterialTypeDraft} from "@/lib/items/material-types";
+import {parseCatalogResponse} from "@/lib/items/catalog-response";
 
 type MaterialType=MaterialTypeDraft;
 type Caps={create:boolean;edit:boolean;delete:boolean};
@@ -25,6 +26,7 @@ export default function MaterialTypesPage(){
  const [caps,setCaps]=useState<Caps>({create:false,edit:false,delete:false});
  const [filter,setFilter]=useState("");
  const [loading,setLoading]=useState(true);
+ const [loadFailed,setLoadFailed]=useState(false);
  const [busy,setBusy]=useState(false);
  const [editCode,setEditCode]=useState<string|null>(null);
  const [form,setForm]=useState<MaterialTypeDraft>(blank);
@@ -32,13 +34,17 @@ export default function MaterialTypesPage(){
  const [error,setError]=useState("");
  const [message,setMessage]=useState("");
  async function load(){
-  setLoading(true);
+  setLoading(true);setLoadFailed(false);
   try{
    const response=await fetch("/api/management/material-types",{cache:"no-store"});
-   const data=await response.json();
-   if(!response.ok)throw new Error(data.error??"No se pudieron cargar los tipos.");
-   setTypes(data.types??[]);setCaps(data.capabilities??{create:false,edit:false,delete:false});
-  }catch(e){setError(e instanceof Error?e.message:"No se pudieron cargar los tipos.");}
+   const data=await parseCatalogResponse<{types:MaterialType[];capabilities:Caps}>(response,"los tipos de material");
+   if(!Array.isArray(data.types))throw new Error("El catálogo no contiene una lista válida de tipos.");
+   setTypes(data.types);setCaps(data.capabilities??{create:false,edit:false,delete:false});
+   setError("");
+  }catch(e){
+   setLoadFailed(true);
+   setError(e instanceof Error?e.message:"No se pudieron cargar los tipos.");
+  }
   finally{setLoading(false);}
  }
  useEffect(()=>{void load();},[]);
@@ -52,8 +58,7 @@ export default function MaterialTypesPage(){
    const url=editCode?"/api/management/material-types/"+encodeURIComponent(editCode):"/api/management/material-types";
    const response=await fetch(url,{method:editCode?"PATCH":"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify(form)});
-   const result=await response.json();
-   if(!response.ok)throw new Error(result.error??"No se pudo guardar el tipo.");
+   await parseCatalogResponse(response,"el tipo de material");
    setOpen(false);await load();setMessage(editCode?"Tipo actualizado.":"Tipo creado.");
   }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");}
   finally{setBusy(false);}
@@ -64,8 +69,7 @@ export default function MaterialTypesPage(){
   setBusy(true);setError("");
   try{
    const response=await fetch("/api/management/material-types/"+encodeURIComponent(editCode),{method:"DELETE"});
-   const result=await response.json();
-   if(!response.ok)throw new Error(result.error??"No se pudo eliminar el tipo.");
+   await parseCatalogResponse(response,"el tipo de material");
    setOpen(false);await load();setMessage("Tipo eliminado.");
   }catch(e){setError(e instanceof Error?e.message:"No se pudo eliminar.");}
   finally{setBusy(false);}
@@ -93,6 +97,7 @@ export default function MaterialTypesPage(){
    <input aria-label="Buscar tipo de material" placeholder="Buscar tipo de material…" value={filter}
     onChange={e=>setFilter(e.target.value)} className={field+" mt-6"}/>
    {loading?<p className="mt-5 text-zinc-400">Cargando tipos…</p>:
+    loadFailed?<button type="button" className="mt-5 rounded-lg border border-cyan-500/50 px-4 py-2 text-cyan-300" onClick={()=>void load()}>Volver a intentar</button>:
     <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
      {shown.map(type=><article key={type.code} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
       <div className="flex items-start justify-between gap-2">

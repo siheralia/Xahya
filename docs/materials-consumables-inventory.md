@@ -58,7 +58,7 @@ de precios y equilibrio.
 
 ## Migración requerida y seguridad
 
-1. **Antes de desplegar código**: aplicar `supabase/migrations/20261105152000_materials_and_potions.sql`
+1. **Antes de desplegar código**: aplicar `supabase/migrations/20261105160614_materials_and_potions_20261105152000.sql`
    mediante el flujo de migraciones de Xahya y comprobar que aparece
    `public.material`, `item.materialId`, `characterItem.durability` y dos
    pociones comprables. Repetir comprobaciones con consultas de solo lectura.

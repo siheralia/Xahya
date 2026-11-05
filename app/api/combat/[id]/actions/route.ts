@@ -157,7 +157,12 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
          if(state.processedItemRequests?.includes(requestId)){
            next=state; // Retry never consumes two units or advances the NPC.
          }else{
-           const stock=(state.consumables?.[side]??[]).find(entry=>entry.itemId===itemId&&entry.quantity>0);
+           const characterItemId=command.characterItemId;
+           if(characterItemId!==undefined&&(!Number.isSafeInteger(characterItemId)||characterItemId<1))
+             throw new Error("Instancia del consumible inválida.");
+           const stock=(state.consumables?.[side]??[]).find(entry=>
+             entry.itemId===itemId&&entry.quantity>0&&
+             (characterItemId===undefined||entry.characterItemId===characterItemId));
            if(!stock)throw new Error("Este consumible ya no está disponible.");
            const Item=(tx.orm.public as any).Item;
            const row=await Item.where({id:itemId}).first();

@@ -46,17 +46,24 @@ const exprLabel=(v:NumericExpr|undefined):string=>{
 };
 const display=(step:MicroStep):{title:string;subtitle:string;unresolved:boolean}=>{
  switch(step.kind){
-  case "CALCULATE":return {title:"Calcular valor",subtitle:exprLabel(step.expression),unresolved:false};
+  case "CALCULATE":return {title:typeof step.expression==="number"?"Valor configurado":"Calcular valor",subtitle:exprLabel(step.expression),unresolved:false};
   case "READ_STAT":return {title:"Leer estadística",subtitle:(step.actor==="USER"?"Usuario":"Oponente")+" · "+step.stat,unresolved:false};
   case "READ_STORED":return {title:"Leer almacén",subtitle:step.accumulator+" · "+(step.metric==="TOTAL"?"Total":"Cargas"),unresolved:false};
   case "CONSUME":return {title:"Consumir cargas",subtitle:step.accumulator+" · "+step.charges,unresolved:false};
   case "STORE":return {title:"Almacenar",subtitle:step.accumulator+" · máx. "+step.capacity,unresolved:false};
   case "HEAL":return {title:"Curar",subtitle:"Recuperar puntos de vida",unresolved:false};
   case "DAMAGE":return {title:"Aplicar daño",subtitle:step.channel==="MAGICAL"?"Mágico · "+(step.element??"sin elemento"):"Físico",unresolved:false};
-  case "MODIFIER":return {title:"Aplicar multiplicador",subtitle:step.stat.replaceAll("_"," ").toLowerCase(),unresolved:false};
+  case "MODIFIER":{
+   const targets:Record<string,string>={MAGIC_ATTACK:"Ataque mágico",MAGIC_ATK:"Ataque mágico",
+     PHYS_ATK:"Ataque físico",PHYSICAL_ATTACK:"Ataque físico",
+     PHYS_DEF:"Defensa física",MAGIC_DEF:"Defensa mágica"};
+   const target=step.sourceTarget?(targets[step.sourceTarget]??step.sourceTarget.replaceAll("_"," ").toLowerCase()):
+     step.stat.replaceAll("_"," ").toLowerCase();
+   return {title:"Aplicar multiplicador",subtitle:target+(step.sourceElement?" · "+step.sourceElement:""),unresolved:false};
+  }
   case "BONUS":return {title:"Aplicar bono",subtitle:step.stat.replaceAll("_"," "),unresolved:false};
   case "VARIABLE_RESISTANCE":return {title:"Resistencia variable",subtitle:step.config.formula+" · "+step.config.baseStat,unresolved:false};
-  case "CAPABILITY":return {title:"Capacidad declarativa",subtitle:step.code+(step.element?" · "+step.element:""),unresolved:true};
+  case "CAPABILITY":return {title:"Capacidad declarativa",subtitle:(step.description||step.code)+(step.element?" · "+step.element:""),unresolved:true};
  }
 };
 function StepNode({data}:NodeProps<GraphNode>){

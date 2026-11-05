@@ -30,3 +30,6 @@ Las copias siguen virtuales, no se insertan habilidades nuevas ni cambia el PCH 
 - Paridad de los cinco presets de Gloria: reserva, defensa, curación, golpe directo y golpe al suelo.
 - Preservación del bloqueo de capacidades narrativas sin resolutor.
 - UI/constructor verificables por rutas reales y pruebas de CI (TypeScript y producción).
+
+### PCH durante la descomposición
+Los pasos de lectura (`READ_STAT`, `READ_STORED`) y cálculo (`CALCULATE`) son conexiones computacionales, no nuevas acciones. El depósito provisional cuenta las **acciones** (curar, dañar, almacenar, consumir, modificar y demás) y no cada nodo de datos. Así, los cinco ejemplos de Gloria mantienen sus depósitos previos de 5, 5, 5, 15 y 10 PCH; no se modifica ninguna habilidad ya aprobada ni se cobra saldo durante la visualización.

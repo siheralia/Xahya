@@ -24,7 +24,7 @@ export type MicroStep = (
   | { kind: "CALCULATE"; expression: NumericExpr; output: string }
   | { kind: "HEAL"; amount: NumericExpr }
   | { kind: "DAMAGE"; amount: NumericExpr; channel: "PHYSICAL" | "MAGICAL"; element?: string; radiusMeters?: NumericExpr }
-  | { kind: "MODIFIER"; stat: string; multiplier: NumericExpr }
+  | { kind: "MODIFIER"; stat: string; multiplier: NumericExpr; sourceTarget?: string; sourceElement?: string }
   | { kind: "BONUS"; stat: string; amount: NumericExpr }
   /** Structured legacy narrative: retains capability, no automatic numerical benefit. */
   | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
@@ -153,7 +153,10 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
               checkExpr(step.radiusMeters);checkSourceLinks(step.radiusMeters,outputs);
             } break;
           case "MODIFIER":
-            if (!validKey(step.stat)) fail("estadística inválida");
+            if (!validKey(step.stat) ||
+              (step.sourceTarget!==undefined&&!validKey(step.sourceTarget))||
+              (step.sourceElement!==undefined&&!validKey(step.sourceElement)))
+              fail("estadística de multiplicador inválida");
             checkExpr(step.multiplier);checkSourceLinks(step.multiplier,outputs); break;
           case "BONUS":
             if (!validKey(step.stat)) fail("estadística inválida");

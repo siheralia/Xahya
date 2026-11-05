@@ -145,7 +145,10 @@ export function connectLegacyNumericalSteps(steps:readonly MicroStep[],raw:unkno
        {kind:"CALCULATE",output:rawName,expression:power??step.multiplier*100},
        {kind:"CALCULATE",output:scaled,expression:{operator:"DIVIDE",
          args:[{source:"OUTPUT",key:rawName},100]}},
-       {...step,multiplier:{source:"OUTPUT",key:scaled}},
+       {...step,multiplier:{source:"OUTPUT",key:scaled},
+        sourceTarget:typeof effect.target==="string"&&validKey(effect.target)?effect.target:undefined,
+        sourceElement:typeof effect.element==="string"&&validKey(effect.element.toUpperCase())?
+          effect.element.toUpperCase():undefined},
      ];
    }
    if((step.kind==="BONUS"||step.kind==="HEAL")&&typeof step.amount==="number"){

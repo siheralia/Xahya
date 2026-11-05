@@ -418,6 +418,15 @@ function applyCompositeStep(state:CombatState,by:Side,requested:Point){
   moveMeters:Math.round(Math.hypot(vector.x,vector.y)*100)/100,fieldPosition:{...fieldPosition(fighter)},
   summary:fighter.name+" se desplazó mientras preparaba su acción"});
 }
+/** Involuntary knockback must update the same 2D ground position shown in
+ * the horizontal panel. On legacy one-dimensional encounters this reduces
+ * exactly to the old signed X movement. */
+function pushAwayOnField(mover:CombatFighter,reference:CombatFighter,meters:number){
+ const a=fieldPosition(mover),b=fieldPosition(reference);
+ const dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+ const sign=d>1e-9?{x:dx/d,y:dy/d}:{x:1,y:0};
+ moveFighterOnField(mover,{x:sign.x*meters,y:sign.y*meters});
+}
 function lastInitiativeSide(state: CombatState): Side | null {
   for (let i = state.log.length - 1; i >= 0; i--) {
     const {kind, by} = state.log[i];
@@ -807,6 +816,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const sign=Math.sign(target-fighter.positionMeters)||1;
       const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
       fighter.positionMeters+=sign*(direction==="AWAY"?-0.5:step);
+      if(fighter.fieldPosition)fighter.fieldPosition.x=fighter.positionMeters;
       clearPhysicalStrokes(state,by);
       if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2){
         restoreWeapon(state,dropped);
@@ -854,13 +864,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
     if (displaced > 0) {
       if (defense === "REPEL" && damageScale < 1) {
-        const sign = Math.sign(attacker.positionMeters - fighter.positionMeters) || 1;
-        attacker.positionMeters += sign * displaced;
+        pushAwayOnField(attacker,fighter,displaced);
         // An involuntary displacement also breaks the continuity of a stroke.
         clearPhysicalStrokes(state,pending.by);
       } else {
-        const sign = Math.sign(fighter.positionMeters - attacker.positionMeters) || 1;
-        fighter.positionMeters += sign * displaced;
+        pushAwayOnField(fighter,attacker,displaced);
         clearPhysicalStrokes(state,by);
       }
     }

@@ -100,6 +100,10 @@ export type CombatState = {
   skillBonuses?: Array<{by:Side;skillId:number;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
   processedSkillRequests?: string[];
   processedKarmaRequests?: string[];
+  /** New encounters track durability separately for both equipped hands.
+   * Older combat JSON used one fighter.weaponIntegrity; upgrade on first action.
+   */
+  perHandWeaponDurability?:boolean;
   /** Encounter inventory. Real character copies are spent in the session transaction. */
   consumables?:Partial<Record<Side,CombatConsumable[]>>;
   processedItemRequests?:string[];
@@ -371,7 +375,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
     physicalPathEnd:{},physicalPathEnds:{},constructions:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
-    processedKarmaRequests:[],narrativeHistory:[],pending:null,log:[]};
+    processedKarmaRequests:[],perHandWeaponDurability:true,narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
   Math.max(1, f.speedValue ?? f.agility);
@@ -616,6 +620,23 @@ function resolveTargetedMirrorAttack(
    actor.name+" falló al atacar "+mirror.label});
  if(actor.hp<=0)finishEncounter(state,mirror.owner);
 }
+/** Legacy encounters persisted one shared integrity gauge that belonged to
+ * main hand (offhand if main was empty). Carry that previous wear into the
+ * per-weapon snapshot exactly once; never copy offhand wear onto main in new
+ * encounters.
+ */
+function upgradeLegacyWeaponDurability(state:CombatState){
+ if(state.perHandWeaponDurability===true)return;
+ for(const side of SIDES){
+  const fighter=state.actors[side];
+  const weapon=fighter.equippedWeapon??fighter.offhandWeapon;
+  if(weapon && Number.isFinite(fighter.weaponIntegrity)){
+   const previous=Number.isFinite(weapon.durability)?weapon.durability!:fighter.weaponIntegrity;
+   weapon.durability=Math.max(0,Math.min(100,previous,fighter.weaponIntegrity));
+  }
+ }
+ state.perHandWeaponDurability=true;
+}
 export function applyCombatCommand(original: CombatState, by: Side, command: CombatCommand,
   rolls: {hit:number; critical:number; defense:number} = {hit:0.5,critical:0.5,defense:0.5},
   serverSkillRangeMeters?:number,
@@ -624,6 +645,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   const state = structuredClone(original);
   if (state.version !== 1 || state.status !== "ACTIVE") throw new Error("El combate no está activo.");
   if (!SIDES.includes(by)) throw new Error("Combatiente no válido.");
+  upgradeLegacyWeaponDurability(state);
   const fighter = state.actors[by], rival = state.actors[other(by)];
   if (state.pending) {
     const pending = state.pending;

@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { randomInt } from "node:crypto";
 import { db } from "@/lib/db";
-import { getEffectiveCharacterStats } from "@/lib/stats/effective";
+import { getEffectiveCombatCharacterStats } from "@/lib/stats/effective";
 import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { readMechanics } from "@/lib/stats/mechanics";
 import { canAct, massDefaultKg, newCombatState, weaponIntegrityDefault, type CombatFighter } from "@/lib/combat/turn-engine";
@@ -113,7 +113,7 @@ export async function POST(req:Request) {
   const gm=await canApproveCombat(user);
   if(!character || (!gm && Number(character.userId)!==Number(user.id)))
     return NextResponse.json({error:"Sin permiso sobre este personaje."},{status:403});
-  const first=await getEffectiveCharacterStats(characterId);
+  const first=await getEffectiveCombatCharacterStats(characterId);
   if(!first)return NextResponse.json({error:"Faltan estadísticas del personaje."},{status:400});
   const mechanics=await readMechanics();
   const player=buildFighter(String(character.name),characterId,first.effectiveStats,first.derived,
@@ -141,7 +141,7 @@ export async function POST(req:Request) {
     if(!gm)return NextResponse.json({error:"El PvP requiere que un GM inicie el encuentro."},{status:403});
     if(opponentId===characterId)return NextResponse.json({error:"Un personaje no puede enfrentarse consigo mismo."},{status:400});
     const rival=await db.orm.public.Character.where({id:opponentId}).first();
-    const stats=await getEffectiveCharacterStats(opponentId);
+    const stats=await getEffectiveCombatCharacterStats(opponentId);
     if(!rival||!stats)return NextResponse.json({error:"Oponente no encontrado."},{status:404});
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
       (rival as any).magicAttackType,(rival as any).blockDefenseType,

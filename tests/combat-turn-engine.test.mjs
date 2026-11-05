@@ -155,3 +155,34 @@ test("combat tick speed can be configured without changing real AGI",()=>{
  assert.equal(turnTicks(actor),20);
  assert.equal(actor.agility,100);
 });
+
+
+test("weapon attack speed modifiers never penalize fists, kicks or magic",()=>{
+ const enemy=fighter("Target",50,{positionMeters:0.5});
+ const run=(actor,command,range)=>{
+  const s=newCombatState(actor,enemy);
+  s.mana={PLAYER:{current:10,max:10},NPC:{current:10,max:10}};
+  return applyCombatCommand(s,"PLAYER",command,rolls,range).actors.PLAYER.spentTicks;
+ };
+ const blunt={name:"Maza",attackType:"BLUNT",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2};
+ const pierce={name:"Lanza",attackType:"PIERCE",mode:"MELEE",effectiveRangeMeters:2,maximumRangeMeters:2};
+ const path=[{x:0,y:0.5},{x:0.5,y:0.5}];
+ assert.equal(run(fighter("Kick",50,{equippedWeapon:blunt}),
+   {kind:"ATTACK",attackType:"BLUNT",attackSource:"KICK",trajectory:path}),20,
+   "a kick stays neutral even when a blunt weapon is carried");
+ assert.equal(run(fighter("Unarmed",50,{equippedWeapon:undefined}),
+   {kind:"ATTACK",attackType:"BLUNT",attackSource:"FIST_RIGHT",trajectory:path}),20);
+ assert.equal(run(fighter("Blunt weapon",50,{equippedWeapon:blunt}),
+   {kind:"ATTACK",attackType:"BLUNT",attackSource:"MAIN_HAND",trajectory:path}),23);
+ assert.equal(run(fighter("Piercing weapon",50,{equippedWeapon:pierce}),
+   {kind:"ATTACK",attackType:"PIERCE",attackSource:"MAIN_HAND",trajectory:path}),17);
+ assert.equal(run(fighter("Magic",50,{equippedWeapon:pierce,attackType:"PIERCE"}),
+   {kind:"ATTACK",attackType:"PIERCE",usesMagic:true,areaCenter:{x:0.5,y:0.5}}),20,
+   "magic does not inherit equipped spear speed");
+ assert.equal(run(fighter("Generic physical skill",50,{equippedWeapon:blunt}),
+   {kind:"ATTACK",attackType:"BLUNT",trajectory:path},2),20,
+   "an approved physical skill without a weapon source uses neutral speed");
+ assert.equal(run(fighter("Weapon skill",50,{equippedWeapon:blunt}),
+   {kind:"ATTACK",attackType:"BLUNT",attackSource:"MAIN_HAND",trajectory:path},2),23,
+   "a skill explicitly using the equipped weapon retains its weapon modifier");
+});

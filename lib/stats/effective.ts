@@ -6,6 +6,58 @@ import {activeStatMultipliers,parseEnvironment} from "@/lib/skills/interaction-e
 
 const CORE_CODES: Record<string,string> = {strength:"STR",agility:"AGI",constitution:"CON",intelligence:"INT",wisdom:"WIS",charisma:"CHA",spirit:"SPI",luck:"LCK"};
 
+type NumericPassiveEffect = {type:"STAT_BONUS"|"STAT_MULTIPLIER";target:string;value:number};
+
+/** A narrative condition is not an executable predicate. Only permanent/in-combat
+ * wording is safe to resolve from the combat snapshot; others stay inactive. */
+function appliesThroughCombat(condition:unknown):boolean {
+  if(condition===null||condition===undefined||condition==="")return true;
+  if(typeof condition!=="string")return false;
+  const normalized=condition.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[.!]+$/,"").trim();
+  return ["siempre","permanente","en combate","durante el combate","mientras este en combate"].includes(normalized);
+}
+
+/** Passive numeric effects are read from the character's actual approved Skill rows.
+ * Their percentages use the skill convention 150 = ×1.5 (unlike item factors).
+ * The same ability ID is counted once, and conditional/advanced activation
+ * rules are never assumed to be satisfied just because a duel begins.
+ */
+async function readCombatPassiveStatEffects(characterId:number,source:any):Promise<NumericPassiveEffect[]> {
+  const Skill=source.orm.public.Skill;
+  if(!Skill)return [];
+  const approved=await Skill.where({characterId,status:"APPROVED"}).all();
+  const ids=new Set(approved.map((skill:any)=>Number(skill.id)));
+  const seen=new Set<number>();
+  const effects:NumericPassiveEffect[]=[];
+  for(const skill of approved){
+    const id=Number(skill.id);
+    if(skill.category!=="PASSIVE"||!Number.isSafeInteger(id)||seen.has(id))continue;
+    seen.add(id);
+    if(!appliesThroughCombat(skill.condition))continue;
+    // A skill automatically granted by a racial *perk* must not duplicate that
+    // perk's own stat bonus, already included by the CharacterPerk resolver.
+    if(Number(skill.grantedByRacePerkId)>0)continue;
+    if(Array.isArray(skill.effectRequirements)&&skill.effectRequirements.length>0)continue;
+    if(Array.isArray(skill.requiredSkillIds)&&skill.requiredSkillIds.some((required:unknown)=>!ids.has(Number(required))))continue;
+    const mechanics=skill.mechanics&&typeof skill.mechanics==="object"&&!Array.isArray(skill.mechanics)?skill.mechanics:{};
+    if((Array.isArray(mechanics.rules)&&mechanics.rules.length>0)||
+      (Array.isArray(mechanics.activationConditions)&&mechanics.activationConditions.length>0)||
+      mechanics.variableResistance)continue;
+    if(mechanics.parentSkillId!==undefined&&mechanics.parentSkillId!==null&&!ids.has(Number(mechanics.parentSkillId)))continue;
+    if(!Array.isArray(skill.effect))continue;
+    for(const raw of skill.effect){
+      if(!raw||typeof raw!=="object"||Array.isArray(raw))continue;
+      const type=raw.type;
+      if(type!=="STAT_BONUS"&&type!=="STAT_MULTIPLIER")continue;
+      const target=typeof raw.target==="string"?raw.target.trim():"";
+      const value=raw.value;
+      if(!target||typeof value!=="number"||!Number.isFinite(value)||value<=0||value>100000)continue;
+      effects.push({type,target,value:type==="STAT_MULTIPLIER"?value/100:value});
+    }
+  }
+  return effects;
+}
+
 /** Resolve the active character context without hardcoding any ability name. */
 async function readMechanicStatFactors(characterId:number, source:any):Promise<Record<string,number>> {
   const Combat=(source.orm.public as any).CombatSession;
@@ -28,7 +80,10 @@ async function readMechanicStatFactors(characterId:number, source:any):Promise<R
 
 
 
-export async function getEffectiveCharacterStats(characterId:number, source:any=db) {
+/** Regular sheets and maze statistics stay unchanged. Combat passives are a
+ * fresh, immutable fighter snapshot, resolved only for new duels.
+ */
+export async function getEffectiveCharacterStats(characterId:number, source:any=db, options:{combatPassives?:boolean}={}) {
   const legacy = await source.orm.public.CharacterStat.where({characterId}).first();
   if (!legacy) return null;
   const catalog = await readStatisticsCatalog(source);
@@ -59,6 +114,10 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
   const perks = getPerkEffects(assigned.map((entry:any)=>({...entry,perk:perkDefinitions.find((perk:any)=>Number(perk.id)===Number(entry.perkId))})));
   const validEffects = effects.filter((effect:any)=>!["stat_bonus","stat_multiplier"].includes(effect.type)||validStatTarget(effect.stat)||effect.stat==="ATTACK_TOTAL");
   const validPerks = perks.filter((effect:any)=>!["STAT_BONUS","STAT_MULTIPLIER"].includes(String(effect.type))||validStatTarget(String(effect.target??""))||effect.target==="ATTACK_TOTAL");
+  const passiveEffects=options.combatPassives
+    ?(await readCombatPassiveStatEffects(characterId,source)).filter(effect=>
+      validStatTarget(effect.target)||effect.target==="ATTACK_TOTAL")
+    :[];
   const mechanicFactors=await readMechanicStatFactors(characterId,source);
   const base:Record<string,number> = {};
   const breakdown:Record<string,{base:number;value:number;karmaBonus:number;objectFlatBonus:number;combinedMultiplier:number}> = {};
@@ -71,10 +130,12 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     const flat=active.filter((entry:any)=>String(entry.stat)===key&&String(entry.source)!=="KARMA_BOOST").reduce((sum:number,entry:any)=>sum+Number(entry.amount),0);
     const karma=active.filter((entry:any)=>String(entry.stat)===key&&String(entry.source)==="KARMA_BOOST").reduce((sum:number,entry:any)=>sum+Number(entry.amount),0);
     const multiplier=active.filter((entry:any)=>String(entry.stat)===key+"_multiplier").reduce((sum:number,entry:any)=>sum+Number(entry.amount)/100,0);
-    const bonus=validEffects.filter((entry:any)=>entry.type==="stat_bonus"&&matches(entry.stat)).reduce((sum:number,entry:any)=>sum+entry.value,0)+validPerks.filter((entry:any)=>entry.type==="STAT_BONUS"&&matches(String(entry.target))).reduce((sum:number,entry:any)=>sum+Number(entry.value),0);
+    const bonus=validEffects.filter((entry:any)=>entry.type==="stat_bonus"&&matches(entry.stat)).reduce((sum:number,entry:any)=>sum+entry.value,0)+validPerks.filter((entry:any)=>entry.type==="STAT_BONUS"&&matches(String(entry.target))).reduce((sum:number,entry:any)=>sum+Number(entry.value),0)+passiveEffects.filter(effect=>effect.type==="STAT_BONUS"&&matches(effect.target)).reduce((sum,effect)=>sum+effect.value,0);
     const itemFactors=validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&matches(entry.stat)).map((entry:any)=>entry.value);
     const perkFactors=validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&matches(String(entry.target))).map((entry:any)=>Number(entry.value));
-    const combinedMultiplier=(1+multiplier)*([...itemFactors,...perkFactors].length ? [...itemFactors,...perkFactors].reduce((sum:number,factor:number)=>sum+factor,0) : 1);
+    const passiveFactors=passiveEffects.filter(effect=>effect.type==="STAT_MULTIPLIER"&&matches(effect.target)).map(effect=>effect.value);
+    const factors=[...itemFactors,...perkFactors,...passiveFactors];
+    const combinedMultiplier=(1+multiplier)*(factors.length ? factors.reduce((sum:number,factor:number)=>sum+factor,0) : 1);
     const mechanicMultiplier=mechanicFactors[codeByKey[key]]??mechanicFactors[key.toUpperCase()]??1;
     base[key]=(original*combinedMultiplier+flat+bonus+karma)*mechanicMultiplier;
     breakdown[key]={base:original,value:base[key],karmaBonus:karma,objectFlatBonus:flat+bonus,combinedMultiplier:combinedMultiplier*mechanicMultiplier};
@@ -101,17 +162,32 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     else if (type === "RESOURCE_BONUS" && target === "MANA" && Number.isFinite(amount)) derived.maxMana += amount;
     else addDerived(type, target, amount);
   }
+  for (const effect of passiveEffects) addDerived(effect.type,effect.target,effect.value);
+  const derivedStatMultipliers:Record<string,number>={};
   for (const [key, modifier] of derivedModifiers) {
     const factor = modifier.factors.length ? modifier.factors.reduce((sum, value) => sum + value, 0) : 1;
+    derivedStatMultipliers[key]=factor;
     derived[key] = Number(derived[key] ?? 0) * factor + modifier.bonus;
   }
   for(const [key,code] of Object.entries(derivedCodes)) {
     const mechanicMultiplier=mechanicFactors[code]??mechanicFactors[key.toUpperCase()];
-    if(mechanicMultiplier!==undefined && Number.isFinite(Number(derived[key]))) derived[key]*=mechanicMultiplier;
+    if(mechanicMultiplier!==undefined && Number.isFinite(Number(derived[key]))){
+      derived[key]*=mechanicMultiplier;
+      derivedStatMultipliers[key]=(derivedStatMultipliers[key]??1)*mechanicMultiplier;
+    }
   }
-  const attackFactors=[...validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").map((entry:any)=>entry.value),...validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&entry.target==="ATTACK_TOTAL").map((entry:any)=>Number(entry.value))];
+  const attackFactors=[...validEffects.filter((entry:any)=>entry.type==="stat_multiplier"&&entry.stat==="ATTACK_TOTAL").map((entry:any)=>entry.value),...validPerks.filter((entry:any)=>entry.type==="STAT_MULTIPLIER"&&entry.target==="ATTACK_TOTAL").map((entry:any)=>Number(entry.value)),...passiveEffects.filter(effect=>effect.type==="STAT_MULTIPLIER"&&effect.target==="ATTACK_TOTAL").map(effect=>effect.value)];
   const attackMultiplier=attackFactors.length?attackFactors.reduce((sum:number,factor:number)=>sum+factor,0):1;
   derived.physicalAttack*=attackMultiplier;
   derived.magicAttack*=attackMultiplier;
-  return {effectiveStats:base,derived,statBreakdown:breakdown};
+  if(options.combatPassives){
+    derivedStatMultipliers.physicalAttack=(derivedStatMultipliers.physicalAttack??1)*attackMultiplier;
+    derivedStatMultipliers.magicAttack=(derivedStatMultipliers.magicAttack??1)*attackMultiplier;
+  }
+  return {effectiveStats:base,derived,statBreakdown:breakdown,derivedStatMultipliers};
+}
+
+/** Opt in explicitly from new-combat snapshot and its karma delta calculation. */
+export async function getEffectiveCombatCharacterStats(characterId:number,source:any=db){
+  return getEffectiveCharacterStats(characterId,source,{combatPassives:true});
 }

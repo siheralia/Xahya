@@ -4,12 +4,18 @@ import type {EffectContainer,MicroStep,MicroCondition,NumericExpr,MicroEvent} fr
 import {useState} from "react";
 import {MicroEffectFlowEditor} from "./MicroEffectFlowEditor";
 import {DEFAULT_VARIABLE_RESISTANCE} from "@/lib/skills/variable-resistance";
+import {MICRO_STEP_LABELS,MICRO_SOURCE_LABELS,MICRO_OPERATOR_LABELS,
+  MICRO_TRIGGER_LABELS,MICRO_COMPARISON_LABELS,MICRO_INPUT_LABELS,
+  MICRO_FORMULA_LABELS,MICRO_CONFIG_LABELS,MICRO_STAT_SUGGESTIONS,
+  MICRO_REFERENCE_SUGGESTIONS,friendlyMicroKey} from "@/lib/effects/micro-labels";
 
 const field="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm text-zinc-100";
 const key="^[A-Za-z][A-Za-z0-9_.:-]{0,63}$";
 const sources=["EVENT","STAT","CHARGES","STORED_TOTAL","OUTPUT"] as const;
 const ops=["ADD","SUBTRACT","MULTIPLY","DIVIDE","MIN","MAX","PERCENT"] as const;
 const events:MicroEvent[]=["DAMAGE_RESOLVED","TURN_START","IMPACT","PASSIVE"];
+const destinationStats:readonly string[]=["STR","AGI","CON","INT","WIS","CHA","SPI",
+  "HP","MAX_HP","MANA","RESISTANCE","MAGIC_DEF","PHYS_DEF","MAGIC_ATTACK","PHYSICAL_ATTACK"];
 const defaultCondition=():MicroCondition=>({left:{source:"CHARGES",key:"DIVINE_GRACE"},compare:"GTE",right:1});
 const ref=():NumericExpr=>({source:"STAT",key:"MAX_HP"});
 const op=():NumericExpr=>({operator:"PERCENT",args:[ref(),10]});
@@ -34,6 +40,7 @@ export function freshMicroEffect():EffectContainer{
 }
 function NumericEditor({value,onChange,depth=0,outputOptions=[]}:{value:NumericExpr;onChange:(value:NumericExpr)=>void;depth?:number;outputOptions?:string[]}){
   const kind=typeof value==="number"?"NUMBER":"source" in value?"REFERENCE":"OPERATION";
+  const suggested=typeof value!=="number"&&"source" in value?(MICRO_REFERENCE_SUGGESTIONS[value.source]??[]):[];
   return <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/70 p-2">
     <select aria-label="Tipo de valor" className={field} value={kind} onChange={e=>{
       const v=e.target.value;
@@ -44,23 +51,34 @@ function NumericEditor({value,onChange,depth=0,outputOptions=[]}:{value:NumericE
     {typeof value==="number"?<input aria-label="Número" type="number" step="any" className={field} value={value} onChange={e=>onChange(Number(e.target.value))}/>:
       "source" in value?<div className="grid grid-cols-2 gap-2">
         <select aria-label="Origen de referencia" className={field} value={value.source} onChange={e=>onChange({...value,source:e.target.value as typeof value.source})}>
-          {sources.map(source=><option key={source} value={source}>{source}</option>)}
+          {sources.map(source=><option key={source} value={source}>{MICRO_SOURCE_LABELS[source]}</option>)}
         </select>
         {value.source==="OUTPUT"&&outputOptions.length>0?
           <select aria-label="Salida de micromódulo anterior" className={field}
             value={outputOptions.includes(value.key)?value.key:""}
             onChange={e=>onChange({...value,key:e.target.value})}>
             <option value="" disabled>Selecciona salida anterior</option>
-            {outputOptions.map(key=><option key={key} value={key}>{key}</option>)}
+            {outputOptions.map(key=><option key={key} value={key}>{friendlyMicroKey(key)}</option>)}
           </select>:
-          <input aria-label="Clave de referencia" pattern={key} className={field} value={value.key} onChange={e=>onChange({...value,key:e.target.value})} placeholder="HP, STR, ENERGY…"/>}
+          suggested.length>0?<div className="col-span-full space-y-1">
+            <select aria-label="Dato disponible" className={field}
+              value={suggested.includes(value.key)?value.key:"__CUSTOM__"}
+              onChange={e=>onChange({...value,key:e.target.value==="__CUSTOM__"?"":e.target.value})}>
+              {suggested.map(k=><option key={k} value={k}>{friendlyMicroKey(k)}</option>)}
+              <option value="__CUSTOM__">Otro dato (avanzado)</option>
+            </select>
+            {!suggested.includes(value.key)&&<input aria-label="Identificador de dato personalizado" pattern={key} className={field}
+              value={value.key} onChange={e=>onChange({...value,key:e.target.value})} placeholder="Identificador interno"/>}
+          </div>:
+          <input aria-label="Identificador del dato" pattern={key} className={field} value={value.key}
+            onChange={e=>onChange({...value,key:e.target.value})} placeholder="Nombre interno del dato"/>}
       </div>:
       <div className="space-y-2">
         <select aria-label="Operación matemática" className={field} value={value.operator} onChange={e=>{
           const next=e.target.value as typeof value.operator;
           const binary=["DIVIDE","SUBTRACT","PERCENT"].includes(next);
           onChange({operator:next,args:binary?value.args.slice(0,2).concat(Array(Math.max(0,2-value.args.length)).fill(1)):value.args});
-        }}>{ops.map(n=><option key={n} value={n}>{n}</option>)}</select>
+        }}>{ops.map(n=><option key={n} value={n}>{MICRO_OPERATOR_LABELS[n]}</option>)}</select>
         {depth>=4?<p role="note" className="text-xs text-amber-300">Expresión demasiado profunda para esta vista; reduce los niveles.</p>:
           value.args.map((arg,i)=><div key={i} className="space-y-1">
             <span className="text-xs text-zinc-400">Argumento {i+1}</span>
@@ -83,7 +101,7 @@ function ConditionsEditor({value,onChange,title}:{value:MicroCondition[];onChang
       <span className="text-xs">Valor izquierdo</span>
       <NumericEditor value={item.left} onChange={left=>onChange(value.map((x,j)=>j===i?{...x,left}:x))}/>
       <select aria-label="Comparador" value={item.compare} className={field} onChange={e=>onChange(value.map((x,j)=>j===i?{...x,compare:e.target.value as MicroCondition["compare"]}:x))}>
-        {["EQ","NE","GT","GTE","LT","LTE"].map(c=><option key={c} value={c}>{c}</option>)}
+        {["EQ","NE","GT","GTE","LT","LTE"].map(c=><option key={c} value={c}>{MICRO_COMPARISON_LABELS[c]}</option>)}
       </select>
       <span className="text-xs">Valor derecho</span>
       <NumericEditor value={item.right} onChange={right=>onChange(value.map((x,j)=>j===i?{...x,right}:x))}/>
@@ -96,7 +114,7 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
     <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold">Micromódulo {index+1}</h4>
       <button type="button" onClick={onDelete} className="text-xs text-rose-300">Eliminar</button></div>
     <label className="block text-xs">Operación<select className={"mt-1 "+field} value={step.kind} onChange={e=>onChange({...defaultStep(e.target.value as MicroStep["kind"]),when:step.when})}>
-      {["READ_STAT","READ_STORED","CALCULATE","STORE","CONSUME","HEAL","DAMAGE","MODIFIER","BONUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{kind}</option>)}
+      {["READ_STAT","READ_STORED","CALCULATE","STORE","CONSUME","HEAL","DAMAGE","MODIFIER","BONUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
     </select></label>
     {step.kind==="READ_STAT"&&<div className="grid gap-2 sm:grid-cols-3">
       <label className="text-xs">¿De quién?
@@ -107,8 +125,15 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
         </select>
       </label>
       <label className="text-xs">Estadística o dato de combate
-        <input className={"mt-1 "+field} value={step.stat}
-          onChange={e=>change({stat:e.target.value})} placeholder="magicDefense, ATTACK_SPEED..."/>
+        <select aria-label="Estadística" className={"mt-1 "+field}
+          value={(MICRO_STAT_SUGGESTIONS as readonly string[]).includes(step.stat)?step.stat:"__CUSTOM__"}
+          onChange={e=>change({stat:e.target.value==="__CUSTOM__"?"":e.target.value})}>
+          {MICRO_STAT_SUGGESTIONS.map(code=><option key={code} value={code}>{friendlyMicroKey(code)}</option>)}
+          <option value="__CUSTOM__">Otra estadística (avanzado)</option>
+        </select>
+        {!(MICRO_STAT_SUGGESTIONS as readonly string[]).includes(step.stat)&&
+          <input aria-label="Clave de estadística personalizada" className={"mt-1 "+field}
+          value={step.stat} onChange={e=>change({stat:e.target.value})} placeholder="Clave interna"/>}
       </label>
       <label className="text-xs">Nombre de salida
         <input className={"mt-1 "+field} value={step.output}
@@ -169,10 +194,10 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
           </select>
         </label>
         <label className="text-xs">Variable<select className={"mt-1 "+field} value={step.config.input} onChange={e=>change({config:{...step.config,input:e.target.value as typeof step.config.input}})}>
-          {["ATTACK_SPEED","INCOMING_DAMAGE","HIT_COUNT","HP_PERCENT"].map(v=><option key={v} value={v}>{v}</option>)}</select></label>
+          {["ATTACK_SPEED","INCOMING_DAMAGE","HIT_COUNT","HP_PERCENT"].map(v=><option key={v} value={v}>{MICRO_INPUT_LABELS[v]}</option>)}</select></label>
         <label className="text-xs">Fórmula<select className={"mt-1 "+field} value={step.config.formula} onChange={e=>change({config:{...step.config,formula:e.target.value as typeof step.config.formula}})}>
-          {["PROGRESSIVE","LINEAR","DECREASING","THRESHOLD","HITS"].map(v=><option key={v} value={v}>{v}</option>)}</select></label>
-        {(["threshold","coefficient","minMultiplier","maxMultiplier"] as const).map(k=><label key={k} className="text-xs">{k}<input type="number" step="any" className={"mt-1 "+field} value={step.config[k]} onChange={e=>change({config:{...step.config,[k]:Number(e.target.value)}})}/></label>)}
+          {["PROGRESSIVE","LINEAR","DECREASING","THRESHOLD","HITS"].map(v=><option key={v} value={v}>{MICRO_FORMULA_LABELS[v]}</option>)}</select></label>
+        {(["threshold","coefficient","minMultiplier","maxMultiplier"] as const).map(k=><label key={k} className="text-xs">{MICRO_CONFIG_LABELS[k]}<input type="number" step="any" className={"mt-1 "+field} value={step.config[k]} onChange={e=>change({config:{...step.config,[k]:Number(e.target.value)}})}/></label>)}
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-2">
@@ -181,7 +206,7 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
               onChange={e=>change({base:e.target.checked?(availableOutputs.length?{source:"OUTPUT",key:availableOutputs[availableOutputs.length-1]}:1):undefined})}/>
             Conectar un valor base personalizado
           </label>
-          {step.base===undefined?<p className="text-xs text-cyan-300">Se lee {step.config.baseStat} del {step.config.baseOwner==="OPPONENT"?"oponente":"usuario"}.</p>:
+          {step.base===undefined?<p className="text-xs text-cyan-300">Se lee {friendlyMicroKey(step.config.baseStat)} del {step.config.baseOwner==="OPPONENT"?"oponente":"usuario"}.</p>:
             <NumericEditor value={step.base} outputOptions={availableOutputs} onChange={base=>change({base})}/>}
         </div>
         <div className="space-y-2">
@@ -190,11 +215,11 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
               onChange={e=>change({input:e.target.checked?(availableOutputs.length?{source:"OUTPUT",key:availableOutputs[availableOutputs.length-1]}:1):undefined})}/>
             Conectar una variable personalizada
           </label>
-          {step.input===undefined?<p className="text-xs text-cyan-300">Se lee {step.config.input} del {(step.config.inputOwner??(["HIT_COUNT","HP_PERCENT"].includes(step.config.input)?"USER":"OPPONENT"))==="USER"?"usuario":"oponente"}.</p>:
+          {step.input===undefined?<p className="text-xs text-cyan-300">Se lee {friendlyMicroKey(step.config.input)} del {(step.config.inputOwner??(["HIT_COUNT","HP_PERCENT"].includes(step.config.input)?"USER":"OPPONENT"))==="USER"?"usuario":"oponente"}.</p>:
             <NumericEditor value={step.input} outputOptions={availableOutputs} onChange={input=>change({input})}/>}
         </div>
       </div>
-      <p className="text-xs text-zinc-400">Usa OUTPUT para conectar módulos anteriores de estadísticas, acumuladores o consumo. También puedes usar números, eventos o fórmulas.</p>
+      <p className="text-xs text-zinc-400">Usa «Resultado de otro módulo» para conectar pasos anteriores de estadísticas, acumuladores o consumo. También puedes usar números, eventos o fórmulas.</p>
     </div>}
     {step.kind==="STORE"&&<div className="grid gap-2 sm:grid-cols-2">
       <label className="text-xs">Acumulador<input className={"mt-1 "+field} value={step.accumulator} onChange={e=>change({accumulator:e.target.value})}/></label>
@@ -215,7 +240,16 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
             <option value="PHYSICAL">Físico</option><option value="MAGICAL">Mágico</option></select></label>
           <label className="text-xs">Elemento (opcional)<input className={"mt-1 "+field} value={step.element??""} onChange={e=>change({element:e.target.value||undefined})}/></label>
         </div>}
-        {(step.kind==="BONUS"||step.kind==="MODIFIER")&&<label className="block text-xs">Estadística o destino<input className={"mt-1 "+field} value={step.stat} onChange={e=>change({stat:e.target.value})}/></label>}
+        {(step.kind==="BONUS"||step.kind==="MODIFIER")&&<label className="block text-xs">Estadística o destino
+          <select aria-label="Destino del efecto" className={"mt-1 "+field}
+            value={destinationStats.includes(step.stat)?step.stat:"__CUSTOM__"}
+            onChange={e=>change({stat:e.target.value==="__CUSTOM__"?"":e.target.value})}>
+            {destinationStats.map(code=><option key={code} value={code}>{friendlyMicroKey(code)}</option>)}
+            <option value="__CUSTOM__">Otro destino (avanzado)</option>
+          </select>
+          {!destinationStats.includes(step.stat)&&<input aria-label="Clave de destino personalizada" className={"mt-1 "+field}
+            value={step.stat} onChange={e=>change({stat:e.target.value})} placeholder="Clave interna"/>}
+        </label>}
         <p className="text-xs">{step.kind==="MODIFIER"?"Multiplicador":step.kind==="HEAL"?"Curación":step.kind==="DAMAGE"?"Daño":"Bono a sumar"}</p>
         <NumericEditor value={step.kind==="MODIFIER"?step.multiplier:step.amount} outputOptions={availableOutputs} onChange={value=>change(step.kind==="MODIFIER"?{multiplier:value}:{amount:value})}/>
         {step.kind==="DAMAGE"&&<div className="space-y-2">
@@ -233,10 +267,14 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
   return <section className="space-y-4">
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="text-xs">Nombre<input className={"mt-1 "+field} maxLength={120} value={value.name} onChange={e=>update({name:e.target.value})}/></label>
-      <label className="text-xs">Tipo<input className={"mt-1 "+field} maxLength={64} value={value.type} onChange={e=>update({type:e.target.value})}/></label>
+      <details className="text-xs sm:col-span-1"><summary className="cursor-pointer text-zinc-400">Opciones técnicas (avanzado)</summary>
+        <label className="mt-2 block">Clave interna del tipo
+          <input className={"mt-1 "+field} maxLength={64} value={value.type} onChange={e=>update({type:e.target.value})}/>
+        </label><p className="mt-1 text-zinc-500">Normalmente no necesitas cambiar esta clave.</p>
+      </details>
       <label className="sm:col-span-2 text-xs">Descripción<textarea className={"mt-1 "+field} rows={2} maxLength={2000} value={value.description} onChange={e=>update({description:e.target.value})}/></label>
       <label className="text-xs">Disparador<select className={"mt-1 "+field} value={value.trigger} onChange={e=>update({trigger:e.target.value as MicroEvent,impactKind:e.target.value==="IMPACT"?value.impactKind:undefined})}>
-        {events.map(t=><option key={t} value={t}>{t}</option>)}</select></label>
+        {events.map(t=><option key={t} value={t}>{MICRO_TRIGGER_LABELS[t]}</option>)}</select></label>
       {value.trigger==="IMPACT"&&<label className="text-xs">Impacto<select className={"mt-1 "+field} value={value.impactKind??""} onChange={e=>update({impactKind:e.target.value?e.target.value as "GROUND"|"CHARACTER":undefined})}>
         <option value="">Cualquier impacto</option><option value="CHARACTER">Personaje</option><option value="GROUND">Suelo</option></select></label>}
     </div>
@@ -244,11 +282,11 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
     <div className="flex items-center justify-end gap-2">
       <button type="button" className="rounded-lg border border-cyan-700 bg-cyan-950/30 px-3 py-2 text-xs text-cyan-200"
         aria-expanded={showFlow} onClick={()=>setShowFlow(v=>!v)}>
-        {showFlow?"Ocultar diagrama React Flow":"Mostrar diagrama React Flow"}
+        {showFlow?"Ocultar diagrama":"Mostrar diagrama"}
       </button>
     </div>
     {showFlow&&<MicroEffectFlowEditor value={value} onChange={onChange} onEditStep={index=>{setSelectedStep(index);document.getElementById("micro-step-"+index)?.scrollIntoView({behavior:"smooth",block:"center"});}}/>}
-    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Micromódulos y orden de ejecución</h3>
+    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Pasos del efecto (en orden)</h3>
       <button type="button" disabled={value.steps.length>21}
         className="rounded border border-violet-700 px-3 py-2 text-xs disabled:opacity-40"
         onClick={()=>{
@@ -266,7 +304,7 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
         let n=1;while(names.has("calculated"+n))n++;
         update({steps:[...value.steps,{kind:"CALCULATE",output:"calculated"+n,expression:1}]});
       }}>+ Valor/cálculo</button>
-      <button type="button" disabled={value.steps.length>=24} className="rounded border border-cyan-800 px-3 py-2 text-xs disabled:opacity-40" onClick={()=>update({steps:[...value.steps,defaultStep("HEAL")]})}>+ Aplicar efecto</button>
+      <button type="button" disabled={value.steps.length>=24} className="rounded border border-cyan-800 px-3 py-2 text-xs disabled:opacity-40" onClick={()=>update({steps:[...value.steps,defaultStep("HEAL")]})}>+ Curación</button>
     </div>
     {value.steps.map((step,index)=><div key={index} id={"micro-step-"+index} className={"space-y-1 rounded-xl "+(selectedStep===index?"ring-2 ring-cyan-500":"")}>
       <div className="flex items-center justify-between gap-2 text-xs">
@@ -281,6 +319,6 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
         onChange={next=>update({steps:value.steps.map((x,i)=>i===index?next:x)})}
         onDelete={()=>update({steps:value.steps.filter((_,i)=>i!==index)})}/>
     </div>)}
-    <p className="text-xs text-zinc-500">Los módulos se evalúan en el orden indicado. Las salidas OUTPUT conectan módulos anteriores del mismo efecto: leer estadística de usuario/oponente, leer acumulador o consumir cargas. Reordenar o eliminar un módulo productor puede dejar una conexión inválida; el servidor la valida.</p>
+    <p className="text-xs text-zinc-500">Los pasos se ejecutan en el orden indicado. Los resultados de un paso pueden conectarse a pasos posteriores del mismo efecto: leer estadística de usuario/oponente, leer acumulador o consumir cargas. Reordenar o eliminar un módulo productor puede dejar una conexión inválida; el servidor la valida.</p>
   </section>;
 }

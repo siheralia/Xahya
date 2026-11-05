@@ -22,6 +22,7 @@ async function snapshotEquippedWeapons(characterId:number):Promise<{
 }>{
   const CharacterItem=(db.orm.public as any).CharacterItem;
   const Item=(db.orm.public as any).Item;
+  const Material=(db.orm.public as any).Material;
   if(!CharacterItem||!Item)return {main:undefined,offhand:undefined};
   const owned=await CharacterItem.where({characterId}).all();
   const result:{main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]}={
@@ -44,7 +45,13 @@ async function snapshotEquippedWeapons(characterId:number):Promise<{
       throwable:Boolean(item.throwable)&&throwRange>0,throwRangeMeters:throwRange,
        itemId:Number(item.id),characterItemId:Number(equipped.id),
        durability:Math.max(0,Math.min(100,Number(equipped.durability??100)))
-    };
+    } as NonNullable<CombatFighter["equippedWeapon"]>;
+    if(item.materialId!=null){
+      const material=await Material.where({id:Number(item.materialId)}).first();
+      const perkId=Number(material?.bonusAgainstPerkId),bonus=Number(material?.bonusAgainstPerkAttack);
+      if(Number.isSafeInteger(perkId)&&perkId>0&&Number.isSafeInteger(bonus)&&bonus>0&&bonus<=10000)
+        weapon.materialPerkBonus={perkId,attackBonus:bonus};
+    }
     if(slot==="MAIN_HAND")result.main=weapon;
     else result.offhand=weapon;
   }
@@ -63,10 +70,13 @@ async function racialTraitsForCharacter(characterId:number) {
     const perk=byId.get(Number(entry.perkId));
     return perk?[{...entry,perk}]:[];
   });
-  return mergeDamageTakenFactors(
-    racialDamageFactors(skills),
-    perkDamageFactors(getPerkEffects(equipped)),
-  );
+  return {
+    damageTakenFactors:mergeDamageTakenFactors(
+      racialDamageFactors(skills),
+      perkDamageFactors(getPerkEffects(equipped)),
+    ),
+    perkIds:[...new Set(equipped.map(entry=>Number(entry.perkId)).filter(id=>Number.isSafeInteger(id)&&id>0))],
+  };
 }
 async function currentUser() {
   const {userId}=await auth();
@@ -123,7 +133,9 @@ export async function POST(req:Request) {
     (character as any).magicAttackType,(character as any).blockDefenseType,
     (character as any).fieldDefenseType,(character as any).fieldDefenseDescription);
   player.speedValue=numeric(first.effectiveStats[mechanics.combatSpeed]??first.derived[mechanics.combatSpeed],player.agility);
-  player.damageTakenFactors=await racialTraitsForCharacter(characterId);
+  const playerTraits=await racialTraitsForCharacter(characterId);
+  player.damageTakenFactors=playerTraits.damageTakenFactors;
+  player.perkIds=playerTraits.perkIds;
   const playerWeapons=await snapshotEquippedWeapons(characterId);
   player.equippedWeapon=playerWeapons.main;
   player.offhandWeapon=playerWeapons.offhand;
@@ -160,7 +172,9 @@ export async function POST(req:Request) {
     opponentManaMax=Math.max(0,Math.floor(numeric(stats.derived.maxMana)));
     opponent.positionMeters=1.5;
     opponent.speedValue=numeric(stats.effectiveStats[mechanics.combatSpeed]??stats.derived[mechanics.combatSpeed],opponent.agility);
-    opponent.damageTakenFactors=await racialTraitsForCharacter(opponentId);
+    const rivalTraits=await racialTraitsForCharacter(opponentId);
+    opponent.damageTakenFactors=rivalTraits.damageTakenFactors;
+    opponent.perkIds=rivalTraits.perkIds;
   } else {
     // Fair sparring partner: mirror the challenger's effective base stats,
     // then let a GM override specific values for a scripted NPC.
@@ -204,6 +218,7 @@ export async function POST(req:Request) {
       (character as any).fieldDefenseType);
     opponent=applyTrainingDerivedPerks(applyTrainingDifficulty(opponent,trainingDifficulty),npcPerks);
     opponent.damageTakenFactors=perkDamageFactors(npcPerks.flatMap(perk=>perk.effects));
+    opponent.perkIds=[...new Set(npcPerks.map(perk=>perk.id))];
     // Resource perks only increase the encounter snapshot, not the character sheet.
     const bonusHp=trainingResourceBonus(npcPerks,"HP");
     opponent.maxHp=Math.max(1,opponent.maxHp+bonusHp);

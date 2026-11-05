@@ -7,7 +7,7 @@ import CombatDialog from "./CombatDialog";
 import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
 import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
-import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2} from "lucide-react";
+import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2, Eye} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
@@ -122,6 +122,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [constructionHeightMeters,setConstructionHeightMeters]=useState(5);
  const [fieldMode,setFieldMode]=useState<FieldMode>("MOVE");
  const [fieldMove,setFieldMove]=useState<Point|null>(null);
+ const [movementPlan,setMovementPlan]=useState<"MOVE_ONLY"|"MOVE_BEFORE"|"MOVE_AFTER">("MOVE_ONLY");
  const [constructionMaterials,setConstructionMaterials]=useState<Partial<Record<Side,string[]>>>({});
  const [constructionSkills,setConstructionSkills]=useState<Partial<Record<Side,CombatSkillPreview[]>>>({});
  const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK">("FIELD");
@@ -333,13 +334,18 @@ export default function CombatEncounter({id}:{id:string}) {
    (c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35)??[];
  const chosenDefenseConstruction=defenderBlocks.some(c=>c.id===defenseConstruction)?defenseConstruction:defenderBlocks[0]?.id;
  const targetDistance=actor&&state?fieldDistance(actor,state.actors[opposingSide]):0;
- const preparedMovement=fieldMode==="MOVE"&&panel!=="construction"&&fieldMove&&
+ const drawnMovement=fieldMode==="MOVE"&&panel!=="construction"&&fieldMove&&
   Math.hypot(fieldMove.x,fieldMove.y)>=0.01?fieldMove:undefined;
- const movedPosition=actor&&preparedMovement?{x:fieldPosition(actor).x+preparedMovement.x,
-  y:fieldPosition(actor).y+preparedMovement.y}:actor?fieldPosition(actor):null;
- const attackDistance=movedPosition&&state?Math.hypot(
+ const preparedMovement=movementPlan!=="MOVE_ONLY"?drawnMovement:undefined;
+ const movementOrder=preparedMovement
+  ?movementPlan==="MOVE_AFTER"?"AFTER" as const:"BEFORE" as const:undefined;
+ const movedPosition=actor&&drawnMovement?{x:fieldPosition(actor).x+drawnMovement.x,
+  y:fieldPosition(actor).y+drawnMovement.y}:actor?fieldPosition(actor):null;
+ const afterMovementDistance=movedPosition&&state?Math.hypot(
   movedPosition.x-fieldPosition(state.actors[opposingSide]).x,
   movedPosition.y-fieldPosition(state.actors[opposingSide]).y):targetDistance;
+ const attackDistance=movementOrder==="BEFORE"?afterMovementDistance:targetDistance;
+ const missingMoveTrace=movementPlan!=="MOVE_ONLY"&&fieldMode==="MOVE"&&!drawnMovement;
  const canCombine=!!actor&&remainingAp(actor)>=2&&actor.spentTicks+turnTicks(actor)*2<=100;
  const basicReach=attackMode==="MAGIC_AREA"?BASIC_MAGIC_RANGE_METERS:
    actor?effectiveWeaponReachMeters(actor,attackMode==="THROW",activeAttackSource):0;
@@ -384,6 +390,7 @@ export default function CombatEncounter({id}:{id:string}) {
    trajectory:construction||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
    attackSource:construction||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
    planarMove:!construction&&skill.skillKind==="OFFENSE"?preparedMovement:undefined,
+   movementOrder:!construction&&skill.skillKind==="OFFENSE"?movementOrder:undefined,
    constructionFieldPoint:construction?constructionFieldPoint??undefined:undefined,
    constructionHeightMeters:construction?constructionHeightMeters:undefined,
    areaCenter:skill.attackArea?.shape==="SELF_FIELD"?undefined:construction?constructionCenter??undefined:skill.usesMagic||skill.attackArea?areaCenter??undefined:undefined,

@@ -10,12 +10,13 @@ import {calculateModularVariableResistance} from "../effects/legacy-modular-shad
 import {validateConstructionPlacement,resolveConstructionForm,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,type CombatAttackArea} from "./skill-area.ts";
+import type {CombatConsumable} from "../items/combat-consumables.ts";
 
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
 export type Point = { x: number; y: number };
 export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FIST_LEFT" | "KICK";
-export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number};
+export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number;characterItemId?:number;durability?:number};
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
   agility: number; speedValue?: number; strength: number; constitution: number; precision: number;
@@ -90,6 +91,9 @@ export type CombatState = {
   skillBonuses?: Array<{by:Side;skillId:number;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
   processedSkillRequests?: string[];
   processedKarmaRequests?: string[];
+  /** Encounter inventory. Real character copies are spent in the session transaction. */
+  consumables?:Partial<Record<Side,CombatConsumable[]>>;
+  processedItemRequests?:string[];
   karmaBoosts?: Partial<Record<Side,Record<string,number>>>;
   karmaBoostDeltas?: Partial<Record<Side,Record<string,number>>>;
   constructions?: CombatConstruction[];
@@ -110,6 +114,7 @@ export type CombatCommand =
   | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
   | { kind: "WAIT" }
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
+  | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
   | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
   | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
@@ -156,6 +161,47 @@ export function applyResolvedKarmaBoost(
  advanceRoundIfComplete(state);
  return state;
 }
+/** One real action and one consumable unit. The amount is never supplied by the
+ * browser. The route verifies the item recipe and atomically debits the real
+ * characterItem stack in the same DB transaction as the encounter.
+ */
+export function applyResolvedCombatConsumable(
+ original:CombatState,by:Side,item:CombatConsumable,requestId:string,
+):CombatState {
+ if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(requestId))
+  throw new Error("Identificador de consumo inválido.");
+ if(original.processedItemRequests?.includes(requestId))return original;
+ if(original.status!=="ACTIVE"||!canAct(original,by))
+  throw new Error("Espera tu iniciativa para utilizar consumibles.");
+ const state=structuredClone(original);
+ const items=state.consumables?.[by]??[];
+ const selected=items.find(x=>x.itemId===item.itemId&&
+  x.characterItemId===item.characterItemId&&x.quantity>0);
+ if(!selected||selected.action!==item.action||selected.amount!==item.amount)
+  throw new Error("No tienes disponible ese consumible en este encuentro.");
+ const fighter=state.actors[by],mana=state.mana?.[by];
+ if(selected.action==="HEAL_HP") {
+  if(fighter.hp>=fighter.maxHp)throw new Error("Ya tienes todos tus HP.");
+ }else if(selected.action==="RESTORE_MANA"){
+  if(!mana||mana.current>=mana.max)throw new Error("Ya tienes todo tu maná.");
+ }else throw new Error("Este consumible no se puede usar en combate.");
+ const before=selected.action==="HEAL_HP"?fighter.hp:mana!.current;
+ const after=selected.action==="HEAL_HP"?Math.min(fighter.maxHp,before+selected.amount):
+  Math.min(mana!.max,before+selected.amount);
+ const restored=after-before;
+ if(selected.action==="HEAL_HP")fighter.hp=after;
+ else mana!.current=after;
+ selected.quantity--;
+ spend(fighter,turnTicks(fighter)); // paid, neutral action: no weapon speed modifier
+ state.tick=Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
+ state.processedItemRequests=[...(state.processedItemRequests??[]),requestId].slice(-100);
+ addLog(state,{kind:"ITEM",tick:state.tick,by,
+  summary:fighter.name+" utilizó "+selected.name+" y recuperó "+restored+
+   (selected.action==="HEAL_HP"?" HP":" de maná")});
+ advanceRoundIfComplete(state);
+ return state;
+}
+
 function clearKarmaBoostsAtCombatEnd(state:CombatState){
  for(const side of SIDES) {
   const actor=state.actors[side];
@@ -315,7 +361,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},physicalPathEnds:{},constructions:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},
+    physicalPathEnd:{},physicalPathEnds:{},constructions:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
     processedKarmaRequests:[],narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
@@ -345,7 +391,7 @@ function lastInitiativeSide(state: CombatState): Side | null {
   for (let i = state.log.length - 1; i >= 0; i--) {
     const {kind, by} = state.log[i];
     if (kind === "ROUND") break;
-    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT" || kind === "SKILL" || kind==="KARMA") return by;
+    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT" || kind === "SKILL" || kind==="KARMA" || kind==="ITEM") return by;
   }
   return null;
 }
@@ -839,6 +885,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   if (command.kind === "DEFEND") throw new Error("No existe un ataque pendiente.");
   if (!canAct(state,by)) throw new Error("Espera el movimiento del otro participante o el siguiente turno.");
   if(command.kind==="BOOST_KARMA")throw new Error("El boost de karma debe ser aprobado por el servidor.");
+  if(command.kind==="USE_ITEM")throw new Error("El consumo de objetos debe ser aprobado por el servidor.");
   if (command.kind === "MOVE") {
     const maximum = Math.max(1,Math.round(normalize(fighter.race)/10));
     if (!finite(command.meters) || command.meters < 0 || command.meters > maximum)

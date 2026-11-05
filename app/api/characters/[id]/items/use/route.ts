@@ -50,6 +50,9 @@ export async function POST(
   const effects = Array.isArray(item.effects) ? item.effects : [];
   const systemEffect = effects.find((effect: any) => effect && effect.type === "system_action");
   const action = String(systemEffect?.action ?? "");
+  if(action==="HEAL_HP"||action==="RESTORE_MANA"){
+    return NextResponse.json({error:"Esta poción se utiliza durante un combate, en la sección Consumibles del encuentro."},{status:400});
+  }
   if (!SYSTEM_ACTIONS.includes(action as any)) {
     return NextResponse.json({ error: "Este consumible es narrativo y no tiene una acción automática del sistema." }, { status: 400 });
   }

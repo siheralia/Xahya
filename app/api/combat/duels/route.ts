@@ -15,6 +15,7 @@ import {compileTrainingNpcSkills,selectTrainingNpcSkills} from "@/lib/combat/tra
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { racialDamageFactors,perkDamageFactors,mergeDamageTakenFactors } from "@/lib/combat/innate-traits";
 import { getPerkEffects } from "@/lib/perks";
+import {characterCombatConsumables,npcStartingConsumables} from "@/lib/items/combat-consumables";
 
 async function snapshotEquippedWeapons(characterId:number):Promise<{
   main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
@@ -40,7 +41,9 @@ async function snapshotEquippedWeapons(characterId:number):Promise<{
       name:String(item.name),attackType:String(item.attackType) as "CUT"|"BLUNT"|"PIERCE",
       mode:item.weaponMode==="RANGED"?"RANGED" as const:"MELEE" as const,
       effectiveRangeMeters:effective,maximumRangeMeters:maximum,
-      throwable:Boolean(item.throwable)&&throwRange>0,throwRangeMeters:throwRange,itemId:Number(item.id)
+      throwable:Boolean(item.throwable)&&throwRange>0,throwRangeMeters:throwRange,
+       itemId:Number(item.id),characterItemId:Number(equipped.id),
+       durability:Math.max(0,Math.min(100,Number(equipped.durability??100)))
     };
     if(slot==="MAIN_HAND")result.main=weapon;
     else result.offhand=weapon;
@@ -124,6 +127,8 @@ export async function POST(req:Request) {
   const playerWeapons=await snapshotEquippedWeapons(characterId);
   player.equippedWeapon=playerWeapons.main;
   player.offhandWeapon=playerWeapons.offhand;
+  // Snapshot actual defensive-weapon wear at the start of each encounter.
+  player.weaponIntegrity=playerWeapons.main?.durability??playerWeapons.offhand?.durability??weaponIntegrityDefault;
   player.heightMeters=Math.max(0.3,numeric((character as any).height,170)/100);
   player.unarmedReachMeters=Math.round(player.heightMeters*0.45*100)/100;
   const opponentId=Number(body?.opponentCharacterId??0);
@@ -149,6 +154,7 @@ export async function POST(req:Request) {
     const rivalWeapons=await snapshotEquippedWeapons(opponentId);
     opponent.equippedWeapon=rivalWeapons.main;
     opponent.offhandWeapon=rivalWeapons.offhand;
+    opponent.weaponIntegrity=rivalWeapons.main?.durability??rivalWeapons.offhand?.durability??weaponIntegrityDefault;
     opponent.heightMeters=Math.max(0.3,numeric((rival as any).height,170)/100);
     opponent.unarmedReachMeters=Math.round(opponent.heightMeters*0.45*100)/100;
     opponentManaMax=Math.max(0,Math.floor(numeric(stats.derived.maxMana)));
@@ -246,6 +252,18 @@ export async function POST(req:Request) {
   initial.mana={
     PLAYER:{current:snapshot(ownerResource?.currentMana,firstMax),max:firstMax},
     NPC:{current:snapshot(rivalResource?.currentMana,opponentManaMax),max:opponentManaMax},
+  };
+  // Real characters snapshot their own inventory. Training NPCs get exactly one
+  // potion of each type selected randomly from the purchasable catalog.
+  const Item=(db.orm.public as any).Item;
+  const CharacterItem=(db.orm.public as any).CharacterItem;
+  const catalog=await Item.all();
+  initial.consumables={
+    PLAYER:characterCombatConsumables(catalog,await CharacterItem.where({characterId}).all()),
+    NPC:opponent.characterId!==null
+      ?characterCombatConsumables(catalog,await CharacterItem.where({characterId:opponent.characterId}).all())
+      :npcStartingConsumables(catalog.filter((item:any)=>item.acquisitionType==="PURCHASABLE"),
+        ()=>randomInt(1_000_000)/1_000_000),
   };
   const state=progressTrainingNpc(initial,dice,
     ()=>randomInt(1_000_000)/1_000_000);

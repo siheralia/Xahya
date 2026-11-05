@@ -10,6 +10,7 @@ type Item = {
   description: string | null;
   itemType: string;
   itemSubtype: string | null;
+  material?: string | null;
   acquisitionType: string;
   basePrice: number;
   price: number;
@@ -263,7 +264,7 @@ export default function StorePage() {
                 return (
                   <article key={item.id} className="rounded-2xl border p-5" style={{ borderColor: theme?.border ?? "#3f3f46", backgroundColor: theme?.surface ?? "#18181b" }}>
                     <div className="flex items-start justify-between gap-3">
-                      <div><p className="text-lg font-semibold" style={{ color: theme?.foreground ?? "#ffffff" }}>{item.name}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{typeLabels[item.itemType] ?? item.itemType}{item.itemSubtype ? " · " + (subtypeLabels[item.itemSubtype] ?? item.itemSubtype) : ""}</p></div>
+                      <div><p className="text-lg font-semibold" style={{ color: theme?.foreground ?? "#ffffff" }}>{item.name}</p><p className="mt-1 text-xs text-[color:var(--store-muted)]">{typeLabels[item.itemType] ?? item.itemType}{item.itemSubtype ? " · " + (subtypeLabels[item.itemSubtype] ?? item.itemSubtype) : ""}{item.material ? " · " + item.material : ""}</p></div>
                       <div className="text-right">
                         {discounted && <p className="text-xs text-[color:var(--store-muted)] line-through">◈ {item.basePrice.toLocaleString("es-MX")}</p>}
                         <span className={"text-sm font-semibold " + (discounted ? "text-emerald-300" : "text-amber-300")}>◈ {item.price.toLocaleString("es-MX")}</span>

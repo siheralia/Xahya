@@ -207,12 +207,39 @@ model AuditLog {
   @@index([characterId])
 }
 
+model Material {
+  id                 Int @id @default(autoincrement())
+  name               String @unique
+  type               String
+  description        String?
+  weightPerUnitKg    Float?
+  hardness           Int @default(0)
+  physicalResistance Int @default(0)
+  magicResistance    Int @default(0)
+  attackGrant        Int @default(0)
+  defenseGrant       Int @default(0)
+  specialEffect      String?
+  naturalForm        String?
+  minimumForm        String?
+  rawForm            String?
+  marketForm         String?
+  fireReaction       String?
+  lightningReaction  String?
+  iceReaction        String?
+  active             Boolean @default(true)
+  createdAt          DateTime @default(now())
+  items              Item[]
+  @@map("material")
+}
+
 model Item {
   id             Int       @id @default(autoincrement())
   name           String
   description    String?
   itemType       String    @default("OTHER")
   itemSubtype    String?
+  materialId     Int?
+  material       Material? @relation(fields:[materialId],references:[id],onDelete:SetNull)
   attackType     String?
   weaponMode     String    @default("MELEE")
   effectiveRangeMeters Float @default(1.5)
@@ -241,6 +268,7 @@ model CharacterItem {
   equipped     Boolean   @default(false)
   equippedSlot String?
   flair        String?
+  durability   Int @default(100)
   createdAt    DateTime  @default(now())
 }
 

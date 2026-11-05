@@ -8,10 +8,12 @@ export async function GET() {
   if (!clerkId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const Item = (db.orm.public as any).Item;
-  const [items, promotions] = await Promise.all([
+  const [items, promotions, materials] = await Promise.all([
     Item.where({ acquisitionType: "PURCHASABLE" }).all(),
     loadStorePromotions(),
+    (db.orm.public as any).Material.all(),
   ]);
+  const materialNames=new Map<number,string>(materials.map((m:any)=>[Number(m.id),String(m.name)]));
 
   return NextResponse.json({
     items: items.filter((item: any) => String(item.itemType) !== "PROPERTY").map((item: any) => {
@@ -22,6 +24,7 @@ export async function GET() {
         description: item.description == null ? null : String(item.description),
         itemType: String(item.itemType),
         itemSubtype: item.itemSubtype == null ? null : String(item.itemSubtype),
+        material: item.materialId==null?null:(materialNames.get(Number(item.materialId))??null),
         acquisitionType: String(item.acquisitionType),
         basePrice: pricing.basePrice,
         price: pricing.price,

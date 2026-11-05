@@ -9,6 +9,7 @@ export const ROLE_PERMISSIONS = {
  "management.character-resources": ["view", "grant"],
  "management.skills": ["view", "approve", "reject", "edit"],
  "management.combat": ["view", "approve"],
+ "management.materials": ["view","create","edit","delete"],
  "management.items": ["view", "view-properties", "view-system", "view-event", "view-quest", "view-ability", "create", "edit", "delete", "grant", "create-event", "edit-event", "delete-event", "grant-event", "create-quest", "edit-quest", "delete-quest", "grant-quest", "create-ability", "edit-ability", "delete-ability", "grant-ability"],
  "management.labyrinth": ["view", "edit", "operate"],
  "management.finances": ["view", "adjust", "audit"],

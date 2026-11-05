@@ -23,7 +23,7 @@ export const SKILL_FIELD_HELP = {
   maintenanceCost: "Maná que se consume por cada turno que permanece activa. Solo aplica a duraciones no instantáneas.",
   accumulationPerTick: "Cantidad de acumulaciones que gana la habilidad en cada tick o actualización de su estado.",
   accumulationCost: "Maná que se consume por acumulación cuando la habilidad acumula cargas.",
-  condition: "Requisito que debe cumplirse para activar o mantener una habilidad pasiva.",
+  condition: "Texto narrativo heredado, sin interpretación automática. Las nuevas condiciones se configuran en los módulos.",
   pch: "Puntos de Creación de Habilidad. Se calculan según los efectos, el maná, la velocidad y el alcance.",
 } as const;
 

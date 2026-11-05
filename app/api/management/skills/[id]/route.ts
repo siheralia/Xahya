@@ -22,7 +22,6 @@ import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
 import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
-import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import {validateSkillCombatTypes,normalizeSkillCombatType} from "@/lib/combat/matchup-types";
 
 async function getAdmin() {
@@ -62,9 +61,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const accumulationPerTick = Number(body.accumulationPerTick ?? skill.accumulationPerTick ?? 0);
   const category = String(body.category ?? skill.category);
   const nextCondition = typeof body.condition === "string" ? body.condition.trim() : (skill.condition ?? null);
-  // Rejection must remain available even for an incomplete or legacy passive.
-  if (body.reject !== true && isPassiveConditionMissing(category,nextCondition))
-    return NextResponse.json({error:PASSIVE_CONDITION_REQUIRED_MESSAGE},{status:400});
   const effect = Array.isArray(body.effect) ? body.effect : (Array.isArray(skill.effect) ? skill.effect : []);
   const hasComposed=effect.some(isComposedSkillEffect);
   if(hasComposed && body.reject!==true) {

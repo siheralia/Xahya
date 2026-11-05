@@ -351,7 +351,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const canCombine=!!actor&&remainingAp(actor)>=2&&actor.spentTicks+turnTicks(actor)*2<=100;
  const canCombineAttack=!!actor&&remainingAp(actor)>=2&&
   actor.spentTicks+turnTicks(actor)+
-   turnTicks(actor,attackMode==="PHYSICAL"&&selectedWeapon?displayedAttackType:undefined)<=100;
+   turnTicks(actor,attackMode!=="MAGIC_AREA"&&selectedWeapon?displayedAttackType:undefined)<=100;
  const basicReach=attackMode==="MAGIC_AREA"?BASIC_MAGIC_RANGE_METERS:
    actor?effectiveWeaponReachMeters(actor,attackMode==="THROW",activeAttackSource):0;
  const basicOutOfRange=attackDistance>basicReach;
@@ -862,15 +862,28 @@ export default function CombatEncounter({id}:{id:string}) {
           <span className="ml-2 text-xs text-zinc-400">{preparedAreaSkill&&attackMode==="MAGIC_AREA"?"Configurado en la habilidad":"Configurado en la ficha o el arma"}</span>
         </div>
        </div>
-       {!preparedAreaSkill&&basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">El objetivo está a {attackDistance.toFixed(2)} m y el alcance máximo del ataque básico es {basicReach.toFixed(2)} m. Acércate antes de atacar.</p>}
+       {!preparedAreaSkill&&basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">
+         {movementOrder==="AFTER"?"«Atacar y mover» exige estar al alcance antes del desplazamiento. ":""}
+         El objetivo está a {attackDistance.toFixed(2)} m; el alcance máximo de este ataque es {basicReach.toFixed(2)} m.
+         {drawnMovement&&afterMovementDistance>basicReach
+          ?" Incluso después de avanzar sigue fuera de alcance. Usa «Solo mover» para acercarte otra vez."
+          :" Dibuja un paso hacia el rival y elige «Mover y atacar»."}
+        </p>}
+        {missingMoveTrace&&<p role="status" className="mb-2 text-xs text-cyan-200">Dibuja primero el desplazamiento en el plano izquierdo o selecciona «Solo mover».</p>}
+        {preparedMovement&&!canCombineAttack&&<p role="status" className="mb-2 text-xs text-amber-300">Faltan PA o ticks para combinar movimiento y ataque (requiere 2 PA).</p>}
+        {attackMode==="MAGIC_AREA"&&!areaCenter&&<p role="status" className="mb-2 text-xs text-violet-300">Marca el centro de la magia en el plano vertical para poder lanzarla.</p>}
        {!(attackMode==="MAGIC_AREA"&&preparedAreaSkill)&&<button disabled={!ready||basicOutOfRange||missingMoveTrace||(!!preparedMovement&&!canCombineAttack)||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
-           ? {kind:"ATTACK",planarMove:preparedMovement,usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
-           : attackMode==="THROW"?{kind:"ATTACK",planarMove:preparedMovement,throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
-           : attackMode==="RANGED"?{kind:"ATTACK",planarMove:preparedMovement,rangedPhysical:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
-           : {kind:"ATTACK",planarMove:preparedMovement,attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath,targetConstructionId:selectedAttackTargetId||undefined})}
+           ? {kind:"ATTACK",planarMove:preparedMovement,movementOrder,usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : attackMode==="THROW"?{kind:"ATTACK",planarMove:preparedMovement,movementOrder,throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : attackMode==="RANGED"?{kind:"ATTACK",planarMove:preparedMovement,movementOrder,rangedPhysical:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : {kind:"ATTACK",planarMove:preparedMovement,movementOrder,attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath,targetConstructionId:selectedAttackTargetId||undefined})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
-        {preparedMovement?"Mover + atacar · 2 PA":attackMode==="MAGIC_AREA"?"Lanzar magia básica":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
+        {movementOrder==="BEFORE"?
+          (attackMode==="MAGIC_AREA"?"Mover y lanzar magia · 2 PA":"Mover y atacar · 2 PA"):
+          movementOrder==="AFTER"?
+          (attackMode==="MAGIC_AREA"?"Lanzar magia y mover · 2 PA":"Atacar y mover · 2 PA"):
+          attackMode==="MAGIC_AREA"?"Lanzar magia básica":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
        </button>}
        {attackMode==="MAGIC_AREA"&&preparedAreaSkill?.attackArea&&<button type="button"
          disabled={!ready||!areaCenter||attackDistance>(preparedAreaSkill.rangeMeters??0)||
@@ -878,7 +891,7 @@ export default function CombatEncounter({id}:{id:string}) {
            (state.mana?.[side]?.current??0)<preparedAreaSkill.manaCost}
          onClick={()=>castSkill(preparedAreaSkill)}
          className="rounded-lg bg-violet-500 px-5 py-2 font-bold text-white disabled:opacity-40">
-         {preparedMovement?"Mover + lanzar":"Lanzar"} {preparedAreaSkill.name} · {preparedAreaSkill.manaCost} maná {preparedMovement?"· 2 PA":""}
+         {movementOrder==="BEFORE"?"Mover y lanzar":movementOrder==="AFTER"?"Lanzar y mover":"Lanzar"} {preparedAreaSkill.name} · {preparedAreaSkill.manaCost} maná {preparedMovement?"· 2 PA":""}
        </button>}
        {attackMode==="MAGIC_AREA"&&preparedAreaSkill&&<button type="button"
          onClick={()=>{setPreparedAreaSkill(null);setAreaCenter(null);}}

@@ -8,7 +8,7 @@ import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
 
 type Effect = { type: string; stat: string; action?: string; value: number; description: string; element?: string };
 type Item = {
-  id: number; name: string; description: string | null; itemType: string; itemSubtype: string | null; attackType: string | null; weaponMode?:string; effectiveRangeMeters?:number; maximumRangeMeters?:number; throwable?:boolean; throwRangeMeters?:number;
+  id: number; name: string; description: string | null; itemType: string; itemSubtype: string | null; materialId?:number|null; attackType: string | null; weaponMode?:string; effectiveRangeMeters?:number; maximumRangeMeters?:number; throwable?:boolean; throwRangeMeters?:number;
   acquisitionType: string; price: number; propertyBusinessId?: number | null; effects: Effect[]; allowedSlots: string[]; imagePath?: string | null; imageUrl?: string | null;
 };
 
@@ -27,7 +27,7 @@ const equipmentSlots = [
 
 const EFFECT_TYPES = [...sharedEffectTypes.map(effect => [effect.type.toLowerCase(), effect.label] as const), ["system_action","Acción del sistema"]] as const;
 const DAMAGE_TARGETS = [["ALL","Todo"],["PHYSICAL","Físico"],["MAGICAL","Mágico"]] as const;
-const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_TRAP", "Romper una trampa y liberarte"], ["RELEASE_MAZE_TRAPPED", "Liberarte de una trampa"], ["CREATE_SKILL", "Permitir crear una habilidad"], ["IMPROVE_SKILL", "Moneda de mejora de habilidades"]] as const;
+const SYSTEM_ACTIONS = [["ESCAPE_MAZE", "Escapar del laberinto"], ["DISARM_MAZE_TRAP", "Romper una trampa y liberarte"], ["RELEASE_MAZE_TRAPPED", "Liberarte de una trampa"], ["CREATE_SKILL", "Permitir crear una habilidad"], ["IMPROVE_SKILL", "Moneda de mejora de habilidades"], ["HEAL_HP", "Restaurar HP"], ["RESTORE_MANA", "Restaurar maná"]] as const;
 
 const NON_STAT_EFFECT_TARGETS: [string, string][] = [
   ["ATTACK_TOTAL", "Ataque total"], ["DAMAGE_REDUCTION_ALL", "Reducción de daño"],
@@ -47,8 +47,10 @@ export default function ItemsManagementPage() {
   const EFFECT_TARGETS: [string,string][] = [...statDefinitions.filter((entry)=>entry.active!==false).map((entry)=>[entry.code || entry.key, entry.name] as [string,string]), ...NON_STAT_EFFECT_TARGETS];
   useEffect(() => { fetch("/api/management/effect-targets").then((r)=>r.ok?r.json():null).then((data)=>{if(data?.statistics)setStatDefinitions(data.statistics);}).catch(()=>{}); }, []);
   const [businesses,setBusinesses]=useState<{id:number;name:string}[]>([]);
+  const [materials,setMaterials]=useState<{id:number;name:string;type:string;active:boolean}[]>([]);
+  const materialName=(id:number|null|undefined)=>materials.find(m=>m.id===id)?.name??"Sin definir";
   const [selected,setSelected]=useState<number|null>(null);
-  const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[emptyEffect()],allowedSlots:defaultSlots});
+  const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",materialId:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
   const [error,setError]=useState(""); const [success,setSuccess]=useState("");
   const [modalOpen,setModalOpen]=useState(false); const [imageFile,setImageFile]=useState<File|null>(null); const [imagePreview,setImagePreview]=useState<string|null>(null);
@@ -56,7 +58,11 @@ export default function ItemsManagementPage() {
 
   async function load(){
     setLoading(true); setError("");
-    try { const [itemsResponse,businessesResponse]=await Promise.all([fetch("/api/management/items"),fetch("/api/management/businesses")]); const d=await itemsResponse.json(); const bd=await businessesResponse.json(); if(!itemsResponse.ok) throw new Error(d.error); setItems(d.items??[]); setCapabilities(d.capabilities??{}); setBusinesses(businessesResponse.ok ? (bd.businesses??[]).map((b:any)=>({id:Number(b.id),name:String(b.name)})) : []); }
+    try { const [itemsResponse,businessesResponse,materialsResponse]=await Promise.all([
+      fetch("/api/management/items"),fetch("/api/management/businesses"),fetch("/api/management/materials")]);
+    const d=await itemsResponse.json(); const bd=await businessesResponse.json();
+    const md=await materialsResponse.json().catch(()=>({materials:[]})); if(!itemsResponse.ok) throw new Error(d.error); setItems(d.items??[]); setCapabilities(d.capabilities??{}); setBusinesses(businessesResponse.ok ? (bd.businesses??[]).map((b:any)=>({id:Number(b.id),name:String(b.name)})) : []);
+    setMaterials(materialsResponse.ok ? (md.materials??[]).map((m:any)=>({id:Number(m.id),name:String(m.name),type:String(m.type),active:Boolean(m.active)})) : []); }
     catch(e){setError(e instanceof Error?e.message:"No se pudieron cargar los objetos.");}
     finally{setLoading(false);}
   }
@@ -79,11 +85,11 @@ export default function ItemsManagementPage() {
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",attackType:item.attackType??"CUT",weaponMode:item.weaponMode??"MELEE",effectiveRangeMeters:Number(item.effectiveRangeMeters??1.5),maximumRangeMeters:Number(item.maximumRangeMeters??1.5),throwable:Boolean(item.throwable),throwRangeMeters:Number(item.throwRangeMeters??0),acquisitionType:item.acquisitionType,price:Number(item.price),propertyBusinessId:item.propertyBusinessId==null?"":String(item.propertyBusinessId),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:String(effect.type??"stat_multiplier"),stat:String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":String(effect.stat??"OTHER"),action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??""),element:String(effect.element??"NEUTRAL")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",materialId:item.materialId==null?"":String(item.materialId),attackType:item.attackType??"CUT",weaponMode:item.weaponMode??"MELEE",effectiveRangeMeters:Number(item.effectiveRangeMeters??1.5),maximumRangeMeters:Number(item.maximumRangeMeters??1.5),throwable:Boolean(item.throwable),throwRangeMeters:Number(item.throwRangeMeters??0),acquisitionType:item.acquisitionType,price:Number(item.price),propertyBusinessId:item.propertyBusinessId==null?"":String(item.propertyBusinessId),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:String(effect.type??"stat_multiplier"),stat:String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":String(effect.stat??"OTHER"),action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??""),element:String(effect.element??"NEUTRAL")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
     setSuccess(""); setError(""); setImageFile(null); setImagePreview(item.imageUrl ?? null);
     setModalOpen(true);
   }
-  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:acquisitionTypes.find(([origin])=>canAction("create",origin))?.[0]??"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
+  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",materialId:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:acquisitionTypes.find(([origin])=>canAction("create",origin))?.[0]??"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
@@ -140,7 +146,7 @@ export default function ItemsManagementPage() {
           </div>
           <div className="flex items-center justify-between text-xs text-zinc-500"><span>{filteredItems.length} de {items.length} objetos</span><button type="button" onClick={()=>{setSearch("");setFilterType("ALL");setFilterSubtype("ALL");setFilterSlot("ALL");setFilterAcquisition("ALL");setFilterStat("ALL");setFilterMinValue("");}} className="text-zinc-300">Limpiar filtros</button></div>
           <div className="space-y-2">{filteredItems.map(item=><button key={item.id} onClick={()=>edit(item)} disabled={!canAction("edit",item.acquisitionType)} title={!canAction("edit",item.acquisitionType)?"Sin permiso para editar este origen":"Editar objeto"} className={"w-full rounded-xl border p-4 text-left transition "+(selected===item.id?"border-amber-400/50 bg-amber-950/20":"border-zinc-800 hover:bg-zinc-900")}>
-          <div className="flex items-center gap-3">{item.imageUrl&&<img src={item.imageUrl} alt="" className="h-12 w-16 rounded-lg object-cover"/>}<div><div className="font-medium">{item.name}</div><div className="mt-1 text-xs text-zinc-500">{itemTypes.find(x=>x[0]===item.itemType)?.[1]??item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""} · {acquisitionTypes.find(x=>x[0]===item.acquisitionType)?.[1]??item.acquisitionType}</div></div></div>
+          <div className="flex items-center gap-3">{item.imageUrl&&<img src={item.imageUrl} alt="" className="h-12 w-16 rounded-lg object-cover"/>}<div><div className="font-medium">{item.name}</div><div className="mt-1 text-xs text-zinc-500">{itemTypes.find(x=>x[0]===item.itemType)?.[1]??item.itemType}{item.itemSubtype ? " · " + item.itemSubtype : ""} · {materialName(item.materialId)} · {acquisitionTypes.find(x=>x[0]===item.acquisitionType)?.[1]??item.acquisitionType}</div></div></div>
         </button>)}</div></div>
       </section>
       <ManagementModal open={modalOpen} title={selected?"Editar objeto":"Nuevo objeto"} onClose={()=>setModalOpen(false)} maxWidth="max-w-4xl">
@@ -161,6 +167,15 @@ export default function ItemsManagementPage() {
           </div>}
           <div className="grid gap-4 sm:grid-cols-3">
             <label>Tipo de categoría<select value={form.itemType} onChange={e=>setForm({...form,itemType:e.target.value,acquisitionType:e.target.value==="PROPERTY"?"OTHER":form.acquisitionType})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{itemTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
+            <label>Material de fabricación
+             <select value={form.materialId} onChange={e=>setForm({...form,materialId:e.target.value})}
+              aria-label="Material del objeto" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+              <option value="">Sin definir</option>
+              {materials.filter(m=>m.active||String(m.id)===form.materialId).map(material=>
+               <option key={material.id} value={String(material.id)}>{material.name} · {material.type}{material.active?"":" (inactivo)"}</option>)}
+             </select>
+             <span className="mt-1 block text-xs text-zinc-500">Los materiales se crean en Gestión de materiales. Sus bonos aún no afectan las estadísticas.</span>
+            </label>
             <label>Negocio de venta exclusivo<select value={form.propertyBusinessId} onChange={e=>setForm({...form,propertyBusinessId:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="">Ninguno — disponible para cualquier negocio</option>{businesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>{form.itemType==="PROPERTY"&&<p className="mt-1 text-xs text-zinc-500">Si eliges un negocio, esta propiedad solo podrá ser comprada por ese negocio para revenderla.</p>}</label>
             <label>Tipo de ataque físico<select value={form.attackType} disabled={form.itemType!=="WEAPON"} onChange={e=>setForm({...form,attackType:e.target.value})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"><option value="CUT">Corte</option><option value="BLUNT">Contundente</option><option value="PIERCE">Penetración</option></select></label>
             {form.itemType==="WEAPON"&&<div className="grid gap-3 rounded-lg border border-zinc-700 p-3 sm:grid-cols-2">

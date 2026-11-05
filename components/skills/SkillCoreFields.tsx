@@ -15,6 +15,7 @@ const categories: [string,string][] = [["OFFENSIVE","Ofensiva"],["PASSIVE","Pasi
 const durations = ["Instantánea","1 turno","2 turnos","3 turnos","5 turnos","10 turnos","20 turnos","No termina"];
 
 const cooldowns = COOLDOWN_OPTIONS.map(option=>option.value);
+const cooldownName=(value:string)=>value==="Sin cooldown"?"Sin tiempo de espera":value;
 export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor}:{form:T;onChange:(next:T)=>void;effectEditor?:ReactNode}) {
   const [speedSettings,setSpeedSettings]=useState<{defaultKey:string;stats:{key:string;name:string}[]}>({defaultKey:"agility",stats:[{key:"agility",name:"Agilidad"}]});
   useEffect(()=>{fetch("/api/management/effects").then(r=>r.ok?r.json():null).then(d=>{if(d?.attackSpeedStats?.length)setSpeedSettings({defaultKey:d.defaultAttackSpeedStat??"agility",stats:d.attackSpeedStats});}).catch(()=>{});},[]);

@@ -86,6 +86,8 @@ function describeAttack(
  const mirrorShot=Boolean(launch?.mirrorShot||impact?.mirrorShot||
   /invocó .+ y lanzó un rayo mágico|proyectó un rayo mágico/i.test(launch?.summary??""));
  const descriptor=mirrorShot?"un rayo mágico perforante desde el espejo":
+  launch?.attackArea?.shape==="STRIP"?`una franja de ${launch.attackArea.lengthMeters} × ${launch.attackArea.widthMeters} m`:
+  launch?.attackArea?.shape==="SELF_FIELD"?`un barrido de ${launch.attackArea.radiusMeters} m alrededor del usuario`:
   launch?.attackArea?`un ataque circular de ${launch.attackArea.radiusMeters} m de radio`:
   noun(type,magic,ranged,thrown,launch?.weaponName);
  const withWeapon=!magic&&!ranged&&!thrown&&launch?.weaponName?descriptor+" con "+launch.weaponName:descriptor;

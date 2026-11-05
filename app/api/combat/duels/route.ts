@@ -48,6 +48,14 @@ async function snapshotEquippedWeapons(characterId:number):Promise<{
     } as NonNullable<CombatFighter["equippedWeapon"]>;
     if(item.materialId!=null){
       const material=await Material.where({id:Number(item.materialId)}).first();
+      if(material){
+        const resistance=Number(material.physicalResistance);
+        weapon.materialName=String(material.name);
+        // Physical resistance affects weapon wear, not incoming HP damage.
+        // Zero/unset means neutral 100 until its material is configured.
+        if(Number.isFinite(resistance)&&resistance>=0&&resistance<=1_000_000)
+          weapon.materialPhysicalResistance=resistance;
+      }
       const perkId=Number(material?.bonusAgainstPerkId),bonus=Number(material?.bonusAgainstPerkAttack);
       if(Number.isSafeInteger(perkId)&&perkId>0&&Number.isSafeInteger(bonus)&&bonus>0&&bonus<=10000)
         weapon.materialPerkBonus={perkId,attackBonus:bonus};

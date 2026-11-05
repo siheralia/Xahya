@@ -125,6 +125,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const lastResolution=useRef("");
  const canvas=useRef<SVGSVGElement|null>(null);
  const castRequestRef=useRef<{key:string;id:string}|null>(null);
+ const itemRequestRef=useRef<{key:string;id:string}|null>(null);
  const load=useCallback(async()=>{
   try {
    const r=await fetch("/api/combat/"+id+"/actions",{cache:"no-store"});
@@ -169,6 +170,11 @@ export default function CombatEncounter({id}:{id:string}) {
    setView(v=>v?{...v,state:data.state}:v);
    if(command.kind==="BOOST_KARMA"){setKarmaAllocation({});karmaRequestRef.current=null;void load();}
    if(command.kind==="DEFEND")setPredictedCenter(null);
+   if(command.kind==="USE_ITEM"){
+    itemRequestRef.current=null;
+    const recent=(data.state as CombatState).log.filter(event=>event.kind==="ITEM").at(-1);
+    setActionFeedback(recent?.summary??"Poción utilizada.");
+   }
    if(command.kind==="CAST_SKILL"){
     castRequestRef.current=null;
     const event=(data.state as CombatState).log.filter(e=>e.skillId===command.skillId).at(-1);
@@ -524,6 +530,28 @@ export default function CombatEncounter({id}:{id:string}) {
     </div>}
     {!pending&&state.status==="ACTIVE"&&hasAccess&&<div className="mt-5 space-y-4">
      <h2 className="text-lg font-bold">Siguiente acción</h2>
+     {(state.consumables?.[side]??[]).some(item=>item.quantity>0)&&<section className="rounded-xl border border-emerald-500/25 bg-emerald-950/10 p-3">
+      <h3 className="font-semibold text-emerald-200">Consumibles del encuentro</h3>
+      <p className="mt-1 text-xs text-zinc-400">Las pociones gastan una acción, PA y ticks. Las de personajes reales se descuentan del inventario al usarlas.</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+       {(state.consumables?.[side]??[]).filter(item=>item.quantity>0).map((item,index)=>{
+        const full=item.action==="HEAL_HP"?actor.hp>=actor.maxHp:
+         (state.mana?.[side]?.current??0)>=(state.mana?.[side]?.max??0);
+        return <button type="button" key={item.itemId+":"+(item.characterItemId??index)}
+         onClick={()=>{
+          const key=side+":"+item.itemId+":"+(item.characterItemId??"npc")+":"+state.round+":"+actor.spentTicks;
+          const previous=itemRequestRef.current;
+          const requestId=previous?.key===key?previous.id:crypto.randomUUID();
+          itemRequestRef.current={key,id:requestId};
+          void submit({kind:"USE_ITEM",itemId:item.itemId,requestId});
+         }}
+         disabled={!ready||busy||full} title={full?"Ya tienes el recurso al máximo":item.name}
+         className="rounded-lg border border-emerald-400/40 bg-zinc-900 px-3 py-2 text-sm text-emerald-200 disabled:opacity-40">
+         {item.action==="HEAL_HP"?"HP":"Maná"} +{item.amount} · {item.quantity} ud.
+        </button>;
+       })}
+      </div>
+     </section>
      <div className="flex flex-wrap items-end gap-3">
       <label className="text-sm">Avanzar (máx. {maxMove} m)
        <input type="number" min="0" max={maxMove} step="0.5" value={meters}

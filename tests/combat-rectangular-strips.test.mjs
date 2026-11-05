@@ -117,9 +117,9 @@ test("orientation and center are private until defense, with a paid prediction r
 test("server rejects missing/fractional orientation before spending anything",()=>{
  const plan=compileCombatSkill(row(504));
  const state=initial();
- for(const angle of [undefined,-1,360,17.5,"45"]){
+ for(const [index,angle] of [undefined,-1,360,17.5,"45"].entries()){
   assert.throws(()=>applyResolvedCombatSkill(state,"PLAYER",plan,
-   {requestId:"strip-invalid-"+String(angle)+"-0001",areaCenter:{x:.5,y:.5},
+   {requestId:"strip-invalid-angle-"+index+"-0001",areaCenter:{x:.5,y:.5},
     areaAngleDegrees:angle},dice),/ángulo/);
   assert.equal(state.mana.PLAYER.current,60);
   assert.equal(state.actors.PLAYER.spentAp,0);

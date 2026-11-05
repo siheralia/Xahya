@@ -6,6 +6,7 @@ import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { hasRolePermission, canManageItemOrigin } from "@/lib/role-permissions";
+import {selectedMaterialId} from "@/lib/items/materials";
 
 const ATTACK_TYPES = ["CUT", "BLUNT", "PIERCE"] as const;
 const ITEM_TYPES = ["WEAPON", "ARMOR", "ACCESSORY", "CONSUMABLE", "MATERIAL", "PROPERTY", "OTHER"] as const;
@@ -38,7 +39,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const effects = Array.isArray(body.effects) ? body.effects : item.effects;
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : (Array.isArray(item.allowedSlots) ? item.allowedSlots : []);
   const propertyBusinessId = body.propertyBusinessId === "" || body.propertyBusinessId == null ? null : Number(body.propertyBusinessId);
-  const systemActions = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL", "IMPROVE_SKILL"];
+  const systemActions = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL", "IMPROVE_SKILL", "HEAL_HP", "RESTORE_MANA"];
   if (attackType !== null && (!ATTACK_TYPES.includes(attackType as any) || itemType !== "WEAPON")) return NextResponse.json({ error: "Tipo de ataque físico inválido." }, { status: 400 });
   if (itemType === "WEAPON" && attackType === null) return NextResponse.json({ error: "Las armas deben tener un tipo de ataque físico." }, { status: 400 });
   if (!name || name.length > 100 || !ITEM_TYPES.includes(itemType as any) || !Number.isInteger(price) || price < 0) return NextResponse.json({ error: "Datos del objeto inválidos." }, { status: 400 });
@@ -69,7 +70,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     effectiveRangeMeters<=0||maximumRangeMeters<effectiveRangeMeters||maximumRangeMeters>1000||
     throwRangeMeters<0||(throwable&&throwRangeMeters<=0)))
     return NextResponse.json({error:"Configuración de alcance del arma inválida."},{status:400});
-  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, attackType: itemType === "WEAPON" ? attackType : null, weaponMode, effectiveRangeMeters, maximumRangeMeters, throwable, throwRangeMeters, acquisitionType, price, effects, allowedSlots, propertyBusinessId });
+  let materialId:number|null;
+  try{materialId=selectedMaterialId(body.materialId===undefined?item.materialId:body.materialId);}
+  catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Material inválido."},{status:400});}
+  if(materialId!==null){
+   const material=await (db.orm.public as any).Material.where({id:materialId}).first();
+   if(!material || (!material.active&&materialId!==Number(item.materialId)))
+    return NextResponse.json({error:"El material no existe o está inactivo."},{status:400});
+  }
+  const updated = await Item.where({ id }).update({ name, description, itemType, itemSubtype, materialId, attackType: itemType === "WEAPON" ? attackType : null, weaponMode, effectiveRangeMeters, maximumRangeMeters, throwable, throwRangeMeters, acquisitionType, price, effects, allowedSlots, propertyBusinessId });
   await recordAuditEvent({ actorUserId: admin.id, action: "ITEM_UPDATE", entityType: "ITEM", entityId: id, details: { before: item, after: updated } });
   return NextResponse.json({ item: updated });
 }

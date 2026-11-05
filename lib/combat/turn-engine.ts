@@ -474,6 +474,10 @@ function settleDroppedWeapons(state:CombatState) {
  * to the caster's position, preserving the previous range behaviour.
  */
 export function mirrorRayDistanceMeters(state:CombatState,mirror:CombatConstruction):number {
+ if(mirror.fieldPosition){
+  const target=fieldPosition(state.actors[other(mirror.owner)]);
+  return Math.hypot(mirror.fieldPosition.x-target.x,mirror.fieldPosition.y-target.y);
+ }
  const stored=mirror.positionMeters;
  const origin=typeof stored==="number"&&Number.isFinite(stored)
   ?stored:state.actors[mirror.owner].positionMeters;
@@ -1202,7 +1206,7 @@ export function applyResolvedCombatSkill(
       fieldPosition:fieldPoint,heightMeters:aim.constructionHeightMeters,
       // The canvas is a defender-facing placement plane; anchor the mirror
       // at that target's world depth, not at the moving caster's position.
-      positionMeters:next.actors[other(by)].positionMeters,
+      positionMeters:fieldPoint?.x??next.actors[other(by)].positionMeters,
       tangible:true,durability:plan.mirror.durability,
       mirror:{rayMultiplier:plan.mirror.rayMultiplier,reflectionMultiplier:plan.mirror.reflectionMultiplier,
        rangeMeters:plan.rangeMeters,attackType:"PIERCE"},

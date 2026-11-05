@@ -3,7 +3,6 @@
 import {useEffect,useState,type ReactNode} from "react";
 import { SkillFieldHelp, type SkillHelpKey } from "./SkillFieldHelp";
 import type { SkillMechanics } from "@/lib/skills/interaction-engine";
-import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import {COOLDOWN_OPTIONS,cooldownDiscountPercent} from "@/lib/skills/cooldown";
 import {COMBAT_ATTACK_TYPE_OPTIONS,COMBAT_DEFENSE_TYPE_OPTIONS} from "@/lib/combat/matchup-types";
 import {SKILL_AREA_OPTIONS,editorSkillArea,formatSkillArea} from "@/lib/skills/area-of-effect";
@@ -20,7 +19,6 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
   const [speedSettings,setSpeedSettings]=useState<{defaultKey:string;stats:{key:string;name:string}[]}>({defaultKey:"agility",stats:[{key:"agility",name:"Agilidad"}]});
   useEffect(()=>{fetch("/api/management/effects").then(r=>r.ok?r.json():null).then(d=>{if(d?.attackSpeedStats?.length)setSpeedSettings({defaultKey:d.defaultAttackSpeedStat??"agility",stats:d.attackSpeedStats});}).catch(()=>{});},[]);
   const defaultSpeedName=speedSettings.stats.find(stat=>stat.key===speedSettings.defaultKey)?.name??speedSettings.defaultKey;
-  const passiveConditionMissing = isPassiveConditionMissing(form.category, form.condition);
   const areaState=editorSkillArea(form.areaOfEffect);
   const speeds:[string,string][]=[["DEFAULT",`Predeterminada (${defaultSpeedName})`],...speedSettings.stats.map(stat=>[stat.key,`${stat.name} (+5 PCH)`] as [string,string])];
   if(form.speed&&!speeds.some(([key])=>key===form.speed))speeds.push([form.speed,`${form.speed} (valor anterior)`]);
@@ -48,27 +46,16 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
       </label>
       <p className="text-xs text-zinc-500 sm:col-span-2">Tipos para los enfrentamientos del combate, independientes de los ataques y defensas básicos del personaje. Una habilidad puede atacar, defender, hacer ambas cosas o ninguna. No representan su elemento ni cambian su PCH.</p>
     </div>
-    {form.category==="PASSIVE" && (
+    {Boolean(form.condition?.trim()) && (
       <div className="sm:col-span-2">
-        <label htmlFor="skill-passive-condition" className="block text-sm text-zinc-300">
-          Condición general de la pasiva <span className="font-semibold text-amber-300">(obligatoria) *</span>
-          <SkillFieldHelp field="condition"/>
+        <label htmlFor="skill-legacy-condition" className="block text-sm text-zinc-300">
+          Condición narrativa anterior <span className="text-xs text-zinc-500">(solo informativa)</span>
         </label>
-        <input
-          id="skill-passive-condition"
-          type="text"
-          value={form.condition}
+        <input id="skill-legacy-condition" type="text" value={form.condition}
           onChange={e=>set("condition",e.target.value)}
-          required
-          aria-required="true"
-          aria-invalid={passiveConditionMissing}
-          aria-describedby="skill-passive-condition-help"
-          placeholder="Ej.: Sikatā aprendida y arena presente; se endurece ante impactos"
-          className={cls+" "+(passiveConditionMissing?"border-amber-500 focus:border-amber-400":"")}
-        />
-        <p id="skill-passive-condition-help" role={passiveConditionMissing?"alert":undefined} className={"mt-1 text-xs "+(passiveConditionMissing?"text-amber-300":"text-zinc-400")}>
-          {passiveConditionMissing?PASSIVE_CONDITION_REQUIRED_MESSAGE:"Esta condición es obligatoria para pasivas. No es la «Condición del efecto» ni las condiciones de Mecánicas."}
-        </p>
+          className={cls} />
+        <p className="mt-1 text-xs text-zinc-500">Es un texto heredado: no activa efectos automáticamente. Puedes borrarlo; usa las condiciones de los módulos para reglas ejecutables.</p>
+        <button type="button" onClick={()=>set("condition","")} className="mt-2 text-xs text-zinc-400 underline hover:text-white">Eliminar condición narrativa anterior</button>
       </div>
     )}
     {effectEditor && <div className="sm:col-span-2">{effectEditor}</div>}

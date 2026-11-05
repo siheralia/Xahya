@@ -7,7 +7,6 @@ import { formatSkillForClipboard } from "@/lib/skills/skill-clipboard";
 import { SkillFormModal } from "@/components/skills/SkillFormModal";
 import { VariableResistanceCalculator } from "@/components/skills/VariableResistance";
 import { COMBAT_ATTACK_TYPE_OPTIONS, COMBAT_DEFENSE_TYPE_OPTIONS } from "@/lib/combat/matchup-types";
-import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import {GenericSkillShop} from "@/components/skills/GenericSkillShop";
 import type { SkillMechanics } from "@/lib/skills/interaction-engine";
 import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
@@ -1396,11 +1395,6 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   }
 
   async function submitSkill() {
-    if (isPassiveConditionMissing(skillForm.category,skillForm.condition)) {
-      setError(PASSIVE_CONDITION_REQUIRED_MESSAGE);
-      document.getElementById("skill-passive-condition")?.focus();
-      return;
-    }
     const delta=upgradingSkill?skillPchCost-Number(upgradingSkill.pchCost??0):skillPchCost;
     if (!character || skillSaving || pchBalance < delta || (upgradingSkill && (delta<=0||skillUpgradeCredits<=0))) return;
     setSkillSaving(true); setError(""); setSuccess("");
@@ -2068,7 +2062,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
               }).catch(e=>setError(e instanceof Error?e.message:"No se pudo actualizar la ficha."));
             setSuccess(data.evolved?"Habilidad genérica evolucionada. Se descontaron "+data.pchCost+" PCH.":"Habilidad genérica adquirida y aprobada. Se descontaron "+data.pchCost+" PCH.");
           }}/>
-        <SkillFormModal enableModularEffects={!upgradingSkill} availableSkills={skills.map(s=>({id:Number(s.id),name:String(s.name),status:String(s.status),characterId:Number(character.id)}))} characterId={Number(character.id)} open={skillModalOpen} title={upgradingSkill?"Mejorar habilidad":"Crear habilidad"} description={upgradingSkill?"La moneda autoriza la solicitud. Solo pagarás el incremento de PCH y la mejora requiere aprobación.":"Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise."} onClose={() => setSkillModalOpen(false)} form={skillForm} onChange={setSkillForm} statistics={(character.basicStatDefinitions??[]).flatMap(stat=>stat.kind==="basic"||stat.kind==="derived"?[{key:stat.key,name:stat.name,kind:stat.kind,active:stat.active}]:[])} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={priceSkillEffect} pch={{total:skillPchCost,baseline:upgradingSkill?.pchCost,beforeRequirements:applyRangePch(skillPchBeforeRange,skillForm.maxRangeMeters),base:skillBasePch,manaAdjusted:manaAdjustedPch(skillBasePch,skillForm.cost),balance:pchBalance}} actions={<button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || isPassiveConditionMissing(skillForm.category,skillForm.condition) || pchBalance < (upgradingSkill?skillPchCost-Number(upgradingSkill.pchCost??0):skillPchCost) || !!upgradingSkill && skillPchCost<=Number(upgradingSkill.pchCost??0)} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">{skillSaving ? "Enviando..." : upgradingSkill ? "Solicitar mejora · 1 moneda + "+Math.max(0,skillPchCost-Number(upgradingSkill.pchCost??0))+" PCH" : "Enviar para aprobación"}</button>} />
+        <SkillFormModal enableModularEffects={!upgradingSkill} availableSkills={skills.map(s=>({id:Number(s.id),name:String(s.name),status:String(s.status),characterId:Number(character.id)}))} characterId={Number(character.id)} open={skillModalOpen} title={upgradingSkill?"Mejorar habilidad":"Crear habilidad"} description={upgradingSkill?"La moneda autoriza la solicitud. Solo pagarás el incremento de PCH y la mejora requiere aprobación.":"Se enviará a administración. No aparecerá como aprobada hasta que un ADMIN la revise."} onClose={() => setSkillModalOpen(false)} form={skillForm} onChange={setSkillForm} statistics={(character.basicStatDefinitions??[]).flatMap(stat=>stat.kind==="basic"||stat.kind==="derived"?[{key:stat.key,name:stat.name,kind:stat.kind,active:stat.active}]:[])} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={priceSkillEffect} pch={{total:skillPchCost,baseline:upgradingSkill?.pchCost,beforeRequirements:applyRangePch(skillPchBeforeRange,skillForm.maxRangeMeters),base:skillBasePch,manaAdjusted:manaAdjustedPch(skillBasePch,skillForm.cost),balance:pchBalance}} actions={<button type="button" onClick={submitSkill} disabled={skillSaving || !skillForm.name.trim() || !skillForm.description.trim() || pchBalance < (upgradingSkill?skillPchCost-Number(upgradingSkill.pchCost??0):skillPchCost) || !!upgradingSkill && skillPchCost<=Number(upgradingSkill.pchCost??0)} className="mt-5 w-full rounded-lg bg-cyan-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40">{skillSaving ? "Enviando..." : upgradingSkill ? "Solicitar mejora · 1 moneda + "+Math.max(0,skillPchCost-Number(upgradingSkill.pchCost??0))+" PCH" : "Enviar para aprobación"}</button>} />
 
         {character.equipment.some((entry) => entry.equipped) ? (
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

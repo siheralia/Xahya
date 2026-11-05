@@ -38,8 +38,10 @@ test("one metre drawing is clamped in 10×10 metre horizontal plane",()=>{
 
 test("map projection uses real metre coordinates and is reversible",()=>{
  const p=actor("A",1,4,{fieldPosition:{x:4,y:2}});
- assert.deepEqual(pointFromFieldView(p,{x:.6,y:.4}),{x:5,y:1});
- assert.deepEqual(pointToFieldView(p,{x:5,y:1}),{x:.6,y:.4});
+ const placed=pointFromFieldView(p,{x:.6,y:.4});
+ assert.ok(Math.abs(placed.x-5)<1e-9&&Math.abs(placed.y-1)<1e-9);
+ const projected=pointToFieldView(p,{x:5,y:1});
+ assert.ok(Math.abs(projected.x-.6)<1e-9&&Math.abs(projected.y-.4)<1e-9);
  assert.equal(fieldDistance(actor("A",1,0,{fieldPosition:{x:0,y:0}}),
   actor("B",2,1,{fieldPosition:{x:0,y:1}})),1);
  moveFighterOnField(p,{x:.3,y:.4});
@@ -66,7 +68,9 @@ test("move plus attack costs exactly 2 AP, moves first, then checks reach",()=>{
  assert.throws(()=>applyCombatCommand(s,"PLAYER",strike(),dice),/fuera del alcance/);
  const next=applyCombatCommand(s,"PLAYER",strike({planarMove:{x:.5,y:0}}),dice);
  assert.equal(remainingAp(next.actors.PLAYER),ap-2);
- assert.ok(next.actors.PLAYER.spentTicks>=2*turnTicks(s.actors.PLAYER));
+ assert.equal(next.actors.PLAYER.spentTicks,
+   turnTicks(s.actors.PLAYER)+turnTicks(s.actors.PLAYER,"PIERCE"),
+   "movement uses neutral ticks, attack uses the equipped weapon speed factor");
  assert.equal(fieldPosition(next.actors.PLAYER).x,.5);
  assert.equal(next.pending?.by,"PLAYER");
  assert.deepEqual(next.pending?.planarMove,{x:.5,y:0});

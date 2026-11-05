@@ -58,8 +58,8 @@ const display=(step:MicroStep):{title:string;subtitle:string;unresolved:boolean}
    const targets:Record<string,string>={MAGIC_ATTACK:"Ataque mágico",MAGIC_ATK:"Ataque mágico",
      PHYS_ATK:"Ataque físico",PHYSICAL_ATTACK:"Ataque físico",
      PHYS_DEF:"Defensa física",MAGIC_DEF:"Defensa mágica"};
-   const target=step.sourceTarget?(targets[step.sourceTarget]??step.sourceTarget.replaceAll("_"," ").toLowerCase()):
-     step.stat.replaceAll("_"," ").toLowerCase();
+   const target=step.sourceTarget?(targets[step.sourceTarget]??friendlyMicroKey(step.sourceTarget)):
+     friendlyMicroKey(step.stat);
    return {title:"Aplicar multiplicador",subtitle:target+(step.sourceElement?" · "+step.sourceElement:""),unresolved:false};
   }
   case "BONUS":return {title:"Aplicar bono",subtitle:friendlyMicroKey(step.stat),unresolved:false};

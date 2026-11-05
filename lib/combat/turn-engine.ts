@@ -1110,7 +1110,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
  */
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
- aim:{requestId:string;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
+ aim:{requestId:string;planarMove?:Point;constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
   constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
@@ -1137,6 +1137,7 @@ export function applyResolvedCombatSkill(
    throw new Error("El barrido alrededor del usuario no permite elegir un objeto como epicentro.");
   next=applyCombatCommand(original,by,{
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
+   planarMove:aim.planarMove,
    trajectory:selfField?undefined:aim.trajectory,
    areaCenter:selfField?undefined:aim.areaCenter,
    areaAngleDegrees:isOrientedCombatArea(plan.attackArea)?aim.areaAngleDegrees:undefined,
@@ -1163,7 +1164,18 @@ export function applyResolvedCombatSkill(
  }else if(plan.category==="CONSTRUCTION") {
   if(!plan.construction)throw new Error("La habilidad no tiene una creación configurada.");
   const point=validateConstructionPlacement(aim.areaCenter);
+  if(aim.planarMove!==undefined)
+   throw new Error("Combinar movimiento y creación requiere una regla específica.");
   next=structuredClone(original);
+  const ownerPosition=next.actors[by];
+  const fieldPoint=aim.constructionFieldPoint===undefined?undefined:
+   pointFromFieldView(ownerPosition,aim.constructionFieldPoint);
+  if(fieldPoint&&Math.hypot(fieldPoint.x-fieldPosition(ownerPosition).x,
+    fieldPoint.y-fieldPosition(ownerPosition).y)>plan.rangeMeters+1e-8)
+   throw new Error("La construcción está fuera del alcance en el plano horizontal.");
+  if(aim.constructionHeightMeters!==undefined&&(!Number.isFinite(aim.constructionHeightMeters)||
+    aim.constructionHeightMeters<0||aim.constructionHeightMeters>10))
+   throw new Error("La altura de construcción debe estar entre 0 y 10 m.");
   const owner=next.actors[by];
   const existing=next.constructions??[];
   if(plan.mirror){
@@ -1173,12 +1185,13 @@ export function applyResolvedCombatSkill(
     const userLabel=typeof aim.constructionLabel==="string"?aim.constructionLabel.trim():"";
     if(userLabel.length>60||/[\x00-\x1f]/.test(userLabel))
       throw new Error("Nombre de espejo inválido.");
-    if(Math.abs(owner.positionMeters-next.actors[other(by)].positionMeters)>plan.rangeMeters)
+    if(fieldDistance(owner,next.actors[other(by)])>plan.rangeMeters)
       throw new Error("El objetivo está fuera del alcance de invocación del espejo.");
     const mirror:CombatConstruction={
       id:by+"-"+plan.id+"-"+next.round+"-"+next.tick+"-"+existing.length,
       owner:by,sourceSkillId:plan.id,material:"MIRROR",form:"MIRROR",
       label:userLabel||plan.construction.label,center:point,createdRound:next.round,
+      fieldPosition:fieldPoint,heightMeters:aim.constructionHeightMeters,
       // The canvas is a defender-facing placement plane; anchor the mirror
       // at that target's world depth, not at the moving caster's position.
       positionMeters:next.actors[other(by)].positionMeters,
@@ -1217,6 +1230,7 @@ export function applyResolvedCombatSkill(
     id:by+"-"+plan.id+"-"+next.round+"-"+next.tick+"-"+existing.length,
     owner:by,sourceSkillId:plan.id,material:plan.construction.material,form,
     label:userLabel||plan.construction.label,center:point,createdRound:next.round,
+    fieldPosition:fieldPoint,heightMeters:aim.constructionHeightMeters,
     tangible:form==="BLOCK",durability:form==="BLOCK"?Math.max(1,Math.round(baseRes)):undefined,
     passive:resistance?structuredClone(resistance):undefined,
   };

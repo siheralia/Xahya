@@ -5,7 +5,7 @@ import {SharedEffectsEditor} from "@/components/effects/SharedEffectsEditor";
 import { useEffect, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
 import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
-import {MATERIAL_TYPES} from "@/lib/items/materials";
+
 
 type Effect = { type: string; stat: string; action?: string; value: number; description: string; element?: string };
 type Item = {
@@ -49,8 +49,9 @@ export default function ItemsManagementPage() {
   useEffect(() => { fetch("/api/management/effect-targets").then((r)=>r.ok?r.json():null).then((data)=>{if(data?.statistics)setStatDefinitions(data.statistics);}).catch(()=>{}); }, []);
   const [businesses,setBusinesses]=useState<{id:number;name:string}[]>([]);
   const [materials,setMaterials]=useState<{id:number;name:string;type:string;active:boolean}[]>([]);
+  const [materialTypes,setMaterialTypes]=useState<{code:string;name:string}[]>([]);
   const materialName=(id:number|null|undefined)=>materials.find(m=>m.id===id)?.name??"Sin definir";
-  const materialTypeName=(type:string)=>MATERIAL_TYPES.find(m=>m.value===type)?.label??type;
+  const materialTypeName=(type:string)=>materialTypes.find(m=>m.code===type)?.name??type;
   const [selected,setSelected]=useState<number|null>(null);
   const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",materialId:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
@@ -64,7 +65,8 @@ export default function ItemsManagementPage() {
       fetch("/api/management/items"),fetch("/api/management/businesses"),fetch("/api/management/materials")]);
     const d=await itemsResponse.json(); const bd=await businessesResponse.json();
     const md=await materialsResponse.json().catch(()=>({materials:[]})); if(!itemsResponse.ok) throw new Error(d.error); setItems(d.items??[]); setCapabilities(d.capabilities??{}); setBusinesses(businessesResponse.ok ? (bd.businesses??[]).map((b:any)=>({id:Number(b.id),name:String(b.name)})) : []);
-    setMaterials(materialsResponse.ok ? (md.materials??[]).map((m:any)=>({id:Number(m.id),name:String(m.name),type:String(m.type),active:Boolean(m.active)})) : []); }
+    setMaterials(materialsResponse.ok ? (md.materials??[]).map((m:any)=>({id:Number(m.id),name:String(m.name),type:String(m.type),active:Boolean(m.active)})) : []);
+    setMaterialTypes(materialsResponse.ok ? (md.types??[]).map((t:any)=>({code:String(t.code),name:String(t.name)})) : []); }
     catch(e){setError(e instanceof Error?e.message:"No se pudieron cargar los objetos.");}
     finally{setLoading(false);}
   }

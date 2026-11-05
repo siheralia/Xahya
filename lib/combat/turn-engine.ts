@@ -55,6 +55,7 @@ export type PendingAttack = {
   /** Private until resolved for rectangular strips, cones and annular sweeps. */
   areaAngleDegrees?:number;
   planarMove?:Point;
+  movementOrder?:"BEFORE"|"AFTER";
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
   mirrorId?:string; mirrorAuto?:boolean;
@@ -133,9 +134,9 @@ export type CombatCommand =
   | { kind: "WAIT" }
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
   | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
-  | { kind: "ATTACK"; attackType: CombatAttackType; planarMove?:Point; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
+  | { kind: "ATTACK"; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -406,17 +407,25 @@ const hasInitiativeBudget = (f: CombatFighter) =>
  * do not need a migration or a new saved-state version.
  */
 /** A composed movement+action pays two PA and two tick costs atomically. */
-function applyCompositeStep(state:CombatState,by:Side,requested:Point){
+/** Reserve the extra PA/ticks atomically. For AFTER, do not move before the
+ * defender has resolved: the attack still launches from the original range.
+ */
+function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEFORE"|"AFTER"="BEFORE"){
  const fighter=state.actors[by],vector=validatePlanarMove(requested);
  if(remainingAp(fighter)<2)throw new Error("Moverse y actuar a la vez requiere 2 PA.");
  if(fighter.spentTicks+turnTicks(fighter)*2>LIMIT)
   throw new Error("No quedan ticks suficientes para combinar movimiento y acción.");
+ spend(fighter,turnTicks(fighter));
+ if(order==="BEFORE")finishCompositeStep(state,by,vector);
+}
+/** Apply an already paid and validated move, without charging a third PA. */
+function finishCompositeStep(state:CombatState,by:Side,vector:Point){
+ const fighter=state.actors[by];
  moveFighterOnField(fighter,vector);
  clearPhysicalStrokes(state,by);
- spend(fighter,turnTicks(fighter));
  addLog(state,{kind:"POSITION",tick:(state.round-1)*LIMIT+fighter.spentTicks,by,
   moveMeters:Math.round(Math.hypot(vector.x,vector.y)*100)/100,fieldPosition:{...fieldPosition(fighter)},
-  summary:fighter.name+" se desplazó mientras preparaba su acción"});
+  summary:fighter.name+" se desplazó "+Math.hypot(vector.x,vector.y).toFixed(2)+" m como parte de su acción"});
 }
 /** Involuntary knockback must update the same 2D ground position shown in
  * the horizontal panel. On legacy one-dimensional encounters this reduces
@@ -957,6 +966,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       UNPROTECTED_DAMAGE:noResistanceDamage,
     });
     state.pending = null;
+    if(pending.movementOrder==="AFTER"&&pending.planarMove&&attacker.hp>0)
+      finishCompositeStep(state,pending.by,pending.planarMove);
     if(fighter.hp<=0)finishEncounter(state,pending.by);
     else if(attacker.hp<=0)finishEncounter(state,by);
     if(state.status==="ACTIVE")beginNextMirrorRay(state);
@@ -1008,7 +1019,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     addLog(state,{kind:"WAIT",tick:state.tick,by,summary:fighter.name+" finaliza su participación en el turno"});
   } else if (command.kind === "ATTACK") {
     if (!["CUT","BLUNT","PIERCE"].includes(command.attackType)) throw new Error("Tipo de ataque inválido.");
-    if(command.planarMove!==undefined)applyCompositeStep(state,by,command.planarMove);
+    if(command.movementOrder!==undefined&&command.planarMove===undefined)
+      throw new Error("Elige un desplazamiento antes de combinar movimiento y ataque.");
+    if(command.movementOrder!==undefined&&!["BEFORE","AFTER"].includes(command.movementOrder))
+      throw new Error("El orden del movimiento no es válido.");
+    if(command.planarMove!==undefined)
+      applyCompositeStep(state,by,command.planarMove,command.movementOrder??"BEFORE");
     const points = command.trajectory?.length ? command.trajectory : [{x:0.1,y:0.5},{x:0.9,y:0.5}];
     if (!Array.isArray(points) || points.length < 2 || points.length > 80 || points.some(p => !safePoint(p)))
       throw new Error("Trayectoria inválida.");
@@ -1083,6 +1099,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(targetedMirror){
       // A mirror has no paid reaction: resolve object hits immediately.
       resolveTargetedMirrorAttack(state,by,command,targetedMirror,rolls,mirrorSkill,serverSkillArea);
+      if(command.movementOrder==="AFTER"&&command.planarMove&&fighter.hp>0)
+        finishCompositeStep(state,by,command.planarMove);
       advanceRoundIfComplete(state);
       return state;
     }
@@ -1093,7 +1111,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       areaHint:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?magicImpactZone(command.areaCenter!):undefined,
       attackArea:serverSkillArea,areaAngleDegrees:isOrientedCombatArea(serverSkillArea)?command.areaAngleDegrees:undefined,
       materialPerkBonus:weaponStrike?selectedWeapon?.materialPerkBonus:undefined,
-      planarMove:command.planarMove?{...command.planarMove}:undefined};
+      planarMove:command.planarMove?{...command.planarMove}:undefined,
+      movementOrder:command.planarMove?command.movementOrder??"BEFORE":undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,attackSource:source,
@@ -1122,7 +1141,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
  */
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
- aim:{requestId:string;planarMove?:Point;constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
+ aim:{requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
   constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
@@ -1149,7 +1168,7 @@ export function applyResolvedCombatSkill(
    throw new Error("El barrido alrededor del usuario no permite elegir un objeto como epicentro.");
   next=applyCombatCommand(original,by,{
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
-   planarMove:aim.planarMove,
+   planarMove:aim.planarMove,movementOrder:aim.movementOrder,
    trajectory:selfField?undefined:aim.trajectory,
    areaCenter:selfField?undefined:aim.areaCenter,
    areaAngleDegrees:isOrientedCombatArea(plan.attackArea)?aim.areaAngleDegrees:undefined,

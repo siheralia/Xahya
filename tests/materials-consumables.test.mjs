@@ -107,8 +107,10 @@ test("mana recovery caps; use at full resource and missing stock are rejected",(
 test("NPC potion is paid and never changes real stock; action respects initiative",()=>{
  const before=state();
  const npc=before.consumables.NPC[0];
- // With faster player and equal zero ticks the NPC must wait.
+ // A pending attack blocks all proactive potion actions regardless of speed.
+ before.pending={by:"PLAYER",against:"NPC",attackType:"PIERCE",trajectory:[{x:.1,y:.5},{x:.9,y:.5}],launchedAtTick:0,usesMagic:false};
  assert.throws(()=>applyResolvedCombatConsumable(before,"NPC",npc,"npc-potion-too-early-001"),/iniciativa/);
+ before.pending=null;
  before.actors.PLAYER.spentTicks=30;
  const after=applyResolvedCombatConsumable(before,"NPC",npc,"npc-potion-ready-00001");
  assert.equal(after.actors.NPC.hp,35);

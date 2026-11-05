@@ -30,7 +30,7 @@ test("the bulk runtime switch is reversible and doesn't claim unsupported abilit
  assert.deepEqual(readModularCutoverSetting(null),DEFAULT_MODULAR_CUTOVER);
  assert.equal(modularCutoverStorageKey("production"),"skills.modular-cutover.v1");
  assert.equal(modularCutoverStorageKey("preview"),"skills.modular-cutover.v1:preview");
- assert.equal(modularCutoverStorageKey(undefined),"skills.modular-cutover.v1:preview");
+ assert.equal(modularCutoverStorageKey("development"),"skills.modular-cutover.v1:preview");
  assert.equal(decideModularExecution("MODULAR_FIRST",true),"MODULAR");
  assert.equal(decideModularExecution("MODULAR_FIRST",false),"LEGACY_FALLBACK");
  assert.equal(decideModularExecution("LEGACY_ONLY",true),"LEGACY_ROLLBACK");

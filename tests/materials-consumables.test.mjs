@@ -134,7 +134,7 @@ test("multiple stacks of one potion preserve individual inventory identity",()=>
 
 test("migration contains secure material catalog and 2 priced potions; UI wires dynamic catalog",()=>{
  const load=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
- const sql=load("supabase/migrations/20261105152000_materials_and_potions.sql");
+ const sql=load("supabase/migrations/20261105160614_materials_and_potions_20261105152000.sql");
  assert.match(sql,/ALTER TABLE public.material ENABLE ROW LEVEL SECURITY/);
  assert.match(sql,/REVOKE ALL ON TABLE public.material/);
  assert.match(sql,/materialId/);

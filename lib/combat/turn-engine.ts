@@ -12,6 +12,8 @@ import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, 
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
+import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
+ validatePlanarMove} from "./field-plane.ts";
 
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
@@ -31,6 +33,7 @@ export type CombatFighter = {
   magicAttack: number; magicDefense: number; critical: number; luck: number;
   race: number; massKg: number; positionMeters: number; attackType: CombatAttackType;
   heightMeters?: number; unarmedReachMeters?: number;
+  fieldPosition?:Point;
   equippedWeapon?: CombatWeapon;
   offhandWeapon?: CombatWeapon;
   defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
@@ -51,6 +54,7 @@ export type PendingAttack = {
   attackArea?:CombatAttackArea;
   /** Private until resolved for rectangular strips, cones and annular sweeps. */
   areaAngleDegrees?:number;
+  planarMove?:Point;
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
   mirrorId?:string; mirrorAuto?:boolean;
@@ -77,7 +81,8 @@ export type CombatLog = {
   /** Visible only after resolution; canvas origin of a mirror ray. */
   mirrorOrigin?:Point;
   karmaSpent?:number; karmaAllocation?:Record<string,number>; constructionId?:string;
-  movementDirection?:"TOWARD"|"AWAY"|"WEAPON"; moveMeters?:number;
+  movementDirection?:"TOWARD"|"AWAY"|"WEAPON"|"VECTOR"; moveMeters?:number;
+  fieldPosition?:Point;
 };
 export type CombatState = {
   /** NPC-only randomized loadout: persistent per encounter, never written to a character. */
@@ -124,13 +129,13 @@ export type CombatState = {
   pending: PendingAttack | null; log: CombatLog[];
 };
 export type CombatCommand =
-  | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
+  | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON" | "VECTOR"; planarMove?:Point; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
   | { kind: "WAIT" }
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
   | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
-  | { kind: "ATTACK"; attackType: CombatAttackType; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
-  | { kind: "DEFEND"; defense: DefenseChoice; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
+  | { kind: "ATTACK"; attackType: CombatAttackType; planarMove?:Point; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
+  | { kind: "DEFEND"; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -400,6 +405,19 @@ const hasInitiativeBudget = (f: CombatFighter) =>
  * This is derived from the persisted event log, so existing encounters
  * do not need a migration or a new saved-state version.
  */
+/** A composed movement+action pays two PA and two tick costs atomically. */
+function applyCompositeStep(state:CombatState,by:Side,requested:Point){
+ const fighter=state.actors[by],vector=validatePlanarMove(requested);
+ if(remainingAp(fighter)<2)throw new Error("Moverse y actuar a la vez requiere 2 PA.");
+ if(fighter.spentTicks+turnTicks(fighter)*2>LIMIT)
+  throw new Error("No quedan ticks suficientes para combinar movimiento y acción.");
+ moveFighterOnField(fighter,vector);
+ clearPhysicalStrokes(state,by);
+ spend(fighter,turnTicks(fighter));
+ addLog(state,{kind:"POSITION",tick:(state.round-1)*LIMIT+fighter.spentTicks,by,
+  moveMeters:Math.round(Math.hypot(vector.x,vector.y)*100)/100,fieldPosition:{...fieldPosition(fighter)},
+  summary:fighter.name+" se desplazó mientras preparaba su acción"});
+}
 function lastInitiativeSide(state: CombatState): Side | null {
   for (let i = state.log.length - 1; i >= 0; i--) {
     const {kind, by} = state.log[i];
@@ -672,6 +690,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       if(!mana || mana.current<1)throw new Error("Necesitas 1 punto de maná para activar el campo mágico.");
       mana.current-=1;
     }
+    if(command.planarMove!==undefined){
+      if(defense==="NONE")throw new Error("No puedes combinar movimiento con una reacción sin PA.");
+      applyCompositeStep(state,by,command.planarMove);
+    }
     if (defense !== "NONE") spend(fighter, turnTicks(fighter));
     const materialAttackBonus=!pending.usesMagic&&pending.materialPerkBonus&&
       fighter.perkIds?.includes(pending.materialPerkBonus.perkId)
@@ -938,13 +960,26 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (!finite(command.meters) || command.meters < 0 || command.meters > maximum)
       throw new Error("Desplazamiento fuera del alcance por acción: " + maximum + " m.");
     const direction = command.direction??"TOWARD";
-    if (!["TOWARD","AWAY","WEAPON"].includes(direction)) throw new Error("Dirección inválida.");
+    if (!["TOWARD","AWAY","WEAPON","VECTOR"].includes(direction)) throw new Error("Dirección inválida.");
+    if(direction==="VECTOR"){
+      const vector=validatePlanarMove(command.planarMove);
+      if(Math.abs(Math.hypot(vector.x,vector.y)-command.meters)>0.02)
+        throw new Error("Los metros no coinciden con el trazo dibujado.");
+      moveFighterOnField(fighter,vector);clearPhysicalStrokes(state,by);
+      spend(fighter,turnTicks(fighter));
+      state.tick=Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
+      addLog(state,{kind:"MOVE",tick:state.tick,by,movementDirection:"VECTOR",moveMeters:command.meters,
+        fieldPosition:{...fieldPosition(fighter)},
+        summary:fighter.name+" se desplazó "+command.meters.toFixed(2)+" m en el plano horizontal"});
+      advanceRoundIfComplete(state);return state;
+    }
     const dropped=activeDroppedWeapon(state,by,command.weaponSlot);
     if(direction==="WEAPON"&&!dropped)throw new Error("No hay un arma arrojada que recuperar.");
     const target=direction==="WEAPON"?dropped!.positionMeters:rival.positionMeters;
     const sign = Math.sign(target-fighter.positionMeters)||1;
     const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(target-fighter.positionMeters));
     fighter.positionMeters += sign*magnitude;
+    if(fighter.fieldPosition)fighter.fieldPosition.x=fighter.positionMeters;
     let recoveredWeapon:string|undefined;
     if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&restoreWeapon(state,dropped)){
       recoveredWeapon=dropped.weapon.name;
@@ -961,6 +996,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     addLog(state,{kind:"WAIT",tick:state.tick,by,summary:fighter.name+" finaliza su participación en el turno"});
   } else if (command.kind === "ATTACK") {
     if (!["CUT","BLUNT","PIERCE"].includes(command.attackType)) throw new Error("Tipo de ataque inválido.");
+    if(command.planarMove!==undefined)applyCompositeStep(state,by,command.planarMove);
     const points = command.trajectory?.length ? command.trajectory : [{x:0.1,y:0.5},{x:0.9,y:0.5}];
     if (!Array.isArray(points) || points.length < 2 || points.length > 80 || points.some(p => !safePoint(p)))
       throw new Error("Trayectoria inválida.");
@@ -1002,9 +1038,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Marca el centro del ataque de área en el lienzo.");
     if(isOrientedCombatArea(serverSkillArea))validateAreaDirection(command.areaAngleDegrees);
     else if(command.areaAngleDegrees!==undefined)throw new Error("Dirección angular no permitida para este ataque.");
-    if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown,source))))
+    if (fieldDistance(fighter,rival)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown,source))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance máximo del ataque.");
-    const distanceAtLaunch=Math.abs(fighter.positionMeters-rival.positionMeters);
+    const distanceAtLaunch=fieldDistance(fighter,rival);
     // An approved skill owns its declared 2m/5m/etc. effective reach. Do
     // not apply an unarmed or equipped-weapon range penalty to that technique.
     const effectiveAtLaunch=serverSkillRangeMeters??
@@ -1044,7 +1080,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       targetCenter:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?command.areaCenter:undefined,
       areaHint:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?magicImpactZone(command.areaCenter!):undefined,
       attackArea:serverSkillArea,areaAngleDegrees:isOrientedCombatArea(serverSkillArea)?command.areaAngleDegrees:undefined,
-      materialPerkBonus:weaponStrike?selectedWeapon?.materialPerkBonus:undefined};
+      materialPerkBonus:weaponStrike?selectedWeapon?.materialPerkBonus:undefined,
+      planarMove:command.planarMove?{...command.planarMove}:undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,attackSource:source,

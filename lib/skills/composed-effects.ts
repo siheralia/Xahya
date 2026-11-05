@@ -51,6 +51,21 @@ export function validateComposedSkillList(rows:unknown,scope:"PLAYER"|"REVIEW"):
   }
   return null;
 }
+/** A skill form renders on every keystroke. Invalid intermediate names (for
+ * example clearing resistanceBase to rename it) are normal while editing.
+ * Return a display-only provisional quote and an explicit validation message.
+ * Never use this preview for persisted/approved PCH or server authorization.
+ */
+export function previewComposedEffectBasePch(row:ComposedSkillEffect):{amount:number;error:string|null}{
+  const module=row.module;
+  const error=validateEffectContainers([module]);
+  const count=module&&Array.isArray(module.steps)
+    ?module.steps.filter(step=>step&&typeof step==="object"&&!["READ_STAT","READ_STORED","CALCULATE"].includes(step.kind)).length
+    :0;
+  const candidate=row.reviewedPch??Math.max(1,count*MODULE_DEPOSIT_PER_STEP);
+  const amount=Number.isSafeInteger(candidate)&&candidate>0&&candidate<=100000?candidate:1;
+  return {amount,error:error??(!Number.isSafeInteger(candidate)||candidate<1||candidate>100000?"PCH modular inválido.":null)};
+}
 export function composedEffectBasePch(row:ComposedSkillEffect):number {
   const err=validateEffectContainers([row.module]);
   if(err)throw new Error(err);

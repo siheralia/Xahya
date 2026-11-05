@@ -26,7 +26,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
     Item: items,
     CharacterPerk: assigned,
     Perk: perks,
-    Skill: skills,
+    Skill: skills.map(skill=>({characterId:1,...skill})),
   };
   const source = { orm: { public: Object.fromEntries(Object.entries(tables).map(([name, rows]) => [name, {
     where: (criteria) => ({

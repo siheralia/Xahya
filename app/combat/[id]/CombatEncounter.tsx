@@ -102,6 +102,7 @@ export default function CombatEncounter({id}:{id:string}) {
 
 
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
+ const [areaAngleDegrees,setAreaAngleDegrees]=useState(0);
  const [constructionCenter,setConstructionCenter]=useState<Point|null>(null);
  const [constructionMaterials,setConstructionMaterials]=useState<Partial<Record<Side,string[]>>>({});
  const [constructionSkills,setConstructionSkills]=useState<Partial<Record<Side,CombatSkillPreview[]>>>({});
@@ -327,9 +328,9 @@ export default function CombatEncounter({id}:{id:string}) {
   void submit({kind:"BOOST_KARMA",requestId,allocation});
  }
  function prepareAreaSkill(skill:CombatSkillPreview){
-  if(skill.attackArea?.shape!=="CIRCLE"||skill.skillKind!=="OFFENSE")return;
+  if(!skill.attackArea||skill.attackArea.shape==="SELF_FIELD"||skill.skillKind!=="OFFENSE")return;
   setPreparedAreaSkill(skill);
-  setAreaCenter(null);
+  setAreaCenter(null);setAreaAngleDegrees(0);
   setAttackTargetId("");
   setAttackMode("MAGIC_AREA");
   closePanel();
@@ -344,6 +345,7 @@ export default function CombatEncounter({id}:{id:string}) {
    trajectory:construction||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
    attackSource:construction||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
    areaCenter:skill.attackArea?.shape==="SELF_FIELD"?undefined:construction?constructionCenter??undefined:skill.usesMagic||skill.attackArea?areaCenter??undefined:undefined,
+   areaAngleDegrees:skill.attackArea?.shape==="STRIP"?areaAngleDegrees:undefined,
    constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
    constructionLabel:construction?constructionLabel.trim():undefined,
    targetConstructionId:!construction&&skill.attackArea?.shape!=="SELF_FIELD"&&selectedAttackTargetId?selectedAttackTargetId:undefined});
@@ -419,8 +421,8 @@ export default function CombatEncounter({id}:{id:string}) {
     </label>}
     {pending?
       <p role="status" className="mt-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-3 text-amber-200">
-       <b>Reacción pendiente:</b> {state.actors[pending.by].name} lanzó {pending.attackArea?.shape==="SELF_FIELD"?<>un barrido físico a su alrededor de <b>{pending.attackArea.radiusMeters} m</b></>:pending.attackArea?<>un ataque circular de <b>{pending.attackArea.radiusMeters} m de radio</b></>:pending.usesMagic?<>un ataque mágico de <b>{attackNames[pending.attackType]}</b></>:<>un ataque de <b>{attackNames[pending.attackType]}</b></>} contra {state.actors[pending.against].name}.
-       {" "}{pending.usesMagic||pending.attackArea?.shape==="CIRCLE"?<>Región aproximada: <b>{hint}</b> (cuatro casillas resaltadas). El centro exacto está oculto.</>:<>Trayectoria aparente: <b>{attackDirection(pending.trajectory)}</b>.</>}
+       <b>Reacción pendiente:</b> {state.actors[pending.by].name} lanzó {pending.attackArea?.shape==="SELF_FIELD"?<>un barrido físico a su alrededor de <b>{pending.attackArea.radiusMeters} m</b></>:pending.attackArea?.shape==="STRIP"?<>una franja de <b>{pending.attackArea.lengthMeters} × {pending.attackArea.widthMeters} m</b></>:pending.attackArea?<>un ataque circular de <b>{pending.attackArea.radiusMeters} m de radio</b></>:pending.usesMagic?<>un ataque mágico de <b>{attackNames[pending.attackType]}</b></>:<>un ataque de <b>{attackNames[pending.attackType]}</b></>} contra {state.actors[pending.against].name}.
+       {" "}{pending.usesMagic||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD")?<>Región aproximada: <b>{hint}</b> (cuatro casillas resaltadas). El centro exacto está oculto.</>:<>Trayectoria aparente: <b>{attackDirection(pending.trajectory)}</b>.</>}
        {defending?" Elige cómo responder.":" Esperando la decisión del defensor."}
       </p>:
       <p className="mt-4 text-sm text-zinc-400">
@@ -460,8 +462,8 @@ export default function CombatEncounter({id}:{id:string}) {
       {selectedDefense==="MAGIC_FIELD"&&actor?.magicFieldDescription?" · "+actor.magicFieldDescription:""}
       {selectedDefense==="MAGIC_FIELD"?" · "+fieldNames[actor?.magicFieldType??"CONCENTRATED"]:""}
      </p>
-     {(pending.usesMagic||pending.rangedPhysical||pending.attackArea?.shape==="CIRCLE")&&["DODGE","DEFLECT"].includes(selectedDefense)&&<div className="space-y-2">
-      <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":pending.attackArea?.shape==="CIRCLE"?"Predice el epicentro del ataque circular; NO marques una zona segura.":"Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo."} Toca el terreno para marcarlo. La región resaltada es una pista, no el punto exacto; acertar la predicción también requiere superar la tirada defensiva.</p>
+     {(pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)&&<div className="space-y-2">
+      <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":pending.attackArea?.shape==="STRIP"?"Predice el centro de la franja; su orientación exacta se revelará tras el ataque.":(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD")?"Predice el epicentro del ataque circular; NO marques una zona segura.":"Predice el centro del ataque mágico: debes señalar dónde crees que está, NO dónde estarías a salvo."} Toca el terreno para marcarlo. La región resaltada es una pista, no el punto exacto; acertar la predicción también requiere superar la tirada defensiva.</p>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"
         onPointerDown={e=>setPredictedCenter(toPoint(e))}
         className="aspect-square w-full max-w-xl cursor-crosshair touch-none rounded-lg border border-amber-500/40 bg-zinc-900"
@@ -473,7 +475,7 @@ export default function CombatEncounter({id}:{id:string}) {
           stroke="#64748b" strokeWidth={0.35}/>)}
         {predictedCenter&&<>
           <circle cx={predictedCenter.x*100} cy={predictedCenter.y*100}
-            r={(pending.attackArea?.radiusNormalized??BASIC_MAGIC_AREA_RADIUS)*100} fill="#38bdf8" fillOpacity={0.16}
+            r={(pending.attackArea?.shape==="STRIP"?0.04:pending.attackArea?.radiusNormalized??BASIC_MAGIC_AREA_RADIUS)*100} fill="#38bdf8" fillOpacity={0.16}
             stroke="#7dd3fc" strokeDasharray="3 2" strokeWidth={1}/>
           <circle cx={predictedCenter.x*100} cy={predictedCenter.y*100} r={2.5} fill="#7dd3fc"/>
         </>}
@@ -509,8 +511,8 @@ export default function CombatEncounter({id}:{id:string}) {
        </select>
       </label>}
      <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,constructionId:selectedDefense==="CONSTRUCTION"?chosenDefenseConstruction:undefined,defenseAngle:angle,weaponSlot:dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,dodgeDirection:selectedDefense==="DODGE"?dodgeDirection:undefined,
-        predictedCenter:(pending.usesMagic||pending.rangedPhysical||pending.attackArea?.shape==="CIRCLE")&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
-      disabled={busy||((pending.usesMagic||pending.rangedPhysical||pending.attackArea?.shape==="CIRCLE")&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
+        predictedCenter:(pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
+      disabled={busy||((pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
       {busy?"Resolviendo…":!hasReactionBudget?"Recibir impacto (sin reacción)":"Responder al ataque"}
      </button>
     </div>}
@@ -574,7 +576,9 @@ export default function CombatEncounter({id}:{id:string}) {
       </label>}
       <p className="mb-2 text-xs text-zinc-400">{attackMode==="MAGIC_AREA"
        ? preparedAreaSkill?.attackArea
-          ? "Toca el epicentro para "+preparedAreaSkill.name+". Radio real: "+preparedAreaSkill.attackArea.radiusMeters+" m en el lienzo local de 10 × 10 m. Solo reciben impacto los objetivos dentro del círculo. La distancia máxima de lanzamiento se verifica por separado y el defensor solo verá la región aproximada."
+          ? preparedAreaSkill.attackArea.shape==="STRIP"
+            ? "Marca el centro de "+preparedAreaSkill.name+". La franja mide "+preparedAreaSkill.attackArea.lengthMeters+" × "+preparedAreaSkill.attackArea.widthMeters+" m y puedes girarla con el deslizador. El alcance se verifica por separado; el defensor no verá el ángulo hasta resolver el ataque."
+            : "Toca el epicentro para "+preparedAreaSkill.name+". Radio real: "+preparedAreaSkill.attackArea.radiusMeters+" m en el lienzo local de 10 × 10 m. Solo reciben impacto los objetivos dentro del círculo. La distancia máxima de lanzamiento se verifica por separado y el defensor solo verá la región aproximada."
           : "Toca una posición: el punto será el epicentro y el círculo la zona de explosión. El defensor solo verá la región aproximada. Ataque mágico básico: "+BASIC_MAGIC_MANA_COST+" maná y alcance "+BASIC_MAGIC_RANGE_METERS+" m."
        : physicalAnchor
         ? "Esta arma o mano continúa desde su último ataque (punto verde). Cambiar de arma o mano conserva su propia trayectoria."
@@ -599,9 +603,16 @@ export default function CombatEncounter({id}:{id:string}) {
        {attackMode!=="PHYSICAL"?
         areaCenter&&<>
           {!preparedAreaSkill&&displayedAttackType==="CUT"&&<line x1={Math.max(0,areaCenter.x*100-25)} y1={areaCenter.y*100} x2={Math.min(100,areaCenter.x*100+25)} y2={areaCenter.y*100} stroke="#e9d5ff" strokeWidth="4" strokeLinecap="round"/>}
-          <circle cx={areaCenter.x*100} cy={areaCenter.y*100}
-            r={(attackMode==="MAGIC_AREA"&&preparedAreaSkill?.attackArea?preparedAreaSkill.attackArea.radiusNormalized:((attackMode==="RANGED"||attackMode==="THROW")?(displayedAttackType==="BLUNT"?0.12:displayedAttackType==="CUT"?0.085:0.045):displayedAttackType==="BLUNT"?BASIC_MAGIC_AREA_RADIUS:displayedAttackType==="CUT"?0.06:0.035))*100} fill="#c084fc" fillOpacity={0.3}
-            stroke="#e9d5ff" strokeWidth={1.1}/>
+          {preparedAreaSkill?.attackArea?.shape==="STRIP"&&attackMode==="MAGIC_AREA"&&
+           <rect x={(areaCenter.x-preparedAreaSkill.attackArea.lengthNormalized/2)*100}
+            y={(areaCenter.y-preparedAreaSkill.attackArea.widthNormalized/2)*100}
+            width={preparedAreaSkill.attackArea.lengthNormalized*100}
+            height={preparedAreaSkill.attackArea.widthNormalized*100}
+            transform={`rotate(${areaAngleDegrees},${areaCenter.x*100},${areaCenter.y*100})`}
+            fill="#c084fc" fillOpacity={0.3} stroke="#e9d5ff" strokeWidth={1.1}/>}
+          {preparedAreaSkill?.attackArea?.shape!=="STRIP"&&<circle cx={areaCenter.x*100} cy={areaCenter.y*100}
+            r={(attackMode==="MAGIC_AREA"&&preparedAreaSkill?.attackArea?.shape==="CIRCLE"?preparedAreaSkill.attackArea.radiusNormalized:((attackMode==="RANGED"||attackMode==="THROW")?(displayedAttackType==="BLUNT"?0.12:displayedAttackType==="CUT"?0.085:0.045):displayedAttackType==="BLUNT"?BASIC_MAGIC_AREA_RADIUS:displayedAttackType==="CUT"?0.06:0.035))*100} fill="#c084fc" fillOpacity={0.3}
+            stroke="#e9d5ff" strokeWidth={1.1}/>}
           <circle cx={areaCenter.x*100} cy={areaCenter.y*100} r={2.3} fill="#f5d0fe"/>
         </>
         :<>
@@ -610,6 +621,15 @@ export default function CombatEncounter({id}:{id:string}) {
           <circle cx={normalizedPath.at(-1)!.x*100} cy={normalizedPath.at(-1)!.y*100} r="2.5" fill="#f59e0b"/>
         </>}
       </svg>
+      {attackMode==="MAGIC_AREA"&&preparedAreaSkill?.attackArea?.shape==="STRIP"&&
+       <label className="mt-3 block max-w-md text-sm text-violet-200">
+        Dirección de la franja: {areaAngleDegrees}°
+        <input type="range" min={0} max={359} step={1} value={areaAngleDegrees}
+         aria-label="Dirección de la franja en grados"
+         onChange={e=>setAreaAngleDegrees(Number(e.target.value))}
+         className="mt-2 w-full accent-violet-400"/>
+        <span className="mt-1 block text-xs text-zinc-400">0° horizontal · 90° vertical · el ángulo solo se revela tras la reacción.</span>
+       </label>}
       <div className="mt-3 flex flex-wrap items-end gap-3">
        <div className="text-sm">{attackMode==="MAGIC_AREA"?(preparedAreaSkill?"Tipo de ataque de la habilidad":"Tipo de magia básica"):"Tipo de ataque físico"}
         <div className="mt-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">{attackNames[displayedAttackType]}
@@ -827,14 +847,20 @@ export default function CombatEncounter({id}:{id:string}) {
          <small className="ml-2 text-zinc-400">Desplazamiento: {entry.knockbackMeters} m</small>}
         {entry.kind==="RESOLVE"&&entry.areaCenter&&
          <div className="mt-2 max-w-[200px]">
-          <p className="text-xs text-zinc-400">{entry.mirrorShot?"Rayo del espejo revelado (cian) · impacto (morado)":entry.attackArea?`Ataque circular revelado · radio ${entry.attackArea.radiusMeters} m (morado)`:"Explosión revelada (morado)"}{entry.predictedCenter?" · predicción (azul)":""}</p>
+          <p className="text-xs text-zinc-400">{entry.mirrorShot?"Rayo del espejo revelado (cian) · impacto (morado)":entry.attackArea?.shape==="STRIP"?`Franja revelada · ${entry.attackArea.lengthMeters} × ${entry.attackArea.widthMeters} m · ${entry.areaAngleDegrees}° (morado)`:entry.attackArea?`Ataque circular revelado · radio ${entry.attackArea.radiusMeters} m (morado)`:"Explosión revelada (morado)"}{entry.predictedCenter?" · predicción (azul)":""}</p>
           <svg viewBox="0 0 100 100" className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900" aria-label={entry.mirrorShot?"Trayectoria del rayo e impacto revelados":"Resultado de predicción e impacto mágico"}>
            {entry.mirrorShot
             ?entry.mirrorOrigin&&<line x1={entry.mirrorOrigin.x*100} y1={entry.mirrorOrigin.y*100}
               x2={entry.areaCenter.x*100} y2={entry.areaCenter.y*100}
               stroke="#67e8f9" strokeWidth={1.5} strokeLinecap="round"/>
-            :<circle cx={entry.areaCenter.x*100} cy={entry.areaCenter.y*100} r={(entry.attackArea?.radiusNormalized??BASIC_MAGIC_AREA_RADIUS)*100}
-              fill="#c084fc" fillOpacity={0.4} stroke="#e9d5ff" strokeWidth={1}/>}
+            :entry.attackArea?.shape==="STRIP"
+              ?<rect x={(entry.areaCenter.x-entry.attackArea.lengthNormalized/2)*100}
+               y={(entry.areaCenter.y-entry.attackArea.widthNormalized/2)*100}
+               width={entry.attackArea.lengthNormalized*100} height={entry.attackArea.widthNormalized*100}
+               transform={`rotate(${entry.areaAngleDegrees??0},${entry.areaCenter.x*100},${entry.areaCenter.y*100})`}
+               fill="#c084fc" fillOpacity={0.4} stroke="#e9d5ff" strokeWidth={1}/>
+              :<circle cx={entry.areaCenter.x*100} cy={entry.areaCenter.y*100} r={(entry.attackArea?.radiusNormalized??BASIC_MAGIC_AREA_RADIUS)*100}
+               fill="#c084fc" fillOpacity={0.4} stroke="#e9d5ff" strokeWidth={1}/>}
            {entry.mirrorShot&&entry.mirrorOrigin&&<rect x={entry.mirrorOrigin.x*100-1.8}
              y={entry.mirrorOrigin.y*100-3.5} width={3.6} height={7} rx={0.7}
              fill="#164e63" stroke="#67e8f9" strokeWidth={0.8}/>}

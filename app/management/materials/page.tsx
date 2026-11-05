@@ -120,7 +120,7 @@ export default function MaterialsManagementPage(){
    <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_220px]">
     <input aria-label="Buscar material" placeholder="Buscar material…" value={filter} onChange={e=>setFilter(e.target.value)} className={fieldStyle}/>
     <select aria-label="Filtrar por tipo de material" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)} className={fieldStyle}>
-     <option value="ALL">Todos los tipos</option>{MATERIAL_TYPES.map(x=><option key={x.value} value={x.value}>{x.label}</option>)}
+     <option value="ALL">Todos los tipos</option>{types.map(x=><option key={x.code} value={x.code}>{x.name}</option>)}
     </select>
    </div>
    <p className="mt-3 text-xs text-zinc-500">{visible.length} materiales de {materials.length}</p>

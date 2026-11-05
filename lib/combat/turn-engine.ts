@@ -11,6 +11,7 @@ import {validateConstructionPlacement,resolveConstructionForm,type CombatConstru
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
+import {calculateMaterialBlockWear} from "./material-durability.ts";
 
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
@@ -19,6 +20,9 @@ export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FI
 export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number;characterItemId?:number;durability?:number;
   /** From the server-selected item's material, not supplied by an attacker. */
   materialPerkBonus?:{perkId:number;attackBonus:number};
+  /** Catalog snapshot: 100 is neutral; values above 100 reduce BLOCK wear. */
+  materialPhysicalResistance?:number;
+  materialName?:string;
 };
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
@@ -96,6 +100,10 @@ export type CombatState = {
   skillBonuses?: Array<{by:Side;skillId:number;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
   processedSkillRequests?: string[];
   processedKarmaRequests?: string[];
+  /** New encounters track durability separately for both equipped hands.
+   * Older combat JSON used one fighter.weaponIntegrity; upgrade on first action.
+   */
+  perHandWeaponDurability?:boolean;
   /** Encounter inventory. Real character copies are spent in the session transaction. */
   consumables?:Partial<Record<Side,CombatConsumable[]>>;
   processedItemRequests?:string[];
@@ -367,7 +375,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
     physicalPathEnd:{},physicalPathEnds:{},constructions:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
-    processedKarmaRequests:[],narrativeHistory:[],pending:null,log:[]};
+    processedKarmaRequests:[],perHandWeaponDurability:true,narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
   Math.max(1, f.speedValue ?? f.agility);
@@ -612,6 +620,23 @@ function resolveTargetedMirrorAttack(
    actor.name+" falló al atacar "+mirror.label});
  if(actor.hp<=0)finishEncounter(state,mirror.owner);
 }
+/** Legacy encounters persisted one shared integrity gauge that belonged to
+ * main hand (offhand if main was empty). Carry that previous wear into the
+ * per-weapon snapshot exactly once; never copy offhand wear onto main in new
+ * encounters.
+ */
+function upgradeLegacyWeaponDurability(state:CombatState){
+ if(state.perHandWeaponDurability===true)return;
+ for(const side of SIDES){
+  const fighter=state.actors[side];
+  const weapon=fighter.equippedWeapon??fighter.offhandWeapon;
+  if(weapon && Number.isFinite(fighter.weaponIntegrity)){
+   const previous=Number.isFinite(weapon.durability)?weapon.durability!:fighter.weaponIntegrity;
+   weapon.durability=Math.max(0,Math.min(100,previous,fighter.weaponIntegrity));
+  }
+ }
+ state.perHandWeaponDurability=true;
+}
 export function applyCombatCommand(original: CombatState, by: Side, command: CombatCommand,
   rolls: {hit:number; critical:number; defense:number} = {hit:0.5,critical:0.5,defense:0.5},
   serverSkillRangeMeters?:number,
@@ -620,6 +645,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   const state = structuredClone(original);
   if (state.version !== 1 || state.status !== "ACTIVE") throw new Error("El combate no está activo.");
   if (!SIDES.includes(by)) throw new Error("Combatiente no válido.");
+  upgradeLegacyWeaponDurability(state);
   const fighter = state.actors[by], rival = state.actors[other(by)];
   if (state.pending) {
     const pending = state.pending;
@@ -673,11 +699,23 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         avoided = rolls.hit >= contestChance(attacker.precision, fighter.dodge);
       }
     } else if (defense === "BLOCK") {
+      // One explicitly selected hand owns the wear. Without a selection use
+      // the main hand, then offhand. Legacy/unarmed blocks keep neutral wear.
+      const blockWeapon=command.weaponSlot==="OFF_HAND"?fighter.offhandWeapon:
+        command.weaponSlot==="MAIN_HAND"?fighter.equippedWeapon:
+        fighter.equippedWeapon??fighter.offhandWeapon;
+      if(command.weaponSlot&&!blockWeapon)
+        throw new Error("No tienes un arma equipada en la mano elegida para bloquear.");
+      const previousIntegrity=blockWeapon?.durability??fighter.weaponIntegrity;
       const contest = contestChance(fighter.constitution * typeFactor, attacker.strength);
-      const held = fighter.weaponIntegrity > 0 && rolls.defense < contest;
+      const held = previousIntegrity > 0 && rolls.defense < contest;
       // Tool durability never substitutes for the wielder's CON.
       damageScale = held ? 0.12 : 0.8;
-      fighter.weaponIntegrity = Math.max(0, fighter.weaponIntegrity - Math.max(1,Math.ceil(power / 8)));
+      const baseWear=Math.max(1,Math.ceil(power / 8));
+      const wear=calculateMaterialBlockWear(baseWear,blockWeapon?.materialPhysicalResistance);
+      const newIntegrity=Math.max(0,previousIntegrity-wear);
+      if(blockWeapon)blockWeapon.durability=newIntegrity;
+      fighter.weaponIntegrity=newIntegrity;
     } else if (defense === "MAGIC_FIELD") {
       // Basic defensive field: active reaction, paid AP/ticks, no persistent
       // barrier or mana expenditure until the configurable-skills phase.

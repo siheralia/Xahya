@@ -109,7 +109,8 @@ export default function MaterialsManagementPage(){
     <div><h1 className="text-3xl font-bold">Gestión de materiales</h1>
      <p className="mt-2 max-w-2xl text-sm text-zinc-400">Catálogo de composiciones para armas, armaduras, consumibles y otros objetos.
       La dureza y las resistencias son escalables: acero = 100 como referencia, no como límite.
-      El bono contra una perk sí se aplica a los ataques físicos con armas fabricadas con ese material.</p></div>
+      La resistencia física reduce o aumenta el desgaste del arma al bloquear.
+      El bono contra una perk se aplica a los ataques físicos con armas fabricadas con ese material.</p></div>
     {capabilities.create&&<button onClick={newMaterial} className="rounded-lg bg-cyan-400 px-4 py-3 font-semibold text-zinc-950">Crear material</button>}
    </div>
    <Link href="/management/material-types" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-4">

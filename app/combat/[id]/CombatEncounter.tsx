@@ -490,23 +490,43 @@ export default function CombatEncounter({id}:{id:string}) {
     <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-4" aria-label="Dos planos del combate">
      <section className="min-w-0 space-y-2 rounded-xl border border-cyan-400/30 bg-zinc-950/70 p-2 sm:p-3">
       <h2 className="text-xs font-bold text-cyan-200 sm:text-base">Plano horizontal · terreno</h2>
-      <div className="flex flex-wrap gap-1" role="group" aria-label="Controles del plano horizontal">
-       <button type="button" aria-pressed={fieldMode==="MOVE"&&panel!=="construction"}
-        onClick={()=>{setFieldMode("MOVE");if(panel==="construction")setPanel("none");}}
-        className="rounded border border-cyan-500/60 px-2 py-1 text-[10px] text-cyan-200 sm:text-xs">Mover</button>
-       {canCreateObjects&&<button type="button" aria-pressed={panel==="construction"}
-        onClick={()=>{setPanel("construction");setFieldMode("CONSTRUCT");}}
-        className="rounded border border-cyan-500/60 px-2 py-1 text-[10px] text-cyan-200 sm:text-xs">Construir</button>}
-       <button type="button" aria-pressed={fieldMode==="VIEW"}
-        onClick={()=>{setFieldMode("VIEW");setFieldMove(null);}}
-        className="rounded border border-zinc-600 px-2 py-1 text-[10px] sm:text-xs">Ver</button>
+      <div className="flex flex-nowrap gap-1" role="group" aria-label="Orden del movimiento horizontal">
+       {([
+        {value:"MOVE_ONLY" as const,label:"Solo mover · 1 PA",icons:[Footprints]},
+        {value:"MOVE_BEFORE" as const,label:"Mover y atacar · 2 PA",icons:[Footprints,Swords]},
+        {value:"MOVE_AFTER" as const,label:"Atacar y mover · 2 PA",icons:[Swords,Footprints]},
+       ]).map(item=><button key={item.value} type="button" title={item.label}
+        aria-label={item.label} aria-pressed={fieldMode==="MOVE"&&movementPlan===item.value}
+        onClick={()=>{setFieldMode("MOVE");setMovementPlan(item.value);if(panel==="construction")setPanel("none");}}
+        className={"flex h-9 min-w-0 flex-1 items-center justify-center gap-0.5 rounded-md border "+
+         (fieldMode==="MOVE"&&movementPlan===item.value?"border-cyan-300 bg-cyan-900/50 text-cyan-100":"border-cyan-500/50 text-cyan-300")}>
+        {item.icons.map((Icon,index)=><Icon key={index} size={item.icons.length===1?18:13}/>)}
+       </button>)}
+       {canCreateObjects&&<button type="button" title="Colocar construcción" aria-label="Colocar construcción"
+        aria-pressed={panel==="construction"} onClick={()=>{setPanel("construction");setFieldMode("CONSTRUCT");setMovementPlan("MOVE_ONLY");}}
+        className="flex h-9 min-w-0 flex-1 items-center justify-center rounded-md border border-cyan-500/50 text-cyan-300"><Box size={18}/></button>}
+       <button type="button" title="Ver terreno" aria-label="Ver terreno" aria-pressed={fieldMode==="VIEW"}
+        onClick={()=>{setFieldMode("VIEW");setFieldMove(null);setMovementPlan("MOVE_ONLY");}}
+        className="flex h-9 min-w-0 flex-1 items-center justify-center rounded-md border border-zinc-600 text-zinc-300"><Eye size={18}/></button>
       </div>
-      {defending&&<div className="flex flex-wrap gap-1" role="group" aria-label="Reacciones de movimiento">
-       {(["DODGE","BLOCK","DEFLECT"] as const).map(choice=><button type="button" key={choice}
-        onClick={()=>{setDefense(choice);setFieldMode("MOVE");}}
-        disabled={pending?.usesMagic&&choice!=="DODGE"||Boolean(pending?.attackArea)&&choice==="DEFLECT"}
-        className={"rounded border px-2 py-1 text-[10px] sm:text-xs "+(selectedDefense===choice?"border-amber-400 text-amber-200":"border-zinc-700")}>
-        {choice==="DODGE"?"Esquivar":choice==="BLOCK"?"Bloquear":"Desviar"}</button>)}
+      <p className="min-h-8 text-[10px] text-cyan-200 sm:text-xs" role="status">
+       {panel==="construction"?"Colocar objeto":
+        fieldMode==="VIEW"?"Vista del campo":
+        movementPlan==="MOVE_ONLY"?"Mover solamente · 1 PA":
+        movementPlan==="MOVE_BEFORE"?"Primero mover, luego atacar · 2 PA":
+        "Primero atacar, luego mover · 2 PA"}
+      </p>
+      {defending&&<div className="flex gap-1" role="group" aria-label="Reacciones de movimiento">
+       {(["DODGE","BLOCK","DEFLECT"] as const).map(choice=>{
+        const Icon=defenseIcons[choice];
+        return <button type="button" key={choice} title={options.find(o=>o.value===choice)?.label}
+         aria-label={options.find(o=>o.value===choice)?.label} aria-pressed={selectedDefense===choice}
+         onClick={()=>{setDefense(choice);setFieldMode("MOVE");}}
+         disabled={pending?.usesMagic&&choice!=="DODGE"||Boolean(pending?.attackArea)&&choice==="DEFLECT"}
+         className={"flex size-9 items-center justify-center rounded-md border disabled:opacity-30 "+
+          (selectedDefense===choice?"border-amber-400 text-amber-200":"border-zinc-700")}>
+         <Icon size={18}/></button>;
+       })}
       </div>}
       <CombatTopDownPlane state={state} side={side}
        mode={panel==="construction"?"CONSTRUCT":fieldMode==="CONSTRUCT"?"MOVE":fieldMode}

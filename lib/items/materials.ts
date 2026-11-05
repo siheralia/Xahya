@@ -1,5 +1,7 @@
-/** Material catalog: metadata only until item-stat and durability formulas are approved.
- *  Keeping values separate from attack/defense prevents accidental balance changes.
+/** Material catalog: material resistance is used for BLOCK wear, and an
+ * approved perk-targeted bonus is used for eligible equipped physical attacks.
+ * Hardness, magic resistance and general attack/defense grants do not yet
+ * affect combat formulas.
  */
 export const MATERIAL_TYPES=[
  {value:"WOOD",label:"Madera"},

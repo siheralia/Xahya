@@ -199,7 +199,7 @@ export default function CombatEncounter({id}:{id:string}) {
     castRequestRef.current=null;
     const event=(data.state as CombatState).log.filter(e=>e.skillId===command.skillId).at(-1);
     setActionFeedback(event?.summary??"Habilidad ejecutada. Revisa el registro de combate.");
-    setPanel("none");setConstructionCenter(null);setConstructionFieldPoint(null);setPreparedAreaSkill(null);
+    setPanel("none");setFieldMode("MOVE");setConstructionCenter(null);setConstructionFieldPoint(null);setPreparedAreaSkill(null);
    }else if(command.kind==="BOOST_KARMA"){
     setActionFeedback("Mini boost aplicado: el karma se descontó y los bonos duran este combate.");
     setPanel("none");
@@ -502,7 +502,7 @@ export default function CombatEncounter({id}:{id:string}) {
         {choice==="DODGE"?"Esquivar":choice==="BLOCK"?"Bloquear":"Desviar"}</button>)}
       </div>}
       <CombatTopDownPlane state={state} side={side}
-       mode={panel==="construction"?"CONSTRUCT":fieldMode}
+       mode={panel==="construction"?"CONSTRUCT":fieldMode==="CONSTRUCT"?"MOVE":fieldMode}
        disabled={!hasAccess||state.status!=="ACTIVE"||(!!pending&&!defending)||(!pending&&!ready)}
        move={fieldMove} onMove={setFieldMove} placement={constructionFieldPoint}
        onPlacement={p=>{setConstructionFieldPoint(p);if(!constructionCenter)setConstructionCenter({x:0.5,y:0.5});}}/>
@@ -699,7 +699,7 @@ export default function CombatEncounter({id}:{id:string}) {
        planarMove:selectedDefense!=="NONE"?preparedMovement:undefined,
        constructionId:selectedDefense==="CONSTRUCTION"?chosenDefenseConstruction:undefined,defenseAngle:angle,weaponSlot:selectedDefense==="BLOCK"?activeBlockSlot:
         selectedDefense==="DODGE"&&dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,
-       dodgeDirection:selectedDefense==="DODGE"?dodgeDirection:undefined,
+       dodgeDirection:selectedDefense==="DODGE"&&!preparedMovement?dodgeDirection:undefined,
         predictedCenter:(pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
       disabled={busy||(!!preparedMovement&&!canCombine)||
         ((pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
@@ -931,7 +931,7 @@ export default function CombatEncounter({id}:{id:string}) {
     </p>}
    <CombatSkillLoadout encounterId={id} side={side} authorized={hasAccess}
     onPrepareArea={prepareAreaSkill} preparedAreaSkillId={preparedAreaSkill?.id??null}
-    canUseSkill={ready} busy={busy} round={state.round}
+    canUseSkill={ready&&(!preparedMovement||canCombine)} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
     onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance}/>

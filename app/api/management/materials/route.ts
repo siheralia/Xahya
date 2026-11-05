@@ -9,18 +9,25 @@ const Material=()=> (db.orm.public as any).Material;
 export async function GET(){
  const user=await authorizedMaterialUser("view");
  if(!user)return NextResponse.json({error:"Sin permiso para ver materiales."},{status:403});
- const [materials,types,perks]=await Promise.all([
-  Material().all(),
-  (db.orm.public as any).MaterialType.all(),
-  db.orm.public.Perk.where({active:true}).all(),
- ]);
- const canCreate=Boolean(await authorizedMaterialUser("create"));
- const canEdit=Boolean(await authorizedMaterialUser("edit"));
- const canDelete=Boolean(await authorizedMaterialUser("delete"));
- return NextResponse.json({materials:materials.sort((a:any,b:any)=>String(a.name).localeCompare(String(b.name),"es")),
-  types:types.sort((a:any,b:any)=>String(a.name).localeCompare(String(b.name),"es")),
-  perks:perks.map((p:any)=>({id:Number(p.id),name:String(p.name)})).sort((a:any,b:any)=>a.name.localeCompare(b.name,"es")),
-  capabilities:{create:canCreate,edit:canEdit,delete:canDelete}});
+ try{
+  const [materials,types,perks]=await Promise.all([
+   Material().all(),
+   (db.orm.public as any).MaterialType.all(),
+   db.orm.public.Perk.where({active:true}).all(),
+  ]);
+  const [canCreate,canEdit,canDelete]=await Promise.all(["create","edit","delete"].map(
+   action=>authorizedMaterialUser(action as "create"|"edit"|"delete")));
+  return NextResponse.json({
+   materials:materials.sort((a:any,b:any)=>String(a.name).localeCompare(String(b.name),"es")),
+   types:types.sort((a:any,b:any)=>String(a.name).localeCompare(String(b.name),"es")),
+   perks:perks.map((p:any)=>({id:Number(p.id),name:String(p.name)})).sort((a:any,b:any)=>a.name.localeCompare(b.name,"es")),
+   capabilities:{create:Boolean(canCreate),edit:Boolean(canEdit),delete:Boolean(canDelete)},
+  });
+ }catch(error){
+  console.error("[materials] Error al cargar el catálogo",error);
+  return NextResponse.json({error:"No se pudo consultar el catálogo de materiales. Inténtalo de nuevo."},
+   {status:503});
+ }
 }
 
 export async function POST(req:Request){

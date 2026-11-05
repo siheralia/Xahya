@@ -868,46 +868,22 @@ export default function CombatEncounter({id}:{id:string}) {
      </section>
 
    </CombatDialog>
-   <CombatDialog open={panel==="construction"&&canCreateObjects&&state.status==="ACTIVE"} title="Constructor de objetos" onClose={closePanel}>
+   {panel==="construction"&&canCreateObjects&&state.status==="ACTIVE"&&
+     <section className="mt-5 rounded-xl border border-cyan-500/30 bg-zinc-950 p-4" aria-label="Constructor de objetos">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+       <h2 className="text-lg font-semibold text-cyan-200">Constructor de objetos</h2>
+       <button type="button" onClick={()=>{setPanel("none");setFieldMode("MOVE");}}
+        className="rounded border border-zinc-700 px-3 py-1 text-xs">Cerrar constructor</button>
+      </div>
     {error&&<p role="alert" className="mb-3 rounded-lg border border-rose-700/50 p-2 text-sm text-rose-200">{error}</p>}
     {!ready&&<p role="status" className="mb-3 text-sm text-amber-300">{advancingNpc?"El adversario está actuando...":"Aún no tienes la iniciativa: puedes preparar la posición y lanzar la creación al llegar tu turno."}</p>}
    {state.status==="ACTIVE"&&(canCreateObjects||(state.constructions?.length??0)>0)&&<section className="mt-5 rounded-xl border border-cyan-400/30 bg-zinc-950 p-4">
     <h2 className="font-semibold text-cyan-200">{canCreateObjects?"Constructor de objetos":"Construcciones en el campo"}</h2>
     {canCreateObjects&&<p className="mt-1 text-xs text-zinc-400">Selecciona dónde colocar una creación y actívala desde una habilidad con efecto Crear. Sus propiedades dependen del material y de las pasivas configuradas. Los objetos decorativos no bloquean ataques.</p>}
-    <svg aria-label={canCreateObjects?"Seleccionar posición de construcción":"Construcciones presentes en el campo"} viewBox="0 0 100 100"
-     role={canCreateObjects?"button":"img"} tabIndex={canCreateObjects?0:undefined}
-     onClick={e=>{
-      if(!canCreateObjects)return;
-      const rect=e.currentTarget.getBoundingClientRect();
-      if(rect.width&&rect.height)setConstructionCenter({
-       x:Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width)),
-       y:Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height)),
-      });
-     }}
-     onKeyDown={e=>{if(canCreateObjects&&(e.key==="Enter"||e.key===" ")){e.preventDefault();setConstructionCenter({x:0.5,y:0.5});}}}
-     className={"mt-3 aspect-square w-full max-w-sm rounded-lg border border-zinc-600 bg-zinc-900"+(canCreateObjects?" cursor-crosshair":"")}>
-      {Array.from({length:9},(_,i)=><g key={i}>
-       <line x1={(i+1)*10} x2={(i+1)*10} y1="0" y2="100" stroke="#3f3f46" strokeWidth=".4"/>
-       <line x1="0" x2="100" y1={(i+1)*10} y2={(i+1)*10} stroke="#3f3f46" strokeWidth=".4"/>
-      </g>)}
-      <circle cx="50" cy="50" r="7" stroke="#a1a1aa" fill="none" strokeDasharray="2 2"/>
-      {(state.constructions??[]).map(c=><g key={c.id}>
-       {c.form==="MIRROR"
-        ?<g>
-          <rect x={c.center.x*100-4} y={c.center.y*100-8}
-           width="8" height="16" rx="1.5" fill="#164e63" stroke="#67e8f9" strokeWidth="1.2"/>
-          <path d={`M${c.center.x*100-2.5},${c.center.y*100-5} l5,11`}
-           stroke="#a5f3fc" strokeWidth=".8"/>
-         </g>
-        :c.form==="BLOCK"
-        ?<rect x={c.center.x*100-7} y={c.center.y*100-7} width="14" height="14" rx="1" fill="#d6ab72" stroke="#facc15"/>
-        :<circle cx={c.center.x*100} cy={c.center.y*100} r={c.form==="FIELD"?11:5}
-         stroke={c.material==="LIGHT"?"#67e8f9":"#d6ab72"} strokeWidth="2"
-         fill={c.material==="LIGHT"?"#67e8f9":"#d6ab72"} fillOpacity=".26"/>}
-      </g>)}
-      {canCreateObjects&&constructionCenter&&<circle cx={constructionCenter.x*100} cy={constructionCenter.y*100}
-       r="3" fill="#fb7185" stroke="#fff" strokeWidth="1"/>}
-    </svg>
+    <p className="mt-3 text-sm text-cyan-200">Ubicación: {constructionFieldPoint
+       ?`marcada en el plano horizontal · altura ${constructionHeightMeters.toFixed(1)} m`
+       :"sin seleccionar. Marca el punto en el plano izquierdo."}
+      </p>
     {canCreateObjects&&<div className="mt-3 flex flex-wrap gap-3">
      {canCreateMaterialBlocks&&<label className="text-sm">Forma del material
       <select value={constructionForm} onChange={e=>setConstructionForm(e.target.value as "FIELD"|"BLOCK")}
@@ -920,7 +896,7 @@ export default function CombatEncounter({id}:{id:string}) {
        className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2" placeholder="Nombre opcional"/>
      </label>
     </div>}
-    {canCreateObjects&&!constructionCenter&&<p className="mt-2 text-xs text-amber-300">Selecciona una posición en el terreno para crear el objeto.</p>}
+    {canCreateObjects&&!constructionFieldPoint&&<p className="mt-2 text-xs text-amber-300">Selecciona una posición en el terreno para crear el objeto.</p>}
     {(state.constructions??[]).length>0&&<div className="mt-3 space-y-1">
      {state.constructions?.map(c=><p key={c.id} className="text-xs text-zinc-300">
       {state.actors[c.owner].name}: {c.label} · {c.form==="MIRROR"?"espejo mágico, resistencia "+c.durability+" · rayo por turno · reflexión "+Math.round((c.mirror?.reflectionMultiplier??0)*100)+"%":c.form==="BLOCK"?"bloque defensivo, resistencia "+c.durability:c.form==="DECOR"?"decorativo, sin efectos":"campo de material"}
@@ -933,7 +909,7 @@ export default function CombatEncounter({id}:{id:string}) {
      {(constructionSkills[side]??[]).map(skill=>{
       const nextRound=state.skillCooldowns?.[side]?.[String(skill.id)]??0;
       const cooled=nextRound===-1||nextRound>state.round;
-      const disabled=!ready||!constructionCenter||cooled||(state.mana?.[side]?.current??0)<skill.manaCost||
+      const disabled=!ready||!constructionFieldPoint||!constructionCenter||cooled||(state.mana?.[side]?.current??0)<skill.manaCost||
         (skill.constructionMaterial==="MIRROR"&&targetDistance>(skill.rangeMeters??0));
       return <button key={skill.id} type="button" disabled={disabled} onClick={()=>castSkill(skill)}
        className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-cyan-500/70 bg-cyan-950/20 px-3 py-2 text-sm text-cyan-200 disabled:opacity-40">
@@ -941,13 +917,13 @@ export default function CombatEncounter({id}:{id:string}) {
       </button>;
      })}
     </div>
-    {canCreateObjects&&!constructionCenter&&<p className="mt-2 text-xs text-amber-300">Primero indica dónde aparecerá la construcción.</p>}
+    {canCreateObjects&&!constructionFieldPoint&&<p className="mt-2 text-xs text-amber-300">Primero indica dónde aparecerá la construcción.</p>}
     {(constructionSkills[side]??[]).some(skill=>skill.constructionMaterial==="MIRROR"&&targetDistance>(skill.rangeMeters??0))&&
      <p className="mt-2 text-xs text-amber-300">Hay creaciones fuera de alcance. Acércate al adversario para invocarlas.</p>}
     <button type="button" onClick={()=>{openPanel("skills",null);}} className="mt-3 flex items-center gap-2 rounded-lg border border-cyan-500 px-3 py-2 text-sm text-cyan-200">
      <Sparkles size={16}/> Ver habilidades de creación
     </button>
-   </CombatDialog>
+   </section>}
    <CombatDialog open={panel==="skills"} title="Habilidades de combate" onClose={closePanel}>
     {error&&<p role="alert" className="mb-3 rounded-lg border border-rose-700/50 p-2 text-sm text-rose-200">{error}</p>}
     {!ready&&state.status==="ACTIVE"&&<p role="status" className="mb-3 rounded-lg border border-amber-500/40 p-2 text-sm text-amber-300">

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Activity, Badge, Backpack, ChevronDown, ChevronUp, Diamond, Droplets, Hand, Heart, Plus, Scan, Shield, Spade, Sparkles, Swords, WandSparkles, ChartNoAxesColumn } from "lucide-react";
+import { Activity, Badge, Backpack, ChevronDown, ChevronUp, Clock3, Diamond, Droplets, Hand, Heart, Plus, Scan, Shield, Spade, Sparkles, Swords, WandSparkles, ChartNoAxesColumn } from "lucide-react";
 import type {CombatFighter,Side,PhysicalAttackSource} from "@/lib/combat/turn-engine";
 import {actionPoints,remainingAp,effectiveWeaponReachMeters} from "@/lib/combat/turn-engine";
 
@@ -22,6 +22,10 @@ export default function CombatCharacterHud({
  const hp=fighter.hp+"/"+fighter.maxHp;
  const mp=mana?mana.current+"/"+mana.max:"—";
  const pa=remainingAp(fighter)+"/"+actionPoints(fighter.constitution);
+ // Exactly the same 100-tick budget that combat actions and reactions spend.
+ const usedTicks=Math.max(0,Math.min(100,fighter.spentTicks));
+ const remainingTicks=100-usedTicks;
+ const ticks=remainingTicks+"/100";
  const distance=Math.abs(fighter.positionMeters-opponent.positionMeters);
  const selectedReach=attackMode==="MAGIC_AREA"?4:effectiveWeaponReachMeters(fighter,false,attackSource);
  const common="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border text-sm transition-colors";
@@ -41,11 +45,14 @@ export default function CombatCharacterHud({
    <button type="button" onClick={()=>onOpenChange(!open)} aria-expanded={open}
     aria-label={open?"Ocultar panel del combatiente":"Abrir panel del combatiente"}
     className={open?"flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-1.5 text-xs text-zinc-400":
-     "flex min-h-12 items-center gap-3 px-4 py-2 text-sm"}>
+     "flex min-h-12 items-center gap-2 px-2 py-2 text-xs sm:gap-3 sm:px-4 sm:text-sm"}>
     {open?<><ChevronDown size={17}/> Ocultar</>:<>
      <span className="flex items-center gap-1.5"><Heart size={17} className="text-rose-400"/><b>{hp}</b></span>
      <span className="flex items-center gap-1.5"><Droplets size={17} className="text-cyan-400"/><b>{mp}</b></span>
-     <span className="flex items-center gap-1.5"><Activity size={17} className="text-amber-300"/><b>{pa}</b></span>
+     <span className="flex items-center gap-1"><Activity size={16} className="text-amber-300"/><b>{pa}</b></span>
+     <span className="flex items-center gap-1" title={"Ticks disponibles: "+ticks} aria-label={"Ticks disponibles: "+ticks}>
+      <Clock3 size={16} className={remainingTicks===0?"text-rose-400":"text-emerald-300"}/><b>{ticks}</b>
+     </span>
      <ChevronUp size={16} className="text-zinc-400"/>
     </>}
    </button>
@@ -67,13 +74,15 @@ export default function CombatCharacterHud({
       <span className="text-lg leading-none">🪷</span><Plus size={12} className="-mt-3"/>
      </button>
     </div>
-    <div className="mt-3 grid grid-cols-3 gap-2">
-     <div className="rounded-xl bg-zinc-950/85 px-2 py-3 text-center"><Heart size={17} className="mx-auto text-rose-400"/><p className="mt-1 text-[10px] text-zinc-500">HP</p><b className="text-sm">{hp}</b></div>
-     <div className="rounded-xl bg-zinc-950/85 px-2 py-3 text-center"><Droplets size={17} className="mx-auto text-cyan-400"/><p className="mt-1 text-[10px] text-zinc-500">Maná</p><b className="text-sm">{mp}</b></div>
-     <div className="rounded-xl bg-zinc-950/85 px-2 py-3 text-center"><Activity size={17} className="mx-auto text-amber-300"/><p className="mt-1 text-[10px] text-zinc-500">PA</p><b className="text-sm">{pa}</b></div>
+    <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-2">
+     <div className="rounded-xl bg-zinc-950/85 px-1 py-3 text-center"><Heart size={17} className="mx-auto text-rose-400"/><p className="mt-1 text-[10px] text-zinc-500">HP</p><b className="text-xs sm:text-sm">{hp}</b></div>
+     <div className="rounded-xl bg-zinc-950/85 px-1 py-3 text-center"><Droplets size={17} className="mx-auto text-cyan-400"/><p className="mt-1 text-[10px] text-zinc-500">Maná</p><b className="text-xs sm:text-sm">{mp}</b></div>
+     <div className="rounded-xl bg-zinc-950/85 px-1 py-3 text-center"><Activity size={17} className="mx-auto text-amber-300"/><p className="mt-1 text-[10px] text-zinc-500">PA</p><b className="text-xs sm:text-sm">{pa}</b></div>
+     <div className="rounded-xl bg-zinc-950/85 px-1 py-3 text-center" aria-label={"Ticks disponibles: "+remainingTicks+" de 100"}><Clock3 size={17} className={"mx-auto "+(remainingTicks===0?"text-rose-400":"text-emerald-300")}/><p className="mt-1 text-[10px] text-zinc-500">Ticks</p><b className="text-xs sm:text-sm">{ticks}</b></div>
     </div>
+    <p className="mt-2 text-xs text-zinc-400">Ticks gastados: <b>{usedTicks}/100</b>. Las acciones y defensas consumen ticks y PA; los ticks se reinician cada turno.</p>
     <p className={"mt-2 text-xs "+(canActNow?"text-emerald-300":"text-amber-300")}>
-     {status==="FINISHED"?"Encuentro finalizado":canActNow?"Tu iniciativa: puedes actuar.":"Esperando la iniciativa o reacción del adversario."}
+     {status==="FINISHED"?"Encuentro finalizado":remainingTicks===0?"Sin ticks disponibles para atacar o defenderte activamente este turno.":canActNow?"Tu iniciativa: puedes actuar.":"Esperando la iniciativa o reacción del adversario."}
     </p>
     <div className="mt-3 grid grid-cols-5 gap-1.5">
      {categories.map(({value,title,Icon})=><button key={value} type="button"

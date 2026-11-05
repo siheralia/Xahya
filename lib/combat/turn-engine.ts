@@ -11,6 +11,7 @@ import {validateConstructionPlacement,resolveConstructionForm,type CombatConstru
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
+import {calculateMaterialBlockWear} from "./material-durability.ts";
 
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
@@ -19,6 +20,9 @@ export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FI
 export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number;characterItemId?:number;durability?:number;
   /** From the server-selected item's material, not supplied by an attacker. */
   materialPerkBonus?:{perkId:number;attackBonus:number};
+  /** Catalog snapshot: 100 is neutral; values above 100 reduce BLOCK wear. */
+  materialPhysicalResistance?:number;
+  materialName?:string;
 };
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
@@ -673,11 +677,23 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         avoided = rolls.hit >= contestChance(attacker.precision, fighter.dodge);
       }
     } else if (defense === "BLOCK") {
+      // One explicitly selected hand owns the wear. Without a selection use
+      // the main hand, then offhand. Legacy/unarmed blocks keep neutral wear.
+      const blockWeapon=command.weaponSlot==="OFF_HAND"?fighter.offhandWeapon:
+        command.weaponSlot==="MAIN_HAND"?fighter.equippedWeapon:
+        fighter.equippedWeapon??fighter.offhandWeapon;
+      if(command.weaponSlot&&!blockWeapon)
+        throw new Error("No tienes un arma equipada en la mano elegida para bloquear.");
+      const previousIntegrity=blockWeapon?.durability??fighter.weaponIntegrity;
       const contest = contestChance(fighter.constitution * typeFactor, attacker.strength);
-      const held = fighter.weaponIntegrity > 0 && rolls.defense < contest;
+      const held = previousIntegrity > 0 && rolls.defense < contest;
       // Tool durability never substitutes for the wielder's CON.
       damageScale = held ? 0.12 : 0.8;
-      fighter.weaponIntegrity = Math.max(0, fighter.weaponIntegrity - Math.max(1,Math.ceil(power / 8)));
+      const baseWear=Math.max(1,Math.ceil(power / 8));
+      const wear=calculateMaterialBlockWear(baseWear,blockWeapon?.materialPhysicalResistance);
+      const newIntegrity=Math.max(0,previousIntegrity-wear);
+      if(blockWeapon)blockWeapon.durability=newIntegrity;
+      fighter.weaponIntegrity=newIntegrity;
     } else if (defense === "MAGIC_FIELD") {
       // Basic defensive field: active reaction, paid AP/ticks, no persistent
       // barrier or mana expenditure until the configurable-skills phase.

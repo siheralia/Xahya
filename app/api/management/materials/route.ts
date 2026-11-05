@@ -7,6 +7,7 @@ import {validateMaterialDraft} from "@/lib/items/materials";
 const Material=()=> (db.orm.public as any).Material;
 
 export async function GET(){
+ try{
  const user=await authorizedMaterialUser("view");
  if(!user)return NextResponse.json({error:"Sin permiso para ver materiales."},{status:403});
  const [materials,types,perks]=await Promise.all([
@@ -21,6 +22,11 @@ export async function GET(){
   types:types.sort((a:any,b:any)=>String(a.name).localeCompare(String(b.name),"es")),
   perks:perks.map((p:any)=>({id:Number(p.id),name:String(p.name)})).sort((a:any,b:any)=>a.name.localeCompare(b.name,"es")),
   capabilities:{create:canCreate,edit:canEdit,delete:canDelete}});
+ }catch(error){
+  console.error("[management/materials] GET",error);
+  return NextResponse.json({error:"No se pudieron consultar los materiales. Inténtalo de nuevo."},
+   {status:500,headers:{"Cache-Control":"no-store"}});
+ }
 }
 
 export async function POST(req:Request){

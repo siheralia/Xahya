@@ -1,5 +1,6 @@
 import {cooldownTurns} from "../skills/cooldown.ts";
 import {legacyShadowCombatNumbers} from "../effects/legacy-modular-shadow.ts";
+import {decideModularExecution,type ModularCutoverMode} from "../effects/modular-cutover.ts";
 import {skillEffectMultiplier} from "../skills/pch.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
 import {compileCombatAttackArea,type CombatAttackArea} from "./skill-area.ts";
@@ -25,6 +26,8 @@ export type CombatSkillPlan = {
  durationTurns:number;cooldownRounds:number;oncePerCombat:boolean;
  /** Number-only effects are resolved by the micro interpreter when parity holds. */
  microEquivalent?:boolean;
+ /** Switch is global; fallback protects every unsupported skill without changing its row. */
+ executionEngine?:"MODULAR"|"LEGACY_FALLBACK"|"LEGACY_ROLLBACK";
 };
 const aliases:Record<string,CombatBuffStat>={
  PHYS_ATK:"physicalAttack",PHYSICAL_ATTACK:"physicalAttack",
@@ -42,7 +45,7 @@ const fail=(reason:string):never=>{throw new Error(reason);};
  * Never silently discard unsupported or narrative effects, mechanics, or
  * conditions: a skill with unknown actions is NOT executable yet.
  */
-export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
+export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCutoverMode="MODULAR_FIRST"):CombatSkillPlan {
  const id=Number(row.id);
  if(!Number.isSafeInteger(id)||id<1||row.status!=="APPROVED")
   fail("Solo puedes utilizar habilidades aprobadas.");
@@ -198,7 +201,8 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
        same(mirror.reflectionMultiplier,shadow.mirror.reflectionMultiplier))
      : shadow.mirror===undefined)
  );
- if(shadowEquivalent && shadow){
+ const executionEngine=decideModularExecution(cutover,shadowEquivalent);
+ if(executionEngine==="MODULAR" && shadow){
    multiplier=shadow.damageMultiplier;
    defenseFactor=shadow.defenseFactor;
    final=shadow.finalMultiplier;
@@ -222,6 +226,7 @@ export function compileCombatSkill(row:Record<string,unknown>):CombatSkillPlan {
   damageMultiplier:multiplier,defenseFactor,finalMultiplier:final,
   healing,bonuses,durationTurns,cooldownRounds:cooldownTurns(cooldown,duration),
   oncePerCombat:cooldown==="Una vez por combate",microEquivalent:shadowEquivalent,
+  executionEngine,
  };
 }
 

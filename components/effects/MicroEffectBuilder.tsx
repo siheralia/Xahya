@@ -1,6 +1,8 @@
 "use client";
 
 import type {EffectContainer,MicroStep,MicroCondition,NumericExpr,MicroEvent} from "@/lib/effects/micro-modules";
+import {useState} from "react";
+import {MicroEffectFlowEditor} from "./MicroEffectFlowEditor";
 import {DEFAULT_VARIABLE_RESISTANCE} from "@/lib/skills/variable-resistance";
 
 const field="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm text-zinc-100";
@@ -17,6 +19,7 @@ const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
     case "CONSUME":return {kind,accumulator:"ENERGY",output:"energy",charges:"ALL"};
     case "READ_STAT":return {kind,actor:"USER",stat:"magicDefense",output:"resistanceBase"};
     case "READ_STORED":return {kind,accumulator:"ENERGY",metric:"TOTAL",output:"storedTotal"};
+    case "CALCULATE":return {kind,output:"calculated",expression:1};
     case "HEAL":return {kind,amount:op()};
     case "DAMAGE":return {kind,amount:10,channel:"MAGICAL"};
     case "MODIFIER":return {kind,stat:"RESISTANCE",multiplier:1.3};
@@ -93,7 +96,7 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
     <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold">Micromódulo {index+1}</h4>
       <button type="button" onClick={onDelete} className="text-xs text-rose-300">Eliminar</button></div>
     <label className="block text-xs">Operación<select className={"mt-1 "+field} value={step.kind} onChange={e=>onChange({...defaultStep(e.target.value as MicroStep["kind"]),when:step.when})}>
-      {["STORE","CONSUME","READ_STAT","READ_STORED","HEAL","DAMAGE","MODIFIER","BONUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{kind}</option>)}
+      {["READ_STAT","READ_STORED","CALCULATE","STORE","CONSUME","HEAL","DAMAGE","MODIFIER","BONUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{kind}</option>)}
     </select></label>
     {step.kind==="READ_STAT"&&<div className="grid gap-2 sm:grid-cols-3">
       <label className="text-xs">¿De quién?
@@ -130,6 +133,16 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
           onChange={e=>change({output:e.target.value})}/>
       </label>
       <p className="text-xs text-zinc-400 sm:col-span-3">La lectura no consume cargas. Puedes conectar esta salida como variable de una fórmula.</p>
+    </div>}
+    {step.kind==="CALCULATE"&&<div className="space-y-2">
+      <label className="block text-xs">Guardar resultado como
+        <input className={"mt-1 "+field} value={step.output}
+          onChange={e=>change({output:e.target.value})}/>
+      </label>
+      <p className="text-xs">Expresión o fórmula</p>
+      <NumericEditor value={step.expression} outputOptions={availableOutputs}
+        onChange={expression=>change({expression})}/>
+      <p className="text-xs text-zinc-400">La salida queda disponible para las operaciones siguientes; arrástrala en el diagrama.</p>
     </div>}
     {step.kind==="CAPABILITY"&&<div className="space-y-2">
       <p className="text-xs text-amber-200">Capacidad declarativa: no modifica daño, PV ni estadísticas hasta que tenga un resolutor autorizado.</p>
@@ -186,7 +199,7 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
     {step.kind==="STORE"&&<div className="grid gap-2 sm:grid-cols-2">
       <label className="text-xs">Acumulador<input className={"mt-1 "+field} value={step.accumulator} onChange={e=>change({accumulator:e.target.value})}/></label>
       <label className="text-xs">Máximo de cargas<input className={"mt-1 "+field} type="number" min={1} max={100} value={step.capacity} onChange={e=>change({capacity:Number(e.target.value)})}/></label>
-      <div className="sm:col-span-2"><p className="mb-1 text-xs">Valor a almacenar</p><NumericEditor value={step.value} onChange={value=>change({value})}/></div>
+      <div className="sm:col-span-2"><p className="mb-1 text-xs">Valor a almacenar</p><NumericEditor value={step.value} outputOptions={availableOutputs} onChange={value=>change({value})}/></div>
     </div>}
     {step.kind==="CONSUME"&&<div className="grid gap-2 sm:grid-cols-3">
       <label className="text-xs">Acumulador<input className={"mt-1 "+field} value={step.accumulator} onChange={e=>change({accumulator:e.target.value})}/></label>
@@ -204,16 +217,18 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
         </div>}
         {(step.kind==="BONUS"||step.kind==="MODIFIER")&&<label className="block text-xs">Estadística o destino<input className={"mt-1 "+field} value={step.stat} onChange={e=>change({stat:e.target.value})}/></label>}
         <p className="text-xs">{step.kind==="MODIFIER"?"Multiplicador":step.kind==="HEAL"?"Curación":step.kind==="DAMAGE"?"Daño":"Bono a sumar"}</p>
-        <NumericEditor value={step.kind==="MODIFIER"?step.multiplier:step.amount} onChange={value=>change(step.kind==="MODIFIER"?{multiplier:value}:{amount:value})}/>
+        <NumericEditor value={step.kind==="MODIFIER"?step.multiplier:step.amount} outputOptions={availableOutputs} onChange={value=>change(step.kind==="MODIFIER"?{multiplier:value}:{amount:value})}/>
         {step.kind==="DAMAGE"&&<div className="space-y-2">
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={step.radiusMeters!==undefined} onChange={e=>change({radiusMeters:e.target.checked?1:undefined})}/>Área circular</label>
-          {step.radiusMeters!==undefined&&<NumericEditor value={step.radiusMeters} onChange={radiusMeters=>change({radiusMeters})}/>}
+          {step.radiusMeters!==undefined&&<NumericEditor value={step.radiusMeters} outputOptions={availableOutputs} onChange={radiusMeters=>change({radiusMeters})}/>}
         </div>}
       </div>}
     <ConditionsEditor title="Condicionales de este micromódulo" value={step.when??[]} onChange={when=>change({when})}/>
   </section>;
 }
 export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onChange:(next:EffectContainer)=>void}){
+  const [showFlow,setShowFlow]=useState(true);
+  const [selectedStep,setSelectedStep]=useState<number|null>(null);
   const update=(patch:Partial<EffectContainer>)=>onChange({...value,...patch});
   return <section className="space-y-4">
     <div className="grid gap-3 sm:grid-cols-2">
@@ -226,6 +241,13 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
         <option value="">Cualquier impacto</option><option value="CHARACTER">Personaje</option><option value="GROUND">Suelo</option></select></label>}
     </div>
     <ConditionsEditor title="Requisitos para ejecutar este efecto" value={value.requirements??[]} onChange={requirements=>update({requirements})}/>
+    <div className="flex items-center justify-end gap-2">
+      <button type="button" className="rounded-lg border border-cyan-700 bg-cyan-950/30 px-3 py-2 text-xs text-cyan-200"
+        aria-expanded={showFlow} onClick={()=>setShowFlow(v=>!v)}>
+        {showFlow?"Ocultar diagrama React Flow":"Mostrar diagrama React Flow"}
+      </button>
+    </div>
+    {showFlow&&<MicroEffectFlowEditor value={value} onChange={onChange} onEditStep={index=>{setSelectedStep(index);document.getElementById("micro-step-"+index)?.scrollIntoView({behavior:"smooth",block:"center"});}}/>}
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Micromódulos y orden de ejecución</h3>
       <button type="button" disabled={value.steps.length>21}
         className="rounded border border-violet-700 px-3 py-2 text-xs disabled:opacity-40"
@@ -239,12 +261,20 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
             {kind:"VARIABLE_RESISTANCE",config:{...DEFAULT_VARIABLE_RESISTANCE},
               base:{source:"OUTPUT",key:a},input:{source:"OUTPUT",key:b}}]});
         }}>+ Resistencia con fuentes conectadas</button>
-      <button type="button" disabled={value.steps.length>=24} className="rounded border border-cyan-800 px-3 py-2 text-xs disabled:opacity-40" onClick={()=>update({steps:[...value.steps,defaultStep("HEAL")]})}>+ Micromódulo</button>
+      <button type="button" disabled={value.steps.length>=24} className="rounded border border-cyan-800 px-3 py-2 text-xs disabled:opacity-40" onClick={()=>{
+        const names=new Set(value.steps.filter((s):s is Extract<MicroStep,{output:string}>=>"output" in s).map(s=>s.output));
+        let n=1;while(names.has("calculated"+n))n++;
+        update({steps:[...value.steps,{kind:"CALCULATE",output:"calculated"+n,expression:1}]});
+      }}>+ Valor/cálculo</button>
+      <button type="button" disabled={value.steps.length>=24} className="rounded border border-cyan-800 px-3 py-2 text-xs disabled:opacity-40" onClick={()=>update({steps:[...value.steps,defaultStep("HEAL")]})}>+ Aplicar efecto</button>
     </div>
-    {value.steps.map((step,index)=><div key={index} className="space-y-1">
-      <div className="flex justify-end gap-2 text-xs">
+    {value.steps.map((step,index)=><div key={index} id={"micro-step-"+index} className={"space-y-1 rounded-xl "+(selectedStep===index?"ring-2 ring-cyan-500":"")}>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        {selectedStep===index?<span className="pl-2 font-semibold text-cyan-300">Nodo seleccionado en el diagrama</span>:<span/>}
+        <div className="flex gap-2">
         <button type="button" disabled={index===0} onClick={()=>{const next=[...value.steps];[next[index-1],next[index]]=[next[index],next[index-1]];update({steps:next});}} className="disabled:opacity-30">↑ Subir</button>
         <button type="button" disabled={index===value.steps.length-1} onClick={()=>{const next=[...value.steps];[next[index+1],next[index]]=[next[index],next[index+1]];update({steps:next});}} className="disabled:opacity-30">↓ Bajar</button>
+        </div>
       </div>
       <StepEditor step={step} index={index}
         availableOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{output:string}>=>"output" in s).map(s=>s.output)}

@@ -40,6 +40,20 @@ export default function MicroEffectManagementPage(){
     const effect=structuredClone(preset.effect);effect.id=freshMicroEffect().id;
     setSelected(null);setDraft({effect,proposedPch:null,pricingNotes:"Ejemplo de Gloria; valorar PCH antes de aprobar.",sourceTemplateId:null});
     setError("");setMessage("Ejemplo cargado como borrador; no se ha guardado ni activado.");};
+  // Links from the gallery open the selected Gloria preset directly in the
+  // editable builder; loading it does not save, approve or charge anything.
+  useEffect(()=>{
+    const presetKey=new URLSearchParams(window.location.search).get("preset");
+    if(presetKey===null||!/^[0-4]$/.test(presetKey))return;
+    const preset=GLORIA_MICRO_PRESETS[Number(presetKey)];
+    if(!preset)return;
+    const effect=structuredClone(preset.effect);
+    effect.id=freshMicroEffect().id;
+    setSelected(null);
+    setDraft({effect,proposedPch:null,
+      pricingNotes:"Ejemplo de Gloria; valorar PCH antes de aprobar.",sourceTemplateId:null});
+    setMessage("Ejemplo de Gloria listo para editar. No está guardado ni aprobado.");
+  },[]);
   const clone=()=>{
     if(!draft||!selected)return;
     const original=selected.id;

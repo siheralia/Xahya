@@ -20,9 +20,11 @@ export type MicroStep = (
   | { kind: "READ_STAT"; actor: "USER" | "OPPONENT"; stat: string; output: string }
   /** Read stored charges without consuming them. */
   | { kind: "READ_STORED"; accumulator: string; metric: "TOTAL" | "COUNT"; output: string }
+  /** Pure numeric expression; result can wire into a later numeric consumer. */
+  | { kind: "CALCULATE"; expression: NumericExpr; output: string }
   | { kind: "HEAL"; amount: NumericExpr }
   | { kind: "DAMAGE"; amount: NumericExpr; channel: "PHYSICAL" | "MAGICAL"; element?: string; radiusMeters?: NumericExpr }
-  | { kind: "MODIFIER"; stat: string; multiplier: NumericExpr }
+  | { kind: "MODIFIER"; stat: string; multiplier: NumericExpr; sourceTarget?: string; sourceElement?: string }
   | { kind: "BONUS"; stat: string; amount: NumericExpr }
   /** Structured legacy narrative: retains capability, no automatic numerical benefit. */
   | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
@@ -125,7 +127,7 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
         switch (step.kind) {
           case "STORE":
             if (!validKey(step.accumulator) || !integer(step.capacity, 1, 100)) fail("almacenamiento inválido");
-            checkExpr(step.value); break;
+            checkExpr(step.value);checkSourceLinks(step.value,outputs); break;
           case "CONSUME":
             if (!validKey(step.accumulator) || !validKey(step.output) || outputs.has(step.output)
               || (step.charges !== "ALL" && !integer(step.charges, 1, 100))) fail("consumo inválido");
@@ -138,16 +140,27 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
             if (!validKey(step.accumulator) || !["TOTAL","COUNT"].includes(step.metric) ||
               !validKey(step.output) || outputs.has(step.output)) fail("lectura de acumulador inválida");
             outputs.add(step.output); break;
-          case "HEAL": checkExpr(step.amount); break;
+          case "CALCULATE":
+            if(!validKey(step.output)||outputs.has(step.output))fail("salida de cálculo duplicada o inválida");
+            checkExpr(step.expression);checkSourceLinks(step.expression,outputs);
+            outputs.add(step.output);break;
+          case "HEAL":
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs); break;
           case "DAMAGE":
             if (!["PHYSICAL", "MAGICAL"].includes(step.channel) || (step.element !== undefined && !validKey(step.element))) fail("tipo de daño inválido");
-            checkExpr(step.amount); if (step.radiusMeters !== undefined) checkExpr(step.radiusMeters); break;
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs);
+            if (step.radiusMeters !== undefined){
+              checkExpr(step.radiusMeters);checkSourceLinks(step.radiusMeters,outputs);
+            } break;
           case "MODIFIER":
-            if (!validKey(step.stat)) fail("estadística inválida");
-            checkExpr(step.multiplier); break;
+            if (!validKey(step.stat) ||
+              (step.sourceTarget!==undefined&&!validKey(step.sourceTarget))||
+              (step.sourceElement!==undefined&&!validKey(step.sourceElement)))
+              fail("estadística de multiplicador inválida");
+            checkExpr(step.multiplier);checkSourceLinks(step.multiplier,outputs); break;
           case "BONUS":
             if (!validKey(step.stat)) fail("estadística inválida");
-            checkExpr(step.amount); break;
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs); break;
           case "CAPABILITY":
             if (!/^(CARD:W[0-9]{3}|NARRATIVE:OTHER)$/.test(step.code)
               || typeof step.description !== "string" || step.description.length > 1500
@@ -282,6 +295,9 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
         case "READ_STORED":
           outputs[step.output]=step.metric==="TOTAL"?
             totalStored(state,ctx.ownerId,step.accumulator):chargeCount(state,ctx.ownerId,step.accumulator);
+          break;
+        case "CALCULATE":
+          outputs[step.output]=evaluate(step.expression,ctx,state,outputs,hp);
           break;
         case "HEAL": {
           const requested = Math.max(0,evaluate(step.amount,ctx,state,outputs,hp));

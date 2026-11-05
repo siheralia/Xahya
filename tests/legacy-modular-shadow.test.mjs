@@ -37,7 +37,12 @@ test("read-only shadow copies cover every approved/active definition in the real
      }else if(part.status==="DESCRIPTION_ONLY"){
        assert.equal(part.modules.length,1);
        assert.equal(part.modules[0].steps[0].kind,"CAPABILITY");
-     } else assert.equal(part.modules.length,0);
+     } else {
+       assert.equal(part.status,"UNSUPPORTED");
+       assert.equal(part.modules.length,1);
+       assert.equal(part.modules[0].steps[0].kind,"CAPABILITY",
+         "Unsupported abilities must remain visible but mechanically inert.");
+     }
    }
  }
  assert.deepEqual(counts,{skill:22,raceSkill:21,genericSkillTemplate:20});

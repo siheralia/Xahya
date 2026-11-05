@@ -11,6 +11,7 @@ import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 import { combatClientView } from "@/lib/combat/magic-area";
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { compileCombatSkill } from "@/lib/combat/skill-casting";
+import {readModularCutover} from "@/lib/effects/modular-cutover-registry";
 import {attachedCreationPassive} from "@/lib/combat/constructs";
 import {validateKarmaBoostAllocation} from "@/lib/combat/karma-boost";
 import {getEffectiveCharacterStats} from "@/lib/stats/effective";
@@ -171,7 +172,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
           const requirements=Array.isArray(skill.effectRequirements)?skill.effectRequirements:[];
           if(!meetsEffectRequirements(requirements,others))
             throw new Error("No se cumplen los requisitos por efecto de esta habilidad.");
-          const plan=compileCombatSkill(skill);
+          const {mode}=await readModularCutover();
+          const plan=compileCombatSkill(skill,mode);
           if(plan.requiredParentSkillId && !others.some((related:any)=>
             Number(related.id)===plan.requiredParentSkillId))
             throw new Error("No tienes disponible la habilidad vinculada necesaria para ejecutar esta técnica.");

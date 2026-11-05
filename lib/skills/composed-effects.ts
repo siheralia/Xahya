@@ -3,6 +3,12 @@ import {validateEffectContainers,type EffectContainer} from "../effects/micro-mo
 /** Standalone modular effect attached directly to a skill, never an approved catalog entry. */
 export const COMPOSED_EFFECT_TYPE="COMPOSED";
 export const MODULE_DEPOSIT_PER_STEP=5;
+/** Reading values and evaluating formulas are connectors, not independent effects.
+ * They do not increase the provisional reservation merely by making the
+ * previously implicit arithmetic visible as nodes. */
+export function pricedModularStepCount(effect:EffectContainer):number{
+  return effect.steps.filter(step=>!["READ_STAT","READ_STORED","CALCULATE"].includes(step.kind)).length;
+}
 /** Minimum reservation only. Real utility/PCH research and staff review decide the final price. */
 export type ComposedSkillEffect={
   type:"COMPOSED"; module:EffectContainer;
@@ -22,6 +28,8 @@ export function validateComposedSkillEffect(row:unknown,scope:"PLAYER"|"REVIEW")
   const module=r.module;
   const err=validateEffectContainers([module as EffectContainer]);
   if(err)return err;
+  if(pricedModularStepCount(module as EffectContainer)===0)
+    return "Un efecto modular necesita al menos una acción; las fuentes y cálculos por sí solos no conceden habilidades.";
   if(typeof r.pricingNotes!=="undefined"&&(typeof r.pricingNotes!=="string"||r.pricingNotes.length>1500))
     return "Justificación modular inválida.";
   if(scope==="PLAYER"&&r.reviewedPch!==undefined)return "El PCH aprobado solo puede asignarlo administración.";
@@ -46,7 +54,7 @@ export function validateComposedSkillList(rows:unknown,scope:"PLAYER"|"REVIEW"):
 export function composedEffectBasePch(row:ComposedSkillEffect):number {
   const err=validateEffectContainers([row.module]);
   if(err)throw new Error(err);
-  const value=row.reviewedPch??Math.max(1,row.module.steps.length*MODULE_DEPOSIT_PER_STEP);
+  const value=row.reviewedPch??Math.max(1,pricedModularStepCount(row.module)*MODULE_DEPOSIT_PER_STEP);
   if(!Number.isSafeInteger(value)||value<1||value>100000)throw new Error("PCH modular inválido.");
   return value;
 }

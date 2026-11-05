@@ -4,6 +4,7 @@ import Link from "next/link";
 import ManagementModal from "../_components/ManagementModal";
 import {type MaterialDraft} from "@/lib/items/materials";
 import type {MaterialTypeRow} from "@/lib/items/material-types";
+import {readMaterialApiResponse} from "@/lib/items/material-api-response";
 
 type Material=MaterialDraft&{id:number;createdAt?:string};
 type Capabilities={create:boolean;edit:boolean;delete:boolean};
@@ -48,12 +49,16 @@ export default function MaterialsManagementPage(){
  const [selected,setSelected]=useState<number|null>(null);
  const [form,setForm]=useState<MaterialDraft>(empty);
  async function load(){
-  setLoading(true);
+  setLoading(true);setError("");
   try{
    const response=await fetch("/api/management/materials",{cache:"no-store"});
-   const result=await response.json();
-   if(!response.ok)throw new Error(result.error??"No se pudo consultar los materiales.");
-   setMaterials(result.materials??[]);setTypes(result.types??[]);setPerks(result.perks??[]);
+   const result=await readMaterialApiResponse<{
+    materials:Material[];types:MaterialTypeRow[];perks:{id:number;name:string}[];
+    capabilities:Capabilities;
+   }>(response,"No se pudieron cargar los materiales.");
+   if(!Array.isArray(result.materials)||!Array.isArray(result.types)||!Array.isArray(result.perks))
+    throw new Error("La respuesta del catálogo no incluye los materiales o tipos esperados.");
+   setMaterials(result.materials);setTypes(result.types);setPerks(result.perks);
    setCapabilities(result.capabilities??{create:false,edit:false,delete:false});
   }catch(e){setError(e instanceof Error?e.message:"No se pudo consultar el catálogo.");}
   finally{setLoading(false);}
@@ -117,15 +122,18 @@ export default function MaterialsManagementPage(){
     Gestionar tipos de material
    </Link>
    {message&&<p role="status" className="mt-4 rounded-lg border border-emerald-500/30 p-3 text-sm text-emerald-300">{message}</p>}
-   {error&&!modal&&<p role="alert" className="mt-4 rounded-lg border border-red-500/30 p-3 text-sm text-red-300">{error}</p>}
+   {error&&!modal&&<div role="alert" className="mt-4 rounded-lg border border-red-500/30 p-3 text-sm text-red-300">
+    <p>{error}</p>
+    <button type="button" onClick={()=>void load()} className="mt-2 rounded border border-red-400/50 px-3 py-1.5 text-sm">Reintentar consulta</button>
+   </div>}
    <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_220px]">
     <input aria-label="Buscar material" placeholder="Buscar material…" value={filter} onChange={e=>setFilter(e.target.value)} className={fieldStyle}/>
     <select aria-label="Filtrar por tipo de material" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)} className={fieldStyle}>
      <option value="ALL">Todos los tipos</option>{types.map(x=><option key={x.code} value={x.code}>{x.name}</option>)}
     </select>
    </div>
-   <p className="mt-3 text-xs text-zinc-500">{visible.length} materiales de {materials.length}</p>
-   {loading?<p className="mt-8 text-zinc-400">Consultando materiales…</p>:
+   {!error&&<p className="mt-3 text-xs text-zinc-500">{visible.length} materiales de {materials.length}</p>}
+   {loading?<p className="mt-8 text-zinc-400">Consultando materiales…</p>:error?null:
     <div className="mt-4 grid gap-3 md:grid-cols-2">
      {visible.map(material=><article key={material.id} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
       <div className="flex items-start justify-between gap-3">

@@ -8,11 +8,17 @@ const Types=()=> (db.orm.public as any).MaterialType;
 export async function GET(){
  const user=await authorizedMaterialUser("view");
  if(!user)return NextResponse.json({error:"Sin permiso para consultar tipos."},{status:403});
- const types=await Types().all();
- const [create,edit,remove]=await Promise.all(["create","edit","delete"].map(action=>
-  authorizedMaterialUser(action as "create"|"edit"|"delete")));
- return NextResponse.json({types:types.sort((a:any,b:any)=>String(a.name).localeCompare(String(b.name),"es")),
-  capabilities:{create:Boolean(create),edit:Boolean(edit),delete:Boolean(remove)}});
+ try{
+  const types=await Types().all();
+  const [create,edit,remove]=await Promise.all(["create","edit","delete"].map(action=>
+   authorizedMaterialUser(action as "create"|"edit"|"delete")));
+  return NextResponse.json({types:types.sort((a:any,b:any)=>String(a.name).localeCompare(String(b.name),"es")),
+   capabilities:{create:Boolean(create),edit:Boolean(edit),delete:Boolean(remove)}});
+ }catch(error){
+  console.error("[material-types] Error al cargar los tipos",error);
+  return NextResponse.json({error:"No se pudo consultar los tipos de material. Inténtalo de nuevo."},
+   {status:503});
+ }
 }
 export async function POST(req:Request){
  const user=await authorizedMaterialUser("create");

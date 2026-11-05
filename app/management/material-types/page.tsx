@@ -3,6 +3,7 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 import ManagementModal from "../_components/ManagementModal";
 import {materialTypeCodeFromName,type MaterialTypeDraft} from "@/lib/items/material-types";
+import {readMaterialApiResponse} from "@/lib/items/material-api-response";
 
 type MaterialType=MaterialTypeDraft;
 type Caps={create:boolean;edit:boolean;delete:boolean};
@@ -32,12 +33,14 @@ export default function MaterialTypesPage(){
  const [error,setError]=useState("");
  const [message,setMessage]=useState("");
  async function load(){
-  setLoading(true);
+  setLoading(true);setError("");
   try{
    const response=await fetch("/api/management/material-types",{cache:"no-store"});
-   const data=await response.json();
-   if(!response.ok)throw new Error(data.error??"No se pudieron cargar los tipos.");
-   setTypes(data.types??[]);setCaps(data.capabilities??{create:false,edit:false,delete:false});
+   const data=await readMaterialApiResponse<{types:MaterialType[];capabilities:Caps}>(
+    response,"No se pudieron cargar los tipos de material.");
+   if(!Array.isArray(data.types))
+    throw new Error("La respuesta del servidor no incluye los tipos de material esperados.");
+   setTypes(data.types);setCaps(data.capabilities??{create:false,edit:false,delete:false});
   }catch(e){setError(e instanceof Error?e.message:"No se pudieron cargar los tipos.");}
   finally{setLoading(false);}
  }
@@ -89,10 +92,13 @@ export default function MaterialTypesPage(){
      onClick={()=>start()}>Crear tipo</button>}
    </div>
    {message&&<p role="status" className="mt-4 text-sm text-emerald-300">{message}</p>}
-   {error&&!open&&<p role="alert" className="mt-4 text-sm text-red-300">{error}</p>}
+   {error&&!open&&<div role="alert" className="mt-4 rounded-lg border border-red-500/30 p-3 text-sm text-red-300">
+    <p>{error}</p>
+    <button type="button" onClick={()=>void load()} className="mt-2 rounded border border-red-400/50 px-3 py-1.5">Reintentar consulta</button>
+   </div>}
    <input aria-label="Buscar tipo de material" placeholder="Buscar tipo de material…" value={filter}
     onChange={e=>setFilter(e.target.value)} className={field+" mt-6"}/>
-   {loading?<p className="mt-5 text-zinc-400">Cargando tipos…</p>:
+   {loading?<p className="mt-5 text-zinc-400">Cargando tipos…</p>:error?null:
     <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
      {shown.map(type=><article key={type.code} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
       <div className="flex items-start justify-between gap-2">

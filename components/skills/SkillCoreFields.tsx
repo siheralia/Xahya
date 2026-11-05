@@ -67,7 +67,11 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {wrap("Área de efecto","areaOfEffect",<div className="space-y-2">
       <select value={areaState.kind} aria-label="Tipo de área de la habilidad"
         onChange={e=>set("areaOfEffect",formatSkillArea(e.target.value as Exclude<typeof areaState.kind,"LEGACY">,
-         e.target.value==="CIRCLE"?areaState.radiusMeters:e.target.value==="STRIP"?{lengthMeters:areaState.lengthMeters,widthMeters:areaState.widthMeters}:undefined))}
+         e.target.value==="CIRCLE"?areaState.radiusMeters
+          :e.target.value==="STRIP"?{lengthMeters:areaState.lengthMeters,widthMeters:areaState.widthMeters}
+          :e.target.value==="CONE"?{radiusMeters:areaState.radiusMeters,openingDegrees:areaState.openingDegrees}
+          :e.target.value==="SWEEP"?{innerRadiusMeters:areaState.innerRadiusMeters,outerRadiusMeters:areaState.outerRadiusMeters,openingDegrees:areaState.openingDegrees}
+          :undefined))}
         className={cls}>
         {SKILL_AREA_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
         {areaState.kind==="LEGACY"&&<option value="LEGACY" disabled>Descripción anterior (pendiente de clasificar)</option>}
@@ -97,7 +101,46 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
        </label>)}
        <p className="sm:col-span-2 text-xs text-zinc-500">La franja se centra donde apuntes. Su orientación se elige al lanzarla; el alcance máximo se configura aparte.</p>
       </div>}
-      {areaState.kind==="LEGACY"&&<p className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-2 text-xs text-amber-200">
+      {areaState.kind==="CONE"&&<div className="grid gap-2 sm:grid-cols-2">
+        <label className="block text-xs text-zinc-300">Radio del cono (m)
+         <input type="number" min={0.1} max={10} step={0.1} value={areaState.radiusMeters}
+          aria-label="Radio del cono en metros" className={cls}
+          onChange={e=>{const radiusMeters=Number(e.target.value);
+           if(Number.isFinite(radiusMeters)&&radiusMeters>=0.1&&radiusMeters<=10&&Math.abs(Math.round(radiusMeters*100)-radiusMeters*100)<=1e-7)
+            set("areaOfEffect",formatSkillArea("CONE",{radiusMeters,openingDegrees:areaState.openingDegrees}));}}/>
+        </label>
+        <label className="block text-xs text-zinc-300">Apertura del cono (°)
+         <input type="number" min={1} max={359} step={1} value={areaState.openingDegrees}
+          aria-label="Apertura del cono en grados" className={cls}
+          onChange={e=>{const openingDegrees=Number(e.target.value);
+           if(Number.isSafeInteger(openingDegrees)&&openingDegrees>=1&&openingDegrees<=359)
+            set("areaOfEffect",formatSkillArea("CONE",{radiusMeters:areaState.radiusMeters,openingDegrees}));}}/>
+        </label>
+        <p className="sm:col-span-2 text-xs text-zinc-500">El punto de puntería es el vértice del cono. La dirección se elige al atacar, no al crear la habilidad.</p>
+       </div>}
+       {areaState.kind==="SWEEP"&&<div className="grid gap-2 sm:grid-cols-3">
+        {(["innerRadiusMeters","outerRadiusMeters"] as const).map(key=><label key={key} className="block text-xs text-zinc-300">
+         {key==="innerRadiusMeters"?"Radio interior (m)":"Radio exterior (m)"}
+         <input type="number" min={0.1} max={10} step={0.1} value={areaState[key]}
+          aria-label={key==="innerRadiusMeters"?"Radio interior del barrido":"Radio exterior del barrido"}
+          className={cls}
+          onChange={e=>{const n=Number(e.target.value);
+           const next={innerRadiusMeters:areaState.innerRadiusMeters,outerRadiusMeters:areaState.outerRadiusMeters,
+            openingDegrees:areaState.openingDegrees,[key]:n};
+           if(Number.isFinite(n)&&n>=0.1&&n<=10&&Math.abs(Math.round(n*100)-n*100)<=1e-7&&next.innerRadiusMeters<next.outerRadiusMeters)
+            set("areaOfEffect",formatSkillArea("SWEEP",next));}}/>
+        </label>)}
+        <label className="block text-xs text-zinc-300">Apertura del arco (°)
+         <input type="number" min={1} max={359} step={1} value={areaState.openingDegrees}
+          aria-label="Apertura del barrido en grados" className={cls}
+          onChange={e=>{const openingDegrees=Number(e.target.value);
+           if(Number.isSafeInteger(openingDegrees)&&openingDegrees>=1&&openingDegrees<=359)
+            set("areaOfEffect",formatSkillArea("SWEEP",{innerRadiusMeters:areaState.innerRadiusMeters,
+             outerRadiusMeters:areaState.outerRadiusMeters,openingDegrees}));}}/>
+        </label>
+        <p className="sm:col-span-3 text-xs text-zinc-500">El barrido es un arco alrededor del punto señalado, con un hueco interior. No altera el barrido personal de Meia-lua.</p>
+       </div>}
+       {areaState.kind==="LEGACY"&&<p className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-2 text-xs text-amber-200">
        Área antigua: «{areaState.legacyValue}». Se conserva sin alterar hasta que selecciones una categoría normalizada. No se interpretará como círculo automáticamente.
       </p>}
       {areaState.kind==="SELF_FIELD"&&<p className="text-xs text-zinc-400">Campo centrado en el usuario. Sus dimensiones mecánicas requieren una habilidad compatible; no presupone un radio.</p>}

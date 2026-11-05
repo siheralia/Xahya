@@ -154,13 +154,13 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
    durability:mirrorEffects.get("SUMMON_MIRROR")!};
  }
  const isAttack=mode!==null;
- if(isAttack && !["SINGLE","CONTACT","CIRCLE","STRIP","SELF_FIELD"].includes(parseSkillArea(range.area).kind))
-  fail("El área de ataque no está clasificada como objetivo único, contacto, círculo o campo alrededor del usuario.");
+ if(isAttack && !["SINGLE","CONTACT","CIRCLE","STRIP","CONE","SWEEP","SELF_FIELD"].includes(parseSkillArea(range.area).kind))
+  fail("El área ofensiva necesita una geometría compatible (objetivo, contacto, círculo, franja, cono, arco o campo personal).");
  const attackArea=isAttack?compileCombatAttackArea(range.area,range.rangeMeters):undefined;
  if(attackArea?.shape==="SELF_FIELD" && mode!=="PHYSICAL")
   fail("El barrido alrededor del usuario requiere un ataque físico.");
  if(mirror&&compileCombatAttackArea(range.area))
-  fail("El espejo no admite un área circular adicional.");
+  fail("El espejo no admite un área ofensiva adicional.");
  if(construction&&(isAttack||bonuses.length>0||healing>0))
   fail("Combinar la construcción con otros efectos requiere un resolutor propio.");
  if(isAttack && (bonuses.length>0||healing>0))

@@ -158,7 +158,7 @@ test("Spanish skill editor, roster and combat canvas expose strip dimensions and
  assert.match(form,/Ancho de la franja/);
  assert.match(roster,/Preparar franja/);
  assert.match(page,/Dirección de la franja en grados/);
- assert.match(page,/areaAngleDegrees:skill.attackArea/);
+ assert.match(page,/areaAngleDegrees:isOrientedCombatArea\(skill.attackArea\)/);
  assert.match(page,/rotate\(/);
  assert.match(page,/Franja revelada/);
 });

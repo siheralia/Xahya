@@ -15,6 +15,7 @@ import {compileTrainingNpcSkills,selectTrainingNpcSkills} from "@/lib/combat/tra
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { racialDamageFactors,perkDamageFactors,mergeDamageTakenFactors } from "@/lib/combat/innate-traits";
 import { getPerkEffects } from "@/lib/perks";
+import {characterCombatConsumables,npcStartingConsumables} from "@/lib/items/combat-consumables";
 
 async function snapshotEquippedWeapons(characterId:number):Promise<{
   main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
@@ -246,6 +247,18 @@ export async function POST(req:Request) {
   initial.mana={
     PLAYER:{current:snapshot(ownerResource?.currentMana,firstMax),max:firstMax},
     NPC:{current:snapshot(rivalResource?.currentMana,opponentManaMax),max:opponentManaMax},
+  };
+  // Real characters snapshot their own inventory. Training NPCs get exactly one
+  // potion of each type selected randomly from the purchasable catalog.
+  const Item=(db.orm.public as any).Item;
+  const CharacterItem=(db.orm.public as any).CharacterItem;
+  const catalog=await Item.all();
+  initial.consumables={
+    PLAYER:characterCombatConsumables(catalog,await CharacterItem.where({characterId}).all()),
+    NPC:opponent.characterId!==null
+      ?characterCombatConsumables(catalog,await CharacterItem.where({characterId:opponent.characterId}).all())
+      :npcStartingConsumables(catalog.filter((item:any)=>item.acquisitionType==="PURCHASABLE"),
+        ()=>randomInt(1_000_000)/1_000_000),
   };
   const state=progressTrainingNpc(initial,dice,
     ()=>randomInt(1_000_000)/1_000_000);

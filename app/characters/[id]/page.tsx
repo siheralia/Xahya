@@ -34,7 +34,7 @@ import { applyDerivedItemEffects, calculateDerivedStats } from "@/lib/stats/deri
 
 type PropertyItem = { id:number; itemId:number; businessId:number|null; purchasePrice:number; item:{ id:number; name:string; description:string|null; imageUrl:string|null }|null };
 type EquipmentItem = {
-  id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null; flair: string | null;
+  id: number; itemId: number; quantity: number; durability?: number; equipped: boolean; equippedSlot: string | null; flair: string | null;
   item: { id: number; name: string; description: string | null; itemType: string; allowedSlots?: string[]; effects: { type: string; stat?: string; value: number; description?: string; action?: string }[] } | null;
 };
 
@@ -2072,6 +2072,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     <div>
                       <p className="font-semibold text-zinc-100">{entry.item?.name ?? "Objeto"}</p>
                       <p className="mt-1 text-xs text-zinc-500">{equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot ?? "Ranura"}</p>
+                       {entry.item?.itemType==="WEAPON"&&<p className="mt-1 text-xs text-amber-300">Durabilidad: {entry.durability??100}/100</p>}
                     </div>
                     <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>
                   </div>
@@ -2438,6 +2439,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       <div>
                         <p className="font-semibold">{entry.item?.name ?? "Objeto"}</p>
                         <p className="mt-1 text-xs" style={{ color: themePalette.muted }}>Cantidad: {entry.quantity}</p>
+                         {entry.item?.itemType==="WEAPON"&&<p className="mt-1 text-xs text-amber-300">Durabilidad: {entry.durability??100}/100</p>}
                       </div>
                       {entry.equipped && <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>}
                     </div>
@@ -2448,6 +2450,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       </div>
                     )}
                     {entry.flair && <p className="mt-3 text-xs italic text-violet-300">✦ {entry.flair}</p>}
+                     {entry.item?.itemType==="CONSUMABLE"&&entry.item.effects?.some(effect=>
+                      effect.type==="system_action"&&["HEAL_HP","RESTORE_MANA"].includes(String(effect.action)))&&
+                      <p className="mt-3 rounded-lg border border-emerald-500/30 px-3 py-2 text-xs text-emerald-300">
+                       Esta poción se utiliza durante un combate, desde Consumibles del encuentro.
+                      </p>}
                     {entry.item?.itemType === "CONSUMABLE" && Array.isArray(entry.item.effects) && entry.item.effects.some((effect: any) => effect?.type === "system_action" && ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL", "IMPROVE_SKILL"].includes(effect?.action)) && (
                       <button type="button" onClick={() => useConsumable(entry.id, entry.item?.name ?? "Consumible")} disabled={itemUsing !== null} className="mt-3 w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-zinc-950 disabled:opacity-50">
                         {itemUsing === entry.id ? "Usando..." : entry.item?.effects?.some((effect: any) => effect?.action === "CREATE_SKILL") ? "Crear habilidad" : entry.item?.effects?.some((effect: any) => effect?.action === "IMPROVE_SKILL") ? "Obtener moneda de mejora" : "Usar"}

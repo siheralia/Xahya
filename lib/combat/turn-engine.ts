@@ -320,6 +320,10 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
   Math.max(1, f.speedValue ?? f.agility);
+/** Attack-type speed modifiers represent handling a weapon, not dealing a
+ * certain kind of damage. Callers must pass attackType only for weapon strikes.
+ * Unarmed attacks, kicks and magic always use the neutral action tempo.
+ */
 export function turnTicks(f: CombatFighter, attackType?: CombatAttackType) {
   const modifier = attackType === "BLUNT" ? 1.15 : attackType === "PIERCE" ? 0.85 : 1;
   return calculateActionTicks(effectiveCombatSpeed(f), modifier);
@@ -905,7 +909,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // not apply an unarmed or equipped-weapon range penalty to that technique.
     const effectiveAtLaunch=serverSkillRangeMeters??
       (selectedWeapon?.effectiveRangeMeters??effectiveWeaponReachMeters(fighter,false,source));
-    spend(fighter,turnTicks(fighter,command.attackType));
+    // Damage type does not determine how fast a kick or a spell is cast.
+    // Basic attacks use the equipped weapon if selected; approved skills only
+    // inherit weapon handling when they explicitly target that equipped hand.
+    // In particular SELF_FIELD (Meia-lua) forces attackSource="KICK".
+    const weaponStrike=!magic && selectedWeapon!==undefined &&
+      (serverSkillRangeMeters===undefined || command.attackSource==="MAIN_HAND" || command.attackSource==="OFF_HAND");
+    spend(fighter,turnTicks(fighter,weaponStrike?command.attackType:undefined));
     if(magic&&serverSkillRangeMeters===undefined)state.mana![by].current-=1;
     if(thrown&&selectedWeapon){
       const slot=source as "MAIN_HAND"|"OFF_HAND";

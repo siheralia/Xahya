@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 const source = readFileSync(new URL("../lib/stats/effective.ts", import.meta.url), "utf8");
 
 test("basic statistics use additive factor stacking", () => {
-  assert.match(source, /itemFactors,\.\.\.perkFactors\]\.reduce\(\(sum:number,factor:number\)=>sum\+factor,0\)/);
+  assert.match(source, /const factors=\[\.\.\.itemFactors,\.\.\.perkFactors,\.\.\.passiveFactors\]/);
+  assert.match(source, /factors\.reduce\(\(sum:number,factor:number\)=>sum\+factor,0\)/);
 });
 
 test("derived statistics accumulate factors before applying once", () => {

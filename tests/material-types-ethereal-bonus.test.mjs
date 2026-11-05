@@ -89,7 +89,7 @@ test("unarmed punches and basic magic cannot borrow a wood weapon's target bonus
 });
 
 test("no hardcoded 100 cap and complete CRUD for type catalog",()=>{
- const migration=source("supabase/migrations/20261105163500_material_types_scaling_and_etherial_perk.sql");
+ const migration=source("supabase/migrations/20261105174642_material_types_scaling_and_etherial_perk_20261105163500.sql");
  assert.match(migration,/material_hardness_check/);
  assert.match(migration,/1000000/);
  assert.match(migration,/100, hardness=100/);

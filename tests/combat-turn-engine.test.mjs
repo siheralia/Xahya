@@ -158,7 +158,7 @@ test("combat tick speed can be configured without changing real AGI",()=>{
 
 
 test("weapon attack speed modifiers never penalize fists, kicks or magic",()=>{
- const enemy=fighter("Target",50,{positionMeters:1.5});
+ const enemy=fighter("Target",50,{positionMeters:0.5});
  const run=(actor,command,range)=>{
   const s=newCombatState(actor,enemy);
   s.mana={PLAYER:{current:10,max:10},NPC:{current:10,max:10}};

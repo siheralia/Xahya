@@ -175,7 +175,7 @@ export function progressTrainingNpc(
         ?plan.attackArea?.shape==="SELF_FIELD"?{}
          :plan.usesMagic||plan.attackArea
           ?{areaCenter:{x:0.4+0.2*cap(random(),0,0.999999),y:0.4+0.2*cap(random(),0,0.999999)},
-            ...(plan.attackArea?.shape==="STRIP"?{areaAngleDegrees:Math.floor(cap(random(),0,0.999999)*360)}:{})}
+            ...(["STRIP","CONE","SWEEP"].includes(String(plan.attackArea?.shape))?{areaAngleDegrees:Math.floor(cap(random(),0,0.999999)*360)}:{})}
           :{trajectory:npcAttackTrajectory(random,physicalAttackStart(next,"NPC",source)),attackSource:source}
         :{};
       next=applyResolvedCombatSkill(next,"NPC",plan,{

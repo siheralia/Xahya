@@ -17,7 +17,7 @@ const ACTIVE_ATTACK_CATALOG = [
   { key: "magicAttack", code: "MAG_ATK", kind: "derived", active: true },
 ];
 
-function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, agility: 20, constitution: 20, intelligence: 20, wisdom: 20, charisma: 20, spirit: 20, luck: 20 }, modifiers = [], items = [], owned = [], perks = [], assigned = [], derived = {}, mechanicFactors = {} } = {}) {
+function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, agility: 20, constitution: 20, intelligence: 20, wisdom: 20, charisma: 20, spirit: 20, luck: 20 }, modifiers = [], items = [], owned = [], perks = [], assigned = [], skills = [], combat = false, derived = {}, mechanicFactors = {} } = {}) {
   const tables = {
     CharacterStat: [{ characterId: 1, ...legacy }],
     CharacterStatValue: [],
@@ -26,6 +26,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
     Item: items,
     CharacterPerk: assigned,
     Perk: perks,
+    Skill: skills,
   };
   const source = { orm: { public: Object.fromEntries(Object.entries(tables).map(([name, rows]) => [name, {
     where: (criteria) => ({
@@ -37,7 +38,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
   const dependencies = {
     "@/lib/db": { db: source },
     "@/lib/stats/dynamic": { readStatisticsCatalog: async () => catalog, CORE_BASIC_STAT_KEYS: new Set(["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"]) },
-    "@/lib/stats/engine": { calculateConfiguredDerivedStats: async (base) => ({ maxHp: 100, maxMana: 100, physicalAttack: base.strength, magicAttack: 50, ...derived }) },
+    "@/lib/stats/engine": { calculateConfiguredDerivedStats: async (base) => ({ maxHp: 100, maxMana: 100, physicalAttack: base.strength, magicAttack: 50, dodge: base.agility + 5, ...derived }) },
     "@/lib/stats/derived": { applyDerivedItemEffects: (base, effects) => {
       const result = { ...base };
       for (const effect of effects) {
@@ -55,7 +56,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
     if (!(id in dependencies)) throw new Error("Unexpected import: " + id);
     return dependencies[id];
   }, Date, Set, Number, Object, Array, String });
-  return moduleExports.getEffectiveCharacterStats(1, source);
+  return combat ? moduleExports.getEffectiveCombatCharacterStats(1, source) : moduleExports.getEffectiveCharacterStats(1, source);
 }
 
 test("karma and equipped item bonuses are each applied once", async () => {
@@ -152,4 +153,85 @@ test("mechanical statuses modify effective basic stats and derived attack inputs
  assert.equal(value.effectiveStats.strength,80);
  assert.equal(value.effectiveStats.agility,30);
  assert.equal(value.derived.physicalAttack,80);
+});
+
+
+const COMBAT_STATS_CATALOG=[
+  ...ACTIVE_ATTACK_CATALOG,
+  {key:"dodge",code:"DODGE",kind:"derived",active:true},
+];
+
+test("Capoeira #37 grants exactly ×1.5 Esquiva in a combat snapshot, not the character sheet",async()=>{
+ const skill={id:37,characterId:1,name:"Capoeira",category:"PASSIVE",status:"APPROVED",
+   condition:"Mientras esté en combate",mechanics:{family:"CAPOEIRA"},
+   effect:[{type:"STAT_MULTIPLIER",target:"DODGE",value:150}]};
+ const options={catalog:COMBAT_STATS_CATALOG,skills:[skill],derived:{dodge:14.5}};
+ const regular=await resolver(options);
+ const combat=await resolver({...options,combat:true});
+ assert.equal(regular.derived.dodge,14.5);
+ assert.equal(combat.derived.dodge,21.75);
+ assert.equal(combat.derivedStatMultipliers.dodge,1.5);
+ assert.equal(combat.effectiveStats.agility,20);
+});
+
+test("approved passive ×1.5 AGI is applied before derived statistics and combat speed",async()=>{
+ const skill={id:401,characterId:1,name:"Reflejos rápidos",category:"PASSIVE",status:"APPROVED",
+   effect:[{type:"STAT_MULTIPLIER",target:"AGI",value:150}]};
+ const regular=await resolver({skills:[skill],legacy:{strength:100,agility:11,constitution:20,intelligence:20,wisdom:20,charisma:20,spirit:20,luck:20}});
+ const combat=await resolver({skills:[skill],combat:true,
+   legacy:{strength:100,agility:11,constitution:20,intelligence:20,wisdom:20,charisma:20,spirit:20,luck:20}});
+ assert.equal(regular.effectiveStats.agility,11);
+ assert.equal(combat.effectiveStats.agility,16.5);
+ assert.equal(combat.derived.dodge,21.5);
+ assert.equal(Math.ceil(1000/regular.effectiveStats.agility),91);
+ assert.equal(Math.ceil(1000/combat.effectiveStats.agility),61);
+ const duelRoute=fs.readFileSync(path.join(__dirname,"../app/api/combat/duels/route.ts"),"utf8");
+ assert.match(duelRoute,/getEffectiveCombatCharacterStats\(characterId\)/);
+ assert.match(duelRoute,/getEffectiveCombatCharacterStats\(opponentId\)/);
+ assert.match(duelRoute,/player\.speedValue=numeric\(first\.effectiveStats\[mechanics\.combatSpeed\]/);
+});
+
+test("combat passive stat effects stack additively with equipment and perks and never duplicate a skill id",async()=>{
+ const skills=[
+  {id:11,status:"APPROVED",category:"PASSIVE",effect:[{type:"STAT_MULTIPLIER",target:"STR",value:150}]},
+  {id:11,status:"APPROVED",category:"PASSIVE",effect:[{type:"STAT_MULTIPLIER",target:"STR",value:150}]},
+ ];
+ const stats=await resolver({skills,combat:true,items:[{id:1,effects:[{type:"stat_multiplier",stat:"STR",value:2}]}],
+  owned:[{characterId:1,itemId:1,equipped:true}]});
+ assert.equal(stats.effectiveStats.strength,350,"×2 + ×1.5 = ×3.5");
+ assert.equal(stats.derived.physicalAttack,350);
+});
+
+test("pending, unsupported conditional, advanced and perk-granted passives cannot silently apply",async()=>{
+ const skills=[
+  {id:1,status:"PENDING",category:"PASSIVE",effect:[{type:"STAT_MULTIPLIER",target:"DODGE",value:200}]},
+  {id:2,status:"APPROVED",category:"OFFENSIVE",effect:[{type:"STAT_MULTIPLIER",target:"DODGE",value:200}]},
+  {id:3,status:"APPROVED",category:"PASSIVE",condition:"Solo mientras esté lloviendo",effect:[{type:"STAT_MULTIPLIER",target:"DODGE",value:200}]},
+  {id:4,status:"APPROVED",category:"PASSIVE",mechanics:{activationConditions:[{kind:"STATUS",status:"X"}]},effect:[{type:"STAT_MULTIPLIER",target:"DODGE",value:200}]},
+  {id:5,status:"APPROVED",category:"PASSIVE",effectRequirements:[{type:"UNKNOWN"}],effect:[{type:"STAT_MULTIPLIER",target:"DODGE",value:200}]},
+  {id:6,status:"APPROVED",category:"PASSIVE",grantedByRacePerkId:12,effect:[{type:"STAT_MULTIPLIER",target:"DODGE",value:200}]},
+  {id:7,status:"APPROVED",category:"PASSIVE",effect:[{type:"STAT_MULTIPLIER",target:"DODGE",value:Infinity}]},
+  {id:8,status:"APPROVED",category:"PASSIVE",effect:[{type:"STAT_MULTIPLIER",target:"UNKNOWN",value:200}]},
+  {id:9,status:"APPROVED",category:"PASSIVE",requiredSkillIds:[999],effect:[{type:"STAT_MULTIPLIER",target:"DODGE",value:200}]},
+ ];
+ const stats=await resolver({catalog:COMBAT_STATS_CATALOG,skills,combat:true,derived:{dodge:14.5}});
+ assert.equal(stats.derived.dodge,14.5);
+});
+
+test("combat-only static race-skill numeric bonuses count once; inactive derived targets stay disabled",async()=>{
+ const skill={id:19,status:"APPROVED",category:"PASSIVE",grantedByRaceSkillId:3,
+  effect:[{type:"STAT_BONUS",target:"DODGE",value:5},{type:"STAT_BONUS",target:"STR",value:10}]};
+ const stats=await resolver({catalog:COMBAT_STATS_CATALOG,skills:[skill],combat:true,derived:{dodge:14.5}});
+ assert.equal(stats.derived.dodge,19.5);
+ assert.equal(stats.effectiveStats.strength,110);
+ const inactive=await resolver({catalog:COMBAT_STATS_CATALOG.map(s=>s.key==="dodge"?{...s,active:false}:s),
+  skills:[skill],combat:true,derived:{dodge:14.5}});
+ assert.equal(inactive.derived.dodge,14.5,"disabled derived stats are not secretly buffed");
+ assert.equal(inactive.effectiveStats.strength,110);
+});
+
+test("combat karma boost delta reuses passive-aware stat snapshot",()=>{
+ const actions=fs.readFileSync(path.join(__dirname,"../app/api/combat/[id]/actions/route.ts"),"utf8");
+ assert.match(actions,/getEffectiveCombatCharacterStats\(characterId,tx\)/);
+ assert.match(actions,/derivedStatMultipliers\[key\]/);
 });

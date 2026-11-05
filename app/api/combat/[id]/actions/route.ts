@@ -14,7 +14,7 @@ import { compileCombatSkill } from "@/lib/combat/skill-casting";
 import {readModularCutover} from "@/lib/effects/modular-cutover-registry";
 import {attachedCreationPassive} from "@/lib/combat/constructs";
 import {validateKarmaBoostAllocation} from "@/lib/combat/karma-boost";
-import {getEffectiveCharacterStats} from "@/lib/stats/effective";
+import {getEffectiveCombatCharacterStats} from "@/lib/stats/effective";
 import {calculateConfiguredDerivedStats} from "@/lib/stats/engine";
 import {readStatisticsCatalog,CORE_BASIC_STAT_KEYS} from "@/lib/stats/dynamic";
 import {readMechanics} from "@/lib/stats/mechanics";
@@ -103,7 +103,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
           const allowed=new Set([...CORE_BASIC_STAT_KEYS].filter(key=>!catalog.some(entry=>entry.key===key&&entry.active===false)));
           for(const entry of catalog)if(entry.kind==="basic"&&entry.active!==false)allowed.add(entry.key);
           const {allocation,cost}=validateKarmaBoostAllocation(command.allocation,allowed);
-          const calculated=await getEffectiveCharacterStats(characterId,tx);
+          const calculated=await getEffectiveCombatCharacterStats(characterId,tx);
           if(!calculated)throw new Error("No hay estadísticas para aumentar.");
           const prior=state.karmaBoosts?.[side]??{};
           const beforeBase={...calculated.effectiveStats};
@@ -115,6 +115,12 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
             calculateConfiguredDerivedStats(afterBase as any,tx),
             readMechanics(tx),
           ]);
+          // Scale reactive karma deltas with already-active passive multipliers,
+          // without granting flat passives repeatedly on each boost.
+          const derivedScale=(key:string)=>{
+            const factor=calculated.derivedStatMultipliers[key]??1;
+            return Number.isFinite(factor)?factor:1;
+          };
           const deltas:Record<string,number>={};
           for(const key of ["strength","agility","constitution","luck"]){
             const diff=(afterBase[key]??0)-(beforeBase[key]??0);
@@ -122,18 +128,18 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
           }
           for(const key of ["physicalAttack","magicAttack","physicalDefense","magicDefense",
             "precision","dodge","critical","race","maxHp"]){
-            const delta=Number(after[key]??0)-Number(before[key]??0);
+            const delta=(Number(after[key]??0)-Number(before[key]??0))*derivedScale(key);
             if(!Number.isFinite(delta))throw new Error("La estadística derivada no es válida: "+key);
             if(delta)deltas[key]=delta;
           }
-          const maxManaDelta=Number(after.maxMana??0)-Number(before.maxMana??0);
+          const maxManaDelta=(Number(after.maxMana??0)-Number(before.maxMana??0))*derivedScale("maxMana");
           if(!Number.isFinite(maxManaDelta))throw new Error("Maná derivado inválido.");
           if(maxManaDelta)deltas.manaMax=maxManaDelta;
           const speedKey=settings.combatSpeed;
           const oldSpeed=beforeBase[speedKey]??before[speedKey];
           const newSpeed=afterBase[speedKey]??after[speedKey];
           if(Number.isFinite(oldSpeed)&&Number.isFinite(newSpeed)&&newSpeed!==oldSpeed)
-            deltas.speedValue=newSpeed-oldSpeed;
+            deltas.speedValue=(newSpeed-oldSpeed)*(speedKey in beforeBase?1:derivedScale(speedKey));
           const request=db.raw.sql`UPDATE public."characterResource"
              SET karma=karma-${cost} WHERE "characterId"=${characterId} AND karma>=${cost}`
              .affectedCount().build();

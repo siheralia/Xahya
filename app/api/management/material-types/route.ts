@@ -6,6 +6,7 @@ import {validateMaterialTypeDraft} from "@/lib/items/material-types";
 
 const Types=()=> (db.orm.public as any).MaterialType;
 export async function GET(){
+ try{
  const user=await authorizedMaterialUser("view");
  if(!user)return NextResponse.json({error:"Sin permiso para consultar tipos."},{status:403});
  const types=await Types().all();
@@ -13,7 +14,13 @@ export async function GET(){
   authorizedMaterialUser(action as "create"|"edit"|"delete")));
  return NextResponse.json({types:types.sort((a:any,b:any)=>String(a.name).localeCompare(String(b.name),"es")),
   capabilities:{create:Boolean(create),edit:Boolean(edit),delete:Boolean(remove)}});
+ }catch(error){
+  console.error("[management/material-types] GET",error);
+  return NextResponse.json({error:"No se pudieron consultar los tipos de material. Inténtalo de nuevo."},
+   {status:500,headers:{"Cache-Control":"no-store"}});
+ }
 }
+
 export async function POST(req:Request){
  const user=await authorizedMaterialUser("create");
  if(!user)return NextResponse.json({error:"Sin permiso para crear tipos."},{status:403});

@@ -1,5 +1,6 @@
 import type { CombatState, Point } from "./turn-engine.ts";
 import {COMBAT_NARRATIVE_VERSION,narrateCombat} from "./narration.ts";
+import {isOrientedCombatArea} from "./skill-area.ts";
 
 /** Phase-1 abstract aiming arena: independently projected from the 1D distance system. */
 export const BASIC_MAGIC_AREA_RADIUS = 0.14;
@@ -53,8 +54,8 @@ export function combatClientView(state:CombatState):CombatState {
  // The complete chronology belongs to the server until it is converted into
  // the final chronicle. Do not send an ever-growing private history on each poll.
  delete clone.narrativeHistory;
- // Keep an oriented strip direction private until the attack is resolved.
- if(clone.pending?.attackArea?.shape==="STRIP")delete clone.pending.areaAngleDegrees;
+ // Keep every oriented area direction private until the defense is resolved.
+ if(isOrientedCombatArea(clone.pending?.attackArea))delete clone.pending.areaAngleDegrees;
  // Encounter micro definitions, stored charges and event replay tokens belong
  // exclusively to the server. Never reveal opponent-private accumulator values.
  delete clone.microEffects;

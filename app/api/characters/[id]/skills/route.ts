@@ -8,7 +8,6 @@ import {parseSkillArea} from "@/lib/skills/area-of-effect";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { applyCooldownPch, isConfiguredCooldown } from "@/lib/skills/cooldown";
 import { validateSkillParameters } from "@/lib/effects/skill-conditions";
-import { isPassiveConditionMissing, PASSIVE_CONDITION_REQUIRED_MESSAGE } from "@/lib/skills/passive-condition";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -59,7 +58,6 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (body.duration && !/^(Instantánea|No termina|[1-9]\\d* turnos?)$/.test(String(body.duration))) return "Duración inválida.";
   if (body.speed && !["DEFAULT","Instantánea","1 turno","2 turnos","3 turnos","No requiere"].includes(String(body.speed))) return "Velocidad inválida.";
   if (body.cooldown && !isConfiguredCooldown(body.cooldown)) return "Cooldown inválido.";
-  if (isPassiveConditionMissing(category, body.condition)) return PASSIVE_CONDITION_REQUIRED_MESSAGE;
   if (effect.length > 20) return "Una habilidad no puede tener más de 20 efectos.";
   const moduleError=validateComposedSkillList(effect,"PLAYER");
   if(moduleError)return moduleError;

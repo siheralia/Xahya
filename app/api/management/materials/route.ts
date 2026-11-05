@@ -24,6 +24,12 @@ export async function POST(req:Request){
   const draft=validateMaterialDraft(await req.json().catch(()=>null));
   const exists=await Material().where({name:draft.name}).first();
   if(exists)return NextResponse.json({error:"Ya existe un material con ese nombre."},{status:409});
+  const type=await (db.orm.public as any).MaterialType.where({code:draft.type,active:true}).first();
+  if(!type)return NextResponse.json({error:"Selecciona un tipo de material activo."},{status:400});
+  if(draft.bonusAgainstPerkId!==null){
+   const perk=await db.orm.public.Perk.where({id:draft.bonusAgainstPerkId,active:true}).first();
+   if(!perk)return NextResponse.json({error:"La perk objetivo no existe o está inactiva."},{status:400});
+  }
   const material=await Material().create(draft);
   await recordAuditEvent({actorUserId:Number(user.id),action:"MATERIAL_CREATE",
    entityType:"MATERIAL",entityId:Number(material.id),details:draft});

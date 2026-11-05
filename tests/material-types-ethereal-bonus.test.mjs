@@ -23,7 +23,7 @@ function battle(targetPerks=[],weapon=sword){
   fighter("Defensor",12,1,{speedValue:70,perkIds:targetPerks}),"PLAYER");
  const launched=applyCombatCommand(state,"PLAYER",{
    kind:"ATTACK",attackType:"PIERCE",attackSource:"MAIN_HAND",
-   trajectory:[{x:0.1,y:0.5},{x:0.9,y:0.5}],
+   trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}],
  },dice);
  assert.ok(launched.pending,"weapon strike awaits the defender");
  return {launched,done:applyCombatCommand(launched,"NPC",{kind:"DEFEND",defense:"NONE"},dice)};
@@ -72,18 +72,18 @@ test("material bonus is perk-based, not race-based, and never affects unrelated 
 
 test("unarmed punches and basic magic cannot borrow a wood weapon's target bonus",()=>{
  const state=newCombatState(fighter("Atacante",11,0,{equippedWeapon:sword}),
-   fighter("Etereo",12,1,{speedValue:70,perkIds:[16]}),"PLAYER");
+   fighter("Etereo",12,0.5,{speedValue:70,perkIds:[16]}),"PLAYER");
  const launched=applyCombatCommand(state,"PLAYER",{
   kind:"ATTACK",attackType:"BLUNT",attackSource:"FIST_RIGHT",
-  trajectory:[{x:0.1,y:0.5},{x:0.9,y:0.5}],
+  trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}],
  },dice);
  assert.equal(launched.pending.materialPerkBonus,undefined);
  const magic=newCombatState(fighter("Mago",11,0,{equippedWeapon:sword}),
-  fighter("Etereo",12,1,{speedValue:70,perkIds:[16]}),"PLAYER");
+  fighter("Etereo",12,0.5,{speedValue:70,perkIds:[16]}),"PLAYER");
  magic.mana={PLAYER:{current:5,max:5},NPC:{current:5,max:5}};
  const cast=applyCombatCommand(magic,"PLAYER",{
   kind:"ATTACK",attackType:"PIERCE",usesMagic:true,
-  trajectory:[{x:.1,y:.5},{x:.9,y:.5}],areaCenter:{x:.5,y:.5},
+  trajectory:[{x:.1,y:.5},{x:.5,y:.5}],areaCenter:{x:.5,y:.5},
  },dice);
  assert.equal(cast.pending.materialPerkBonus,undefined);
 });

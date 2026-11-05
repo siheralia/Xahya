@@ -4,6 +4,7 @@ import Link from "next/link";
 import ManagementModal from "../_components/ManagementModal";
 import {type MaterialDraft} from "@/lib/items/materials";
 import type {MaterialTypeRow} from "@/lib/items/material-types";
+import {parseCatalogResponse} from "@/lib/items/catalog-response";
 
 type Material=MaterialDraft&{id:number;createdAt?:string};
 type Capabilities={create:boolean;edit:boolean;delete:boolean};
@@ -41,6 +42,7 @@ export default function MaterialsManagementPage(){
  const [filter,setFilter]=useState("");
  const [typeFilter,setTypeFilter]=useState("ALL");
  const [loading,setLoading]=useState(true);
+ const [loadFailed,setLoadFailed]=useState(false);
  const [saving,setSaving]=useState(false);
  const [message,setMessage]=useState("");
  const [error,setError]=useState("");
@@ -48,14 +50,20 @@ export default function MaterialsManagementPage(){
  const [selected,setSelected]=useState<number|null>(null);
  const [form,setForm]=useState<MaterialDraft>(empty);
  async function load(){
-  setLoading(true);
+  setLoading(true);setLoadFailed(false);
   try{
    const response=await fetch("/api/management/materials",{cache:"no-store"});
-   const result=await response.json();
-   if(!response.ok)throw new Error(result.error??"No se pudo consultar los materiales.");
-   setMaterials(result.materials??[]);setTypes(result.types??[]);setPerks(result.perks??[]);
+   const result=await parseCatalogResponse<{materials:Material[];types:MaterialTypeRow[];
+    perks:{id:number;name:string}[];capabilities:Capabilities}>(response,"los materiales");
+   if(!Array.isArray(result.materials)||!Array.isArray(result.types)||!Array.isArray(result.perks))
+    throw new Error("El catálogo de materiales devolvió datos incompletos.");
+   setMaterials(result.materials);setTypes(result.types);setPerks(result.perks);
    setCapabilities(result.capabilities??{create:false,edit:false,delete:false});
-  }catch(e){setError(e instanceof Error?e.message:"No se pudo consultar el catálogo.");}
+   setError("");
+  }catch(e){
+   setLoadFailed(true);
+   setError(e instanceof Error?e.message:"No se pudo consultar el catálogo.");
+  }
   finally{setLoading(false);}
  }
  useEffect(()=>{void load();},[]);
@@ -81,8 +89,7 @@ export default function MaterialsManagementPage(){
    const url=selected?"/api/management/materials/"+selected:"/api/management/materials";
    const response=await fetch(url,{method:selected?"PATCH":"POST",
     headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});
-   const result=await response.json();
-   if(!response.ok)throw new Error(result.error??"No se pudo guardar.");
+   await parseCatalogResponse(response,"el material");
    setModal(false);await load();setMessage(selected?"Material actualizado.":"Material creado.");
   }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");}
   finally{setSaving(false);}
@@ -93,8 +100,7 @@ export default function MaterialsManagementPage(){
   setSaving(true);setError("");setMessage("");
   try{
    const response=await fetch("/api/management/materials/"+selected,{method:"DELETE"});
-   const result=await response.json();
-   if(!response.ok)throw new Error(result.error??"No se pudo eliminar el material.");
+   await parseCatalogResponse(response,"el material");
    setModal(false);await load();setMessage("Material eliminado. Los objetos vinculados conservan su existencia.");
   }catch(e){setError(e instanceof Error?e.message:"No se pudo eliminar.");}
   finally{setSaving(false);}
@@ -124,8 +130,10 @@ export default function MaterialsManagementPage(){
      <option value="ALL">Todos los tipos</option>{types.map(x=><option key={x.code} value={x.code}>{x.name}</option>)}
     </select>
    </div>
-   <p className="mt-3 text-xs text-zinc-500">{visible.length} materiales de {materials.length}</p>
+   {!loading&&!loadFailed&&<p className="mt-3 text-xs text-zinc-500">{visible.length} materiales de {materials.length}</p>}
    {loading?<p className="mt-8 text-zinc-400">Consultando materiales…</p>:
+    loadFailed?<button type="button" onClick={()=>void load()}
+     className="mt-4 rounded-lg border border-cyan-500/50 px-4 py-2 text-cyan-300">Volver a intentar</button>:
     <div className="mt-4 grid gap-3 md:grid-cols-2">
      {visible.map(material=><article key={material.id} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
       <div className="flex items-start justify-between gap-3">

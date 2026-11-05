@@ -114,7 +114,7 @@ export default function CombatSkillLoadout({
         {skill.skillKind==="OFFENSE"&&(skill.attackArea?.shape==="CIRCLE"||skill.attackArea?.shape==="STRIP")&&<button type="button"
           onClick={()=>onPrepareArea(skill)}
           className="rounded-lg border border-violet-400 px-4 py-2 text-sm text-violet-200">
-          {skill.attackArea.shape==="STRIP"?`Preparar franja de ${skill.attackArea.lengthMeters} × ${skill.attackArea.widthMeters} m`:`Preparar círculo de ${skill.attackArea.radiusMeters} m de radio`}
+          {skill.attackArea.shape==="STRIP"?`Preparar franja de ${skill.attackArea.lengthMeters} × ${skill.attackArea.widthMeters} m`:`Preparar área circular de ${skill.attackArea.radiusMeters} m de radio`}
          </button>}
         <button type="button" disabled={blocked}
          onClick={()=>onCast(skill)}

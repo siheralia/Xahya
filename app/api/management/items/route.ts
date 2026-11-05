@@ -6,6 +6,7 @@ import { EQUIPMENT_SLOTS } from "@/lib/equipment";
 import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { hasRolePermission, canManageItemOrigin } from "@/lib/role-permissions";
+import {selectedMaterialId} from "@/lib/items/materials";
 
 const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","PROPERTY","OTHER"] as const;
 const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","SYSTEM","OTHER"] as const;
@@ -39,7 +40,7 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   const effects = Array.isArray(body.effects) ? body.effects : [];
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : [];
   const propertyBusinessId = body.propertyBusinessId === "" || body.propertyBusinessId == null ? null : Number(body.propertyBusinessId);
-  const systemActions = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL", "IMPROVE_SKILL"];
+  const systemActions = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL", "IMPROVE_SKILL", "HEAL_HP", "RESTORE_MANA"];
   if (!name || name.length > 100) return "El nombre debe tener entre 1 y 100 caracteres.";
   if (!ITEM_TYPES.includes(itemType as any)) return "Tipo de objeto inválido.";
   if (attackType !== null && (!ATTACK_TYPES.includes(attackType as any) || itemType !== "WEAPON")) return "Tipo de ataque físico inválido.";
@@ -94,11 +95,20 @@ export async function POST(request: Request) {
   const allowedSlots = Array.isArray(body.allowedSlots) ? body.allowedSlots.map(String) : [];
   const propertyBusinessId = body.propertyBusinessId === "" || body.propertyBusinessId == null ? null : Number(body.propertyBusinessId);
   const attackType = body.attackType == null || body.attackType === "" ? null : String(body.attackType);
+  let materialId:number|null;
+  try{materialId=selectedMaterialId(body.materialId);}catch(e){
+   return NextResponse.json({error:e instanceof Error?e.message:"Material inválido."},{status:400});
+  }
+  if(materialId!==null){
+   const material=await (db.orm.public as any).Material.where({id:materialId,active:true}).first();
+   if(!material)return NextResponse.json({error:"El material seleccionado no existe o está inactivo."},{status:400});
+  }
   const item = await Item.create({
     name: body.name.trim(),
     description: typeof body.description === "string" ? body.description.trim() || null : null,
     itemType: String(body.itemType),
     itemSubtype: typeof body.itemSubtype === "string" ? body.itemSubtype.trim() || null : null,
+    materialId,
     attackType: String(body.itemType) === "WEAPON" ? attackType : null,
     weaponMode:String(body.weaponMode??"MELEE"),
     effectiveRangeMeters:Number(body.effectiveRangeMeters??1.5),

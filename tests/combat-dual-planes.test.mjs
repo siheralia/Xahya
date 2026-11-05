@@ -100,7 +100,12 @@ test("moving plus reaction costs 2 AP, preserves the pending defense contest",()
   kind:"DEFEND",defense:"BLOCK",planarMove:{x:0,y:.5},weaponSlot:"MAIN_HAND"
  },dice);
  assert.equal(remainingAp(outcome.actors.NPC),before-2);
- assert.deepEqual(fieldPosition(outcome.actors.NPC),{x:1.2,y:.5});
+ const stepEvent=outcome.log.find(x=>x.kind==="POSITION"&&x.by==="NPC");
+ assert.ok(stepEvent);
+ assert.deepEqual(stepEvent.fieldPosition,{x:1.2,y:.5},
+  "the voluntary 1/2m reaction step occurs before attack resolution");
+ assert.ok(fieldPosition(outcome.actors.NPC).x>=1.2,
+  "the defender may also suffer a separate post-hit knockback");
  assert.equal(outcome.pending,null);
  assert.ok(outcome.log.some(x=>x.kind==="POSITION"&&x.by==="NPC"));
  assert.throws(()=>applyCombatCommand(launched,"NPC",{

@@ -579,7 +579,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const attacker = state.actors[pending.by];
     let defense = command.defense;
     if(pending.attackArea&&defense==="DEFLECT")
-      throw new Error("Los ataques de área no se pueden desviar con una guardia lineal.");
+      throw new Error("Los ataques circulares, las franjas, los conos y los barridos de área no se pueden desviar con una guardia lineal.");
     if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(defense))
       throw new Error("Para la explosión mágica básica puedes esquivar, levantar un campo mágico, resistir o no reaccionar.");
     if (!pending.usesMagic && defense === "MAGIC_FIELD")

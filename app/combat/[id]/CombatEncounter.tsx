@@ -555,22 +555,33 @@ export default function CombatEncounter({id}:{id:string}) {
       <h2 className="text-xs font-bold text-rose-200 sm:text-base">Plano vertical · altura</h2>
       {panel==="construction"&&canCreateObjects
        ?<p className="text-[10px] text-zinc-400 sm:text-xs">Selecciona la altura del objeto.</p>
-       :defending?<div className="flex flex-wrap gap-1" role="group" aria-label="Controles de reacción vertical">
-        {(["BLOCK","DEFLECT","DODGE"] as const).map(choice=><button key={choice} type="button"
-         onClick={()=>setDefense(choice)}
-         disabled={pending?.usesMagic&&choice!=="DODGE"||Boolean(pending?.attackArea)&&choice==="DEFLECT"}
-         className={"rounded border px-2 py-1 text-[10px] sm:text-xs "+(selectedDefense===choice?"border-amber-400 text-amber-200":"border-zinc-700")}>
-         {choice==="BLOCK"?"Bloquear":choice==="DEFLECT"?"Desviar":"Esquivar"}</button>)}
-        </div>
-       :<div className="flex flex-wrap gap-1" role="group" aria-label="Controles de ataque vertical">
-        <button type="button" onClick={()=>chooseAttackMode("MAIN_HAND")}
-         className="rounded border border-rose-500/50 px-2 py-1 text-[10px] sm:text-xs">Arma</button>
-        <button type="button" onClick={()=>{setAttackMode("PHYSICAL");setAttackSource("FIST_RIGHT");}}
-         className="rounded border border-rose-500/50 px-2 py-1 text-[10px] sm:text-xs">Puño</button>
-        <button type="button" onClick={()=>{setAttackMode("PHYSICAL");setAttackSource("KICK");}}
-         className="rounded border border-rose-500/50 px-2 py-1 text-[10px] sm:text-xs">Patada</button>
-        <button type="button" onClick={()=>chooseAttackMode("MAGIC_AREA")}
-         className="rounded border border-violet-500/50 px-2 py-1 text-[10px] sm:text-xs">Magia</button>
+       :defending?<div className="flex gap-1" role="group" aria-label="Controles de reacción vertical">
+        {(["BLOCK","DEFLECT","DODGE"] as const).map(choice=>{
+         const Icon=defenseIcons[choice];
+         return <button key={choice} type="button" title={options.find(o=>o.value===choice)?.label}
+          aria-label={options.find(o=>o.value===choice)?.label} aria-pressed={selectedDefense===choice}
+          onClick={()=>setDefense(choice)}
+          disabled={pending?.usesMagic&&choice!=="DODGE"||Boolean(pending?.attackArea)&&choice==="DEFLECT"}
+          className={"flex size-9 items-center justify-center rounded-md border disabled:opacity-30 "+
+           (selectedDefense===choice?"border-amber-400 text-amber-200":"border-zinc-700")}>
+          <Icon size={18}/></button>;
+        })}
+       </div>
+       :<div className="flex gap-1" role="group" aria-label="Controles de ataque vertical">
+        {([
+         {label:"Arma",Icon:Swords,active:attackMode==="PHYSICAL"&&["MAIN_HAND","OFF_HAND"].includes(activeAttackSource),
+          onClick:()=>chooseAttackMode("MAIN_HAND")},
+         {label:"Puño",Icon:Hand,active:attackMode==="PHYSICAL"&&["FIST_RIGHT","FIST_LEFT"].includes(activeAttackSource),
+          onClick:()=>{setAttackMode("PHYSICAL");setAttackSource("FIST_RIGHT");}},
+         {label:"Patada",Icon:Footprints,active:attackMode==="PHYSICAL"&&activeAttackSource==="KICK",
+          onClick:()=>{setAttackMode("PHYSICAL");setAttackSource("KICK");}},
+         {label:"Magia",Icon:WandSparkles,active:attackMode==="MAGIC_AREA",
+          onClick:()=>chooseAttackMode("MAGIC_AREA")},
+        ]).map(({label,Icon,active,onClick})=><button type="button" key={label}
+         title={label} aria-label={label} aria-pressed={active} onClick={onClick}
+         className={"flex size-9 items-center justify-center rounded-md border "+
+          (active?"border-rose-300 bg-rose-950/40 text-rose-100":"border-rose-500/50 text-rose-300")}>
+         <Icon size={18}/></button>)}
        </div>}
       {panel==="construction"&&canCreateObjects
        ?<><CombatVerticalActionPlane mode="CONSTRUCTION" height={constructionHeightMeters}

@@ -9,7 +9,7 @@ import { executeMicroEvent, emptyMicroState, validateEffectContainers, type Effe
 import {calculateModularVariableResistance} from "../effects/legacy-modular-shadow.ts";
 import {validateConstructionPlacement,resolveConstructionForm,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
-import {attackAreaHits,validateStripAngle,type CombatAttackArea} from "./skill-area.ts";
+import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,type CombatAttackArea} from "./skill-area.ts";
 
 export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
@@ -38,9 +38,9 @@ export type PendingAttack = {
   targetCenter?: Point;
   /** Coarse, public four-cell telegraph; never reveals the exact impact point. */
   areaHint?: string;
-  /** Server-derived configured circle. Undefined keeps historic targeting. */
+  /** Server-derived configured area. Undefined keeps historic targeting. */
   attackArea?:CombatAttackArea;
-  /** Private until resolved for an oriented rectangular strike. */
+  /** Private until resolved for rectangular strips, cones and annular sweeps. */
   areaAngleDegrees?:number;
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
@@ -579,7 +579,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const attacker = state.actors[pending.by];
     let defense = command.defense;
     if(pending.attackArea&&defense==="DEFLECT")
-      throw new Error("Los ataques circulares o en franjas no se pueden desviar con una guardia lineal.");
+      throw new Error("Los ataques de área no se pueden desviar con una guardia lineal.");
     if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(defense))
       throw new Error("Para la explosión mágica básica puedes esquivar, levantar un campo mágico, resistir o no reaccionar.");
     if (!pending.usesMagic && defense === "MAGIC_FIELD")
@@ -761,7 +761,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       skillId:pending.skill?.id,
       areaCenter:pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD")?pending.targetCenter:undefined,
       attackArea:pending.attackArea,
-      areaAngleDegrees:pending.attackArea?.shape==="STRIP"?pending.areaAngleDegrees:undefined,
+      areaAngleDegrees:isOrientedCombatArea(pending.attackArea)?pending.areaAngleDegrees:undefined,
       rangedPhysical:pending.rangedPhysical,
       predictedCenter:(pending.usesMagic&&defense==="DODGE"||pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"&&defense==="DODGE"||pending.rangedPhysical&&["DODGE","DEFLECT"].includes(defense))?command.predictedCenter:undefined,
       predictionMatched:validArenaPoint(pending.targetCenter)&&validArenaPoint(command.predictedCenter)?Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=(pending.rangedPhysical?0.09:0.19):undefined,
@@ -775,6 +775,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         :pending.attackArea?.shape==="STRIP"
           ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
             " con su franja de "+pending.attackArea.lengthMeters+" × "+pending.attackArea.widthMeters+" m ("+damage+" HP)"
+        :pending.attackArea?.shape==="CONE"
+          ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
+            " con su cono de "+pending.attackArea.radiusMeters+" m y apertura "+pending.attackArea.openingDegrees+"° ("+damage+" HP)"
+        :pending.attackArea?.shape==="SWEEP"
+          ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
+            " con su barrido en arco de "+pending.attackArea.innerRadiusMeters+" a "+pending.attackArea.outerRadiusMeters+" m ("+damage+" HP)"
         :pending.attackArea
           ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
             " con su ataque circular de "+pending.attackArea.radiusMeters+" m de radio ("+damage+" HP)"
@@ -900,8 +906,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     if ((magic||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")) && !validArenaPoint(command.areaCenter))
       throw new Error("Marca el centro del ataque de área en el lienzo.");
-    if(serverSkillArea?.shape==="STRIP")validateStripAngle(command.areaAngleDegrees);
-    else if(command.areaAngleDegrees!==undefined)throw new Error("Dirección de franja no permitida para este ataque.");
+    if(isOrientedCombatArea(serverSkillArea))validateAreaDirection(command.areaAngleDegrees);
+    else if(command.areaAngleDegrees!==undefined)throw new Error("Dirección angular no permitida para este ataque.");
     if (Math.abs(fighter.positionMeters-rival.positionMeters)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown,source))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance máximo del ataque.");
     const distanceAtLaunch=Math.abs(fighter.positionMeters-rival.positionMeters);
@@ -943,7 +949,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
       targetCenter:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?command.areaCenter:undefined,
       areaHint:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?magicImpactZone(command.areaCenter!):undefined,
-      attackArea:serverSkillArea,areaAngleDegrees:serverSkillArea?.shape==="STRIP"?command.areaAngleDegrees:undefined};
+      attackArea:serverSkillArea,areaAngleDegrees:isOrientedCombatArea(serverSkillArea)?command.areaAngleDegrees:undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,attackSource:source,
@@ -952,6 +958,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       summary:serverSkillArea?.shape==="SELF_FIELD"
         ?fighter.name+" ejecutó un barrido a su alrededor (alcance "+serverSkillArea.radiusMeters+" m); esperando reacción"
         :serverSkillArea?.shape==="STRIP"?fighter.name+" lanzó una franja de "+serverSkillArea.lengthMeters+" × "+serverSkillArea.widthMeters+" m; esperando reacción"
+        :serverSkillArea?.shape==="CONE"?fighter.name+" lanzó un cono de "+serverSkillArea.radiusMeters+" m y apertura "+serverSkillArea.openingDegrees+"°; esperando reacción"
+        :serverSkillArea?.shape==="SWEEP"?fighter.name+" lanzó un barrido en arco de "+serverSkillArea.innerRadiusMeters+" a "+serverSkillArea.outerRadiusMeters+" m; esperando reacción"
         :serverSkillArea?fighter.name+" lanzó un ataque circular de "+serverSkillArea.radiusMeters+" m de radio; esperando reacción"
         :magic?fighter.name+" lanzó magia de "+labels[command.attackType]+"; esperando reacción"
         :ranged?fighter.name+" lanzó "+(thrown?"el arma ("+selectedWeapon?.name+") de ":"un proyectil físico de ")+labels[command.attackType]+"; esperando reacción"
@@ -999,7 +1007,7 @@ export function applyResolvedCombatSkill(
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
    trajectory:selfField?undefined:aim.trajectory,
    areaCenter:selfField?undefined:aim.areaCenter,
-   areaAngleDegrees:plan.attackArea?.shape==="STRIP"?aim.areaAngleDegrees:undefined,
+   areaAngleDegrees:isOrientedCombatArea(plan.attackArea)?aim.areaAngleDegrees:undefined,
    attackSource:selfField?"KICK":aim.attackSource,
    targetConstructionId:selfField?undefined:aim.targetConstructionId,
   },rolls,plan.rangeMeters,{

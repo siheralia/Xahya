@@ -5,6 +5,7 @@ import {SharedEffectsEditor} from "@/components/effects/SharedEffectsEditor";
 import { useEffect, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
 import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
+import {MATERIAL_TYPES} from "@/lib/items/materials";
 
 type Effect = { type: string; stat: string; action?: string; value: number; description: string; element?: string };
 type Item = {
@@ -49,6 +50,7 @@ export default function ItemsManagementPage() {
   const [businesses,setBusinesses]=useState<{id:number;name:string}[]>([]);
   const [materials,setMaterials]=useState<{id:number;name:string;type:string;active:boolean}[]>([]);
   const materialName=(id:number|null|undefined)=>materials.find(m=>m.id===id)?.name??"Sin definir";
+  const materialTypeName=(type:string)=>MATERIAL_TYPES.find(m=>m.value===type)?.label??type;
   const [selected,setSelected]=useState<number|null>(null);
   const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",materialId:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[emptyEffect()],allowedSlots:defaultSlots});
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
@@ -172,7 +174,7 @@ export default function ItemsManagementPage() {
               aria-label="Material del objeto" className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
               <option value="">Sin definir</option>
               {materials.filter(m=>m.active||String(m.id)===form.materialId).map(material=>
-               <option key={material.id} value={String(material.id)}>{material.name} · {material.type}{material.active?"":" (inactivo)"}</option>)}
+               <option key={material.id} value={String(material.id)}>{material.name} · {materialTypeName(material.type)}{material.active?"":" (inactivo)"}</option>)}
              </select>
              <span className="mt-1 block text-xs text-zinc-500">Los materiales se crean en Gestión de materiales. Sus bonos aún no afectan las estadísticas.</span>
             </label>

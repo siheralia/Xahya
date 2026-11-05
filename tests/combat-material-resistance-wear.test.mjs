@@ -107,6 +107,31 @@ test("block cannot use a nonexistent hand; an unrelated reaction never wears any
  assert.equal(ended.actors.NPC.equippedWeapon.durability,99);
 });
 
+test("older ongoing encounters retain already lost integrity on first action",()=>{
+ const defender=fighter("Defensor",2,1,{
+  equippedWeapon:weapon("Arma anterior",160,100,510),
+  weaponIntegrity:55,
+ });
+ const attacker=fighter("Atacante",1,0,{equippedWeapon:weapon("Estoque",100)});
+ const previousState=newCombatState(attacker,defender);
+ // Before this change the persisted JSON held one shared gauge, while the
+ // weapon snapshot still contained its original durability.
+ delete previousState.perHandWeaponDurability;
+ const launched=applyCombatCommand(previousState,"PLAYER",{
+  kind:"ATTACK",attackType:"PIERCE",attackSource:"MAIN_HAND",
+  trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}],
+ },rolls);
+ assert.equal(launched.actors.NPC.equippedWeapon.durability,55);
+ assert.equal(launched.perHandWeaponDurability,true);
+ const defended=applyCombatCommand(launched,"NPC",{
+  kind:"DEFEND",defense:"BLOCK",weaponSlot:"MAIN_HAND",
+ },rolls);
+ assert.equal(defended.actors.NPC.equippedWeapon.durability,48,
+  "legacy 55 durability minus 7 from mithril's 160 resistance");
+ assert.equal(previousState.actors.NPC.equippedWeapon.durability,100,
+  "old persisted snapshot was not mutated");
+});
+
 test("persistent route, snapshot and combat UI are connected to material and each weapon",()=>{
  const source=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
  const start=source("app/api/combat/duels/route.ts");

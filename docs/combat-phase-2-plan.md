@@ -1,3 +1,68 @@
+# Xahya — estado vigente del combate y roadmap de fase 2
+
+**Corte de auditoría:** 4 de noviembre de 2026 (hora de Xahya).  
+**Rama consultada:** `main`. **Documento de referencia operativo:** este archivo; el plan antiguo se conserva al final como histórico y no prevalece sobre esta sección.
+
+## Producción y PR
+
+- PR #124 fusionada (commit `55fd635fdd7e374247d56587f9b59c95c05109d8`), superada por nuevas integraciones.
+- PR #125–#138: **todas fusionadas**, incluido #128 (círculos), #131 (Meia-lua), #132 (copias modulares), #135 (React Flow), #137 (pasivas narrativas) y #138 (guía en español).
+- La PR #140 también está **fusionada** en `main`, commit `60e2ab9abcc95b797cf8394a7b5c10e567fc24b4`: los modificadores de ticks de armas no penalizan patadas/puños/magia, y las pasivas estadísticas aprobadas contribuyen a los valores efectivos del encuentro sin alterar la ficha.
+- PR #141: franjas rectangulares orientables **fusionadas en `main`** en `383188bd8c221b6f9b2dac070f5116016bb9a9fb`. Su presencia en producción debe verificarse contra la versión desplegada, no inferirse de la fusión.
+- La última comprobación previa a fusionar #141 encontró `xahya.vercel.app` en Vercel **READY de producción** con `60e2ab9` (PR #140). Después, #141 fue integrada en `main` (commit `383188b`), pero la publicación de ese commit exige una verificación propia del alias. Las vistas previas de PR no son producción.
+- Hay PR abiertas ajenas a este avance, entre ellas #114 de investigación PCH. Una PR abierta no equivale a funcionalidad integrada.
+- Fuente de verdad: estado real de las PR, código de `main`, tests y despliegues, no las descripciones históricas de los PR.
+
+## Invariantes de diseño
+
+1. **100 ticks por turno**; PA por Constitución (base del motor: `9 + CON`); iniciativa, acciones y reacciones consumen sus presupuestos reales.
+2. Daño, alcance, velocidad, elemento, duración, maná y cooldown provienen de la habilidad aprobada. **No debilitar el daño del jugador para compensar un NPC frágil.**
+3. Las fuentes físicas (mano principal, secundaria, puños, patada) preservan su trayectoria por fuente; el lanzador y el oponente tienen sus reglas de geometría verificadas por el servidor. Desde #140 los modificadores de velocidad por tipo de arma aplican **solo a ataques que realmente utilizan esa arma equipada**, no a patadas, golpes desarmados ni magia; los efectos estadísticos de pasivas aprobadas pueden modificar la instantánea de combate.
+4. HP, maná y boosts de combate son **exclusivos del encuentro**: una derrota no reduce permanentemente los HP/maná de la ficha. El karma gastado **sí se descuenta persistentemente**. La persistencia individual de durabilidad de armas y consumo de objetos sigue pendiente.
+5. Las acciones se autorizan en servidor y las peticiones repetidas no deben cobrar una segunda vez.
+6. Las habilidades declarativas o narrativas **no son automáticamente ejecutables**. La representación en React Flow y la paridad numérica no acreditan un resolutor completo ni una migración final.
+7. Mantener operativos mini boost de karma (2 karma → +1 estadística base por 1 PA), Sikatā y sus bloques con resistencia variable, fotoconstrucciones del resolutor existente, espejos, HUD plegable y crónica de combate.
+
+## Estado por prioridad
+
+| Área | Estado | Entregado y comprobable en main | Lo que todavía falta |
+| --- | --- | --- | --- |
+| **1. NPC de entrenamiento** | **Primer incremento integrado; ampliaciones pendientes** | #125: perfiles Básico, Intermedio, Avanzado, Resistencia y Agresivo; raza activa, perks raciales, 3 perks generales extra, hasta 3 habilidades públicas compatibles; las decisiones se fijan por encuentro. #126 corrige filtrado de extras, #130 aplica modificadores de daño de perks. El perfil Resistencia multiplica HP del NPC en vez de reducir daño de jugadores. | Configurar por separado HP/estadísticas/estrategia a nivel de encuentro; tácticas defensivas más sofisticadas y simulaciones largas de balance. No asumir que el NPC ejecuta cualquier habilidad del catálogo. |
+| **2. Ataques de área** | **Parcial** | #128: círculos de radio 0,1–10 m para ataques físicos y mágicos, objetivo geométrico, pista de región, defensa y contacto con espejos; selector normalizado. #131: `SELF_FIELD` físico de Meia-lua centrado en usuario, con alcance y reacción. #141: franjas rectangulares de dimensiones 0,1–10 m con orientación configurable de 0–359°, daño geométrico y revelación posterior a la defensa. | Conos, líneas emitidas desde un origen 2D real, barridos configurables por apertura angular, efectos parciales, colisiones de otras construcciones y daño a múltiples combatientes. Las franjas de #141 ya están en `main`. La arena local 10×10 m todavía **no** es un campo general de movimiento 2D multiobjetivo. |
+| **3. Inventario persistente** | **Pendiente** | Existe `weaponIntegrity` en el estado de combate; se aplica desgaste de bloqueo en memoria de encuentro. Las armas ya conservan IDs de inventario cuando corresponde. | Durabilidad **por ejemplar** guardada en BD, consumo de objetos, devolución idempotente de armas arrojadas, reconciliación transaccional al concluir y migraciones compatibles. No confundir desgaste temporal con persistencia. |
+| **4. Resolutor general de efectos** | **Parcial, avance considerable** | #129: micromódulos y aprobación con reserva PCH provisional. #132: proyección de 63 definiciones en copias virtuales, paridad numérica y adaptadores compatibles. #135–#136: editor React Flow con conexiones reales, cálculo/lecturas, `MODULAR_FIRST`, fallback y opción administrativa de rollback. #137: condición narrativa de pasivas ya no obligatoria. | Ejecución universal de grafos condición → acción; combinaciones, mantenimiento, acumulación, colisiones, desplazamiento forzado, estados y acciones narrativas sin resolutor; migración completa sin fallback. La copia virtual **no** crea otra habilidad aprobada. La investigación del PCH definitivo permanece separada. |
+| **5. Estados alterados** | **Parcial en infraestructura; familias pendientes** | Existen bonos temporales, registros por ronda y mecanismos reutilizables de condiciones/almacenamiento. | Veneno, sangrado, quemaduras, resistencias e inmunidades específicas; acumulación, expiración, limpieza y consecuencias mecánicas completas. Sin daño permanente a la ficha. |
+| **6. Robustez y pruebas** | **Parcial** | Pruebas de regresión para escenarios #46 (perks), #47 (Meia-lua), #49 (esquiva/ticks). #127 corrige origen y alcance de espejos. #133 evita falsa validación de esquiva sin presupuesto, sin conceder defensa gratuita. #134 visibiliza ticks en HUD. #138 introduce guía de habilidades y etiquetas en español. #140 corrige penalizaciones de tiempo de arma para ataques desarmados/Meia-lua y aplica pasivas estadísticas aprobadas al inicio del encuentro. | Desconexión con impactos pendientes, reconexión durante mantenimiento, ataques combinados, múltiples construcciones, PvP complejo, resistencia a duplicación de solicitudes, auditoría y pruebas móviles integrales. |
+
+## Próximo incremento recomendado — geometría ofensiva sin romper lo existente
+
+**Orden:** con las franjas orientables ya fusionadas en #141, ampliar a conos y barridos con apertura angular en otra PR; continuar con inventario persistente y ejecución de grafos modulares. La prioridad NPC inicial ya se cumplió; no repetir #125.
+
+1. Partir de `lib/skills/area-of-effect.ts`, `lib/combat/skill-area.ts`, `lib/combat/skill-casting.ts`, `lib/combat/turn-engine.ts`, el lienzo de `app/combat/[id]/` y sus pruebas. Preservar `CIRCLE`, `SELF_FIELD`, objetivo único y legados.
+2. Definir contrato **tipado** para la siguiente forma (línea/franja o cono), con alcance, dimensiones (ancho o apertura), origen/dirección y validación del servidor. No interpretar descripciones libres como formas ejecutables.
+3. Resolver explícitamente el origen y dirección en 2D: actualmente el lienzo es una **proyección local**, no contiene posiciones espaciales completas de ambos actores. No fingir una posición de usuario que el motor no registra. Si el contrato necesita una posición nueva, introducirla de forma compatible con encuentros antiguos antes de usarla para daño.
+4. Mantener idempotencia, consumo de maná/PA/ticks, cooldown, visibilidad del área real solo después de la defensa y reacciones individuales pagadas. No trasladar gratis la esquiva circular a nuevas geometrías.
+5. Verificar impacto/acierto y fallo por posición; intersección con espejos/bloques; límite de alcance; redacción del registro; UI móvil; compatibilidad con habilidades existentes. Probar PvP/NPC y objetivos múltiples **solo cuando realmente estén representados**.
+6. No declarar «multiobjetivo completado» mientras `CombatState` solo tenga `PLAYER` y `NPC`.
+
+## Después de las áreas
+
+**Inventario transaccional:** inspeccionar primero esquema/filas de Supabase y relación entre personajes, equipamiento e IDs de objeto. Separar la integridad de cada ejemplar de su tipo; deduplicar consumo/retorno mediante IDs de solicitud y una operación atómica. Nunca liquidar daño a HP/maná persistentes.
+
+**Resolutor modular:** extender primero capacidades mecánicas reales del grafo y sus eventos, con tests de paridad y rollback; luego estados alterados, barreras, acumulación/mantenimiento y desplazamiento. Mantener separados PCH provisional de autoría e investigación de coste definitivo.
+
+**Fases posteriores (no iniciadas como parte de este roadmap):** más combatientes por encuentro, IA táctica avanzada, campo espacial común, integración con laberinto/terreno, balance y PvP ampliado. Solo después de estabilizar resolutor e inventario.
+
+## Procedimiento obligatorio
+
+Para cada incremento: inspeccionar `main` y PR abiertas → diagnosticar lo que falta → reutilizar motor/catálogos → crear rama → implementar y añadir regresión → ejecutar `npm test`, validación TypeScript/Next.js y revisar CI → validar preview de Vercel → abrir PR → **no fusionar hasta que la usuaria indique «Fusiona»**. No modificar esquema Supabase sin inspección previa ni presentar preview como producción.
+
+---
+
+## Apéndice histórico — plan anterior (NO vigente)
+
+> Los estados y las órdenes de trabajo a partir de este punto se conservan solo para trazabilidad. Cuando contradigan el estado vigente de arriba o el código de `main`, **prevalecen el código y el roadmap actual**.
+
 # Combate de Xahya — fase 2: habilidades y recursos
 
 ## Estado de la fase 2 — 3 noviembre 2026 (PR #125, sin fusionar)

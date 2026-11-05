@@ -67,7 +67,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {wrap("Área de efecto","areaOfEffect",<div className="space-y-2">
       <select value={areaState.kind} aria-label="Tipo de área de la habilidad"
         onChange={e=>set("areaOfEffect",formatSkillArea(e.target.value as Exclude<typeof areaState.kind,"LEGACY">,
-         e.target.value==="CIRCLE"?areaState.radiusMeters:undefined))}
+         e.target.value==="CIRCLE"?areaState.radiusMeters:e.target.value==="STRIP"?{lengthMeters:areaState.lengthMeters,widthMeters:areaState.widthMeters}:undefined))}
         className={cls}>
         {SKILL_AREA_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
         {areaState.kind==="LEGACY"&&<option value="LEGACY" disabled>Descripción anterior (pendiente de clasificar)</option>}
@@ -82,6 +82,21 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
          className={cls}/>
        <span className="mt-1 block text-zinc-500">El radio es distinto del alcance de lanzamiento. En el combate se representa sobre un lienzo local de 10 × 10 m.</span>
       </label>}
+      {areaState.kind==="STRIP"&&<div className="grid gap-2 sm:grid-cols-2">
+       {(["lengthMeters","widthMeters"] as const).map(key=><label key={key} className="block text-xs text-zinc-300">
+        {key==="lengthMeters"?"Largo de la franja (m)":"Ancho de la franja (m)"}
+        <input type="number" min={0.1} max={10} step={0.1}
+         aria-label={key==="lengthMeters"?"Largo de la franja en metros":"Ancho de la franja en metros"}
+         value={areaState[key]}
+         onChange={e=>{
+          const n=Number(e.target.value);
+          const next={lengthMeters:areaState.lengthMeters,widthMeters:areaState.widthMeters,[key]:n};
+          if(Number.isFinite(n)&&n>=0.1&&n<=10&&next.widthMeters<=next.lengthMeters)
+           set("areaOfEffect",formatSkillArea("STRIP",next));
+         }} className={cls}/>
+       </label>)}
+       <p className="sm:col-span-2 text-xs text-zinc-500">La franja se centra donde apuntes. Su orientación se elige al lanzarla; el alcance máximo se configura aparte.</p>
+      </div>}
       {areaState.kind==="LEGACY"&&<p className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-2 text-xs text-amber-200">
        Área antigua: «{areaState.legacyValue}». Se conserva sin alterar hasta que selecciones una categoría normalizada. No se interpretará como círculo automáticamente.
       </p>}

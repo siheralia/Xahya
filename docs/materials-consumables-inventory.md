@@ -8,15 +8,18 @@ y el inventario. No se crea un catálogo de objetos paralelo.
 ### Materiales
 
 - `public.material`: nombres únicos, tipos **madera, metal, mineral, líquido, planta, hueso, piel y tela**.
-- Parámetros configurables: dureza, resistencia física, resistencia mágica (0 a 100),
-  peso por unidad en kg (opcional), referencia de ataque/defensa, descripción,
+- Parámetros configurables: dureza, resistencia física y resistencia mágica (0 a 1.000.000 de máximo técnico;
+  el acero 100 es la referencia, no el máximo), peso por unidad en kg, bonos de ataque/defensa,
   efecto especial y formas natural/mínima/bruta/comercial, reacción a fuego, rayo y hielo.
+  La gestión de tipos es dinámica (`/management/material-types`).
 - `item.materialId` es **nullable**, con etiqueta visible «Sin definir». Los
   138 objetos existentes inicialmente siguen sin material; no se les inventa uno.
   Si se elimina un material, los objetos permanecen, con `materialId = NULL`.
-- Se precargan 16 materiales de las imágenes compartidas. La ventaja contra espíritus
-  de tres maderas se almacena como descripción, **no** se suma al ataque. Durezas,
-  pesos, defensas y bonos desconocidos quedan sin especificar o en cero.
+- Se precargaron 16 materiales. Hierro 80, acero 100, wootz 120, acero oscuro 140 y mitrilo 160
+  son valores configurables de resistencia física y dureza. Fresno, tejo y roble
+  otorgan un bono de ataque físico +20 **con armas de esa madera** contra objetivos
+  que tengan la perk `Cuerpo ethereo` (sin condición racial).
+  Los valores desconocidos no se infieren.
 - `/management/materials` y API de gestión autorizada, con campos en español.
   `management.materials` se agrega al catálogo de permisos; mientras los roles
   se actualizan, quienes tengan permisos de `management.items` conservan acceso
@@ -51,10 +54,31 @@ Se añade `characterItem.durability` (0–100, por instancia/copia). Las armas
 equipadas cargan ese estado al empezar el duelo y la **pérdida existente al
 bloquear** se escribe en la tabla real, dentro de la transacción del combate.
 Se usa `LEAST` para evitar que un encuentro paralelo restaure una durabilidad
-más baja. No hay aún reparaciones, deterioro pasivo por golpes, desgaste
-diferenciado por material ni nuevas fórmulas de balance. Los efectos de ataque
-y defensa procedentes del material **no** se aplican sin una fase específica
-de precios y equilibrio.
+más baja. El desgaste por **bloquear con un arma** usa ahora la resistencia física
+de su material, sin cambiar los HP ni la probabilidad de bloquear:
+
+```text
+base = max(1, ceil(potencia_del_ataque / 8))
+resistencia = material.resistenciaFisica si es >0; en otro caso 100
+desgaste = max(1, ceil(base * 100 / resistencia))
+durabilidadFinal = max(0, durabilidadAnterior - desgaste)
+```
+
+Por ejemplo, desgaste base 10: hierro (80) gasta 13, acero (100) gasta 10
+y mitrilo (160) gasta 7. La resistencia 0 o un material sin definir
+se consideran neutros (100) para no dividir entre cero y no volver
+invencible al arma. La durabilidad sigue de 0 a 100.
+El servidor lee el material cuando se crea el encuentro; el valor queda
+en el arma de esa sesión hasta el siguiente encuentro.
+Cada mano puede tener una resistencia diferente: el jugador selecciona
+el arma que bloquea, y solamente esa copia pierde durabilidad.
+El descuento se escribe en el inventario real dentro de la transacción
+bloqueada; las sesiones antiguas importan su desgaste acumulado previo.
+
+Por ahora no hay reparaciones, desgaste por atacar, deterioro según dureza
+ni un modificador de daño/defensa derivado de la resistencia física o mágica.
+El bono específico de arma contra una perk sí es mecánico; los bonos generales
+de ataque y defensa siguen pendientes de una fórmula.
 
 ## Migración requerida y seguridad
 

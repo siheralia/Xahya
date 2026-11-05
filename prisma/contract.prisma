@@ -212,7 +212,7 @@ model Material {
   name               String @unique
   type               String
   description        String?
-  weightPerUnitKg    Decimal?
+  weightPerUnitKg    Float?
   hardness           Int @default(0)
   physicalResistance Int @default(0)
   magicResistance    Int @default(0)

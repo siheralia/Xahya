@@ -21,6 +21,14 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
   const draft=validateMaterialDraft(await req.json().catch(()=>null));
   const nameUsed=await Material().where({name:draft.name}).first();
   if(nameUsed&&Number(nameUsed.id)!==id)return NextResponse.json({error:"Ya existe otro material con este nombre."},{status:409});
+  const type=await (db.orm.public as any).MaterialType.where({code:draft.type}).first();
+  if(!type || (!type.active&&draft.type!==existing.type))
+   return NextResponse.json({error:"El tipo seleccionado no existe o está inactivo."},{status:400});
+  if(draft.bonusAgainstPerkId!==null){
+   const perk=await db.orm.public.Perk.where({id:draft.bonusAgainstPerkId}).first();
+   if(!perk || (!perk.active&&draft.bonusAgainstPerkId!==existing.bonusAgainstPerkId))
+    return NextResponse.json({error:"La perk seleccionada no existe o está inactiva."},{status:400});
+  }
   const material=await Material().where({id}).update(draft);
   await recordAuditEvent({actorUserId:Number(user.id),action:"MATERIAL_UPDATE",
    entityType:"MATERIAL",entityId:id,details:{before:existing,after:material}});

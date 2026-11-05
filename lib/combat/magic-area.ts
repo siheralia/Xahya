@@ -56,6 +56,8 @@ export function combatClientView(state:CombatState):CombatState {
  delete clone.narrativeHistory;
  // Keep every oriented area direction private until the defense is resolved.
  if(isOrientedCombatArea(clone.pending?.attackArea))delete clone.pending.areaAngleDegrees;
+ // Pending attack material modifiers are resolved on the server.
+ if(clone.pending)delete clone.pending.materialPerkBonus;
  // Encounter micro definitions, stored charges and event replay tokens belong
  // exclusively to the server. Never reveal opponent-private accumulator values.
  delete clone.microEffects;

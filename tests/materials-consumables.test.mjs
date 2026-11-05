@@ -47,8 +47,11 @@ test("material validation supports all reference categories and optional values"
  assert.equal(itemMaterialLabel(null),"Sin definir");
  assert.throws(()=>selectedMaterialId("abc"),/Material/);
  for(const bad of [0,-1,1.25])assert.throws(()=>selectedMaterialId(bad),/Material/);
- assert.throws(()=>validateMaterialDraft({name:"X",type:"UNKNOWN"}),/tipo/);
- assert.throws(()=>validateMaterialDraft({name:"M",type:"METAL",hardness:110}),/Dureza/);
+ assert.throws(()=>validateMaterialDraft({name:"X",type:"invalid type"}),/tipo/);
+ assert.equal(validateMaterialDraft({name:"Cristal",type:"CRYSTAL",physicalResistance:250}).physicalResistance,250,
+  "new catalog types and high-grade resistance are accepted");
+ assert.equal(validateMaterialDraft({name:"M",type:"METAL",hardness:160}).hardness,160);
+ assert.throws(()=>validateMaterialDraft({name:"M",type:"METAL",hardness:1000001}),/Dureza/);
  assert.throws(()=>validateMaterialDraft({name:"M",type:"METAL",weightPerUnitKg:-3}),/peso/);
 });
 

@@ -207,10 +207,28 @@ model AuditLog {
   @@index([characterId])
 }
 
+model MaterialType {
+  code              String @id
+  name              String @unique
+  obtaining         String?
+  naturalForm       String?
+  minimumForm       String?
+  rawForm           String?
+  marketForm        String?
+  fireReaction      String?
+  lightningReaction String?
+  iceReaction       String?
+  active            Boolean @default(true)
+  createdAt         DateTime @default(now())
+  materials         Material[]
+  @@map("materialType")
+}
+
 model Material {
   id                 Int @id @default(autoincrement())
   name               String @unique
   type               String
+  materialType       MaterialType @relation(fields:[type],references:[code],onDelete:Restrict,onUpdate:Restrict)
   description        String?
   weightPerUnitKg    Float?
   hardness           Int @default(0)
@@ -219,6 +237,9 @@ model Material {
   attackGrant        Int @default(0)
   defenseGrant       Int @default(0)
   specialEffect      String?
+  bonusAgainstPerkId Int?
+  bonusAgainstPerkAttack Int @default(0)
+  bonusAgainstPerk    Perk? @relation(fields:[bonusAgainstPerkId],references:[id],onDelete:SetNull)
   naturalForm        String?
   minimumForm        String?
   rawForm            String?
@@ -441,6 +462,7 @@ model Perk {
   createdAt   DateTime  @default(now())
   characterPerks CharacterPerk[]
   racePerks RacePerk[]
+  materials Material[]
 }
 
 model Race {

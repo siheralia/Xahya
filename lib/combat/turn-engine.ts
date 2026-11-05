@@ -16,7 +16,10 @@ export type Side = "PLAYER" | "NPC";
 export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
 export type Point = { x: number; y: number };
 export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FIST_LEFT" | "KICK";
-export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number;characterItemId?:number;durability?:number};
+export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number;characterItemId?:number;durability?:number;
+  /** From the server-selected item's material, not supplied by an attacker. */
+  materialPerkBonus?:{perkId:number;attackBonus:number};
+};
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
   agility: number; speedValue?: number; strength: number; constitution: number; precision: number;
@@ -27,7 +30,7 @@ export type CombatFighter = {
   equippedWeapon?: CombatWeapon;
   offhandWeapon?: CombatWeapon;
   defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
-  magicFieldDescription?: string | null; damageTakenFactors?:DamageTakenFactors; weaponIntegrity: number;
+  magicFieldDescription?: string | null; damageTakenFactors?:DamageTakenFactors; perkIds?:number[]; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
 };
 export type PendingAttack = {
@@ -35,6 +38,7 @@ export type PendingAttack = {
   trajectory: Point[]; launchedAtTick: number; usesMagic: boolean;
   rangedPhysical?: boolean; thrownWeapon?:boolean; beyondEffectiveRange?:boolean;
   attackSource?: PhysicalAttackSource;
+  materialPerkBonus?:{perkId:number;attackBonus:number};
   /** Hidden from client while pending; attacker-selected basic magic blast. */
   targetCenter?: Point;
   /** Coarse, public four-cell telegraph; never reveals the exact impact point. */
@@ -52,6 +56,7 @@ export type CombatLog = {
   damage?: number; critical?: boolean; contact?: boolean;
   /** The amount prevented specifically by the physical/magical defense stat. */
   mitigatedByResistance?:number;
+  materialAttackBonus?:number;
   knockbackMeters?: number; weaponIntegrity?: number; defense?: DefenseChoice;
   attackType?: CombatAttackType; rangedPhysical?: boolean; predictionMatched?: boolean;
   attackSource?: PhysicalAttackSource;
@@ -642,7 +647,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       mana.current-=1;
     }
     if (defense !== "NONE") spend(fighter, turnTicks(fighter));
-    const power = pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack;
+    const materialAttackBonus=!pending.usesMagic&&pending.materialPerkBonus&&
+      fighter.perkIds?.includes(pending.materialPerkBonus.perkId)
+        ?pending.materialPerkBonus.attackBonus:0;
+    const power = pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack+materialAttackBonus;
     const baseProtection = pending.usesMagic ? fighter.magicDefense : fighter.physicalDefense;
     const protection = baseProtection * microResistanceMultiplier(state,by);
     // The magical field uses its own basic RPS type from the character sheet;
@@ -804,6 +812,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       mitigatedByResistance,contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
       constructionId:pending.mirrorId,mirrorShot:Boolean(pending.mirrorId),
       mirrorOrigin:pending.mirrorId&&validArenaPoint(pending.trajectory[0])?{...pending.trajectory[0]}:undefined,
+      materialAttackBonus:materialAttackBonus||undefined,
       skillId:pending.skill?.id,
       areaCenter:pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD")?pending.targetCenter:undefined,
       attackArea:pending.attackArea,
@@ -996,7 +1005,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
       targetCenter:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?command.areaCenter:undefined,
       areaHint:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?magicImpactZone(command.areaCenter!):undefined,
-      attackArea:serverSkillArea,areaAngleDegrees:isOrientedCombatArea(serverSkillArea)?command.areaAngleDegrees:undefined};
+      attackArea:serverSkillArea,areaAngleDegrees:isOrientedCombatArea(serverSkillArea)?command.areaAngleDegrees:undefined,
+      materialPerkBonus:weaponStrike?selectedWeapon?.materialPerkBonus:undefined};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,attackSource:source,

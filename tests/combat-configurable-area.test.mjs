@@ -263,3 +263,28 @@ test("combat UI offers a one-tap self-centered sweep, not a circular placement",
  assert.match(page,/skill\.attackArea\?\.shape==="SELF_FIELD"\?undefined/);
  assert.match(page,/pending\.attackArea\?\.shape==="SELF_FIELD"/);
 });
+
+
+test("encounter 55 regression: Meia-lua costs 91 ticks and leaves a paid reaction possible",()=>{
+ const state=nearbyEncounter();
+ state.actors.PLAYER.speedValue=11;
+ const plan=compileCombatSkill(meiaLua);
+ let s=applyResolvedCombatSkill(state,"PLAYER",plan,
+  {requestId:"meia-lua-speed-55-001"},dice);
+ assert.equal(s.actors.PLAYER.spentTicks,91,
+  "neutral action: ceil(1000 / 11), no blunt weapon surcharge");
+ assert.equal(100-s.actors.PLAYER.spentTicks,9);
+ assert.equal(s.actors.PLAYER.spentAp,1);
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ s=applyCombatCommand(s,"NPC",{
+  kind:"ATTACK",attackType:"PIERCE",usesMagic:true,areaCenter:{x:.5,y:.5}
+ },dice);
+ assert.equal(s.pending.against,"PLAYER");
+ s=applyCombatCommand(s,"PLAYER",{
+  kind:"DEFEND",defense:"DODGE",predictedCenter:{x:.5,y:.5},
+ },{...dice,hit:0.99});
+ assert.equal(s.log.at(-1).defense,"DODGE",
+  "a slow fighter can spend the last ticks reacting after a kick");
+ assert.equal(s.actors.PLAYER.spentTicks,100);
+ assert.equal(s.actors.PLAYER.spentAp,2);
+});

@@ -62,7 +62,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
     {effectEditor && <div className="sm:col-span-2">{effectEditor}</div>}
     {wrap("Maná por uso","cost",number("cost"))}
     {wrap("Duración","duration",select("duration",durations.map(x=>[x,x] as const)))}
-    {wrap("Tiempo de espera entre usos","cooldown",<><select value={form.cooldown} onChange={e=>set("cooldown",e.target.value)} className={cls}>{cooldowns.map(c=><option key={c} value={c}>{c}{cooldownDiscountPercent(c,form.duration,form.category)>0?" (−"+cooldownDiscountPercent(c,form.duration,form.category)+"% PCH)":""}</option>)}</select>{form.cooldown==="Igual a duración" && cooldownDiscountPercent(form.cooldown,form.duration,form.category)===0 && <span className="mt-1 block text-xs text-amber-300">La duración no es finita en turnos, por lo que no aplica descuento.</span>}</>)}
+    {wrap("Tiempo de espera entre usos","cooldown",<><select value={form.cooldown} onChange={e=>set("cooldown",e.target.value)} className={cls}>{cooldowns.map(c=><option key={c} value={c}>{cooldownName(c)}{cooldownDiscountPercent(c,form.duration,form.category)>0?" (−"+cooldownDiscountPercent(c,form.duration,form.category)+"% PCH)":""}</option>)}</select>{form.cooldown==="Igual a duración" && cooldownDiscountPercent(form.cooldown,form.duration,form.category)===0 && <span className="mt-1 block text-xs text-amber-300">La duración no es finita en turnos, por lo que no aplica descuento.</span>}</>)}
     {wrap("Velocidad","speed",select("speed",speeds))}
     {wrap("Área de efecto","areaOfEffect",<div className="space-y-2">
       <select value={areaState.kind} aria-label="Tipo de área de la habilidad"

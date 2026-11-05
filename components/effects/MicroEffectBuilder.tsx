@@ -2,6 +2,7 @@
 
 import type {EffectContainer,MicroStep,MicroCondition,NumericExpr,MicroEvent} from "@/lib/effects/micro-modules";
 import {useState} from "react";
+import {changeNumericReferenceSource,invalidPreviousOutput,selectablePreviousOutputs} from "@/lib/effects/micro-reference-editor";
 import {MicroEffectFlowEditor} from "./MicroEffectFlowEditor";
 import {DEFAULT_VARIABLE_RESISTANCE} from "@/lib/skills/variable-resistance";
 import {MICRO_STEP_LABELS,MICRO_SOURCE_LABELS,MICRO_OPERATOR_LABELS,
@@ -39,8 +40,22 @@ export function freshMicroEffect():EffectContainer{
     type:"COMPOSED",description:"",trigger:"PASSIVE",steps:[defaultStep("MODIFIER")]};
 }
 function NumericEditor({value,onChange,depth=0,outputOptions=[]}:{value:NumericExpr;onChange:(value:NumericExpr)=>void;depth?:number;outputOptions?:string[]}){
+  // Historical and partially edited drafts can contain incomplete values.
+  // Render an editable recovery instead of throwing during React render.
+  if(value===null||value===undefined||(typeof value!=="number"&&(
+    typeof value!=="object"||
+    (!("source" in value)&&!("operator" in value))||
+    ("operator" in value&&!Array.isArray(value.args))
+  ))){
+    return <div className="rounded-lg border border-amber-700 bg-amber-950/20 p-3 text-sm">
+      <p className="text-amber-200">Este valor tiene una referencia incompleta. Puedes corregirlo sin perder el resto de la habilidad.</p>
+      <button type="button" className="mt-2 rounded border border-amber-600 px-3 py-1" onClick={()=>onChange(0)}>Usar número fijo</button>
+    </div>;
+  }
   const kind=typeof value==="number"?"NUMBER":"source" in value?"REFERENCE":"OPERATION";
   const suggested=typeof value!=="number"&&"source" in value?(MICRO_REFERENCE_SUGGESTIONS[value.source]??[]):[];
+  const validOutputs=selectablePreviousOutputs(outputOptions);
+  const invalidOutput=invalidPreviousOutput(value,validOutputs);
   return <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/70 p-2">
     <select aria-label="Tipo de valor" className={field} value={kind} onChange={e=>{
       const v=e.target.value;
@@ -49,18 +64,29 @@ function NumericEditor({value,onChange,depth=0,outputOptions=[]}:{value:NumericE
       <option value="NUMBER">Número fijo</option><option value="REFERENCE">Referencia</option><option value="OPERATION">Operación</option>
     </select>
     {typeof value==="number"?<input aria-label="Número" type="number" step="any" className={field} value={value} onChange={e=>onChange(Number(e.target.value))}/>:
-      "source" in value?<div className="grid grid-cols-2 gap-2">
-        <select aria-label="Origen de referencia" className={field} value={value.source} onChange={e=>onChange({...value,source:e.target.value as typeof value.source})}>
-          {sources.map(source=><option key={source} value={source}>{MICRO_SOURCE_LABELS[source]}</option>)}
+      "source" in value?<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <select aria-label="Origen de referencia" className={field} value={value.source}
+          onChange={e=>{
+            const next=changeNumericReferenceSource(value,e.target.value as typeof value.source,validOutputs);
+            if(next!==null)onChange(next);
+          }}>
+          {sources.map(source=><option key={source} value={source}
+            disabled={source==="OUTPUT"&&validOutputs.length===0&&value.source!=="OUTPUT"}>
+            {MICRO_SOURCE_LABELS[source]}
+          </option>)}
         </select>
-        {value.source==="OUTPUT"&&outputOptions.length>0?
-          <select aria-label="Salida de micromódulo anterior" className={field}
-            value={outputOptions.includes(value.key)?value.key:""}
-            onChange={e=>onChange({...value,key:e.target.value})}>
-            <option value="" disabled>Selecciona salida anterior</option>
-            {outputOptions.map(key=><option key={key} value={key}>{friendlyMicroKey(key)}</option>)}
-          </select>:
-          suggested.length>0?<div className="col-span-full space-y-1">
+        {value.source==="OUTPUT"?
+          validOutputs.length>0?
+            <select aria-label="Salida de micromódulo anterior" className={field}
+              value={validOutputs.includes(value.key)?value.key:""}
+              onChange={e=>onChange({...value,key:e.target.value})}>
+              <option value="" disabled>Selecciona salida anterior</option>
+              {validOutputs.map(key=><option key={key} value={key}>{friendlyMicroKey(key)}</option>)}
+            </select>:
+            <p role="alert" className="rounded-lg border border-amber-700 p-2 text-xs text-amber-200">
+              No existe una salida de un micromódulo anterior. Añade «Leer estadística» o «Valor/cálculo» y colócalo antes de este daño.
+            </p>:
+          suggested.length>0?<div className="space-y-1 sm:col-span-2">
             <select aria-label="Dato disponible" className={field}
               value={suggested.includes(value.key)?value.key:"__CUSTOM__"}
               onChange={e=>onChange({...value,key:e.target.value==="__CUSTOM__"?"":e.target.value})}>
@@ -68,10 +94,17 @@ function NumericEditor({value,onChange,depth=0,outputOptions=[]}:{value:NumericE
               <option value="__CUSTOM__">Otro dato (avanzado)</option>
             </select>
             {!suggested.includes(value.key)&&<input aria-label="Identificador de dato personalizado" pattern={key} className={field}
-              value={value.key} onChange={e=>onChange({...value,key:e.target.value})} placeholder="Identificador interno"/>}
+              value={value.key??""} onChange={e=>onChange({...value,key:e.target.value})} placeholder="Identificador interno"/>}
           </div>:
-          <input aria-label="Identificador del dato" pattern={key} className={field} value={value.key}
+          <input aria-label="Identificador del dato" pattern={key} className={field} value={value.key??""}
             onChange={e=>onChange({...value,key:e.target.value})} placeholder="Nombre interno del dato"/>}
+        {invalidOutput&&<p role="alert" className="text-xs text-amber-200 sm:col-span-2">
+          La salida seleccionada no existe antes de este módulo. Selecciona una salida válida o cambia el origen.
+        </p>}
+        {value.source!=="OUTPUT"&&validOutputs.length===0&&
+          <p className="text-xs text-zinc-400 sm:col-span-2">
+            Para utilizar el resultado de otro módulo, coloca primero uno que genere una salida.
+          </p>}
       </div>:
       <div className="space-y-2">
         <select aria-label="Operación matemática" className={field} value={value.operator} onChange={e=>{
@@ -82,7 +115,7 @@ function NumericEditor({value,onChange,depth=0,outputOptions=[]}:{value:NumericE
         {depth>=4?<p role="note" className="text-xs text-amber-300">Expresión demasiado profunda para esta vista; reduce los niveles.</p>:
           value.args.map((arg,i)=><div key={i} className="space-y-1">
             <span className="text-xs text-zinc-400">Argumento {i+1}</span>
-            <NumericEditor value={arg} depth={depth+1} outputOptions={outputOptions} onChange={next=>onChange({...value,args:value.args.map((x,j)=>j===i?next:x)})}/>
+            <NumericEditor value={arg} depth={depth+1} outputOptions={validOutputs} onChange={next=>onChange({...value,args:value.args.map((x,j)=>j===i?next:x)})}/>
             {!["DIVIDE","SUBTRACT","PERCENT"].includes(value.operator)&&value.args.length>1&&
               <button type="button" className="text-xs text-rose-300" onClick={()=>onChange({...value,args:value.args.filter((_,j)=>j!==i)})}>Quitar argumento</button>}
           </div>)}

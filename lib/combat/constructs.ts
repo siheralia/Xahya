@@ -6,6 +6,10 @@ export type ConstructionPlan={material:string;label:string};
 export type CombatConstruction={
  id:string;owner:Side;sourceSkillId:number;material:string;
  form:ConstructionForm;label:string;center:Point;createdRound:number;
+ /** Horizontal position in metres; optional for encounters created earlier. */
+ fieldPosition?:Point;
+ /** Construction base height above the ground, in metres. */
+ heightMeters?:number;
  /** For mirrors only: longitudinal world coordinate (m) where it was summoned. */
  positionMeters?:number;
  /** A cosmetic construction cannot intercept attacks or affect stats. */

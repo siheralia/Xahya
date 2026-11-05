@@ -4,7 +4,7 @@ import { randomInt } from "node:crypto";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import {
-  applyCombatCommand, applyResolvedCombatSkill, applyResolvedKarmaBoost, canAct, type CombatCommand, type CombatState, type Side,
+  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, applyResolvedKarmaBoost, canAct, type CombatCommand, type CombatState, type Side,
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
@@ -19,6 +19,7 @@ import {calculateConfiguredDerivedStats} from "@/lib/stats/engine";
 import {readStatisticsCatalog,CORE_BASIC_STAT_KEYS} from "@/lib/stats/dynamic";
 import {readMechanics} from "@/lib/stats/mechanics";
 import { meetsEffectRequirements } from "@/lib/skills/effect-requirements";
+import {compileCombatConsumable} from "@/lib/items/combat-consumables";
 
 const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
   critical:randomInt(1_000_000)/1_000_000,defense:randomInt(1_000_000)/1_000_000});
@@ -149,7 +150,38 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
           if(side==="PLAYER"&&next.status==="ACTIVE")
             next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);
         }
-      } else if(command.kind==="CAST_SKILL") {
+       } else if(command.kind==="USE_ITEM") {
+         const itemId=Number(command.itemId),requestId=String(command.requestId??"");
+         if(!Number.isSafeInteger(itemId)||itemId<1)
+           throw new Error("Consumible inválido.");
+         if(state.processedItemRequests?.includes(requestId)){
+           next=state; // Retry never consumes two units or advances the NPC.
+         }else{
+           const stock=(state.consumables?.[side]??[]).find(entry=>entry.itemId===itemId&&entry.quantity>0);
+           if(!stock)throw new Error("Este consumible ya no está disponible.");
+           const Item=(tx.orm.public as any).Item;
+           const row=await Item.where({id:itemId}).first();
+           const recipe=row?compileCombatConsumable(row):null;
+           if(!recipe||recipe.action!==stock.action||recipe.amount!==stock.amount)
+             throw new Error("La definición del consumible ha cambiado. Inicia un nuevo encuentro.");
+           // Pure resolution validates initiative, stock and recovery caps.
+           next=applyResolvedCombatConsumable(state,side,stock,requestId);
+           const characterId=state.actors[side].characterId;
+           if(characterId!==null){
+             if(!stock.characterItemId)throw new Error("Consumible sin vínculo al inventario.");
+             const consume=db.raw.sql`
+               UPDATE public."characterItem" SET quantity=quantity-1
+               WHERE id=${stock.characterItemId} AND "characterId"=${characterId}
+                 AND "itemId"=${itemId} AND quantity>0
+             `.affectedCount().build();
+             if((await tx.execute(consume)).affectedRows!==1)
+               throw new Error("No quedan unidades de esa poción en tu inventario real.");
+             await (tx.orm.public as any).CharacterItem.where({id:stock.characterItemId,quantity:0}).delete();
+           }
+           if(side==="PLAYER"&&next.status==="ACTIVE")
+             next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);
+         }
+       } else if(command.kind==="CAST_SKILL") {
         // The client supplies ONLY a skill id and aim. Its effects, cost and
         // cooldown are compiled exclusively from the approved DB row here,
         // inside the same serialized session transaction.

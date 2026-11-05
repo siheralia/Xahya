@@ -44,7 +44,7 @@ export const MICRO_STAT_LABELS: Record<string,string> = {
   HP:"Vida actual",MAX_HP:"Vida máxima",MANA:"Maná",
   magicDefense:"Defensa mágica",MAG_DEF:"Defensa mágica",
   MAGIC_DEF:"Defensa mágica",PHYS_DEF:"Defensa física",
-  RESISTANCE:"Resistencia",ATTACK_SPEED:"Velocidad de ataque",
+  RESISTANCE:"Resistencia",ATTACK_SPEED:"Velocidad del ataque",
   PHYSICAL_ATTACK:"Ataque físico",MAGIC_ATTACK:"Ataque mágico",
   PHYS_ATK:"Ataque físico",MAGIC_ATK:"Ataque mágico",
   MITIGATED_DAMAGE:"Daño mitigado",INCOMING_DAMAGE:"Daño recibido",

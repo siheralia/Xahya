@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.material (
  "name" text NOT NULL UNIQUE,
  "type" text NOT NULL CHECK ("type" IN ('WOOD','METAL','MINERAL','LIQUID','PLANT','BONE','SKIN','CLOTH')),
  "description" text,
- "weightPerUnitKg" numeric(12,3),
+ "weightPerUnitKg" double precision,
  "hardness" integer NOT NULL DEFAULT 0 CHECK ("hardness" BETWEEN 0 AND 100),
  "physicalResistance" integer NOT NULL DEFAULT 0 CHECK ("physicalResistance" BETWEEN 0 AND 100),
  "magicResistance" integer NOT NULL DEFAULT 0 CHECK ("magicResistance" BETWEEN 0 AND 100),

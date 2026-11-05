@@ -6,6 +6,7 @@ import {
  type Connection,type Edge,type Node,type NodeChange,type NodeProps
 } from "@xyflow/react";
 import type {EffectContainer,MicroStep,NumericExpr} from "@/lib/effects/micro-modules";
+import {friendlyMicroKey,MICRO_OPERATOR_LABELS} from "@/lib/effects/micro-labels";
 
 type Port={id:string;label:string;expr?:NumericExpr};
 type GraphNode=Node<{
@@ -41,28 +42,28 @@ const inputsOf=(step:MicroStep):Port[]=>{
 const exprLabel=(v:NumericExpr|undefined):string=>{
  if(v===undefined)return "Automático";
  if(typeof v==="number")return String(v);
- if("source" in v)return (v.source==="OUTPUT"?"← ":"")+v.key;
- return v.operator+"("+v.args.map(exprLabel).join(", ")+")";
+ if("source" in v)return (v.source==="OUTPUT"?"← ":"")+friendlyMicroKey(v.key);
+ return (MICRO_OPERATOR_LABELS[v.operator]??v.operator)+"("+v.args.map(exprLabel).join(", ")+")";
 };
 const display=(step:MicroStep):{title:string;subtitle:string;unresolved:boolean}=>{
  switch(step.kind){
   case "CALCULATE":return {title:typeof step.expression==="number"?"Valor configurado":"Calcular valor",subtitle:exprLabel(step.expression),unresolved:false};
-  case "READ_STAT":return {title:"Leer estadística",subtitle:(step.actor==="USER"?"Usuario":"Oponente")+" · "+step.stat,unresolved:false};
-  case "READ_STORED":return {title:"Leer almacén",subtitle:step.accumulator+" · "+(step.metric==="TOTAL"?"Total":"Cargas"),unresolved:false};
-  case "CONSUME":return {title:"Consumir cargas",subtitle:step.accumulator+" · "+step.charges,unresolved:false};
-  case "STORE":return {title:"Almacenar",subtitle:step.accumulator+" · máx. "+step.capacity,unresolved:false};
+  case "READ_STAT":return {title:"Leer estadística",subtitle:(step.actor==="USER"?"Usuario":"Oponente")+" · "+friendlyMicroKey(step.stat),unresolved:false};
+  case "READ_STORED":return {title:"Leer almacén",subtitle:friendlyMicroKey(step.accumulator)+" · "+(step.metric==="TOTAL"?"Total":"Cargas"),unresolved:false};
+  case "CONSUME":return {title:"Consumir cargas",subtitle:friendlyMicroKey(step.accumulator)+" · "+friendlyMicroKey(String(step.charges)),unresolved:false};
+  case "STORE":return {title:"Almacenar",subtitle:friendlyMicroKey(step.accumulator)+" · máx. "+step.capacity,unresolved:false};
   case "HEAL":return {title:"Curar",subtitle:"Recuperar puntos de vida",unresolved:false};
   case "DAMAGE":return {title:"Aplicar daño",subtitle:step.channel==="MAGICAL"?"Mágico · "+(step.element??"sin elemento"):"Físico",unresolved:false};
   case "MODIFIER":{
    const targets:Record<string,string>={MAGIC_ATTACK:"Ataque mágico",MAGIC_ATK:"Ataque mágico",
      PHYS_ATK:"Ataque físico",PHYSICAL_ATTACK:"Ataque físico",
      PHYS_DEF:"Defensa física",MAGIC_DEF:"Defensa mágica"};
-   const target=step.sourceTarget?(targets[step.sourceTarget]??step.sourceTarget.replaceAll("_"," ").toLowerCase()):
-     step.stat.replaceAll("_"," ").toLowerCase();
+   const target=step.sourceTarget?(targets[step.sourceTarget]??friendlyMicroKey(step.sourceTarget)):
+     friendlyMicroKey(step.stat);
    return {title:"Aplicar multiplicador",subtitle:target+(step.sourceElement?" · "+step.sourceElement:""),unresolved:false};
   }
-  case "BONUS":return {title:"Aplicar bono",subtitle:step.stat.replaceAll("_"," "),unresolved:false};
-  case "VARIABLE_RESISTANCE":return {title:"Resistencia variable",subtitle:step.config.formula+" · "+step.config.baseStat,unresolved:false};
+  case "BONUS":return {title:"Aplicar bono",subtitle:friendlyMicroKey(step.stat),unresolved:false};
+  case "VARIABLE_RESISTANCE":return {title:"Resistencia variable",subtitle:friendlyMicroKey(step.config.formula)+" · "+friendlyMicroKey(step.config.baseStat),unresolved:false};
   case "CAPABILITY":return {title:"Capacidad declarativa",subtitle:(step.description||step.code)+(step.element?" · "+step.element:""),unresolved:true};
  }
 };
@@ -85,7 +86,7 @@ function StepNode({data}:NodeProps<GraphNode>){
      <span className="min-w-0 truncate">{exprLabel(port.expr)}</span>
    </div>)}
    {data.output&&<div className="mt-2 truncate rounded-md bg-zinc-800 px-1.5 py-1 text-[10px] text-emerald-300">
-     Salida · {data.output}
+     Salida · {friendlyMicroKey(data.output)}
    </div>}
    {data.output&&<Handle type="source" id="value" position={sourcePosition}
      style={{width:12,height:12,background:"#34d399"}}/>}

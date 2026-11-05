@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import type { EffectRequirement } from "@/lib/skills/effect-requirements";
+import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 
 type ManagedElementOption = { key: string; name: string };
 
@@ -63,8 +64,8 @@ export function EffectRequirementsField({
         onChange={event => onChange(value.map((entry, i) => i === index ? { ...entry, effect: event.target.value } : entry))}
         className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-950 p-2">
         {!options.some(option => option.type === requirement.effect) &&
-          <option value={requirement.effect}>{requirement.effect}</option>}
-        {options.map(option => <option key={option.type} value={option.type}>{option.label}</option>)}
+          <option value={requirement.effect}>{friendlyMicroKey(requirement.effect)}</option>}
+        {options.map(option => <option key={option.type} value={option.type}>{option.label===option.type?friendlyMicroKey(option.type):option.label}</option>)}
       </select>
       <select aria-label="Elemento requerido" value={requirement.element ?? ""}
         onChange={event => onChange(value.map((entry, i) => i === index
@@ -72,7 +73,7 @@ export function EffectRequirementsField({
         className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-950 p-2">
         <option value="">Cualquier elemento (sin elemento específico)</option>
         {requirement.element && !elements.some(element => element.key === requirement.element) &&
-          <option value={requirement.element}>{requirement.element}</option>}
+          <option value={requirement.element}>{friendlyMicroKey(requirement.element)}</option>}
         {elements.map(element => <option key={element.key} value={element.key}>{element.name}</option>)}
       </select>
       <button type="button" onClick={() => onChange(value.filter((_, i) => i !== index))}

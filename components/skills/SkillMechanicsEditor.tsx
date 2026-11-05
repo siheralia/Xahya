@@ -11,6 +11,10 @@ const blankRule = ():MechanicRule => ({event:"ACTIVATE",conditions:[],actions:[b
 const conditionKinds = [["FIELD_MIN","Concentración mínima"],["EXPOSURE_MIN","Exposición acumulada"],["SKILL_ACTIVE","Habilidad activa"],["STATUS","Estado presente"],["EVENT","Evento"]] as const;
 const actionKinds = [["CREATE_FIELD","Crear campo"],["CHANGE_FIELD","Consumir concentración"],["EXPOSE","Acumular exposición"],["CLEANSE","Limpiar exposición"],["STATUS","Aplicar estado / estadística"],["MANA_WARD","Revestimiento de maná"]] as const;
 const events:MechanicEvent[]=["ACTIVATE","TURN","HIT","ENTER_FIELD"];
+const eventLabels:Record<MechanicEvent,string>={
+  ACTIVATE:"Al activar",TURN:"Al comenzar cada turno",
+  HIT:"Al confirmar impacto",ENTER_FIELD:"Al entrar en el campo",
+};
 const targets = [["SELF","Usuario"],["OPPONENT","Oponente"],["ALL","Todos"]] as const;
 
 export function SkillMechanicsEditor({
@@ -34,12 +38,12 @@ export function SkillMechanicsEditor({
       set(items.map((x,j)=>i===j?next:x));
     }}>{conditionKinds.map(([key,name])=><option key={key} value={key}>{name}</option>)}</select></label>
     {(c.kind==="FIELD_MIN"||c.kind==="EXPOSURE_MIN")&&<>
-      <label className={label}>Material (clave)<input className={input} value={c.material} onChange={e=>set(items.map((x,j)=>i===j?{...c,material:e.target.value.toUpperCase()}:x))}/></label>
+      <label className={label}>Material (identificador avanzado)<input className={input} value={c.material} onChange={e=>set(items.map((x,j)=>i===j?{...c,material:e.target.value.toUpperCase()}:x))}/></label>
       <label className={label}>{c.kind==="FIELD_MIN"?"ppm mínimos":"Acumulación mínima"}<input className={input} type="number" min="0" value={c.kind==="FIELD_MIN"?c.ppm:c.amount} onChange={e=>set(items.map((x,j)=>i===j?(c.kind==="FIELD_MIN"?{...c,ppm:Number(e.target.value)}:{...c,amount:Number(e.target.value)}):x))}/></label>
     </>}
     {c.kind==="SKILL_ACTIVE"&&<label className={label}>Habilidad requerida<select className={input} value={c.skillId} onChange={e=>set(items.map((x,j)=>i===j?{...c,skillId:Number(e.target.value)}:x))}>{skills.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
-    {c.kind==="STATUS"&&<label className={label}>Estado<input className={input} value={c.status} onChange={e=>set(items.map((x,j)=>i===j?{...c,status:e.target.value.toUpperCase()}:x))}/></label>}
-    {c.kind==="EVENT"&&<label className={label}>Evento<select className={input} value={c.event} onChange={e=>set(items.map((x,j)=>i===j?{...c,event:e.target.value as MechanicEvent}:x))}>{events.map(e=><option key={e} value={e}>{e}</option>)}</select></label>}
+    {c.kind==="STATUS"&&<label className={label}>Estado (identificador avanzado)<input className={input} value={c.status} onChange={e=>set(items.map((x,j)=>i===j?{...c,status:e.target.value.toUpperCase()}:x))}/></label>}
+    {c.kind==="EVENT"&&<label className={label}>Evento<select className={input} value={c.event} onChange={e=>set(items.map((x,j)=>i===j?{...c,event:e.target.value as MechanicEvent}:x))}>{events.map(e=><option key={e} value={e}>{eventLabels[e]}</option>)}</select></label>}
     <button type="button" className="self-end rounded border border-red-900 px-2 py-2 text-xs text-red-300" onClick={()=>set(items.filter((_,j)=>j!==i))}>Eliminar condición</button>
    </div>)}
    <button type="button" className="rounded border border-zinc-700 px-3 py-2 text-xs" disabled={items.length>=10} onClick={()=>set([...items,blankCondition()])}>+ Añadir condición</button>
@@ -59,7 +63,7 @@ export function SkillMechanicsEditor({
    <div className="flex items-center justify-between"><h4 className="font-semibold">Reglas de interacción ({rules.length}/12)</h4><button type="button" disabled={rules.length>=12} className="rounded border border-violet-600 px-3 py-2 text-xs" onClick={()=>onChange({...mechanics,rules:[...rules,blankRule()]})}>+ Nueva regla</button></div>
    {rules.map((rule,ri)=><div key={ri} className="space-y-3 rounded-xl border border-zinc-700 p-3">
     <div className="grid gap-3 sm:grid-cols-2">
-     <label className={label}>Cuándo se ejecuta<select className={input} value={rule.event} onChange={e=>setRule(ri,{...rule,event:e.target.value as MechanicEvent})}>{events.map(e=><option key={e} value={e}>{({ACTIVATE:"Al activar",TURN:"Cada turno",HIT:"Al confirmar impacto",ENTER_FIELD:"Al entrar al campo"} as Record<string,string>)[e]}</option>)}</select></label>
+     <label className={label}>Cuándo se ejecuta<select className={input} value={rule.event} onChange={e=>setRule(ri,{...rule,event:e.target.value as MechanicEvent})}>{events.map(e=><option key={e} value={e}>{eventLabels[e]}</option>)}</select></label>
      <label className={label}>Habilidad vinculada (opcional)<select className={input} value={rule.linkedSkillId??""} onChange={e=>setRule(ri,{...rule,linkedSkillId:e.target.value?Number(e.target.value):undefined})}><option value="">Ninguna</option>{skills.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
     </div>
     <p className="text-sm font-medium">Condiciones adicionales</p>

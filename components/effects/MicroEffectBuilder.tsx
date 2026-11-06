@@ -1,6 +1,7 @@
 "use client";
 
 import type {EffectContainer,MicroStep,MicroCondition,NumericExpr,MicroEvent} from "@/lib/effects/micro-modules";
+import {REPAIR_TARGET_SELECTORS} from "@/lib/effects/repair-durability";
 import {useState} from "react";
 import {changeNumericReferenceSource,invalidPreviousOutput,selectablePreviousOutputs} from "@/lib/effects/micro-reference-editor";
 import {MicroEffectFlowEditor} from "./MicroEffectFlowEditor";
@@ -14,7 +15,7 @@ const field="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text
 const key="^[A-Za-z][A-Za-z0-9_.:-]{0,63}$";
 const sources=["EVENT","STAT","CHARGES","STORED_TOTAL","OUTPUT"] as const;
 const ops=["ADD","SUBTRACT","MULTIPLY","DIVIDE","MIN","MAX","PERCENT"] as const;
-const events:MicroEvent[]=["DAMAGE_RESOLVED","TURN_START","IMPACT","PASSIVE"];
+const events:MicroEvent[]=["DAMAGE_RESOLVED","TURN_START","IMPACT","PASSIVE","ACTIVATE"];
 const destinationStats:readonly string[]=["STR","AGI","CON","INT","WIS","CHA","SPI",
   "HP","MAX_HP","MANA","RESISTANCE","MAGIC_DEF","PHYS_DEF","MAGIC_ATTACK","PHYSICAL_ATTACK"];
 const defaultCondition=():MicroCondition=>({left:{source:"CHARGES",key:"DIVINE_GRACE"},compare:"GTE",right:1});
@@ -27,6 +28,8 @@ const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
     case "READ_STAT":return {kind,actor:"USER",stat:"magicDefense",output:"resistanceBase"};
     case "READ_STORED":return {kind,accumulator:"ENERGY",metric:"TOTAL",output:"storedTotal"};
     case "CALCULATE":return {kind,output:"calculated",expression:1};
+    case "READ_ITEM":return {kind,selector:"SELECTED_ITEM",output:"selectedItem"};
+    case "REPAIR_DURABILITY":return {kind,target:{source:"OUTPUT",key:"selectedItem"},amount:10};
     case "HEAL":return {kind,amount:op()};
     case "DAMAGE":return {kind,amount:10,channel:"MAGICAL"};
     case "MODIFIER":return {kind,stat:"RESISTANCE",multiplier:1.3};
@@ -141,13 +144,13 @@ function ConditionsEditor({value,onChange,title}:{value:MicroCondition[];onChang
     </div>)}
   </section>;
 }
-function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroStep;onChange:(s:MicroStep)=>void;onDelete:()=>void;index:number;availableOutputs:string[]}){
+function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItemOutputs}:{step:MicroStep;onChange:(s:MicroStep)=>void;onDelete:()=>void;index:number;availableOutputs:string[];availableItemOutputs:string[]}){
   const change=(patch:Partial<MicroStep>)=>onChange({...step,...patch} as MicroStep);
   return <section className="space-y-3 rounded-xl border border-cyan-900/60 bg-zinc-900/70 p-3">
     <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold">Micromódulo {index+1}</h4>
       <button type="button" onClick={onDelete} className="text-xs text-rose-300">Eliminar</button></div>
     <label className="block text-xs">Operación<select className={"mt-1 "+field} value={step.kind} onChange={e=>onChange({...defaultStep(e.target.value as MicroStep["kind"]),when:step.when})}>
-      {["READ_STAT","READ_STORED","CALCULATE","STORE","CONSUME","HEAL","DAMAGE","MODIFIER","BONUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
+      {["READ_STAT","READ_STORED","READ_ITEM","CALCULATE","STORE","CONSUME","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
     </select></label>
     {step.kind==="READ_STAT"&&<div className="grid gap-2 sm:grid-cols-3">
       <label className="text-xs">¿De quién?
@@ -173,6 +176,20 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
           onChange={e=>change({output:e.target.value})}/>
       </label>
       <p className="text-xs text-zinc-400 sm:col-span-3">Lee un valor real del combate sin modificarlo. El oponente se resuelve desde el servidor, no desde el navegador.</p>
+    </div>}
+    {step.kind==="READ_ITEM"&&<div className="grid gap-2 sm:grid-cols-2">
+      <label className="text-xs">Qué objeto leer
+        <select className={"mt-1 "+field} value={step.selector}
+          onChange={e=>change({selector:e.target.value as typeof step.selector})}>
+          {REPAIR_TARGET_SELECTORS.map(selector=>
+            <option key={selector} value={selector}>{friendlyMicroKey(selector)}</option>)}
+        </select>
+      </label>
+      <label className="text-xs">Salida del objeto
+        <input className={"mt-1 "+field} value={step.output} onChange={e=>change({output:e.target.value})}/>
+      </label>
+      <p className="text-xs text-amber-300 sm:col-span-2">La identidad de esta pieza la autoriza el servidor.
+       Su puerto naranja solo puede conectarse a un destino de objeto, nunca a una fórmula.</p>
     </div>}
     {step.kind==="READ_STORED"&&<div className="grid gap-2 sm:grid-cols-3">
       <label className="text-xs">Acumulador del usuario
@@ -253,6 +270,26 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs}:{step:MicroS
         </div>
       </div>
       <p className="text-xs text-zinc-400">Usa «Resultado de otro módulo» para conectar pasos anteriores de estadísticas, acumuladores o consumo. También puedes usar números, eventos o fórmulas.</p>
+    </div>}
+    {step.kind==="REPAIR_DURABILITY"&&<div className="space-y-3">
+      <p className="text-xs text-cyan-200">Restaurar durabilidad de un objeto real. La cantidad y el objetivo son conectables;
+       el sistema aplica un máximo de 100 puntos y comprueba los permisos.</p>
+      <label className="block text-xs">Objetivo (salida de «Leer objeto»)
+        <select aria-label="Objeto a reparar" className={"mt-1 "+field}
+          value={availableItemOutputs.includes(step.target.key)?step.target.key:""}
+          onChange={e=>change({target:{source:"OUTPUT",key:e.target.value}})}>
+          <option value="" disabled>Selecciona una salida de objeto anterior</option>
+          {availableItemOutputs.map(output=>
+            <option key={output} value={output}>{friendlyMicroKey(output)}</option>)}
+        </select>
+      </label>
+      {!availableItemOutputs.includes(step.target.key)&&
+        <p role="alert" className="text-xs text-amber-300">Añade «Leer objeto» antes de esta reparación y conecta su salida naranja.</p>}
+      <label className="block text-xs">Cantidad a restaurar</label>
+      <NumericEditor value={step.amount} outputOptions={availableOutputs}
+        onChange={amount=>change({amount})}/>
+      <p className="text-xs text-zinc-400">Se calcula una intención de reparación, no una reparación gratuita:
+       habilidades, objetos y servicios deben autorizar y pagar su activación.</p>
     </div>}
     {step.kind==="STORE"&&<div className="grid gap-2 sm:grid-cols-2">
       <label className="text-xs">Acumulador<input className={"mt-1 "+field} value={step.accumulator} onChange={e=>change({accumulator:e.target.value})}/></label>
@@ -337,6 +374,18 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
         let n=1;while(names.has("calculated"+n))n++;
         update({steps:[...value.steps,{kind:"CALCULATE",output:"calculated"+n,expression:1}]});
       }}>+ Valor/cálculo</button>
+      <button type="button" disabled={value.steps.length>21}
+        className="rounded border border-amber-700 px-3 py-2 text-xs disabled:opacity-40"
+        onClick={()=>{
+          const used=new Set(value.steps.flatMap(s=>"output" in s?[s.output]:[]));
+          const free=(base:string)=>{let i=0,code=base;while(used.has(code))code=base+ ++i;used.add(code);return code;};
+          const itemOutput=free("selectedItem"),amountOutput=free("repairAmount");
+          update({steps:[...value.steps,
+            {kind:"READ_ITEM",selector:"SELECTED_ITEM",output:itemOutput},
+            {kind:"CALCULATE",expression:10,output:amountOutput},
+            {kind:"REPAIR_DURABILITY",target:{source:"OUTPUT",key:itemOutput},
+              amount:{source:"OUTPUT",key:amountOutput}}]});
+        }}>+ Reparación con objetivo y cantidad conectados</button>
       <button type="button" disabled={value.steps.length>=24} className="rounded border border-cyan-800 px-3 py-2 text-xs disabled:opacity-40" onClick={()=>update({steps:[...value.steps,defaultStep("HEAL")]})}>+ Curación</button>
     </div>
     {value.steps.map((step,index)=><div key={index} id={"micro-step-"+index} className={"space-y-1 rounded-xl "+(selectedStep===index?"ring-2 ring-cyan-500":"")}>
@@ -348,7 +397,8 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
         </div>
       </div>
       <StepEditor step={step} index={index}
-        availableOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{output:string}>=>"output" in s).map(s=>s.output)}
+        availableOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{output:string}>=>"output" in s&&s.kind!=="READ_ITEM").map(s=>s.output)}
+        availableItemOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{kind:"READ_ITEM"}>=>s.kind==="READ_ITEM").map(s=>s.output)}
         onChange={next=>update({steps:value.steps.map((x,i)=>i===index?next:x)})}
         onDelete={()=>update({steps:value.steps.filter((_,i)=>i!==index)})}/>
     </div>)}

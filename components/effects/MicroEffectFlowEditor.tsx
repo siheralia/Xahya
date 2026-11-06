@@ -10,7 +10,7 @@ import {friendlyMicroKey,MICRO_OPERATOR_LABELS} from "@/lib/effects/micro-labels
 
 type Port={id:string;label:string;expr?:NumericExpr};
 type GraphNode=Node<{
-  title:string;subtitle:string;index:number;output?:string;
+  title:string;subtitle:string;index:number;output?:string;outputKind?:"ITEM"|"NUMBER";
   ports:Port[];unresolved:boolean;mobile:boolean;
 },"skillStep">;
 const nodeTypes={skillStep:StepNode};
@@ -28,6 +28,10 @@ const inputsOf=(step:MicroStep):Port[]=>{
   case "CALCULATE":return [{id:"expression",label:"Operación",expr:step.expression}];
   case "STORE":return [{id:"value",label:"Almacenar",expr:step.value}];
   case "HEAL":return [{id:"amount",label:"Curación",expr:step.amount}];
+  case "REPAIR_DURABILITY":return [
+   {id:"target",label:"Objeto",expr:step.target},
+   {id:"amount",label:"Cantidad",expr:step.amount}
+  ];
   case "DAMAGE":return [
    {id:"amount",label:"Daño",expr:step.amount},
    ...(step.radiusMeters!==undefined?[{id:"radiusMeters",label:"Radio",expr:step.radiusMeters}]:[])
@@ -54,6 +58,8 @@ const display=(step:MicroStep):{title:string;subtitle:string;unresolved:boolean}
  switch(step.kind){
   case "CALCULATE":return {title:typeof step.expression==="number"?"Valor configurado":"Calcular valor",subtitle:exprLabel(step.expression),unresolved:false};
   case "READ_STAT":return {title:"Leer estadística",subtitle:(step.actor==="USER"?"Usuario":"Oponente")+" · "+friendlyMicroKey(step.stat),unresolved:false};
+  case "READ_ITEM":return {title:"Leer objeto",subtitle:friendlyMicroKey(step.selector),unresolved:false};
+  case "REPAIR_DURABILITY":return {title:"Restaurar durabilidad",subtitle:"Objeto y cantidad conectables · máx. 100",unresolved:false};
   case "READ_STORED":return {title:"Leer almacén",subtitle:friendlyMicroKey(step.accumulator)+" · "+(step.metric==="TOTAL"?"Total":"Cargas"),unresolved:false};
   case "CONSUME":return {title:"Consumir cargas",subtitle:friendlyMicroKey(step.accumulator)+" · "+friendlyMicroKey(String(step.charges)),unresolved:false};
   case "STORE":return {title:"Almacenar",subtitle:friendlyMicroKey(step.accumulator)+" · máx. "+step.capacity,unresolved:false};
@@ -90,11 +96,12 @@ function StepNode({data}:NodeProps<GraphNode>){
      <span className="text-cyan-300">{port.label}:</span>
      <span className="min-w-0 truncate">{exprLabel(port.expr)}</span>
    </div>)}
-   {data.output&&<div className="mt-2 truncate rounded-md bg-zinc-800 px-1.5 py-1 text-[10px] text-emerald-300">
-     Salida · {friendlyMicroKey(data.output)}
+   {data.output&&<div className={"mt-2 truncate rounded-md bg-zinc-800 px-1.5 py-1 text-[10px] "+
+    (data.outputKind==="ITEM"?"text-amber-300":"text-emerald-300")}>
+     Salida {data.outputKind==="ITEM"?"(objeto)":"(valor)"} · {friendlyMicroKey(data.output)}
    </div>}
    {data.output&&<Handle type="source" id="value" position={sourcePosition}
-     style={{width:12,height:12,background:"#34d399"}}/>}
+     style={{width:12,height:12,background:data.outputKind==="ITEM"?"#fbbf24":"#34d399"}}/>}
  </div>;
 }
 function wire(step:MicroStep,port:string,expr:NumericExpr):MicroStep{
@@ -102,6 +109,10 @@ function wire(step:MicroStep,port:string,expr:NumericExpr):MicroStep{
   case "CALCULATE":return port==="expression"?{...step,expression:expr}:step;
   case "STORE":return port==="value"?{...step,value:expr}:step;
   case "HEAL":return port==="amount"?{...step,amount:expr}:step;
+  case "REPAIR_DURABILITY":
+   return port==="target"&&typeof expr==="object"&&"source" in expr&&expr.source==="OUTPUT"
+    ?{...step,target:{source:"OUTPUT",key:expr.key}}:
+     port==="amount"?{...step,amount:expr}:step;
   case "DAMAGE":return port==="amount"?{...step,amount:expr}:port==="radiusMeters"?{...step,radiusMeters:expr}:step;
   case "BONUS":return port==="amount"?{...step,amount:expr}:step;
   case "MODIFIER":return port==="multiplier"?{...step,multiplier:expr}:step;
@@ -114,6 +125,8 @@ function disconnect(step:MicroStep,port:string):MicroStep{
   if(port==="base"){const {base:_,...rest}=step;return rest;}
   if(port==="input"){const {input:_,...rest}=step;return rest;}
  }
+ if(step.kind==="REPAIR_DURABILITY"&&port==="target")
+  return {...step,target:{source:"OUTPUT",key:"MissingItem"}};
  if(step.kind==="DAMAGE"&&port==="radiusMeters"){const {radiusMeters:_,...rest}=step;return rest;}
  return wire(step,port,step.kind==="MODIFIER"?1:0);
 }
@@ -149,7 +162,8 @@ export function MicroEffectFlowEditor({
      (mobile?{x:12,y:i*165}:{x:layer*260+16,y:lane*172+12});
    return {id:nodeId(i),type:"skillStep",position,
      draggable:true,selectable:true,
-     data:{...text,index:i,ports:inputsOf(step),output:outputOf(step),mobile}};
+     data:{...text,index:i,ports:inputsOf(step),output:outputOf(step),
+       outputKind:step.kind==="READ_ITEM"?"ITEM":"NUMBER",mobile}};
   });
   const edges:Edge[]=[];
   value.steps.forEach((step,i)=>{
@@ -181,8 +195,11 @@ export function MicroEffectFlowEditor({
  },[]);
  const validLink=useCallback((link:Connection | Edge)=>{
   const from=indexOfNode(link.source),to=indexOfNode(link.target);
+  const itemSource=from>=0&&value.steps[from]?.kind==="READ_ITEM";
+  const itemTarget=to>=0&&value.steps[to]?.kind==="REPAIR_DURABILITY"&&link.targetHandle==="target";
   return !readOnly&&from>=0&&to>from&&to<value.steps.length&&
-   Boolean(outputOf(value.steps[from]))&&inputsOf(value.steps[to]).some(p=>p.id===link.targetHandle);
+   Boolean(outputOf(value.steps[from]))&&inputsOf(value.steps[to]).some(p=>p.id===link.targetHandle)
+   &&itemSource===itemTarget;
  },[readOnly,value.steps]);
  const onConnect=useCallback((link:Connection)=>{
   if(!validLink(link))return;

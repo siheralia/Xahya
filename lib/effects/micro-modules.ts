@@ -6,8 +6,10 @@
  */
 import {calculateVariableResistance,validateVariableResistance,
   resistanceBaseOwner,resistanceInputOwner,type VariableResistance} from "../skills/variable-resistance.ts";
+import {calculateDurabilityRepair,validateRepairableItem,REPAIR_TARGET_SELECTORS,
+ type RepairTargetSelector,type RepairableItem,type RepairDurabilityChange} from "./repair-durability.ts";
 
-export type MicroEvent = "DAMAGE_RESOLVED" | "TURN_START" | "IMPACT" | "PASSIVE";
+export type MicroEvent = "DAMAGE_RESOLVED" | "TURN_START" | "IMPACT" | "PASSIVE" | "ACTIVATE";
 export type ImpactKind = "CHARACTER" | "GROUND";
 export type NumericExpr = number
   | { source: "EVENT" | "STAT" | "CHARGES" | "STORED_TOTAL" | "OUTPUT"; key: string }
@@ -22,6 +24,12 @@ export type MicroStep = (
   | { kind: "READ_STORED"; accumulator: string; metric: "TOTAL" | "COUNT"; output: string }
   /** Pure numeric expression; result can wire into a later numeric consumer. */
   | { kind: "CALCULATE"; expression: NumericExpr; output: string }
+  /** Emits the identity of an explicitly authorized inventory copy. This is
+   * an ITEM output, not a numerical stat. The server binds the selector. */
+  | { kind: "READ_ITEM"; selector: RepairTargetSelector; output: string }
+  /** Only an ITEM output may target repair; amount is an independent numeric
+   * expression, so both sockets can be wired to upstream micromodules. */
+  | { kind: "REPAIR_DURABILITY"; target: {source:"OUTPUT";key:string}; amount: NumericExpr }
   | { kind: "HEAL"; amount: NumericExpr }
   | { kind: "DAMAGE"; amount: NumericExpr; channel: "PHYSICAL" | "MAGICAL"; element?: string; radiusMeters?: NumericExpr }
   | { kind: "MODIFIER"; stat: string; multiplier: NumericExpr; sourceTarget?: string; sourceElement?: string }
@@ -50,9 +58,14 @@ export type MicroContext = {
   actors?: { USER?: Record<string, number>; OPPONENT?: Record<string, number> };
   /** Owner's combat stats BEFORE this event, e.g. STR, HP, MAX_HP. */
   stats: Record<string, number>;
+  /** Server-owned, allowlisted real item instances and named bindings.
+   * Never construct these maps from arbitrary values sent by a skill creator. */
+  itemTargets?: readonly RepairableItem[];
+  itemSelectors?: Partial<Record<RepairTargetSelector,number>>;
 };
 export type MicroIntent =
   | { kind: "HEAL"; requested: number; applied: number }
+  | ({kind:"REPAIR_DURABILITY"} & RepairDurabilityChange)
   | { kind: "DAMAGE"; amount: number; channel: "PHYSICAL" | "MAGICAL"; element?: string; radiusMeters?: number }
   | { kind: "MODIFIER"; stat: string; multiplier: number }
   | { kind: "BONUS"; stat: string; amount: number }
@@ -85,14 +98,16 @@ function checkExpr(expr: NumericExpr, depth = 0): void {
   for (const arg of expr.args) checkExpr(arg, depth + 1);
 }
 /** Output connections are local to an effect and must point backwards in the graph. */
-function checkSourceLinks(expr:NumericExpr,previous:ReadonlySet<string>):void {
+function checkSourceLinks(expr:NumericExpr,previous:ReadonlySet<string>,itemOutputs:ReadonlySet<string>=new Set()):void {
   if(typeof expr==="number")return;
   if("source" in expr) {
     if(expr.source==="OUTPUT"&&!previous.has(expr.key))
       fail("conexión OUTPUT sin módulo productor anterior: "+expr.key);
+    if(expr.source==="OUTPUT"&&itemOutputs.has(expr.key))
+      fail("una salida de objeto no puede usarse como una cantidad numérica: "+expr.key);
     return;
   }
-  for(const arg of expr.args)checkSourceLinks(arg,previous);
+  for(const arg of expr.args)checkSourceLinks(arg,previous,itemOutputs);
 }
 export function validateEffectContainers(effects: readonly EffectContainer[]): string | null {
   try {
@@ -102,7 +117,7 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
       if (!effect || !validKey(effect.id) || ids.has(effect.id) || !validKey(effect.type)
         || typeof effect.name !== "string" || !effect.name.trim() || effect.name.length > 120
         || typeof effect.description !== "string" || effect.description.length > 2000
-        || !["DAMAGE_RESOLVED", "TURN_START", "IMPACT", "PASSIVE"].includes(effect.trigger)
+        || !["DAMAGE_RESOLVED", "TURN_START", "IMPACT", "PASSIVE", "ACTIVATE"].includes(effect.trigger)
         || !Array.isArray(effect.steps) || effect.steps.length < 1 || effect.steps.length > 24
         || (effect.impactKind !== undefined && (effect.trigger !== "IMPACT" || !["CHARACTER", "GROUND"].includes(effect.impactKind)))
       ) fail("contenedor o disparador inválido");
@@ -115,6 +130,7 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
         }
       }
       const outputs = new Set<string>();
+      const itemOutputs = new Set<string>();
       for (const step of effect.steps) {
         if (!step || typeof step !== "object") fail("paso inválido");
         if (step.when !== undefined) {
@@ -127,7 +143,7 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
         switch (step.kind) {
           case "STORE":
             if (!validKey(step.accumulator) || !integer(step.capacity, 1, 100)) fail("almacenamiento inválido");
-            checkExpr(step.value);checkSourceLinks(step.value,outputs); break;
+            checkExpr(step.value);checkSourceLinks(step.value,outputs,itemOutputs); break;
           case "CONSUME":
             if (!validKey(step.accumulator) || !validKey(step.output) || outputs.has(step.output)
               || (step.charges !== "ALL" && !integer(step.charges, 1, 100))) fail("consumo inválido");
@@ -142,25 +158,35 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
             outputs.add(step.output); break;
           case "CALCULATE":
             if(!validKey(step.output)||outputs.has(step.output))fail("salida de cálculo duplicada o inválida");
-            checkExpr(step.expression);checkSourceLinks(step.expression,outputs);
+            checkExpr(step.expression);checkSourceLinks(step.expression,outputs,itemOutputs);
             outputs.add(step.output);break;
+          case "READ_ITEM":
+            if(!REPAIR_TARGET_SELECTORS.includes(step.selector)||
+              !validKey(step.output)||outputs.has(step.output))
+              fail("selector o salida de objeto inválidos");
+            outputs.add(step.output);itemOutputs.add(step.output);break;
+          case "REPAIR_DURABILITY":
+            if(!step.target||step.target.source!=="OUTPUT"||
+              !validKey(step.target.key)||!itemOutputs.has(step.target.key))
+              fail("conecta el objetivo desde un módulo Leer objeto anterior");
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs);break;
           case "HEAL":
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs); break;
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs); break;
           case "DAMAGE":
             if (!["PHYSICAL", "MAGICAL"].includes(step.channel) || (step.element !== undefined && !validKey(step.element))) fail("tipo de daño inválido");
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs);
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs);
             if (step.radiusMeters !== undefined){
-              checkExpr(step.radiusMeters);checkSourceLinks(step.radiusMeters,outputs);
+              checkExpr(step.radiusMeters);checkSourceLinks(step.radiusMeters,outputs,itemOutputs);
             } break;
           case "MODIFIER":
             if (!validKey(step.stat) ||
               (step.sourceTarget!==undefined&&!validKey(step.sourceTarget))||
               (step.sourceElement!==undefined&&!validKey(step.sourceElement)))
               fail("estadística de multiplicador inválida");
-            checkExpr(step.multiplier);checkSourceLinks(step.multiplier,outputs); break;
+            checkExpr(step.multiplier);checkSourceLinks(step.multiplier,outputs,itemOutputs); break;
           case "BONUS":
             if (!validKey(step.stat)) fail("estadística inválida");
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs); break;
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs); break;
           case "CAPABILITY":
             if (!/^(CARD:W[0-9]{3}|NARRATIVE:OTHER)$/.test(step.code)
               || typeof step.description !== "string" || step.description.length > 1500
@@ -174,8 +200,8 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
             break;
           case "VARIABLE_RESISTANCE":
             if (validateVariableResistance(step.config)) fail("resistencia variable inválida");
-            if(step.base!==undefined){checkExpr(step.base);checkSourceLinks(step.base,outputs);}
-            if(step.input!==undefined){checkExpr(step.input);checkSourceLinks(step.input,outputs);}
+            if(step.base!==undefined){checkExpr(step.base);checkSourceLinks(step.base,outputs,itemOutputs);}
+            if(step.input!==undefined){checkExpr(step.input);checkSourceLinks(step.input,outputs,itemOutputs);}
             break;
           default: fail("operación desconocida");
         }
@@ -249,7 +275,7 @@ function conditionsMet(conditions: MicroCondition[] | undefined, ctx: MicroConte
 export function executeMicroEvent(input: MicroState, effects: readonly EffectContainer[], ctx: MicroContext): MicroResult {
   const error = validateEffectContainers(effects);
   if (error) throw new Error(error);
-  if (!integer(ctx.ownerId, 1, 2_147_483_647) || !validKey(ctx.eventId) || !["DAMAGE_RESOLVED", "TURN_START", "IMPACT", "PASSIVE"].includes(ctx.trigger)
+  if (!integer(ctx.ownerId, 1, 2_147_483_647) || !validKey(ctx.eventId) || !["DAMAGE_RESOLVED", "TURN_START", "IMPACT", "PASSIVE", "ACTIVATE"].includes(ctx.trigger)
     || !ctx.stats || !finite(ctx.stats.HP) || !finite(ctx.stats.MAX_HP) || ctx.stats.MAX_HP < 1 || ctx.stats.HP < 0 || ctx.stats.HP > ctx.stats.MAX_HP)
     fail("contexto de combate inválido");
   const state = parseMicroState(input);
@@ -257,6 +283,9 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
   if (ctx.trigger !== "PASSIVE" && state.processed.includes(requestKey)) return {state, hp:ctx.stats.HP, intents:[], skipped:true};
   if (ctx.trigger !== "PASSIVE" && state.processed.length >= 10000) fail("registro de eventos lleno");
   const intents: MicroIntent[] = [];
+  // In-memory ledger makes multiple repair nodes cap against each preceding
+  // repair in this same event; no PostgreSQL write occurs in the evaluator.
+  const repairLedger = new Map<number,number>();
   let hp = ctx.stats.HP;
   for (const effect of effects) {
     if (effect.trigger !== ctx.trigger || (effect.impactKind && effect.impactKind !== ctx.impactKind)) continue;
@@ -299,6 +328,31 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
         case "CALCULATE":
           outputs[step.output]=evaluate(step.expression,ctx,state,outputs,hp);
           break;
+        case "READ_ITEM": {
+          const itemId=ctx.itemSelectors?.[step.selector];
+          if(!Number.isSafeInteger(itemId)||Number(itemId)<1||
+             !ctx.itemTargets?.some(item=>item.characterItemId===itemId))
+            fail("no existe un ejemplar de objeto autorizado para: "+step.selector);
+          outputs[step.output]=itemId!;
+          break;
+        }
+        case "REPAIR_DURABILITY": {
+          const id=outputs[step.target.key];
+          if(!Number.isSafeInteger(id)||id<1)
+            fail("destino de reparación sin objeto válido");
+          const matches=ctx.itemTargets?.filter(item=>item.characterItemId===id)??[];
+          if(matches.length!==1)fail("objeto de reparación no autorizado o ambiguo");
+          try{validateRepairableItem(matches[0]);}
+          catch{fail("integridad del objeto inválida");}
+          const current=repairLedger.get(id)??matches[0].durability;
+          const amount=evaluate(step.amount,ctx,state,outputs,hp);
+          let repair:RepairDurabilityChange;
+          try{repair=calculateDurabilityRepair({characterItemId:id,durability:current},amount);}
+          catch{fail("cantidad de reparación inválida");}
+          repairLedger.set(id,repair.after);
+          intents.push({kind:"REPAIR_DURABILITY",...repair});
+          break;
+        }
         case "HEAL": {
           const requested = Math.max(0,evaluate(step.amount,ctx,state,outputs,hp));
           const applied = Math.min(requested,ctx.stats.MAX_HP-hp);

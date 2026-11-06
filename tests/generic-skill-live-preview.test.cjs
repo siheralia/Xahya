@@ -24,7 +24,10 @@ function load(file, dependencies = {}) {
 const effects=load("lib/skills/pch.ts");
 const duration=load("lib/effects/duration-pricing.ts");
 const resistance=load("lib/skills/variable-resistance.ts");
-const micro=load("lib/effects/micro-modules.ts",{"../skills/variable-resistance.ts":resistance});
+const repair=load("lib/effects/repair-durability.ts");
+const micro=load("lib/effects/micro-modules.ts",{
+ "../skills/variable-resistance.ts":resistance,"./repair-durability.ts":repair
+});
 const composed=load("lib/skills/composed-effects.ts",{"../effects/micro-modules.ts":micro});
 const configured=load("lib/skills/configured-effect-pricing.ts",{
   "./pch.ts":effects,

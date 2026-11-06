@@ -408,6 +408,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
   const basePolygon = polygonPoints(basePoints);
   // Levantamos el color del tema y lo delineamos con luz/sombra para que no se pierda sobre el avatar.
   const baseStroke = mixHex(palette.primary, "#ffffff", 0.18);
+  const boostStroke = "#ff1744";
   // Los valores cercanos a cero convergen en el centro: mostrar un único nodo pequeño.
   const nearCenter = (point: { x: number; y: number }) => Math.hypot(point.x - center, point.y - center) < 9;
   const firstCenterPoint = basePoints.findIndex(nearCenter);
@@ -416,8 +417,6 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
   return (
     <div>
       <svg viewBox="-25 -10 350 320" className="mx-auto w-full max-w-[360px]" aria-label="Polígono de estadísticas base y boosts activos">
-        {/* Una sombra difusa detrás de los datos (no de toda la ilustración) estabiliza el contraste. */}
-        <circle cx={center} cy={center} r={radius + 12} fill="#080b13" fillOpacity="0.3" style={{ filter: "blur(16px)" }} />
         {[0.25, 0.5, 0.75, 1].map((scale) => (
           <polygon
             key={scale}
@@ -460,31 +459,41 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           );
         })}
 
-        <polygon points={basePolygon} fill={baseStroke} fillOpacity="0.34" stroke="none" />
+        <polygon points={basePolygon} fill={baseStroke} fillOpacity="0.27" stroke="none" />
 
-        {/* Las franjas de boost se dibujan por sector para evitar cruces del polígono
-            exterior/interior al mezclarse estadísticas aumentadas y no aumentadas. */}
+        {/* Franja roja y borde exterior del polígono efectivo: la sombra sigue
+            solo el trazo (igual que en las etiquetas), nunca tapa el retrato. */}
         {hasBoost && radarStats.map((stat, index) => {
           const next = (index + 1) % radarStats.length;
-          const boostHere = effectivePoints[index].x !== basePoints[index].x || effectivePoints[index].y !== basePoints[index].y;
-          const boostNext = effectivePoints[next].x !== basePoints[next].x || effectivePoints[next].y !== basePoints[next].y;
+          const boostHere = Number(values[stat.key] ?? 0) > Number(baseValues[stat.key] ?? 0);
+          const boostNext = Number(values[radarStats[next].key] ?? 0) > Number(baseValues[radarStats[next].key] ?? 0);
           if (!boostHere && !boostNext) return null;
+          const a = effectivePoints[index];
+          const b = effectivePoints[next];
           return (
-            <polygon
-              key={"boost-region-" + stat.key}
-              points={polygonPoints([basePoints[index], basePoints[next], effectivePoints[next], effectivePoints[index]])}
-              fill="#ef4444"
-              fillOpacity="0.22"
-              stroke="none"
-            />
+            <g key={"boost-region-" + stat.key}>
+              <polygon
+                points={polygonPoints([basePoints[index], basePoints[next], b, a])}
+                fill={boostStroke}
+                fillOpacity="0.38"
+                stroke="none"
+              />
+              <line
+                x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                stroke={boostStroke} strokeWidth="3.1" strokeLinecap="round"
+                style={{ filter: "drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.95))" }}
+              />
+            </g>
           );
         })}
 
-        {/* Anchos estrictamente decrecientes: el borde oscuro y el filete blanco
-            permanecen visibles alrededor del trazo temático, incluso sobre fondos naranjas. */}
-        <polygon points={basePolygon} fill="none" stroke="#09090b" strokeOpacity="0.9" strokeWidth="6" strokeLinejoin="round" />
-        <polygon points={basePolygon} fill="none" stroke="#ffffff" strokeOpacity="0.96" strokeWidth="4.4" strokeLinejoin="round" />
-        <polygon points={basePolygon} fill="none" stroke={baseStroke} strokeWidth="2.8" strokeLinejoin="round" />
+        {/* Una sombra adherida al contorno, como en el texto, sin sombrear la imagen. */}
+        <polygon
+          points={basePolygon}
+          fill="none" stroke="#ffffff" strokeOpacity="0.98" strokeWidth="2.8" strokeLinejoin="round"
+          style={{ filter: "drop-shadow(0 1px 1.6px rgba(0, 0, 0, 0.95))" }}
+        />
+        <polygon points={basePolygon} fill="none" stroke={baseStroke} strokeWidth="1.35" strokeLinejoin="round" />
 
         {basePoints.map((point, index) => {
           const clustered = nearCenter(point);
@@ -508,8 +517,12 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           const boosted = effectivePoints[index];
           return (
             <g key={"boost-" + stat.key}>
-              <line x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
-              <circle cx={boosted.x} cy={boosted.y} r={nearCenter(boosted) ? 1.6 : 2.6} fill="#ef4444" stroke="#ffffff" strokeWidth="1" />
+              <line
+                x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y}
+                stroke={boostStroke} strokeWidth="3.1" strokeLinecap="round"
+                style={{ filter: "drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.95))" }}
+              />
+              <circle cx={boosted.x} cy={boosted.y} r={nearCenter(boosted) ? 2.2 : 3.2} fill={boostStroke} stroke="#ffffff" strokeWidth="1.25" />
             </g>
           );
         })}
@@ -518,7 +531,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
       {hasBoost && (
         <div className="mx-auto mt-2 flex w-fit items-center justify-center gap-4 rounded-full bg-zinc-950/70 px-3 py-1.5 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full ring-1 ring-white/80" style={{ backgroundColor: baseStroke }} />Base</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-400" />Boost</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full ring-1 ring-white/80" style={{ backgroundColor: boostStroke }} />Boost</span>
         </div>
       )}
     </div>

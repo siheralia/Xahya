@@ -214,7 +214,7 @@ export default function CombatEncounter({id}:{id:string}) {
     snapshot?.actors.NPC.spentTicks??0,snapshot?.actors.PLAYER.spentTicks??0,
     snapshot?.actors.NPC.spentAp??0].join(":");
    outgoing={...command,requestId:"npc-advance-"+key};
-  }else if(["MOVE","WAIT","ATTACK","DEFEND"].includes(command.kind)){
+  }else if(["MOVE","WAIT","ATTACK","DEFEND","COMMAND_SUMMON"].includes(command.kind)){
    const key=JSON.stringify([id,side,snapshot?.round,snapshot?.tick,
     snapshot?.actors[side].spentTicks,snapshot?.actors[side].spentAp,
     snapshot?.pending?.launchedAtTick,snapshot?.log.at(-1)?.summary,command]);
@@ -247,7 +247,7 @@ export default function CombatEncounter({id}:{id:string}) {
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"Acción rechazada");
    setView(v=>v?{...v,state:data.state}:v);
-   if(["MOVE","WAIT","ATTACK","DEFEND"].includes(command.kind)){
+   if(["MOVE","WAIT","ATTACK","DEFEND","COMMAND_SUMMON"].includes(command.kind)){
     actionRequestRef.current=null;
     try{window.sessionStorage.removeItem("xahya-pending-combat:"+id+":"+side);}
     catch{ /* Storage may be unavailable. */ }
@@ -370,7 +370,13 @@ export default function CombatEncounter({id}:{id:string}) {
  const canCreateObjects=hasAccess&&creationMaterials.length>0;
  const canCreateMaterialBlocks=creationMaterials.some(material=>material!=="LIGHT"&&material!=="MIRROR");
  const enemyMirrors=state?.constructions?.filter(c=>c.owner!==side&&c.form==="MIRROR"&&(c.durability??0)>0)??[];
- const selectedAttackTargetId=enemyMirrors.some(c=>c.id===attackTargetId)?attackTargetId:"";
+ const enemySummons=state?.summons?.filter(c=>c.owner!==side)??[];
+ const alliedSummons=state?.summons?.filter(c=>c.owner===side)??[];
+ const selectedAttackTargetId=enemyMirrors.some(c=>c.id===attackTargetId)||
+   enemySummons.some(c=>"SUMMON:"+c.id===attackTargetId)?attackTargetId:"";
+ const selectedSummonId=selectedAttackTargetId.startsWith("SUMMON:")?
+   selectedAttackTargetId.slice(7):undefined;
+ const selectedMirrorId=selectedSummonId?undefined:selectedAttackTargetId||undefined;
  const defending=!!pending&&pending.against===side;
  const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
  const npcNeedsInitiative=Boolean(state&&state.status==="ACTIVE"&&
@@ -404,11 +410,15 @@ export default function CombatEncounter({id}:{id:string}) {
  const defenderBlocks=state?.constructions?.filter(c=>c.owner===side&&c.form==="BLOCK"&&
    (c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35)??[];
  const chosenDefenseConstruction=defenderBlocks.some(c=>c.id===defenseConstruction)?defenseConstruction:defenderBlocks[0]?.id;
- const targetDistance=actor&&state?fieldDistance(actor,state.actors[opposingSide]):0;
+ const targetWorld=state?
+   enemySummons.find(c=>c.id===selectedSummonId)?.fieldPosition??
+     fieldPosition(state.actors[opposingSide]):undefined;
+ const targetDistance=actor&&targetWorld?Math.hypot(
+   fieldPosition(actor).x-targetWorld.x,fieldPosition(actor).y-targetWorld.y):0;
  // Selecting a composite mode starts with a visible, editable 1 m step toward
  // the rival. Drawing a new vector in the horizontal plane overrides it.
- const suggestedMove=actor&&state?(()=>{
-  const from=fieldPosition(actor),to=fieldPosition(state.actors[opposingSide]);
+ const suggestedMove=actor&&targetWorld?(()=>{
+  const from=fieldPosition(actor),to=targetWorld;
   const dx=to.x-from.x,dy=to.y-from.y,distance=Math.hypot(dx,dy);
   return distance>=0.01
    ?{x:dx/distance*Math.min(1,distance),y:dy/distance*Math.min(1,distance)}
@@ -428,9 +438,8 @@ export default function CombatEncounter({id}:{id:string}) {
   ?movementPlan==="MOVE_AFTER"?"AFTER" as const:"BEFORE" as const:undefined;
  const movedPosition=actor&&proposedMovement?{x:fieldPosition(actor).x+proposedMovement.x,
   y:fieldPosition(actor).y+proposedMovement.y}:actor?fieldPosition(actor):null;
- const afterMovementDistance=movedPosition&&state?Math.hypot(
-  movedPosition.x-fieldPosition(state.actors[opposingSide]).x,
-  movedPosition.y-fieldPosition(state.actors[opposingSide]).y):targetDistance;
+ const afterMovementDistance=movedPosition&&targetWorld?Math.hypot(
+  movedPosition.x-targetWorld.x,movedPosition.y-targetWorld.y):targetDistance;
  const attackDistance=movementOrder==="BEFORE"?afterMovementDistance:targetDistance;
  const missingMoveTrace=movementPlan!=="MOVE_ONLY"&&fieldMode==="MOVE"&&!proposedMovement;
  const canCombine=!!actor&&canStartComposite(actor);
@@ -464,18 +473,18 @@ export default function CombatEncounter({id}:{id:string}) {
   void submit(attackMode==="MAGIC_AREA"
    ?{kind:"ATTACK",planarMove:move,movementOrder:order,usesMagic:true,
       attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined,
-      targetConstructionId:selectedAttackTargetId||undefined}
+      targetConstructionId:selectedMirrorId,targetSummonId:selectedSummonId}
    :attackMode==="THROW"
     ?{kind:"ATTACK",planarMove:move,movementOrder:order,throwWeapon:true,
       attackSource:activeAttackSource,attackType:displayedAttackType,
-      areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+      areaCenter:areaCenter??undefined,targetConstructionId:selectedMirrorId,targetSummonId:selectedSummonId}
     :attackMode==="RANGED"
      ?{kind:"ATTACK",planarMove:move,movementOrder:order,rangedPhysical:true,
        attackSource:activeAttackSource,attackType:displayedAttackType,
-       areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+       areaCenter:areaCenter??undefined,targetConstructionId:selectedMirrorId,targetSummonId:selectedSummonId}
      :{kind:"ATTACK",planarMove:move,movementOrder:order,attackSource:activeAttackSource,
        attackType:displayedAttackType,trajectory:normalizedPath,
-       targetConstructionId:selectedAttackTargetId||undefined});
+       targetConstructionId:selectedMirrorId,targetSummonId:selectedSummonId});
  }
  const maxMove=actor?Math.max(1,Math.round(actor.race/10)):1;
  const chooseAttackMode=(mode:"MAGIC_AREA"|"MAIN_HAND"|"OFF_HAND")=>{
@@ -518,8 +527,8 @@ export default function CombatEncounter({id}:{id:string}) {
   const measuredBlock=construction&&skill.constructionMaterial!=="LIGHT"&&
     skill.constructionMaterial!=="MIRROR"&&constructionForm==="BLOCK";
   void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
-   trajectory:construction||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
-   attackSource:construction||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
+   trajectory:construction||skill.skillKind==="SUMMON"||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
+   attackSource:construction||skill.skillKind==="SUMMON"||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
    planarMove:!construction&&skill.skillKind==="OFFENSE"?skillMovement:undefined,
    movementOrder:!construction&&skill.skillKind==="OFFENSE"?skillMovementOrder:undefined,
    constructionFieldPoint:construction?constructionFieldPoint??undefined:undefined,
@@ -532,7 +541,8 @@ export default function CombatEncounter({id}:{id:string}) {
    areaAngleDegrees:isOrientedCombatArea(skill.attackArea)?areaAngleDegrees:undefined,
    constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
    constructionLabel:construction?constructionLabel.trim():undefined,
-   targetConstructionId:!construction&&skill.attackArea?.shape!=="SELF_FIELD"&&selectedAttackTargetId?selectedAttackTargetId:undefined});
+   targetConstructionId:!construction&&skill.attackArea?.shape!=="SELF_FIELD"?selectedMirrorId:undefined,
+   targetSummonId:!construction&&skill.attackArea?.shape!=="SELF_FIELD"?selectedSummonId:undefined});
  }
  const chronicle=state?.status==="FINISHED"
   ?((state.narrativeVersion??0)>=2&&state.narrativeText
@@ -889,6 +899,49 @@ export default function CombatEncounter({id}:{id:string}) {
        </div>}
      </section>
     </div>
+    {(state.summons?.length??0)>0&&<section className="mt-4 space-y-2 rounded-xl border border-emerald-500/30 bg-zinc-950/70 p-3" aria-label="Criaturas invocadas">
+     <h2 className="text-sm font-semibold text-emerald-200">🐇 Criaturas en el campo</h2>
+     <p className="text-xs text-zinc-400">Cada orden consume 1 PA y los ticks del invocador. El mantenimiento se descuenta al comenzar el siguiente turno: no hay ataques gratuitos.</p>
+     <div className="grid gap-2 sm:grid-cols-2">
+      {state.summons?.map(summon=><div key={summon.id}
+       className={"space-y-2 rounded-lg border p-2 text-xs "+(summon.owner===side?"border-emerald-700/50":"border-rose-700/50")}>
+       <div className="flex flex-wrap items-center justify-between gap-1">
+        <strong>{summon.label}</strong>
+        <span className="text-zinc-400">{summon.owner===side?"Aliada":"Rival"} · {Math.max(0,summon.expiresAtRound-state.round)} turnos</span>
+       </div>
+       <p className="text-zinc-300">Integridad {Math.ceil(summon.integrity)} · Golpes {summon.hitCount}/{summon.hitLimit} · Mantenimiento {summon.maintenanceMana} maná</p>
+       <p className="text-zinc-400">Comportamiento {summon.behavior.mode} · Objetivo {summon.behavior.target==="USER"?"invocador":"oponente"}</p>
+       {summon.owner===side&&hasAccess&&state.status==="ACTIVE"&&<div className="space-y-2">
+        <label className="block text-xs">Cambiar comportamiento (cuesta 1 PA)
+         <select value={summon.behavior.mode} disabled={!ready} className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 disabled:opacity-40"
+          onChange={e=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"CHANGE_BEHAVIOR",
+            newBehavior:e.target.value as typeof summon.behavior.mode})}>
+          {summon.behavior.allowedModes.map(mode=><option key={mode} value={mode}>
+           {mode==="FOLLOW"?"Seguir":mode==="ATTACK"?"Perseguir y atacar":mode==="PROTECT"?"Proteger":mode==="HOLD"?"Mantener posición":"Control manual"}
+          </option>)}
+         </select>
+        </label>
+        <div className="flex flex-wrap gap-2">
+         <button type="button" disabled={!ready} onClick={()=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"ACT"})}
+          className="rounded border border-emerald-500/60 px-3 py-2 text-emerald-200 disabled:opacity-40">
+          Actuar según comportamiento
+         </button>
+         {summon.behavior.allowedModes.includes("MANUAL")&&<button type="button"
+          disabled={!ready||!drawnMovement}
+          title="Usa el vector dibujado en el plano superior."
+          onClick={()=>drawnMovement&&void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"MOVE",planarMove:drawnMovement})}
+          className="rounded border border-cyan-600/50 px-3 py-2 text-cyan-200 disabled:opacity-40">Mover según trazo</button>}
+         {summon.behavior.target==="OPPONENT"&&(summon.behavior.mode==="ATTACK"||summon.behavior.allowedModes.includes("MANUAL"))&&
+          <button type="button" disabled={!ready}
+           onClick={()=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"ATTACK"})}
+           className="rounded border border-rose-600/50 px-3 py-2 text-rose-200 disabled:opacity-40">
+           Ordenar ataque
+          </button>}
+        </div>
+       </div>}
+      </div>)}
+     </div>
+    </section>}
     {defending&&hasAccess&&<div className="mt-4 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
      {!hasReactionBudget&&<p role="status" className="rounded-lg border border-amber-400/50 bg-amber-400/10 p-3 text-sm text-amber-200">
@@ -899,7 +952,7 @@ export default function CombatEncounter({id}:{id:string}) {
         ? ["DODGE","MAGIC_FIELD","CONSTRUCTION","ENDURE","COUNTER","NONE"].includes(opt.value)&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)
         : opt.value!=="MAGIC_FIELD"&&(!pending.attackArea||opt.value!=="DEFLECT")&&
-          (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).map(opt=>{
+          (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).filter(opt=>!pending.summonId||opt.value!=="COUNTER").map(opt=>{
        const DefenseIcon=defenseIcons[opt.value];
        const active=selectedDefense===opt.value;
        return <button key={opt.value} type="button" aria-pressed={active} aria-label={opt.label} title={opt.label}
@@ -1073,15 +1126,18 @@ export default function CombatEncounter({id}:{id:string}) {
         </button>}
        </div>
       </details>}
-      {enemyMirrors.length>0&&<label className="mb-3 block text-sm">Objetivo del ataque
+      {(enemyMirrors.length>0||enemySummons.length>0)&&<label className="mb-3 block text-sm">Objetivo del ataque
        <select value={selectedAttackTargetId} onChange={e=>setAttackTargetId(e.target.value)}
         className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
         <option value="">Personaje rival</option>
+        {enemySummons.map(summon=><option key={summon.id} value={"SUMMON:"+summon.id}>
+         🐇 {summon.label} · integridad {Math.ceil(summon.integrity)} · golpes {summon.hitCount}/{summon.hitLimit}
+        </option>)}
         {enemyMirrors.map(mirror=><option key={mirror.id} value={mirror.id}>
          {mirror.label} · resistencia {mirror.durability} · posición {Math.round(mirror.center.x*100)}%, {Math.round(mirror.center.y*100)}%
         </option>)}
        </select>
-       <span className="mt-1 block text-xs text-zinc-400">Puedes atacar físicamente el espejo para romperlo. La magia que alcance su posición se reflejará según sus efectos.</span>
+       <span className="mt-1 block text-xs text-zinc-400">Puedes atacar invocaciones para reducir su integridad y destruirlas al llegar a su límite de impactos. Los espejos siguen reflejando magia.</span>
       </label>}
       <p className="mb-2 text-xs text-zinc-400">{attackMode==="MAGIC_AREA"
        ? preparedAreaSkill?.attackArea

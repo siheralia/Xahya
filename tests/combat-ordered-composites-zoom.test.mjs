@@ -148,6 +148,21 @@ test("20 PA and a full tick budget allow a combined kick using one temporal wind
  assert.ok(launched.pending);
 });
 
+test("slow blunt weapon still allows an initial 2 PA composite within one capped 100-tick window",()=>{
+ const s=fight(1.2);
+ Object.assign(s.actors.PLAYER,{constitution:11,agility:11,speedValue:11,
+  equippedWeapon:{...weapon,attackType:"BLUNT"}});
+ assert.equal(remainingAp(s.actors.PLAYER),20);
+ assert.ok(turnTicks(s.actors.PLAYER,"BLUNT")>100);
+ const launched=applyCombatCommand(s,"PLAYER",strike({
+  attackType:"BLUNT",planarMove:{x:.35,y:0},movementOrder:"BEFORE"
+ }),rolls);
+ assert.equal(remainingAp(launched.actors.PLAYER),18);
+ assert.equal(launched.actors.PLAYER.spentTicks,100);
+ assert.equal(fieldPosition(launched.actors.PLAYER).x,.35);
+ assert.ok(launched.pending);
+});
+
 test("movement with slow weapon checks actual combined ticks before spending",()=>{
  const s=fight(1.4);
  s.actors.PLAYER.spentTicks=100-Math.max(turnTicks(s.actors.PLAYER),turnTicks(s.actors.PLAYER,"PIERCE"))+1;

@@ -36,6 +36,8 @@ export type CombatSummon = {
   integrity:number;hitCount:number;hitLimit:number;
   links:SummonLink[];behavior:SummonBehavior;
   contactEffects?:SummonContactEffect[];charges?:Record<string,number>;
+  /** Old per-creature charge wallets are copied to the owner pool only once. */
+  chargesMigrated?:boolean;
 };
 const ALLOWED_SOURCE:Record<string,keyof CombatFighter>={
   PHYSICAL_ATTACK:"physicalAttack",PHYSICAL_DEFENSE:"physicalDefense",

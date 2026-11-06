@@ -2138,7 +2138,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     <div>
                       <p className="font-semibold text-zinc-100">{entry.item?.name ?? "Objeto"}</p>
                       <p className="mt-1 text-xs text-zinc-500">{equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot ?? "Ranura"}</p>
-                       {entry.item?.itemType==="WEAPON"&&<p className="mt-1 text-xs text-amber-300">Durabilidad: {entry.durability??100}/100</p>}
+                       {entry.item?.itemType==="WEAPON"&&<p className="mt-1 text-xs text-amber-300">Durabilidad: {entry.durability??100}/100{entry.durability===0?" · ROTA (no utilizable en combate)":""}</p>}
                     </div>
                     <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>
                   </div>
@@ -2505,7 +2505,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       <div>
                         <p className="font-semibold">{entry.item?.name ?? "Objeto"}</p>
                         <p className="mt-1 text-xs" style={{ color: themePalette.muted }}>Cantidad: {entry.quantity}</p>
-                         {entry.item?.itemType==="WEAPON"&&<p className="mt-1 text-xs text-amber-300">Durabilidad: {entry.durability??100}/100</p>}
+                         {entry.item?.itemType==="WEAPON"&&<p className="mt-1 text-xs text-amber-300">Durabilidad: {entry.durability??100}/100{entry.durability===0?" · ROTA (no utilizable en combate)":""}</p>}
                       </div>
                       {entry.equipped && <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>}
                     </div>

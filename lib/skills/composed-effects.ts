@@ -7,7 +7,7 @@ export const MODULE_DEPOSIT_PER_STEP=5;
  * They do not increase the provisional reservation merely by making the
  * previously implicit arithmetic visible as nodes. */
 export function pricedModularStepCount(effect:EffectContainer):number{
-  return effect.steps.filter(step=>!["READ_STAT","READ_STORED","CALCULATE","READ_ITEM"].includes(step.kind)).length;
+  return effect.steps.filter(step=>!["READ_STAT","READ_STORED","CALCULATE","READ_ITEM","SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","READ_STATUSES","REQUIRE_CONTACT"].includes(step.kind)).length;
 }
 /** Minimum reservation only. Real utility/PCH research and staff review decide the final price. */
 export type ComposedSkillEffect={
@@ -60,7 +60,7 @@ export function previewComposedEffectBasePch(row:ComposedSkillEffect):{amount:nu
   const module=row.module;
   const error=validateEffectContainers([module]);
   const count=module&&Array.isArray(module.steps)
-    ?module.steps.filter(step=>step&&typeof step==="object"&&!["READ_STAT","READ_STORED","CALCULATE","READ_ITEM"].includes(step.kind)).length
+    ?module.steps.filter(step=>step&&typeof step==="object"&&!["READ_STAT","READ_STORED","CALCULATE","READ_ITEM","SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","READ_STATUSES","REQUIRE_CONTACT"].includes(step.kind)).length
     :0;
   const candidate=row.reviewedPch??Math.max(1,count*MODULE_DEPOSIT_PER_STEP);
   const amount=Number.isSafeInteger(candidate)&&candidate>0&&candidate<=100000?candidate:1;

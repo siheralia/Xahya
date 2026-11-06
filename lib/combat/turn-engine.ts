@@ -32,6 +32,8 @@ export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"
   /** Server-compiled item catalog effect snapshot (never sent by command). */
   autoRepair?:AutoRepairItemEffect;
   lastAutoRepairRound?:number;
+  /** Invalid staff-configured formulas must never block the whole encounter. */
+  autoRepairDisabled?:boolean;
 };
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
@@ -383,7 +385,7 @@ export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):v
     const characterItemId=weapon.characterItemId;
     if(seen.has(characterItemId))continue; // no duplicate inventory copy
     seen.add(characterItemId);
-    if(durability<0||durability>=100||
+    if(durability<0||durability>=100||weapon.autoRepairDisabled||
       !shouldAutoRepairAtRound(state.round,rule.intervalTurns)||
       weapon.lastAutoRepairRound===state.round||
       !Number.isSafeInteger(rule.manaCost)||rule.manaCost<1||
@@ -405,9 +407,20 @@ export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):v
       strength:opponent.strength,agility:opponent.agility,
       magicDefense:opponent.magicDefense,
     };
-    const calculated=evaluateWeaponAutoRepair(rule,{
-      characterItemId,durability,
-    },stats,{USER:stats,OPPONENT:opponentStats});
+    // A staff-configured formula may reference a statistic disabled in the
+    // current character catalog. Never trap both fighters at round rollover.
+    let calculated:ReturnType<typeof evaluateWeaponAutoRepair>;
+    try{
+      calculated=evaluateWeaponAutoRepair(rule,{
+        characterItemId,durability,
+      },stats,{USER:stats,OPPONENT:opponentStats});
+    }catch{
+      weapon.autoRepairDisabled=true;
+      addLog(state,{kind:"WEAPON_REPAIR_SKIP",tick:state.tick,by:side,
+        weaponName:weapon.name,
+        summary:weapon.name+" no pudo autorrepararse por una configuración incompatible."});
+      continue;
+    }
     if(calculated.restored<=0)continue;
     mana.current-=rule.manaCost;
     weapon.durability=calculated.after;

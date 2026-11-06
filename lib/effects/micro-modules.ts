@@ -237,7 +237,7 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
           case "SELECT_STAT":
             if(!["FIXED","RANDOM","COMBAT"].includes(step.mode)||!newOutput(step.output)
               ||!Array.isArray(step.allowed)||!step.allowed.length||step.allowed.length>32
-              ||step.allowed.some(k=>!validKey(k))||new Set(step.allowed).size!==step.allowed.length
+              ||step.allowed.some((k:unknown)=>!validKey(k))||new Set(step.allowed).size!==step.allowed.length
               ||(step.mode==="FIXED"&&!step.allowed.includes(step.fixed??"")))
               fail("selección de estadística inválida");
             outputs.add(step.output);statOutputs.add(step.output);opaqueOutputs.add(step.output);break;
@@ -264,7 +264,7 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
               ||!Array.isArray(step.allowedModes)||!step.allowedModes.includes(step.mode)
               ||!step.allowedModes.length||step.allowedModes.length>5
               ||new Set(step.allowedModes).size!==step.allowedModes.length
-              ||step.allowedModes.some(m=>!["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"].includes(m))
+              ||step.allowedModes.some((m:EntityBehaviorMode)=>!["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"].includes(m))
               ||!["USER","OPPONENT","ALLY","COMBAT"].includes(step.target)
               ||!["CONTACT","HP_DAMAGE","COMMAND"].includes(step.trigger))
               fail("comportamiento de entidad inválido");

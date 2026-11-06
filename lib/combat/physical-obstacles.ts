@@ -1,0 +1,113 @@
+import type {CombatConstruction} from "./constructs.ts";
+import type {Point} from "./turn-engine.ts";
+
+export type PhysicalCollider={radiusMeters:number;solidHeightMeters:number};
+export type SolidIntersection={block:CombatConstruction;t:number};
+
+const finite=(n:unknown):n is number=>typeof n==="number"&&Number.isFinite(n);
+const point=(p:Point|undefined):p is Point=>!!p&&finite(p.x)&&finite(p.y);
+
+/** Physical cylinders are opt-in. No size, position or vertical extent can be
+ * inferred from an old BLOCK's decorative 6.6px map marker or canvas center.
+ */
+export function measuredBlock(block:CombatConstruction):boolean {
+ return block.form==="BLOCK"&&block.tangible&&(block.durability??0)>0
+  &&point(block.fieldPosition)&&finite(block.heightMeters)
+  &&finite(block.footprintRadiusMeters)&&block.footprintRadiusMeters>0
+  &&finite(block.solidHeightMeters)&&block.solidHeightMeters>0;
+}
+
+/** Dimensions are deliberately explicit when enabled. Old encounter blocks
+ * with no geometry remain valid for their existing paid defense behavior.
+ * Partial configuration is invalid; client fields never convey authority.
+ */
+export function validatePhysicalCollider(
+ radius:unknown,height:unknown,base:unknown,position:Point|undefined,
+):PhysicalCollider|undefined {
+ if(radius===undefined&&height===undefined)return undefined;
+ if(!finite(radius)||radius<0.1||radius>3)
+  throw new Error("Indica un radio físico entre 0,1 y 3 m para el bloque.");
+ if(!finite(height)||height<0.1||height>10)
+  throw new Error("Indica una altura física entre 0,1 y 10 m para el bloque.");
+ if(!point(position))
+  throw new Error("Marca una posición horizontal real para el bloque sólido.");
+ if(!finite(base)||base<0||base+height>10+1e-8)
+  throw new Error("La base y la altura del bloque deben caber entre 0 y 10 m.");
+ return {radiusMeters:radius,solidHeightMeters:height};
+}
+
+/** Earliest intersection of a 3D segment with the measured vertical cylinder.
+ * Horizontal footprint and vertical height are both checked, not a sprite.
+ */
+export function measuredSegmentHit(
+ block:CombatConstruction,from:Point,to:Point,startHeight:number,endHeight:number,
+):number|null {
+ if(!measuredBlock(block)||!point(from)||!point(to)||
+    !finite(startHeight)||!finite(endHeight))return null;
+ const c=block.fieldPosition!,r=block.footprintRadiusMeters!;
+ const dx=to.x-from.x,dy=to.y-from.y;
+ const fx=from.x-c.x,fy=from.y-c.y;
+ const a=dx*dx+dy*dy,b=2*(fx*dx+fy*dy),q=fx*fx+fy*fy-r*r;
+ let lo=0,hi=1;
+ if(a<1e-12){
+  if(q>0)return null;
+ }else{
+  const determinant=b*b-4*a*q;
+  if(determinant<0)return null;
+  const root=Math.sqrt(Math.max(0,determinant));
+  lo=Math.max(0,(-b-root)/(2*a));
+  hi=Math.min(1,(-b+root)/(2*a));
+  if(lo>hi+1e-9)return null;
+ }
+ const base=block.heightMeters!,top=base+block.solidHeightMeters!;
+ const dz=endHeight-startHeight;
+ if(Math.abs(dz)<1e-12){
+  if(startHeight<base-1e-9||startHeight>top+1e-9)return null;
+ }else{
+  const t0=(base-startHeight)/dz,t1=(top-startHeight)/dz;
+  lo=Math.max(lo,Math.min(t0,t1),0);
+  hi=Math.min(hi,Math.max(t0,t1),1);
+ }
+ return lo<=hi+1e-9?lo:null;
+}
+
+export function firstMeasuredObstacle(
+ constructions:ReadonlyArray<CombatConstruction>|undefined,
+ from:Point,to:Point,startHeight:number,endHeight:number,excludeId?:string,
+):SolidIntersection|null {
+ let first:SolidIntersection|null=null;
+ for(const block of constructions??[]){
+  if(block.id===excludeId)continue;
+  const t=measuredSegmentHit(block,from,to,startHeight,endHeight);
+  if(t===null)continue;
+  if(!first||t<first.t-1e-9||(Math.abs(t-first.t)<1e-9&&block.id<first.block.id))
+   first={block,t};
+ }
+ return first;
+}
+
+/** A ground-level point actor may leave an obstacle it was already inside
+ * on a legacy encounter, but cannot enter or pass another solid footprint.
+ * The same test covers diagonal moves and endpoints beyond the obstruction.
+ */
+export function blockingMovement(
+ constructions:ReadonlyArray<CombatConstruction>|undefined,
+ from:Point,to:Point,
+):SolidIntersection|null {
+ const candidates=(constructions??[]).filter(block=>{
+  if(!measuredBlock(block))return false;
+  const c=block.fieldPosition!,r=block.footprintRadiusMeters!;
+  const startInside=Math.hypot(from.x-c.x,from.y-c.y)<r-1e-8;
+  const endOutside=Math.hypot(to.x-c.x,to.y-c.y)>r+1e-8;
+  return !(startInside&&endOutside);
+ });
+ return firstMeasuredObstacle(candidates,from,to,0,0);
+}
+
+export function assertMovementClear(
+ constructions:ReadonlyArray<CombatConstruction>|undefined,
+ from:Point,to:Point,
+):void {
+ const hit=blockingMovement(constructions,from,to);
+ if(hit)throw new Error("El desplazamiento atraviesa el obstáculo "+hit.block.label+". Rodea el bloque o cambia la trayectoria.");
+}

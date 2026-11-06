@@ -1,5 +1,6 @@
 import {validateVariableResistance,withResistanceOwners,type VariableResistance} from "../skills/variable-resistance.ts";
 import type {Point,Side} from "./turn-engine.ts";
+import {attackAreaHits,type CombatAttackArea} from "./skill-area.ts";
 
 export type ConstructionForm="FIELD"|"BLOCK"|"DECOR"|"MIRROR";
 export type ConstructionPlan={material:string;label:string};
@@ -60,4 +61,26 @@ export function resolveConstructionForm(material:string,requested:unknown,hasFie
  if(form==="BLOCK"&&!hasField)throw new Error("Debes crear primero el campo de material.");
  if(form==="DECOR"&&material!=="LIGHT")throw new Error("La construcción de este material no es decorativa.");
  return form as ConstructionForm;
+}
+
+/** True only when the actual approved attack footprint touches a tangible
+ * construction. Targeted circles/strips/sectors use the vertical defender-
+ * facing projection; their coordinates are NOT world-map positions.
+ *
+ * A SELF_FIELD has no detachable epicenter. It uses the measured horizontal
+ * distance from its caster to the block instead. Old blocks without a
+ * measured fieldPosition cannot be assigned a fabricated world location.
+ */
+export function constructionInAreaFootprint(
+ construction:CombatConstruction,area:CombatAttackArea,
+ center:Point|undefined,angleDegrees:number|undefined,casterWorld:Point,
+):boolean {
+ if(!construction.tangible||(construction.durability??0)<=0)return false;
+ if(area.shape==="SELF_FIELD"){
+  const world=construction.fieldPosition;
+  if(!world||!Number.isFinite(world.x)||!Number.isFinite(world.y))return false;
+  return Math.hypot(world.x-casterWorld.x,world.y-casterWorld.y)<=area.radiusMeters+1e-9;
+ }
+ if(!center||!Number.isFinite(center.x)||!Number.isFinite(center.y))return false;
+ return attackAreaHits(center,construction.center,area,angleDegrees);
 }

@@ -10,6 +10,7 @@ import {
 } from "../lib/combat/turn-engine.ts";
 import {compileCombatSkill} from "../lib/combat/skill-casting.ts";
 import {combatClientView} from "../lib/combat/magic-area.ts";
+import {progressTrainingNpc} from "../lib/combat/npc-policy.ts";
 
 const fighter=(name,id,x,patch={})=>({
  name,characterId:id,hp:100,maxHp:100,agility:80,speedValue:80,
@@ -231,4 +232,30 @@ test("public view preserves measured footprint but never reveals a pending hit c
  assert.match(ui,/constructionSolidHeightMeters/);
  assert.match(map,/blockingMovement/);
  assert.match(map,/plannedFootprintRadiusMeters/);
+});
+
+test("training NPC routes around a measured barrier instead of retrying the impossible move forever",()=>{
+ const s=newCombatState(fighter("Hero",101,0),fighter("Training NPC",null,4,{
+  magicAttack:0,speedValue:40,
+ }));
+ s.constructions=[block("npc-gate",3.5,0,{footprintRadiusMeters:.2})];
+ const afterWait=applyCombatCommand(s,"PLAYER",{kind:"WAIT"},dice);
+ const progressed=progressTrainingNpc(afterWait,()=>dice,()=>.8);
+ const steps=progressed.log.filter(e=>e.kind==="MOVE"&&e.by==="NPC");
+ assert.ok(steps.some(e=>e.movementDirection==="VECTOR"),
+  "NPC must try a legal lateral route around the block");
+ const npc=progressed.actors.NPC;
+ assert.ok(Math.hypot((npc.fieldPosition?.x??npc.positionMeters)-3.5,
+  (npc.fieldPosition?.y??0))>=.2-1e-5,"NPC cannot end inside measured cover");
+});
+
+test("NPC chooses a paid WAIT instead of throwing when no one-meter escape route is clear",()=>{
+ const s=newCombatState(fighter("Hero",101,0),fighter("Training NPC",null,4,{
+  magicAttack:0,speedValue:40,
+ }));
+ s.constructions=[block("encircling",4,0,{footprintRadiusMeters:3})];
+ const afterWait=applyCombatCommand(s,"PLAYER",{kind:"WAIT"},dice);
+ const progressed=progressTrainingNpc(afterWait,()=>dice,()=>.8);
+ assert.ok(progressed.log.some(e=>e.kind==="WAIT"&&e.by==="NPC"),
+  "a blocked training NPC must not freeze the encounter");
 });

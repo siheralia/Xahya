@@ -40,7 +40,8 @@ const inputsOf=(step:MicroStep):Port[]=>{
       kind:"STAT"},
     {id:"value",label:"Valor",expr:step.value,kind:"NUMBER"}
   ];
-  case "LINK_ENTITY_STAT":return [{id:"factor",label:"Factor",expr:step.factor,kind:"NUMBER"}];
+  case "APPLY_CHARGE_BUFF":return [{id:"charges",label:"Cargas",expr:step.charges,kind:"NUMBER"}];
+   case "LINK_ENTITY_STAT":return [{id:"factor",label:"Factor",expr:step.factor,kind:"NUMBER"}];
   case "STORE":return [{id:"value",label:"Almacenar",expr:step.value}];
   case "HEAL":return [{id:"amount",label:"Curación",expr:step.amount}];
   case "REPAIR_DURABILITY":return [

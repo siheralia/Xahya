@@ -126,6 +126,10 @@ export default function CombatEncounter({id}:{id:string}) {
  const [constructionCenter,setConstructionCenter]=useState<Point|null>(null);
  const [constructionFieldPoint,setConstructionFieldPoint]=useState<Point|null>(null);
  const [constructionHeightMeters,setConstructionHeightMeters]=useState(5);
+ // No assumed physical dimensions: a BLOCK only becomes a world obstacle
+ // when the player explicitly chooses both horizontal radius and height.
+ const [constructionFootprintRadiusMeters,setConstructionFootprintRadiusMeters]=useState("");
+ const [constructionSolidHeightMeters,setConstructionSolidHeightMeters]=useState("");
  const [fieldMode,setFieldMode]=useState<FieldMode>("MOVE");
  const [fieldMove,setFieldMove]=useState<Point|null>(null);
  const [movementPlan,setMovementPlan]=useState<"MOVE_ONLY"|"MOVE_BEFORE"|"MOVE_AFTER">("MOVE_ONLY");
@@ -506,6 +510,8 @@ export default function CombatEncounter({id}:{id:string}) {
   const requestId=previous?.key===key?previous.id:crypto.randomUUID();
   castRequestRef.current={key,id:requestId};
   const construction=skill.skillKind==="CONSTRUCTION";
+  const measuredBlock=construction&&skill.constructionMaterial!=="LIGHT"&&
+    skill.constructionMaterial!=="MIRROR"&&constructionForm==="BLOCK";
   void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
    trajectory:construction||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
    attackSource:construction||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
@@ -513,6 +519,10 @@ export default function CombatEncounter({id}:{id:string}) {
    movementOrder:!construction&&skill.skillKind==="OFFENSE"?skillMovementOrder:undefined,
    constructionFieldPoint:construction?constructionFieldPoint??undefined:undefined,
    constructionHeightMeters:construction?constructionHeightMeters:undefined,
+   constructionFootprintRadiusMeters:measuredBlock&&constructionFootprintRadiusMeters!==""?
+    Number(constructionFootprintRadiusMeters):undefined,
+   constructionSolidHeightMeters:measuredBlock&&constructionSolidHeightMeters!==""?
+    Number(constructionSolidHeightMeters):undefined,
    areaCenter:skill.attackArea?.shape==="SELF_FIELD"?undefined:construction?constructionCenter??undefined:skill.usesMagic||skill.attackArea?areaCenter??undefined:undefined,
    areaAngleDegrees:isOrientedCombatArea(skill.attackArea)?areaAngleDegrees:undefined,
    constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
@@ -841,13 +851,22 @@ export default function CombatEncounter({id}:{id:string}) {
       {panel==="construction"&&canCreateObjects&&state.status==="ACTIVE"&&
        <div className="space-y-2 pt-1" aria-label="Crear objetos junto a los planos">
         <p className="text-[11px] text-cyan-200">
-         {constructionFieldPoint?"Posición marcada":"Marca la posición a la izquierda"} · altura {constructionHeightMeters.toFixed(1)} m
+         {constructionFieldPoint?"Posición marcada":"Marca la posición a la izquierda"} · elevación de base {constructionHeightMeters.toFixed(1)} m
         </p>
         <div className="grid gap-1.5">
          {(constructionSkills[side]??[]).map(skill=>{
           const nextRound=state.skillCooldowns?.[side]?.[String(skill.id)]??0;
           const unavailable=nextRound===-1||nextRound>state.round;
+          const requiresSolidSize=constructionForm==="BLOCK"&&
+           skill.constructionMaterial!=="LIGHT"&&skill.constructionMaterial!=="MIRROR";
+          const validSolidSize=constructionFootprintRadiusMeters!==""&&constructionSolidHeightMeters!==""&&
+           Number.isFinite(Number(constructionFootprintRadiusMeters))&&
+           Number(constructionFootprintRadiusMeters)>=0.1&&Number(constructionFootprintRadiusMeters)<=3&&
+           Number.isFinite(Number(constructionSolidHeightMeters))&&
+           Number(constructionSolidHeightMeters)>=0.1&&
+           constructionHeightMeters+Number(constructionSolidHeightMeters)<=10;
           const disabled=!ready||!constructionFieldPoint||!constructionCenter||unavailable||
+           (requiresSolidSize&&!validSolidSize)||
            (state.mana?.[side]?.current??0)<skill.manaCost||
            (skill.constructionMaterial==="MIRROR"&&targetDistance>(skill.rangeMeters??0));
           return <button key={skill.id} type="button" disabled={disabled} onClick={()=>castSkill(skill)}
@@ -1139,21 +1158,44 @@ export default function CombatEncounter({id}:{id:string}) {
      Marca el punto de creación en el plano horizontal y la altura en el vertical. Las propiedades dependen del material y de las pasivas. Los objetos decorativos no bloquean ataques.
     </p>
     <p className="mt-2 text-xs text-cyan-200">
-     {constructionFieldPoint?"Ubicación marcada":"Ubicación sin seleccionar"} · altura {constructionHeightMeters.toFixed(1)} m
+     {constructionFieldPoint?"Ubicación marcada":"Ubicación sin seleccionar"} · elevación de base {constructionHeightMeters.toFixed(1)} m
     </p>
     {canCreateMaterialBlocks&&<label className="mt-3 block text-sm">Forma del material
-     <select value={constructionForm} onChange={e=>setConstructionForm(e.target.value as "FIELD"|"BLOCK")}
+     <select value={constructionForm} onChange={e=>{
+      const form=e.target.value as "FIELD"|"BLOCK";
+      setConstructionForm(form);
+      if(form==="BLOCK")setConstructionHeightMeters(0);
+     }}
       className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2">
       <option value="FIELD">Campo de material</option><option value="BLOCK">Bloque defensivo</option>
      </select>
     </label>}
+    {canCreateMaterialBlocks&&constructionForm==="BLOCK"&&<div className="mt-3 space-y-2 rounded-lg border border-cyan-500/35 p-3">
+      <p className="text-xs text-cyan-200">Dimensiones físicas del bloque · obligatorias para bloquear caminos y trayectorias. No se calculan a partir del icono.</p>
+      <label className="block text-sm">Radio horizontal (m, 0.1–3)
+       <input type="number" min={0.1} max={3} step={0.1}
+        value={constructionFootprintRadiusMeters}
+        onChange={e=>setConstructionFootprintRadiusMeters(e.target.value)}
+        placeholder="Elige un radio"
+        className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2"/>
+      </label>
+      <label className="block text-sm">Altura sólida (m, desde la base)
+       <input type="number" min={0.1} max={10-constructionHeightMeters} step={0.1}
+        value={constructionSolidHeightMeters}
+        onChange={e=>setConstructionSolidHeightMeters(e.target.value)}
+        placeholder="Elige la altura física"
+        className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2"/>
+      </label>
+      <p className="text-xs text-zinc-400">Base a {constructionHeightMeters.toFixed(1)} m de altura. Un bloque suspendido no obstruye el movimiento sobre el suelo.</p>
+     </div>}
     <label className="mt-3 block text-sm">Nombre del objeto (opcional)
      <input value={constructionLabel} maxLength={60} onChange={e=>setConstructionLabel(e.target.value)}
       className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2"
       placeholder="Nombre opcional"/>
     </label>
     {(state.constructions??[]).length>0&&<div className="mt-3 space-y-1 text-xs text-zinc-300">
-     {state.constructions?.map(c=><p key={c.id}>{c.label} · {c.form==="MIRROR"?"Espejo":c.form==="BLOCK"?"Bloque":"Campo"} · resistencia {c.durability??"—"}</p>)}
+     {state.constructions?.map(c=><p key={c.id}>{c.label} · {c.form==="MIRROR"?"Espejo":c.form==="BLOCK"?"Bloque":"Campo"} · resistencia {c.durability??"—"}{c.form==="BLOCK"&&c.footprintRadiusMeters!==undefined
+      ?" · radio "+c.footprintRadiusMeters+" m · altura sólida "+c.solidHeightMeters+" m":""}</p>)}
     </div>}
     <button type="button" onClick={()=>{setConstructionOptionsOpen(false);openPanel("skills",null);}}
      className="mt-3 rounded-lg border border-cyan-500 px-3 py-2 text-sm text-cyan-200">

@@ -19,7 +19,7 @@ const events:MicroEvent[]=["DAMAGE_RESOLVED","TURN_START","IMPACT","PASSIVE","AC
 const stepKinds:MicroStep["kind"][]=["READ_STAT","READ_STORED","READ_ITEM","CALCULATE",
   "STORE","CONSUME","CONSUME_COMBAT_CHARGES","APPLY_CHARGE_BUFF","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS",
   "SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","REQUIRE_CONTACT","SUMMON_ENTITY",
-  "LINK_ENTITY_STAT","SET_ENTITY_STAT","SET_ENTITY_BEHAVIOR","APPLY_STATUS","READ_STATUSES","INVERT_STATUS",
+  "LINK_ENTITY_STAT","SET_ENTITY_STAT","FUSE_SUMMONS","CHAOS_FIELD","SET_ENTITY_BEHAVIOR","APPLY_STATUS","READ_STATUSES","INVERT_STATUS",
   "CAPABILITY","VARIABLE_RESISTANCE"];
 const destinationStats:readonly string[]=["STR","AGI","CON","INT","WIS","CHA","SPI",
   "HP","MAX_HP","MANA","RESISTANCE","MAGIC_DEF","PHYS_DEF","MAGIC_ATTACK","PHYSICAL_ATTACK"];
@@ -52,6 +52,13 @@ const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
     case "LINK_ENTITY_STAT":return {kind,entityKey:"FAMILIAR",sourceStat:"PHYSICAL_ATTACK",
       destStat:"PHYSICAL_ATTACK",factor:0.2};
     case "SET_ENTITY_STAT":return {kind,entityKey:"FAMILIAR",destStat:"PHYSICAL_ATTACK",value:100};
+    case "FUSE_SUMMONS":return {kind,
+      sourceEntityKeys:["BNUUY_JUICIO","BNUUY_CARGA","BNUUY_INTERIOR",
+       "BNUUY_SOLEDAD","BNUUY_VIDA","BNUUY_CAMINATA","BNUUY_ECLIPSE"],
+      entityKey:"REINO_CAOS",label:"Reino del Caos",manaCost:30,
+      maintenanceMana:20,durationTurns:2,controlRangeMeters:15,hitLimit:3};
+    case "CHAOS_FIELD":return {kind,entityKey:"REINO_CAOS",radiusMeters:5,
+      rotationDegrees:90,rotateEachRound:true};
     case "SET_ENTITY_BEHAVIOR":return {kind,entityKey:"FAMILIAR",mode:"FOLLOW",
       allowedModes:["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"],target:"USER",trigger:"CONTACT"};
     case "APPLY_STATUS":return {kind,target:{source:"OUTPUT",key:"chosenTarget"},stat:"STR",
@@ -297,6 +304,54 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItem
         {!availableTargetOutputs.includes(step.target.key)&&
           <p role="alert" className="text-xs text-amber-300">Añade primero «Seleccionar objetivo» y enlaza su salida.</p>}
       </div>}
+    {step.kind==="FUSE_SUMMONS"&&<div className="space-y-2">
+      <p className="text-xs text-violet-200">Consume criaturas tuyas que ya existen en el combate. No invoca los componentes gratis y no copia sus efectos por contacto.</p>
+      <label className="block text-xs">Claves de las criaturas que deben estar activas (una por línea o separadas con comas)
+        <textarea className={"mt-1 "+field} rows={4}
+          value={step.sourceEntityKeys.join("\n")} onChange={e=>
+            change({sourceEntityKeys:e.target.value.split(/[\n,]+/).map(k=>k.trim()).filter(Boolean)})}/>
+      </label>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs">Clave de la criatura resultante
+          <input className={"mt-1 "+field} value={step.entityKey} onChange={e=>change({entityKey:e.target.value})}/>
+        </label>
+        <label className="text-xs">Nombre resultante
+          <input className={"mt-1 "+field} value={step.label} onChange={e=>change({label:e.target.value})}/>
+        </label>
+        {([["manaCost","Maná de fusionar"],["maintenanceMana","Maná de mantenimiento por turno"],
+           ["durationTurns","Duración (turnos)"],["controlRangeMeters","Radio de control (m)"],
+           ["hitLimit","Impactos soportados"]] as const).map(([key,label])=>
+           <label key={key} className="text-xs">{label}
+             <input type="number" min={key==="durationTurns"||key==="hitLimit"?1:0}
+               className={"mt-1 "+field} value={step[key]}
+               onChange={e=>change({[key]:Number(e.target.value)})}/>
+           </label>)}
+      </div>
+      <p className="text-xs text-zinc-400">Añade al resultado atributos con «Fijar atributo» o «Vincular estadística», y un comportamiento. El coste de maná y el mantenimiento de la habilidad deben coincidir con este módulo.</p>
+    </div>}
+    {step.kind==="CHAOS_FIELD"&&<div className="space-y-2">
+      <p className="text-xs text-violet-200">Gira la dirección del movimiento intencionado del adversario mientras esté dentro del radio de la criatura fusionada. Mantiene distancia, costes y colisiones.</p>
+      <label className="block text-xs">Clave de la criatura portadora
+        <input className={"mt-1 "+field} value={step.entityKey} onChange={e=>change({entityKey:e.target.value})}/>
+      </label>
+      <label className="block text-xs">Radio del campo en metros
+        <input type="number" min={0.5} max={15} step={0.5}
+          className={"mt-1 "+field} value={step.radiusMeters}
+          onChange={e=>change({radiusMeters:Number(e.target.value)})}/>
+      </label>
+      <label className="block text-xs">Rotación inicial de la dirección
+        <select className={"mt-1 "+field} value={step.rotationDegrees}
+          onChange={e=>change({rotationDegrees:Number(e.target.value) as 90|180|270})}>
+          <option value={90}>90°</option><option value={180}>180°</option><option value={270}>270°</option>
+        </select>
+      </label>
+      <label className="flex items-center gap-2 text-xs">
+        <input type="checkbox" checked={step.rotateEachRound}
+          onChange={e=>change({rotateEachRound:e.target.checked})}/>
+        Cambiar la rotación cada ronda (90°, 180°, 270°, repetir)
+      </label>
+      <p className="text-xs text-zinc-400">No modifica proyectiles, trayectorias de ataque ni empujones involuntarios. El campo desaparece con la criatura.</p>
+    </div>}
     {step.kind==="SUMMON_ENTITY"&&<div className="space-y-2">
       <p className="text-xs text-amber-300">Solicita una invocación. La aparición, pago, duración, integridad y PA/ticks necesitan autorización del motor de combate.</p>
       <div className="grid gap-2 sm:grid-cols-2">

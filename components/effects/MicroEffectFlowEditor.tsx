@@ -35,8 +35,9 @@ const inputsOf=(step:MicroStep):Port[]=>{
     return [{id:"target",label:"Objetivo",expr:step.target,kind:"TARGET"}];
   case "APPLY_STATUS":return [
     {id:"target",label:"Objetivo",expr:step.target,kind:"TARGET"},
-    ...(typeof step.stat!=="string"?[{id:"stat",label:"Estadística",
-      expr:{source:"OUTPUT",key:step.stat.key} as NumericExpr,kind:"STAT" as const}]:[]),
+    {id:"stat",label:"Estadística",
+      expr:typeof step.stat==="string"?undefined:{source:"OUTPUT",key:step.stat.key},
+      kind:"STAT"},
     {id:"value",label:"Valor",expr:step.value,kind:"NUMBER"}
   ];
   case "LINK_ENTITY_STAT":return [{id:"factor",label:"Factor",expr:step.factor,kind:"NUMBER"}];

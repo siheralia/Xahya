@@ -267,6 +267,8 @@ test("simultaneous physical counter persists cover wear without gaining a free a
   {kind:"ATTACK",attackType:"BLUNT",attackSource:"MAIN_HAND"},dice);
  assert.equal(launched.pending.explicitTrajectory,false,
   "the incoming placeholder stroke must not receive invented cover");
+ const directHit=applyCombatCommand(launched,"NPC",
+  {kind:"DEFEND",defense:"NONE"},dice);
  launched=applyCombatCommand(launched,"NPC",
   {kind:"DEFEND",defense:"COUNTER",counterMagic:false},dice);
  assert.equal(launched.pending,null);
@@ -274,7 +276,8 @@ test("simultaneous physical counter persists cover wear without gaining a free a
   "cover hit on the simultaneous shadow must be persisted to the real state");
  assert.equal(launched.constructions[0].hitCount,1);
  assert.equal(launched.actors.PLAYER.hp,100,"the counter was physically intercepted");
- assert.ok(launched.actors.NPC.hp<100,"the original attack still resolves");
+ assert.equal(launched.actors.NPC.hp,directHit.actors.NPC.hp,
+  "the incoming attack is resolved exactly as if the NPC accepted it");
  assert.equal(launched.actors.NPC.spentAp,1,"counter pays one PA");
  assert.ok(launched.log.some(e=>e.kind==="CONSTRUCTION"&&
   e.constructionId==="counter-cover"&&e.summary.includes("Intercambio simultáneo")));

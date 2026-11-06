@@ -4,7 +4,7 @@ import {readFileSync} from "node:fs";
 import {
  battleFieldViewport,fieldPosition,fieldToViewport,viewportToField,previewViewportMove,
 } from "../lib/combat/field-plane.ts";
-import {newCombatState,applyCombatCommand,remainingAp,turnTicks} from "../lib/combat/turn-engine.ts";
+import {newCombatState,applyCombatCommand,canStartComposite,remainingAp,turnTicks} from "../lib/combat/turn-engine.ts";
 
 const src=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const rolls={hit:.01,critical:.99,defense:.99};
@@ -163,16 +163,79 @@ test("slow blunt weapon still allows an initial 2 PA composite within one capped
  assert.ok(launched.pending);
 });
 
-test("movement with slow weapon checks actual combined ticks before spending",()=>{
+test("encounter 63: with 81/100 ticks and 2+ PA, move + attack stays available",()=>{
+ for(const order of ["BEFORE","AFTER"]){
+  const s=fight(1.4);
+  Object.assign(s.actors.PLAYER,{
+   agility:38,speedValue:38,constitution:1,spentTicks:81,spentAp:3,
+   equippedWeapon:{...weapon,attackType:"CUT",effectiveRangeMeters:2.7}
+  });
+  s.actors.NPC.spentTicks=81;
+  s.actors.NPC.speedValue=45;
+  const ap=remainingAp(s.actors.PLAYER);
+  assert.ok(ap>=2);
+  assert.equal(turnTicks(s.actors.PLAYER),27);
+  assert.equal(canStartComposite(s.actors.PLAYER),true,
+   "a partial tick window is enough to begin a paid composite");
+  const launched=applyCombatCommand(s,"PLAYER",strike({
+   attackType:"CUT",planarMove:{x:.3,y:0},movementOrder:order
+  }),rolls);
+  assert.ok(launched.pending,"both attack orders remain legal");
+  assert.equal(launched.actors.PLAYER.spentTicks,100,
+   "81 + 27 ticks saturate at 100; no second tick window");
+  assert.equal(remainingAp(launched.actors.PLAYER),ap-2,
+   "movement and attack consume exactly two PA");
+  assert.equal(fieldPosition(launched.actors.PLAYER).x,
+   order==="BEFORE"?.3:0);
+  assert.equal(launched.pending.movementOrder,order);
+  if(order==="AFTER"){
+   const resolved=applyCombatCommand(launched,"NPC",{kind:"DEFEND",defense:"NONE"},rolls);
+   assert.equal(fieldPosition(resolved.actors.PLAYER).x,.3);
+  }
+ }
+});
+
+test("a composite also saturates late in the turn with a slow weapon or magic",()=>{
+ const slow=fight(1.4);
+ Object.assign(slow.actors.PLAYER,{
+  speedValue:38,agility:38,spentTicks:81,spentAp:3,constitution:1,
+  equippedWeapon:{...weapon,attackType:"BLUNT",effectiveRangeMeters:2.7}
+ });
+ slow.actors.NPC.spentTicks=81;
+ const launched=applyCombatCommand(slow,"PLAYER",strike({
+  attackType:"BLUNT",planarMove:{x:.3,y:0},movementOrder:"BEFORE"
+ }),rolls);
+ assert.equal(launched.actors.PLAYER.spentTicks,100);
+ assert.equal(launched.actors.PLAYER.spentAp,5);
+ const magical=fight(1.4);
+ Object.assign(magical.actors.PLAYER,{
+  speedValue:38,agility:38,spentTicks:81,spentAp:3,constitution:1
+ });
+ magical.actors.NPC.spentTicks=81;
+ magical.mana={PLAYER:{current:5,max:5},NPC:{current:5,max:5}};
+ const cast=applyCombatCommand(magical,"PLAYER",{
+  kind:"ATTACK",attackType:"PIERCE",usesMagic:true,
+  areaCenter:{x:.5,y:.5},planarMove:{x:.3,y:0},movementOrder:"BEFORE"
+ },rolls);
+ assert.equal(cast.actors.PLAYER.spentTicks,100);
+ assert.equal(cast.actors.PLAYER.spentAp,5);
+ assert.equal(cast.mana.PLAYER.current,4);
+});
+
+test("a composite is prohibited only after 100 ticks or with less than 2 PA",()=>{
  const s=fight(1.4);
- s.actors.PLAYER.spentTicks=100-Math.max(turnTicks(s.actors.PLAYER),turnTicks(s.actors.PLAYER,"PIERCE"))+1;
- // Keep the opponent's initiative clock aligned so the action reaches the
- // specific composite-tick validation rather than failing canAct() first.
- s.actors.NPC.spentTicks=s.actors.PLAYER.spentTicks;
+ s.actors.PLAYER.spentTicks=100;
+ assert.equal(canStartComposite(s.actors.PLAYER),false);
  assert.throws(()=>applyCombatCommand(s,"PLAYER",strike({
-  planarMove:{x:0,y:.4},movementOrder:"AFTER"
- }),rolls),/ticks suficientes/);
- assert.equal(s.actors.PLAYER.positionMeters,0);
+  planarMove:{x:.4,y:0},movementOrder:"AFTER"
+ }),rolls),/Espera/);
+ const ap=fight(1.4);
+ ap.actors.PLAYER.spentAp=ap.actors.PLAYER.constitution+8;
+ assert.equal(remainingAp(ap.actors.PLAYER),1);
+ assert.equal(canStartComposite(ap.actors.PLAYER),false);
+ assert.throws(()=>applyCombatCommand(ap,"PLAYER",strike({
+  planarMove:{x:.4,y:0},movementOrder:"AFTER"
+ }),rolls),/2 PA/);
 });
 
 test("UI modes and zoom use icon-only aligned controls, while physical/magic commands send order",()=>{
@@ -184,7 +247,8 @@ test("UI modes and zoom use icon-only aligned controls, while physical/magic com
  assert.match(ui,/planarMove:move,movementOrder:order/);
  assert.match(ui,/function launchAttack\(order/);
  assert.match(ui,/canCombineAttack/);
- assert.match(ui,/Los ticks restantes no permiten combinar/);
+ assert.match(ui,/canStartComposite\(actor\)/);
+ assert.match(ui,/Has agotado los 100 ticks de este turno/);
  assert.match(ui,/afterMovementDistance/);
  assert.match(ui,/solo mover/i);
  assert.match(top,/battleFieldViewport/);

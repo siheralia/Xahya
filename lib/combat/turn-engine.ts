@@ -403,6 +403,14 @@ export function compositeActionTicks(f: CombatFighter, attackType?: CombatAttack
 export function remainingAp(f: CombatFighter) {
   return Math.max(0, actionPoints(f.constitution) - f.spentAp);
 }
+/** An action may begin while any tick remains. Exactly like individual
+ * attacks, a composite may finish at the 100-tick boundary even when its
+ * nominal duration exceeds the remaining ticks (no tick carryover).
+ * It consumes 2 PA, but only the slower component's temporal window.
+ */
+export function canStartComposite(f: CombatFighter): boolean {
+  return remainingAp(f)>=2 && f.spentTicks<LIMIT;
+}
 const hasInitiativeBudget = (f: CombatFighter) =>
   remainingAp(f) >= 1 && f.spentTicks < LIMIT;
 
@@ -413,15 +421,18 @@ const hasInitiativeBudget = (f: CombatFighter) =>
  * This is derived from the persisted event log, so existing encounters
  * do not need a migration or a new saved-state version.
  */
-/** A composed movement+action pays two PA, occupying one temporal window. */
-/** Check the combined PA/ticks atomically. For AFTER, do not move before the
- * defender has resolved: the attack still launches from the original range.
+/** A composed movement+action pays 2 PA, occupying one temporal window.
+ * The normal spend() saturates ticks at 100. Do not require a whole unused
+ * window: a single attack also remains legal when only e.g. 19 ticks remain.
+ * For AFTER, the movement is applied only after resolving the defense.
  */
 function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEFORE"|"AFTER"="BEFORE",actionTicks?:number){
  const fighter=state.actors[by],vector=validatePlanarMove(requested);
  if(remainingAp(fighter)<2)throw new Error("Moverse y actuar a la vez requiere 2 PA.");
- if(fighter.spentTicks+Math.min(LIMIT,Math.max(turnTicks(fighter),actionTicks??turnTicks(fighter)))>LIMIT)
-  throw new Error("No quedan ticks suficientes para combinar movimiento y acción.");
+ if(fighter.spentTicks>=LIMIT)
+  throw new Error("Ya agotaste los 100 ticks de este turno.");
+ // The second spend() below charges the attack's incremental ticks over
+ // the movement, never a second complete temporal window.
  spend(fighter,turnTicks(fighter));
  if(order==="BEFORE")finishCompositeStep(state,by,vector);
 }

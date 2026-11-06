@@ -13,7 +13,7 @@ import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {angularAreaSvgPath,isOrientedCombatArea} from "@/lib/combat/skill-area";
 import {
-  actionPoints, basicCounterAttack, canAct, compositeActionTicks, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, effectiveWeaponReachMeters, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  actionPoints, basicCounterAttack, canAct, canStartComposite, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, effectiveWeaponReachMeters, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type PhysicalAttackSource, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
@@ -377,11 +377,10 @@ export default function CombatEncounter({id}:{id:string}) {
   movedPosition.y-fieldPosition(state.actors[opposingSide]).y):targetDistance;
  const attackDistance=movementOrder==="BEFORE"?afterMovementDistance:targetDistance;
  const missingMoveTrace=movementPlan!=="MOVE_ONLY"&&fieldMode==="MOVE"&&!proposedMovement;
- const canCombine=!!actor&&remainingAp(actor)>=2&&actor.spentTicks+compositeActionTicks(actor)<=100;
- const combinedAttackTicks=actor?compositeActionTicks(actor,
-  attackMode!=="MAGIC_AREA"&&selectedWeapon?displayedAttackType:undefined):0;
- const canCombineAttack=!!actor&&remainingAp(actor)>=2&&
-  actor.spentTicks+combinedAttackTicks<=100;
+ const canCombine=!!actor&&canStartComposite(actor);
+ // A combination costs 2 PA, but uses the SAME final tick window as
+ // a single attack: even at 81/100 ticks it may finish the round.
+ const canCombineAttack=!!actor&&canStartComposite(actor);
  const basicReach=attackMode==="MAGIC_AREA"?BASIC_MAGIC_RANGE_METERS:
    actor?effectiveWeaponReachMeters(actor,attackMode==="THROW",activeAttackSource):0;
  const basicOutOfRange=attackDistance>basicReach;
@@ -779,7 +778,7 @@ export default function CombatEncounter({id}:{id:string}) {
          El objetivo sigue fuera de alcance tras avanzar; utiliza «Solo mover» para acercarte.
         </p>}
         {!canCombineAttack&&<p role="status" className="text-[11px] text-amber-200">
-         {actor&&remainingAp(actor)<2?"Faltan PA para combinar.":"Los ticks restantes no permiten combinar."}
+         {actor&&remainingAp(actor)<2?"Faltan PA para combinar.":"Has agotado los 100 ticks de este turno."}
         </p>}
         <div className="flex flex-wrap gap-1">
          <button type="button" onClick={()=>setAttackOptionsOpen(true)}
@@ -1048,8 +1047,7 @@ export default function CombatEncounter({id}:{id:string}) {
          {actor&&remainingAp(actor)<2
           ?"Necesitas 2 PA para combinar movimiento y ataque; tienes "+remainingAp(actor)+"."
           :actor
-           ?"No alcanzan los ticks: esta combinación requiere "+combinedAttackTicks+
-            " ticks y te quedan "+(100-actor.spentTicks)+"."
+           ?"Ya agotaste los 100 ticks de este turno."
            :"No hay recursos disponibles para esta combinación."}
         </p>}
         {attackMode==="MAGIC_AREA"&&!areaCenter&&<p role="status" className="mb-2 text-xs text-violet-300">Marca el centro de la magia en el plano vertical para poder lanzarla.</p>}

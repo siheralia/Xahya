@@ -3,18 +3,30 @@
  * Definitions outside this strict set remain non-executable in combat.
  */
 import {validateEffectContainers,type EffectContainer,type EntityBehaviorMode,
-  type EntityTargetSlot,type MicroStep} from "../effects/micro-modules.ts";
+  type EntityTargetSlot} from "../effects/micro-modules.ts";
+import {resolveStatusStat} from "./summon-status.ts";
 import type {CombatFighter,Point,Side} from "./turn-engine.ts";
 
 export type SummonStat = "PHYSICAL_ATTACK"|"PHYSICAL_DEFENSE"|"AGI"|"INTEGRITY"|
   "MOVE_SPEED"|"PRECISION"|"DODGE"|"STRENGTH";
-export type SummonLink = {sourceStat:string;destStat:SummonStat;factor:number};
+/** Old encounter links omit mode; they remain dynamically linked. */
+export type SummonLink = {sourceStat:string;destStat:SummonStat;factor:number;mode?:"LINK"}
+  | {mode:"FIXED";destStat:SummonStat;value:number};
+export type SummonStatChoice={mode:"FIXED"|"RANDOM"|"COMBAT";allowed:string[];fixed?:string};
+export type SummonContactEffect={
+  kind:"APPLY_STATUS";target:EntityTargetSlot;stat:string|SummonStatChoice;
+  operation:"MULTIPLIER"|"BONUS";value:number;durationTurns:number;
+} | {
+  kind:"INVERT_STATUS";target:EntityTargetSlot;
+  selection:"LATEST_DEBUFF"|"SELECTED_DEBUFF";manaCost:number;chargeAccumulator?:string;
+};
 export type SummonBehavior = {mode:EntityBehaviorMode;allowedModes:EntityBehaviorMode[];
   target:EntityTargetSlot;trigger:"CONTACT"|"HP_DAMAGE"|"COMMAND"};
 export type SummonTemplate = {
   entityKey:string;label:string;manaCost:number;maintenanceMana:number;
   durationTurns:number;controlRangeMeters:number;hitLimit:number;
   links:SummonLink[];behavior:SummonBehavior;
+  contactEffects:SummonContactEffect[];
 };
 export type CombatSummon = {
   id:string;owner:Side;sourceSkillId:number;entityKey:string;label:string;
@@ -22,6 +34,7 @@ export type CombatSummon = {
   controlRangeMeters:number;maintenanceMana:number;
   integrity:number;hitCount:number;hitLimit:number;
   links:SummonLink[];behavior:SummonBehavior;
+  contactEffects?:SummonContactEffect[];charges?:Record<string,number>;
 };
 const ALLOWED_SOURCE:Record<string,keyof CombatFighter>={
   PHYSICAL_ATTACK:"physicalAttack",PHYSICAL_DEFENSE:"physicalDefense",
@@ -49,6 +62,10 @@ export function compileSummonTemplates(effects:readonly unknown[],skillManaCost:
   const map=new Map<string,SummonTemplate>();
   const behaviors=new Set<string>();
   for(const module of modules){
+    let activeEntityKey:string|null=null;
+    const targets=new Map<string,EntityTargetSlot>();
+    const statChoices=new Map<string,SummonStatChoice>();
+    const contactAllowed=new Set<string>();
     if(module.trigger!=="ACTIVATE"||module.impactKind||module.requirements?.length)
       throw new Error("Invocación: los pasos de criatura requieren activación directa sin condiciones pendientes.");
     for(const step of module.steps){
@@ -62,8 +79,10 @@ export function compileSummonTemplates(effects:readonly unknown[],skillManaCost:
             entityKey:step.entityKey,label:step.label,manaCost:step.manaCost,
             maintenanceMana:step.maintenanceMana,durationTurns:step.durationTurns,
             controlRangeMeters:step.controlRangeMeters,hitLimit:step.hitLimit,
-            links:[],behavior:{mode:"FOLLOW",allowedModes:["FOLLOW"],target:"USER",trigger:"COMMAND"}
+            links:[],contactEffects:[],
+            behavior:{mode:"FOLLOW",allowedModes:["FOLLOW"],target:"USER",trigger:"COMMAND"}
           });
+          activeEntityKey=step.entityKey;
           break;
         case "LINK_ENTITY_STAT":{
           const t=map.get(step.entityKey);
@@ -72,10 +91,63 @@ export function compileSummonTemplates(effects:readonly unknown[],skillManaCost:
             !acceptableFactor(step.factor))
             throw new Error("Invocación: estadísticas/factor de criatura no soportados por el motor de combate.");
           if(t.links.some(link=>link.destStat===step.destStat))
-            throw new Error("Invocación: cada estadística de criatura admite un único vínculo.");
+            throw new Error("Invocación: cada estadística de criatura admite un único valor (fijo o vinculado).");
           if(step.destStat==="INTEGRITY"&&step.sourceStat!=="PHYSICAL_DEFENSE")
             throw new Error("La integridad de una criatura debe vincularse a la defensa física.");
-          t.links.push({sourceStat:step.sourceStat,destStat:step.destStat as SummonStat,factor:step.factor});
+          t.links.push({mode:"LINK",sourceStat:step.sourceStat,
+            destStat:step.destStat as SummonStat,factor:step.factor});
+          break;
+        }
+        case "SET_ENTITY_STAT":{
+          const t=map.get(step.entityKey);
+          if(!t)throw new Error("Configura estadísticas después de invocar la criatura.");
+          if(!ALLOWED_DEST.has(step.destStat as SummonStat)||
+            !Number.isFinite(step.value)||step.value<0||step.value>1_000_000)
+            throw new Error("Estadística fija de invocación fuera de los límites.");
+          if(t.links.some(link=>link.destStat===step.destStat))
+            throw new Error("No puedes fijar y vincular la misma estadística de una criatura.");
+          t.links.push({mode:"FIXED",destStat:step.destStat as SummonStat,value:step.value});
+          break;
+        }
+        case "SELECT_TARGET":
+          if(!activeEntityKey||!["USER","OPPONENT"].includes(step.selector))
+            throw new Error("El contacto requiere un invocador u oponente autorizado.");
+          targets.set(step.output,step.selector);
+          break;
+        case "SELECT_STAT":
+          if(!activeEntityKey||step.allowed.some(k=>!resolveStatusStat(k)))
+            throw new Error("La selección incluye estadísticas no ejecutables en combate.");
+          statChoices.set(step.output,{mode:step.mode,allowed:[...step.allowed],fixed:step.fixed});
+          break;
+        case "REQUIRE_CONTACT":
+          if(!activeEntityKey||!targets.has(step.target.key))
+            throw new Error("El contacto exige una selección de objetivo anterior.");
+          contactAllowed.add(step.target.key);
+          break;
+        case "APPLY_STATUS":{
+          if(!activeEntityKey||!contactAllowed.has(step.target.key))
+            throw new Error("Conecta Comprobar contacto antes de aplicar estados a una criatura.");
+          const t=map.get(activeEntityKey)!;
+          const target=targets.get(step.target.key)!;
+          const stat=typeof step.stat==="string"?step.stat:statChoices.get(step.stat.key);
+          if(!stat||(typeof stat==="string"&&!resolveStatusStat(stat)))
+            throw new Error("Estadística de contacto no soportada o sin selección.");
+          if(typeof step.value!=="number"||!Number.isFinite(step.value)||
+            step.operation==="MULTIPLIER"&&(step.value<0||step.value>3)||
+            step.operation==="BONUS"&&Math.abs(step.value)>100000)
+            throw new Error("El efecto de estado necesita un valor numérico fijo válido.");
+          if(step.durationTurns>20)throw new Error("La duración máxima de estados es 20 turnos.");
+          t.contactEffects.push({kind:"APPLY_STATUS",target,stat,
+            operation:step.operation,value:step.value,durationTurns:step.durationTurns});
+          break;
+        }
+        case "INVERT_STATUS":{
+          if(!activeEntityKey||!contactAllowed.has(step.target.key))
+            throw new Error("Conecta Comprobar contacto antes de invertir debilitamientos.");
+          const t=map.get(activeEntityKey)!;
+          t.contactEffects.push({kind:"INVERT_STATUS",
+            target:targets.get(step.target.key)!,selection:step.selection,
+            manaCost:step.manaCost,chargeAccumulator:step.chargeAccumulator});
           break;
         }
         case "SET_ENTITY_BEHAVIOR":{
@@ -106,6 +178,7 @@ export function compileSummonTemplates(effects:readonly unknown[],skillManaCost:
 }
 
 export function resolveSummonStat(source:CombatFighter,link:SummonLink):number{
+  if(link.mode==="FIXED")return link.value;
   const field=ALLOWED_SOURCE[link.sourceStat];
   if(!field)throw new Error("Estadística de origen desconocida.");
   const base=link.sourceStat==="MOVE_SPEED"?(source.speedValue??source.agility):source[field];
@@ -121,7 +194,10 @@ export function summonStat(summon:CombatSummon,owner:CombatFighter,dest:SummonSt
     case "MOVE_SPEED":return owner.speedValue??owner.agility;
     case "PRECISION":return owner.precision;
     case "DODGE":return owner.dodge;
-    case "STRENGTH":return owner.strength*(summon.links.find(l=>l.destStat==="PHYSICAL_ATTACK")?.factor??0.2);
+    case "STRENGTH":{
+      const attackLink=summon.links.find(l=>l.destStat==="PHYSICAL_ATTACK");
+      return owner.strength*(attackLink&&"factor" in attackLink?attackLink.factor:0.2);
+    }
     default:return 0;
   }
 }

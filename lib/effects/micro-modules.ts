@@ -51,6 +51,8 @@ export type MicroStep = (
   | { kind:"SUMMON_ENTITY"; entityKey:string; label:string; manaCost:number; maintenanceMana:number;
       durationTurns:number; controlRangeMeters:number; hitLimit:number }
   | { kind:"LINK_ENTITY_STAT"; entityKey:string; sourceStat:string; destStat:string; factor:NumericExpr }
+  /** Constant intrinsic creature stat: never reads the summoner. */
+  | { kind:"SET_ENTITY_STAT"; entityKey:string; destStat:string; value:number }
   | { kind:"SET_ENTITY_BEHAVIOR"; entityKey:string; mode:EntityBehaviorMode;
       allowedModes:EntityBehaviorMode[]; target:EntityTargetSlot; trigger:"CONTACT"|"HP_DAMAGE"|"COMMAND" }
   | { kind:"APPLY_STATUS"; target:EntityTargetRef; stat:EntityStatRef;
@@ -100,6 +102,7 @@ export type MicroIntent =
   | {kind:"SUMMON_ENTITY";ownerId:number;entityKey:string;label:string;manaCost:number;
       maintenanceMana:number;durationTurns:number;controlRangeMeters:number;hitLimit:number}
   | {kind:"LINK_ENTITY_STAT";entityKey:string;sourceStat:string;destStat:string;factor:number;value:number;dynamic:true}
+  | {kind:"SET_ENTITY_STAT";entityKey:string;destStat:string;value:number;dynamic:false}
   | {kind:"SET_ENTITY_BEHAVIOR";entityKey:string;mode:EntityBehaviorMode;allowedModes:EntityBehaviorMode[];
       target:EntityTargetSlot;trigger:"CONTACT"|"HP_DAMAGE"|"COMMAND"}
   | {kind:"APPLY_STATUS";targetId:number;stat:string;operation:"MULTIPLIER"|"BONUS";value:number;durationTurns:number}
@@ -259,6 +262,11 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
             if(!validKey(step.entityKey)||!validKey(step.sourceStat)||!validKey(step.destStat))
               fail("vínculo de estadística inválido");
             checkExpr(step.factor);checkSourceLinks(step.factor,outputs,opaqueOutputs);break;
+          case "SET_ENTITY_STAT":
+            if(!validKey(step.entityKey)||!validKey(step.destStat)||!finite(step.value)||
+               step.value<0||step.value>1_000_000)
+              fail("valor fijo de entidad inválido");
+            break;
           case "SET_ENTITY_BEHAVIOR":
             if(!validKey(step.entityKey)||!["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"].includes(step.mode)
               ||!Array.isArray(step.allowedModes)||!step.allowedModes.includes(step.mode)
@@ -527,6 +535,10 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
             sourceStat:step.sourceStat,destStat:step.destStat,factor,value:bounded(value*factor),dynamic:true});
           break;
         }
+        case "SET_ENTITY_STAT":
+          intents.push({kind:"SET_ENTITY_STAT",entityKey:step.entityKey,
+            destStat:step.destStat,value:step.value,dynamic:false});
+          break;
         case "SET_ENTITY_BEHAVIOR":
           intents.push({kind:"SET_ENTITY_BEHAVIOR",entityKey:step.entityKey,mode:step.mode,
             allowedModes:[...step.allowedModes],target:step.target,trigger:step.trigger});

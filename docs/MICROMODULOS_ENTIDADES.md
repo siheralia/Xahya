@@ -2,7 +2,7 @@
 
 ## Alcance de esta entrega
 
-Se añaden **diez tipos de pasos** al contrato `EffectContainer`, su validación y su editor visual React Flow. El intérprete **solo produce solicitudes/intenciones deterministas**: no crea criaturas en combate, no descuenta maná por su cuenta, no aplica estados a personajes ni activa conductas autónomas. Toda operación con efectos externos requiere un adaptador del motor de encuentros que compruebe permisos, PV/maná, PA/ticks, posicionamiento y coste de PCH definitivo. El motor de combate continúa rechazando micromódulos sin resolutor compatible.
+Se añadieron inicialmente diez tipos de pasos; esta entrega amplía el catálogo con un paso adicional al contrato `EffectContainer`, su validación y su editor visual React Flow. El intérprete puro produce intenciones. Desde PR #170 existe un adaptador de invocaciones en el motor de combate, y la PR #172 agrega un adaptador de estados por contacto. Solo los grafos estrictamente reconocidos se ejecutan; los demás permanecen deshabilitados. Los costes, iniciativa, PA/ticks, posicionamiento y permisos los verifica el motor autorizado.
 
 Las salidas de `SELECT_TARGET` (identidad) y `SELECT_STAT` (clave de estadística) están tipadas y no se pueden conectar a entradas numéricas, objetos ni fórmulas. React Flow ofrece conectores compatibles por tipo. Los resultados `RANDOM` y `COMBAT`, las identidades, los contactos, los estados y la pérdida final de HP se obtienen de un **contexto validado por servidor**: jamás de un selector libre provisto por JSON del jugador.
 
@@ -16,7 +16,7 @@ Las salidas de `SELECT_TARGET` (identidad) y `SELECT_STAT` (clave de estadístic
 | `REQUIRE_CONTACT` | Salida de objetivo, contacto certificado | Detiene los pasos posteriores de su efecto si no se produjo contacto |
 | `SUMMON_ENTITY` | Clave, nombre, maná, mantenimiento, turnos, radio y golpes | Solicitud de invocación |
 | `LINK_ENTITY_STAT` | Clave, estadística del usuario, destino, factor | Solicitud de vínculo dinámico, con valor inicial |
-| `SET_ENTITY_BEHAVIOR` | Clave, conducta inicial, conductas permitidas, objetivo y disparador | Solicitud de conducta editable dentro de las opciones autorizadas |
+| `SET_ENTITY_STAT` | Clave, atributo de criatura y valor numérico fijo | Estadística intrínseca: no referencia al invocador |\n| `SET_ENTITY_BEHAVIOR` | Clave, conducta inicial, conductas permitidas, objetivo y disparador | Solicitud de conducta editable dentro de las opciones autorizadas |
 | `APPLY_STATUS` | Objetivo, estadística fija/seleccionada, multiplicador/bono y duración | Solicitud de estado temporal |
 | `READ_STATUSES` | Objetivo y filtro de mejoras/debilitamientos | Conteo de estados |
 | `INVERT_STATUS` | Objetivo, último/elegido, maná, almacén opcional | Solicitud de inversión de debilitamiento |
@@ -57,3 +57,19 @@ Para invertir debilitamientos, `READ_STATUSES` y `INVERT_STATUS` permiten elegir
 7. Tests end-to-end PvP/PvE, revisiones de PCH y balance.
 
 Ninguna habilidad de ejemplo se inserta automáticamente en la base de datos. Se preservan todas las habilidades y resolutores anteriores.
+
+## Implementación actual: atributos propios y contacto (PR #172)
+
+**Valores independientes del invocador:** agrega `SET_ENTITY_STAT` por cada atributo que quieras fijar. Por ejemplo, un dragón puede materializarse siempre con `PHYSICAL_ATTACK=180`, `PHYSICAL_DEFENSE=90`, `AGI=60`, `MOVE_SPEED=60`, `PRECISION=75`, `DODGE=30`, `STRENGTH=120` e `INTEGRITY=300`; también `MAGIC_ATTACK`, `MAGIC_DEFENSE`, `CON`, `CRITICAL`, `LUCK`, `RACE` y `MASS_KG` son configurables de forma independiente. Las estadísticas que no fijes pueden quedar enlazadas al invocador mediante `LINK_ENTITY_STAT` o utilizar los valores predeterminados del motor. No se permite fijar y enlazar el mismo destino simultáneamente. Por compatibilidad, los vínculos antiguos siguen siendo dinámicos.
+
+**Estados en combate:** después de `SUMMON_ENTITY`, sus estadísticas y `SET_ENTITY_BEHAVIOR`, conecta:
+1. `SELECT_TARGET` con `USER` para tocar al invocador o `OPPONENT` para golpear al rival.
+2. `REQUIRE_CONTACT` con la salida anterior; el motor verifica contacto y alcance reales.
+3. Para una estadística opcional, agrega `SELECT_STAT`, eligiendo `FIXED`, `RANDOM` (tirada del servidor) o `COMBAT` (selector visible en el encuentro).
+4. `APPLY_STATUS` (por ejemplo `DODGE`, `BONUS=-20`, 2 turnos), o `INVERT_STATUS` para revertir una mejora negativa ya activa. Cada efecto de contacto se asocia a la última criatura declarada dentro del mismo contenedor.
+
+La orden del familiar utiliza un PA y ticks del **propietario**. La ofensiva contra el rival ocurre solo al resolver el ataque físico; para exigir que haya reducción real de HP, configura `SET_ENTITY_BEHAVIOR.trigger=HP_DAMAGE`. Tocar al invocador permite mejoras o inversiones con la misma orden pagada (si la criatura está a 0.65 m). Los cambios se guardan únicamente en `combatV1.summonStatuses`, vencen por ronda y no modifican la ficha persistente.
+
+Una inversión válida sustituye un estado negativo por su inverso positivo: multiplicador `0.7` pasa a `1.3`, una bonificación `-20` a `+20`. Cobra exactamente el `manaCost` aprobado y aumenta una carga del acumulador del familiar, con máximo de seis. Un intento sin debilitamiento no cobra ni crea carga. El estado original no se duplica.
+
+**Limitaciones:** los estados se aplican a atributos de combate permitidos; las fórmulas numéricas dinámicas para un `APPLY_STATUS` dependiente de criatura aún requieren un adaptador específico. Esta fase no implementa `READ_STATUSES` como condición, objetivos libres o un motor universal de gráficos arbitrarios. El estado/estadística elegidos están restringidos al catálogo compilado y a los estados realmente activos. `Reino del Caos` y el consumo de cargas para `Sobreflujo Lunar` no forman parte de este hito.

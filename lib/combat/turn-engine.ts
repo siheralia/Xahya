@@ -13,7 +13,9 @@ import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_ME
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
 import {combatWeaponOperational} from "./weapon-readiness.ts";
-import {summonStat,type CombatSummon,type SummonTemplate} from "./summons.ts";
+import {summonStat,type CombatSummon,type SummonContactEffect} from "./summons.ts";
+import {applySummonStatus,invertSummonStatus,expireSummonStatuses,
+ isDebuffStatus,resolveStatusStat,type SummonStatus} from "./summon-status.ts";
 import {evaluateWeaponAutoRepair,shouldAutoRepairAtRound,
  type AutoRepairItemEffect} from "../items/auto-repair.ts";
 import {assertMovementClear,blockingMovement,firstCoverAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
@@ -71,6 +73,8 @@ export type PendingAttack = {
   mirrorId?:string; mirrorAuto?:boolean;
   /** Summoned strike uses entity stats, but owner PA/ticks. */
   summonId?:string;
+  chosenSummonStat?:string;
+  chosenSummonStatusId?:string;
   /** Only user-specified vertical strokes can authorize 3D cover tests. */
   explicitTrajectory?:boolean;
 };
@@ -141,6 +145,8 @@ export type CombatState = {
   constructions?: CombatConstruction[];
   /** Persistent, targetable creatures for the encounter. */
   summons?: CombatSummon[];
+  /** Statuses created by physical entity contact; persisted in combatV1. */
+  summonStatuses?: SummonStatus[];
   /** Opt-in modules persist with combatV1. Preexisting encounters omit this property. */
   microEffects?: { definitions:Partial<Record<Side,EffectContainer[]>>; state:MicroState; sequence:number };
   /** Ordered rays to resolve on the start of a new round. */
@@ -160,6 +166,7 @@ export type CombatCommand =
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
   | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
   | { kind: "COMMAND_SUMMON";requestId?:string;summonId:string;
+       chosenStat?:string;chosenStatusId?:string;
        order:"ACT"|"MOVE"|"ATTACK"|"CHANGE_BEHAVIOR";planarMove?:Point;newBehavior?:"FOLLOW"|"ATTACK"|"PROTECT"|"HOLD"|"MANUAL" }
   | { kind: "ATTACK"; requestId?:string; targetSummonId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; requestId?:string; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
@@ -480,7 +487,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
+    physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],summonStatuses:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
     processedKarmaRequests:[],perHandWeaponDurability:true,narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
@@ -701,6 +708,7 @@ function advanceRoundIfComplete(state: CombatState) {
       fighter[bonus.stat]=Math.max(0,fighter[bonus.stat]-bonus.value);
     }
     state.skillBonuses=active.filter(b=>b.expiresAtRound>state.round);
+    expireSummonStatuses(state);
     upkeepSummons(state);
     addLog(state,{kind:"ROUND",tick:state.tick,by:"PLAYER",summary:"Comienza el turno " + state.round});
     state.itemRepairsThisRound=[];
@@ -732,14 +740,23 @@ function summonAsFighter(summon:CombatSummon,owner:CombatFighter):CombatFighter 
     strength:summonStat(summon,owner,"STRENGTH"),
     precision:summonStat(summon,owner,"PRECISION"),
     dodge:summonStat(summon,owner,"DODGE"),
-    massKg:Math.max(1,owner.massKg*0.08),
+    magicAttack:summonStat(summon,owner,"MAGIC_ATTACK"),
+    magicDefense:summonStat(summon,owner,"MAGIC_DEFENSE"),
+    constitution:summonStat(summon,owner,"CON"),
+    critical:summonStat(summon,owner,"CRITICAL"),
+    luck:summonStat(summon,owner,"LUCK"),
+    race:summonStat(summon,owner,"RACE"),
+    massKg:Math.max(1,summonStat(summon,owner,"MASS_KG")),
     equippedWeapon:undefined,offhandWeapon:undefined,
     perkIds:[],damageTakenFactors:undefined};
 }
 function summonStepLimit(summon:CombatSummon,owner:CombatFighter):number {
-  const base=Math.max(1,Math.round(Math.max(0,owner.race)/10));
+  const base=Math.max(1,Math.round(Math.max(0,summonStat(summon,owner,"RACE"))/10));
   const current=summonStat(summon,owner,"MOVE_SPEED");
-  return Math.min(15,base*Math.max(0,current)/effectiveCombatSpeed(owner));
+  const agility=Math.max(1,summonStat(summon,owner,"AGI"));
+  // Every component can be independently preconfigured; linked summons retain
+  // the old speed/race behavior when no intrinsic values are specified.
+  return Math.min(15,base*Math.max(0,current)/agility);
 }
 function moveSummonOnField(state:CombatState,summon:CombatSummon,delta:Point):number {
   if(!finite(delta.x)||!finite(delta.y))throw new Error("Movimiento de invocación inválido.");
@@ -766,7 +783,82 @@ function advanceSummonToward(state:CombatState,summon:CombatSummon,point:Point,s
   if(step<=0)return 0;
   return moveSummonOnField(state,summon,{x:dx/distance*step,y:dy/distance*step});
 }
-function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{kind:"COMMAND_SUMMON"}>):void {
+/** Inspect an already-approved creature's contact configuration before paying
+ * an action. User-selected stats and status IDs must belong to this encounter.
+ * A pending attack can then safely resolve without a late invalid input.
+ */
+function validateSummonContactSelection(state:CombatState,summon:CombatSummon,
+ chosenStat?:string,chosenStatusId?:string):void {
+ for(const effect of summon.contactEffects??[]){
+   const target:Side=effect.target==="USER"?summon.owner:other(summon.owner);
+   if(effect.kind==="APPLY_STATUS"&&typeof effect.stat!=="string"&&effect.stat.mode==="COMBAT"){
+     if(!chosenStat||!effect.stat.allowed.includes(chosenStat))
+       throw new Error("Elige una estadística autorizada para el contacto de la criatura.");
+   }
+   if(effect.kind==="INVERT_STATUS"&&effect.selection==="SELECTED_DEBUFF"){
+     const status=state.summonStatuses?.find(s=>s.id===chosenStatusId&&s.target===target&&isDebuffStatus(s));
+     if(!status)throw new Error("Selecciona un debilitamiento activo del objetivo para invertirlo.");
+   }
+   if(effect.kind==="INVERT_STATUS"&&
+     (state.summonStatuses??[]).some(s=>s.target===target&&isDebuffStatus(s))){
+     const available=state.mana?.[summon.owner]?.current??0;
+     if(available<effect.manaCost)
+       throw new Error("Maná insuficiente para invertir el debilitamiento.");
+   }
+ }
+}
+function resolveSummonContact(state:CombatState,summon:CombatSummon,params:{
+ target:Side;contact:boolean;hpDamage:number;randomRoll:number;
+ chosenStat?:string;chosenStatusId?:string;
+}):void {
+ if(!params.contact || !(summon.contactEffects?.length))return;
+ if(summon.behavior.trigger==="HP_DAMAGE"&&params.hpDamage<=0)return;
+ for(const [index,effect] of summon.contactEffects.entries()){
+   const target:Side=effect.target==="USER"?summon.owner:other(summon.owner);
+   if(target!==params.target)continue;
+   if(effect.kind==="APPLY_STATUS"){
+     const stat=typeof effect.stat==="string"?effect.stat:
+       effect.stat.mode==="FIXED"?effect.stat.fixed:
+       effect.stat.mode==="COMBAT"?params.chosenStat:
+       effect.stat.allowed[Math.min(effect.stat.allowed.length-1,
+         Math.floor(params.randomRoll*effect.stat.allowed.length))];
+     if(!stat||!resolveStatusStat(stat))
+       throw new Error("La estadística seleccionada no es válida para este estado.");
+     const status=applySummonStatus(state,{
+       id:summon.id+":"+state.round+":"+state.tick+":"+state.log.length+":"+index,
+       sourceSummonId:summon.id,by:summon.owner,target,stat,
+       operation:effect.operation,value:effect.value,durationTurns:effect.durationTurns,
+     });
+     addLog(state,{kind:"STATUS",tick:state.tick,by:summon.owner,against:target,
+       summonId:summon.id,summary:summon.label+" aplicó "+
+       (isDebuffStatus(status)?"un debilitamiento":"una mejora")+" a "+
+       state.actors[target].name+": "+status.stat+" ("+
+       (status.operation==="MULTIPLIER"?"×"+status.value:String(status.value>=0?"+":"")+status.value)+
+       ") durante "+effect.durationTurns+" turnos."});
+   }else{
+     const available=(state.summonStatuses??[]).filter(s=>s.target===target&&isDebuffStatus(s));
+     const selected=effect.selection==="SELECTED_DEBUFF"
+       ?available.find(s=>s.id===params.chosenStatusId):available.at(-1);
+     if(!selected)continue;
+     const mana=state.mana?.[summon.owner];
+     if(!mana||mana.current<effect.manaCost)
+       throw new Error("Maná insuficiente para invertir el debilitamiento.");
+     const inverted=invertSummonStatus(state,target,selected.id);
+     if(!inverted)continue;
+     mana.current-=effect.manaCost;
+     if(effect.chargeAccumulator){
+       summon.charges??={};
+       const before=summon.charges[effect.chargeAccumulator]??0;
+       summon.charges[effect.chargeAccumulator]=Math.min(6,before+1);
+     }
+     addLog(state,{kind:"STATUS",tick:state.tick,by:summon.owner,against:target,
+       summonId:summon.id,manaCost:effect.manaCost,
+       summary:summon.label+" invirtió "+inverted.stat+" de "+state.actors[target].name+
+       " y pagó "+effect.manaCost+" maná."});
+   }
+ }
+}
+function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{kind:"COMMAND_SUMMON"}>,rolls:{hit:number;critical:number;defense:number}):void {
   const summon=state.summons?.find(s=>s.id===command.summonId&&s.owner===by);
   if(!summon)throw new Error("No controlas esa invocación o ha desaparecido.");
   const owner=state.actors[by];
@@ -785,8 +877,12 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
   }
   let order=command.order;
   if(order==="ACT") {
+    const target=summonTargetPosition(state,summon);
+    const near=Math.hypot(target.x-summon.fieldPosition.x,
+      target.y-summon.fieldPosition.y)<=0.65;
+    const hasTouch=summon.contactEffects?.some(e=>e.target===summon.behavior.target);
     order=summon.behavior.mode==="ATTACK"?"ATTACK":
-      summon.behavior.mode==="HOLD"?"ACT":"MOVE";
+      near&&hasTouch?"ACT":summon.behavior.mode==="HOLD"?"ACT":"MOVE";
   }
   if(order==="MOVE"){
     let distance:number;
@@ -821,22 +917,34 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
       advanceRoundIfComplete(state);return;
     }
     assertMovementClear(state.constructions,summon.fieldPosition,enemy);
+    validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
     spend(owner,turnTicks(owner));
     state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
     state.pending={by,against:other(by),attackType:"BLUNT",
       trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}],
       explicitTrajectory:false,launchedAtTick:(state.round-1)*LIMIT+owner.spentTicks,
-      usesMagic:false,summonId:summon.id};
+      usesMagic:false,summonId:summon.id,
+      chosenSummonStat:command.chosenStat,
+      chosenSummonStatusId:command.chosenStatusId};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),
       attackType:"BLUNT",summonId:summon.id,
       summary:summon.label+" atacó a "+state.actors[other(by)].name+"; esperando reacción"});
     return;
   }
   if(order==="ACT"){
+    const target:Side=summon.behavior.target==="USER"?by:other(by);
+    const pos=fieldPosition(state.actors[target]);
+    const near=Math.hypot(pos.x-summon.fieldPosition.x,pos.y-summon.fieldPosition.y)<=0.65;
+    if(summon.contactEffects?.length&&near)
+      validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
     spend(owner,turnTicks(owner));
     state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    if(near)resolveSummonContact(state,summon,{
+      target,contact:true,hpDamage:0,randomRoll:rolls.hit,
+      chosenStat:command.chosenStat,chosenStatusId:command.chosenStatusId,
+    });
     addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
-      summary:summon.label+" mantuvo su posición."});
+      summary:summon.label+(near&&summon.contactEffects?.length?" tocó a su objetivo.":" mantuvo su posición.")});
     advanceRoundIfComplete(state);
     return;
   }
@@ -1376,6 +1484,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       }
     }
     fighter.hp = Math.max(0, fighter.hp - damage);
+    // Status effects from a real summon hit run only after geometric contact,
+    // defense and actual HP damage have been fully resolved.
+    if(summonedAttacker&&contact)
+      resolveSummonContact(state,summonedAttacker,{
+        target:by,contact,hpDamage:damage,randomRoll:rolls.critical,
+        chosenStat:pending.chosenSummonStat,
+        chosenStatusId:pending.chosenSummonStatusId,
+      });
     if (contact && damage > 0 && displaced === 0 && !pending.usesMagic)
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
     if (displaced > 0) {
@@ -1585,7 +1701,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     addLog(state,{kind:"WAIT",tick:state.tick,by,summary:fighter.name+" finaliza su participación en el turno"});
   } else if (command.kind === "COMMAND_SUMMON") {
-    orderSummon(state,by,command);
+    orderSummon(state,by,command,rolls);
     return state;
   } else if (command.kind === "ATTACK") {
     if (!["CUT","BLUNT","PIERCE"].includes(command.attackType)) throw new Error("Tipo de ataque inválido.");
@@ -1828,7 +1944,8 @@ export function applyResolvedCombatSkill(
     }
     if(!position)throw new Error("No hay un lugar libre para materializar a "+template.label+".");
     const integrityLink=template.links.find(link=>link.destStat==="INTEGRITY")!;
-    const integrity=Math.max(1,owner.physicalDefense*integrityLink.factor);
+    const integrity=Math.max(1,integrityLink.mode==="FIXED"
+      ?integrityLink.value:owner.physicalDefense*integrityLink.factor);
     fresh.push({
       id:by+":"+plan.id+":"+aim.requestId+":"+index,
       owner:by,sourceSkillId:plan.id,entityKey:template.entityKey,label:template.label,
@@ -1838,6 +1955,7 @@ export function applyResolvedCombatSkill(
       maintenanceMana:template.maintenanceMana,
       integrity,hitCount:0,hitLimit:template.hitLimit,
       links:structuredClone(template.links),behavior:structuredClone(template.behavior),
+      contactEffects:structuredClone(template.contactEffects),charges:{},
     });
   }
   next.summons=[...(next.summons??[]),...fresh];

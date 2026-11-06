@@ -8,6 +8,7 @@ import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
 import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
 import {combatWeaponOperational} from "@/lib/combat/weapon-readiness";
+import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2, Eye, ChevronDown, X, Info} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
@@ -141,6 +142,8 @@ export default function CombatEncounter({id}:{id:string}) {
  const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK">("FIELD");
  const [constructionLabel,setConstructionLabel]=useState("");
  const [attackTargetId,setAttackTargetId]=useState("");
+ const [summonChosenStats,setSummonChosenStats]=useState<Record<string,string>>({});
+ const [summonChosenStatuses,setSummonChosenStatuses]=useState<Record<string,string>>({});
  const [karmaAllocation,setKarmaAllocation]=useState<Record<string,number>>({});
  const [defenseConstruction,setDefenseConstruction]=useState("");
  const karmaRequestRef=useRef<{key:string;id:string}|null>(null);
@@ -902,8 +905,28 @@ export default function CombatEncounter({id}:{id:string}) {
     {(state.summons?.length??0)>0&&<section className="mt-4 space-y-2 rounded-xl border border-emerald-500/30 bg-zinc-950/70 p-3" aria-label="Criaturas invocadas">
      <h2 className="text-sm font-semibold text-emerald-200">🐇 Criaturas en el campo</h2>
      <p className="text-xs text-zinc-400">Cada orden consume 1 PA y los ticks del invocador. El mantenimiento se descuenta al comenzar el siguiente turno: no hay ataques gratuitos.</p>
+     {(state.summonStatuses?.length??0)>0&&<div className="space-y-1 rounded-lg border border-zinc-800 p-2 text-xs">
+       <strong className="text-cyan-200">Estados temporales activos</strong>
+       {state.summonStatuses?.map(status=><p key={status.id} className="text-zinc-300">
+         {state.actors[status.target].name}: {friendlyMicroKey(status.stat)} {status.operation==="MULTIPLIER"?"×"+status.value:
+           (status.value>=0?"+":"")+status.value} · {Math.max(0,status.expiresAtRound-state.round)} turnos
+       </p>)}
+     </div>}
      <div className="grid gap-2 sm:grid-cols-2">
-      {state.summons?.map(summon=><div key={summon.id}
+      {state.summons?.map(summon=>{
+       const combatChoice=summon.contactEffects?.flatMap(effect=>
+         effect.kind==="APPLY_STATUS"&&typeof effect.stat!=="string"&&effect.stat.mode==="COMBAT"
+           ?[effect.stat]:[])[0];
+       const inversionRule=summon.contactEffects?.find(effect=>
+         effect.kind==="INVERT_STATUS"&&effect.selection==="SELECTED_DEBUFF");
+       const inversionTarget=inversionRule?.target==="USER"?summon.owner:
+         summon.owner==="PLAYER"?"NPC":"PLAYER";
+       const reversible=(state.summonStatuses??[]).filter(status=>
+         status.target===inversionTarget&&
+         (status.operation==="MULTIPLIER"?status.value<1:status.value<0));
+       const selectedStat=summonChosenStats[summon.id]??combatChoice?.allowed[0];
+       const selectedStatusId=summonChosenStatuses[summon.id]??reversible[0]?.id;
+       return <div key={summon.id}
        className={"space-y-2 rounded-lg border p-2 text-xs "+(summon.owner===side?"border-emerald-700/50":"border-rose-700/50")}>
        <div className="flex flex-wrap items-center justify-between gap-1">
         <strong>{summon.label}</strong>
@@ -911,7 +934,27 @@ export default function CombatEncounter({id}:{id:string}) {
        </div>
        <p className="text-zinc-300">Integridad {Math.ceil(summon.integrity)} · Golpes {summon.hitCount}/{summon.hitLimit} · Mantenimiento {summon.maintenanceMana} maná</p>
        <p className="text-zinc-400">Comportamiento {summon.behavior.mode} · Objetivo {summon.behavior.target==="USER"?"invocador":"oponente"}</p>
+       {Object.entries(summon.charges??{}).map(([name,value])=>
+         <p key={name} className="text-violet-300">🌙 {name}: {value}/6 cargas</p>)}
+       {summon.contactEffects?.length? <p className="text-emerald-300">
+         {summon.contactEffects.length} efecto(s) al contacto · {summon.behavior.trigger==="HP_DAMAGE"?"requiere daño real a HP":"requiere contacto"}
+       </p>:null}
        {summon.owner===side&&hasAccess&&state.status==="ACTIVE"&&<div className="space-y-2">
+        {combatChoice&&<label className="block text-xs">Estadística para el próximo contacto
+          <select value={selectedStat} onChange={e=>setSummonChosenStats(values=>({...values,[summon.id]:e.target.value}))}
+           className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2">
+           {combatChoice.allowed.map(stat=><option key={stat} value={stat}>{friendlyMicroKey(stat)}</option>)}
+          </select>
+        </label>}
+        {inversionRule&&<label className="block text-xs">Debilitamiento a invertir
+          <select value={selectedStatusId??""} onChange={e=>setSummonChosenStatuses(values=>({...values,[summon.id]:e.target.value}))}
+           className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2">
+           {reversible.length===0&&<option value="">No hay debilitamientos activos</option>}
+           {reversible.map(status=><option value={status.id} key={status.id}>
+             {friendlyMicroKey(status.stat)} · {state.actors[status.target].name} · {status.operation==="MULTIPLIER"?"×"+status.value:status.value}
+           </option>)}
+          </select>
+        </label>}
         <label className="block text-xs">Cambiar comportamiento (cuesta 1 PA)
          <select value={summon.behavior.mode} disabled={!ready} className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 disabled:opacity-40"
           onChange={e=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"CHANGE_BEHAVIOR",
@@ -922,7 +965,8 @@ export default function CombatEncounter({id}:{id:string}) {
          </select>
         </label>
         <div className="flex flex-wrap gap-2">
-         <button type="button" disabled={!ready} onClick={()=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"ACT"})}
+         <button type="button" disabled={!ready} onClick={()=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"ACT",
+            chosenStat:selectedStat,chosenStatusId:selectedStatusId})}
           className="rounded border border-emerald-500/60 px-3 py-2 text-emerald-200 disabled:opacity-40">
           Actuar según comportamiento
          </button>
@@ -933,13 +977,14 @@ export default function CombatEncounter({id}:{id:string}) {
           className="rounded border border-cyan-600/50 px-3 py-2 text-cyan-200 disabled:opacity-40">Mover según trazo</button>}
          {summon.behavior.target==="OPPONENT"&&(summon.behavior.mode==="ATTACK"||summon.behavior.allowedModes.includes("MANUAL"))&&
           <button type="button" disabled={!ready}
-           onClick={()=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"ATTACK"})}
+           onClick={()=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"ATTACK",
+             chosenStat:selectedStat,chosenStatusId:selectedStatusId})}
            className="rounded border border-rose-600/50 px-3 py-2 text-rose-200 disabled:opacity-40">
            Ordenar ataque
           </button>}
         </div>
        </div>}
-      </div>)}
+      </div>;})}
      </div>
     </section>}
     {defending&&hasAccess&&<div className="mt-4 space-y-3">

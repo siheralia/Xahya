@@ -16,7 +16,7 @@ import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
 
 export type Side = "PLAYER" | "NPC";
-export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "NONE";
+export type DefenseChoice = "DODGE" | "BLOCK" | "ENDURE" | "REPEL" | "DEFLECT" | "MAGIC_FIELD" | "CONSTRUCTION" | "COUNTER" | "NONE";
 export type Point = { x: number; y: number };
 export type PhysicalAttackSource = "MAIN_HAND" | "OFF_HAND" | "FIST_RIGHT" | "FIST_LEFT" | "KICK";
 export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"|"RANGED";effectiveRangeMeters:number;maximumRangeMeters?:number;throwable?:boolean;throwRangeMeters?:number;itemId?:number;characterItemId?:number;durability?:number;
@@ -135,7 +135,7 @@ export type CombatCommand =
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
   | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
   | { kind: "ATTACK"; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
-  | { kind: "DEFEND"; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
+  | { kind: "DEFEND"; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
   | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
@@ -541,6 +541,17 @@ function beginNextMirrorRay(state:CombatState) {
 /** The terminal encounter cleanup must also run for reflected magic.
  * Reflection is direct damage and must never be reflected recursively.
  */
+function finishMutualEncounter(state:CombatState) {
+ if(state.status==="FINISHED")return;
+ state.status="FINISHED";state.winner=null;
+ state.pending=null;state.mirrorRayQueue=[];
+ addLog(state,{kind:"END",tick:state.tick,by:"PLAYER",against:"NPC",
+  summary:"Ambos combatientes cayeron durante el intercambio simultáneo: empate"});
+ settleDroppedWeapons(state);
+ clearKarmaBoostsAtCombatEnd(state);
+ state.narrativeText=narrateCombat(state.narrativeHistory??state.log,state.actors);
+ state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
+}
 function finishEncounter(state:CombatState,winner:Side) {
  if(state.status==="FINISHED")return;
  const defeated=other(winner);
@@ -684,11 +695,46 @@ function upgradeLegacyWeaponDurability(state:CombatState){
  }
  state.perHandWeaponDurability=true;
 }
+/** Builds a basic, server-validated attack for a simultaneous exchange.
+ * It uses the actor's current weapon and range; the client never supplies a
+ * hidden spell center, a free skill, or a forged attack trajectory. */
+export function basicCounterAttack(state:CombatState,side:Side,preferMagic=false):
+ Extract<CombatCommand,{kind:"ATTACK"}>|null {
+ const fighter=state.actors[side],target=state.actors[other(side)];
+ if(remainingAp(fighter)<1||fighter.spentTicks>=LIMIT||state.status!=="ACTIVE")return null;
+ const distance=fieldDistance(fighter,target);
+ const magic=state.mana?.[side]&&state.mana[side].current>=1&&
+  fighter.magicAttack>0&&distance<=BASIC_MAGIC_RANGE_METERS;
+ const source=defaultAttackSource(fighter);
+ const weapon=weaponForSource(fighter,source);
+ const ranged=weapon?.mode==="RANGED";
+ const reachable=distance<=effectiveWeaponReachMeters(fighter,false,source)&&
+  (ranged||!["MAIN_HAND","OFF_HAND"].includes(source)||!!weapon);
+ const spell=():Extract<CombatCommand,{kind:"ATTACK"}>=>({
+  kind:"ATTACK",attackType:fighter.attackType,usesMagic:true,areaCenter:{x:0.5,y:0.5}
+ });
+ if(preferMagic&&magic)return spell();
+ if(reachable){
+  if(ranged)return {kind:"ATTACK",attackSource:source,attackType:weapon!.attackType,
+   rangedPhysical:true,areaCenter:{x:0.5,y:0.5}};
+  const attackType=weapon?.attackType??"BLUNT";
+  const anchor=physicalAttackStart(state,side,source)??{x:0.1,y:0.5};
+  const crossesCenter=attackType==="CUT";
+  const destination:Point=crossesCenter
+    ? {x:anchor.x<0.5?0.9:0.1,y:anchor.y<0.5?0.9:0.1}
+    : {x:0.5,y:0.5};
+  return {kind:"ATTACK",attackSource:source,attackType,
+   trajectory:[{...anchor},destination]};
+ }
+ return magic?spell():null;
+}
 export function applyCombatCommand(original: CombatState, by: Side, command: CombatCommand,
   rolls: {hit:number; critical:number; defense:number} = {hit:0.5,critical:0.5,defense:0.5},
   serverSkillRangeMeters?:number,
   mirrorSkill?:{id:number;name:string;damageMultiplier:number;finalMultiplier:number},
-  serverSkillArea?:CombatAttackArea): CombatState {
+  serverSkillArea?:CombatAttackArea,
+  /** Internal: an exchanged attack pays resources but not an extra initiative. */
+  exchangedAttack=false): CombatState {
   const state = structuredClone(original);
   if (state.version !== 1 || state.status !== "ACTIVE") throw new Error("El combate no está activo.");
   if (!SIDES.includes(by)) throw new Error("Combatiente no válido.");
@@ -697,11 +743,48 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   if (state.pending) {
     const pending = state.pending;
     if (command.kind !== "DEFEND" || pending.against !== by) throw new Error("Debe responder al ataque pendiente.");
-    if (!["DODGE","BLOCK","ENDURE","REPEL","DEFLECT","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(command.defense))
+    if (!["DODGE","BLOCK","ENDURE","REPEL","DEFLECT","MAGIC_FIELD","CONSTRUCTION","COUNTER","NONE"].includes(command.defense))
       throw new Error("Defensa desconocida.");
     validateRoll(rolls.hit); validateRoll(rolls.critical); validateRoll(rolls.defense);
     const attacker = state.actors[pending.by];
     let defense = command.defense;
+    // The defender can trade a normal paid basic attack for full exposure to
+    // the incoming strike. Resolve on a separate snapshot first, but apply
+    // both results together so an otherwise lethal strike cannot cancel it.
+    let exchange: {
+     damageToAttacker:number;damageToDefender:number;spentAp:number;spentTicks:number;
+     manaRemaining?:number;physicalPathEnd?:CombatState["physicalPathEnd"];
+     physicalPathEnds?:CombatState["physicalPathEnds"];events:CombatLog[];
+     attackerPosition?:Point;attackerPositionMeters:number;
+    }|null=null;
+    if(defense==="COUNTER"){
+      if(pending.mirrorAuto||pending.mirrorId)
+        throw new Error("No puedes contraatacar simultáneamente a un rayo automático de espejo.");
+      const plan=basicCounterAttack(state,by,command.counterMagic===true);
+      if(!plan)throw new Error("No tienes PA, ticks o un ataque básico al alcance para contraatacar.");
+      const shadow=structuredClone(state);
+      shadow.pending=null;
+      const launched=applyCombatCommand(shadow,by,plan,rolls,undefined,undefined,undefined,true);
+      if(!launched.pending)throw new Error("El contraataque no alcanzó a prepararse.");
+      const resolved=applyCombatCommand(launched,other(by),{kind:"DEFEND",defense:"NONE"},rolls);
+      exchange={
+       damageToAttacker:Math.max(0,attacker.hp-resolved.actors[pending.by].hp),
+       damageToDefender:Math.max(0,fighter.hp-resolved.actors[by].hp),
+       spentAp:resolved.actors[by].spentAp,spentTicks:resolved.actors[by].spentTicks,
+       manaRemaining:resolved.mana?.[by]?.current,
+       physicalPathEnd:resolved.physicalPathEnd,
+       physicalPathEnds:resolved.physicalPathEnds,
+       events:resolved.log.slice(state.log.length).filter(e=>["ATTACK","RESOLVE","REFLECTION"].includes(e.kind)),
+       attackerPosition:resolved.actors[pending.by].fieldPosition,
+       attackerPositionMeters:resolved.actors[pending.by].positionMeters
+      };
+      defense="NONE";
+      fighter.spentAp=exchange.spentAp;fighter.spentTicks=exchange.spentTicks;
+      if(state.mana?.[by]&&exchange.manaRemaining!==undefined)
+       state.mana[by].current=exchange.manaRemaining;
+      if(exchange.physicalPathEnd)state.physicalPathEnd=exchange.physicalPathEnd;
+      if(exchange.physicalPathEnds)state.physicalPathEnds=exchange.physicalPathEnds;
+    }
     if(pending.attackArea&&defense==="DEFLECT")
       throw new Error("Los ataques circulares, las franjas, los conos y los barridos de área no se pueden desviar con una guardia lineal.");
     if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(defense))
@@ -897,7 +980,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       ?state.constructions?.find(c=>c.id===pending.mirrorId)?.label??"espejo mágico"
       :null;
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
-      mitigatedByResistance,contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense,
+      mitigatedByResistance,contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense:exchange?"COUNTER":defense,
       constructionId:pending.mirrorId,mirrorShot:Boolean(pending.mirrorId),
       mirrorOrigin:pending.mirrorId&&validArenaPoint(pending.trajectory[0])?{...pending.trajectory[0]}:undefined,
       materialAttackBonus:materialAttackBonus||undefined,
@@ -972,17 +1055,36 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       MITIGATED_DAMAGE:mitigatedByResistance,APPLIED_DAMAGE:damage,
       UNPROTECTED_DAMAGE:noResistanceDamage,
     });
+    // The counter was launched before the hit: it still lands if the
+    // defender reaches zero HP. No second defense, extra initiative or
+    // opportunity to counter the counter is granted in this exchange.
+    if(exchange){
+      attacker.hp=Math.max(0,attacker.hp-exchange.damageToAttacker);
+      fighter.hp=Math.max(0,fighter.hp-exchange.damageToDefender);
+      if(exchange.attackerPosition){
+       attacker.fieldPosition={...exchange.attackerPosition};
+       attacker.positionMeters=exchange.attackerPositionMeters;
+      }
+      for(const event of exchange.events){
+       const summary=event.kind==="ATTACK"
+        ?event.summary.replace("; esperando reacción","")
+        :event.summary;
+       addLog(state,{...event,tick:state.tick,
+        summary:"Intercambio simultáneo: "+summary});
+      }
+    }
     state.pending = null;
     if(pending.movementOrder==="AFTER"&&pending.planarMove&&attacker.hp>0)
       finishCompositeStep(state,pending.by,pending.planarMove);
-    if(fighter.hp<=0)finishEncounter(state,pending.by);
+    if(fighter.hp<=0&&attacker.hp<=0)finishMutualEncounter(state);
+    else if(fighter.hp<=0)finishEncounter(state,pending.by);
     else if(attacker.hp<=0)finishEncounter(state,by);
     if(state.status==="ACTIVE")beginNextMirrorRay(state);
     advanceRoundIfComplete(state);
     return state;
   }
   if (command.kind === "DEFEND") throw new Error("No existe un ataque pendiente.");
-  if (!canAct(state,by)) throw new Error("Espera el movimiento del otro participante o el siguiente turno.");
+  if (!exchangedAttack&&!canAct(state,by)) throw new Error("Espera el movimiento del otro participante o el siguiente turno.");
   if(command.kind==="BOOST_KARMA")throw new Error("El boost de karma debe ser aprobado por el servidor.");
   if(command.kind==="USE_ITEM")throw new Error("El consumo de objetos debe ser aprobado por el servidor.");
   if (command.kind === "MOVE") {

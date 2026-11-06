@@ -214,3 +214,14 @@ test("staff UI and protected management APIs provide the same strict item contra
  assert.match(actions,/itemRepairsThisRound/);
  assert.match(actions,/AND quantity=1/);
 });
+
+test("store and character exports present item passive as mana and interval, not undefined points",()=>{
+ const store=source("app/store/page.tsx");
+ const character=source("app/characters/[id]/page.tsx");
+ assert.match(store,/effect\.type==="auto_repair_durability"/);
+ assert.match(store,/effect\.manaCost/);
+ assert.match(store,/effect\.intervalTurns/);
+ assert.match(character,/effect\.type === "auto_repair_durability"/);
+ assert.match(character,/params\.manaCost/);
+ assert.match(character,/params\.intervalTurns/);
+});

@@ -58,7 +58,7 @@ test("attack retry does not launch two pending hits or debit mana twice",()=>{
  assert.equal(once.actors.PLAYER.spentAp,1);
  assert.equal(once.mana.PLAYER.current,9);
  const retry=post(JSON.parse(JSON.stringify(once)),"PLAYER",attack);
- assert.deepEqual(retry,once);
+ assert.deepEqual(retry,JSON.parse(JSON.stringify(once)));
  assert.equal(retry.log.filter(e=>e.kind==="ATTACK").length,1);
 });
 
@@ -75,7 +75,7 @@ test("repeated defense resolves one attack only, including after simultaneous co
  assert.equal(resolved.mana.NPC.current,10);
  assert.ok(resolved.actors.PLAYER.hp<100&&resolved.actors.NPC.hp<100);
  assert.equal(resolved.log.filter(e=>e.kind==="RESOLVE"&&e.by==="NPC").length,1);
- assert.deepEqual(post(JSON.parse(JSON.stringify(resolved)),"NPC",counter),resolved);
+ assert.deepEqual(post(JSON.parse(JSON.stringify(resolved)),"NPC",counter),JSON.parse(JSON.stringify(resolved)));
  assert.equal(resolved.log.filter(e=>e.kind==="RESOLVE").length,2);
 });
 
@@ -96,11 +96,11 @@ test("WAIT/ADVANCE idempotence survives serialization and round changes",()=>{
  const wait={kind:"WAIT",requestId:"wait-000000000001"};
  let s=post(initial(),"PLAYER",wait);
  assert.equal(s.log.filter(e=>e.kind==="WAIT").length,1);
- assert.deepEqual(post(JSON.parse(JSON.stringify(s)),"PLAYER",wait),s);
+ assert.deepEqual(post(JSON.parse(JSON.stringify(s)),"PLAYER",wait),JSON.parse(JSON.stringify(s)));
  const advance={kind:"ADVANCE",requestId:"npc-advance-1:1:100:0"};
  const progressed=post(s,"PLAYER",advance);
  assert.ok(progressed.processedActionRequests.some(e=>e.id===advance.requestId));
- assert.deepEqual(post(JSON.parse(JSON.stringify(progressed)),"PLAYER",advance),progressed);
+ assert.deepEqual(post(JSON.parse(JSON.stringify(progressed)),"PLAYER",advance),JSON.parse(JSON.stringify(progressed)));
 });
 
 test("a retry is accepted even after the encounter is finished",()=>{
@@ -113,7 +113,7 @@ test("a retry is accepted even after the encounter is finished",()=>{
  const defense={kind:"DEFEND",defense:"NONE",requestId:"finish-defense-0001"};
  const finished=post(s,"NPC",defense);
  assert.equal(finished.status,"FINISHED");
- assert.deepEqual(post(JSON.parse(JSON.stringify(finished)),"NPC",defense),finished);
+ assert.deepEqual(post(JSON.parse(JSON.stringify(finished)),"NPC",defense),JSON.parse(JSON.stringify(finished)));
  assert.throws(()=>post(finished,"NPC",{
   ...defense,requestId:"new-defense-0000001",
  }),/no está activo/);

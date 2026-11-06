@@ -5,6 +5,7 @@ import {battleFieldViewport,fieldPosition,fieldToViewport,viewportToField,
  previewViewportMove,pointFromFieldView,pointToFieldView} from "@/lib/combat/field-plane";
 import type {CombatState,Point,Side} from "@/lib/combat/turn-engine";
 import {blockingMovement,measuredBlock} from "@/lib/combat/physical-obstacles";
+import {activeChaosField,chaosRotationDegrees,distortChaosMove} from "@/lib/combat/chaos-fusion";
 
 export type FieldMode="MOVE"|"CONSTRUCT"|"VIEW";
 type Props={
@@ -33,8 +34,10 @@ export default function CombatTopDownPlane({
  const radius=scale; // 1 metre in SVG units
  const cx=ownerPoint.x*100,cy=ownerPoint.y*100;
  const start=fieldPosition(actor);
- const drawnCollision=mode==="MOVE"&&move&&Math.hypot(move.x,move.y)>0.001
-  ?blockingMovement(state.constructions,start,{x:start.x+move.x,y:start.y+move.y}):null;
+ const chaos=activeChaosField(state,side);
+ const actualMove=move?distortChaosMove(state,side,move):null;
+ const drawnCollision=mode==="MOVE"&&actualMove&&Math.hypot(actualMove.x,actualMove.y)>0.001
+  ?blockingMovement(state.constructions,start,{x:start.x+actualMove.x,y:start.y+actualMove.y}):null;
  const markers=Object.entries(state.actors) as Array<[Side,typeof actor]>;
  function update(e:PointerEvent<SVGSVGElement>){
   if(disabled||mode==="VIEW")return;
@@ -76,6 +79,19 @@ export default function CombatTopDownPlane({
     <line x1={i*10} y1="0" x2={i*10} y2="100" stroke="#334155" strokeWidth=".35"/>
     <line x1="0" y1={i*10} x2="100" y2={i*10} stroke="#334155" strokeWidth=".35"/>
    </g>)}
+   {(state.summons??[]).filter(s=>s.chaosField&&s.integrity>0&&
+     s.expiresAtRound>state.round).map(summon=>{
+     const pos=fieldToViewport(viewpoint,summon.fieldPosition);
+     const field=summon.chaosField!;
+     return <circle key={"chaos:"+summon.id} cx={pos.x*100} cy={pos.y*100}
+       r={field.radiusMeters*scale} pointerEvents="none"
+       stroke={summon.owner===side?"#c084fc":"#fb7185"}
+       strokeWidth=".65" strokeDasharray="1.8 1.3"
+       fill={summon.owner===side?"#a855f7":"#e11d48"} fillOpacity=".09">
+       <title>{summon.label+" · Campo de caos "+field.radiusMeters+
+         " m · rotación "+chaosRotationDegrees(field,summon.createdRound,state.round)+"°"}</title>
+     </circle>;
+   })}
    <circle cx={cx} cy={cy} r={radius} stroke="#22d3ee"
     strokeDasharray="1.8 1.2" strokeWidth=".65" fill="#06b6d4" fillOpacity=".055" pointerEvents="none"/>
    <circle cx={cx} cy={cy} r={radius/2} stroke="#22d3ee"
@@ -131,12 +147,22 @@ export default function CombatTopDownPlane({
     </g>;
    })}
    {mode==="MOVE"&&move&&Math.hypot(move.x,move.y)>0.001&&<g pointerEvents="none">
+    {chaos&&actualMove&&<g>
+      <line x1={cx} y1={cy} x2={cx+actualMove.x*scale}
+        y2={cy+actualMove.y*scale} stroke="#e879f9"
+        strokeDasharray="2 1" strokeWidth="1.65" strokeLinecap="round"/>
+      <circle cx={cx+actualMove.x*scale} cy={cy+actualMove.y*scale}
+        r="1.4" fill={drawnCollision?"#fb7185":"#e879f9"}/>
+      <title>Destino alterado por el campo de caos: {chaos.degrees}°</title>
+    </g>}
     <line x1={cx} y1={cy} x2={cx+move.x*scale} y2={cy+move.y*scale}
      stroke={drawnCollision?"#fb7185":"#22d3ee"} strokeWidth="1.5" strokeLinecap="round"/>
     <circle cx={cx+move.x*scale} cy={cy+move.y*scale} r="1.6"
      fill={drawnCollision?"#fb7185":"#7dd3fc"}/>
     <text x={cx} y={Math.min(94,cy+radius+6)} textAnchor="middle" fill="#a5f3fc" fontSize="4.2">
-     {drawnCollision?"Bloqueado: "+drawnCollision.block.label:Math.hypot(move.x,move.y).toFixed(2)+" m"}
+     {drawnCollision?"Bloqueado: "+drawnCollision.block.label:
+      chaos?Math.hypot(move.x,move.y).toFixed(2)+" m · giro "+chaos.degrees+"°":
+      Math.hypot(move.x,move.y).toFixed(2)+" m"}
     </text>
    </g>}
    {mode==="CONSTRUCT"&&constructionPoint&&visible(constructionPoint)&&<g pointerEvents="none">

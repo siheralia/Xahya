@@ -267,11 +267,7 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
                step.value<0||step.value>1_000_000)
               fail("valor fijo de entidad inválido");
             break;
-          case "SET_ENTITY_STAT":
-          intents.push({kind:"SET_ENTITY_STAT",entityKey:step.entityKey,
-            destStat:step.destStat,value:step.value,dynamic:false});
-          break;
-        case "SET_ENTITY_BEHAVIOR":
+          case "SET_ENTITY_BEHAVIOR":
             if(!validKey(step.entityKey)||!["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"].includes(step.mode)
               ||!Array.isArray(step.allowedModes)||!step.allowedModes.includes(step.mode)
               ||!step.allowedModes.length||step.allowedModes.length>5
@@ -539,6 +535,10 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
             sourceStat:step.sourceStat,destStat:step.destStat,factor,value:bounded(value*factor),dynamic:true});
           break;
         }
+        case "SET_ENTITY_STAT":
+          intents.push({kind:"SET_ENTITY_STAT",entityKey:step.entityKey,
+            destStat:step.destStat,value:step.value,dynamic:false});
+          break;
         case "SET_ENTITY_BEHAVIOR":
           intents.push({kind:"SET_ENTITY_BEHAVIOR",entityKey:step.entityKey,mode:step.mode,
             allowedModes:[...step.allowedModes],target:step.target,trigger:step.trigger});

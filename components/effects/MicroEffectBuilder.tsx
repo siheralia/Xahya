@@ -336,7 +336,7 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItem
         </label>
         <label className="text-xs">Atributo de la criatura
           <select className={"mt-1 "+field} value={step.destStat} onChange={e=>change({destStat:e.target.value})}>
-            {["PHYSICAL_ATTACK","PHYSICAL_DEFENSE","AGI","INTEGRITY","MOVE_SPEED","PRECISION","DODGE","STRENGTH"].map(stat=>
+            {["PHYSICAL_ATTACK","PHYSICAL_DEFENSE","AGI","INTEGRITY","MOVE_SPEED","PRECISION","DODGE","STRENGTH","MAGIC_ATTACK","MAGIC_DEFENSE","CON","CRITICAL","LUCK","RACE","MASS_KG"].map(stat=>
               <option key={stat} value={stat}>{friendlyMicroKey(stat)}</option>)}
           </select>
         </label>

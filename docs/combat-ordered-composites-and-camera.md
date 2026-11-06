@@ -21,10 +21,18 @@ requiere también seleccionar su centro en el plano vertical.
 El movimiento combinado consume **2 PA** (1 por cada componente), pero
 ocupa **una única ventana temporal**: el mayor entre los ticks de moverse
 y los de atacar. No se suman dos ventanas para una maniobra combinada.
-Se sigue comprobando el presupuesto restante de 100 ticks, incluida la
-penalización de velocidad del arma equipada. Puños, patadas y magia no
-la heredan automáticamente. La interfaz informa por separado de PA
-insuficientes y ticks insuficientes, con los valores reales.
+Se permite empezar una acción combinada con **cualquier cantidad
+positiva de ticks restantes**, siempre que queden 2 PA y la iniciativa
+lo permita. Igual que una acción individual, al finalizar su duración
+se **satura** el contador de ticks en 100, sin arrastrar tiempo a la
+siguiente ronda. Por ejemplo, con velocidad 38 se consumen 27 ticks:
+después de tres acciones (81/100), todavía puede hacerse un
+«Mover y atacar» (2 PA), terminando con 100/100 ticks.
+No se aplica una segunda ventana de ticks al movimiento. La
+penalización de velocidad de un arma equipada sigue influyendo en
+la ventana nominal (que se limita al final de ronda). Puños, patadas
+y magia no heredan esa penalización automáticamente. La interfaz
+distingue PA insuficientes de ticks completamente agotados.
 Las reacciones siguen teniendo su desplazamiento independiente.
 
 ## Cámara dinámica para los dos combatientes

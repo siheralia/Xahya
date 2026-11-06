@@ -4,6 +4,7 @@
  */
 export const MICRO_STEP_LABELS: Record<string,string> = {
   READ_STAT:"Leer estadística",READ_STORED:"Consultar cargas guardadas",
+  READ_ITEM:"Leer objeto",REPAIR_DURABILITY:"Restaurar durabilidad",
   CALCULATE:"Calcular valor",STORE:"Guardar cargas",CONSUME:"Consumir cargas",
   HEAL:"Curar",DAMAGE:"Causar daño",MODIFIER:"Multiplicar una estadística",
   BONUS:"Sumar bono",CAPABILITY:"Efecto narrativo",
@@ -21,6 +22,7 @@ export const MICRO_TRIGGER_LABELS: Record<string,string> = {
   DAMAGE_RESOLVED:"Cuando se resuelve el daño",
   TURN_START:"Al empezar un turno",IMPACT:"Al producirse un impacto",
   PASSIVE:"Pasiva (siempre disponible)",
+  ACTIVATE:"Al activar (habilidad o servicio)",
 };
 export const MICRO_COMPARISON_LABELS: Record<string,string> = {
   EQ:"Igual a",NE:"Distinto de",GT:"Mayor que",GTE:"Mayor o igual que",
@@ -50,6 +52,11 @@ export const MICRO_STAT_LABELS: Record<string,string> = {
   MITIGATED_DAMAGE:"Daño mitigado",INCOMING_DAMAGE:"Daño recibido",
   DIVINE_GRACE:"Gracia divina",ENERGY:"Energía",
   resistanceBase:"Defensa base",resistanceInput:"Variable de resistencia",
+  OWNER_MAIN_HAND:"Arma principal del propietario",
+  OWNER_OFFHAND:"Arma secundaria del propietario",
+  SELECTED_ITEM:"Objeto seleccionado y autorizado",
+  SOURCE_ITEM:"Objeto que contiene el efecto",
+  selectedItem:"Objeto elegido",repairAmount:"Cantidad de reparación",
   storedTotal:"Total almacenado",calculated:"Resultado calculado",
   USER:"Usuario",OPPONENT:"Oponente",TOTAL:"Total",COUNT:"Cargas",
   ALL:"Todas",PHYSICAL:"Físico",MAGICAL:"Mágico",

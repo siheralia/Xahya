@@ -8,15 +8,18 @@ import {
 import type {EffectContainer,MicroStep,NumericExpr} from "@/lib/effects/micro-modules";
 import {friendlyMicroKey,MICRO_OPERATOR_LABELS} from "@/lib/effects/micro-labels";
 
-type Port={id:string;label:string;expr?:NumericExpr};
+type Port={id:string;label:string;expr?:NumericExpr;kind?:"NUMBER"|"ITEM"|"TARGET"|"STAT"};
 type GraphNode=Node<{
-  title:string;subtitle:string;index:number;output?:string;outputKind?:"ITEM"|"NUMBER";
+  title:string;subtitle:string;index:number;output?:string;outputKind?:"ITEM"|"NUMBER"|"TARGET"|"STAT";
   ports:Port[];unresolved:boolean;mobile:boolean;
 },"skillStep">;
 const nodeTypes={skillStep:StepNode};
 const nodeId=(index:number)=>"step-"+index;
 const indexOfNode=(id:string|null|undefined)=>id?.startsWith("step-")?Number(id.slice(5)):-1;
 const outputOf=(step:MicroStep):string|undefined=>"output" in step?step.output:undefined;
+const outputKindOf=(step:MicroStep):"NUMBER"|"ITEM"|"TARGET"|"STAT"=>
+  step.kind==="READ_ITEM"?"ITEM":step.kind==="SELECT_TARGET"?"TARGET":
+  step.kind==="SELECT_STAT"?"STAT":"NUMBER";
 const referencedOutputs=(expr:NumericExpr|undefined|null):string[]=>{
   // Partially edited or old expressions should never take down the graph.
   if(expr===undefined||expr===null||typeof expr!=="object")return [];
@@ -26,6 +29,17 @@ const referencedOutputs=(expr:NumericExpr|undefined|null):string[]=>{
 const inputsOf=(step:MicroStep):Port[]=>{
  switch(step.kind){
   case "CALCULATE":return [{id:"expression",label:"Operación",expr:step.expression}];
+  case "REQUIRE_CONTACT":
+  case "READ_STATUSES":
+  case "INVERT_STATUS":
+    return [{id:"target",label:"Objetivo",expr:step.target,kind:"TARGET"}];
+  case "APPLY_STATUS":return [
+    {id:"target",label:"Objetivo",expr:step.target,kind:"TARGET"},
+    ...(typeof step.stat!=="string"?[{id:"stat",label:"Estadística",
+      expr:{source:"OUTPUT",key:step.stat.key} as NumericExpr,kind:"STAT" as const}]:[]),
+    {id:"value",label:"Valor",expr:step.value,kind:"NUMBER"}
+  ];
+  case "LINK_ENTITY_STAT":return [{id:"factor",label:"Factor",expr:step.factor,kind:"NUMBER"}];
   case "STORE":return [{id:"value",label:"Almacenar",expr:step.value}];
   case "HEAL":return [{id:"amount",label:"Curación",expr:step.amount}];
   case "REPAIR_DURABILITY":return [
@@ -57,6 +71,16 @@ const exprLabel=(v:NumericExpr|undefined|null):string=>{
 const display=(step:MicroStep):{title:string;subtitle:string;unresolved:boolean}=>{
  switch(step.kind){
   case "CALCULATE":return {title:typeof step.expression==="number"?"Valor configurado":"Calcular valor",subtitle:exprLabel(step.expression),unresolved:false};
+  case "SELECT_TARGET":return {title:"Seleccionar objetivo",subtitle:friendlyMicroKey(step.selector),unresolved:true};
+  case "SELECT_STAT":return {title:"Seleccionar estadística",subtitle:step.mode+" · "+step.allowed.map(friendlyMicroKey).join(", "),unresolved:step.mode!=="FIXED"};
+  case "READ_HP_DAMAGE":return {title:"Leer daño a HP",subtitle:"HP perdido tras la defensa",unresolved:true};
+  case "REQUIRE_CONTACT":return {title:"Comprobar contacto",subtitle:"Exige contacto real",unresolved:true};
+  case "SUMMON_ENTITY":return {title:"Invocar entidad",subtitle:step.label+" · "+step.manaCost+" maná",unresolved:true};
+  case "LINK_ENTITY_STAT":return {title:"Vincular estadística",subtitle:friendlyMicroKey(step.sourceStat)+" → "+friendlyMicroKey(step.destStat),unresolved:true};
+  case "SET_ENTITY_BEHAVIOR":return {title:"Configurar comportamiento",subtitle:step.entityKey+" · "+friendlyMicroKey(step.mode),unresolved:true};
+  case "APPLY_STATUS":return {title:"Aplicar estado",subtitle:typeof step.stat==="string"?friendlyMicroKey(step.stat):"Estadística conectada",unresolved:true};
+  case "READ_STATUSES":return {title:"Contar estados",subtitle:friendlyMicroKey(step.filter),unresolved:true};
+  case "INVERT_STATUS":return {title:"Invertir debilitamiento",subtitle:step.manaCost+" maná por inversión",unresolved:true};
   case "READ_STAT":return {title:"Leer estadística",subtitle:(step.actor==="USER"?"Usuario":"Oponente")+" · "+friendlyMicroKey(step.stat),unresolved:false};
   case "READ_ITEM":return {title:"Leer objeto",subtitle:friendlyMicroKey(step.selector),unresolved:false};
   case "REPAIR_DURABILITY":return {title:"Restaurar durabilidad",subtitle:"Objeto y cantidad conectables · máx. 100",unresolved:false};
@@ -97,11 +121,13 @@ function StepNode({data}:NodeProps<GraphNode>){
      <span className="min-w-0 truncate">{exprLabel(port.expr)}</span>
    </div>)}
    {data.output&&<div className={"mt-2 truncate rounded-md bg-zinc-800 px-1.5 py-1 text-[10px] "+
-    (data.outputKind==="ITEM"?"text-amber-300":"text-emerald-300")}>
-     Salida {data.outputKind==="ITEM"?"(objeto)":"(valor)"} · {friendlyMicroKey(data.output)}
+    (data.outputKind==="ITEM"?"text-amber-300":data.outputKind==="TARGET"?"text-sky-300":
+      data.outputKind==="STAT"?"text-violet-300":"text-emerald-300")}>
+     Salida {data.outputKind==="ITEM"?"(objeto)":data.outputKind==="TARGET"?"(objetivo)":data.outputKind==="STAT"?"(estadística)":"(valor)"} · {friendlyMicroKey(data.output)}
    </div>}
    {data.output&&<Handle type="source" id="value" position={sourcePosition}
-     style={{width:12,height:12,background:data.outputKind==="ITEM"?"#fbbf24":"#34d399"}}/>}
+     style={{width:12,height:12,background:data.outputKind==="ITEM"?"#fbbf24":
+       data.outputKind==="TARGET"?"#38bdf8":data.outputKind==="STAT"?"#c084fc":"#34d399"}}/>}
  </div>;
 }
 function wire(step:MicroStep,port:string,expr:NumericExpr):MicroStep{
@@ -163,7 +189,7 @@ export function MicroEffectFlowEditor({
    return {id:nodeId(i),type:"skillStep",position,
      draggable:true,selectable:true,
      data:{...text,index:i,ports:inputsOf(step),output:outputOf(step),
-       outputKind:step.kind==="READ_ITEM"?"ITEM":"NUMBER",mobile}};
+       outputKind:outputKindOf(step),mobile}};
   });
   const edges:Edge[]=[];
   value.steps.forEach((step,i)=>{

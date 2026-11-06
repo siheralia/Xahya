@@ -111,3 +111,37 @@ export function assertMovementClear(
  const hit=blockingMovement(constructions,from,to);
  if(hit)throw new Error("El desplazamiento atraviesa el obstáculo "+hit.block.label+". Rodea el bloque o cambia la trayectoria.");
 }
+
+/** Map a defender-facing vertical stroke onto the measured world segment
+ * between the two combatants. Depth progresses with the stroke's drawn
+ * length; y=1 is ground, y=0 is 10m high. Sample EACH stroke segment so
+ * curved arcs cannot bypass a wall merely because their endpoints are high.
+ * Never use the automatic placeholder stroke for this interpretation.
+ */
+export function firstCoverAlongStroke(
+ constructions:ReadonlyArray<CombatConstruction>|undefined,
+ from:Point,to:Point,stroke:ReadonlyArray<Point>,excludeId?:string,
+):SolidIntersection|null {
+ if(stroke.length<2||stroke.some(p=>!point(p)||p.x<0||p.x>1||p.y<0||p.y>1))
+  return null;
+ const lengths=stroke.slice(1).map((p,i)=>Math.hypot(
+  p.x-stroke[i].x,p.y-stroke[i].y));
+ const total=lengths.reduce((n,m)=>n+m,0);
+ let progress=0;
+ let first:SolidIntersection|null=null;
+ for(let i=0;i<lengths.length;i++){
+  const next=progress+(total>1e-9?lengths[i]/total:1/lengths.length);
+  const start={x:from.x+(to.x-from.x)*progress,y:from.y+(to.y-from.y)*progress};
+  const end={x:from.x+(to.x-from.x)*next,y:from.y+(to.y-from.y)*next};
+  const startHeight=(1-stroke[i].y)*10,endHeight=(1-stroke[i+1].y)*10;
+  const hit=firstMeasuredObstacle(constructions,start,end,startHeight,endHeight,excludeId);
+  if(hit){
+   const globalT=progress+(next-progress)*hit.t;
+   if(!first||globalT<first.t-1e-9||
+      (Math.abs(globalT-first.t)<1e-9&&hit.block.id<first.block.id))
+    first={block:hit.block,t:globalT};
+  }
+  progress=next;
+ }
+ return first;
+}

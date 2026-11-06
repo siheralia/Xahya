@@ -7,7 +7,7 @@ import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
 import { executeMicroEvent, emptyMicroState, validateEffectContainers, type EffectContainer, type MicroState } from "../effects/micro-modules.ts";
 import {calculateModularVariableResistance} from "../effects/legacy-modular-shadow.ts";
-import {validateConstructionPlacement,resolveConstructionForm,type CombatConstruction} from "./constructs.ts";
+import {validateConstructionPlacement,resolveConstructionForm,constructionInAreaFootprint,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
@@ -841,6 +841,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     let avoided = false;
     let damageScale = 1;
     let displaced = 0;
+    let interceptedAreaBlockId: string|undefined;
     if (defense === "DODGE") {
       if (pending.usesMagic || pending.rangedPhysical || pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD") {
         if (!validArenaPoint(pending.targetCenter)) throw new Error("Centro de ataque ausente.");
@@ -882,6 +883,20 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         c.owner===by&&c.form==="BLOCK"&&c.tangible&&
         (c.durability??0)>0&&Math.hypot(c.center.x-targetHitboxCenter.x,c.center.y-targetHitboxCenter.y)<=0.35);
       if(!block)throw new Error("Selecciona un bloque defensivo cercano al personaje.");
+      // A defender may choose cover from the public warning, but an area that
+      // misses the actual block cannot be intercepted by an unrelated object.
+      // Resolve that miss normally, charging the chosen reaction without
+      // revealing the private epicenter or rejecting the guess.
+      const overlaps=!pending.attackArea||constructionInAreaFootprint(
+        block,pending.attackArea,pending.targetCenter,pending.areaAngleDegrees,
+        fieldPosition(attacker));
+      if(!overlaps){
+        damageScale=1;
+        addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by,
+          constructionId:block.id,contact:false,
+          summary:block.label+" no interceptó el área del ataque."});
+      }else{
+      if(pending.attackArea)interceptedAreaBlockId=block.id;
       const resistance=block.passive?.resistance;
       // USER is the owner of this defense/construction (fighter). OPPONENT is
       // the attacker. Keep both sides separate in the micro-module context.
@@ -914,6 +929,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         state.constructions=state.constructions?.filter(c=>c.id!==block.id);
         addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by,constructionId:block.id,
           summary:block.label+" se rompió al interceptar el ataque."});
+      }
       }
     } else if (defense === "ENDURE") {
       damageScale = rolls.defense < contestChance(fighter.constitution,attacker.strength) ? 0.45 : 1;
@@ -1070,6 +1086,33 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
          constructionId:mirror.id,damage:direct,contact:true,
          summary:attacker.name+" destruyó "+mirror.label+" con un ataque circular físico."});
        }
+      }
+    }
+    // Area impacts persist independently from the defender's reaction.
+    // A miss against the fighter can still damage a placed obstacle; an
+    // successful dodge does not protect every construction within the blast.
+    // Mirrors have a separate reflection/destruction path above, and the
+    // actively selected defensive block has already paid its own wear.
+    if(pending.attackArea){
+      const area=pending.attackArea;
+      const casterPosition=fieldPosition(attacker);
+      const pressure=Math.max(1,Math.round(Math.max(0,power)*
+       (pending.skill?.damageMultiplier??1)*(pending.skill?.finalMultiplier??1)));
+      for(const block of [...(state.constructions??[])]){
+        if(block.form!=="BLOCK"||block.id===interceptedAreaBlockId||
+          !constructionInAreaFootprint(block,area,pending.targetCenter,
+           pending.areaAngleDegrees,casterPosition))continue;
+        const previous=block.durability??0;
+        const wear=Math.min(previous,pressure);
+        block.durability=Math.max(0,previous-wear);
+        block.hitCount=(block.hitCount??0)+1;
+        if(block.durability===0)
+          state.constructions=state.constructions?.filter(c=>c.id!==block.id);
+        addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by:pending.by,
+          against:block.owner,constructionId:block.id,damage:wear,contact:true,
+          summary:block.durability===0
+            ?block.label+" quedó destruido por el ataque de área ("+wear+" de integridad)."
+            :block.label+" recibió "+wear+" de desgaste del ataque de área."});
       }
     }
     if(contact)dispatchCombatMicroEvent(state,by,"DAMAGE_RESOLVED",{

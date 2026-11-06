@@ -11,7 +11,7 @@ Este incremento parte del despliegue de PR #168 y de las invocaciones de #172 en
 
 ## Qué pasa en combate
 
-- Al crear un duelo, el servidor registra cada copia real con `characterItemId`, categoría `ARMOR`/`ACCESSORY`, ranura admitida, durabilidad inicial y efectos permitidos. Armaduras: cabeza, cuerpo, brazos, pies y espalda; accesorios: ranuras accesorio 1 y 2.
+- Al crear un duelo, el servidor registra cada copia real con `characterItemId`, categoría `ARMOR`/`ACCESSORY`, ranura real admitida por el catálogo, durabilidad inicial y efectos permitidos. También se respetan configuraciones válidas no convencionales, como escudos clasificados como armadura en la mano secundaria.
 - Un impacto confirmado que **reduce HP** desgasta las piezas con regla compatible: `min(durabilidad, max(1, ceil(HP_perdido × porcentaje / 100)))`. Es un efecto sobre la **durabilidad**, no una modificación del daño a HP o de las estadísticas del personaje.
 - Esquivas, fallos, impactos con daño íntegramente absorbido o un canal distinto no causan desgaste. La durabilidad inicial de los objetos sin esta configuración se conserva.
 - Al iniciar una ronda autorizada, la autorreparación toma solo la copia dueña del efecto, nunca otra pieza con el mismo nombre; si tiene maná suficiente, restaura hasta 100 y descuenta el maná en la instantánea del combate. No gasta PA ni ticks.

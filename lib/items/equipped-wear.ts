@@ -11,12 +11,20 @@ export type EquipmentWearRule={
  channel:EquipmentWearChannel;
 };
 export type WearableItemType="ARMOR"|"ACCESSORY";
-export type WearableSlot="HEAD"|"BODY"|"FEET"|"ARMS"|"BACK"|"ACCESSORY_1"|"ACCESSORY_2";
+export type WearableSlot="MAIN_HAND"|"OFF_HAND"|"HEAD"|"BODY"|"FEET"|"ARMS"|"BACK"|"ACCESSORY_1"|"ACCESSORY_2";
 
-const armorSlots=new Set<WearableSlot>(["HEAD","BODY","FEET","ARMS","BACK"]);
-const accessorySlots=new Set<WearableSlot>(["ACCESSORY_1","ACCESSORY_2"]);
-export function wearableSlotAllowed(itemType:WearableItemType,slot:string):slot is WearableSlot{
- return itemType==="ARMOR"?armorSlots.has(slot as WearableSlot):accessorySlots.has(slot as WearableSlot);
+const equipmentSlots=new Set<WearableSlot>(["MAIN_HAND","OFF_HAND","HEAD","BODY","FEET",
+ "ARMS","BACK","ACCESSORY_1","ACCESSORY_2"]);
+/** A shield classified as ARMOR can legitimately occupy OFF_HAND, and an
+ * enchanted accessory may occupy another staff-authorized equipment slot.
+ * Respect the item's current allowedSlots when provided, not guessed category
+ * stereotypes. Historical item definitions without slots remain compatible.
+ */
+export function wearableSlotAllowed(
+ itemType:WearableItemType,slot:string,allowedSlots?:readonly string[]
+):slot is WearableSlot{
+ return ["ARMOR","ACCESSORY"].includes(itemType)&&equipmentSlots.has(slot as WearableSlot)&&
+   (!allowedSlots?.length||allowedSlots.includes(slot));
 }
 export function compileEquippedWear(rawEffects:unknown,itemType:string):EquipmentWearRule|null{
  if(!Array.isArray(rawEffects))return null;

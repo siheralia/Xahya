@@ -124,8 +124,10 @@ export function activeChaosField(state:CombatState,side:Side):{
 export function rotateChaosVector(vector:Point,degrees:90|180|270):Point{
  if(!Number.isFinite(vector.x)||!Number.isFinite(vector.y))
    throw new Error("Vector de movimiento inválido.");
- return degrees===90?{x:-vector.y,y:vector.x}:
+ const changed=degrees===90?{x:-vector.y,y:vector.x}:
    degrees===180?{x:-vector.x,y:-vector.y}:{x:vector.y,y:-vector.x};
+ // Avoid -0 in serialized vectors, signed-zero diffs and UI previews.
+ return {x:changed.x===0?0:changed.x,y:changed.y===0?0:changed.y};
 }
 export function distortChaosMove(state:CombatState,side:Side,vector:Point):Point{
  const field=activeChaosField(state,side);

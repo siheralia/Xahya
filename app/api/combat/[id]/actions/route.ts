@@ -262,17 +262,43 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
       for(const who of ["PLAYER","NPC"] as const){
         const fighter=next.actors[who],characterId=fighter.characterId;
         if(characterId===null)continue;
+        const previous=state.actors[who];
         for(const weapon of [fighter.equippedWeapon,fighter.offhandWeapon]){
           if(!weapon?.characterItemId)continue;
           const current=weapon.durability??fighter.weaponIntegrity;
           const integrity=Math.max(0,Math.min(100,Math.floor(current)));
-          const query=db.raw.sql`
-            UPDATE public."characterItem"
-              SET durability=LEAST(durability,${integrity})
-            WHERE id=${weapon.characterItemId} AND "characterId"=${characterId}
-              AND "itemId"=${weapon.itemId??0}
-          `.affectedCount().build();
-          await tx.execute(query);
+          const prior=[previous.equippedWeapon,previous.offhandWeapon,
+            ...(state.droppedWeapons??[]).filter(d=>d.owner===who).map(d=>d.weapon)]
+            .find(w=>w?.characterItemId===weapon.characterItemId);
+          const before=Math.max(0,Math.min(100,Math.floor(
+            prior?.durability??integrity)));
+          const repaired=next.round>state.round?
+            (next.itemRepairsThisRound??[])
+              .filter(op=>op.by===who&&op.round===next.round&&
+                op.characterItemId===weapon.characterItemId)
+              .reduce((sum,op)=>sum+op.restored,0):0;
+          // A block and a round-start repair can occur in ONE combat action.
+          // Subtract the real wear first, then add only authorized repair.
+          const worn=Math.max(0,before-integrity+repaired);
+          if(repaired>0){
+            const query=db.raw.sql`
+              UPDATE public."characterItem"
+              SET durability=GREATEST(0,LEAST(100,
+                LEAST(durability,${before})-${worn}+${repaired}))
+              WHERE id=${weapon.characterItemId} AND "characterId"=${characterId}
+                AND "itemId"=${weapon.itemId??0} AND quantity=1
+            `.affectedCount().build();
+            if((await tx.execute(query)).affectedRows!==1)
+              throw new Error("No se pudo guardar la autorreparación del ejemplar equipado.");
+          }else{
+            const query=db.raw.sql`
+              UPDATE public."characterItem"
+                SET durability=LEAST(durability,${integrity})
+              WHERE id=${weapon.characterItemId} AND "characterId"=${characterId}
+                AND "itemId"=${weapon.itemId??0}
+            `.affectedCount().build();
+            await tx.execute(query);
+          }
         }
       }
       await Session.where({id:a.encounterId}).update({

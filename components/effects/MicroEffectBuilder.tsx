@@ -579,6 +579,19 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
             update({steps:[...value.steps,next]});
           }}>+ Añadir micromódulo</button>
       </div>
+      <button type="button" disabled={value.steps.length>19}
+        className="rounded border border-teal-700 px-3 py-2 text-xs disabled:opacity-40"
+        onClick={()=>{
+          const keys=new Set(value.steps.flatMap(s=>"entityKey" in s?[s.entityKey]:[]));
+          let entityKey="FAMILIAR",n=1;while(keys.has(entityKey))entityKey="FAMILIAR_"+n++;
+          update({steps:[...value.steps,
+            {...defaultStep("SUMMON_ENTITY"),entityKey},
+            {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"PHYSICAL_ATTACK",destStat:"PHYSICAL_ATTACK",factor:0.2},
+            {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"AGI",destStat:"AGI",factor:1},
+            {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"PHYSICAL_DEFENSE",destStat:"INTEGRITY",factor:2},
+            {...defaultStep("SET_ENTITY_BEHAVIOR"),entityKey}
+          ]});
+        }}>+ Familiar de ejemplo (5 nodos)</button>
       <button type="button" disabled={value.steps.length>21}
         className="rounded border border-violet-700 px-3 py-2 text-xs disabled:opacity-40"
         onClick={()=>{

@@ -135,8 +135,13 @@ test("server snapshot binds armor/accessory to a unique valid equipped copy and 
  assert.equal(result[0].wearOnHit.wearPercent,10);
  assert.equal(result[1].slot,"ACCESSORY_1");
  assert.ok(wearableSlotAllowed("ARMOR","BODY"));
- assert.ok(!wearableSlotAllowed("ACCESSORY","BODY"));
- assert.ok(!wearableSlotAllowed("ARMOR","MAIN_HAND"));
+ assert.ok(wearableSlotAllowed("ARMOR","OFF_HAND",["OFF_HAND"]),"offhand shield is valid");
+ assert.ok(wearableSlotAllowed("ACCESSORY","BODY",["BODY"]),"custom slot may be valid");
+ assert.ok(!wearableSlotAllowed("ACCESSORY","BODY",["ACCESSORY_1"]),"staff slot restriction applies");
+ assert.ok(!wearableSlotAllowed("ARMOR","INVENTORY"));
+ const shield=snapshotEquippedWearables([{...catalog[0],allowedSlots:["OFF_HAND"]}],
+  [{id:107,itemId:1,quantity:1,equipped:true,equippedSlot:"OFF_HAND",durability:60}]);
+ assert.equal(shield[0].slot,"OFF_HAND","a defensive shield may be worn in the hand slot");
  const invalid=snapshotEquippedWearables([{...catalog[0],effects:[{...defaultEquippedWear(),wearPercent:0}]}],
   [owned[0]]);
  assert.equal(invalid[0].wearOnHit,undefined,"legacy invalid staff config is not executed");

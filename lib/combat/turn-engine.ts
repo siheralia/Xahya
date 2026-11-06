@@ -13,7 +13,8 @@ import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_ME
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
 import {combatWeaponOperational} from "./weapon-readiness.ts";
-import {summonStat,type CombatSummon,type SummonContactEffect} from "./summons.ts";
+import {summonStat,resolveSummonStat,type CombatSummon,type SummonContactEffect} from "./summons.ts";
+import {activeChaosField,distortChaosMove} from "./chaos-fusion.ts";
 import {creditCombatCharge,ensureCombatChargePool,spendCombatCharges} from "./charge-pools.ts";
 import {applySummonStatus,invertSummonStatus,expireSummonStatuses,
  isDebuffStatus,resolveStatusStat,type SummonStatus} from "./summon-status.ts";
@@ -1170,6 +1171,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   if (!SIDES.includes(by)) throw new Error("Combatiente no válido.");
   upgradeLegacyWeaponDurability(state);
   const fighter = state.actors[by], rival = state.actors[other(by)];
+  // Distort intentional planar vectors only. Preserve the submitted length,
+  // action ticks, physical collision checks and attack trajectories.
+  if((command.kind==="ATTACK"||command.kind==="DEFEND")&&command.planarMove!==undefined){
+    const requested=validatePlanarMove(command.planarMove);
+    command={...command,planarMove:distortChaosMove(state,by,requested)};
+  }
   if (state.pending) {
     const pending = state.pending;
     if (command.kind !== "DEFEND" || pending.against !== by) throw new Error("Debe responder al ataque pendiente.");
@@ -1407,10 +1414,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const sign=Math.sign(target-fighter.positionMeters)||1;
       const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
       const from=fieldPosition(fighter);
-      const nextX=fighter.positionMeters+sign*(direction==="AWAY"?-0.5:step);
-      assertMovementClear(state.constructions,from,{x:nextX,y:from.y});
-      fighter.positionMeters=nextX;
-      if(fighter.fieldPosition)fighter.fieldPosition.x=fighter.positionMeters;
+      const vector=distortChaosMove(state,by,
+        {x:sign*(direction==="AWAY"?-0.5:step),y:0});
+      assertMovementClear(state.constructions,from,
+        {x:from.x+vector.x,y:from.y+vector.y});
+      moveFighterOnField(fighter,vector);
       clearPhysicalStrokes(state,by);
       if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2){
         restoreWeapon(state,dropped);
@@ -1666,8 +1674,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const direction = command.direction??"TOWARD";
     if (!["TOWARD","AWAY","WEAPON","VECTOR"].includes(direction)) throw new Error("Dirección inválida.");
     if(direction==="VECTOR"){
-      const vector=validatePlanarMove(command.planarMove);
-      if(Math.abs(Math.hypot(vector.x,vector.y)-command.meters)>0.02)
+      const intended=validatePlanarMove(command.planarMove);
+      const vector=distortChaosMove(state,by,intended);
+      if(Math.abs(Math.hypot(intended.x,intended.y)-command.meters)>0.02)
         throw new Error("Los metros no coinciden con el trazo dibujado.");
       const start=fieldPosition(fighter);
       assertMovementClear(state.constructions,start,{x:start.x+vector.x,y:start.y+vector.y});
@@ -1685,10 +1694,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const sign = Math.sign(target-fighter.positionMeters)||1;
     const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(target-fighter.positionMeters));
     const start=fieldPosition(fighter);
-    const destination=fighter.positionMeters+sign*magnitude;
-    assertMovementClear(state.constructions,start,{x:destination,y:start.y});
-    fighter.positionMeters=destination;
-    if(fighter.fieldPosition)fighter.fieldPosition.x=fighter.positionMeters;
+    const vector=distortChaosMove(state,by,{x:sign*magnitude,y:0});
+    assertMovementClear(state.constructions,start,
+      {x:start.x+vector.x,y:start.y+vector.y});
+    moveFighterOnField(fighter,vector);
     let recoveredWeapon:string|undefined;
     if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&restoreWeapon(state,dropped)){
       recoveredWeapon=dropped.weapon.name;
@@ -1922,6 +1931,61 @@ export function applyResolvedCombatSkill(
    if(historical){historical.skillId=plan.id;historical.manaCost=plan.cost;
     historical.skillName=plan.name;historical.summary=event.summary;}
   }
+  }else if(plan.category==="FUSION") {
+   const fusion=plan.fusion;
+   if(!fusion)throw new Error("La habilidad no tiene una fusión ejecutable.");
+   if(aim.planarMove||aim.trajectory||aim.areaCenter||aim.targetSummonId||
+     aim.targetConstructionId||aim.constructionFieldPoint||aim.chargesToSpend!==undefined)
+     throw new Error("La fusión usa las invocaciones existentes, sin trayectoria ni objetivo externo.");
+   next=structuredClone(original);
+   const owner=next.actors[by],origin=fieldPosition(owner);
+   const selected=fusion.sourceEntityKeys.map(entityKey=>{
+     const creature=next.summons?.find(s=>s.owner===by&&s.entityKey===entityKey&&
+       s.integrity>0&&s.expiresAtRound>next.round);
+     if(!creature)throw new Error("Falta una criatura activa necesaria para la fusión: "+entityKey);
+     const dist=Math.hypot(creature.fieldPosition.x-origin.x,
+       creature.fieldPosition.y-origin.y);
+     if(dist>creature.controlRangeMeters+1e-8||
+       dist>fusion.summon.controlRangeMeters+1e-8)
+       throw new Error("Una criatura requerida está fuera del control de la fusión.");
+     return creature;
+   });
+   if(next.summons?.some(s=>s.owner===by&&s.entityKey===fusion.summon.entityKey))
+     throw new Error("La criatura fusionada ya existe en este encuentro.");
+   if(new Set(selected.map(s=>s.id)).size!==selected.length)
+     throw new Error("Las criaturas de origen de la fusión deben ser distintas.");
+   const consumedIds=new Set(selected.map(s=>s.id));
+   const integrityLink=fusion.summon.links.find(x=>x.destStat==="INTEGRITY")!;
+   const integrity=Math.max(1,resolveSummonStat(owner,integrityLink));
+   const result:CombatSummon={
+     id:by+":"+plan.id+":"+aim.requestId+":FUSION",
+     owner:by,sourceSkillId:plan.id,
+     entityKey:fusion.summon.entityKey,label:fusion.summon.label,
+     // Materializes where one of the actual participants stood.
+     fieldPosition:{...selected[0].fieldPosition},createdRound:next.round,
+     expiresAtRound:next.round+fusion.summon.durationTurns,
+     controlRangeMeters:fusion.summon.controlRangeMeters,
+     maintenanceMana:fusion.summon.maintenanceMana,
+     integrity,hitCount:0,hitLimit:fusion.summon.hitLimit,
+     links:structuredClone(fusion.summon.links),
+     behavior:structuredClone(fusion.summon.behavior),
+     contactEffects:[],charges:{},chargesMigrated:true,
+     fusedFrom:selected.map(x=>x.id),
+     chaosField:fusion.chaosField?structuredClone(fusion.chaosField):undefined
+   };
+   // Migrate old charge wallets before the sources disappear.
+   ensureCombatChargePool(next,by);
+   next.summons=[...(next.summons??[]).filter(x=>!consumedIds.has(x.id)),result];
+   spend(owner,turnTicks(owner));
+   next.tick=Math.max(next.tick,(next.round-1)*LIMIT+owner.spentTicks);
+   // Charge before advancing a round and paying the fused creature's upkeep.
+   next.mana![by].current-=plan.cost;
+   addLog(next,{kind:"SUMMON",tick:next.tick,by,skillId:plan.id,
+     skillName:plan.name,summonId:result.id,manaCost:plan.cost,
+     summary:owner.name+" fusionó "+selected.map(x=>x.label).join(", ")+
+       " en "+result.label+(result.chaosField?
+         " y abrió un campo de distorsión de "+result.chaosField.radiusMeters+" m.":".")});
+   advanceRoundIfComplete(next);
   }else if(plan.category==="CHARGE_BUFF") {
    const buff=plan.chargeBuff;
    if(!buff)throw new Error("La habilidad no incluye una potenciación válida.");
@@ -2115,7 +2179,7 @@ export function applyResolvedCombatSkill(
    summary:actor.name+" usó "+plan.name+(plan.healing?" y recuperó hasta "+plan.healing+" HP":"")});
   advanceRoundIfComplete(next);
  }
- if(plan.category!=="SUMMON"&&plan.category!=="CHARGE_BUFF")next.mana![by].current-=plan.cost;
+ if(plan.category!=="SUMMON"&&plan.category!=="CHARGE_BUFF"&&plan.category!=="FUSION")next.mana![by].current-=plan.cost;
  next.skillCooldowns??={};
  next.skillCooldowns[by]??={};
  next.skillCooldowns[by]![key]=plan.oncePerCombat?-1:

@@ -10,6 +10,7 @@ import {previewSkillExecution} from "./skill-casting.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
 import type {CombatAttackArea} from "./skill-area.ts";
 import type {ChargeBuffPlan} from "./charge-buffs.ts";
+import type {FusionPlan} from "./chaos-fusion.ts";
 export {parseConfiguredSkillRange} from "./skill-range.ts";
 export type CombatSkillPreview = {
  id: number;
@@ -32,8 +33,9 @@ export type CombatSkillPreview = {
  requirementsSatisfied: boolean;
  /** Only a strict set of implemented effects may be cast. */
  executable: boolean;
- skillKind?: "OFFENSE"|"SUPPORT"|"CONSTRUCTION"|"SUMMON"|"CHARGE_BUFF"|null;
+ skillKind?: "OFFENSE"|"SUPPORT"|"CONSTRUCTION"|"SUMMON"|"CHARGE_BUFF"|"FUSION"|null;
  chargeBuff?:ChargeBuffPlan|null;
+ fusion?:FusionPlan|null;
  needsAim?: boolean;
  attackArea?:CombatAttackArea|null;
  constructionMaterial?:string|null;

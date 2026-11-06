@@ -78,6 +78,8 @@ const display=(step:MicroStep):{title:string;subtitle:string;unresolved:boolean}
   case "READ_HP_DAMAGE":return {title:"Leer daño a HP",subtitle:"HP perdido tras la defensa",unresolved:true};
   case "REQUIRE_CONTACT":return {title:"Comprobar contacto",subtitle:"Exige contacto real",unresolved:true};
   case "SUMMON_ENTITY":return {title:"Invocar entidad",subtitle:step.label+" · "+step.manaCost+" maná",unresolved:true};
+  case "FUSE_SUMMONS":return {title:"Fusionar criaturas",subtitle:step.sourceEntityKeys.length+" componentes → "+step.label,unresolved:true};
+  case "CHAOS_FIELD":return {title:"Campo de caos",subtitle:"Radio "+step.radiusMeters+" m · rotación "+step.rotationDegrees+"°",unresolved:true};
   case "SET_ENTITY_STAT":return {title:"Atributo propio fijo",subtitle:friendlyMicroKey(step.destStat)+" = "+step.value,unresolved:false};
   case "LINK_ENTITY_STAT":return {title:"Vincular estadística",subtitle:friendlyMicroKey(step.sourceStat)+" → "+friendlyMicroKey(step.destStat),unresolved:true};
   case "SET_ENTITY_BEHAVIOR":return {title:"Configurar comportamiento",subtitle:step.entityKey+" · "+friendlyMicroKey(step.mode),unresolved:true};

@@ -7,19 +7,21 @@ import {compileCombatAttackArea,type CombatAttackArea} from "./skill-area.ts";
 import {parseSkillArea} from "../skills/area-of-effect.ts";
 import {creationPlanFromEffect,type ConstructionPlan} from "./constructs.ts";
 import {compileSummonTemplates,type SummonTemplate} from "./summons.ts";
+import {compileFusionPlan,type FusionPlan} from "./chaos-fusion.ts";
 import {compileChargeBuff,type ChargeBuffPlan} from "./charge-buffs.ts";
 import type {VariableResistance} from "../skills/variable-resistance.ts";
 import type {CombatAttackType} from "./matchup-types.ts";
 
 export type CombatBuffStat = "physicalAttack"|"magicAttack"|"physicalDefense"|"magicDefense"|"precision"|"dodge";
 export type CombatSkillPlan = {
- id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT"|"CONSTRUCTION"|"SUMMON"|"CHARGE_BUFF";
+ id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT"|"CONSTRUCTION"|"SUMMON"|"CHARGE_BUFF"|"FUSION";
  /** Linked approved parent skill, but not by itself an active combat effect. */
  requiredParentSkillId?:number;
  construction?:ConstructionPlan;
  /** Server-approved creatures; costs are paid individually. */
  summons?:SummonTemplate[];
   chargeBuff?:ChargeBuffPlan;
+ fusion?:FusionPlan;
  creationPassive?:{sourceSkillId:number;resistance:VariableResistance};
  /** Executable persistent mirror with one automatic ray per owner's round. */
  mirror?:{rayMultiplier:number;reflectionMultiplier:number;durability:number};
@@ -77,6 +79,27 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
  const effects=Array.isArray(row.effect)?row.effect:[];
  if(effects.length<1||effects.length>20)
   fail("La habilidad necesita efectos configurados válidos.");
+ const fusion=compileFusionPlan(effects,cost);
+ if(fusion){
+   if(Number(row.maintenanceCost??0)!==fusion.summon.maintenanceMana)
+     fail("El mantenimiento de la habilidad debe coincidir con el del ser fusionado.");
+   const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
+   if(cooldown&&!["Sin cooldown","Una vez por combate","Igual a duración","1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(cooldown))
+     fail("Cooldown no reconocido.");
+   const duration=String(row.duration??"").trim();
+   if(duration&&duration!=="0 turnos"&&duration!==fusion.summon.durationTurns+" turnos"&&
+      duration!==fusion.summon.durationTurns+" turno")
+     fail("La duración de la fusión no coincide con la configuración de la habilidad.");
+   return {
+     id,name:typeof row.name==="string"?row.name.slice(0,120):"Fusión de entidades",
+     cost,requiredParentSkillId,category:"FUSION",fusion,
+     rangeMeters:fusion.summon.controlRangeMeters,damageMultiplier:1,
+     defenseFactor:1,finalMultiplier:1,healing:0,bonuses:[],
+     durationTurns:fusion.summon.durationTurns,
+     cooldownRounds:cooldownTurns(cooldown,String(row.duration??"")),
+     oncePerCombat:cooldown==="Una vez por combate",usesMagic:false,
+   };
+ }
  const charged=compileChargeBuff(effects,cost);
  if(charged){
    if(Number(row.maintenanceCost??0)!==0)
@@ -281,13 +304,15 @@ export function previewSkillExecution(row:Record<string,unknown>){
   const plan=compileCombatSkill(row);
   return {executable:true as const,skillKind:plan.category,
     chargeBuff:plan.chargeBuff??null,
-   needsAim:plan.category!=="SUPPORT"&&plan.category!=="SUMMON"&&plan.category!=="CHARGE_BUFF"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
+    fusion:plan.fusion??null,
+   needsAim:plan.category!=="SUPPORT"&&plan.category!=="SUMMON"&&plan.category!=="CHARGE_BUFF"&&plan.category!=="FUSION"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
    attackArea:plan.attackArea??null,
    constructionMaterial:plan.construction?.material??null,
    disabledReason:null};
  }catch(e) {
   return {executable:false as const,skillKind:null,
     chargeBuff:null,
+    fusion:null,
    needsAim:false,usesMagic:false,attackArea:null,
    disabledReason:e instanceof Error?e.message:"No disponible."};
  }

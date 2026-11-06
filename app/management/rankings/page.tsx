@@ -7,12 +7,15 @@ type Row = {
   id:number; name:string; money:number; karma:number; levelUpPoints:number;
   pointsTotal:number; luck:number; hp:number; mana:number; casinoWon:number; casinoSpent:number;
   mazeMoney:number; mazeRooms:number; mazeDiscovered:number; mazeTreasures:number;
+  combatWins:number; combatLosses:number; combatDraws:number; combatTotal:number; combatWinRate:number;
 };
 
 const rankings = [
   ["Dinero", "money", "💰"],
   ["Puntos totales", "pointsTotal", "✦"],
   ["Karma", "karma", "🪷"],
+  ["Más victorias", "combatWins", "⚔️"],
+  ["Win rate", "combatWinRate", "🎯"],
   ["Dinero ganado en casino", "casinoWon", "🎰"],
   ["Dinero gastado en casino", "casinoSpent", "💸"],
   ["Dinero ganado en exploración", "mazeMoney", "🗺️"],
@@ -26,6 +29,9 @@ const rankings = [
 ] as const;
 
 function format(value:number) { return value.toLocaleString("en-US"); }
+function percentage(value:number) {
+  return value.toLocaleString("es-MX",{maximumFractionDigits:2})+" %";
+}
 
 export default function RankingsPage() {
   const [rows,setRows] = useState<Row[]>([]);
@@ -45,7 +51,17 @@ export default function RankingsPage() {
 
   const blocks = useMemo(() => rankings.map(([label,key,icon]) => ({
     label,key,icon,
-    entries: [...rows].sort((a,b) => Number(b[key]) - Number(a[key])).slice(0,5),
+    entries: rows
+      // Don't rank characters with no completed matches as if they had a win rate.
+      .filter(row => (key !== "combatWins" && key !== "combatWinRate") || row.combatTotal > 0)
+      .sort((a,b) => {
+        const difference = Number(b[key]) - Number(a[key]);
+        if (difference !== 0) return difference;
+        if (key === "combatWinRate") return b.combatTotal-a.combatTotal || b.combatWins-a.combatWins || a.name.localeCompare(b.name,"es");
+        if (key === "combatWins") return b.combatWinRate-a.combatWinRate || b.combatTotal-a.combatTotal || a.name.localeCompare(b.name,"es");
+        return a.name.localeCompare(b.name,"es");
+      })
+      .slice(0,5),
   })), [rows]);
 
   return (
@@ -55,6 +71,7 @@ export default function RankingsPage() {
           <div>
             <h1 className="text-3xl font-bold sm:text-4xl">Rankings</h1>
             <p className="mt-1 text-sm text-zinc-500">Top 5 de cada categoría.</p>
+            <p className="mt-1 text-xs text-zinc-500">En combate cuentan los duelos PvP y de entrenamiento finalizados. Los empates cuentan en el total, no como victorias.</p>
           </div>
           <Link href="/management" className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">← Gestión</Link>
         </div>
@@ -73,8 +90,13 @@ export default function RankingsPage() {
                   {block.entries.length === 0 ? <p className="text-xs text-zinc-600">Sin personajes</p> : block.entries.map((entry,index) => (
                     <div key={entry.id} className="flex min-w-0 items-center gap-1.5 rounded-lg bg-zinc-950/70 px-2 py-1.5">
                       <span className="w-4 shrink-0 text-[10px] font-bold text-zinc-500">#{index+1}</span>
-                      <span className="min-w-0 flex-1 truncate text-xs text-zinc-200">{entry.name}</span>
-                      <span className="shrink-0 text-xs font-semibold text-white">{format(Number(entry[block.key]))}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs text-zinc-200">{entry.name}</span>
+                        {(block.key==="combatWins" || block.key==="combatWinRate") && (
+                          <span className="block text-[10px] text-zinc-500">{entry.combatWins} V · {entry.combatLosses} D · {entry.combatDraws} E · {entry.combatTotal} combates</span>
+                        )}
+                      </span>
+                      <span className="shrink-0 text-xs font-semibold text-white">{block.key==="combatWinRate" ? percentage(entry.combatWinRate) : format(Number(entry[block.key]))}</span>
                     </div>
                   ))}
                 </div>

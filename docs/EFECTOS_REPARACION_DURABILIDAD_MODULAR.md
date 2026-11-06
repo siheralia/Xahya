@@ -15,7 +15,7 @@ flowchart LR
 ```
 
 **Puertos y semántica**:
-- `READ_ITEM(selector,output)`: salida tipada **ITEM**. El selector puede elegir `OWNER_MAIN_HAND`, `OWNER_OFFHAND`, `SELECTED_ITEM` o `SOURCE_ITEM`. La identidad numérica `characterItemId` no se extrae de una fórmula ni del nombre del objeto; procede exclusivamente de los enlaces del contexto **que construya el servidor**.
+- `READ_ITEM(selector,output)`: salida tipada **ITEM**. El selector puede elegir `OWNER_MAIN_HAND`, `OWNER_OFF_HAND`, `SELECTED_ITEM` o `SOURCE_ITEM`. La identidad numérica `characterItemId` no se extrae de una fórmula ni del nombre del objeto; procede exclusivamente de los enlaces del contexto **que construya el servidor**.
 - `REPAIR_DURABILITY(target,amount)`: `target={source:"OUTPUT",key:"..."}` apunta a un `READ_ITEM` anterior y `amount` acepta un número, `READ_STAT`, `READ_STORED`, `CONSUME`, `CALCULATE`, una salida numérica anterior o una fórmula aritmética compuesta. Una salida ITEM no puede alimentar una operación numérica ni viceversa.
 - La cantidad solicitada debe ser finita, no negativa, hasta 1.000.000. La durabilidad son puntos **enteros 0–100**; las fracciones se redondean hacia abajo y se aplica `min(floor(cantidad), 100-durabilidadActual)`. Cero o ya estar al máximo produce reparación 0. No afecta a HP/mana ni multiplica por `quantity`.
 - Durante un evento, varios pasos de reparación del mismo objeto se calculan secuencialmente sobre un estado temporal para que no sobrepasen el máximo.

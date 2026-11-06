@@ -16,6 +16,11 @@ const key="^[A-Za-z][A-Za-z0-9_.:-]{0,63}$";
 const sources=["EVENT","STAT","CHARGES","STORED_TOTAL","OUTPUT"] as const;
 const ops=["ADD","SUBTRACT","MULTIPLY","DIVIDE","MIN","MAX","PERCENT"] as const;
 const events:MicroEvent[]=["DAMAGE_RESOLVED","TURN_START","IMPACT","PASSIVE","ACTIVATE"];
+const stepKinds:MicroStep["kind"][]=["READ_STAT","READ_STORED","READ_ITEM","CALCULATE",
+  "STORE","CONSUME","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS",
+  "SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","REQUIRE_CONTACT","SUMMON_ENTITY",
+  "LINK_ENTITY_STAT","SET_ENTITY_BEHAVIOR","APPLY_STATUS","READ_STATUSES","INVERT_STATUS",
+  "CAPABILITY","VARIABLE_RESISTANCE"];
 const destinationStats:readonly string[]=["STR","AGI","CON","INT","WIS","CHA","SPI",
   "HP","MAX_HP","MANA","RESISTANCE","MAGIC_DEF","PHYS_DEF","MAGIC_ATTACK","PHYSICAL_ATTACK"];
 const defaultCondition=():MicroCondition=>({left:{source:"CHARGES",key:"DIVINE_GRACE"},compare:"GTE",right:1});
@@ -34,6 +39,21 @@ const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
     case "DAMAGE":return {kind,amount:10,channel:"MAGICAL"};
     case "MODIFIER":return {kind,stat:"RESISTANCE",multiplier:1.3};
     case "BONUS":return {kind,stat:"STR",amount:10};
+    case "SELECT_TARGET":return {kind,selector:"OPPONENT",output:"chosenTarget"};
+    case "SELECT_STAT":return {kind,mode:"FIXED",allowed:["STR","AGI","DODGE"],fixed:"STR",output:"chosenStat"};
+    case "READ_HP_DAMAGE":return {kind,output:"hpDamage"};
+    case "REQUIRE_CONTACT":return {kind,target:{source:"OUTPUT",key:"chosenTarget"}};
+    case "SUMMON_ENTITY":return {kind,entityKey:"FAMILIAR",label:"Familiar",manaCost:30,
+      maintenanceMana:20,durationTurns:2,controlRangeMeters:15,hitLimit:3};
+    case "LINK_ENTITY_STAT":return {kind,entityKey:"FAMILIAR",sourceStat:"PHYSICAL_ATTACK",
+      destStat:"PHYSICAL_ATTACK",factor:0.2};
+    case "SET_ENTITY_BEHAVIOR":return {kind,entityKey:"FAMILIAR",mode:"FOLLOW",
+      allowedModes:["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"],target:"USER",trigger:"CONTACT"};
+    case "APPLY_STATUS":return {kind,target:{source:"OUTPUT",key:"chosenTarget"},stat:"STR",
+      operation:"MULTIPLIER",value:0.5,durationTurns:2};
+    case "READ_STATUSES":return {kind,target:{source:"OUTPUT",key:"chosenTarget"},filter:"DEBUFF",output:"statusCount"};
+    case "INVERT_STATUS":return {kind,target:{source:"OUTPUT",key:"chosenTarget"},
+      selection:"LATEST_DEBUFF",manaCost:10,chargeAccumulator:"LUNAR_CHARGES"};
     case "CAPABILITY":return {kind,code:"NARRATIVE:OTHER",description:""};
     case "VARIABLE_RESISTANCE":return {kind,config:{...DEFAULT_VARIABLE_RESISTANCE}};
   }
@@ -144,13 +164,13 @@ function ConditionsEditor({value,onChange,title}:{value:MicroCondition[];onChang
     </div>)}
   </section>;
 }
-function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItemOutputs}:{step:MicroStep;onChange:(s:MicroStep)=>void;onDelete:()=>void;index:number;availableOutputs:string[];availableItemOutputs:string[]}){
+function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItemOutputs,availableTargetOutputs,availableStatOutputs}:{step:MicroStep;onChange:(s:MicroStep)=>void;onDelete:()=>void;index:number;availableOutputs:string[];availableItemOutputs:string[];availableTargetOutputs:string[];availableStatOutputs:string[]}){
   const change=(patch:Partial<MicroStep>)=>onChange({...step,...patch} as MicroStep);
   return <section className="space-y-3 rounded-xl border border-cyan-900/60 bg-zinc-900/70 p-3">
     <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold">Micromódulo {index+1}</h4>
       <button type="button" onClick={onDelete} className="text-xs text-rose-300">Eliminar</button></div>
     <label className="block text-xs">Operación<select className={"mt-1 "+field} value={step.kind} onChange={e=>onChange({...defaultStep(e.target.value as MicroStep["kind"]),when:step.when})}>
-      {["READ_STAT","READ_STORED","READ_ITEM","CALCULATE","STORE","CONSUME","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
+      {stepKinds.map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
     </select></label>
     {step.kind==="READ_STAT"&&<div className="grid gap-2 sm:grid-cols-3">
       <label className="text-xs">¿De quién?
@@ -218,6 +238,189 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItem
       <NumericEditor value={step.expression} outputOptions={availableOutputs}
         onChange={expression=>change({expression})}/>
       <p className="text-xs text-zinc-400">La salida queda disponible para las operaciones siguientes; arrástrala en el diagrama.</p>
+    </div>}
+
+    {step.kind==="SELECT_TARGET"&&<div className="grid gap-2 sm:grid-cols-2">
+      <label className="text-xs">De quién es el objetivo
+        <select className={"mt-1 "+field} value={step.selector} onChange={e=>change({selector:e.target.value as typeof step.selector})}>
+          <option value="USER">Invocador</option><option value="OPPONENT">Enemigo</option>
+          <option value="ALLY">Aliado autorizado</option><option value="COMBAT">Elegir durante combate</option>
+        </select>
+      </label>
+      <label className="text-xs">Salida de objetivo
+        <input className={"mt-1 "+field} value={step.output} onChange={e=>change({output:e.target.value})}/>
+      </label>
+      <p className="text-xs text-amber-300 sm:col-span-2">Identidad autorizada por servidor. Esta salida no es numérica ni puede conectarse a una fórmula.</p>
+    </div>}
+    {step.kind==="SELECT_STAT"&&<div className="space-y-2">
+      <label className="block text-xs">Cómo elegir la estadística
+        <select className={"mt-1 "+field} value={step.mode} onChange={e=>change({mode:e.target.value as typeof step.mode})}>
+          <option value="FIXED">Fijarla al crear el efecto</option>
+          <option value="RANDOM">Aleatoria (servidor)</option>
+          <option value="COMBAT">Elegir durante combate</option>
+        </select>
+      </label>
+      <label className="block text-xs">Estadísticas permitidas (claves separadas por comas)
+        <input className={"mt-1 "+field} value={step.allowed.join(", ")}
+          onChange={e=>change({allowed:e.target.value.split(",").map(x=>x.trim()).filter(Boolean)})}/>
+      </label>
+      {step.mode==="FIXED"&&<label className="block text-xs">Estadística fija
+        <select className={"mt-1 "+field} value={step.fixed??""} onChange={e=>change({fixed:e.target.value})}>
+          {step.allowed.map(stat=><option key={stat} value={stat}>{friendlyMicroKey(stat)}</option>)}
+        </select>
+      </label>}
+      <label className="block text-xs">Nombre de salida
+        <input className={"mt-1 "+field} value={step.output} onChange={e=>change({output:e.target.value})}/>
+      </label>
+      <p className="text-xs text-amber-300">Aleatorio/manual requieren una selección autorizada del servidor. No se acepta una estadística fuera de esta lista.</p>
+    </div>}
+    {step.kind==="READ_HP_DAMAGE"&&<div className="space-y-2">
+      <label className="block text-xs">Salida del daño a HP
+        <input className={"mt-1 "+field} value={step.output} onChange={e=>change({output:e.target.value})}/>
+      </label>
+      <p className="text-xs text-amber-300">Utiliza el disparador «Cuando se resuelve el daño». Conecta esta salida a una condición mayor que 0 para activar efectos solo cuando el HP disminuya.</p>
+    </div>}
+    {(step.kind==="REQUIRE_CONTACT"||step.kind==="READ_STATUSES"||step.kind==="INVERT_STATUS"||step.kind==="APPLY_STATUS")&&
+      <div className="space-y-2">
+        <label className="block text-xs">Objetivo conectado desde «Seleccionar objetivo»
+          <select className={"mt-1 "+field} value={step.target.key}
+            onChange={e=>change({target:{source:"OUTPUT",key:e.target.value}})}>
+            <option value="" disabled>Selecciona una salida anterior</option>
+            {availableTargetOutputs.map(output=><option key={output} value={output}>{friendlyMicroKey(output)}</option>)}
+          </select>
+        </label>
+        {!availableTargetOutputs.includes(step.target.key)&&
+          <p role="alert" className="text-xs text-amber-300">Añade primero «Seleccionar objetivo» y enlaza su salida.</p>}
+      </div>}
+    {step.kind==="SUMMON_ENTITY"&&<div className="space-y-2">
+      <p className="text-xs text-amber-300">Solicita una invocación. La aparición, pago, duración, integridad y PA/ticks necesitan autorización del motor de combate.</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs">Identificador de criatura
+          <input className={"mt-1 "+field} value={step.entityKey} onChange={e=>change({entityKey:e.target.value})}/>
+        </label>
+        <label className="text-xs">Nombre visible
+          <input className={"mt-1 "+field} value={step.label} onChange={e=>change({label:e.target.value})}/>
+        </label>
+        {([
+          ["manaCost","Maná al invocar"],["maintenanceMana","Maná de mantenimiento/turno"],
+          ["durationTurns","Duración en turnos"],["controlRangeMeters","Control en metros"],
+          ["hitLimit","Máximo de impactos"]
+        ] as const).map(([k,label])=><label key={k} className="text-xs">{label}
+          <input type="number" min={k==="maintenanceMana"||k==="manaCost"?0:1} step={k==="controlRangeMeters"?"any":1}
+            className={"mt-1 "+field} value={step[k]} onChange={e=>change({[k]:Number(e.target.value)})}/>
+        </label>)}
+      </div>
+    </div>}
+    {step.kind==="LINK_ENTITY_STAT"&&<div className="space-y-2">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs">Identificador de criatura
+          <input className={"mt-1 "+field} value={step.entityKey} onChange={e=>change({entityKey:e.target.value})}/>
+        </label>
+        <label className="text-xs">Estadística del usuario
+          <input className={"mt-1 "+field} value={step.sourceStat} onChange={e=>change({sourceStat:e.target.value})}/>
+        </label>
+        <label className="text-xs">Estadística de criatura
+          <input className={"mt-1 "+field} value={step.destStat} onChange={e=>change({destStat:e.target.value})}/>
+        </label>
+      </div>
+      <p className="text-xs">Factor del vínculo (ej. 0.2 para 20%; 1 para 100%; 2 para 200%)</p>
+      <NumericEditor value={step.factor} outputOptions={availableOutputs} onChange={factor=>change({factor})}/>
+      <p className="text-xs text-zinc-400">El vínculo se recalcula con las estadísticas efectivas del invocador al resolverlo.</p>
+    </div>}
+    {step.kind==="SET_ENTITY_BEHAVIOR"&&<div className="space-y-2">
+      <label className="block text-xs">Identificador de criatura
+        <input className={"mt-1 "+field} value={step.entityKey} onChange={e=>change({entityKey:e.target.value})}/>
+      </label>
+      <label className="block text-xs">Comportamiento inicial
+        <select className={"mt-1 "+field} value={step.mode}
+          onChange={e=>{const mode=e.target.value as typeof step.mode;
+            change({mode,allowedModes:step.allowedModes.includes(mode)?step.allowedModes:[...step.allowedModes,mode]});}}>
+          <option value="FOLLOW">Seguir</option><option value="ATTACK">Perseguir y atacar</option>
+          <option value="PROTECT">Proteger</option><option value="HOLD">Mantener posición</option>
+          <option value="MANUAL">Control manual</option>
+        </select>
+      </label>
+      <fieldset className="space-y-1"><legend className="text-xs">Comportamientos autorizados para cambiar durante combate</legend>
+        {(["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"] as const).map(mode=>
+          <label key={mode} className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={step.allowedModes.includes(mode)} disabled={step.mode===mode}
+              onChange={e=>change({allowedModes:e.target.checked?[...step.allowedModes,mode]:step.allowedModes.filter(x=>x!==mode)})}/>
+            {friendlyMicroKey(mode)}
+          </label>)}
+      </fieldset>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs">Objetivo prioritario
+          <select className={"mt-1 "+field} value={step.target} onChange={e=>change({target:e.target.value as typeof step.target})}>
+            <option value="USER">Invocador</option><option value="OPPONENT">Enemigo</option>
+            <option value="ALLY">Aliado</option><option value="COMBAT">Elegir en combate</option>
+          </select>
+        </label>
+        <label className="text-xs">Cuándo aplicar efecto
+          <select className={"mt-1 "+field} value={step.trigger} onChange={e=>change({trigger:e.target.value as typeof step.trigger})}>
+            <option value="CONTACT">Al tocar</option><option value="HP_DAMAGE">Al causar daño al HP</option>
+            <option value="COMMAND">Al recibir orden</option>
+          </select>
+        </label>
+      </div>
+    </div>}
+    {step.kind==="APPLY_STATUS"&&<div className="space-y-2">
+      <label className="block text-xs">Cómo elegir la estadística
+        <select className={"mt-1 "+field} value={typeof step.stat==="string"?"FIXED":"SELECTED"}
+          onChange={e=>change({stat:e.target.value==="FIXED"?"STR":{source:"STAT_SELECTION",key:availableStatOutputs[0]??"chosenStat"}})}>
+          <option value="FIXED">Estadística fija</option><option value="SELECTED">Usar «Seleccionar estadística»</option>
+        </select>
+      </label>
+      {typeof step.stat==="string"?
+        <label className="block text-xs">Estadística a modificar
+          <input className={"mt-1 "+field} value={step.stat} onChange={e=>change({stat:e.target.value})}/>
+        </label>:
+        <label className="block text-xs">Salida de selección
+          <select className={"mt-1 "+field} value={step.stat.key}
+            onChange={e=>change({stat:{source:"STAT_SELECTION",key:e.target.value}})}>
+            <option value="" disabled>Selecciona una salida anterior</option>
+            {availableStatOutputs.map(output=><option key={output} value={output}>{friendlyMicroKey(output)}</option>)}
+          </select>
+        </label>}
+      <label className="block text-xs">Operación
+        <select className={"mt-1 "+field} value={step.operation} onChange={e=>change({operation:e.target.value as typeof step.operation})}>
+          <option value="MULTIPLIER">Multiplicar (0.7 = −30%)</option>
+          <option value="BONUS">Sumar o restar (−20 = reducir 20)</option>
+        </select>
+      </label>
+      <p className="text-xs">Cantidad / factor</p>
+      <NumericEditor value={step.value} outputOptions={availableOutputs} onChange={value=>change({value})}/>
+      <label className="block text-xs">Duración en turnos
+        <input type="number" min={1} max={100} className={"mt-1 "+field}
+          value={step.durationTurns} onChange={e=>change({durationTurns:Number(e.target.value)})}/>
+      </label>
+    </div>}
+    {step.kind==="READ_STATUSES"&&<div className="grid gap-2 sm:grid-cols-2">
+      <label className="text-xs">Qué estados contar
+        <select className={"mt-1 "+field} value={step.filter} onChange={e=>change({filter:e.target.value as typeof step.filter})}>
+          <option value="DEBUFF">Debilitamientos</option><option value="BUFF">Mejoras</option>
+          <option value="ALL">Todos</option>
+        </select>
+      </label>
+      <label className="text-xs">Salida del conteo
+        <input className={"mt-1 "+field} value={step.output} onChange={e=>change({output:e.target.value})}/>
+      </label>
+    </div>}
+    {step.kind==="INVERT_STATUS"&&<div className="space-y-2">
+      <label className="block text-xs">Debilitamiento a invertir
+        <select className={"mt-1 "+field} value={step.selection} onChange={e=>change({selection:e.target.value as typeof step.selection})}>
+          <option value="LATEST_DEBUFF">Último debilitamiento activo</option>
+          <option value="SELECTED_DEBUFF">Elegido durante el combate</option>
+        </select>
+      </label>
+      <label className="block text-xs">Maná por inversión
+        <input type="number" min={0} className={"mt-1 "+field} value={step.manaCost}
+          onChange={e=>change({manaCost:Number(e.target.value)})}/>
+      </label>
+      <label className="block text-xs">Almacén que gana 1 carga si la inversión tiene éxito (opcional)
+        <input className={"mt-1 "+field} value={step.chargeAccumulator??""}
+          onChange={e=>change({chargeAccumulator:e.target.value||undefined})}/>
+      </label>
+      <p className="text-xs text-amber-300">La carga no aparece hasta que el servidor haya pagado el maná e invertido el estado de manera efectiva.</p>
     </div>}
     {step.kind==="CAPABILITY"&&<div className="space-y-2">
       <p className="text-xs text-amber-200">Capacidad declarativa: no modifica daño, PV ni estadísticas hasta que tenga un resolutor autorizado.</p>
@@ -332,6 +535,7 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItem
 }
 export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onChange:(next:EffectContainer)=>void}){
   const [showFlow,setShowFlow]=useState(true);
+  const [newKind,setNewKind]=useState<MicroStep["kind"]>("SELECT_TARGET");
   const [selectedStep,setSelectedStep]=useState<number|null>(null);
   const update=(patch:Partial<EffectContainer>)=>onChange({...value,...patch});
   return <section className="space-y-4">
@@ -357,6 +561,37 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
     </div>
     {showFlow&&<MicroEffectFlowEditor value={value} onChange={onChange} onEditStep={index=>{setSelectedStep(index);document.getElementById("micro-step-"+index)?.scrollIntoView({behavior:"smooth",block:"center"});}}/>}
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Pasos del efecto (en orden)</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <select aria-label="Micromódulo a añadir" className={field} value={newKind}
+          onChange={e=>setNewKind(e.target.value as MicroStep["kind"])}>
+          {stepKinds.map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
+        </select>
+        <button type="button" disabled={value.steps.length>=24}
+          className="rounded border border-teal-600 px-3 py-2 text-xs disabled:opacity-40"
+          onClick={()=>{
+            let next=defaultStep(newKind);
+            if("output" in next){
+              const used=new Set(value.steps.flatMap(s=>"output" in s?[s.output]:[]));
+              const base=next.output;let name=base,n=1;
+              while(used.has(name))name=base+"_"+n++;
+              next={...next,output:name};
+            }
+            update({steps:[...value.steps,next]});
+          }}>+ Añadir micromódulo</button>
+      </div>
+      <button type="button" disabled={value.steps.length>19}
+        className="rounded border border-teal-700 px-3 py-2 text-xs disabled:opacity-40"
+        onClick={()=>{
+          const keys=new Set(value.steps.flatMap(s=>"entityKey" in s?[s.entityKey]:[]));
+          let entityKey="FAMILIAR",n=1;while(keys.has(entityKey))entityKey="FAMILIAR_"+n++;
+          update({steps:[...value.steps,
+            {kind:"SUMMON_ENTITY",entityKey,label:"Familiar",manaCost:30,maintenanceMana:20,durationTurns:2,controlRangeMeters:15,hitLimit:3},
+            {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"PHYSICAL_ATTACK",destStat:"PHYSICAL_ATTACK",factor:0.2},
+            {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"AGI",destStat:"AGI",factor:1},
+            {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"PHYSICAL_DEFENSE",destStat:"INTEGRITY",factor:2},
+            {kind:"SET_ENTITY_BEHAVIOR",entityKey,mode:"FOLLOW",allowedModes:["FOLLOW","ATTACK","MANUAL"],target:"USER",trigger:"CONTACT"}
+          ]});
+        }}>+ Familiar de ejemplo (5 nodos)</button>
       <button type="button" disabled={value.steps.length>21}
         className="rounded border border-violet-700 px-3 py-2 text-xs disabled:opacity-40"
         onClick={()=>{
@@ -397,7 +632,10 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
         </div>
       </div>
       <StepEditor step={step} index={index}
-        availableOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{output:string}>=>"output" in s&&s.kind!=="READ_ITEM").map(s=>s.output)}
+        availableOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{output:string}>=>"output" in s&&
+          !["READ_ITEM","SELECT_TARGET","SELECT_STAT"].includes(s.kind)).map(s=>s.output)}
+        availableTargetOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{kind:"SELECT_TARGET"}>=>s.kind==="SELECT_TARGET").map(s=>s.output)}
+        availableStatOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{kind:"SELECT_STAT"}>=>s.kind==="SELECT_STAT").map(s=>s.output)}
         availableItemOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{kind:"READ_ITEM"}>=>s.kind==="READ_ITEM").map(s=>s.output)}
         onChange={next=>update({steps:value.steps.map((x,i)=>i===index?next:x)})}
         onDelete={()=>update({steps:value.steps.filter((_,i)=>i!==index)})}/>

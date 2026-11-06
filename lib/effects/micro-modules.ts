@@ -11,6 +11,10 @@ import {calculateDurabilityRepair,validateRepairableItem,REPAIR_TARGET_SELECTORS
 
 export type MicroEvent = "DAMAGE_RESOLVED" | "TURN_START" | "IMPACT" | "PASSIVE" | "ACTIVATE";
 export type ImpactKind = "CHARACTER" | "GROUND";
+export type EntityTargetRef = {source:"OUTPUT";key:string};
+export type EntityStatRef = string | {source:"STAT_SELECTION";key:string};
+export type EntityTargetSlot = "USER"|"OPPONENT"|"ALLY"|"COMBAT";
+export type EntityBehaviorMode = "FOLLOW"|"ATTACK"|"PROTECT"|"HOLD"|"MANUAL";
 export type NumericExpr = number
   | { source: "EVENT" | "STAT" | "CHARGES" | "STORED_TOTAL" | "OUTPUT"; key: string }
   | { operator: "ADD" | "SUBTRACT" | "MULTIPLY" | "DIVIDE" | "MIN" | "MAX" | "PERCENT"; args: NumericExpr[] };
@@ -37,6 +41,23 @@ export type MicroStep = (
   /** Structured legacy narrative: retains capability, no automatic numerical benefit. */
   | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
   /** Dynamic construction defense using the existing validated resistance formula. */
+  /** Server-authorized actor identity, never a user-provided numeric identifier. */
+  | { kind:"SELECT_TARGET"; selector:EntityTargetSlot; output:string }
+  /** FIXED uses an authoring choice; RANDOM and COMBAT require a server choice. */
+  | { kind:"SELECT_STAT"; mode:"FIXED"|"RANDOM"|"COMBAT"; allowed:string[]; fixed?:string; output:string }
+  | { kind:"READ_HP_DAMAGE"; output:string }
+  | { kind:"REQUIRE_CONTACT"; target:EntityTargetRef }
+  /** These emit requests only: no spawning, resource charge or state mutation here. */
+  | { kind:"SUMMON_ENTITY"; entityKey:string; label:string; manaCost:number; maintenanceMana:number;
+      durationTurns:number; controlRangeMeters:number; hitLimit:number }
+  | { kind:"LINK_ENTITY_STAT"; entityKey:string; sourceStat:string; destStat:string; factor:NumericExpr }
+  | { kind:"SET_ENTITY_BEHAVIOR"; entityKey:string; mode:EntityBehaviorMode;
+      allowedModes:EntityBehaviorMode[]; target:EntityTargetSlot; trigger:"CONTACT"|"HP_DAMAGE"|"COMMAND" }
+  | { kind:"APPLY_STATUS"; target:EntityTargetRef; stat:EntityStatRef;
+      operation:"MULTIPLIER"|"BONUS"; value:NumericExpr; durationTurns:number }
+  | { kind:"READ_STATUSES"; target:EntityTargetRef; filter:"BUFF"|"DEBUFF"|"ALL"; output:string }
+  | { kind:"INVERT_STATUS"; target:EntityTargetRef; selection:"LATEST_DEBUFF"|"SELECTED_DEBUFF";
+      manaCost:number; chargeAccumulator?:string }
   | { kind: "VARIABLE_RESISTANCE"; config: VariableResistance;
       /** Values may come from outputs of READ_STAT/READ_STORED/CONSUME, event or math. */
       base?: NumericExpr; input?: NumericExpr }
@@ -53,6 +74,12 @@ export type MicroContext = {
   impactKind?: ImpactKind;
   /** Resolved damage (mitigatedDamage etc.) computed by the regular combat engine. */
   event?: Record<string, number>;
+  /** Trusted server-resolved targeting/selection/contact/status snapshot. */
+  targetIds?: Partial<Record<EntityTargetSlot,number>>;
+  selectedStats?: Record<string,string>;
+  contactTargetIds?: readonly number[];
+  selectedStatusId?: string;
+  statuses?: readonly {id:string;targetId:number;stat:string;multiplier?:number;bonus?:number;durationTurns:number}[];
   /** Server-resolved combat roles relative to the skill owner. OPPONENT
    * must be supplied explicitly; it never aliases the owner. */
   actors?: { USER?: Record<string, number>; OPPONENT?: Record<string, number> };
@@ -70,6 +97,13 @@ export type MicroIntent =
   | { kind: "MODIFIER"; stat: string; multiplier: number }
   | { kind: "BONUS"; stat: string; amount: number }
   | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
+  | {kind:"SUMMON_ENTITY";ownerId:number;entityKey:string;label:string;manaCost:number;
+      maintenanceMana:number;durationTurns:number;controlRangeMeters:number;hitLimit:number}
+  | {kind:"LINK_ENTITY_STAT";entityKey:string;sourceStat:string;destStat:string;factor:number;value:number;dynamic:true}
+  | {kind:"SET_ENTITY_BEHAVIOR";entityKey:string;mode:EntityBehaviorMode;allowedModes:EntityBehaviorMode[];
+      target:EntityTargetSlot;trigger:"CONTACT"|"HP_DAMAGE"|"COMMAND"}
+  | {kind:"APPLY_STATUS";targetId:number;stat:string;operation:"MULTIPLIER"|"BONUS";value:number;durationTurns:number}
+  | {kind:"INVERT_STATUS";targetId:number;statusId:string;manaCost:number;chargeAccumulator?:string}
   | { kind: "VARIABLE_RESISTANCE"; stat: string; input: string; multiplier: number; resistance: number };
 export type MicroResult = { state: MicroState; hp: number; intents: MicroIntent[]; skipped: boolean };
 
@@ -127,10 +161,17 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
         for (const condition of effect.requirements) {
           if (!condition || !["EQ", "NE", "GT", "GTE", "LT", "LTE"].includes(condition.compare)) fail("requisito inválido");
           checkExpr(condition.left); checkExpr(condition.right);
+          checkSourceLinks(condition.left,new Set());checkSourceLinks(condition.right,new Set());
         }
       }
       const outputs = new Set<string>();
       const itemOutputs = new Set<string>();
+      const targetOutputs = new Set<string>();
+      const statOutputs = new Set<string>();
+      const opaqueOutputs = new Set<string>();
+      const validTarget = (target:EntityTargetRef) =>
+        !!target && target.source==="OUTPUT" && targetOutputs.has(target.key);
+      const newOutput = (output:string) => validKey(output)&&!outputs.has(output);
       for (const step of effect.steps) {
         if (!step || typeof step !== "object") fail("paso inválido");
         if (step.when !== undefined) {
@@ -138,12 +179,14 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
           for (const condition of step.when) {
             if (!condition || !["EQ", "NE", "GT", "GTE", "LT", "LTE"].includes(condition.compare)) fail("comparador desconocido");
             checkExpr(condition.left); checkExpr(condition.right);
+            checkSourceLinks(condition.left,outputs,opaqueOutputs);
+            checkSourceLinks(condition.right,outputs,opaqueOutputs);
           }
         }
         switch (step.kind) {
           case "STORE":
             if (!validKey(step.accumulator) || !integer(step.capacity, 1, 100)) fail("almacenamiento inválido");
-            checkExpr(step.value);checkSourceLinks(step.value,outputs,itemOutputs); break;
+            checkExpr(step.value);checkSourceLinks(step.value,outputs,opaqueOutputs); break;
           case "CONSUME":
             if (!validKey(step.accumulator) || !validKey(step.output) || outputs.has(step.output)
               || (step.charges !== "ALL" && !integer(step.charges, 1, 100))) fail("consumo inválido");
@@ -158,36 +201,93 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
             outputs.add(step.output); break;
           case "CALCULATE":
             if(!validKey(step.output)||outputs.has(step.output))fail("salida de cálculo duplicada o inválida");
-            checkExpr(step.expression);checkSourceLinks(step.expression,outputs,itemOutputs);
+            checkExpr(step.expression);checkSourceLinks(step.expression,outputs,opaqueOutputs);
             outputs.add(step.output);break;
           case "READ_ITEM":
             if(!REPAIR_TARGET_SELECTORS.includes(step.selector)||
               !validKey(step.output)||outputs.has(step.output))
               fail("selector o salida de objeto inválidos");
-            outputs.add(step.output);itemOutputs.add(step.output);break;
+            outputs.add(step.output);itemOutputs.add(step.output);opaqueOutputs.add(step.output);break;
           case "REPAIR_DURABILITY":
             if(!step.target||step.target.source!=="OUTPUT"||
               !validKey(step.target.key)||!itemOutputs.has(step.target.key))
               fail("conecta el objetivo desde un módulo Leer objeto anterior");
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs);break;
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,opaqueOutputs);break;
           case "HEAL":
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs); break;
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,opaqueOutputs); break;
           case "DAMAGE":
             if (!["PHYSICAL", "MAGICAL"].includes(step.channel) || (step.element !== undefined && !validKey(step.element))) fail("tipo de daño inválido");
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs);
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,opaqueOutputs);
             if (step.radiusMeters !== undefined){
-              checkExpr(step.radiusMeters);checkSourceLinks(step.radiusMeters,outputs,itemOutputs);
+              checkExpr(step.radiusMeters);checkSourceLinks(step.radiusMeters,outputs,opaqueOutputs);
             } break;
           case "MODIFIER":
             if (!validKey(step.stat) ||
               (step.sourceTarget!==undefined&&!validKey(step.sourceTarget))||
               (step.sourceElement!==undefined&&!validKey(step.sourceElement)))
               fail("estadística de multiplicador inválida");
-            checkExpr(step.multiplier);checkSourceLinks(step.multiplier,outputs,itemOutputs); break;
+            checkExpr(step.multiplier);checkSourceLinks(step.multiplier,outputs,opaqueOutputs); break;
           case "BONUS":
             if (!validKey(step.stat)) fail("estadística inválida");
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs); break;
-          case "CAPABILITY":
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,opaqueOutputs); break;
+          case "SELECT_TARGET":
+            if(!["USER","OPPONENT","ALLY","COMBAT"].includes(step.selector)||!newOutput(step.output))
+              fail("selección de objetivo inválida");
+            outputs.add(step.output);targetOutputs.add(step.output);opaqueOutputs.add(step.output);break;
+          case "SELECT_STAT":
+            if(!["FIXED","RANDOM","COMBAT"].includes(step.mode)||!newOutput(step.output)
+              ||!Array.isArray(step.allowed)||!step.allowed.length||step.allowed.length>32
+              ||step.allowed.some((k:unknown)=>!validKey(k))||new Set(step.allowed).size!==step.allowed.length
+              ||(step.mode==="FIXED"&&!step.allowed.includes(step.fixed??"")))
+              fail("selección de estadística inválida");
+            outputs.add(step.output);statOutputs.add(step.output);opaqueOutputs.add(step.output);break;
+          case "READ_HP_DAMAGE":
+            if(effect.trigger!=="DAMAGE_RESOLVED"||!newOutput(step.output))
+              fail("leer daño a HP requiere un evento de daño resuelto");
+            outputs.add(step.output);break;
+          case "REQUIRE_CONTACT":
+            if(!validTarget(step.target))fail("contacto sin objetivo seleccionado anterior");
+            break;
+          case "SUMMON_ENTITY":
+            if(!validKey(step.entityKey)||!step.label?.trim()||step.label.length>120
+              ||!integer(step.manaCost,0,1000000)||!integer(step.maintenanceMana,0,1000000)
+              ||!integer(step.durationTurns,1,100)||!finite(step.controlRangeMeters)
+              ||step.controlRangeMeters<=0||step.controlRangeMeters>1000
+              ||!integer(step.hitLimit,1,100))fail("invocación inválida");
+            break;
+          case "LINK_ENTITY_STAT":
+            if(!validKey(step.entityKey)||!validKey(step.sourceStat)||!validKey(step.destStat))
+              fail("vínculo de estadística inválido");
+            checkExpr(step.factor);checkSourceLinks(step.factor,outputs,opaqueOutputs);break;
+          case "SET_ENTITY_BEHAVIOR":
+            if(!validKey(step.entityKey)||!["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"].includes(step.mode)
+              ||!Array.isArray(step.allowedModes)||!step.allowedModes.includes(step.mode)
+              ||!step.allowedModes.length||step.allowedModes.length>5
+              ||new Set(step.allowedModes).size!==step.allowedModes.length
+              ||step.allowedModes.some((m:EntityBehaviorMode)=>!["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"].includes(m))
+              ||!["USER","OPPONENT","ALLY","COMBAT"].includes(step.target)
+              ||!["CONTACT","HP_DAMAGE","COMMAND"].includes(step.trigger))
+              fail("comportamiento de entidad inválido");
+            break;
+          case "APPLY_STATUS":
+            if(!validTarget(step.target)
+              ||!(typeof step.stat==="string"?validKey(step.stat):
+                step.stat?.source==="STAT_SELECTION"&&statOutputs.has(step.stat.key))
+              ||!["MULTIPLIER","BONUS"].includes(step.operation)
+              ||!integer(step.durationTurns,1,100))
+              fail("estado sin objetivo o estadística seleccionados");
+            checkExpr(step.value);checkSourceLinks(step.value,outputs,opaqueOutputs);break;
+          case "READ_STATUSES":
+            if(!validTarget(step.target)||!["ALL","BUFF","DEBUFF"].includes(step.filter)
+              ||!newOutput(step.output))fail("lectura de estados inválida");
+            outputs.add(step.output);break;
+          case "INVERT_STATUS":
+            if(!validTarget(step.target)||!["LATEST_DEBUFF","SELECTED_DEBUFF"].includes(step.selection)
+              ||!integer(step.manaCost,0,1000000)
+              ||(step.chargeAccumulator!==undefined&&!validKey(step.chargeAccumulator)))
+              fail("inversión de estado inválida");
+            break;
+        case "CAPABILITY":
             if (!/^(CARD:W[0-9]{3}|NARRATIVE:OTHER)$/.test(step.code)
               || typeof step.description !== "string" || step.description.length > 1500
               || (step.target !== undefined && (typeof step.target !== "string" || step.target.length > 120))
@@ -200,8 +300,8 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
             break;
           case "VARIABLE_RESISTANCE":
             if (validateVariableResistance(step.config)) fail("resistencia variable inválida");
-            if(step.base!==undefined){checkExpr(step.base);checkSourceLinks(step.base,outputs,itemOutputs);}
-            if(step.input!==undefined){checkExpr(step.input);checkSourceLinks(step.input,outputs,itemOutputs);}
+            if(step.base!==undefined){checkExpr(step.base);checkSourceLinks(step.base,outputs,opaqueOutputs);}
+            if(step.input!==undefined){checkExpr(step.input);checkSourceLinks(step.input,outputs,opaqueOutputs);}
             break;
           default: fail("operación desconocida");
         }
@@ -286,12 +386,23 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
   // In-memory ledger makes multiple repair nodes cap against each preceding
   // repair in this same event; no PostgreSQL write occurs in the evaluator.
   const repairLedger = new Map<number,number>();
+  const isDebuff=(status:{multiplier?:number;bonus?:number}) =>
+    (typeof status.multiplier==="number"&&status.multiplier<1)
+    ||(typeof status.bonus==="number"&&status.bonus<0);
+  const targetId=(key:string,values:Record<string,number>)=>{
+    const id=values[key];
+    if(!integer(id,1,2_147_483_647))fail("objetivo no autorizado: "+key);
+    return id;
+  };
   let hp = ctx.stats.HP;
   for (const effect of effects) {
     if (effect.trigger !== ctx.trigger || (effect.impactKind && effect.impactKind !== ctx.impactKind)) continue;
     const outputs: Record<string, number> = {};
+    const statsSelected:Record<string,string>={};
+    let contactBlocked=false;
     if (!conditionsMet(effect.requirements,ctx,state,outputs,hp)) continue;
     for (const step of effect.steps) {
+      if(contactBlocked)break;
       if (!conditionsMet(step.when,ctx,state,outputs,hp)) continue;
       switch(step.kind) {
         case "STORE": {
@@ -376,6 +487,75 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
         case "BONUS": {
           const amount = evaluate(step.amount,ctx,state,outputs,hp);
           intents.push({kind:"BONUS",stat:step.stat,amount});
+          break;
+        }
+          case "SELECT_TARGET": {
+          const id=step.selector==="USER"?ctx.ownerId:ctx.targetIds?.[step.selector];
+          if(!integer(id,1,2_147_483_647))fail("falta objetivo autorizado: "+step.selector);
+          outputs[step.output]=id;
+          break;
+        }
+        case "SELECT_STAT": {
+          const stat=step.mode==="FIXED"?step.fixed:ctx.selectedStats?.[step.output];
+          if(typeof stat!=="string"||!step.allowed.includes(stat))
+            fail("estadística no elegida o fuera de las permitidas");
+          statsSelected[step.output]=stat;
+          break;
+        }
+        case "READ_HP_DAMAGE": {
+          const amount=ctx.event?.HP_DAMAGE;
+          if(!finite(amount)||amount<0)fail("falta daño real a HP resuelto");
+          outputs[step.output]=amount;
+          break;
+        }
+        case "REQUIRE_CONTACT": {
+          if(!ctx.contactTargetIds?.includes(targetId(step.target.key,outputs)))
+            contactBlocked=true;
+          break;
+        }
+        case "SUMMON_ENTITY":
+          intents.push({kind:"SUMMON_ENTITY",ownerId:ctx.ownerId,entityKey:step.entityKey,
+            label:step.label,manaCost:step.manaCost,maintenanceMana:step.maintenanceMana,
+            durationTurns:step.durationTurns,controlRangeMeters:step.controlRangeMeters,hitLimit:step.hitLimit});
+          break;
+        case "LINK_ENTITY_STAT": {
+          const value=ctx.actors?.USER?.[step.sourceStat]??ctx.stats[step.sourceStat];
+          if(!finite(value))fail("estadística de la entidad no disponible: "+step.sourceStat);
+          const factor=evaluate(step.factor,ctx,state,outputs,hp);
+          if(factor<0||factor>100)fail("factor de entidad fuera de límites");
+          intents.push({kind:"LINK_ENTITY_STAT",entityKey:step.entityKey,
+            sourceStat:step.sourceStat,destStat:step.destStat,factor,value:bounded(value*factor),dynamic:true});
+          break;
+        }
+        case "SET_ENTITY_BEHAVIOR":
+          intents.push({kind:"SET_ENTITY_BEHAVIOR",entityKey:step.entityKey,mode:step.mode,
+            allowedModes:[...step.allowedModes],target:step.target,trigger:step.trigger});
+          break;
+        case "APPLY_STATUS": {
+          const value=evaluate(step.value,ctx,state,outputs,hp);
+          if(step.operation==="MULTIPLIER"&&(value<0||value>100))
+            fail("multiplicador de estado fuera de límites");
+          const stat=typeof step.stat==="string"?step.stat:statsSelected[step.stat.key];
+          if(!validKey(stat))fail("estadística de estado no elegida");
+          intents.push({kind:"APPLY_STATUS",targetId:targetId(step.target.key,outputs),
+            stat,operation:step.operation,value,durationTurns:step.durationTurns});
+          break;
+        }
+        case "READ_STATUSES": {
+          if(!Array.isArray(ctx.statuses))fail("lista de estados no autorizada");
+          const id=targetId(step.target.key,outputs);
+          outputs[step.output]=ctx.statuses.filter(st=>st.targetId===id&&
+            (step.filter==="ALL"||(step.filter==="DEBUFF")===isDebuff(st))).length;
+          break;
+        }
+        case "INVERT_STATUS": {
+          if(!Array.isArray(ctx.statuses))fail("lista de estados no autorizada");
+          const id=targetId(step.target.key,outputs);
+          const available=ctx.statuses.filter(st=>st.targetId===id&&isDebuff(st));
+          const status=step.selection==="SELECTED_DEBUFF"?
+            available.find(st=>st.id===ctx.selectedStatusId):available[available.length-1];
+          if(status)intents.push({kind:"INVERT_STATUS",targetId:id,statusId:status.id,
+            manaCost:step.manaCost,chargeAccumulator:step.chargeAccumulator});
           break;
         }
         case "CAPABILITY":

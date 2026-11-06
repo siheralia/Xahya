@@ -406,6 +406,8 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
   const polygonPoints = (points: { x: number; y: number }[]) =>
     points.map((point) => point.x.toFixed(1) + "," + point.y.toFixed(1)).join(" ");
   const basePolygon = polygonPoints(basePoints);
+  // Levantamos el color del tema y lo delineamos con luz/sombra para que no se pierda sobre el avatar.
+  const baseStroke = mixHex(palette.primary, "#ffffff", 0.18);
   // Los valores cercanos a cero convergen en el centro: mostrar un único nodo pequeño.
   const nearCenter = (point: { x: number; y: number }) => Math.hypot(point.x - center, point.y - center) < 9;
   const firstCenterPoint = basePoints.findIndex(nearCenter);
@@ -414,6 +416,8 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
   return (
     <div>
       <svg viewBox="-25 -10 350 320" className="mx-auto w-full max-w-[360px]" aria-label="Polígono de estadísticas base y boosts activos">
+        {/* Una sombra difusa detrás de los datos (no de toda la ilustración) estabiliza el contraste. */}
+        <circle cx={center} cy={center} r={radius + 12} fill="#080b13" fillOpacity="0.3" style={{ filter: "blur(16px)" }} />
         {[0.25, 0.5, 0.75, 1].map((scale) => (
           <polygon
             key={scale}
@@ -424,7 +428,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
             }).join(" ")}
             fill="none"
             stroke="#ffffff"
-            strokeOpacity="0.30"
+            strokeOpacity="0.23"
             strokeWidth="0.9"
           />
         ))}
@@ -436,7 +440,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           const y2 = center + Math.sin(angle) * radius;
           return (
             <g key={stat.key}>
-              <line x1={center} y1={center} x2={x2} y2={y2} stroke="#ffffff" strokeOpacity="0.34" strokeWidth="0.9" />
+              <line x1={center} y1={center} x2={x2} y2={y2} stroke="#ffffff" strokeOpacity="0.24" strokeWidth="0.9" />
               <text
                 x={x}
                 y={y}
@@ -456,7 +460,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           );
         })}
 
-        <polygon points={basePolygon} fill={palette.primary} fillOpacity="0.42" stroke="none" />
+        <polygon points={basePolygon} fill={baseStroke} fillOpacity="0.34" stroke="none" />
 
         {/* Las franjas de boost se dibujan por sector para evitar cruces del polígono
             exterior/interior al mezclarse estadísticas aumentadas y no aumentadas. */}
@@ -476,10 +480,11 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           );
         })}
 
-        {/* El color temático manda; el blanco queda como perfil fino de contraste. */}
-        <polygon points={basePolygon} fill="none" stroke="#09090b" strokeOpacity="0.45" strokeWidth="2.2" strokeLinejoin="round" />
-        <polygon points={basePolygon} fill="none" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="1.2" strokeLinejoin="round" />
-        <polygon points={basePolygon} fill="none" stroke={palette.primary} strokeWidth="1.3" strokeLinejoin="round" />
+        {/* Anchos estrictamente decrecientes: el borde oscuro y el filete blanco
+            permanecen visibles alrededor del trazo temático, incluso sobre fondos naranjas. */}
+        <polygon points={basePolygon} fill="none" stroke="#09090b" strokeOpacity="0.9" strokeWidth="6" strokeLinejoin="round" />
+        <polygon points={basePolygon} fill="none" stroke="#ffffff" strokeOpacity="0.96" strokeWidth="4.4" strokeLinejoin="round" />
+        <polygon points={basePolygon} fill="none" stroke={baseStroke} strokeWidth="2.8" strokeLinejoin="round" />
 
         {basePoints.map((point, index) => {
           const clustered = nearCenter(point);
@@ -489,10 +494,10 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
               key={"base-" + radarStats[index].key}
               cx={point.x}
               cy={point.y}
-              r={clustered ? 1.5 : 2.4}
-              fill={palette.primary}
+              r={clustered ? 1.5 : 3}
+              fill={baseStroke}
               stroke="#ffffff"
-              strokeWidth={clustered ? 0.8 : 1.1}
+              strokeWidth={clustered ? 0.8 : 1.35}
             />
           );
         })}
@@ -512,7 +517,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
 
       {hasBoost && (
         <div className="mx-auto mt-2 flex w-fit items-center justify-center gap-4 rounded-full bg-zinc-950/70 px-3 py-1.5 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: palette.primary }} />Base</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full ring-1 ring-white/80" style={{ backgroundColor: baseStroke }} />Base</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-400" />Boost</span>
         </div>
       )}

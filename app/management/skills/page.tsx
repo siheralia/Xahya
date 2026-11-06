@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { EFFECT_CATALOG, EFFECT_TARGETS, resolveEffectTargets } from "@/lib/effects/catalog";
 import { defaultEffectPricing, type EffectPricingMap } from "@/lib/skills/pch";
-import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
+import { previewConfiguredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
 import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
 import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { applyCooldownPch } from "@/lib/skills/cooldown";
@@ -85,7 +85,7 @@ export default function SkillsManagementPage(){
   }
   useEffect(()=>{void load();},[]);
 
-  const priceEffect = (effect:Effect) => configuredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
+  const priceEffect = (effect:Effect) => previewConfiguredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
   const pchBase = form.effect.reduce((sum,e) => sum + priceEffect(e), 0) + mechanicsPchCost(form.mechanics);
   const pchManaAdjusted = manaAdjustedPch(pchBase, form.cost);
   const pchSpeedAdjusted = pchManaAdjusted + (!form.speed || form.speed === "DEFAULT" ? 0 : 5);

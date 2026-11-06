@@ -1,5 +1,5 @@
 import { durationPchCost, type DurationPricing } from "../effects/duration-pricing.ts";
-import {isComposedSkillEffect,composedEffectBasePch} from "./composed-effects.ts";
+import {isComposedSkillEffect,composedEffectBasePch,previewComposedEffectBasePch} from "./composed-effects.ts";
 import { effectPchCost, elementPchCost, type EffectPricingMap, type PricedEffect } from "./pch.ts";
 
 export type ConfiguredSkillEffect = PricedEffect & {
@@ -33,4 +33,16 @@ export function configuredSkillEffectPch(
       ? { kind: "TURNS" as const, turns: effect.durationTurns }
       : { kind: "INSTANT" as const };
   return durationPchCost(base, duration, durationPricing);
+}
+
+/** Render-only quote. The server always uses configuredSkillEffectPch,
+ * which rejects invalid module connections and incomplete output names. */
+export function previewConfiguredSkillEffectPch(
+  effect:ConfiguredSkillEffect,
+  narrativeCards:readonly PricedNarrativeCard[],
+  effectPricing:EffectPricingMap,
+  durationPricing:DurationPricing,
+):number {
+  if(isComposedSkillEffect(effect))return previewComposedEffectBasePch(effect).amount;
+  return configuredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
 }

@@ -200,7 +200,7 @@ test("explicitly measured constructions keep base, radius and solid height witho
   constructionHeightMeters:0,constructionFootprintRadiusMeters:.35,
   constructionSolidHeightMeters:2},dice);
  const wall=created.constructions.find(c=>c.form==="BLOCK");
- assert.equal(wall.fieldPosition.x,1);
+ assert.ok(Math.abs(wall.fieldPosition.x-1)<1e-9,"world conversion uses floating-point metres");
  assert.equal(wall.footprintRadiusMeters,.35);
  assert.equal(wall.solidHeightMeters,2);
  assert.equal(wall.heightMeters,0);

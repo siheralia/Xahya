@@ -61,7 +61,11 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   const power=state.pending.usesMagic?attacker.magicAttack:attacker.physicalAttack;
   const protection=state.pending.usesMagic?npc.magicDefense:npc.physicalDefense;
   const worstDirectDamage=Math.max(1,Math.round(power*1.5*factor-protection*0.75));
-  if(!attackedThisRound&&canCounterNow&&!canDefendAndCounter){
+  // An exchange occurs simultaneously with the incoming attack. It costs
+  // the NPC's own PA/ticks but does NOT need to finish before the attacker's
+  // initiative clock. Requiring canCounterNow here makes slow NPCs spend
+  // their last window only defending and never strike back against fast magic.
+  if(!attackedThisRound&&!canDefendAndCounter){
     const preferMagic=random()<0.45;
     const available=basicCounterAttack(state,"NPC",preferMagic);
     if(available){

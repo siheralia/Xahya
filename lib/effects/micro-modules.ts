@@ -161,6 +161,7 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
         for (const condition of effect.requirements) {
           if (!condition || !["EQ", "NE", "GT", "GTE", "LT", "LTE"].includes(condition.compare)) fail("requisito inválido");
           checkExpr(condition.left); checkExpr(condition.right);
+          checkSourceLinks(condition.left,new Set());checkSourceLinks(condition.right,new Set());
         }
       }
       const outputs = new Set<string>();
@@ -178,6 +179,8 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
           for (const condition of step.when) {
             if (!condition || !["EQ", "NE", "GT", "GTE", "LT", "LTE"].includes(condition.compare)) fail("comparador desconocido");
             checkExpr(condition.left); checkExpr(condition.right);
+            checkSourceLinks(condition.left,outputs,opaqueOutputs);
+            checkSourceLinks(condition.right,outputs,opaqueOutputs);
           }
         }
         switch (step.kind) {

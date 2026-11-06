@@ -133,6 +133,18 @@ function StepNode({data}:NodeProps<GraphNode>){
 function wire(step:MicroStep,port:string,expr:NumericExpr):MicroStep{
  switch(step.kind){
   case "CALCULATE":return port==="expression"?{...step,expression:expr}:step;
+  case "REQUIRE_CONTACT":
+  case "READ_STATUSES":
+  case "INVERT_STATUS":
+    return port==="target"&&typeof expr==="object"&&"source" in expr&&expr.source==="OUTPUT"
+      ?{...step,target:{source:"OUTPUT",key:expr.key}}:step;
+  case "APPLY_STATUS":
+    if(port==="target"&&typeof expr==="object"&&"source" in expr&&expr.source==="OUTPUT")
+      return {...step,target:{source:"OUTPUT",key:expr.key}};
+    if(port==="stat"&&typeof expr==="object"&&"source" in expr&&expr.source==="OUTPUT")
+      return {...step,stat:{source:"STAT_SELECTION",key:expr.key}};
+    return port==="value"?{...step,value:expr}:step;
+  case "LINK_ENTITY_STAT":return port==="factor"?{...step,factor:expr}:step;
   case "STORE":return port==="value"?{...step,value:expr}:step;
   case "HEAL":return port==="amount"?{...step,amount:expr}:step;
   case "REPAIR_DURABILITY":
@@ -151,6 +163,9 @@ function disconnect(step:MicroStep,port:string):MicroStep{
   if(port==="base"){const {base:_,...rest}=step;return rest;}
   if(port==="input"){const {input:_,...rest}=step;return rest;}
  }
+ if(["REQUIRE_CONTACT","READ_STATUSES","INVERT_STATUS","APPLY_STATUS"].includes(step.kind)&&port==="target")
+   return {...step,target:{source:"OUTPUT",key:"MissingTarget"}} as MicroStep;
+ if(step.kind==="APPLY_STATUS"&&port==="stat")return {...step,stat:"STR"};
  if(step.kind==="REPAIR_DURABILITY"&&port==="target")
   return {...step,target:{source:"OUTPUT",key:"MissingItem"}};
  if(step.kind==="DAMAGE"&&port==="radiusMeters"){const {radiusMeters:_,...rest}=step;return rest;}
@@ -221,11 +236,11 @@ export function MicroEffectFlowEditor({
  },[]);
  const validLink=useCallback((link:Connection | Edge)=>{
   const from=indexOfNode(link.source),to=indexOfNode(link.target);
-  const itemSource=from>=0&&value.steps[from]?.kind==="READ_ITEM";
-  const itemTarget=to>=0&&value.steps[to]?.kind==="REPAIR_DURABILITY"&&link.targetHandle==="target";
+  const sourceType=from>=0?outputKindOf(value.steps[from]):null;
+  const receiver=to>=0?inputsOf(value.steps[to]).find(p=>p.id===link.targetHandle):undefined;
+  const targetType=receiver?.kind??(to>=0&&value.steps[to]?.kind==="REPAIR_DURABILITY"&&link.targetHandle==="target"?"ITEM":"NUMBER");
   return !readOnly&&from>=0&&to>from&&to<value.steps.length&&
-   Boolean(outputOf(value.steps[from]))&&inputsOf(value.steps[to]).some(p=>p.id===link.targetHandle)
-   &&itemSource===itemTarget;
+   Boolean(outputOf(value.steps[from]))&&Boolean(receiver)&&sourceType===targetType;
  },[readOnly,value.steps]);
  const onConnect=useCallback((link:Connection)=>{
   if(!validLink(link))return;
@@ -249,7 +264,7 @@ export function MicroEffectFlowEditor({
     <div>
      <h3 className="text-base font-semibold">Conexiones de micromódulos</h3>
      <p className="max-w-lg text-xs text-zinc-400">{readOnly?
-       "Diagrama de la ejecución modular. Los nodos amarillos todavía necesitan un resolutor.":"Conecta una salida verde con una entrada azul o violeta. Las conexiones cambian el cálculo real, no solo el dibujo."}</p>
+       "Diagrama de la ejecución modular. Los nodos amarillos todavía necesitan un resolutor.":"Conecta valores con valores y salidas tipadas de objetivo/estadística con sus entradas correspondientes. El grafo guarda las referencias reales."}</p>
     </div>
     <span className="text-xs text-zinc-400">{value.steps.length} módulos · {graph.edges.length} conexiones</span>
    </div>

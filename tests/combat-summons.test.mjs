@@ -101,7 +101,7 @@ test("owner can change only approved behaviors, and summon manual move obeys the
  assert.equal(s.summons[0].behavior.mode,"MANUAL");
  assert.throws(()=>applyCombatCommand(s,"PLAYER",{
   kind:"COMMAND_SUMMON",order:"MOVE",summonId:id,planarMove:{x:50,y:0}
- }),/no puede recorrer|radio de control/);
+ }),/no puede recorrer|radio de control|debe medir entre 0,01 y 1 m/);
 });
 
 test("an opponent may strike a summon instead of the fighter and spend its own attack",()=>{

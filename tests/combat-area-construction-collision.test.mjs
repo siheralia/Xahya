@@ -194,6 +194,28 @@ test("SELF_FIELD sweeps use actual horizontal world distance, never invented ver
  assert.equal(result.mana.PLAYER.current,48);
 });
 
+test("basic magic uses its established 1.4m object footprint without inventing new fighter accuracy",()=>{
+ const s=initial();
+ s.constructions=[block("basic-inside",.55,.5),block("basic-outside",.70,.5)];
+ const launched=applyCombatCommand(s,"PLAYER",{
+  kind:"ATTACK",usesMagic:true,attackType:"PIERCE",areaCenter:{x:.5,y:.5}},dice);
+ assert.equal(launched.pending.attackArea,undefined,"historical fighter-contact rule remains unchanged");
+ const settled=none(launched);
+ assert.equal(find(settled,"basic-inside").durability,50);
+ assert.equal(find(settled,"basic-outside").durability,90);
+ assert.ok(settled.actors.NPC.hp<180);
+ assert.equal(settled.mana.PLAYER.current,59);
+});
+
+test("approved single-target magic does not gain a fabricated object explosion",()=>{
+ const s=initial();
+ s.constructions=[block("not-area")];
+ const settled=none(cast(s,869,"Objetivo único",true));
+ assert.equal(find(settled,"not-area").durability,90);
+ assert.equal(impacts(settled,"not-area").length,0);
+ assert.ok(settled.actors.NPC.hp<180);
+});
+
 test("legacy constructions remain readable and no new SQL schema or reaction is required",()=>{
  const s=initial();
  const oldBlock={...block("historical",.5,.5)};

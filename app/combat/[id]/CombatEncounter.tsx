@@ -725,9 +725,9 @@ export default function CombatEncounter({id}:{id:string}) {
        ?<><CombatVerticalActionPlane mode="CONSTRUCTION" height={constructionHeightMeters}
          onHeight={height=>{setConstructionHeightMeters(height);setConstructionCenter({x:0.5,y:1-height/10});}}
          angle={angle} onAngle={setAngle}/>
-        <label className="block text-[10px] sm:text-xs">Altura: {constructionHeightMeters.toFixed(1)} m
+        <label className="block text-[10px] sm:text-xs">Elevación de la base: {constructionHeightMeters.toFixed(1)} m
          <input type="range" min={0} max={10} step={0.1} value={constructionHeightMeters}
-          aria-label="Altura de la construcción"
+          aria-label="Elevación de la base de la construcción"
           onChange={e=>{const h=Number(e.target.value);setConstructionHeightMeters(h);setConstructionCenter({x:.5,y:1-h/10});}}
           className="mt-1 w-full accent-cyan-400"/>
         </label></>

@@ -13,6 +13,7 @@ import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_ME
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
 import {combatWeaponOperational} from "./weapon-readiness.ts";
+import {summonStat,type CombatSummon,type SummonTemplate} from "./summons.ts";
 import {evaluateWeaponAutoRepair,shouldAutoRepairAtRound,
  type AutoRepairItemEffect} from "../items/auto-repair.ts";
 import {assertMovementClear,blockingMovement,firstCoverAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
@@ -68,6 +69,8 @@ export type PendingAttack = {
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
   mirrorId?:string; mirrorAuto?:boolean;
+  /** Summoned strike uses entity stats, but owner PA/ticks. */
+  summonId?:string;
   /** Only user-specified vertical strokes can authorize 3D cover tests. */
   explicitTrajectory?:boolean;
 };
@@ -93,6 +96,7 @@ export type CombatLog = {
   /** Visible only after resolution; canvas origin of a mirror ray. */
   mirrorOrigin?:Point;
   karmaSpent?:number; karmaAllocation?:Record<string,number>; constructionId?:string;
+  summonId?:string;
   movementDirection?:"TOWARD"|"AWAY"|"WEAPON"|"VECTOR"; moveMeters?:number;
   fieldPosition?:Point;
 };
@@ -135,6 +139,8 @@ export type CombatState = {
   karmaBoosts?: Partial<Record<Side,Record<string,number>>>;
   karmaBoostDeltas?: Partial<Record<Side,Record<string,number>>>;
   constructions?: CombatConstruction[];
+  /** Persistent, targetable creatures for the encounter. */
+  summons?: CombatSummon[];
   /** Opt-in modules persist with combatV1. Preexisting encounters omit this property. */
   microEffects?: { definitions:Partial<Record<Side,EffectContainer[]>>; state:MicroState; sequence:number };
   /** Ordered rays to resolve on the start of a new round. */
@@ -153,9 +159,11 @@ export type CombatCommand =
   | { kind: "WAIT";requestId?:string }
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
   | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
-  | { kind: "ATTACK"; requestId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
+  | { kind: "COMMAND_SUMMON";requestId?:string;summonId:string;
+       order:"ACT"|"MOVE"|"ATTACK"|"CHANGE_BEHAVIOR";planarMove?:Point;newBehavior?:"FOLLOW"|"ATTACK"|"PROTECT"|"HOLD"|"MANUAL" }
+  | { kind: "ATTACK"; requestId?:string; targetSummonId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; requestId?:string; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;targetSummonId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -472,7 +480,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},physicalPathEnds:{},constructions:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
+    physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
     processedKarmaRequests:[],perHandWeaponDurability:true,narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
@@ -558,7 +566,7 @@ function lastInitiativeSide(state: CombatState): Side | null {
   for (let i = state.log.length - 1; i >= 0; i--) {
     const {kind, by} = state.log[i];
     if (kind === "ROUND") break;
-    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT" || kind === "SKILL" || kind==="KARMA" || kind==="ITEM") return by;
+    if (kind === "ATTACK" || kind === "MOVE" || kind === "WAIT" || kind === "SKILL" || kind==="KARMA" || kind==="ITEM" || kind==="SUMMON") return by;
   }
   return null;
 }
@@ -693,6 +701,7 @@ function advanceRoundIfComplete(state: CombatState) {
       fighter[bonus.stat]=Math.max(0,fighter[bonus.stat]-bonus.value);
     }
     state.skillBonuses=active.filter(b=>b.expiresAtRound>state.round);
+    upkeepSummons(state);
     addLog(state,{kind:"ROUND",tick:state.tick,by:"PLAYER",summary:"Comienza el turno " + state.round});
     state.itemRepairsThisRound=[];
     for(const side of SIDES){
@@ -709,6 +718,152 @@ function advanceRoundIfComplete(state: CombatState) {
 function spend(f: CombatFighter, ticks: number) {
   f.spentAp++;
   f.spentTicks = Math.min(LIMIT, f.spentTicks + ticks);
+}
+/** Summons are encounter actors, but all orders spend their owner's PA/ticks.
+ * No automatic free actions are created by merely owning seven creatures.
+ */
+function summonAsFighter(summon:CombatSummon,owner:CombatFighter):CombatFighter {
+  const pos={...summon.fieldPosition};
+  return {...owner,name:summon.label,fieldPosition:pos,positionMeters:pos.x,
+    physicalAttack:summonStat(summon,owner,"PHYSICAL_ATTACK"),
+    physicalDefense:summonStat(summon,owner,"PHYSICAL_DEFENSE"),
+    agility:summonStat(summon,owner,"AGI"),
+    speedValue:summonStat(summon,owner,"MOVE_SPEED"),
+    strength:summonStat(summon,owner,"STRENGTH"),
+    precision:summonStat(summon,owner,"PRECISION"),
+    dodge:summonStat(summon,owner,"DODGE"),
+    massKg:Math.max(1,owner.massKg*0.08),
+    equippedWeapon:undefined,offhandWeapon:undefined,
+    perkIds:[],damageTakenFactors:undefined};
+}
+function summonStepLimit(summon:CombatSummon,owner:CombatFighter):number {
+  const base=Math.max(1,Math.round(Math.max(0,owner.race)/10));
+  const current=summonStat(summon,owner,"MOVE_SPEED");
+  return Math.min(15,base*Math.max(0,current)/effectiveCombatSpeed(owner));
+}
+function moveSummonOnField(state:CombatState,summon:CombatSummon,delta:Point):number {
+  if(!finite(delta.x)||!finite(delta.y))throw new Error("Movimiento de invocación inválido.");
+  const owner=state.actors[summon.owner];
+  const length=Math.hypot(delta.x,delta.y);
+  if(length>summonStepLimit(summon,owner)+0.01)
+    throw new Error("La criatura no puede recorrer tantos metros en una acción.");
+  const from=summon.fieldPosition,to={x:from.x+delta.x,y:from.y+delta.y};
+  if(Math.hypot(to.x-fieldPosition(owner).x,to.y-fieldPosition(owner).y)>summon.controlRangeMeters+1e-8)
+    throw new Error("La criatura debe permanecer dentro de su radio de control.");
+  assertMovementClear(state.constructions,from,to);
+  summon.fieldPosition=to;
+  return length;
+}
+function summonTargetPosition(state:CombatState,summon:CombatSummon):Point {
+  return fieldPosition(state.actors[summon.behavior.target==="OPPONENT"?other(summon.owner):summon.owner]);
+}
+function advanceSummonToward(state:CombatState,summon:CombatSummon,point:Point,stopAt:number):number {
+  const from=summon.fieldPosition;
+  const dx=point.x-from.x,dy=point.y-from.y;
+  const distance=Math.hypot(dx,dy);
+  if(distance<=stopAt)return 0;
+  const step=Math.min(distance-stopAt,summonStepLimit(summon,state.actors[summon.owner]));
+  if(step<=0)return 0;
+  return moveSummonOnField(state,summon,{x:dx/distance*step,y:dy/distance*step});
+}
+function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{kind:"COMMAND_SUMMON"}>):void {
+  const summon=state.summons?.find(s=>s.id===command.summonId&&s.owner===by);
+  if(!summon)throw new Error("No controlas esa invocación o ha desaparecido.");
+  const owner=state.actors[by];
+  if(Math.hypot(summon.fieldPosition.x-fieldPosition(owner).x,
+      summon.fieldPosition.y-fieldPosition(owner).y)>summon.controlRangeMeters+1e-8)
+    throw new Error("La invocación quedó fuera del alcance de control.");
+  if(command.order==="CHANGE_BEHAVIOR"){
+    if(!command.newBehavior||!summon.behavior.allowedModes.includes(command.newBehavior))
+      throw new Error("Ese comportamiento no está autorizado para la criatura.");
+    summon.behavior.mode=command.newBehavior;
+    spend(owner,turnTicks(owner));
+    state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
+      summary:summon.label+" cambió su comportamiento a "+command.newBehavior});
+    advanceRoundIfComplete(state);return;
+  }
+  let order=command.order;
+  if(order==="ACT") {
+    order=summon.behavior.mode==="ATTACK"?"ATTACK":
+      summon.behavior.mode==="HOLD"?"ACT":"MOVE";
+  }
+  if(order==="MOVE"){
+    let distance:number;
+    if(command.order==="MOVE"){
+      if(!summon.behavior.allowedModes.includes("MANUAL"))
+        throw new Error("El movimiento manual no está permitido para esa criatura.");
+      const delta=validatePlanarMove(command.planarMove);
+      distance=moveSummonOnField(state,summon,delta);
+    }else{
+      const target=summonTargetPosition(state,summon);
+      distance=advanceSummonToward(state,summon,target,0.35);
+    }
+    spend(owner,turnTicks(owner));
+    state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
+      summary:summon.label+(distance>0?" se movió "+distance.toFixed(2)+" m.":" alcanzó su posición de apoyo.")});
+    advanceRoundIfComplete(state);return;
+  }
+  if(order==="ATTACK"){
+    if(summon.behavior.target!=="OPPONENT"||
+      !(summon.behavior.mode==="ATTACK"||summon.behavior.allowedModes.includes("MANUAL")))
+      throw new Error("La criatura no tiene autorización para atacar a ese objetivo.");
+    if(command.planarMove)throw new Error("Mover y atacar con una criatura requiere dos acciones.");
+    const enemy=fieldPosition(state.actors[other(by)]);
+    if(Math.hypot(enemy.x-summon.fieldPosition.x,enemy.y-summon.fieldPosition.y)>1.5){
+      if(command.order==="ATTACK")throw new Error("El enemigo está fuera del alcance del familiar (1.5 m).");
+      const distance=advanceSummonToward(state,summon,enemy,1.35);
+      spend(owner,turnTicks(owner));
+      state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+      addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
+        summary:summon.label+" persiguió al enemigo "+distance.toFixed(2)+" m."});
+      advanceRoundIfComplete(state);return;
+    }
+    assertMovementClear(state.constructions,summon.fieldPosition,enemy);
+    spend(owner,turnTicks(owner));
+    state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    state.pending={by,against:other(by),attackType:"BLUNT",
+      trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}],
+      explicitTrajectory:false,launchedAtTick:(state.round-1)*LIMIT+owner.spentTicks,
+      usesMagic:false,summonId:summon.id};
+    addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),
+      attackType:"BLUNT",summonId:summon.id,
+      summary:summon.label+" atacó a "+state.actors[other(by)].name+"; esperando reacción"});
+    return;
+  }
+  if(order==="ACT"){
+    spend(owner,turnTicks(owner));
+    state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
+      summary:summon.label+" mantuvo su posición."});
+    advanceRoundIfComplete(state);
+    return;
+  }
+  throw new Error("Orden de criatura desconocida.");
+}
+function upkeepSummons(state:CombatState):void {
+  const retained:CombatSummon[]=[];
+  for(const summon of state.summons??[]){
+    const owner=state.actors[summon.owner],mana=state.mana?.[summon.owner];
+    const tooFar=Math.hypot(summon.fieldPosition.x-fieldPosition(owner).x,
+      summon.fieldPosition.y-fieldPosition(owner).y)>summon.controlRangeMeters+1e-8;
+    const expired=state.round>=summon.expiresAtRound||owner.hp<=0||
+      tooFar||!mana||mana.current<summon.maintenanceMana;
+    if(expired){
+      addLog(state,{kind:"SUMMON",tick:state.tick,by:summon.owner,summonId:summon.id,
+        summary:summon.label+" desapareció"+
+          (tooFar?" (fuera de control).":state.round>=summon.expiresAtRound?" (fin de duración).":
+            " (sin maná para mantenimiento).")});
+      continue;
+    }
+    mana.current-=summon.maintenanceMana;
+    addLog(state,{kind:"SUMMON",tick:state.tick,by:summon.owner,summonId:summon.id,
+      manaCost:summon.maintenanceMana,
+      summary:summon.label+" se mantuvo activo por "+summon.maintenanceMana+" maná."});
+    retained.push(summon);
+  }
+  state.summons=retained;
 }
 function direction(path: Point[]) {
   const a = path.length > 1 ? path[path.length-2] : {x:0.1,y:0.5};
@@ -793,6 +948,53 @@ function resolveTargetedMirrorAttack(
    actor.name+" falló al atacar "+mirror.label});
  if(actor.hp<=0)finishEncounter(state,mirror.owner);
 }
+/** A direct hit on a summoned creature follows the same attack resources
+ * and geometric aim as a strike at a tangible mirror. The entity has no free
+ * dodge; each real contact lowers integrity and counts as one of its hits.
+ */
+function resolveTargetedSummonAttack(
+ state:CombatState,by:Side,command:Extract<CombatCommand,{kind:"ATTACK"}>,
+ summon:CombatSummon,rolls:{hit:number;critical:number;defense:number},
+ skill?:{id:number;name:string;damageMultiplier:number;finalMultiplier:number},
+ skillArea?:CombatAttackArea,
+){
+ validateRoll(rolls.hit);validateRoll(rolls.critical);
+ const attacker=state.actors[by],magic=command.usesMagic===true;
+ const ranged=command.rangedPhysical===true||command.throwWeapon===true;
+ const points=command.trajectory?.length?command.trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}];
+ const radius=magic?BASIC_MAGIC_AREA_RADIUS:
+   command.attackType==="BLUNT"?0.17:command.attackType==="CUT"?0.11:0.07;
+ const center={x:0.5,y:0.5};
+ const contact=magic||ranged||skillArea
+   ?validArenaPoint(command.areaCenter)&&
+     (skillArea?attackAreaHits(command.areaCenter,center,skillArea,command.areaAngleDegrees):
+     Math.hypot(command.areaCenter.x-center.x,command.areaCenter.y-center.y)<=radius)
+   :geometricContact(command.attackType,points,center);
+ let damage=0;
+ if(contact){
+   const power=magic?attacker.magicAttack:attacker.physicalAttack;
+   const defense=summonStat(summon,state.actors[summon.owner],"PHYSICAL_DEFENSE");
+   const critical=rolls.critical<
+     clamp(0.05+attacker.critical/(attacker.critical+100)*0.2,0.05,0.25);
+   const factor=matchupMultiplier(command.attackType,"SOLID");
+   damage=Math.max(1,Math.round(power*(skill?.damageMultiplier??1)*(critical?1.5:1)*factor-
+     defense*0.75));
+   damage=Math.max(1,Math.round(damage*(skill?.finalMultiplier??1)));
+   summon.integrity=Math.max(0,summon.integrity-damage);
+   summon.hitCount++;
+   if(summon.integrity<=0||summon.hitCount>=summon.hitLimit){
+     state.summons=state.summons?.filter(x=>x.id!==summon.id);
+     addLog(state,{kind:"SUMMON",tick:state.tick,by,against:summon.owner,
+       summonId:summon.id,damage,contact:true,
+       summary:summon.label+" desapareció tras recibir el impacto ("+summon.hitCount+
+       "/"+summon.hitLimit+" golpes)."});
+   }
+ }
+ addLog(state,{kind:"RESOLVE",tick:state.tick,by,against:summon.owner,
+   summonId:summon.id,damage,contact,attackType:command.attackType,
+   summary:contact?attacker.name+" golpeó a "+summon.label+" ("+damage+" de integridad).":
+     attacker.name+" falló el ataque dirigido a "+summon.label+"."});
+}
 /** Legacy encounters persisted one shared integrity gauge that belonged to
  * main hand (offhand if main was empty). Carry that previous wear into the
  * per-weapon snapshot exactly once; never copy offhand wear onto main in new
@@ -863,7 +1065,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if (!["DODGE","BLOCK","ENDURE","REPEL","DEFLECT","MAGIC_FIELD","CONSTRUCTION","COUNTER","NONE"].includes(command.defense))
       throw new Error("Defensa desconocida.");
     validateRoll(rolls.hit); validateRoll(rolls.critical); validateRoll(rolls.defense);
-    const attacker = state.actors[pending.by];
+    const summonedAttacker=pending.summonId?
+      state.summons?.find(s=>s.id===pending.summonId&&s.owner===pending.by):undefined;
+    if(pending.summonId&&!summonedAttacker)
+      throw new Error("La criatura que atacaba ya no está disponible.");
+    const attacker = summonedAttacker?
+      summonAsFighter(summonedAttacker,state.actors[pending.by]):state.actors[pending.by];
     // Basic phase-1 magic has an existing measured .14 radius for object
     // collisions/reflections, even though its legacy fighter damage model is
     // not a configured CombatAttackArea. Single-target approved skills and
@@ -889,8 +1096,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
      attackerPosition?:Point;attackerPositionMeters:number;
     }|null=null;
     if(defense==="COUNTER"){
-      if(pending.mirrorAuto||pending.mirrorId)
-        throw new Error("No puedes contraatacar simultáneamente a un rayo automático de espejo.");
+      if(pending.mirrorAuto||pending.mirrorId||pending.summonId)
+        throw new Error("El ataque de una invocación exige una reacción normal, no un contraataque simultáneo.");
       const plan=basicCounterAttack(state,by,command.counterMagic===true);
       if(!plan)throw new Error("No tienes PA, ticks o un ataque básico al alcance para contraatacar.");
       const shadow=structuredClone(state);
@@ -1181,6 +1388,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         clearPhysicalStrokes(state,by);
       }
     }
+    if(summonedAttacker)
+      summonedAttacker.fieldPosition={...fieldPosition(attacker)};
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT + attacker.spentTicks,(state.round-1)*LIMIT + fighter.spentTicks);
     const mirrorLabel=pending.mirrorId
       ?state.constructions?.find(c=>c.id===pending.mirrorId)?.label??"espejo mágico"
@@ -1188,6 +1397,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
       mitigatedByResistance,contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense:exchange?"COUNTER":defense,
       constructionId:pending.mirrorId,mirrorShot:Boolean(pending.mirrorId),
+      summonId:pending.summonId,
       mirrorOrigin:pending.mirrorId&&validArenaPoint(pending.trajectory[0])?{...pending.trajectory[0]}:undefined,
       materialAttackBonus:materialAttackBonus||undefined,
       skillId:pending.skill?.id,
@@ -1374,6 +1584,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     fighter.spentAp = actionPoints(fighter.constitution);
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     addLog(state,{kind:"WAIT",tick:state.tick,by,summary:fighter.name+" finaliza su participación en el turno"});
+  } else if (command.kind === "COMMAND_SUMMON") {
+    orderSummon(state,by,command);
+    return state;
   } else if (command.kind === "ATTACK") {
     if (!["CUT","BLUNT","PIERCE"].includes(command.attackType)) throw new Error("Tipo de ataque inválido.");
     if(command.movementOrder!==undefined&&command.planarMove===undefined)
@@ -1407,6 +1620,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(command.usesMagic!==true&&selectedWeapon&&!combatWeaponOperational(selectedWeapon))
       throw new Error("El arma de "+(source==="OFF_HAND"?"la mano secundaria":"la mano principal")+
         " está rota. Usa otra mano, un puño o una patada.");
+    if(command.targetConstructionId&&command.targetSummonId)
+      throw new Error("Elige un solo objetivo para el ataque.");
+    const targetedSummon=command.targetSummonId?
+      state.summons?.find(s=>s.id===command.targetSummonId&&s.owner===other(by)):undefined;
+    if(command.targetSummonId&&!targetedSummon)
+      throw new Error("La criatura objetivo no existe o no pertenece al rival.");
     const targetedMirror=command.targetConstructionId?
       state.constructions?.find(c=>c.id===command.targetConstructionId&&
        c.owner===other(by)&&c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0):undefined;
@@ -1441,9 +1660,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Marca el centro del ataque de área en el lienzo.");
     if(isOrientedCombatArea(serverSkillArea))validateAreaDirection(command.areaAngleDegrees);
     else if(command.areaAngleDegrees!==undefined)throw new Error("Dirección angular no permitida para este ataque.");
-    if (fieldDistance(fighter,rival)>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown,source))))
+    const actualDistance=targetedSummon?
+      Math.hypot(fieldPosition(fighter).x-targetedSummon.fieldPosition.x,
+        fieldPosition(fighter).y-targetedSummon.fieldPosition.y):fieldDistance(fighter,rival);
+    if (actualDistance>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown,source))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance máximo del ataque.");
-    const distanceAtLaunch=fieldDistance(fighter,rival);
+    const distanceAtLaunch=actualDistance;
     // An approved skill owns its declared 2m/5m/etc. effective reach. Do
     // not apply an unarmed or equipped-weapon range penalty to that technique.
     const effectiveAtLaunch=serverSkillRangeMeters??
@@ -1473,6 +1695,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       state.physicalPathEnds??={};
       state.physicalPathEnds[by]??={};
       state.physicalPathEnds[by]![source]={...points[points.length-1]};
+    }
+    if(targetedSummon){
+      resolveTargetedSummonAttack(state,by,command,targetedSummon,rolls,mirrorSkill,serverSkillArea);
+      if(command.movementOrder==="AFTER"&&command.planarMove&&fighter.hp>0)
+        finishCompositeStep(state,by,command.planarMove);
+      advanceRoundIfComplete(state);
+      return state;
     }
     if(targetedMirror){
       // A mirror has no paid reaction: resolve object hits immediately.
@@ -1521,7 +1750,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
  aim:{requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
-  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;
+  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;targetSummonId?:string;
   constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
@@ -1554,10 +1783,11 @@ export function applyResolvedCombatSkill(
    areaAngleDegrees:isOrientedCombatArea(plan.attackArea)?aim.areaAngleDegrees:undefined,
    attackSource:selfField?"KICK":aim.attackSource,
    targetConstructionId:selfField?undefined:aim.targetConstructionId,
+   targetSummonId:selfField?undefined:aim.targetSummonId,
   },rolls,plan.rangeMeters,{
    id:plan.id,name:plan.name,damageMultiplier:plan.damageMultiplier,finalMultiplier:plan.finalMultiplier,
   },plan.attackArea);
-  if(!next.pending&&!aim.targetConstructionId)throw new Error("No se pudo preparar el ataque de habilidad.");
+  if(!next.pending&&!aim.targetConstructionId&&!aim.targetSummonId)throw new Error("No se pudo preparar el ataque de habilidad.");
   if(next.pending)next.pending.skill={
    id:plan.id,name:plan.name,damageMultiplier:plan.damageMultiplier,
    defenseFactor:plan.defenseFactor,finalMultiplier:plan.finalMultiplier,
@@ -1572,6 +1802,53 @@ export function applyResolvedCombatSkill(
    if(historical){historical.skillId=plan.id;historical.manaCost=plan.cost;
     historical.skillName=plan.name;historical.summary=event.summary;}
   }
+ }else if(plan.category==="SUMMON") {
+  if(!plan.summons?.length)throw new Error("La habilidad no contiene invocaciones ejecutables.");
+  if(aim.planarMove||aim.areaCenter||aim.constructionFieldPoint||aim.trajectory)
+    throw new Error("La invocación usa una formación alrededor del usuario, sin trayectoria ni epicentro.");
+  next=structuredClone(original);
+  const owner=next.actors[by],origin=fieldPosition(owner);
+  if((next.summons?.length??0)+plan.summons.length>30)
+    throw new Error("Demasiadas invocaciones simultáneas en el encuentro.");
+  const fresh:CombatSummon[]=[];
+  const reservedKeys=new Set((next.summons??[]).filter(x=>x.owner===by).map(x=>x.entityKey));
+  for(const [index,template] of plan.summons.entries()){
+    if(reservedKeys.has(template.entityKey))
+      throw new Error("La invocación "+template.label+" ya está activa.");
+    reservedKeys.add(template.entityKey);
+    const totalIndex=(next.summons?.length??0)+index;
+    let position:Point|undefined;
+    for(let attempt=0;attempt<16;attempt++){
+      // Deterministic spiral in world metres, checked against physical obstacles.
+      const theta=(totalIndex+attempt*0.618)*2.399963229728653;
+      const radius=0.48+0.14*(attempt%3);
+      const point={x:origin.x+radius*Math.cos(theta),y:origin.y+radius*Math.sin(theta)};
+      try{assertMovementClear(next.constructions,origin,point);position=point;break;}
+      catch{ /* Alternative free directions; never create inside a wall. */ }
+    }
+    if(!position)throw new Error("No hay un lugar libre para materializar a "+template.label+".");
+    const integrityLink=template.links.find(link=>link.destStat==="INTEGRITY")!;
+    const integrity=Math.max(1,owner.physicalDefense*integrityLink.factor);
+    fresh.push({
+      id:by+":"+plan.id+":"+aim.requestId+":"+index,
+      owner:by,sourceSkillId:plan.id,entityKey:template.entityKey,label:template.label,
+      fieldPosition:position,createdRound:next.round,
+      expiresAtRound:next.round+template.durationTurns,
+      controlRangeMeters:template.controlRangeMeters,
+      maintenanceMana:template.maintenanceMana,
+      integrity,hitCount:0,hitLimit:template.hitLimit,
+      links:structuredClone(template.links),behavior:structuredClone(template.behavior),
+    });
+  }
+  next.summons=[...(next.summons??[]),...fresh];
+  spend(owner,turnTicks(owner));
+  next.tick=Math.max(next.tick,(next.round-1)*LIMIT+owner.spentTicks);
+  // Charge activation BEFORE possible round-start upkeep.
+  next.mana![by].current-=plan.cost;
+  addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,skillName:plan.name,
+    manaCost:plan.cost,summary:owner.name+" invocó "+fresh.map(x=>x.label).join(", ")+
+      " ("+fresh.length+" criaturas, "+plan.cost+" maná)."});
+  advanceRoundIfComplete(next);
  }else if(plan.category==="CONSTRUCTION") {
   if(!plan.construction)throw new Error("La habilidad no tiene una creación configurada.");
   const point=validateConstructionPlacement(aim.areaCenter);
@@ -1685,7 +1962,7 @@ export function applyResolvedCombatSkill(
    summary:actor.name+" usó "+plan.name+(plan.healing?" y recuperó hasta "+plan.healing+" HP":"")});
   advanceRoundIfComplete(next);
  }
- next.mana![by].current-=plan.cost;
+ if(plan.category!=="SUMMON")next.mana![by].current-=plan.cost;
  next.skillCooldowns??={};
  next.skillCooldowns[by]??={};
  next.skillCooldowns[by]![key]=plan.oncePerCombat?-1:

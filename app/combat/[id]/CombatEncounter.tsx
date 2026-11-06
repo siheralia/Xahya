@@ -8,6 +8,7 @@ import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
 import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
 import {combatWeaponOperational} from "@/lib/combat/weapon-readiness";
+import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2, Eye, ChevronDown, X, Info} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
@@ -907,7 +908,7 @@ export default function CombatEncounter({id}:{id:string}) {
      {(state.summonStatuses?.length??0)>0&&<div className="space-y-1 rounded-lg border border-zinc-800 p-2 text-xs">
        <strong className="text-cyan-200">Estados temporales activos</strong>
        {state.summonStatuses?.map(status=><p key={status.id} className="text-zinc-300">
-         {state.actors[status.target].name}: {status.stat} {status.operation==="MULTIPLIER"?"×"+status.value:
+         {state.actors[status.target].name}: {friendlyMicroKey(status.stat)} {status.operation==="MULTIPLIER"?"×"+status.value:
            (status.value>=0?"+":"")+status.value} · {Math.max(0,status.expiresAtRound-state.round)} turnos
        </p>)}
      </div>}
@@ -942,7 +943,7 @@ export default function CombatEncounter({id}:{id:string}) {
         {combatChoice&&<label className="block text-xs">Estadística para el próximo contacto
           <select value={selectedStat} onChange={e=>setSummonChosenStats(values=>({...values,[summon.id]:e.target.value}))}
            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2">
-           {combatChoice.allowed.map(stat=><option key={stat} value={stat}>{stat}</option>)}
+           {combatChoice.allowed.map(stat=><option key={stat} value={stat}>{friendlyMicroKey(stat)}</option>)}
           </select>
         </label>}
         {inversionRule&&<label className="block text-xs">Debilitamiento a invertir
@@ -950,7 +951,7 @@ export default function CombatEncounter({id}:{id:string}) {
            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2">
            {reversible.length===0&&<option value="">No hay debilitamientos activos</option>}
            {reversible.map(status=><option value={status.id} key={status.id}>
-             {status.stat} · {state.actors[status.target].name} · {status.operation==="MULTIPLIER"?"×"+status.value:status.value}
+             {friendlyMicroKey(status.stat)} · {state.actors[status.target].name} · {status.operation==="MULTIPLIER"?"×"+status.value:status.value}
            </option>)}
           </select>
         </label>}

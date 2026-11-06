@@ -585,11 +585,11 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
           const keys=new Set(value.steps.flatMap(s=>"entityKey" in s?[s.entityKey]:[]));
           let entityKey="FAMILIAR",n=1;while(keys.has(entityKey))entityKey="FAMILIAR_"+n++;
           update({steps:[...value.steps,
-            {...defaultStep("SUMMON_ENTITY"),entityKey},
+            {kind:"SUMMON_ENTITY",entityKey,label:"Familiar",manaCost:30,maintenanceMana:20,durationTurns:2,controlRangeMeters:15,hitLimit:3},
             {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"PHYSICAL_ATTACK",destStat:"PHYSICAL_ATTACK",factor:0.2},
             {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"AGI",destStat:"AGI",factor:1},
             {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"PHYSICAL_DEFENSE",destStat:"INTEGRITY",factor:2},
-            {...defaultStep("SET_ENTITY_BEHAVIOR"),entityKey}
+            {kind:"SET_ENTITY_BEHAVIOR",entityKey,mode:"FOLLOW",allowedModes:["FOLLOW","ATTACK","MANUAL"],target:"USER",trigger:"CONTACT"}
           ]});
         }}>+ Familiar de ejemplo (5 nodos)</button>
       <button type="button" disabled={value.steps.length>21}

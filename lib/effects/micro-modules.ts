@@ -11,6 +11,10 @@ import {calculateDurabilityRepair,validateRepairableItem,REPAIR_TARGET_SELECTORS
 
 export type MicroEvent = "DAMAGE_RESOLVED" | "TURN_START" | "IMPACT" | "PASSIVE" | "ACTIVATE";
 export type ImpactKind = "CHARACTER" | "GROUND";
+export type EntityTargetRef = {source:"OUTPUT";key:string};
+export type EntityStatRef = string | {source:"STAT_SELECTION";key:string};
+export type EntityTargetSlot = "USER"|"OPPONENT"|"ALLY"|"COMBAT";
+export type EntityBehaviorMode = "FOLLOW"|"ATTACK"|"PROTECT"|"HOLD"|"MANUAL";
 export type NumericExpr = number
   | { source: "EVENT" | "STAT" | "CHARGES" | "STORED_TOTAL" | "OUTPUT"; key: string }
   | { operator: "ADD" | "SUBTRACT" | "MULTIPLY" | "DIVIDE" | "MIN" | "MAX" | "PERCENT"; args: NumericExpr[] };
@@ -37,6 +41,23 @@ export type MicroStep = (
   /** Structured legacy narrative: retains capability, no automatic numerical benefit. */
   | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
   /** Dynamic construction defense using the existing validated resistance formula. */
+  /** Server-authorized actor identity, never a user-provided numeric identifier. */
+  | { kind:"SELECT_TARGET"; selector:EntityTargetSlot; output:string }
+  /** FIXED uses an authoring choice; RANDOM and COMBAT require a server choice. */
+  | { kind:"SELECT_STAT"; mode:"FIXED"|"RANDOM"|"COMBAT"; allowed:string[]; fixed?:string; output:string }
+  | { kind:"READ_HP_DAMAGE"; output:string }
+  | { kind:"REQUIRE_CONTACT"; target:EntityTargetRef }
+  /** These emit requests only: no spawning, resource charge or state mutation here. */
+  | { kind:"SUMMON_ENTITY"; entityKey:string; label:string; manaCost:number; maintenanceMana:number;
+      durationTurns:number; controlRangeMeters:number; hitLimit:number }
+  | { kind:"LINK_ENTITY_STAT"; entityKey:string; sourceStat:string; destStat:string; factor:NumericExpr }
+  | { kind:"SET_ENTITY_BEHAVIOR"; entityKey:string; mode:EntityBehaviorMode;
+      allowedModes:EntityBehaviorMode[]; target:EntityTargetSlot; trigger:"CONTACT"|"HP_DAMAGE"|"COMMAND" }
+  | { kind:"APPLY_STATUS"; target:EntityTargetRef; stat:EntityStatRef;
+      operation:"MULTIPLIER"|"BONUS"; value:NumericExpr; durationTurns:number }
+  | { kind:"READ_STATUSES"; target:EntityTargetRef; filter:"BUFF"|"DEBUFF"|"ALL"; output:string }
+  | { kind:"INVERT_STATUS"; target:EntityTargetRef; selection:"LATEST_DEBUFF"|"SELECTED_DEBUFF";
+      manaCost:number; chargeAccumulator?:string }
   | { kind: "VARIABLE_RESISTANCE"; config: VariableResistance;
       /** Values may come from outputs of READ_STAT/READ_STORED/CONSUME, event or math. */
       base?: NumericExpr; input?: NumericExpr }
@@ -53,6 +74,12 @@ export type MicroContext = {
   impactKind?: ImpactKind;
   /** Resolved damage (mitigatedDamage etc.) computed by the regular combat engine. */
   event?: Record<string, number>;
+  /** Trusted server-resolved targeting/selection/contact/status snapshot. */
+  targetIds?: Partial<Record<EntityTargetSlot,number>>;
+  selectedStats?: Record<string,string>;
+  contactTargetIds?: readonly number[];
+  selectedStatusId?: string;
+  statuses?: readonly {id:string;targetId:number;stat:string;multiplier?:number;bonus?:number;durationTurns:number}[];
   /** Server-resolved combat roles relative to the skill owner. OPPONENT
    * must be supplied explicitly; it never aliases the owner. */
   actors?: { USER?: Record<string, number>; OPPONENT?: Record<string, number> };
@@ -70,6 +97,13 @@ export type MicroIntent =
   | { kind: "MODIFIER"; stat: string; multiplier: number }
   | { kind: "BONUS"; stat: string; amount: number }
   | { kind: "CAPABILITY"; code: string; description: string; target?: string; element?: string; targetKind?: string; targetReference?: string; durationMovements?: number; activationCondition?: string; value?: number }
+  | {kind:"SUMMON_ENTITY";ownerId:number;entityKey:string;label:string;manaCost:number;
+      maintenanceMana:number;durationTurns:number;controlRangeMeters:number;hitLimit:number}
+  | {kind:"LINK_ENTITY_STAT";entityKey:string;sourceStat:string;destStat:string;factor:number;value:number;dynamic:true}
+  | {kind:"SET_ENTITY_BEHAVIOR";entityKey:string;mode:EntityBehaviorMode;allowedModes:EntityBehaviorMode[];
+      target:EntityTargetSlot;trigger:"CONTACT"|"HP_DAMAGE"|"COMMAND"}
+  | {kind:"APPLY_STATUS";targetId:number;stat:string;operation:"MULTIPLIER"|"BONUS";value:number;durationTurns:number}
+  | {kind:"INVERT_STATUS";targetId:number;statusId:string;manaCost:number;chargeAccumulator?:string}
   | { kind: "VARIABLE_RESISTANCE"; stat: string; input: string; multiplier: number; resistance: number };
 export type MicroResult = { state: MicroState; hp: number; intents: MicroIntent[]; skipped: boolean };
 

@@ -13,7 +13,8 @@ import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_ME
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
 import {combatWeaponOperational} from "./weapon-readiness.ts";
-import {summonStat,type CombatSummon,type SummonContactEffect} from "./summons.ts";
+import {summonStat,resolveSummonStat,type CombatSummon,type SummonContactEffect} from "./summons.ts";
+import {activeChaosField,distortChaosMove} from "./chaos-fusion.ts";
 import {creditCombatCharge,ensureCombatChargePool,spendCombatCharges} from "./charge-pools.ts";
 import {applySummonStatus,invertSummonStatus,expireSummonStatuses,
  isDebuffStatus,resolveStatusStat,type SummonStatus} from "./summon-status.ts";
@@ -1170,6 +1171,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   if (!SIDES.includes(by)) throw new Error("Combatiente no válido.");
   upgradeLegacyWeaponDurability(state);
   const fighter = state.actors[by], rival = state.actors[other(by)];
+  // Distort intentional planar vectors only. Preserve the submitted length,
+  // action ticks, physical collision checks and attack trajectories.
+  if((command.kind==="ATTACK"||command.kind==="DEFEND")&&command.planarMove!==undefined){
+    const requested=validatePlanarMove(command.planarMove);
+    command={...command,planarMove:distortChaosMove(state,by,requested)};
+  }
   if (state.pending) {
     const pending = state.pending;
     if (command.kind !== "DEFEND" || pending.against !== by) throw new Error("Debe responder al ataque pendiente.");
@@ -1407,10 +1414,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const sign=Math.sign(target-fighter.positionMeters)||1;
       const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
       const from=fieldPosition(fighter);
-      const nextX=fighter.positionMeters+sign*(direction==="AWAY"?-0.5:step);
-      assertMovementClear(state.constructions,from,{x:nextX,y:from.y});
-      fighter.positionMeters=nextX;
-      if(fighter.fieldPosition)fighter.fieldPosition.x=fighter.positionMeters;
+      const vector=distortChaosMove(state,by,
+        {x:sign*(direction==="AWAY"?-0.5:step),y:0});
+      assertMovementClear(state.constructions,from,
+        {x:from.x+vector.x,y:from.y+vector.y});
+      moveFighterOnField(fighter,vector);
       clearPhysicalStrokes(state,by);
       if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2){
         restoreWeapon(state,dropped);
@@ -1666,8 +1674,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const direction = command.direction??"TOWARD";
     if (!["TOWARD","AWAY","WEAPON","VECTOR"].includes(direction)) throw new Error("Dirección inválida.");
     if(direction==="VECTOR"){
-      const vector=validatePlanarMove(command.planarMove);
-      if(Math.abs(Math.hypot(vector.x,vector.y)-command.meters)>0.02)
+      const intended=validatePlanarMove(command.planarMove);
+      const vector=distortChaosMove(state,by,intended);
+      if(Math.abs(Math.hypot(intended.x,intended.y)-command.meters)>0.02)
         throw new Error("Los metros no coinciden con el trazo dibujado.");
       const start=fieldPosition(fighter);
       assertMovementClear(state.constructions,start,{x:start.x+vector.x,y:start.y+vector.y});
@@ -1685,10 +1694,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const sign = Math.sign(target-fighter.positionMeters)||1;
     const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(target-fighter.positionMeters));
     const start=fieldPosition(fighter);
-    const destination=fighter.positionMeters+sign*magnitude;
-    assertMovementClear(state.constructions,start,{x:destination,y:start.y});
-    fighter.positionMeters=destination;
-    if(fighter.fieldPosition)fighter.fieldPosition.x=fighter.positionMeters;
+    const vector=distortChaosMove(state,by,{x:sign*magnitude,y:0});
+    assertMovementClear(state.constructions,start,
+      {x:start.x+vector.x,y:start.y+vector.y});
+    moveFighterOnField(fighter,vector);
     let recoveredWeapon:string|undefined;
     if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&restoreWeapon(state,dropped)){
       recoveredWeapon=dropped.weapon.name;

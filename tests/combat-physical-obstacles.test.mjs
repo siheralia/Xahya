@@ -44,7 +44,7 @@ function swing(s,stroke=strokeLow){
 const resolve=s=>applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
 const sand={id:140,name:"Sikatā",status:"APPROVED",category:"UTILITY",cost:10,
  effect:[{type:"NARRATIVE",value:1,target:"CARD:W002",element:"EARTH",capability:"CREATE"}],
- mechanics:{},areaOfEffect:"Alcance máximo: 5 m",duration:"No termina"};
+ mechanics:{},areaOfEffect:"Objeto | Alcance máximo: 5 m",duration:"No termina"};
 const construct=compileCombatSkill(sand);
 
 test("measured cylinder requires complete server-validated 3D dimensions, not a map sprite",()=>{

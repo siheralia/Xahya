@@ -74,7 +74,7 @@ test("unsupported effects and skills fail closed rather than run free",()=>{
   [{kind:"CALCULATE",expression:10,output:"x"}],
  ]){
   assert.throws(()=>compileApprovedRepairSkill(skill({effect:[reviewed(steps)]})),
-   /reparación|Leer objeto|micromódulo|operación/);
+   /reparación|Leer objeto|micromódulo|operación|al menos una acción/);
  }
  assert.throws(()=>compileApprovedRepairSkill(skill({effect:[{type:"NARRATIVE",value:1}]})),/únicamente efectos modulares/);
  assert.throws(()=>compileApprovedRepairSkill(skill({effect:[{

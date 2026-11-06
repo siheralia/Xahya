@@ -589,6 +589,8 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [flairSaving, setFlairSaving] = useState<number | null>(null);
   const [inventoryDeleting, setInventoryDeleting] = useState<number | null>(null);
   const [itemUsing, setItemUsing] = useState<number | null>(null);
+  const [repairingItemId,setRepairingItemId]=useState<number|null>(null);
+  const [repairSkillId,setRepairSkillId]=useState<number>(0);
   const [knownCharacters, setKnownCharacters] = useState<{ id: number; name: string }[]>([]);
   const [transferTarget, setTransferTarget] = useState("");
   const [transferMoney, setTransferMoney] = useState(0);
@@ -606,6 +608,13 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
   const [raceSaving, setRaceSaving] = useState(false);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [pendingSkills, setPendingSkills] = useState<Skill[]>([]);
+  const repairSkills=skills.filter(skill=>
+    skill.status==="APPROVED"&&["SUPPORT","UTILITY"].includes(skill.category)&&
+    skill.effect?.length>0&&skill.effect.every(effect=>
+      effect.type==="COMPOSED"&&effect.module?.trigger==="ACTIVATE"&&
+      effect.module.steps.every(step=>
+        ["READ_ITEM","READ_STAT","CALCULATE","REPAIR_DURABILITY"].includes(step.kind)))&&
+    skill.effect.some(effect=>effect.module?.steps.some(step=>step.kind==="REPAIR_DURABILITY")));
   const [skillStates, setSkillStates] = useState<SkillState[]>([]);
   const [skillCreationCredits, setSkillCreationCredits] = useState(0);
   const [skillUpgradeCredits,setSkillUpgradeCredits]=useState(0);
@@ -1440,6 +1449,34 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     } finally {
       setItemUsing(null);
     }
+  }
+
+  async function repairInventoryItem(characterItemId:number){
+    if(!character||repairingItemId!==null)return;
+    const skillId=repairSkills.some(skill=>skill.id===repairSkillId)
+      ?repairSkillId:repairSkills[0]?.id;
+    if(!skillId)return;
+    setRepairingItemId(characterItemId);
+    setError("");setSuccess("");
+    try{
+      const response=await fetch("/api/characters/"+character.id+"/repair",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          skillId,characterItemId,
+          requestId:"Repair"+crypto.randomUUID().replaceAll("-",""),
+        }),
+      });
+      const result=await response.json().catch(()=>null);
+      if(!response.ok)throw new Error(result?.error??"No se pudo reparar el objeto.");
+      const refreshed=await fetch("/api/characters/"+character.id,{cache:"no-store"});
+      if(!refreshed.ok)throw new Error("Se completó la reparación, pero no pudo refrescarse el inventario.");
+      setCharacter(await refreshed.json());
+      const total=(result.changes??[]).reduce((sum:number,change:{restored:number})=>sum+change.restored,0);
+      setSuccess("Reparación completada con "+result.skillName+": +"+total+" de durabilidad. "+
+        "Maná gastado: "+result.manaSpent+".");
+    }catch(err){
+      setError(err instanceof Error?err.message:"No se pudo reparar.");
+    }finally{setRepairingItemId(null);}
   }
 
   function addSkillEffect() {
@@ -2493,6 +2530,20 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
             <div><h2 className="text-xl font-semibold">Inventario</h2><p className="mt-1 text-sm text-[color:var(--theme-muted)]">Todos los objetos que posee el personaje.</p></div>
             <span className="text-xs text-zinc-600">{character.equipment.length} {character.equipment.length === 1 ? "objeto" : "objetos"}</span>
           </div>
+          {repairSkills.length>0&&<div className="mt-4 space-y-2 rounded-xl border border-cyan-700/50 bg-cyan-950/20 p-3">
+            <label className="block text-xs font-semibold text-cyan-200">
+              Habilidad para reparar objetos
+              <select aria-label="Habilidad de reparación" value={repairSkills.some(s=>s.id===repairSkillId)?repairSkillId:repairSkills[0].id}
+                onChange={event=>setRepairSkillId(Number(event.target.value))}
+                className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white">
+                {repairSkills.map(skill=><option key={skill.id} value={skill.id}>
+                  {skill.name} · {skill.cost} maná
+                </option>)}
+              </select>
+            </label>
+            <p className="text-xs text-zinc-400">Se consume el maná o cooldown correspondiente a la habilidad aprobada.
+              Repara una sola copia del inventario; no funciona durante el combate.</p>
+          </div>}
           {character.equipment.length === 0 ? (
             <p className="mt-5 text-sm text-zinc-500">El inventario está vacío.</p>
           ) : (
@@ -2526,6 +2577,14 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                         {itemUsing === entry.id ? "Usando..." : entry.item?.effects?.some((effect: any) => effect?.action === "CREATE_SKILL") ? "Crear habilidad" : entry.item?.effects?.some((effect: any) => effect?.action === "IMPROVE_SKILL") ? "Obtener moneda de mejora" : "Usar"}
                       </button>
                     )}
+                    {repairSkills.length>0&&entry.item?.itemType!=="CONSUMABLE"&&Number(entry.durability??100)<100&&
+                      <button type="button" onClick={()=>repairInventoryItem(entry.id)}
+                        disabled={repairingItemId!==null||entry.quantity!==1}
+                        title={entry.quantity!==1?"Separa una copia de la pila para repararla":undefined}
+                        className="mt-3 w-full rounded-lg border border-cyan-600 px-3 py-2 text-xs text-cyan-200 disabled:opacity-40">
+                        {repairingItemId===entry.id?"Reparando...":
+                          entry.quantity!==1?"Separa una copia para reparar":"Reparar con habilidad"}
+                      </button>}
                     {character.isAdmin && (
                       <button type="button" onClick={() => deleteInventoryItem(entry.id)} disabled={inventoryDeleting !== null} className="mt-3 w-full rounded-lg border border-red-900/70 px-3 py-2 text-xs text-red-300 disabled:opacity-50">
                         {inventoryDeleting === entry.id ? "Eliminando..." : "Eliminar objeto"}

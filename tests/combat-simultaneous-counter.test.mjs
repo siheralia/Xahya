@@ -140,8 +140,10 @@ test("slower NPC trades a paid counter against a faster caster before exhausting
   assert.equal(s.actors.NPC.spentTicks,0);
   // A 63-tick counter cannot finish inside the fast caster's elapsed 27
   // ticks, but it can start and resolve in a simultaneous paid exchange.
-  assert.equal(chooseNpcReaction(s,()=>.2).defense,"COUNTER");
-  const next=progressTrainingNpc(s,()=>dice,()=>.2);
+  const decision=chooseNpcReaction(s,()=>.9);
+  assert.equal(decision.defense,"COUNTER");
+  assert.equal(decision.counterMagic,false,"select the physical exchange explicitly");
+  const next=progressTrainingNpc(s,()=>dice,()=>.9);
   assert.equal(next.pending,null);
   assert.equal(next.actors.NPC.spentAp,1,"the NPC pays for the strike");
   assert.equal(next.actors.NPC.spentTicks,63,"the NPC spends its own action time");

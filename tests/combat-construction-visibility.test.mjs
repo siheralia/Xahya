@@ -41,11 +41,12 @@ test("construction panel requires eligible CREATE skills, is generic, and keeps 
  const parent=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
  const child=readFileSync(new URL("../app/combat/[id]/CombatSkillLoadout.tsx",import.meta.url),"utf8");
  assert.match(parent,/const canCreateObjects=hasAccess&&creationMaterials\.length>0/);
- assert.ok(parent.includes('state.status==="ACTIVE"&&(canCreateObjects||(state.constructions?.length??0)>0)'));
- assert.match(parent,/\{canCreateObjects&&<div className="mt-3 flex flex-wrap gap-3">/);
+ assert.match(parent,/open=\{constructionOptionsOpen&&panel==="construction"\}/);
+ assert.match(parent,/\(state\.constructions\?\?\[\]\)\.length>0/);
+ assert.match(parent,/canCreateMaterialBlocks&&<label className="mt-3 block text-sm">/);
  assert.match(parent,/onConstructionMaterialsChange=\{onConstructionMaterialsChange\}/);
  assert.match(child,/availableConstructionMaterials\(skills\[side\]\?\?\[\]\)/);
- const description=parent.split("\n").find(line=>line.includes("habilidad con efecto Crear"))??"";
- assert.doesNotMatch(description,/Fotoconstrucción|Sikatā|Sikata|espejo/i);
- assert.match(description,/habilidad con efecto Crear/);
+ const description=parent.split("\n").find(line=>line.includes("Las propiedades dependen del material"))??"";
+ assert.match(description,/Las propiedades dependen del material/);
+ assert.doesNotMatch(description,/Fotoconstrucción|Sikatā|Sikata|Espejo mágico/i);
 });

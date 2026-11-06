@@ -68,6 +68,24 @@ test("NPC reacts with several defenses based on statistical weights, not only DO
  }
 });
 
+test("encounter 60 regression: 11-speed caster does not permanently stunlock 16-speed training NPC",()=>{
+ let s=newCombatState(
+   fighter("Arissa",11,{characterId:29,speedValue:11,magicAttack:42,hp:320,maxHp:320,
+     equippedWeapon:undefined,positionMeters:0}),
+   fighter("Training NPC",16,{speedValue:16,magicDefense:23,hp:132,maxHp:132,
+     positionMeters:1.5})
+ );
+ s.mana={PLAYER:{current:80,max:80},NPC:{current:50,max:50}};
+ s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",usesMagic:true,attackType:"CUT",
+   areaCenter:{x:.5,y:.5}},dice());
+ assert.equal(chooseNpcReaction(s,()=>0.2).defense,"NONE",
+   "the NPC can accept a survivable magic hit to keep a real counterturn");
+ s=progressTrainingNpc(s,dice,()=>0.99);
+ assert.equal(s.pending?.by,"NPC","NPC retaliates before the player can cast again");
+ assert.ok(s.log.some(e=>e.kind==="ATTACK"&&e.by==="NPC"));
+ assert.equal(s.actors.NPC.spentAp,1,"only the counterattack costs PA");
+});
+
 test("automatic training policy never takes control of a human PvP opponent",()=>{
  let s=newCombatState(fighter("Guha",100),fighter("Human",50,{characterId:99,positionMeters:1.5}));
  s=applyCombatCommand(s,"PLAYER",{kind:"WAIT"});

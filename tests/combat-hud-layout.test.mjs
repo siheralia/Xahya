@@ -63,7 +63,8 @@ test("defenses are icon buttons with pressed state rather than dense radio cards
 });
 test("bad reach and initiative must remain explained instead of silently doing nothing",()=>{
  assert.match(page,/const basicOutOfRange=attackDistance>basicReach/);
- assert.match(page,/disabled=\{!ready\|\|basicOutOfRange/);
+ assert.match(page,/const canExecuteAttack=/);
+ assert.match(page,/disabled=\{!canExecuteAttack\("BEFORE"\)\}/);
  assert.match(page,/El objetivo está a \{attackDistance\.toFixed\(2\)\} m/);
  assert.match(page,/const npcNeedsInitiative=Boolean/);
  assert.match(page,/command:\{kind:"ADVANCE"\}/);

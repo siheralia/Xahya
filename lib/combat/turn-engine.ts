@@ -13,7 +13,9 @@ import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_ME
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
 import {combatWeaponOperational} from "./weapon-readiness.ts";
-import {summonStat,type CombatSummon,type SummonTemplate} from "./summons.ts";
+import {summonStat,type CombatSummon,type SummonContactEffect} from "./summons.ts";
+import {applySummonStatus,invertSummonStatus,expireSummonStatuses,
+ isDebuffStatus,resolveStatusStat,type SummonStatus} from "./summon-status.ts";
 import {evaluateWeaponAutoRepair,shouldAutoRepairAtRound,
  type AutoRepairItemEffect} from "../items/auto-repair.ts";
 import {assertMovementClear,blockingMovement,firstCoverAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
@@ -71,6 +73,8 @@ export type PendingAttack = {
   mirrorId?:string; mirrorAuto?:boolean;
   /** Summoned strike uses entity stats, but owner PA/ticks. */
   summonId?:string;
+  chosenSummonStat?:string;
+  chosenSummonStatusId?:string;
   /** Only user-specified vertical strokes can authorize 3D cover tests. */
   explicitTrajectory?:boolean;
 };
@@ -141,6 +145,8 @@ export type CombatState = {
   constructions?: CombatConstruction[];
   /** Persistent, targetable creatures for the encounter. */
   summons?: CombatSummon[];
+  /** Statuses created by physical entity contact; persisted in combatV1. */
+  summonStatuses?: SummonStatus[];
   /** Opt-in modules persist with combatV1. Preexisting encounters omit this property. */
   microEffects?: { definitions:Partial<Record<Side,EffectContainer[]>>; state:MicroState; sequence:number };
   /** Ordered rays to resolve on the start of a new round. */
@@ -160,6 +166,7 @@ export type CombatCommand =
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
   | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
   | { kind: "COMMAND_SUMMON";requestId?:string;summonId:string;
+       chosenStat?:string;chosenStatusId?:string;
        order:"ACT"|"MOVE"|"ATTACK"|"CHANGE_BEHAVIOR";planarMove?:Point;newBehavior?:"FOLLOW"|"ATTACK"|"PROTECT"|"HOLD"|"MANUAL" }
   | { kind: "ATTACK"; requestId?:string; targetSummonId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; requestId?:string; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
@@ -480,7 +487,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
+    physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],summonStatuses:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
     processedKarmaRequests:[],perHandWeaponDurability:true,narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
@@ -701,6 +708,7 @@ function advanceRoundIfComplete(state: CombatState) {
       fighter[bonus.stat]=Math.max(0,fighter[bonus.stat]-bonus.value);
     }
     state.skillBonuses=active.filter(b=>b.expiresAtRound>state.round);
+    expireSummonStatuses(state);
     upkeepSummons(state);
     addLog(state,{kind:"ROUND",tick:state.tick,by:"PLAYER",summary:"Comienza el turno " + state.round});
     state.itemRepairsThisRound=[];
@@ -1585,7 +1593,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     addLog(state,{kind:"WAIT",tick:state.tick,by,summary:fighter.name+" finaliza su participación en el turno"});
   } else if (command.kind === "COMMAND_SUMMON") {
-    orderSummon(state,by,command);
+    orderSummon(state,by,command,rolls);
     return state;
   } else if (command.kind === "ATTACK") {
     if (!["CUT","BLUNT","PIERCE"].includes(command.attackType)) throw new Error("Tipo de ataque inválido.");
@@ -1828,7 +1836,8 @@ export function applyResolvedCombatSkill(
     }
     if(!position)throw new Error("No hay un lugar libre para materializar a "+template.label+".");
     const integrityLink=template.links.find(link=>link.destStat==="INTEGRITY")!;
-    const integrity=Math.max(1,owner.physicalDefense*integrityLink.factor);
+    const integrity=Math.max(1,integrityLink.mode==="FIXED"
+      ?integrityLink.value:owner.physicalDefense*integrityLink.factor);
     fresh.push({
       id:by+":"+plan.id+":"+aim.requestId+":"+index,
       owner:by,sourceSkillId:plan.id,entityKey:template.entityKey,label:template.label,
@@ -1838,6 +1847,7 @@ export function applyResolvedCombatSkill(
       maintenanceMana:template.maintenanceMana,
       integrity,hitCount:0,hitLimit:template.hitLimit,
       links:structuredClone(template.links),behavior:structuredClone(template.behavior),
+      contactEffects:structuredClone(template.contactEffects),charges:{},
     });
   }
   next.summons=[...(next.summons??[]),...fresh];

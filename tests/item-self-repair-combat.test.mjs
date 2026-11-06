@@ -154,6 +154,22 @@ test("no mana, full durability and unequipped/dropped weapons do not restore or 
  assert.equal(c.mana.PLAYER.current,20);
 });
 
+test("unsupported dynamic stats disable the bad item effect without freezing a combat",()=>{
+ const rule=defaultWeaponAutoRepair();
+ rule.module.steps[1]={kind:"READ_STAT",actor:"USER",stat:"ImaginaryStat",output:"repairAmount"};
+ const s=encounter({...weapon("Descompuesta",65),autoRepair:rule});
+ const r=nextRound(s);
+ assert.equal(r.round,2);
+ assert.equal(r.actors.PLAYER.equippedWeapon.durability,65);
+ assert.equal(r.mana.PLAYER.current,20);
+ assert.equal(r.actors.PLAYER.equippedWeapon.autoRepairDisabled,true);
+ assert.equal(r.log.filter(x=>x.kind==="WEAPON_REPAIR_SKIP").length,1);
+ const t=nextRound(r);
+ assert.equal(t.round,3);
+ assert.equal(t.log.filter(x=>x.kind==="WEAPON_REPAIR_SKIP").length,1,
+  "a bad graph should be diagnosed once, not crash or spam every turn");
+});
+
 test("turn interval is based on real round transitions, not on requests or UI reads",()=>{
  const rule=defaultWeaponAutoRepair();rule.intervalTurns=2;
  const s=encounter({...weapon("Espada periódica",70),autoRepair:rule});

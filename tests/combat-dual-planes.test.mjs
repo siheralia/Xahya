@@ -131,7 +131,7 @@ test("UI renders two equally sized canvases and wires commands and height",()=>{
  assert.match(ui,/Plano vertical · altura/);
  assert.match(ui,/CombatTopDownPlane/);
  assert.match(ui,/CombatVerticalActionPlane/);
- assert.match(ui,/planarMove:preparedMovement/);
+ assert.match(ui,/planarMove:move,movementOrder:order/);
  assert.match(ui,/constructionFieldPoint:construction\?constructionFieldPoint/);
  assert.match(top,/aspect-square w-full/);
  assert.match(top,/Object\.entries\(state\.actors\)/);

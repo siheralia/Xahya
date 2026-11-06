@@ -176,7 +176,9 @@ test("combat API saves per-copy wear by inventory ID and guards against write-ba
  assert.match(api,/for\(const weapon of \[fighter\.equippedWeapon,fighter\.offhandWeapon\]\)/);
  assert.match(api,/"characterItemId"|weapon\.characterItemId/);
  assert.match(api,/durability=LEAST\(durability/);
- assert.match(api,/AND equipped=true/);
+ assert.doesNotMatch(api,/AND equipped=true/,
+  "item identity must survive a slot change while the battle snapshot is active");
+ assert.match(api,/AND "itemId"=\$\{weapon\.itemId\?\?0\}/);
  const encounter=source("app/api/combat/duels/route.ts");
  assert.match(encounter,/characterItemId:Number\(equipped\.id\)/);
  assert.match(encounter,/durability:Math\.max\(0,Math\.min\(100,Number\(equipped\.durability\?\?100\)\)\)/);

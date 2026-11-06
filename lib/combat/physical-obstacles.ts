@@ -97,9 +97,12 @@ export function blockingMovement(
  const candidates=(constructions??[]).filter(block=>{
   if(!measuredBlock(block))return false;
   const c=block.fieldPosition!,r=block.footprintRadiusMeters!;
-  const startInside=Math.hypot(from.x-c.x,from.y-c.y)<r-1e-8;
+  const startDistance=Math.hypot(from.x-c.x,from.y-c.y);
+  const startInside=startDistance<r-1e-8;
+  const outwardAtBoundary=Math.abs(startDistance-r)<=1e-8&&
+   (from.x-c.x)*(to.x-from.x)+(from.y-c.y)*(to.y-from.y)>=0;
   const endOutside=Math.hypot(to.x-c.x,to.y-c.y)>r+1e-8;
-  return !(startInside&&endOutside);
+  return !((startInside||outwardAtBoundary)&&endOutside);
  });
  return firstMeasuredObstacle(candidates,from,to,0,0);
 }

@@ -128,3 +128,28 @@ test("the counterstrike uses its own server dice rather than reusing the incomin
  assert.equal(critical.actors.NPC.hp,normal.actors.NPC.hp,
   "incoming attack damage must remain unchanged");
 });
+
+test("slower NPC trades a paid counter against a faster caster before exhausting ticks",()=>{
+  let s=newCombatState(
+    fighter("Quick caster",38,0),
+    fighter("Slow NPC",16,1.5)
+  );
+  s.mana={PLAYER:{current:10,max:10},NPC:{current:10,max:10}};
+  s=applyCombatCommand(s,"PLAYER",magic,dice);
+  assert.equal(s.actors.PLAYER.spentTicks,27);
+  assert.equal(s.actors.NPC.spentTicks,0);
+  // A 63-tick counter cannot finish inside the fast caster's elapsed 27
+  // ticks, but it can start and resolve in a simultaneous paid exchange.
+  const decision=chooseNpcReaction(s,()=>.9);
+  assert.equal(decision.defense,"COUNTER");
+  assert.equal(decision.counterMagic,false,"select the physical exchange explicitly");
+  const next=progressTrainingNpc(s,()=>dice,()=>.9);
+  assert.equal(next.pending,null);
+  assert.equal(next.actors.NPC.spentAp,1,"the NPC pays for the strike");
+  assert.equal(next.actors.NPC.spentTicks,63,"the NPC spends its own action time");
+  assert.equal(next.mana.NPC.current,10,"a physical counter is not charged mana");
+  assert.equal(next.log.filter(e=>e.kind==="ATTACK"&&e.by==="NPC").length,1,
+    "no extra proactive action is granted");
+  assert.ok(next.actors.NPC.hp<100,"the incoming magic still lands");
+  assert.ok(next.actors.PLAYER.hp<100,"the NPC actually attacks");
+});

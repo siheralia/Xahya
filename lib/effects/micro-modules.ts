@@ -315,18 +315,6 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
               typeof step.rotateEachRound!=="boolean")
               fail("distorsión de dirección inválida");
             break;
-          case "FUSE_SUMMONS":
-          intents.push({kind:"FUSE_SUMMONS",ownerId:ctx.ownerId,
-            sourceEntityKeys:[...step.sourceEntityKeys],entityKey:step.entityKey,
-            label:step.label,manaCost:step.manaCost,maintenanceMana:step.maintenanceMana,
-            durationTurns:step.durationTurns,controlRangeMeters:step.controlRangeMeters,
-            hitLimit:step.hitLimit});
-          break;
-        case "CHAOS_FIELD":
-          intents.push({kind:"CHAOS_FIELD",entityKey:step.entityKey,
-            radiusMeters:step.radiusMeters,rotationDegrees:step.rotationDegrees,
-            rotateEachRound:step.rotateEachRound});
-          break;
         case "SET_ENTITY_STAT":
             if(!validKey(step.entityKey)||!validKey(step.destStat)||!finite(step.value)||
                step.value<0||step.value>1_000_000)
@@ -616,6 +604,18 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
             sourceStat:step.sourceStat,destStat:step.destStat,factor,value:bounded(value*factor),dynamic:true});
           break;
         }
+        case "FUSE_SUMMONS":
+          intents.push({kind:"FUSE_SUMMONS",ownerId:ctx.ownerId,
+            sourceEntityKeys:[...step.sourceEntityKeys],entityKey:step.entityKey,
+            label:step.label,manaCost:step.manaCost,maintenanceMana:step.maintenanceMana,
+            durationTurns:step.durationTurns,controlRangeMeters:step.controlRangeMeters,
+            hitLimit:step.hitLimit});
+          break;
+        case "CHAOS_FIELD":
+          intents.push({kind:"CHAOS_FIELD",entityKey:step.entityKey,
+            radiusMeters:step.radiusMeters,rotationDegrees:step.rotationDegrees,
+            rotateEachRound:step.rotateEachRound});
+          break;
         case "SET_ENTITY_STAT":
           intents.push({kind:"SET_ENTITY_STAT",entityKey:step.entityKey,
             destStat:step.destStat,value:step.value,dynamic:false});

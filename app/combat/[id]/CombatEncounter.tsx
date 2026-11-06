@@ -596,10 +596,14 @@ export default function CombatEncounter({id}:{id:string}) {
         {item.icons.map((Icon,index)=><Icon key={index} size={item.icons.length===1?18:13}/>)}
        </button>)}
        {canCreateObjects&&<button type="button" title="Colocar construcción" aria-label="Colocar construcción"
-        aria-pressed={panel==="construction"} onClick={()=>{setPanel("construction");setFieldMode("CONSTRUCT");setMovementPlan("MOVE_ONLY");}}
+        aria-pressed={panel==="construction"} onClick={()=>{
+         if(panel==="construction"){setPanel("none");setFieldMode("MOVE");setConstructionOptionsOpen(false);}
+         else {setPanel("construction");setFieldMode("CONSTRUCT");setMovementPlan("MOVE_ONLY");}
+        }}
         className="flex h-9 min-w-0 flex-1 items-center justify-center rounded-md border border-cyan-500/50 text-cyan-300"><Box size={18}/></button>}
        <button type="button" title="Ver terreno" aria-label="Ver terreno" aria-pressed={fieldMode==="VIEW"}
-        onClick={()=>{setFieldMode("VIEW");setFieldMove(null);setMovementPlan("MOVE_ONLY");}}
+        onClick={()=>{setPanel("none");setConstructionOptionsOpen(false);
+          setFieldMode("VIEW");setFieldMove(null);setMovementPlan("MOVE_ONLY");}}
         className="flex h-9 min-w-0 flex-1 items-center justify-center rounded-md border border-zinc-600 text-zinc-300"><Eye size={18}/></button>
       </div>
       <CombatTopDownPlane state={state} side={side}

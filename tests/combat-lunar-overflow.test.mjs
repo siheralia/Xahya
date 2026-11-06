@@ -162,3 +162,21 @@ test("residual buffs from other skills stack with overflow and expire independen
  assert.equal(s2.mana.PLAYER.current,190);
  assert.equal(s2.summonStatuses.length,6);
 });
+
+test("legacy charges are preserved on the same round boundary that despawns the familiar",()=>{
+ let s=newState(0);
+ s.combatCharges=undefined;
+ s.summons=[{
+  id:"legacy-familiar",owner:"PLAYER",sourceSkillId:21,entityKey:"LEGACY",label:"Viejo familiar",
+  fieldPosition:{x:0.45,y:0},createdRound:1,expiresAtRound:2,controlRangeMeters:15,
+  maintenanceMana:20,integrity:50,hitCount:0,hitLimit:3,
+  links:[],behavior:{mode:"HOLD",allowedModes:["HOLD"],target:"USER",trigger:"COMMAND"},
+  charges:{LUNAR_CHARGES:4}
+ }];
+ s.actors.PLAYER.spentTicks=100;
+ s.actors.NPC.spentTicks=80;
+ s=applyCombatCommand(s,"NPC",{kind:"WAIT"},rolls);
+ assert.equal(s.round,2);
+ assert.equal(s.summons.length,0);
+ assert.equal(combatChargeBalance(s,"PLAYER","LUNAR_CHARGES"),4);
+});

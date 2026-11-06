@@ -13,7 +13,7 @@ import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {angularAreaSvgPath,isOrientedCombatArea} from "@/lib/combat/skill-area";
 import {
-  actionPoints, basicCounterAttack, canAct, canStartComposite, compositeActionTicks, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, effectiveWeaponReachMeters, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  actionPoints, basicCounterAttack, canAct, canStartComposite, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, effectiveWeaponReachMeters, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type PhysicalAttackSource, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
@@ -378,12 +378,8 @@ export default function CombatEncounter({id}:{id:string}) {
  const attackDistance=movementOrder==="BEFORE"?afterMovementDistance:targetDistance;
  const missingMoveTrace=movementPlan!=="MOVE_ONLY"&&fieldMode==="MOVE"&&!proposedMovement;
  const canCombine=!!actor&&canStartComposite(actor);
- // Show only the ticks actually still payable within the current round.
- // A combination costs 2 PA, but uses the SAME final tick window as a single
- // attack; at 81/100 an action may spend 19 ticks and finish the round.
- const combinedAttackTicks=actor?Math.min(
-  compositeActionTicks(actor,attackMode!=="MAGIC_AREA"&&selectedWeapon?displayedAttackType:undefined),
-  Math.max(0,100-actor.spentTicks)):0;
+ // A combination costs 2 PA, but uses the SAME final tick window as
+ // a single attack: even at 81/100 ticks it may finish the round.
  const canCombineAttack=!!actor&&canStartComposite(actor);
  const basicReach=attackMode==="MAGIC_AREA"?BASIC_MAGIC_RANGE_METERS:
    actor?effectiveWeaponReachMeters(actor,attackMode==="THROW",activeAttackSource):0;

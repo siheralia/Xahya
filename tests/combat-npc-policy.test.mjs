@@ -78,12 +78,16 @@ test("encounter 60 regression: 11-speed caster does not permanently stunlock 16-
  s.mana={PLAYER:{current:80,max:80},NPC:{current:50,max:50}};
  s=applyCombatCommand(s,"PLAYER",{kind:"ATTACK",usesMagic:true,attackType:"CUT",
    areaCenter:{x:.5,y:.5}},dice());
- assert.equal(chooseNpcReaction(s,()=>0.2).defense,"NONE",
-   "the NPC can accept a survivable magic hit to keep a real counterturn");
- s=progressTrainingNpc(s,dice,()=>0.99);
- assert.equal(s.pending?.by,"NPC","NPC retaliates before the player can cast again");
- assert.ok(s.log.some(e=>e.kind==="ATTACK"&&e.by==="NPC"));
- assert.equal(s.actors.NPC.spentAp,1,"only the counterattack costs PA");
+ assert.equal(chooseNpcReaction(s,()=>0.2).defense,"COUNTER",
+   "the NPC should launch its attack while accepting the incoming magic");
+ const beforeNpcHp=s.actors.NPC.hp,beforePlayerHp=s.actors.PLAYER.hp;
+ s=progressTrainingNpc(s,dice,()=>0.2);
+ assert.equal(s.pending,null,"both attacks resolve in one exchange without extra defense");
+ assert.ok(s.log.some(e=>e.kind==="RESOLVE"&&e.by==="NPC"),"the NPC actually dealt counter damage");
+ assert.ok(s.actors.NPC.hp<beforeNpcHp,"the NPC accepted the full incoming magic damage");
+ assert.ok(s.actors.PLAYER.hp<beforePlayerHp,"the NPC attacked at the same time");
+ assert.equal(s.actors.NPC.spentAp,1,"the counterattack pays exactly one PA");
+ assert.equal(s.actors.NPC.spentTicks,63,"counterattack spends its normal time");
 });
 
 test("automatic training policy never takes control of a human PvP opponent",()=>{

@@ -186,3 +186,47 @@ test("server rejects unsupported status formulas and target selectors",()=>{
    operation:"MULTIPLIER",value:{source:"STAT",key:"strength"},durationTurns:2}
  ])])),/valor numérico fijo/);
 });
+
+test("combat stat picker rejects a forged stat and applies only an authorized choice",()=>{
+ const steps=[
+  ...link("JUDGMENT"),
+  {kind:"SET_ENTITY_BEHAVIOR",entityKey:"JUDGMENT",mode:"FOLLOW",
+   allowedModes:["FOLLOW"],target:"USER",trigger:"CONTACT"},
+  ...touch("USER"),
+  {kind:"SELECT_STAT",output:"chosenAttribute",mode:"COMBAT",allowed:["DODGE","PHYSICAL_ATTACK"]},
+  {kind:"APPLY_STATUS",target:{source:"OUTPUT",key:"target"},
+   stat:{source:"STAT_SELECTION",key:"chosenAttribute"},
+   operation:"MULTIPLIER",value:0.5,durationTurns:2}
+ ];
+ const plan=compileCombatSkill(skill([container("JUDGMENT_PICKER",steps)]));
+ let s=cast(state(),plan),id=s.summons[0].id;
+ assert.throws(()=>applyCombatCommand(s,"PLAYER",{
+  kind:"COMMAND_SUMMON",summonId:id,order:"ACT",chosenStat:"MAX_HP"
+ },rolls),/estadística autorizada/);
+ assert.equal(s.actors.PLAYER.spentAp,1,"rejected selection must not debit the original state");
+ s=applyCombatCommand(s,"PLAYER",{
+  kind:"COMMAND_SUMMON",summonId:id,order:"ACT",chosenStat:"DODGE"
+ },rolls);
+ assert.equal(s.actors.PLAYER.dodge,20);
+ assert.equal(s.summonStatuses[0].stat,"dodge");
+});
+test("random stat selection uses server rolls, not client requested attributes",()=>{
+ const steps=[
+  ...link("RANDOM_FAMILIAR"),
+  {kind:"SET_ENTITY_BEHAVIOR",entityKey:"RANDOM_FAMILIAR",mode:"FOLLOW",
+   allowedModes:["FOLLOW"],target:"USER",trigger:"CONTACT"},
+  ...touch("USER"),
+  {kind:"SELECT_STAT",output:"randomAttribute",mode:"RANDOM",allowed:["DODGE","PHYSICAL_ATTACK"]},
+  {kind:"APPLY_STATUS",target:{source:"OUTPUT",key:"target"},
+   stat:{source:"STAT_SELECTION",key:"randomAttribute"},
+   operation:"MULTIPLIER",value:0.5,durationTurns:2}
+ ];
+ const plan=compileCombatSkill(skill([container("RANDOM_PICK",steps)]));
+ let s=cast(state(),plan);
+ s=applyCombatCommand(s,"PLAYER",{
+  kind:"COMMAND_SUMMON",summonId:s.summons[0].id,order:"ACT",chosenStat:"DODGE"
+ },{...rolls,hit:0.99});
+ assert.equal(s.summonStatuses[0].stat,"physicalAttack");
+ assert.equal(s.actors.PLAYER.physicalAttack,50);
+ assert.equal(s.actors.PLAYER.dodge,40);
+});

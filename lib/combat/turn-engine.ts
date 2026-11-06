@@ -12,7 +12,7 @@ import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, 
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_METERS,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
-import {assertMovementClear,blockingMovement,firstCoverAlongStroke,validatePhysicalCollider} from "./physical-obstacles.ts";
+import {assertMovementClear,blockingMovement,firstCoverAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
 
@@ -793,6 +793,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
      damageToAttacker:number;damageToDefender:number;spentAp:number;spentTicks:number;
      manaRemaining?:number;physicalPathEnd?:CombatState["physicalPathEnd"];
      physicalPathEnds?:CombatState["physicalPathEnds"];events:CombatLog[];
+     /** Counter resolves on a shadow to preserve simultaneous lethal damage.
+      * Transfer its physical cover wear separately, without overwriting
+      * damage already dealt by the incoming strike to the same wall.
+      */
+     constructionWear:Array<{id:string;wear:number}>;
      attackerPosition?:Point;attackerPositionMeters:number;
     }|null=null;
     if(defense==="COUNTER"){
@@ -815,7 +820,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
        manaRemaining:launched.mana?.[by]?.current,
        physicalPathEnd:launched.physicalPathEnd,
        physicalPathEnds:launched.physicalPathEnds,
-       events:resolved.log.slice(state.log.length).filter(e=>["ATTACK","RESOLVE","REFLECTION"].includes(e.kind)),
+       events:resolved.log.slice(state.log.length).filter(e=>["ATTACK","RESOLVE","REFLECTION","CONSTRUCTION"].includes(e.kind)),
+       constructionWear:(state.constructions??[]).flatMap(wall=>{
+        if(wall.form!=="BLOCK"||!measuredBlock(wall))return [];
+        const remaining=resolved.constructions?.find(c=>c.id===wall.id)?.durability??0;
+        const wear=Math.max(0,(wall.durability??0)-remaining);
+        return wear>0?[{id:wall.id,wear}]:[];
+       }),
        attackerPosition:resolved.actors[pending.by].fieldPosition,
        attackerPositionMeters:resolved.actors[pending.by].positionMeters
       };
@@ -1181,6 +1192,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // defender reaches zero HP. No second defense, extra initiative or
     // opportunity to counter the counter is granted in this exchange.
     if(exchange){
+      for(const wear of exchange.constructionWear){
+        const wall=state.constructions?.find(c=>c.id===wear.id);
+        if(!wall)continue;
+        wall.durability=Math.max(0,(wall.durability??0)-wear.wear);
+        wall.hitCount=(wall.hitCount??0)+1;
+        if(wall.durability===0)
+          state.constructions=state.constructions?.filter(c=>c.id!==wall.id);
+      }
       attacker.hp=Math.max(0,attacker.hp-exchange.damageToAttacker);
       fighter.hp=Math.max(0,fighter.hp-exchange.damageToDefender);
       if(exchange.attackerPosition){

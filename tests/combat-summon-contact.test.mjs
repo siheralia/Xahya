@@ -46,7 +46,8 @@ test("preset dragon has fixed intrinsic stats independent of its summoner",()=>{
   ...[
     ["PHYSICAL_ATTACK",180],["PHYSICAL_DEFENSE",90],["AGI",60],
     ["MOVE_SPEED",60],["PRECISION",75],["DODGE",30],["STRENGTH",120],
-    ["INTEGRITY",300]
+    ["MAGIC_ATTACK",130],["MAGIC_DEFENSE",110],["CON",45],["CRITICAL",8],
+    ["LUCK",7],["RACE",70],["MASS_KG",600],["INTEGRITY",300]
   ].map(([destStat,value])=>({kind:"SET_ENTITY_STAT",entityKey:"DRAGON",destStat,value})),
   {kind:"SET_ENTITY_BEHAVIOR",entityKey:"DRAGON",mode:"FOLLOW",
    allowedModes:["FOLLOW","HOLD"],target:"USER",trigger:"COMMAND"},
@@ -56,7 +57,7 @@ test("preset dragon has fixed intrinsic stats independent of its summoner",()=>{
   agility:3,speedValue:3,strength:2})),plan);
  const b=cast(state(fighter("Archmage",0,{physicalAttack:900,physicalDefense:200,
   agility:700,speedValue:700,strength:400})),plan);
- for(const key of ["PHYSICAL_ATTACK","PHYSICAL_DEFENSE","AGI","MOVE_SPEED","PRECISION","DODGE","STRENGTH"])
+ for(const key of ["PHYSICAL_ATTACK","PHYSICAL_DEFENSE","AGI","MOVE_SPEED","PRECISION","DODGE","STRENGTH","MAGIC_ATTACK","MAGIC_DEFENSE","CON","CRITICAL","LUCK","RACE","MASS_KG"])
   assert.equal(summonStat(a.summons[0],a.actors.PLAYER,key),summonStat(b.summons[0],b.actors.PLAYER,key));
  assert.equal(a.summons[0].integrity,300);
  assert.equal(b.summons[0].integrity,300);

@@ -38,6 +38,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const updatedResources = await tx.orm.public.CharacterResource.where({ id: resources.id }).update({ karma: karma - 20 });
     const expiresAt = Temporal.Instant.fromEpochMilliseconds(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const modifier = await tx.orm.public.CharacterModifier.create({ characterId, stat, amount: 20, source: "KARMA_BOOST", expiresAt });
+    await recordAuditEvent({
+        actorUserId: user.id,
+        action: "KARMA_BOOST",
+        entityType: "CHARACTER",
+        entityId: characterId,
+        characterId,
+        details: { stat, amount: 20, karmaSpent: 20, karmaBefore: karma, karmaAfter: Number(updatedResources?.karma ?? 0), expiresAt: String(expiresAt) },
+        }, tx);
     return { updatedResources, modifier, karmaBefore: karma, expiresAt };
   }).catch((error) => {
     if (error instanceof Error && error.message === "NOT_ENOUGH_KARMA") return { error: "Necesitas 20 de karma para realizar este boost." };
@@ -45,15 +53,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   });
 
   if ("error" in result) return NextResponse.json(result, { status: 400 });
-
-  await recordAuditEvent({
-    actorUserId: user.id,
-    action: "KARMA_BOOST",
-    entityType: "CHARACTER",
-    entityId: characterId,
-    characterId,
-    details: { stat, amount: 20, karmaSpent: 20, karmaBefore: result.karmaBefore, karmaAfter: Number(result.updatedResources?.karma ?? 0), expiresAt: String(result.expiresAt) },
-  });
 
   return NextResponse.json({ karma: Number(result.updatedResources?.karma ?? 0), modifier: result.modifier });
 }

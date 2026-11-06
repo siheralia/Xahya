@@ -406,6 +406,9 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
   const polygonPoints = (points: { x: number; y: number }[]) =>
     points.map((point) => point.x.toFixed(1) + "," + point.y.toFixed(1)).join(" ");
   const basePolygon = polygonPoints(basePoints);
+  // Los valores cercanos a cero convergen en el centro: mostrar un único nodo pequeño.
+  const nearCenter = (point: { x: number; y: number }) => Math.hypot(point.x - center, point.y - center) < 9;
+  const firstCenterPoint = basePoints.findIndex(nearCenter);
 
   const hasBoost = radarStats.some((stat) => values[stat.key] > baseValues[stat.key]);
   return (
@@ -453,7 +456,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           );
         })}
 
-        <polygon points={basePolygon} fill={palette.primary} fillOpacity="0.32" stroke="none" />
+        <polygon points={basePolygon} fill={palette.primary} fillOpacity="0.42" stroke="none" />
 
         {/* Las franjas de boost se dibujan por sector para evitar cruces del polígono
             exterior/interior al mezclarse estadísticas aumentadas y no aumentadas. */}
@@ -467,20 +470,32 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
               key={"boost-region-" + stat.key}
               points={polygonPoints([basePoints[index], basePoints[next], effectivePoints[next], effectivePoints[index]])}
               fill="#ef4444"
-              fillOpacity="0.28"
+              fillOpacity="0.22"
               stroke="none"
             />
           );
         })}
 
-        {/* Contorno blanco delgado sobre un halo oscuro discreto, sin triple trazo pesado. */}
-        <polygon points={basePolygon} fill="none" stroke="#09090b" strokeOpacity="0.5" strokeWidth="2.8" strokeLinejoin="round" />
-        <polygon points={basePolygon} fill="none" stroke="#ffffff" strokeOpacity="0.94" strokeWidth="1.6" strokeLinejoin="round" />
-        <polygon points={basePolygon} fill="none" stroke={palette.primary} strokeWidth="0.7" strokeLinejoin="round" />
+        {/* El color temático manda; el blanco queda como perfil fino de contraste. */}
+        <polygon points={basePolygon} fill="none" stroke="#09090b" strokeOpacity="0.45" strokeWidth="2.2" strokeLinejoin="round" />
+        <polygon points={basePolygon} fill="none" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="1.2" strokeLinejoin="round" />
+        <polygon points={basePolygon} fill="none" stroke={palette.primary} strokeWidth="1.3" strokeLinejoin="round" />
 
-        {basePoints.map((point, index) => (
-          <circle key={"base-" + radarStats[index].key} cx={point.x} cy={point.y} r="2.8" fill={palette.primary} stroke="#ffffff" strokeWidth="1.35" />
-        ))}
+        {basePoints.map((point, index) => {
+          const clustered = nearCenter(point);
+          if (clustered && index !== firstCenterPoint) return null;
+          return (
+            <circle
+              key={"base-" + radarStats[index].key}
+              cx={point.x}
+              cy={point.y}
+              r={clustered ? 1.5 : 2.4}
+              fill={palette.primary}
+              stroke="#ffffff"
+              strokeWidth={clustered ? 0.8 : 1.1}
+            />
+          );
+        })}
 
         {hasBoost && radarStats.map((stat, index) => {
           if (values[stat.key] <= baseValues[stat.key]) return null;
@@ -488,8 +503,8 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           const boosted = effectivePoints[index];
           return (
             <g key={"boost-" + stat.key}>
-              <line x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke="#ef4444" strokeWidth="2.6" strokeLinecap="round" />
-              <circle cx={boosted.x} cy={boosted.y} r="3" fill="#ef4444" stroke="#ffffff" strokeWidth="1.35" />
+              <line x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+              <circle cx={boosted.x} cy={boosted.y} r={nearCenter(boosted) ? 1.6 : 2.6} fill="#ef4444" stroke="#ffffff" strokeWidth="1" />
             </g>
           );
         })}

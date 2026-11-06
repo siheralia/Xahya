@@ -770,7 +770,7 @@ export default function CombatEncounter({id}:{id:string}) {
         </p>
         {!inRangeFor("BEFORE")&&<p role="status" className="text-[11px] text-amber-200">
          El objetivo sigue fuera de alcance tras avanzar; utiliza «Solo mover» para acercarte.
-        </p>
+        </p>}
         {!canCombineAttack&&<p role="status" className="text-[11px] text-amber-200">
          {actor&&remainingAp(actor)<2?"Faltan PA para combinar.":"Los ticks restantes no permiten combinar."}
         </p>}

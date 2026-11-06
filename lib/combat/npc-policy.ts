@@ -3,7 +3,8 @@ import {
   type CombatCommand, type CombatState, type DefenseChoice, type Point,
 } from "./turn-engine.ts";
 import { BASIC_MAGIC_RANGE_METERS } from "./magic-area.ts";
-import {fieldDistance} from "./field-plane.ts";
+import {fieldDistance,fieldPosition} from "./field-plane.ts";
+import {blockingMovement} from "./physical-obstacles.ts";
 
 export type NpcDice = { hit: number; critical: number; defense: number };
 export type NpcRandom = () => number;
@@ -220,7 +221,31 @@ export function progressTrainingNpc(
     if(distance>physicalReach && !castMagic) {
       const maximum=Math.max(1,Math.round(npc.race/10));
       const meters=Math.min(maximum,Math.max(0.01,distance-Math.max(0.1,physicalReach-0.05)));
-      next=applyCombatCommand(next,"NPC",{kind:"MOVE",meters,direction:"TOWARD"},makeDice());
+      const from=fieldPosition(npc);
+      const forwardX=npc.positionMeters+(Math.sign(player.positionMeters-npc.positionMeters)||1)*
+        Math.min(meters,Math.abs(player.positionMeters-npc.positionMeters));
+      const forward={x:forwardX,y:from.y};
+      if(!blockingMovement(next.constructions,from,forward)){
+        next=applyCombatCommand(next,"NPC",{kind:"MOVE",meters,direction:"TOWARD"},makeDice());
+      }else{
+        // Do not let auto-ADVANCE fail endlessly against a player-created
+        // barrier. Pick the first measured legal side-step, or end this turn.
+        // VECTOR movement is capped to the existing 1m hand-drawn step.
+        const to=fieldPosition(player),heading=Math.atan2(to.y-from.y,to.x-from.x);
+        const stride=Math.min(1,meters);
+        const deviations=[Math.PI/4,-Math.PI/4,Math.PI/2,-Math.PI/2,
+          3*Math.PI/4,-3*Math.PI/4,Math.PI];
+        const alternative=deviations.map(angle=>({
+          x:Math.round(Math.cos(heading+angle)*stride*1000)/1000,
+          y:Math.round(Math.sin(heading+angle)*stride*1000)/1000,
+        })).find(move=>Math.hypot(move.x,move.y)>=0.01&&
+          !blockingMovement(next.constructions,from,{x:from.x+move.x,y:from.y+move.y}));
+        next=alternative
+          ?applyCombatCommand(next,"NPC",{kind:"MOVE",meters:Math.round(
+             Math.hypot(alternative.x,alternative.y)*1000)/1000,
+             direction:"VECTOR",planarMove:alternative},makeDice())
+          :applyCombatCommand(next,"NPC",{kind:"WAIT"},makeDice());
+      }
     } else {
       next=castMagic
         ? applyCombatCommand(next,"NPC",{kind:"ATTACK",attackType:npc.attackType,usesMagic:true,

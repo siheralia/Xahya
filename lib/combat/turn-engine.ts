@@ -12,6 +12,7 @@ import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, 
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_METERS,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
+import {assertMovementClear,blockingMovement,firstCoverAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
 
@@ -59,6 +60,8 @@ export type PendingAttack = {
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
   mirrorId?:string; mirrorAuto?:boolean;
+  /** Only user-specified vertical strokes can authorize 3D cover tests. */
+  explicitTrajectory?:boolean;
 };
 export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
@@ -141,7 +144,7 @@ export type CombatCommand =
   | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
   | { kind: "ATTACK"; requestId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; requestId?:string; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -444,6 +447,8 @@ function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEF
 /** Apply an already paid and validated move, without charging a third PA. */
 function finishCompositeStep(state:CombatState,by:Side,vector:Point){
  const fighter=state.actors[by];
+ const from=fieldPosition(fighter),to={x:from.x+vector.x,y:from.y+vector.y};
+ assertMovementClear(state.constructions,from,to);
  moveFighterOnField(fighter,vector);
  clearPhysicalStrokes(state,by);
  addLog(state,{kind:"POSITION",tick:(state.round-1)*LIMIT+fighter.spentTicks,by,
@@ -453,11 +458,17 @@ function finishCompositeStep(state:CombatState,by:Side,vector:Point){
 /** Involuntary knockback must update the same 2D ground position shown in
  * the horizontal panel. On legacy one-dimensional encounters this reduces
  * exactly to the old signed X movement. */
-function pushAwayOnField(mover:CombatFighter,reference:CombatFighter,meters:number){
+function pushAwayOnField(state:CombatState,mover:CombatFighter,reference:CombatFighter,meters:number):number{
  const a=fieldPosition(mover),b=fieldPosition(reference);
  const dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
  const sign=d>1e-9?{x:dx/d,y:dy/d}:{x:1,y:0};
- moveFighterOnField(mover,{x:sign.x*meters,y:sign.y*meters});
+ const destination={x:a.x+sign.x*meters,y:a.y+sign.y*meters};
+ const collision=blockingMovement(state.constructions,a,destination);
+ // Forced knockback stops at the measured wall, without cancelling the hit
+ // or rolling back the whole combat transaction. Voluntary movement rejects.
+ const actual=collision?Math.max(0,meters*collision.t-1e-4):meters;
+ moveFighterOnField(mover,{x:sign.x*actual,y:sign.y*actual});
+ return actual;
 }
 function lastInitiativeSide(state: CombatState): Side | null {
   for (let i = state.log.length - 1; i >= 0; i--) {
@@ -782,6 +793,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
      damageToAttacker:number;damageToDefender:number;spentAp:number;spentTicks:number;
      manaRemaining?:number;physicalPathEnd?:CombatState["physicalPathEnd"];
      physicalPathEnds?:CombatState["physicalPathEnds"];events:CombatLog[];
+     /** Counter resolves on a shadow to preserve simultaneous lethal damage.
+      * Transfer its physical cover wear separately, without overwriting
+      * damage already dealt by the incoming strike to the same wall.
+      */
+     constructionWear:Array<{id:string;wear:number}>;
      attackerPosition?:Point;attackerPositionMeters:number;
     }|null=null;
     if(defense==="COUNTER"){
@@ -804,7 +820,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
        manaRemaining:launched.mana?.[by]?.current,
        physicalPathEnd:launched.physicalPathEnd,
        physicalPathEnds:launched.physicalPathEnds,
-       events:resolved.log.slice(state.log.length).filter(e=>["ATTACK","RESOLVE","REFLECTION"].includes(e.kind)),
+       events:resolved.log.slice(state.log.length).filter(e=>["ATTACK","RESOLVE","REFLECTION","CONSTRUCTION"].includes(e.kind)),
+       constructionWear:(state.constructions??[]).flatMap(wall=>{
+        if(wall.form!=="BLOCK"||!measuredBlock(wall))return [];
+        const remaining=resolved.constructions?.find(c=>c.id===wall.id)?.durability??0;
+        const wear=Math.max(0,(wall.durability??0)-remaining);
+        return wear>0?[{id:wall.id,wear}]:[];
+       }),
        attackerPosition:resolved.actors[pending.by].fieldPosition,
        attackerPositionMeters:resolved.actors[pending.by].positionMeters
       };
@@ -964,7 +986,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const target=direction==="WEAPON"?dropped!.positionMeters:attacker.positionMeters;
       const sign=Math.sign(target-fighter.positionMeters)||1;
       const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
-      fighter.positionMeters+=sign*(direction==="AWAY"?-0.5:step);
+      const from=fieldPosition(fighter);
+      const nextX=fighter.positionMeters+sign*(direction==="AWAY"?-0.5:step);
+      assertMovementClear(state.constructions,from,{x:nextX,y:from.y});
+      fighter.positionMeters=nextX;
       if(fighter.fieldPosition)fighter.fieldPosition.x=fighter.positionMeters;
       clearPhysicalStrokes(state,by);
       if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2){
@@ -973,7 +998,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     // No selected dodge means contact is checked against a small base margin,
     // not another invisible full Esquive roll.
-    const contact = !avoided && (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (
+    let contact = !avoided && (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (
       // Basic magic preserves its established full-area effect. Projectile
       // placement and hand-drawn melee use the explicit geometric hitbox.
       pending.attackArea?.shape==="SELF_FIELD"
@@ -986,7 +1011,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         ) <= (pending.attackType==="BLUNT"?0.17:pending.attackType==="CUT"?0.11:0.07)
         : geometricContact(pending.attackType,pending.trajectory,targetHitboxCenter))
     );
-    const critical = contact && rolls.critical < clamp(0.05 + attacker.critical / (attacker.critical + fighter.luck + 100)*0.20,0.05,0.25);
+    let critical = contact && rolls.critical < clamp(0.05 + attacker.critical / (attacker.critical + fighter.luck + 100)*0.20,0.05,0.25);
     // A free phase-1 magical *basic* strike is intentionally bounded.
     // Full skill damage, mana expenditure and elemental effects belong to phase 2.
     const skill=pending.skill;
@@ -997,7 +1022,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         ?Math.max(1,Math.round((3+5*power/(power+protection+20))*(critical?1.5:1)*typeFactor))
         :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor-protection*0.75));
     const racialFactor=racialDamageFactor(fighter.damageTakenFactors,pending.attackType,pending.usesMagic,skill?.damageElement);
-    const damage = contact ? Math.max(0, Math.round(raw * damageScale * (skill?.finalMultiplier??1) * racialFactor)) : 0;
+    let damage = contact ? Math.max(0, Math.round(raw * damageScale * (skill?.finalMultiplier??1) * racialFactor)) : 0;
     // Only defense-stat mitigation counts; reaction-blocking/dodge and
     // construction reductions cannot be added to the stored value.
     const noResistanceRaw=skill
@@ -1005,19 +1030,52 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       :pending.usesMagic
         ?Math.max(1,Math.round((3+5*power/(power+20))*(critical?1.5:1)*typeFactor))
         :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor));
-    const noResistanceDamage=contact?Math.max(0,Math.round(
+    let noResistanceDamage=contact?Math.max(0,Math.round(
       noResistanceRaw*damageScale*(skill?.finalMultiplier??1)*racialFactor)):0;
-    const mitigatedByResistance=contact?Math.max(0,noResistanceDamage-damage):0;
+    let mitigatedByResistance=contact?Math.max(0,noResistanceDamage-damage):0;
+    let physicalCoverLabel:string|undefined;
+    // Horizontal positions come from the top-down plane; vertical heights
+    // come ONLY from a deliberately drawn physical stroke. Basic spells,
+    // area shapes, auto-generated strokes and unknown old BLOCK geometry
+    // must not gain invented line-of-sight occlusion.
+    if(contact&&!pending.usesMagic&&!pending.attackArea&&!pending.mirrorId&&
+      pending.explicitTrajectory&&pending.trajectory.length>=2){
+      const cover=firstCoverAlongStroke(state.constructions,
+        fieldPosition(attacker),fieldPosition(fighter),pending.trajectory,
+        defense==="CONSTRUCTION"?command.constructionId:undefined);
+      if(cover){
+        const wall=cover.block;
+        const pressure=Math.max(1,Math.round(Math.max(0,power)*
+          (skill?.damageMultiplier??1)*(skill?.finalMultiplier??1)));
+        const durability=wall.durability??0;
+        const wear=Math.min(durability,pressure);
+        wall.durability=Math.max(0,durability-wear);
+        wall.hitCount=(wall.hitCount??0)+1;
+        physicalCoverLabel=wall.label;
+        const overflow=Math.max(0,pressure-durability)/pressure;
+        damage=Math.max(0,Math.round(damage*overflow));
+        noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*overflow));
+        mitigatedByResistance=Math.max(0,noResistanceDamage-damage);
+        if(overflow===0){contact=false;critical=false;}
+        if(wall.durability===0)
+          state.constructions=state.constructions?.filter(c=>c.id!==wall.id);
+        addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by:pending.by,
+          against:wall.owner,constructionId:wall.id,damage:wear,contact:true,
+          summary:wall.durability===0
+            ?wall.label+" se rompió al interceptar la trayectoria del ataque."
+            :wall.label+" interceptó el ataque físico y recibió "+wear+" de desgaste."});
+      }
+    }
     fighter.hp = Math.max(0, fighter.hp - damage);
     if (contact && damage > 0 && displaced === 0 && !pending.usesMagic)
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
     if (displaced > 0) {
       if (defense === "REPEL" && damageScale < 1) {
-        pushAwayOnField(attacker,fighter,displaced);
+        displaced=pushAwayOnField(state,attacker,fighter,displaced);
         // An involuntary displacement also breaks the continuity of a stroke.
         clearPhysicalStrokes(state,pending.by);
       } else {
-        pushAwayOnField(fighter,attacker,displaced);
+        displaced=pushAwayOnField(state,fighter,attacker,displaced);
         clearPhysicalStrokes(state,by);
       }
     }
@@ -1037,7 +1095,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       rangedPhysical:pending.rangedPhysical,
       predictedCenter:(pending.usesMagic&&defense==="DODGE"||pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"&&defense==="DODGE"||pending.rangedPhysical&&["DODGE","DEFLECT"].includes(defense))?command.predictedCenter:undefined,
       predictionMatched:validArenaPoint(pending.targetCenter)&&validArenaPoint(command.predictedCenter)?Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=(pending.rangedPhysical?0.09:0.19):undefined,
-      summary:mirrorLabel
+      summary:physicalCoverLabel
+        ?physicalCoverLabel+" interceptó la trayectoria; daño al combatiente: "+damage+" HP"
+        :mirrorLabel
         ?(avoided?fighter.name+" esquivó el rayo de "+mirrorLabel
           :"El rayo de "+mirrorLabel+" impactó a "+fighter.name+" ("+damage+" HP)")
         :avoided ? fighter.name + (pending.usesMagic?" escapó de la explosión":" evitó el ataque")
@@ -1132,6 +1192,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // defender reaches zero HP. No second defense, extra initiative or
     // opportunity to counter the counter is granted in this exchange.
     if(exchange){
+      for(const wear of exchange.constructionWear){
+        const wall=state.constructions?.find(c=>c.id===wear.id);
+        if(!wall)continue;
+        wall.durability=Math.max(0,(wall.durability??0)-wear.wear);
+        wall.hitCount=(wall.hitCount??0)+1;
+        if(wall.durability===0)
+          state.constructions=state.constructions?.filter(c=>c.id!==wall.id);
+      }
       attacker.hp=Math.max(0,attacker.hp-exchange.damageToAttacker);
       fighter.hp=Math.max(0,fighter.hp-exchange.damageToDefender);
       if(exchange.attackerPosition){
@@ -1170,6 +1238,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const vector=validatePlanarMove(command.planarMove);
       if(Math.abs(Math.hypot(vector.x,vector.y)-command.meters)>0.02)
         throw new Error("Los metros no coinciden con el trazo dibujado.");
+      const start=fieldPosition(fighter);
+      assertMovementClear(state.constructions,start,{x:start.x+vector.x,y:start.y+vector.y});
       moveFighterOnField(fighter,vector);clearPhysicalStrokes(state,by);
       spend(fighter,turnTicks(fighter));
       state.tick=Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
@@ -1183,7 +1253,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const target=direction==="WEAPON"?dropped!.positionMeters:rival.positionMeters;
     const sign = Math.sign(target-fighter.positionMeters)||1;
     const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(target-fighter.positionMeters));
-    fighter.positionMeters += sign*magnitude;
+    const start=fieldPosition(fighter);
+    const destination=fighter.positionMeters+sign*magnitude;
+    assertMovementClear(state.constructions,start,{x:destination,y:start.y});
+    fighter.positionMeters=destination;
     if(fighter.fieldPosition)fighter.fieldPosition.x=fighter.positionMeters;
     let recoveredWeapon:string|undefined;
     if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&restoreWeapon(state,dropped)){
@@ -1211,6 +1284,15 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const weaponStrike=command.usesMagic!==true&&!!plannedWeapon&&
         (serverSkillRangeMeters===undefined||plannedSource==="MAIN_HAND"||plannedSource==="OFF_HAND");
       const actionTicks=turnTicks(fighter,weaponStrike?command.attackType:undefined);
+      // AFTER must be checked at launch. A pending strike may only be
+      // resolved by the defender, who cannot edit the attacker's movement;
+      // discovering a blocked path during DEFEND would deadlock the fight.
+      if(command.movementOrder==="AFTER"){
+       const step=validatePlanarMove(command.planarMove);
+       const from=fieldPosition(fighter);
+       assertMovementClear(state.constructions,from,
+        {x:from.x+step.x,y:from.y+step.y});
+      }
       applyCompositeStep(state,by,command.planarMove,command.movementOrder??"BEFORE",actionTicks);
     }
     const points = command.trajectory?.length ? command.trajectory : [{x:0.1,y:0.5},{x:0.9,y:0.5}];
@@ -1296,7 +1378,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       return state;
     }
     state.pending = {by,against:other(by),attackType:command.attackType,
-      trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
+      trajectory:points,explicitTrajectory:Array.isArray(command.trajectory)&&command.trajectory.length>=2,
+      launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
       targetCenter:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?command.areaCenter:undefined,
       areaHint:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?magicImpactZone(command.areaCenter!):undefined,
@@ -1333,7 +1416,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
  aim:{requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
-  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string},
+  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;
+  constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))
@@ -1445,6 +1529,19 @@ export function applyResolvedCombatSkill(
    existing.some(x=>x.owner===by&&x.sourceSkillId===plan.id&&x.form==="FIELD"));
   const userLabel=typeof aim.constructionLabel==="string"?aim.constructionLabel.trim():"";
   if(userLabel.length>60||/[\x00-\x1f]/.test(userLabel))throw new Error("Nombre de construcción inválido.");
+  const collider=form==="BLOCK"
+    ?validatePhysicalCollider(aim.constructionFootprintRadiusMeters,
+       aim.constructionSolidHeightMeters,aim.constructionHeightMeters,fieldPoint)
+    :undefined;
+  if(form!=="BLOCK"&&(aim.constructionFootprintRadiusMeters!==undefined||
+    aim.constructionSolidHeightMeters!==undefined))
+    throw new Error("Solo un bloque material puede tener volumen físico sólido.");
+  if(collider&&fieldPoint&&aim.constructionHeightMeters===0){
+    for(const occupant of Object.values(next.actors))
+      if(Math.hypot(fieldPoint.x-fieldPosition(occupant).x,
+        fieldPoint.y-fieldPosition(occupant).y)<collider.radiusMeters)
+        throw new Error("No puedes crear un bloque sólido dentro de un combatiente.");
+  }
   const resistance=plan.creationPassive;
   const baseRes=resistance
     ?Math.max(0,Number((owner as unknown as Record<string,number>)[resistance.resistance.baseStat]??owner.magicDefense)):0;
@@ -1453,6 +1550,7 @@ export function applyResolvedCombatSkill(
     owner:by,sourceSkillId:plan.id,material:plan.construction.material,form,
     label:userLabel||plan.construction.label,center:point,createdRound:next.round,
     fieldPosition:fieldPoint,heightMeters:aim.constructionHeightMeters,
+    footprintRadiusMeters:collider?.radiusMeters,solidHeightMeters:collider?.solidHeightMeters,
     tangible:form==="BLOCK",durability:form==="BLOCK"?Math.max(1,Math.round(baseRes)):undefined,
     passive:resistance?structuredClone(resistance):undefined,
   };

@@ -11,6 +11,11 @@ export type CombatConstruction={
  fieldPosition?:Point;
  /** Construction base height above the ground, in metres. */
  heightMeters?:number;
+ /** Opt-in measured solid cylinder. Missing values on historical objects mean
+  * their map sprite is NOT an authority for movement or line-of-sight blocking.
+  */
+ footprintRadiusMeters?:number;
+ solidHeightMeters?:number;
  /** For mirrors only: longitudinal world coordinate (m) where it was summoned. */
  positionMeters?:number;
  /** A cosmetic construction cannot intercept attacks or affect stats. */

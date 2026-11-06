@@ -4,12 +4,13 @@ import {ZoomIn,ZoomOut,Scan} from "lucide-react";
 import {battleFieldViewport,fieldPosition,fieldToViewport,viewportToField,
  previewViewportMove,pointFromFieldView,pointToFieldView} from "@/lib/combat/field-plane";
 import type {CombatState,Point,Side} from "@/lib/combat/turn-engine";
+import {blockingMovement,measuredBlock} from "@/lib/combat/physical-obstacles";
 
 export type FieldMode="MOVE"|"CONSTRUCT"|"VIEW";
 type Props={
  state:CombatState;side:Side;mode:FieldMode;disabled:boolean;
  move:Point|null;onMove:(move:Point|null)=>void;
- placement:Point|null;onPlacement:(point:Point)=>void;
+ placement:Point|null;onPlacement:(point:Point)=>void;plannedFootprintRadiusMeters?:number|null;
 };
 const within=(n:number)=>Math.max(0,Math.min(1,n));
 function pointerPoint(e:PointerEvent<SVGSVGElement>):Point{
@@ -20,7 +21,7 @@ function pointerPoint(e:PointerEvent<SVGSVGElement>):Point{
 const visible=(point:Point)=>point.x>=0&&point.x<=1&&point.y>=0&&point.y<=1;
 
 export default function CombatTopDownPlane({
- state,side,mode,disabled,move,onMove,placement,onPlacement
+ state,side,mode,disabled,move,onMove,placement,onPlacement,plannedFootprintRadiusMeters
 }:Props){
  const [dragging,setDragging]=useState(false);
  const [zoom,setZoom]=useState(1);
@@ -31,6 +32,9 @@ export default function CombatTopDownPlane({
  const scale=100/viewpoint.spanMeters;
  const radius=scale; // 1 metre in SVG units
  const cx=ownerPoint.x*100,cy=ownerPoint.y*100;
+ const start=fieldPosition(actor);
+ const drawnCollision=mode==="MOVE"&&move&&Math.hypot(move.x,move.y)>0.001
+  ?blockingMovement(state.constructions,start,{x:start.x+move.x,y:start.y+move.y}):null;
  const markers=Object.entries(state.actors) as Array<[Side,typeof actor]>;
  function update(e:PointerEvent<SVGSVGElement>){
   if(disabled||mode==="VIEW")return;
@@ -81,10 +85,16 @@ export default function CombatTopDownPlane({
     const p=fieldToViewport(viewpoint,world);
     if(!visible(p))return null;
     return <g key={c.id} pointerEvents="none">
-     <rect x={p.x*100-3.3} y={p.y*100-3.3} width="6.6" height="6.6"
-      fill={c.owner===side?"#d6ab72":"#9f7aea"} fillOpacity=".55"
-      stroke={c.owner===side?"#fcd34d":"#d8b4fe"} strokeWidth="1"/>
-     <title>{c.label}{c.heightMeters!==undefined?" · altura "+c.heightMeters+" m":""}</title>
+     {measuredBlock(c)
+      ?<circle cx={p.x*100} cy={p.y*100}
+        r={c.footprintRadiusMeters!*scale}
+        fill={c.owner===side?"#d6ab72":"#9f7aea"} fillOpacity=".35"
+        stroke={c.owner===side?"#fcd34d":"#d8b4fe"} strokeWidth=".8"/>
+      :<rect x={p.x*100-3.3} y={p.y*100-3.3} width="6.6" height="6.6"
+        fill={c.owner===side?"#d6ab72":"#9f7aea"} fillOpacity=".55"
+        stroke={c.owner===side?"#fcd34d":"#d8b4fe"} strokeWidth="1"/>}
+     <title>{c.label}{c.heightMeters!==undefined?" · base "+c.heightMeters+" m":""}
+      {measuredBlock(c)?" · radio "+c.footprintRadiusMeters+" m · alto "+c.solidHeightMeters+" m":""}</title>
     </g>;
    })}
    {markers.map(([owner,f])=>{
@@ -105,13 +115,19 @@ export default function CombatTopDownPlane({
    })}
    {mode==="MOVE"&&move&&Math.hypot(move.x,move.y)>0.001&&<g pointerEvents="none">
     <line x1={cx} y1={cy} x2={cx+move.x*scale} y2={cy+move.y*scale}
-     stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round"/>
-    <circle cx={cx+move.x*scale} cy={cy+move.y*scale} r="1.6" fill="#7dd3fc"/>
+     stroke={drawnCollision?"#fb7185":"#22d3ee"} strokeWidth="1.5" strokeLinecap="round"/>
+    <circle cx={cx+move.x*scale} cy={cy+move.y*scale} r="1.6"
+     fill={drawnCollision?"#fb7185":"#7dd3fc"}/>
     <text x={cx} y={Math.min(94,cy+radius+6)} textAnchor="middle" fill="#a5f3fc" fontSize="4.2">
-     {Math.hypot(move.x,move.y).toFixed(2)} m
+     {drawnCollision?"Bloqueado: "+drawnCollision.block.label:Math.hypot(move.x,move.y).toFixed(2)+" m"}
     </text>
    </g>}
    {mode==="CONSTRUCT"&&constructionPoint&&visible(constructionPoint)&&<g pointerEvents="none">
+    {plannedFootprintRadiusMeters!==null&&plannedFootprintRadiusMeters!==undefined&&
+     plannedFootprintRadiusMeters>=0.1&&plannedFootprintRadiusMeters<=3&&
+     <circle cx={constructionPoint.x*100} cy={constructionPoint.y*100}
+      r={plannedFootprintRadiusMeters*scale} stroke="#fbbf24"
+      fill="#fbbf24" fillOpacity=".08" strokeDasharray="1.5 1" strokeWidth=".7"/>}
     <circle cx={constructionPoint.x*100} cy={constructionPoint.y*100} r="3"
      fill="#fbbf24" stroke="#fff" strokeWidth="1"/>
     <path d={`M${constructionPoint.x*100-5},${constructionPoint.y*100} h10 M${constructionPoint.x*100},${constructionPoint.y*100-5} v10`}

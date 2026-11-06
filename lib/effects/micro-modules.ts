@@ -165,6 +165,12 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
       }
       const outputs = new Set<string>();
       const itemOutputs = new Set<string>();
+      const targetOutputs = new Set<string>();
+      const statOutputs = new Set<string>();
+      const opaqueOutputs = new Set<string>();
+      const validTarget = (target:EntityTargetRef) =>
+        !!target && target.source==="OUTPUT" && targetOutputs.has(target.key);
+      const newOutput = (output:string) => validKey(output)&&!outputs.has(output);
       for (const step of effect.steps) {
         if (!step || typeof step !== "object") fail("paso inválido");
         if (step.when !== undefined) {
@@ -177,7 +183,7 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
         switch (step.kind) {
           case "STORE":
             if (!validKey(step.accumulator) || !integer(step.capacity, 1, 100)) fail("almacenamiento inválido");
-            checkExpr(step.value);checkSourceLinks(step.value,outputs,itemOutputs); break;
+            checkExpr(step.value);checkSourceLinks(step.value,outputs,opaqueOutputs); break;
           case "CONSUME":
             if (!validKey(step.accumulator) || !validKey(step.output) || outputs.has(step.output)
               || (step.charges !== "ALL" && !integer(step.charges, 1, 100))) fail("consumo inválido");
@@ -192,35 +198,92 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
             outputs.add(step.output); break;
           case "CALCULATE":
             if(!validKey(step.output)||outputs.has(step.output))fail("salida de cálculo duplicada o inválida");
-            checkExpr(step.expression);checkSourceLinks(step.expression,outputs,itemOutputs);
+            checkExpr(step.expression);checkSourceLinks(step.expression,outputs,opaqueOutputs);
             outputs.add(step.output);break;
           case "READ_ITEM":
             if(!REPAIR_TARGET_SELECTORS.includes(step.selector)||
               !validKey(step.output)||outputs.has(step.output))
               fail("selector o salida de objeto inválidos");
-            outputs.add(step.output);itemOutputs.add(step.output);break;
+            outputs.add(step.output);itemOutputs.add(step.output);opaqueOutputs.add(step.output);break;
           case "REPAIR_DURABILITY":
             if(!step.target||step.target.source!=="OUTPUT"||
               !validKey(step.target.key)||!itemOutputs.has(step.target.key))
               fail("conecta el objetivo desde un módulo Leer objeto anterior");
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs);break;
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,opaqueOutputs);break;
           case "HEAL":
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs); break;
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,opaqueOutputs); break;
           case "DAMAGE":
             if (!["PHYSICAL", "MAGICAL"].includes(step.channel) || (step.element !== undefined && !validKey(step.element))) fail("tipo de daño inválido");
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs);
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,opaqueOutputs);
             if (step.radiusMeters !== undefined){
-              checkExpr(step.radiusMeters);checkSourceLinks(step.radiusMeters,outputs,itemOutputs);
+              checkExpr(step.radiusMeters);checkSourceLinks(step.radiusMeters,outputs,opaqueOutputs);
             } break;
           case "MODIFIER":
             if (!validKey(step.stat) ||
               (step.sourceTarget!==undefined&&!validKey(step.sourceTarget))||
               (step.sourceElement!==undefined&&!validKey(step.sourceElement)))
               fail("estadística de multiplicador inválida");
-            checkExpr(step.multiplier);checkSourceLinks(step.multiplier,outputs,itemOutputs); break;
+            checkExpr(step.multiplier);checkSourceLinks(step.multiplier,outputs,opaqueOutputs); break;
           case "BONUS":
             if (!validKey(step.stat)) fail("estadística inválida");
-            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,itemOutputs); break;
+            checkExpr(step.amount);checkSourceLinks(step.amount,outputs,opaqueOutputs); break;
+          case "SELECT_TARGET":
+            if(!["USER","OPPONENT","ALLY","COMBAT"].includes(step.selector)||!newOutput(step.output))
+              fail("selección de objetivo inválida");
+            outputs.add(step.output);targetOutputs.add(step.output);opaqueOutputs.add(step.output);break;
+          case "SELECT_STAT":
+            if(!["FIXED","RANDOM","COMBAT"].includes(step.mode)||!newOutput(step.output)
+              ||!Array.isArray(step.allowed)||!step.allowed.length||step.allowed.length>32
+              ||step.allowed.some(k=>!validKey(k))||new Set(step.allowed).size!==step.allowed.length
+              ||(step.mode==="FIXED"&&!step.allowed.includes(step.fixed??"")))
+              fail("selección de estadística inválida");
+            outputs.add(step.output);statOutputs.add(step.output);opaqueOutputs.add(step.output);break;
+          case "READ_HP_DAMAGE":
+            if(effect.trigger!=="DAMAGE_RESOLVED"||!newOutput(step.output))
+              fail("leer daño a HP requiere un evento de daño resuelto");
+            outputs.add(step.output);break;
+          case "REQUIRE_CONTACT":
+            if(!validTarget(step.target))fail("contacto sin objetivo seleccionado anterior");
+            break;
+          case "SUMMON_ENTITY":
+            if(!validKey(step.entityKey)||!step.label?.trim()||step.label.length>120
+              ||!integer(step.manaCost,0,1000000)||!integer(step.maintenanceMana,0,1000000)
+              ||!integer(step.durationTurns,1,100)||!finite(step.controlRangeMeters)
+              ||step.controlRangeMeters<=0||step.controlRangeMeters>1000
+              ||!integer(step.hitLimit,1,100))fail("invocación inválida");
+            break;
+          case "LINK_ENTITY_STAT":
+            if(!validKey(step.entityKey)||!validKey(step.sourceStat)||!validKey(step.destStat))
+              fail("vínculo de estadística inválido");
+            checkExpr(step.factor);checkSourceLinks(step.factor,outputs,opaqueOutputs);break;
+          case "SET_ENTITY_BEHAVIOR":
+            if(!validKey(step.entityKey)||!["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"].includes(step.mode)
+              ||!Array.isArray(step.allowedModes)||!step.allowedModes.includes(step.mode)
+              ||!step.allowedModes.length||step.allowedModes.length>5
+              ||new Set(step.allowedModes).size!==step.allowedModes.length
+              ||step.allowedModes.some(m=>!["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"].includes(m))
+              ||!["USER","OPPONENT","ALLY","COMBAT"].includes(step.target)
+              ||!["CONTACT","HP_DAMAGE","COMMAND"].includes(step.trigger))
+              fail("comportamiento de entidad inválido");
+            break;
+          case "APPLY_STATUS":
+            if(!validTarget(step.target)
+              ||!(typeof step.stat==="string"?validKey(step.stat):
+                step.stat?.source==="STAT_SELECTION"&&statOutputs.has(step.stat.key))
+              ||!["MULTIPLIER","BONUS"].includes(step.operation)
+              ||!integer(step.durationTurns,1,100))
+              fail("estado sin objetivo o estadística seleccionados");
+            checkExpr(step.value);checkSourceLinks(step.value,outputs,opaqueOutputs);break;
+          case "READ_STATUSES":
+            if(!validTarget(step.target)||!["ALL","BUFF","DEBUFF"].includes(step.filter)
+              ||!newOutput(step.output))fail("lectura de estados inválida");
+            outputs.add(step.output);break;
+          case "INVERT_STATUS":
+            if(!validTarget(step.target)||!["LATEST_DEBUFF","SELECTED_DEBUFF"].includes(step.selection)
+              ||!integer(step.manaCost,0,1000000)
+              ||(step.chargeAccumulator!==undefined&&!validKey(step.chargeAccumulator)))
+              fail("inversión de estado inválida");
+            break;
           case "CAPABILITY":
             if (!/^(CARD:W[0-9]{3}|NARRATIVE:OTHER)$/.test(step.code)
               || typeof step.description !== "string" || step.description.length > 1500
@@ -234,8 +297,8 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
             break;
           case "VARIABLE_RESISTANCE":
             if (validateVariableResistance(step.config)) fail("resistencia variable inválida");
-            if(step.base!==undefined){checkExpr(step.base);checkSourceLinks(step.base,outputs,itemOutputs);}
-            if(step.input!==undefined){checkExpr(step.input);checkSourceLinks(step.input,outputs,itemOutputs);}
+            if(step.base!==undefined){checkExpr(step.base);checkSourceLinks(step.base,outputs,opaqueOutputs);}
+            if(step.input!==undefined){checkExpr(step.input);checkSourceLinks(step.input,outputs,opaqueOutputs);}
             break;
           default: fail("operación desconocida");
         }

@@ -6,11 +6,11 @@ import type {CombatCommand, CombatState, Side} from "./turn-engine.ts";
  * NPC policy actions are internal and never require a client request ID.
  */
 export type ReplayableCombatCommand =
- Extract<CombatCommand,{kind:"MOVE"|"WAIT"|"ATTACK"|"DEFEND"}> |
+ Extract<CombatCommand,{kind:"MOVE"|"WAIT"|"ATTACK"|"DEFEND"|"COMMAND_SUMMON"}> |
  {kind:"ADVANCE";requestId?:string};
 
 export function isReplayableCombatKind(kind:unknown):kind is ReplayableCombatCommand["kind"] {
- return kind==="MOVE"||kind==="WAIT"||kind==="ATTACK"||kind==="DEFEND"||kind==="ADVANCE";
+ return kind==="MOVE"||kind==="WAIT"||kind==="ATTACK"||kind==="DEFEND"||kind==="COMMAND_SUMMON"||kind==="ADVANCE";
 }
 
 const validRequestId=(id:unknown):id is string=>

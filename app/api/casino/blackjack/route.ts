@@ -224,10 +224,14 @@ export async function POST(request: Request) {
         return {
           action: "start",
           player: dealt.player,
-          dealer: dealt.dealer,
-          dealerHidden: !finalState,
+          // During active play, expose only the dealer's up-card. Never serialize
+          // the hole card or a total computed from the hidden card.
+          dealer: finalState ? dealt.dealer.slice(0, 1) : dealt.dealer,
+          dealerHidden: Boolean(finalState),
           value: handValue(dealt.player),
-          dealerValue: finalState ? handValue(dealt.dealer) : handValue(dealt.dealer),
+          dealerValue: finalState
+            ? handValue(dealt.dealer.slice(0, 1))
+            : handValue(dealt.dealer),
           outcome,
           payout: payout - bet,
           money: finalMoney,
@@ -269,7 +273,8 @@ export async function POST(request: Request) {
         return {
           action: "hit",
           player,
-          dealer: activeState.dealer,
+          // Do not expose the persisted dealer hole card in active-game responses.
+          dealer: activeState.dealer.slice(0, 1),
           dealerHidden: true,
           value: handValue(player),
           dealerValue: handValue(activeState.dealer.slice(0, 1)),

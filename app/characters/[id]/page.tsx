@@ -1153,6 +1153,11 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       character.equipment.filter((entry) => entry.equipped && (entry.item?.effects?.length ?? 0) > 0).flatMap((entry) =>
         (entry.item?.effects ?? []).map((effect) => {
           const name = entry.item?.name ?? "Objeto";
+          if (effect.type === "durability_wear_on_hit") {
+            const wear = effect as typeof effect & {wearPercent?:number;channel?:string};
+            const channel=wear.channel==="MAGICAL"?"mágico":wear.channel==="PHYSICAL"?"físico":"físico/mágico";
+            return "• "+name+": Desgaste "+Number(wear.wearPercent??0)+"% al recibir daño "+channel;
+          }
           if (effect.type === "auto_repair_durability") {
             const params = effect as typeof effect & {manaCost?:number;intervalTurns?:number};
             return "• " + name + ": Autorreparación · " +
@@ -2190,7 +2195,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                     <div>
                       <p className="font-semibold text-zinc-100">{entry.item?.name ?? "Objeto"}</p>
                       <p className="mt-1 text-xs text-zinc-500">{equipmentSlots.find((slot) => slot[0] === entry.equippedSlot)?.[1] ?? entry.equippedSlot ?? "Ranura"}</p>
-                       {entry.item?.itemType==="WEAPON"&&<p className="mt-1 text-xs text-amber-300">Durabilidad: {entry.durability??100}/100{entry.durability===0?" · ROTA (no utilizable en combate)":""}</p>}
+                       {["WEAPON","ARMOR","ACCESSORY"].includes(entry.item?.itemType??"")&&
+                            <p className="mt-1 text-xs text-amber-300">Durabilidad: {entry.durability??100}/100
+                              {entry.durability===0
+                                ?(entry.item?.itemType==="WEAPON"?" · ROTA (no utilizable en combate)":" · Sin durabilidad")
+                                :""}
+                            </p>}
                     </div>
                     <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>
                   </div>
@@ -2571,7 +2581,12 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
                       <div>
                         <p className="font-semibold">{entry.item?.name ?? "Objeto"}</p>
                         <p className="mt-1 text-xs" style={{ color: themePalette.muted }}>Cantidad: {entry.quantity}</p>
-                         {entry.item?.itemType==="WEAPON"&&<p className="mt-1 text-xs text-amber-300">Durabilidad: {entry.durability??100}/100{entry.durability===0?" · ROTA (no utilizable en combate)":""}</p>}
+                         {["WEAPON","ARMOR","ACCESSORY"].includes(entry.item?.itemType??"")&&
+                            <p className="mt-1 text-xs text-amber-300">Durabilidad: {entry.durability??100}/100
+                              {entry.durability===0
+                                ?(entry.item?.itemType==="WEAPON"?" · ROTA (no utilizable en combate)":" · Sin durabilidad")
+                                :""}
+                            </p>}
                       </div>
                       {entry.equipped && <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-xs text-emerald-300">Equipado</span>}
                     </div>

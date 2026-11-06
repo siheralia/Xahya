@@ -173,7 +173,7 @@ test("separating an inventory stack keeps the exact original instance wear",()=>
 
 test("combat API saves per-copy wear by inventory ID and guards against write-back repairs",()=>{
  const api=source("app/api/combat/[id]/actions/route.ts");
- assert.match(api,/for\(const weapon of \[fighter\.equippedWeapon,fighter\.offhandWeapon\]\)/);
+ assert.match(api,/for\(const weapon of \[fighter\.equippedWeapon,fighter\.offhandWeapon,/);
  assert.match(api,/"characterItemId"|weapon\.characterItemId/);
  assert.match(api,/durability=LEAST\(durability/);
  assert.doesNotMatch(api,/AND equipped=true/,

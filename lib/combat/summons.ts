@@ -8,7 +8,8 @@ import {resolveStatusStat} from "./summon-status.ts";
 import type {CombatFighter,Point,Side} from "./turn-engine.ts";
 
 export type SummonStat = "PHYSICAL_ATTACK"|"PHYSICAL_DEFENSE"|"AGI"|"INTEGRITY"|
-  "MOVE_SPEED"|"PRECISION"|"DODGE"|"STRENGTH";
+  "MOVE_SPEED"|"PRECISION"|"DODGE"|"STRENGTH"|
+  "MAGIC_ATTACK"|"MAGIC_DEFENSE"|"CON"|"CRITICAL"|"LUCK"|"RACE"|"MASS_KG";
 /** Old encounter links omit mode; they remain dynamically linked. */
 export type SummonLink = {sourceStat:string;destStat:SummonStat;factor:number;mode?:"LINK"}
   | {mode:"FIXED";destStat:SummonStat;value:number};
@@ -40,10 +41,13 @@ const ALLOWED_SOURCE:Record<string,keyof CombatFighter>={
   PHYSICAL_ATTACK:"physicalAttack",PHYSICAL_DEFENSE:"physicalDefense",
   AGI:"agility",MOVE_SPEED:"speedValue",PRECISION:"precision",
   DODGE:"dodge",STR:"strength",STRENGTH:"strength",
+  MAGIC_ATTACK:"magicAttack",MAGIC_DEFENSE:"magicDefense",CON:"constitution",
+  CRITICAL:"critical",LUCK:"luck",RACE:"race",MASS_KG:"massKg",
 };
 const ALLOWED_DEST=new Set<SummonStat>([
   "PHYSICAL_ATTACK","PHYSICAL_DEFENSE","AGI","INTEGRITY",
   "MOVE_SPEED","PRECISION","DODGE","STRENGTH",
+  "MAGIC_ATTACK","MAGIC_DEFENSE","CON","CRITICAL","LUCK","RACE","MASS_KG",
 ]);
 const required=["PHYSICAL_ATTACK","AGI","INTEGRITY"] as const;
 const acceptableFactor=(f:unknown):f is number=>
@@ -194,6 +198,13 @@ export function summonStat(summon:CombatSummon,owner:CombatFighter,dest:SummonSt
     case "MOVE_SPEED":return owner.speedValue??owner.agility;
     case "PRECISION":return owner.precision;
     case "DODGE":return owner.dodge;
+    case "MAGIC_ATTACK":return owner.magicAttack;
+    case "MAGIC_DEFENSE":return owner.magicDefense;
+    case "CON":return owner.constitution;
+    case "CRITICAL":return owner.critical;
+    case "LUCK":return owner.luck;
+    case "RACE":return owner.race;
+    case "MASS_KG":return owner.massKg*0.08;
     case "STRENGTH":{
       const attackLink=summon.links.find(l=>l.destStat==="PHYSICAL_ATTACK");
       return owner.strength*(attackLink&&"factor" in attackLink?attackLink.factor:0.2);

@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { summarizeFinishedCombats } from "@/lib/combat/ranking-stats";
 import { readStatisticsCatalog, CORE_BASIC_STAT_KEYS } from "@/lib/stats/dynamic";
 
 const STAT_KEYS = ["strength","agility","constitution","intelligence","wisdom","charisma","spirit","luck"] as const;
@@ -26,6 +27,9 @@ export async function GET() {
   const resources = await db.orm.public.CharacterResource.all();
   const stats = await db.orm.public.CharacterStat.all();
   const auditLogs = await db.orm.public.AuditLog.all();
+  const CombatSession = (db.orm.public as any).CombatSession;
+  const combatSessions = CombatSession ? await CombatSession.where({status:"FINISHED"}).all() : [];
+  const combatResults = summarizeFinishedCombats(combatSessions);
   const catalog = await readStatisticsCatalog();
   const basicKeys = catalog.length ? catalog.filter((entry) => entry.kind === "basic" && entry.active !== false).map((entry) => entry.key) : [...CORE_BASIC_STAT_KEYS];
   const dynamicModel = (db.orm.public as any).CharacterStatValue;
@@ -35,6 +39,7 @@ export async function GET() {
     const owner = users.find((user) => Number(user.id) === Number(character.userId));
     if (String(owner?.role) === "SYSTEM") return [];
 
+    const combat = combatResults.get(Number(character.id));
     const resource = resources.find((r) => Number(r.characterId) === Number(character.id));
     const stat = stats.find((s) => Number(s.characterId) === Number(character.id));
     const pointsTotal = basicKeys.reduce((sum, key) => {
@@ -87,6 +92,11 @@ export async function GET() {
       mazeRooms,
       mazeDiscovered,
       mazeTreasures,
+      combatWins: combat?.combatWins ?? 0,
+      combatLosses: combat?.combatLosses ?? 0,
+      combatDraws: combat?.combatDraws ?? 0,
+      combatTotal: combat?.combatTotal ?? 0,
+      combatWinRate: combat?.combatWinRate ?? 0,
     }];
   });
 

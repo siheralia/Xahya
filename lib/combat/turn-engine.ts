@@ -393,6 +393,11 @@ export function turnTicks(f: CombatFighter, attackType?: CombatAttackType) {
   const modifier = attackType === "BLUNT" ? 1.15 : attackType === "PIERCE" ? 0.85 : 1;
   return calculateActionTicks(effectiveCombatSpeed(f), modifier);
 }
+/** A combined movement and action use one overlapping temporal window,
+ * but each constituent still costs its own action point. */
+export function compositeActionTicks(f: CombatFighter, attackType?: CombatAttackType) {
+  return Math.max(turnTicks(f), turnTicks(f, attackType));
+}
 export function remainingAp(f: CombatFighter) {
   return Math.max(0, actionPoints(f.constitution) - f.spentAp);
 }
@@ -406,14 +411,14 @@ const hasInitiativeBudget = (f: CombatFighter) =>
  * This is derived from the persisted event log, so existing encounters
  * do not need a migration or a new saved-state version.
  */
-/** A composed movement+action pays two PA and two tick costs atomically. */
-/** Reserve the extra PA/ticks atomically. For AFTER, do not move before the
+/** A composed movement+action pays two PA, occupying one temporal window. */
+/** Check the combined PA/ticks atomically. For AFTER, do not move before the
  * defender has resolved: the attack still launches from the original range.
  */
 function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEFORE"|"AFTER"="BEFORE",actionTicks?:number){
  const fighter=state.actors[by],vector=validatePlanarMove(requested);
  if(remainingAp(fighter)<2)throw new Error("Moverse y actuar a la vez requiere 2 PA.");
- if(fighter.spentTicks+turnTicks(fighter)+(actionTicks??turnTicks(fighter))>LIMIT)
+ if(fighter.spentTicks+Math.max(turnTicks(fighter),actionTicks??turnTicks(fighter))>LIMIT)
   throw new Error("No quedan ticks suficientes para combinar movimiento y acción.");
  spend(fighter,turnTicks(fighter));
  if(order==="BEFORE")finishCompositeStep(state,by,vector);
@@ -716,7 +721,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       if(defense==="NONE")throw new Error("No puedes combinar movimiento con una reacción sin PA.");
       applyCompositeStep(state,by,command.planarMove);
     }
-    if (defense !== "NONE") spend(fighter, turnTicks(fighter));
+    if (defense !== "NONE") spend(fighter,command.planarMove!==undefined?0:turnTicks(fighter));
     const materialAttackBonus=!pending.usesMagic&&pending.materialPerkBonus&&
       fighter.perkIds?.includes(pending.materialPerkBonus.perkId)
         ?pending.materialPerkBonus.attackBonus:0;
@@ -1085,7 +1090,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // In particular SELF_FIELD (Meia-lua) forces attackSource="KICK".
     const weaponStrike=!magic && selectedWeapon!==undefined &&
       (serverSkillRangeMeters===undefined || command.attackSource==="MAIN_HAND" || command.attackSource==="OFF_HAND");
-    spend(fighter,turnTicks(fighter,weaponStrike?command.attackType:undefined));
+    const attackTicks=turnTicks(fighter,weaponStrike?command.attackType:undefined);
+    // The movement was charged one full neutral temporal window already;
+    // only the slower weapon's excess ticks remain for a combined attack.
+    spend(fighter,command.planarMove!==undefined?Math.max(0,attackTicks-turnTicks(fighter)):attackTicks);
     if(magic&&serverSkillRangeMeters===undefined)state.mana![by].current-=1;
     if(thrown&&selectedWeapon){
       const slot=source as "MAIN_HAND"|"OFF_HAND";

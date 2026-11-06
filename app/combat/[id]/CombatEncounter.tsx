@@ -13,7 +13,7 @@ import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {angularAreaSvgPath,isOrientedCombatArea} from "@/lib/combat/skill-area";
 import {
-  actionPoints, canAct, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, effectiveWeaponReachMeters, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  actionPoints, canAct, compositeActionTicks, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, effectiveWeaponReachMeters, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type PhysicalAttackSource, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
@@ -348,10 +348,11 @@ export default function CombatEncounter({id}:{id:string}) {
   movedPosition.y-fieldPosition(state.actors[opposingSide]).y):targetDistance;
  const attackDistance=movementOrder==="BEFORE"?afterMovementDistance:targetDistance;
  const missingMoveTrace=movementPlan!=="MOVE_ONLY"&&fieldMode==="MOVE"&&!drawnMovement;
- const canCombine=!!actor&&remainingAp(actor)>=2&&actor.spentTicks+turnTicks(actor)*2<=100;
+ const canCombine=!!actor&&remainingAp(actor)>=2&&actor.spentTicks+compositeActionTicks(actor)<=100;
+ const combinedAttackTicks=actor?compositeActionTicks(actor,
+  attackMode!=="MAGIC_AREA"&&selectedWeapon?displayedAttackType:undefined):0;
  const canCombineAttack=!!actor&&remainingAp(actor)>=2&&
-  actor.spentTicks+turnTicks(actor)+
-   turnTicks(actor,attackMode!=="MAGIC_AREA"&&selectedWeapon?displayedAttackType:undefined)<=100;
+  actor.spentTicks+combinedAttackTicks<=100;
  const basicReach=attackMode==="MAGIC_AREA"?BASIC_MAGIC_RANGE_METERS:
    actor?effectiveWeaponReachMeters(actor,attackMode==="THROW",activeAttackSource):0;
  const basicOutOfRange=attackDistance>basicReach;
@@ -870,7 +871,14 @@ export default function CombatEncounter({id}:{id:string}) {
           :" Dibuja un paso hacia el rival y elige «Mover y atacar»."}
         </p>}
         {missingMoveTrace&&<p role="status" className="mb-2 text-xs text-cyan-200">Dibuja primero el desplazamiento en el plano izquierdo o selecciona «Solo mover».</p>}
-        {preparedMovement&&!canCombineAttack&&<p role="status" className="mb-2 text-xs text-amber-300">Faltan PA o ticks para combinar movimiento y ataque (requiere 2 PA).</p>}
+        {preparedMovement&&!canCombineAttack&&<p role="status" className="mb-2 text-xs text-amber-300">
+         {actor&&remainingAp(actor)<2
+          ?"Necesitas 2 PA para combinar movimiento y ataque; tienes "+remainingAp(actor)+"."
+          :actor
+           ?"No alcanzan los ticks: esta combinación requiere "+combinedAttackTicks+
+            " ticks y te quedan "+(100-actor.spentTicks)+"."
+           :"No hay recursos disponibles para esta combinación."}
+        </p>}
         {attackMode==="MAGIC_AREA"&&!areaCenter&&<p role="status" className="mb-2 text-xs text-violet-300">Marca el centro de la magia en el plano vertical para poder lanzarla.</p>}
        {!(attackMode==="MAGIC_AREA"&&preparedAreaSkill)&&<button disabled={!ready||basicOutOfRange||missingMoveTrace||(!!preparedMovement&&!canCombineAttack)||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"

@@ -34,6 +34,21 @@ const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
     case "DAMAGE":return {kind,amount:10,channel:"MAGICAL"};
     case "MODIFIER":return {kind,stat:"RESISTANCE",multiplier:1.3};
     case "BONUS":return {kind,stat:"STR",amount:10};
+    case "SELECT_TARGET":return {kind,selector:"OPPONENT",output:"chosenTarget"};
+    case "SELECT_STAT":return {kind,mode:"FIXED",allowed:["STR","AGI","DODGE"],fixed:"STR",output:"chosenStat"};
+    case "READ_HP_DAMAGE":return {kind,output:"hpDamage"};
+    case "REQUIRE_CONTACT":return {kind,target:{source:"OUTPUT",key:"chosenTarget"}};
+    case "SUMMON_ENTITY":return {kind,entityKey:"FAMILIAR",label:"Familiar",manaCost:30,
+      maintenanceMana:20,durationTurns:2,controlRangeMeters:15,hitLimit:3};
+    case "LINK_ENTITY_STAT":return {kind,entityKey:"FAMILIAR",sourceStat:"PHYSICAL_ATTACK",
+      destStat:"PHYSICAL_ATTACK",factor:0.2};
+    case "SET_ENTITY_BEHAVIOR":return {kind,entityKey:"FAMILIAR",mode:"FOLLOW",
+      allowedModes:["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"],target:"USER",trigger:"CONTACT"};
+    case "APPLY_STATUS":return {kind,target:{source:"OUTPUT",key:"chosenTarget"},stat:"STR",
+      operation:"MULTIPLIER",value:0.5,durationTurns:2};
+    case "READ_STATUSES":return {kind,target:{source:"OUTPUT",key:"chosenTarget"},filter:"DEBUFF",output:"statusCount"};
+    case "INVERT_STATUS":return {kind,target:{source:"OUTPUT",key:"chosenTarget"},
+      selection:"LATEST_DEBUFF",manaCost:10,chargeAccumulator:"LUNAR_CHARGES"};
     case "CAPABILITY":return {kind,code:"NARRATIVE:OTHER",description:""};
     case "VARIABLE_RESISTANCE":return {kind,config:{...DEFAULT_VARIABLE_RESISTANCE}};
   }
@@ -144,13 +159,13 @@ function ConditionsEditor({value,onChange,title}:{value:MicroCondition[];onChang
     </div>)}
   </section>;
 }
-function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItemOutputs}:{step:MicroStep;onChange:(s:MicroStep)=>void;onDelete:()=>void;index:number;availableOutputs:string[];availableItemOutputs:string[]}){
+function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItemOutputs,availableTargetOutputs,availableStatOutputs}:{step:MicroStep;onChange:(s:MicroStep)=>void;onDelete:()=>void;index:number;availableOutputs:string[];availableItemOutputs:string[];availableTargetOutputs:string[];availableStatOutputs:string[]}){
   const change=(patch:Partial<MicroStep>)=>onChange({...step,...patch} as MicroStep);
   return <section className="space-y-3 rounded-xl border border-cyan-900/60 bg-zinc-900/70 p-3">
     <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold">Micromódulo {index+1}</h4>
       <button type="button" onClick={onDelete} className="text-xs text-rose-300">Eliminar</button></div>
     <label className="block text-xs">Operación<select className={"mt-1 "+field} value={step.kind} onChange={e=>onChange({...defaultStep(e.target.value as MicroStep["kind"]),when:step.when})}>
-      {["READ_STAT","READ_STORED","READ_ITEM","CALCULATE","STORE","CONSUME","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
+      {["READ_STAT","READ_STORED","READ_ITEM","CALCULATE","STORE","CONSUME","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS","SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","REQUIRE_CONTACT","SUMMON_ENTITY","LINK_ENTITY_STAT","SET_ENTITY_BEHAVIOR","APPLY_STATUS","READ_STATUSES","INVERT_STATUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
     </select></label>
     {step.kind==="READ_STAT"&&<div className="grid gap-2 sm:grid-cols-3">
       <label className="text-xs">¿De quién?
@@ -397,7 +412,10 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
         </div>
       </div>
       <StepEditor step={step} index={index}
-        availableOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{output:string}>=>"output" in s&&s.kind!=="READ_ITEM").map(s=>s.output)}
+        availableOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{output:string}>=>"output" in s&&
+          !["READ_ITEM","SELECT_TARGET","SELECT_STAT"].includes(s.kind)).map(s=>s.output)}
+        availableTargetOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{kind:"SELECT_TARGET"}>=>s.kind==="SELECT_TARGET").map(s=>s.output)}
+        availableStatOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{kind:"SELECT_STAT"}>=>s.kind==="SELECT_STAT").map(s=>s.output)}
         availableItemOutputs={value.steps.slice(0,index).filter((s):s is Extract<MicroStep,{kind:"READ_ITEM"}>=>s.kind==="READ_ITEM").map(s=>s.output)}
         onChange={next=>update({steps:value.steps.map((x,i)=>i===index?next:x)})}
         onDelete={()=>update({steps:value.steps.filter((_,i)=>i!==index)})}/>

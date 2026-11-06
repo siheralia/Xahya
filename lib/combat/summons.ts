@@ -5,6 +5,7 @@
 import {validateEffectContainers,type EffectContainer,type EntityBehaviorMode,
   type EntityTargetSlot} from "../effects/micro-modules.ts";
 import {resolveStatusStat} from "./summon-status.ts";
+import type {ChaosFieldConfig} from "./chaos-fusion.ts";
 import type {CombatFighter,Point,Side} from "./turn-engine.ts";
 
 export type SummonStat = "PHYSICAL_ATTACK"|"PHYSICAL_DEFENSE"|"AGI"|"INTEGRITY"|
@@ -38,6 +39,9 @@ export type CombatSummon = {
   contactEffects?:SummonContactEffect[];charges?:Record<string,number>;
   /** Old per-creature charge wallets are copied to the owner pool only once. */
   chargesMigrated?:boolean;
+  /** A fused creature may carry a configured directional field. */
+  chaosField?:ChaosFieldConfig;
+  fusedFrom?:string[];
 };
 const ALLOWED_SOURCE:Record<string,keyof CombatFighter>={
   PHYSICAL_ATTACK:"physicalAttack",PHYSICAL_DEFENSE:"physicalDefense",

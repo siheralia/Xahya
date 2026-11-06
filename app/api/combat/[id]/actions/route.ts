@@ -226,7 +226,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
             next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);
         }
       } else {
-        next=applyCombatCommand(state,side,command,dice());
+        next=applyCombatCommand(state,side,command,dice(),undefined,undefined,undefined,false,
+          command.kind==="DEFEND"&&command.defense==="COUNTER"?dice():undefined);
         // In particular, progress after PLAYER's DEFEND; previously this was
         // skipped and forced GM to control the training NPC manually.
         if(side==="PLAYER" && next.status==="ACTIVE")

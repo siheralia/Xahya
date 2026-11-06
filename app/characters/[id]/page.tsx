@@ -403,16 +403,13 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
 
   const basePoints = getPoints(baseValues);
   const effectivePoints = getPoints(values);
-
   const polygonPoints = (points: { x: number; y: number }[]) =>
     points.map((point) => point.x.toFixed(1) + "," + point.y.toFixed(1)).join(" ");
+  const basePolygon = polygonPoints(basePoints);
 
   const hasBoost = radarStats.some((stat) => values[stat.key] > baseValues[stat.key]);
-
   const boostPath = hasBoost
-    ? polygonPoints(effectivePoints) +
-      " " +
-      polygonPoints([...basePoints].reverse())
+    ? polygonPoints(effectivePoints) + " " + polygonPoints([...basePoints].reverse())
     : "";
 
   return (
@@ -427,9 +424,9 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
               return (center + Math.cos(angle) * r) + "," + (center + Math.sin(angle) * r);
             }).join(" ")}
             fill="none"
-            stroke={palette.border}
-            strokeOpacity={0.55}
-            strokeWidth="1"
+            stroke="#ffffff"
+            strokeOpacity="0.46"
+            strokeWidth="0.9"
           />
         ))}
         {radarStats.map((stat, index) => {
@@ -440,25 +437,51 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           const y2 = center + Math.sin(angle) * radius;
           return (
             <g key={stat.key}>
-              <line x1={center} y1={center} x2={x2} y2={y2} stroke="rgb(63 63 70)" strokeWidth="1" />
-              <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill={palette.muted} fontSize="11">
+              <line x1={center} y1={center} x2={x2} y2={y2} stroke="#ffffff" strokeOpacity="0.42" strokeWidth="0.9" />
+              <text
+                x={x}
+                y={y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="#ffffff"
+                stroke="#09090b"
+                strokeOpacity="0.85"
+                strokeWidth="2.5"
+                fontSize="11"
+                fontWeight="600"
+                style={{ paintOrder: "stroke", filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7))" }}
+              >
                 {stat.short}
               </text>
             </g>
           );
         })}
 
-        <polygon points={polygonPoints(basePoints)} fill={palette.primary} fillOpacity="0.32" stroke={palette.primary} strokeWidth="2" />
+        <polygon points={basePolygon} fill={palette.primary} fillOpacity="0.4" stroke="none" />
 
         {hasBoost && (
           <polygon points={boostPath} fill="#ef4444" fillOpacity="0.38" fillRule="evenodd" stroke="#ef4444" strokeOpacity="0.75" strokeWidth="1.5" />
         )}
 
+        {/* El halo oscuro y el doble contorno mantienen la forma legible con cualquier tema o ilustración. */}
+        <polygon points={basePolygon} fill="none" stroke="#09090b" strokeOpacity="0.45" strokeWidth="5" strokeLinejoin="round" />
+        <polygon points={basePolygon} fill="none" stroke="#ffffff" strokeOpacity="0.94" strokeWidth="3.25" strokeLinejoin="round" />
+        <polygon points={basePolygon} fill="none" stroke={palette.primary} strokeWidth="1.75" strokeLinejoin="round" />
+
+        {basePoints.map((point, index) => (
+          <circle key={"base-" + radarStats[index].key} cx={point.x} cy={point.y} r="2.8" fill={palette.primary} stroke="#ffffff" strokeWidth="1.35" />
+        ))}
+
         {hasBoost && radarStats.map((stat, index) => {
           if (values[stat.key] <= baseValues[stat.key]) return null;
           const base = basePoints[index];
           const boosted = effectivePoints[index];
-          return <line key={"boost-" + stat.key} x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />;
+          return (
+            <g key={"boost-" + stat.key}>
+              <line x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />
+              <circle cx={boosted.x} cy={boosted.y} r="3" fill="#ef4444" stroke="#ffffff" strokeWidth="1.35" />
+            </g>
+          );
         })}
       </svg>
 

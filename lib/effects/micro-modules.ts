@@ -23,7 +23,7 @@ export type MicroStep = (
   | { kind: "STORE"; accumulator: string; capacity: number; value: NumericExpr }
   | { kind: "CONSUME"; accumulator: string; output: string; charges: "ALL" | number }
   /** A player chooses how many charges to consume from their persistent combat pool. */
-  | {kind:"CONSUME_COMBAT_CHARGES";accumulator:string;minCharges:number;maxCharges:number;output:string}
+  | {kind:"CONSUME_COMBAT_CHARGES";accumulator:string;minCharges:number;maxCharges:number;manaCost:number;output:string}
   /** Each stat gains (1 + perChargePercent × charges / 100), for durationTurns. */
   | {kind:"APPLY_CHARGE_BUFF";charges:NumericExpr;stats:string[];
       perChargePercent:number;durationTurns:number}
@@ -202,7 +202,7 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
           case "CONSUME_COMBAT_CHARGES":
             if(!validKey(step.accumulator)||!newOutput(step.output)||
               !integer(step.minCharges,1,6)||!integer(step.maxCharges,1,6)||
-              step.minCharges>step.maxCharges)
+              step.minCharges>step.maxCharges||!integer(step.manaCost,0,1000000))
               fail("consumo de cargas de combate inválido");
             outputs.add(step.output);break;
           case "APPLY_CHARGE_BUFF":

@@ -211,9 +211,24 @@ export default function CombatEncounter({id}:{id:string}) {
    const key=JSON.stringify([id,side,snapshot?.round,snapshot?.tick,
     snapshot?.actors[side].spentTicks,snapshot?.actors[side].spentAp,
     snapshot?.pending?.launchedAtTick,snapshot?.log.at(-1)?.summary,command]);
-   const previous=actionRequestRef.current;
+   const storageKey="xahya-pending-combat:"+id+":"+side;
+   let previous=actionRequestRef.current;
+   // sessionStorage survives a tab reload after a lost response; never rely on
+   // it for authorization or correctness (the server checks the real ledger).
+   if(!previous){
+    try{
+     const saved=window.sessionStorage.getItem(storageKey);
+     if(saved){
+      const candidate=JSON.parse(saved) as {key?:unknown;id?:unknown};
+      if(typeof candidate.key==="string"&&typeof candidate.id==="string")
+       previous={key:candidate.key,id:candidate.id};
+     }
+    }catch{ /* Restricted storage is optional. */ }
+   }
    const requestId=previous?.key===key?previous.id:crypto.randomUUID();
    actionRequestRef.current={key,id:requestId};
+   try{window.sessionStorage.setItem(storageKey,JSON.stringify({key,id:requestId}));}
+   catch{ /* A request ID is still retained in memory. */ }
    outgoing={...command,requestId};
   }
   setBusy(true);setError("");setActionFeedback("");
@@ -225,8 +240,11 @@ export default function CombatEncounter({id}:{id:string}) {
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"Acción rechazada");
    setView(v=>v?{...v,state:data.state}:v);
-   if(["MOVE","WAIT","ATTACK","DEFEND"].includes(command.kind))
+   if(["MOVE","WAIT","ATTACK","DEFEND"].includes(command.kind)){
     actionRequestRef.current=null;
+    try{window.sessionStorage.removeItem("xahya-pending-combat:"+id+":"+side);}
+    catch{ /* Storage may be unavailable. */ }
+   }
    if(command.kind==="BOOST_KARMA"){setKarmaAllocation({});karmaRequestRef.current=null;void load();}
    if(command.kind==="DEFEND")setPredictedCenter(null);
    if(command.kind==="ATTACK"||command.kind==="CAST_SKILL"||command.kind==="MOVE"||command.kind==="WAIT")

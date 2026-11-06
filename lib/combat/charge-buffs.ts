@@ -38,7 +38,7 @@ export function compileChargeBuff(effects:readonly unknown[],manaCost:number):Ch
  if(!Array.isArray(buff.stats)||buff.stats.some(stat=>!resolveStatusStat(stat))||
    new Set(buff.stats.map(stat=>resolveStatusStat(stat))).size!==buff.stats.length)
    throw new Error("Las estadísticas de la potenciación deben ser válidas y distintas.");
- if(consume.maxCharges>6||buff.perChargePercent*consume.maxCharges>600)
+ if(consume.maxCharges>6||buff.perChargePercent*consume.maxCharges>200)
    throw new Error("La potenciación supera los límites permitidos.");
  return {
    accumulator:consume.accumulator,minCharges:consume.minCharges,maxCharges:consume.maxCharges,

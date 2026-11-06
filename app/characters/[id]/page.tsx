@@ -408,13 +408,9 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
   const basePolygon = polygonPoints(basePoints);
 
   const hasBoost = radarStats.some((stat) => values[stat.key] > baseValues[stat.key]);
-  const boostPath = hasBoost
-    ? polygonPoints(effectivePoints) + " " + polygonPoints([...basePoints].reverse())
-    : "";
-
   return (
     <div>
-      <svg viewBox="0 0 300 300" className="mx-auto w-full max-w-[360px]" aria-label="Polígono de estadísticas base y boosts activos">
+      <svg viewBox="-25 -10 350 320" className="mx-auto w-full max-w-[360px]" aria-label="Polígono de estadísticas base y boosts activos">
         {[0.25, 0.5, 0.75, 1].map((scale) => (
           <polygon
             key={scale}
@@ -425,7 +421,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
             }).join(" ")}
             fill="none"
             stroke="#ffffff"
-            strokeOpacity="0.46"
+            strokeOpacity="0.30"
             strokeWidth="0.9"
           />
         ))}
@@ -437,7 +433,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           const y2 = center + Math.sin(angle) * radius;
           return (
             <g key={stat.key}>
-              <line x1={center} y1={center} x2={x2} y2={y2} stroke="#ffffff" strokeOpacity="0.42" strokeWidth="0.9" />
+              <line x1={center} y1={center} x2={x2} y2={y2} stroke="#ffffff" strokeOpacity="0.34" strokeWidth="0.9" />
               <text
                 x={x}
                 y={y}
@@ -446,10 +442,10 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
                 fill="#ffffff"
                 stroke="#09090b"
                 strokeOpacity="0.85"
-                strokeWidth="2.5"
+                strokeWidth="1.7"
                 fontSize="11"
                 fontWeight="600"
-                style={{ paintOrder: "stroke", filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7))" }}
+                style={{ paintOrder: "stroke", filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5))" }}
               >
                 {stat.short}
               </text>
@@ -457,16 +453,30 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           );
         })}
 
-        <polygon points={basePolygon} fill={palette.primary} fillOpacity="0.4" stroke="none" />
+        <polygon points={basePolygon} fill={palette.primary} fillOpacity="0.32" stroke="none" />
 
-        {hasBoost && (
-          <polygon points={boostPath} fill="#ef4444" fillOpacity="0.38" fillRule="evenodd" stroke="#ef4444" strokeOpacity="0.75" strokeWidth="1.5" />
-        )}
+        {/* Las franjas de boost se dibujan por sector para evitar cruces del polígono
+            exterior/interior al mezclarse estadísticas aumentadas y no aumentadas. */}
+        {hasBoost && radarStats.map((stat, index) => {
+          const next = (index + 1) % radarStats.length;
+          const boostHere = effectivePoints[index].x !== basePoints[index].x || effectivePoints[index].y !== basePoints[index].y;
+          const boostNext = effectivePoints[next].x !== basePoints[next].x || effectivePoints[next].y !== basePoints[next].y;
+          if (!boostHere && !boostNext) return null;
+          return (
+            <polygon
+              key={"boost-region-" + stat.key}
+              points={polygonPoints([basePoints[index], basePoints[next], effectivePoints[next], effectivePoints[index]])}
+              fill="#ef4444"
+              fillOpacity="0.28"
+              stroke="none"
+            />
+          );
+        })}
 
-        {/* El halo oscuro y el doble contorno mantienen la forma legible con cualquier tema o ilustración. */}
-        <polygon points={basePolygon} fill="none" stroke="#09090b" strokeOpacity="0.45" strokeWidth="5" strokeLinejoin="round" />
-        <polygon points={basePolygon} fill="none" stroke="#ffffff" strokeOpacity="0.94" strokeWidth="3.25" strokeLinejoin="round" />
-        <polygon points={basePolygon} fill="none" stroke={palette.primary} strokeWidth="1.75" strokeLinejoin="round" />
+        {/* Contorno blanco delgado sobre un halo oscuro discreto, sin triple trazo pesado. */}
+        <polygon points={basePolygon} fill="none" stroke="#09090b" strokeOpacity="0.5" strokeWidth="2.8" strokeLinejoin="round" />
+        <polygon points={basePolygon} fill="none" stroke="#ffffff" strokeOpacity="0.94" strokeWidth="1.6" strokeLinejoin="round" />
+        <polygon points={basePolygon} fill="none" stroke={palette.primary} strokeWidth="0.7" strokeLinejoin="round" />
 
         {basePoints.map((point, index) => (
           <circle key={"base-" + radarStats[index].key} cx={point.x} cy={point.y} r="2.8" fill={palette.primary} stroke="#ffffff" strokeWidth="1.35" />
@@ -478,7 +488,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
           const boosted = effectivePoints[index];
           return (
             <g key={"boost-" + stat.key}>
-              <line x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />
+              <line x1={base.x} y1={base.y} x2={boosted.x} y2={boosted.y} stroke="#ef4444" strokeWidth="2.6" strokeLinecap="round" />
               <circle cx={boosted.x} cy={boosted.y} r="3" fill="#ef4444" stroke="#ffffff" strokeWidth="1.35" />
             </g>
           );
@@ -486,7 +496,7 @@ function StatsRadar({ baseValues, values, palette, radarStats }: { baseValues: R
       </svg>
 
       {hasBoost && (
-        <div className="mt-2 flex items-center justify-center gap-4 text-xs" style={{ color: palette.muted }}>
+        <div className="mx-auto mt-2 flex w-fit items-center justify-center gap-4 rounded-full bg-zinc-950/70 px-3 py-1.5 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: palette.primary }} />Base</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-400" />Boost</span>
         </div>

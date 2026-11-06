@@ -1,8 +1,9 @@
 import {
-  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, canAct, contestChance, defaultAttackSource, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, basicCounterAttack, canAct, contestChance, defaultAttackSource, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type Point,
 } from "./turn-engine.ts";
 import { BASIC_MAGIC_RANGE_METERS } from "./magic-area.ts";
+import {fieldDistance} from "./field-plane.ts";
 
 export type NpcDice = { hit: number; critical: number; defense: number };
 export type NpcRandom = () => number;
@@ -60,9 +61,15 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   const power=state.pending.usesMagic?attacker.magicAttack:attacker.physicalAttack;
   const protection=state.pending.usesMagic?npc.magicDefense:npc.physicalDefense;
   const worstDirectDamage=Math.max(1,Math.round(power*1.5*factor-protection*0.75));
-  if(!attackedThisRound&&canCounterNow&&!canDefendAndCounter&&
-    npc.hp>worstDirectDamage+Math.max(2,Math.ceil(npc.maxHp*0.03))) {
-    return {kind:"DEFEND",defense:"NONE"};
+  if(!attackedThisRound&&canCounterNow&&!canDefendAndCounter){
+    const preferMagic=random()<0.45;
+    const available=basicCounterAttack(state,"NPC",preferMagic);
+    if(available){
+      // Exchange attacks in the same instant: the NPC still takes the full
+      // incoming hit and pays the normal attack's AP, ticks and optional mana.
+      // If defeat is inevitable, its already-started blow still resolves.
+      return {kind:"DEFEND",defense:"COUNTER",counterMagic:available.usesMagic===true};
+    }
   }
   if(state.pending.attackArea?.shape==="SELF_FIELD"){
     // The sweep has no hidden target center; dodge is a normal physical contest.
@@ -96,11 +103,10 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   }
   // Physical attacks share the budget check above; reaction types below are
   // weighted only when they leave a viable counterturn or prevent a lethal hit.
-  if(state.trainingNpc?.difficulty==="AGGRESSIVE" && canCounterNow && npc.hp>2*worstDirectDamage && random()<0.45) {
-    return {kind:"DEFEND",defense:"NONE"};
-  }
-  if(!attackedThisRound && canCounterNow && !canDefendAndCounter && npc.hp>worstDirectDamage) {
-    return {kind:"DEFEND",defense:"NONE"};
+  if(state.trainingNpc?.difficulty==="AGGRESSIVE"&&canCounterNow&&
+    npc.hp>2*worstDirectDamage&&random()<0.45){
+    const plan=basicCounterAttack(state,"NPC",false);
+    if(plan)return {kind:"DEFEND",defense:"COUNTER",counterMagic:plan.usesMagic===true};
   }
   const dodgeChance = 1 - contestChance(attacker.precision,npc.dodge);
   const blockChance = contestChance(npc.constitution * factor,attacker.strength);
@@ -144,7 +150,9 @@ export function progressTrainingNpc(
     if(next.status!=="ACTIVE")return next;
     if(next.pending) {
       if(next.pending.against==="PLAYER")return next;
-      next=applyCombatCommand(next,"NPC",chooseNpcReaction(next,random),makeDice());
+      const reaction=chooseNpcReaction(next,random);
+      next=applyCombatCommand(next,"NPC",reaction,makeDice(),undefined,undefined,undefined,false,
+        reaction.defense==="COUNTER"?makeDice():undefined);
       continue;
     }
     if(!canAct(next,"NPC"))return next;
@@ -154,7 +162,7 @@ export function progressTrainingNpc(
     // on the shared 100-tick timeline. If PLAYER cannot act, run the NPC now.
     const npcSlotReady = npc.spentTicks + turnTicks(npc) <= player.spentTicks;
     if(playerReady&&!npcSlotReady)return next;
-    const distance=Math.abs(npc.positionMeters-player.positionMeters);
+    const distance=fieldDistance(npc,player);
     const profile=next.trainingNpc?.difficulty??"INTERMEDIATE";
     // A training NPC may use each free potion at a random useful opportunity.
     const availablePotions=(next.consumables?.NPC??[]).filter(p=>p.quantity>0&&

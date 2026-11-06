@@ -12,7 +12,7 @@ import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, 
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_METERS,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
-import {assertMovementClear,blockingMovement,firstMeasuredObstacle,validatePhysicalCollider} from "./physical-obstacles.ts";
+import {assertMovementClear,blockingMovement,firstCoverAlongStroke,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
 
@@ -987,7 +987,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     // No selected dodge means contact is checked against a small base margin,
     // not another invisible full Esquive roll.
-    const contact = !avoided && (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (
+    let contact = !avoided && (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (
       // Basic magic preserves its established full-area effect. Projectile
       // placement and hand-drawn melee use the explicit geometric hitbox.
       pending.attackArea?.shape==="SELF_FIELD"
@@ -1000,7 +1000,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         ) <= (pending.attackType==="BLUNT"?0.17:pending.attackType==="CUT"?0.11:0.07)
         : geometricContact(pending.attackType,pending.trajectory,targetHitboxCenter))
     );
-    const critical = contact && rolls.critical < clamp(0.05 + attacker.critical / (attacker.critical + fighter.luck + 100)*0.20,0.05,0.25);
+    let critical = contact && rolls.critical < clamp(0.05 + attacker.critical / (attacker.critical + fighter.luck + 100)*0.20,0.05,0.25);
     // A free phase-1 magical *basic* strike is intentionally bounded.
     // Full skill damage, mana expenditure and elemental effects belong to phase 2.
     const skill=pending.skill;
@@ -1011,7 +1011,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         ?Math.max(1,Math.round((3+5*power/(power+protection+20))*(critical?1.5:1)*typeFactor))
         :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor-protection*0.75));
     const racialFactor=racialDamageFactor(fighter.damageTakenFactors,pending.attackType,pending.usesMagic,skill?.damageElement);
-    const damage = contact ? Math.max(0, Math.round(raw * damageScale * (skill?.finalMultiplier??1) * racialFactor)) : 0;
+    let damage = contact ? Math.max(0, Math.round(raw * damageScale * (skill?.finalMultiplier??1) * racialFactor)) : 0;
     // Only defense-stat mitigation counts; reaction-blocking/dodge and
     // construction reductions cannot be added to the stored value.
     const noResistanceRaw=skill
@@ -1019,9 +1019,42 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       :pending.usesMagic
         ?Math.max(1,Math.round((3+5*power/(power+20))*(critical?1.5:1)*typeFactor))
         :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor));
-    const noResistanceDamage=contact?Math.max(0,Math.round(
+    let noResistanceDamage=contact?Math.max(0,Math.round(
       noResistanceRaw*damageScale*(skill?.finalMultiplier??1)*racialFactor)):0;
-    const mitigatedByResistance=contact?Math.max(0,noResistanceDamage-damage):0;
+    let mitigatedByResistance=contact?Math.max(0,noResistanceDamage-damage):0;
+    let physicalCoverLabel:string|undefined;
+    // Horizontal positions come from the top-down plane; vertical heights
+    // come ONLY from a deliberately drawn physical stroke. Basic spells,
+    // area shapes, auto-generated strokes and unknown old BLOCK geometry
+    // must not gain invented line-of-sight occlusion.
+    if(contact&&!pending.usesMagic&&!pending.attackArea&&!pending.mirrorId&&
+      pending.explicitTrajectory&&pending.trajectory.length>=2){
+      const cover=firstCoverAlongStroke(state.constructions,
+        fieldPosition(attacker),fieldPosition(fighter),pending.trajectory,
+        defense==="CONSTRUCTION"?command.constructionId:undefined);
+      if(cover){
+        const wall=cover.block;
+        const pressure=Math.max(1,Math.round(Math.max(0,power)*
+          (skill?.damageMultiplier??1)*(skill?.finalMultiplier??1)));
+        const durability=wall.durability??0;
+        const wear=Math.min(durability,pressure);
+        wall.durability=Math.max(0,durability-wear);
+        wall.hitCount=(wall.hitCount??0)+1;
+        physicalCoverLabel=wall.label;
+        const overflow=Math.max(0,pressure-durability)/pressure;
+        damage=Math.max(0,Math.round(damage*overflow));
+        noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*overflow));
+        mitigatedByResistance=Math.max(0,noResistanceDamage-damage);
+        if(overflow===0){contact=false;critical=false;}
+        if(wall.durability===0)
+          state.constructions=state.constructions?.filter(c=>c.id!==wall.id);
+        addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by:pending.by,
+          against:wall.owner,constructionId:wall.id,damage:wear,contact:true,
+          summary:wall.durability===0
+            ?wall.label+" se rompió al interceptar la trayectoria del ataque."
+            :wall.label+" interceptó el ataque físico y recibió "+wear+" de desgaste."});
+      }
+    }
     fighter.hp = Math.max(0, fighter.hp - damage);
     if (contact && damage > 0 && displaced === 0 && !pending.usesMagic)
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
@@ -1051,7 +1084,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       rangedPhysical:pending.rangedPhysical,
       predictedCenter:(pending.usesMagic&&defense==="DODGE"||pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"&&defense==="DODGE"||pending.rangedPhysical&&["DODGE","DEFLECT"].includes(defense))?command.predictedCenter:undefined,
       predictionMatched:validArenaPoint(pending.targetCenter)&&validArenaPoint(command.predictedCenter)?Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=(pending.rangedPhysical?0.09:0.19):undefined,
-      summary:mirrorLabel
+      summary:physicalCoverLabel
+        ?physicalCoverLabel+" interceptó la trayectoria; daño al combatiente: "+damage+" HP"
+        :mirrorLabel
         ?(avoided?fighter.name+" esquivó el rayo de "+mirrorLabel
           :"El rayo de "+mirrorLabel+" impactó a "+fighter.name+" ("+damage+" HP)")
         :avoided ? fighter.name + (pending.usesMagic?" escapó de la explosión":" evitó el ataque")

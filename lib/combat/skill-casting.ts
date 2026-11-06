@@ -6,15 +6,18 @@ import {parseConfiguredSkillRange} from "./skill-range.ts";
 import {compileCombatAttackArea,type CombatAttackArea} from "./skill-area.ts";
 import {parseSkillArea} from "../skills/area-of-effect.ts";
 import {creationPlanFromEffect,type ConstructionPlan} from "./constructs.ts";
+import {compileSummonTemplates,type SummonTemplate} from "./summons.ts";
 import type {VariableResistance} from "../skills/variable-resistance.ts";
 import type {CombatAttackType} from "./matchup-types.ts";
 
 export type CombatBuffStat = "physicalAttack"|"magicAttack"|"physicalDefense"|"magicDefense"|"precision"|"dodge";
 export type CombatSkillPlan = {
- id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT"|"CONSTRUCTION";
+ id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT"|"CONSTRUCTION"|"SUMMON";
  /** Linked approved parent skill, but not by itself an active combat effect. */
  requiredParentSkillId?:number;
  construction?:ConstructionPlan;
+ /** Server-approved creatures; costs are paid individually. */
+ summons?:SummonTemplate[];
  creationPassive?:{sourceSkillId:number;resistance:VariableResistance};
  /** Executable persistent mirror with one automatic ray per owner's round. */
  mirror?:{rayMultiplier:number;reflectionMultiplier:number;durability:number};
@@ -72,6 +75,25 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
  const effects=Array.isArray(row.effect)?row.effect:[];
  if(effects.length<1||effects.length>20)
   fail("La habilidad necesita efectos configurados válidos.");
+ const summonTemplates=compileSummonTemplates(effects,cost);
+ if(summonTemplates){
+   const expectedMaintenance=summonTemplates.reduce((sum,t)=>sum+t.maintenanceMana,0);
+   if(Number(row.maintenanceCost??0)!==expectedMaintenance)
+     fail("El mantenimiento de la habilidad debe sumar "+expectedMaintenance+" maná por turno.");
+   const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
+   if(cooldown&&
+     !["Sin cooldown","Una vez por combate","Igual a duración","1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(cooldown))
+     fail("Cooldown no reconocido.");
+   const durationTurns=Math.max(...summonTemplates.map(t=>t.durationTurns));
+   return {
+     id,name:typeof row.name==="string"?row.name.slice(0,120):"Invocación",
+     cost,requiredParentSkillId,category:"SUMMON",summons:summonTemplates,
+     rangeMeters:Math.max(...summonTemplates.map(t=>t.controlRangeMeters)),
+     damageMultiplier:1,defenseFactor:1,finalMultiplier:1,healing:0,bonuses:[],
+     durationTurns,cooldownRounds:cooldownTurns(cooldown,String(row.duration??"")),
+     oncePerCombat:cooldown==="Una vez por combate",usesMagic:false,
+   };
+ }
  const range=parseConfiguredSkillRange(row.areaOfEffect);
  const name=typeof row.name==="string"?row.name.slice(0,120):"Habilidad";
  let mode:"PHYSICAL"|"MAGICAL"|null=null;
@@ -236,7 +258,7 @@ export function previewSkillExecution(row:Record<string,unknown>){
  try {
   const plan=compileCombatSkill(row);
   return {executable:true as const,skillKind:plan.category,
-   needsAim:plan.category!=="SUPPORT"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
+   needsAim:plan.category!=="SUPPORT"&&plan.category!=="SUMMON"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
    attackArea:plan.attackArea??null,
    constructionMaterial:plan.construction?.material??null,
    disabledReason:null};

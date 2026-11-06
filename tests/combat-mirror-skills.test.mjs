@@ -153,7 +153,8 @@ test("targeted objects must be living enemy mirrors and their hitbox actually re
 });
 test("mirror user interface renders distinct mirror symbol and physical-target selector",()=>{
  const src=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
- assert.match(src,/targetConstructionId:selectedAttackTargetId/);
+ assert.match(src,/targetConstructionId:selectedMirrorId/);
+  assert.match(src,/selectedMirrorId=selectedSummonId\?undefined:selectedAttackTargetId/);
  assert.match(src,/c\.form==="MIRROR"/);
  assert.match(src,/enemyMirrors\.map/);
  assert.match(src,/Los objetos decorativos no bloquean ataques/);

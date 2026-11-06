@@ -125,7 +125,7 @@ export default function CombatSkillLoadout({
         <button type="button" disabled={blocked}
          onClick={()=>onCast(skill)}
          className="rounded-lg border border-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-40">
-         {skill.skillKind==="OFFENSE"?(skill.attackArea?.shape==="SELF_FIELD"?"Ejecutar barrido":"Lanzar ataque de habilidad"):skill.skillKind==="CONSTRUCTION"?"Crear construcción":"Activar habilidad"}
+         {skill.skillKind==="OFFENSE"?(skill.attackArea?.shape==="SELF_FIELD"?"Ejecutar barrido":"Lanzar ataque de habilidad"):skill.skillKind==="CONSTRUCTION"?"Crear construcción":skill.skillKind==="SUMMON"?"Invocar criaturas":"Activar habilidad"}
         </button>
        </div>;
       })()}

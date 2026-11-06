@@ -12,6 +12,7 @@ export const MICRO_STEP_LABELS: Record<string,string> = {
   SELECT_TARGET:"Seleccionar objetivo",SELECT_STAT:"Seleccionar estadística",
   READ_HP_DAMAGE:"Leer daño real a HP",REQUIRE_CONTACT:"Comprobar contacto",
   SUMMON_ENTITY:"Invocar entidad",LINK_ENTITY_STAT:"Vincular estadística de entidad",
+  SET_ENTITY_STAT:"Fijar atributo de criatura",
   SET_ENTITY_BEHAVIOR:"Configurar comportamiento",APPLY_STATUS:"Aplicar estado",
   READ_STATUSES:"Leer estados activos",INVERT_STATUS:"Invertir debilitamiento",
 };

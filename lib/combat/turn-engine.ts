@@ -868,8 +868,12 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
   }
   let order=command.order;
   if(order==="ACT") {
+    const target=summonTargetPosition(state,summon);
+    const near=Math.hypot(target.x-summon.fieldPosition.x,
+      target.y-summon.fieldPosition.y)<=0.65;
+    const hasTouch=summon.contactEffects?.some(e=>e.target===summon.behavior.target);
     order=summon.behavior.mode==="ATTACK"?"ATTACK":
-      summon.behavior.mode==="HOLD"?"ACT":"MOVE";
+      near&&hasTouch?"ACT":summon.behavior.mode==="HOLD"?"ACT":"MOVE";
   }
   if(order==="MOVE"){
     let distance:number;
@@ -904,22 +908,34 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
       advanceRoundIfComplete(state);return;
     }
     assertMovementClear(state.constructions,summon.fieldPosition,enemy);
+    validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
     spend(owner,turnTicks(owner));
     state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
     state.pending={by,against:other(by),attackType:"BLUNT",
       trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}],
       explicitTrajectory:false,launchedAtTick:(state.round-1)*LIMIT+owner.spentTicks,
-      usesMagic:false,summonId:summon.id};
+      usesMagic:false,summonId:summon.id,
+      chosenSummonStat:command.chosenStat,
+      chosenSummonStatusId:command.chosenStatusId};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),
       attackType:"BLUNT",summonId:summon.id,
       summary:summon.label+" atacó a "+state.actors[other(by)].name+"; esperando reacción"});
     return;
   }
   if(order==="ACT"){
+    const target:Side=summon.behavior.target==="USER"?by:other(by);
+    const pos=fieldPosition(state.actors[target]);
+    const near=Math.hypot(pos.x-summon.fieldPosition.x,pos.y-summon.fieldPosition.y)<=0.65;
+    if(summon.contactEffects?.length&&near)
+      validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
     spend(owner,turnTicks(owner));
     state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    if(near)resolveSummonContact(state,summon,{
+      target,contact:true,hpDamage:0,randomRoll:rolls.hit,
+      chosenStat:command.chosenStat,chosenStatusId:command.chosenStatusId,
+    });
     addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
-      summary:summon.label+" mantuvo su posición."});
+      summary:summon.label+(near&&summon.contactEffects?.length?" tocó a su objetivo.":" mantuvo su posición.")});
     advanceRoundIfComplete(state);
     return;
   }
@@ -1459,6 +1475,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       }
     }
     fighter.hp = Math.max(0, fighter.hp - damage);
+    // Status effects from a real summon hit run only after geometric contact,
+    // defense and actual HP damage have been fully resolved.
+    if(summonedAttacker&&contact)
+      resolveSummonContact(state,summonedAttacker,{
+        target:by,contact,hpDamage:damage,randomRoll:rolls.critical,
+        chosenStat:pending.chosenSummonStat,
+        chosenStatusId:pending.chosenSummonStatusId,
+      });
     if (contact && damage > 0 && displaced === 0 && !pending.usesMagic)
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
     if (displaced > 0) {

@@ -5,7 +5,7 @@ import {
   AUTO_REPAIR_ITEM_EFFECT,compileWeaponAutoRepair,defaultWeaponAutoRepair,
   evaluateWeaponAutoRepair,shouldAutoRepairAtRound,
 } from "../lib/items/auto-repair.ts";
-import {newCombatState,applyCombatCommand,defaultAttackSource,
+import {newCombatState,applyCombatCommand,canAct,defaultAttackSource,
   applyWeaponSelfRepairAtRoundStart} from "../lib/combat/turn-engine.ts";
 
 const source=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
@@ -30,9 +30,16 @@ const encounter=(p=weapon("Espada encantada",75))=>{
  s.mana={PLAYER:{current:20,max:20},NPC:{current:10,max:10}};
  return s;
 };
-const nextRound=s=>{
- const a=applyCombatCommand(s,"PLAYER",{kind:"WAIT"});
- return applyCombatCommand(a,"NPC",{kind:"WAIT"});
+const nextRound=start=>{
+  const expected=start.round+1;
+  let state=start;
+  for(let i=0;i<24&&state.round<expected;i++){
+    const side=canAct(state,"PLAYER")?"PLAYER":canAct(state,"NPC")?"NPC":null;
+    if(!side)throw new Error("Ningún combatiente disponible para avanzar el turno");
+    state=applyCombatCommand(state,side,{kind:"WAIT"});
+  }
+  assert.equal(state.round,expected,"each round must advance via legitimate WAIT actions");
+  return state;
 };
 
 test("catalog validator requires positive mana and legal rate; no free unlimited repair",()=>{

@@ -106,6 +106,11 @@ export type CombatState = {
   skillBonuses?: Array<{by:Side;skillId:number;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
   processedSkillRequests?: string[];
   processedKarmaRequests?: string[];
+  /** Request ledger for MOVE/ATTACK/DEFEND/WAIT/ADVANCE, preserved for the
+   * whole encounter so a lost HTTP response cannot spend resources twice.
+   * Optional for historical combatV1 sessions.
+   */
+  processedActionRequests?: Array<{id:string;side:Side;signature:string}>;
   /** New encounters track durability separately for both equipped hands.
    * Older combat JSON used one fighter.weaponIntegrity; upgrade on first action.
    */
@@ -130,12 +135,12 @@ export type CombatState = {
   pending: PendingAttack | null; log: CombatLog[];
 };
 export type CombatCommand =
-  | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON" | "VECTOR"; planarMove?:Point; weaponSlot?:"MAIN_HAND"|"OFF_HAND" }
-  | { kind: "WAIT" }
+  | { kind: "MOVE"; meters: number; direction?: "TOWARD" | "AWAY" | "WEAPON" | "VECTOR"; planarMove?:Point; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; requestId?:string }
+  | { kind: "WAIT";requestId?:string }
   | { kind:"BOOST_KARMA";requestId:string;allocation:Record<string,number> }
   | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
-  | { kind: "ATTACK"; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
-  | { kind: "DEFEND"; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
+  | { kind: "ATTACK"; requestId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
+  | { kind: "DEFEND"; requestId?:string; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
   | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];

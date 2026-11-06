@@ -67,7 +67,7 @@ test("bad reach and initiative must remain explained instead of silently doing n
  assert.match(page,/disabled=\{!canExecuteAttack\("BEFORE"\)\}/);
  assert.match(page,/El objetivo está a \{attackDistance\.toFixed\(2\)\} m/);
  assert.match(page,/const npcNeedsInitiative=Boolean/);
- assert.match(page,/command:\{kind:"ADVANCE"\}/);
+ assert.match(page,/command:\{kind:"ADVANCE",requestId:"npc-advance-"\+key\}/);
  assert.match(page,/setActionFeedback\(event\?\.summary/);
  assert.match(page,/setConstructionCenter\(null\)/);
  const loadEffect=page.slice(page.indexOf("const load=useCallback"),page.indexOf("async function submit("));

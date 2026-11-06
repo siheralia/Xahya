@@ -51,6 +51,9 @@ test("duplicate ID, missing module, unsupported fields, invalid staff prices are
   assert.match(validateComposedSkillList([{...a,reviewedPch:0}],"REVIEW"),/revisado/);
   assert.match(validateComposedSkillList([{...a,reviewedPch:2.5}],"REVIEW"),/revisado/);
   assert.match(validateComposedSkillList([{...a,reviewedPch:100001}],"REVIEW"),/revisado/);
+  const belowDeposit={...fresh(3),reviewedPch:5}; // 15 PCH minimum.
+  assert.match(validateComposedSkillList([belowDeposit],"REVIEW"),/reserva mínima/);
+  assert.throws(()=>composedEffectBasePch(belowDeposit),/reserva modular/);
   assert.match(validateComposedSkillList(Array.from({length:9},(_,i)=>({...fresh(0),module:{...fresh(0).module,id:"UNIQUE_"+i}})),"PLAYER"),/ocho/);
 });
 test("approved skill review verifies final cost and sufficient PCH inside existing transaction",()=>{

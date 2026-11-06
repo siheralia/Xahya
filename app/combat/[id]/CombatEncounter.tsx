@@ -9,6 +9,7 @@ import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
 import {combatWeaponOperational} from "@/lib/combat/weapon-readiness";
 import {combatChargeBalance} from "@/lib/combat/charge-pools";
+import {activeChaosField,chaosRotationDegrees} from "@/lib/combat/chaos-fusion";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2, Eye, ChevronDown, X, Info} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
@@ -531,8 +532,8 @@ export default function CombatEncounter({id}:{id:string}) {
   const measuredBlock=construction&&skill.constructionMaterial!=="LIGHT"&&
     skill.constructionMaterial!=="MIRROR"&&constructionForm==="BLOCK";
   void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
-   trajectory:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
-   attackSource:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
+   trajectory:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.skillKind==="FUSION"||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
+   attackSource:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.skillKind==="FUSION"||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
    planarMove:!construction&&skill.skillKind==="OFFENSE"?skillMovement:undefined,
    movementOrder:!construction&&skill.skillKind==="OFFENSE"?skillMovementOrder:undefined,
    constructionFieldPoint:construction?constructionFieldPoint??undefined:undefined,
@@ -545,8 +546,8 @@ export default function CombatEncounter({id}:{id:string}) {
    areaAngleDegrees:isOrientedCombatArea(skill.attackArea)?areaAngleDegrees:undefined,
    constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
    constructionLabel:construction?constructionLabel.trim():undefined,
-   targetConstructionId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedMirrorId:undefined,
-   targetSummonId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedSummonId:undefined,
+   targetConstructionId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.skillKind!=="FUSION"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedMirrorId:undefined,
+   targetSummonId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.skillKind!=="FUSION"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedSummonId:undefined,
    chargesToSpend:skill.skillKind==="CHARGE_BUFF"?chargesToSpend:undefined});
  }
  const chronicle=state?.status==="FINISHED"
@@ -910,6 +911,12 @@ export default function CombatEncounter({id}:{id:string}) {
        <p className="mt-3 rounded-lg border border-violet-500/40 px-3 py-2 text-sm text-violet-200" role="status">
         🌙 Reserva Lunar: <strong>{combatChargeBalance(state,side,"LUNAR_CHARGES")}/6</strong> cargas propias
        </p>}
+    {activeChaosField(state,side)&&<p role="status"
+       className="mt-3 rounded-lg border border-fuchsia-700/60 bg-fuchsia-950/30 px-3 py-2 text-xs text-fuchsia-100">
+       🌀 Estás dentro de un campo caótico: tus movimientos deliberados giran
+       {" "}{activeChaosField(state,side)?.degrees}° antes de ejecutarse.
+       Los obstáculos siguen bloqueando el paso.
+     </p>}
     {(state.summons?.length??0)>0&&<section className="mt-4 space-y-2 rounded-xl border border-emerald-500/30 bg-zinc-950/70 p-3" aria-label="Criaturas invocadas">
      <h2 className="text-sm font-semibold text-emerald-200">🐇 Criaturas en el campo</h2>
      <p className="text-xs text-zinc-400">Cada orden consume 1 PA y los ticks del invocador. El mantenimiento se descuenta al comenzar el siguiente turno: no hay ataques gratuitos.</p>
@@ -944,7 +951,15 @@ export default function CombatEncounter({id}:{id:string}) {
        <p className="text-zinc-400">Comportamiento {summon.behavior.mode} · Objetivo {summon.behavior.target==="USER"?"invocador":"oponente"}</p>
        {Object.keys(summon.charges??{}).filter(name=>!summon.chargesMigrated).map(name=>
          <p key={name} className="text-violet-300">🌙 {friendlyMicroKey(name)}: {combatChargeBalance(state,summon.owner,name)}/6 cargas del propietario</p>)}
-       {summon.contactEffects?.length? <p className="text-emerald-300">
+       {summon.fusedFrom?.length?<p className="text-violet-200">
+          🌀 Fusionada a partir de {summon.fusedFrom.length} criaturas
+        </p>:null}
+        {summon.chaosField?<p className="text-fuchsia-200">
+          Campo de caos · radio {summon.chaosField.radiusMeters} m ·
+          giro actual {" "}{chaosRotationDegrees(summon.chaosField,summon.createdRound,state.round)}°
+          {summon.chaosField.rotateEachRound?" (cambia por ronda)":" (fijo)"}
+        </p>:null}
+        {summon.contactEffects?.length? <p className="text-emerald-300">
          {summon.contactEffects.length} efecto(s) al contacto · {summon.behavior.trigger==="HP_DAMAGE"?"requiere daño real a HP":"requiere contacto"}
        </p>:null}
        {summon.owner===side&&hasAccess&&state.status==="ACTIVE"&&<div className="space-y-2">

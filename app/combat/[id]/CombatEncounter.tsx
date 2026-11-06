@@ -7,7 +7,7 @@ import CombatDialog from "./CombatDialog";
 import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
 import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
-import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2} from "lucide-react";
+import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2, Eye} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
@@ -122,6 +122,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [constructionHeightMeters,setConstructionHeightMeters]=useState(5);
  const [fieldMode,setFieldMode]=useState<FieldMode>("MOVE");
  const [fieldMove,setFieldMove]=useState<Point|null>(null);
+ const [movementPlan,setMovementPlan]=useState<"MOVE_ONLY"|"MOVE_BEFORE"|"MOVE_AFTER">("MOVE_ONLY");
  const [constructionMaterials,setConstructionMaterials]=useState<Partial<Record<Side,string[]>>>({});
  const [constructionSkills,setConstructionSkills]=useState<Partial<Record<Side,CombatSkillPreview[]>>>({});
  const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK">("FIELD");
@@ -190,6 +191,7 @@ export default function CombatEncounter({id}:{id:string}) {
    if(command.kind==="DEFEND")setPredictedCenter(null);
    if(command.kind==="DEFEND"||command.kind==="ATTACK"||command.kind==="MOVE"||command.kind==="CAST_SKILL")
     setFieldMove(null);
+   if(command.kind==="ATTACK"||command.kind==="CAST_SKILL")setMovementPlan("MOVE_ONLY");
    if(command.kind==="USE_ITEM"){
     itemRequestRef.current=null;
     const recent=(data.state as CombatState).log.filter(event=>event.kind==="ITEM").at(-1);
@@ -333,14 +335,23 @@ export default function CombatEncounter({id}:{id:string}) {
    (c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35)??[];
  const chosenDefenseConstruction=defenderBlocks.some(c=>c.id===defenseConstruction)?defenseConstruction:defenderBlocks[0]?.id;
  const targetDistance=actor&&state?fieldDistance(actor,state.actors[opposingSide]):0;
- const preparedMovement=fieldMode==="MOVE"&&panel!=="construction"&&fieldMove&&
+ const drawnMovement=fieldMode==="MOVE"&&panel!=="construction"&&fieldMove&&
   Math.hypot(fieldMove.x,fieldMove.y)>=0.01?fieldMove:undefined;
- const movedPosition=actor&&preparedMovement?{x:fieldPosition(actor).x+preparedMovement.x,
-  y:fieldPosition(actor).y+preparedMovement.y}:actor?fieldPosition(actor):null;
- const attackDistance=movedPosition&&state?Math.hypot(
+ const preparedMovement=movementPlan!=="MOVE_ONLY"?drawnMovement:undefined;
+ const reactionMovement=defending?drawnMovement:undefined;
+ const movementOrder=preparedMovement
+  ?movementPlan==="MOVE_AFTER"?"AFTER" as const:"BEFORE" as const:undefined;
+ const movedPosition=actor&&drawnMovement?{x:fieldPosition(actor).x+drawnMovement.x,
+  y:fieldPosition(actor).y+drawnMovement.y}:actor?fieldPosition(actor):null;
+ const afterMovementDistance=movedPosition&&state?Math.hypot(
   movedPosition.x-fieldPosition(state.actors[opposingSide]).x,
   movedPosition.y-fieldPosition(state.actors[opposingSide]).y):targetDistance;
+ const attackDistance=movementOrder==="BEFORE"?afterMovementDistance:targetDistance;
+ const missingMoveTrace=movementPlan!=="MOVE_ONLY"&&fieldMode==="MOVE"&&!drawnMovement;
  const canCombine=!!actor&&remainingAp(actor)>=2&&actor.spentTicks+turnTicks(actor)*2<=100;
+ const canCombineAttack=!!actor&&remainingAp(actor)>=2&&
+  actor.spentTicks+turnTicks(actor)+
+   turnTicks(actor,attackMode!=="MAGIC_AREA"&&selectedWeapon?displayedAttackType:undefined)<=100;
  const basicReach=attackMode==="MAGIC_AREA"?BASIC_MAGIC_RANGE_METERS:
    actor?effectiveWeaponReachMeters(actor,attackMode==="THROW",activeAttackSource):0;
  const basicOutOfRange=attackDistance>basicReach;
@@ -384,6 +395,7 @@ export default function CombatEncounter({id}:{id:string}) {
    trajectory:construction||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
    attackSource:construction||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
    planarMove:!construction&&skill.skillKind==="OFFENSE"?preparedMovement:undefined,
+   movementOrder:!construction&&skill.skillKind==="OFFENSE"?movementOrder:undefined,
    constructionFieldPoint:construction?constructionFieldPoint??undefined:undefined,
    constructionHeightMeters:construction?constructionHeightMeters:undefined,
    areaCenter:skill.attackArea?.shape==="SELF_FIELD"?undefined:construction?constructionCenter??undefined:skill.usesMagic||skill.attackArea?areaCenter??undefined:undefined,
@@ -483,23 +495,43 @@ export default function CombatEncounter({id}:{id:string}) {
     <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-4" aria-label="Dos planos del combate">
      <section className="min-w-0 space-y-2 rounded-xl border border-cyan-400/30 bg-zinc-950/70 p-2 sm:p-3">
       <h2 className="text-xs font-bold text-cyan-200 sm:text-base">Plano horizontal · terreno</h2>
-      <div className="flex flex-wrap gap-1" role="group" aria-label="Controles del plano horizontal">
-       <button type="button" aria-pressed={fieldMode==="MOVE"&&panel!=="construction"}
-        onClick={()=>{setFieldMode("MOVE");if(panel==="construction")setPanel("none");}}
-        className="rounded border border-cyan-500/60 px-2 py-1 text-[10px] text-cyan-200 sm:text-xs">Mover</button>
-       {canCreateObjects&&<button type="button" aria-pressed={panel==="construction"}
-        onClick={()=>{setPanel("construction");setFieldMode("CONSTRUCT");}}
-        className="rounded border border-cyan-500/60 px-2 py-1 text-[10px] text-cyan-200 sm:text-xs">Construir</button>}
-       <button type="button" aria-pressed={fieldMode==="VIEW"}
-        onClick={()=>{setFieldMode("VIEW");setFieldMove(null);}}
-        className="rounded border border-zinc-600 px-2 py-1 text-[10px] sm:text-xs">Ver</button>
+      <div className="flex flex-nowrap gap-1" role="group" aria-label="Orden del movimiento horizontal">
+       {([
+        {value:"MOVE_ONLY" as const,label:"Solo mover · 1 PA",icons:[Footprints]},
+        {value:"MOVE_BEFORE" as const,label:"Mover y atacar · 2 PA",icons:[Footprints,Swords]},
+        {value:"MOVE_AFTER" as const,label:"Atacar y mover · 2 PA",icons:[Swords,Footprints]},
+       ]).map(item=><button key={item.value} type="button" title={item.label}
+        aria-label={item.label} aria-pressed={fieldMode==="MOVE"&&movementPlan===item.value}
+        onClick={()=>{setFieldMode("MOVE");setMovementPlan(item.value);if(panel==="construction")setPanel("none");}}
+        className={"flex h-9 min-w-0 flex-1 items-center justify-center gap-0.5 rounded-md border "+
+         (fieldMode==="MOVE"&&movementPlan===item.value?"border-cyan-300 bg-cyan-900/50 text-cyan-100":"border-cyan-500/50 text-cyan-300")}>
+        {item.icons.map((Icon,index)=><Icon key={index} size={item.icons.length===1?18:13}/>)}
+       </button>)}
+       {canCreateObjects&&<button type="button" title="Colocar construcción" aria-label="Colocar construcción"
+        aria-pressed={panel==="construction"} onClick={()=>{setPanel("construction");setFieldMode("CONSTRUCT");setMovementPlan("MOVE_ONLY");}}
+        className="flex h-9 min-w-0 flex-1 items-center justify-center rounded-md border border-cyan-500/50 text-cyan-300"><Box size={18}/></button>}
+       <button type="button" title="Ver terreno" aria-label="Ver terreno" aria-pressed={fieldMode==="VIEW"}
+        onClick={()=>{setFieldMode("VIEW");setFieldMove(null);setMovementPlan("MOVE_ONLY");}}
+        className="flex h-9 min-w-0 flex-1 items-center justify-center rounded-md border border-zinc-600 text-zinc-300"><Eye size={18}/></button>
       </div>
-      {defending&&<div className="flex flex-wrap gap-1" role="group" aria-label="Reacciones de movimiento">
-       {(["DODGE","BLOCK","DEFLECT"] as const).map(choice=><button type="button" key={choice}
-        onClick={()=>{setDefense(choice);setFieldMode("MOVE");}}
-        disabled={pending?.usesMagic&&choice!=="DODGE"||Boolean(pending?.attackArea)&&choice==="DEFLECT"}
-        className={"rounded border px-2 py-1 text-[10px] sm:text-xs "+(selectedDefense===choice?"border-amber-400 text-amber-200":"border-zinc-700")}>
-        {choice==="DODGE"?"Esquivar":choice==="BLOCK"?"Bloquear":"Desviar"}</button>)}
+      <p className="min-h-8 text-[10px] text-cyan-200 sm:text-xs" role="status">
+       {panel==="construction"?"Colocar objeto":
+        fieldMode==="VIEW"?"Vista del campo":
+        movementPlan==="MOVE_ONLY"?"Mover solamente · 1 PA":
+        movementPlan==="MOVE_BEFORE"?"Primero mover, luego atacar · 2 PA":
+        "Primero atacar, luego mover · 2 PA"}
+      </p>
+      {defending&&<div className="flex gap-1" role="group" aria-label="Reacciones de movimiento">
+       {(["DODGE","BLOCK","DEFLECT"] as const).map(choice=>{
+        const Icon=defenseIcons[choice];
+        return <button type="button" key={choice} title={options.find(o=>o.value===choice)?.label}
+         aria-label={options.find(o=>o.value===choice)?.label} aria-pressed={selectedDefense===choice}
+         onClick={()=>{setDefense(choice);setFieldMode("MOVE");}}
+         disabled={pending?.usesMagic&&choice!=="DODGE"||Boolean(pending?.attackArea)&&choice==="DEFLECT"}
+         className={"flex size-9 items-center justify-center rounded-md border disabled:opacity-30 "+
+          (selectedDefense===choice?"border-amber-400 text-amber-200":"border-zinc-700")}>
+         <Icon size={18}/></button>;
+       })}
       </div>}
       <CombatTopDownPlane state={state} side={side}
        mode={panel==="construction"?"CONSTRUCT":fieldMode==="CONSTRUCT"?"MOVE":fieldMode}
@@ -512,7 +544,10 @@ export default function CombatEncounter({id}:{id:string}) {
       </p>
       {fieldMode==="MOVE"&&panel!=="construction"&&fieldMove&&Math.hypot(fieldMove.x,fieldMove.y)>=0.01&&
        <div className="space-y-1">
-        <p className="text-xs text-cyan-200">Trazo: {Math.hypot(fieldMove.x,fieldMove.y).toFixed(2)} m · movimiento + acción: 2 PA</p>
+        <p className="text-xs text-cyan-200">Trazo: {Math.hypot(fieldMove.x,fieldMove.y).toFixed(2)} m ·
+         {defending?" reacción + movimiento: 2 PA":
+          movementPlan==="MOVE_ONLY"?" mover: 1 PA":
+          movementPlan==="MOVE_BEFORE"?" mover y atacar: 2 PA":" atacar y mover: 2 PA"}</p>
         <div className="flex flex-wrap gap-1">
          {!pending&&hasAccess&&<button type="button" disabled={!ready||busy}
           onClick={()=>void submit({kind:"MOVE",direction:"VECTOR",planarMove:fieldMove,
@@ -528,22 +563,33 @@ export default function CombatEncounter({id}:{id:string}) {
       <h2 className="text-xs font-bold text-rose-200 sm:text-base">Plano vertical · altura</h2>
       {panel==="construction"&&canCreateObjects
        ?<p className="text-[10px] text-zinc-400 sm:text-xs">Selecciona la altura del objeto.</p>
-       :defending?<div className="flex flex-wrap gap-1" role="group" aria-label="Controles de reacción vertical">
-        {(["BLOCK","DEFLECT","DODGE"] as const).map(choice=><button key={choice} type="button"
-         onClick={()=>setDefense(choice)}
-         disabled={pending?.usesMagic&&choice!=="DODGE"||Boolean(pending?.attackArea)&&choice==="DEFLECT"}
-         className={"rounded border px-2 py-1 text-[10px] sm:text-xs "+(selectedDefense===choice?"border-amber-400 text-amber-200":"border-zinc-700")}>
-         {choice==="BLOCK"?"Bloquear":choice==="DEFLECT"?"Desviar":"Esquivar"}</button>)}
-        </div>
-       :<div className="flex flex-wrap gap-1" role="group" aria-label="Controles de ataque vertical">
-        <button type="button" onClick={()=>chooseAttackMode("MAIN_HAND")}
-         className="rounded border border-rose-500/50 px-2 py-1 text-[10px] sm:text-xs">Arma</button>
-        <button type="button" onClick={()=>{setAttackMode("PHYSICAL");setAttackSource("FIST_RIGHT");}}
-         className="rounded border border-rose-500/50 px-2 py-1 text-[10px] sm:text-xs">Puño</button>
-        <button type="button" onClick={()=>{setAttackMode("PHYSICAL");setAttackSource("KICK");}}
-         className="rounded border border-rose-500/50 px-2 py-1 text-[10px] sm:text-xs">Patada</button>
-        <button type="button" onClick={()=>chooseAttackMode("MAGIC_AREA")}
-         className="rounded border border-violet-500/50 px-2 py-1 text-[10px] sm:text-xs">Magia</button>
+       :defending?<div className="flex gap-1" role="group" aria-label="Controles de reacción vertical">
+        {(["BLOCK","DEFLECT","DODGE"] as const).map(choice=>{
+         const Icon=defenseIcons[choice];
+         return <button key={choice} type="button" title={options.find(o=>o.value===choice)?.label}
+          aria-label={options.find(o=>o.value===choice)?.label} aria-pressed={selectedDefense===choice}
+          onClick={()=>setDefense(choice)}
+          disabled={pending?.usesMagic&&choice!=="DODGE"||Boolean(pending?.attackArea)&&choice==="DEFLECT"}
+          className={"flex size-9 items-center justify-center rounded-md border disabled:opacity-30 "+
+           (selectedDefense===choice?"border-amber-400 text-amber-200":"border-zinc-700")}>
+          <Icon size={18}/></button>;
+        })}
+       </div>
+       :<div className="flex gap-1" role="group" aria-label="Controles de ataque vertical">
+        {([
+         {label:"Arma",Icon:Swords,active:attackMode==="PHYSICAL"&&["MAIN_HAND","OFF_HAND"].includes(activeAttackSource),
+          onClick:()=>chooseAttackMode("MAIN_HAND")},
+         {label:"Puño",Icon:Hand,active:attackMode==="PHYSICAL"&&["FIST_RIGHT","FIST_LEFT"].includes(activeAttackSource),
+          onClick:()=>{setAttackMode("PHYSICAL");setAttackSource("FIST_RIGHT");}},
+         {label:"Patada",Icon:Footprints,active:attackMode==="PHYSICAL"&&activeAttackSource==="KICK",
+          onClick:()=>{setAttackMode("PHYSICAL");setAttackSource("KICK");}},
+         {label:"Magia",Icon:WandSparkles,active:attackMode==="MAGIC_AREA",
+          onClick:()=>chooseAttackMode("MAGIC_AREA")},
+        ]).map(({label,Icon,active,onClick})=><button type="button" key={label}
+         title={label} aria-label={label} aria-pressed={active} onClick={onClick}
+         className={"flex size-9 items-center justify-center rounded-md border "+
+          (active?"border-rose-300 bg-rose-950/40 text-rose-100":"border-rose-500/50 text-rose-300")}>
+         <Icon size={18}/></button>)}
        </div>}
       {panel==="construction"&&canCreateObjects
        ?<><CombatVerticalActionPlane mode="CONSTRUCTION" height={constructionHeightMeters}
@@ -696,14 +742,14 @@ export default function CombatEncounter({id}:{id:string}) {
        </select>
       </label>}
      <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,
-       planarMove:selectedDefense!=="NONE"?preparedMovement:undefined,
+       planarMove:selectedDefense!=="NONE"?reactionMovement:undefined,
        constructionId:selectedDefense==="CONSTRUCTION"?chosenDefenseConstruction:undefined,defenseAngle:angle,weaponSlot:selectedDefense==="BLOCK"?activeBlockSlot:
         selectedDefense==="DODGE"&&dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,
        dodgeDirection:selectedDefense==="DODGE"&&!preparedMovement?dodgeDirection:undefined,
         predictedCenter:(pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
-      disabled={busy||(!!preparedMovement&&!canCombine)||
+      disabled={busy||(!!reactionMovement&&!canCombine)||
         ((pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
-      {busy?"Resolviendo…":!hasReactionBudget?"Recibir impacto (sin reacción)":preparedMovement?"Mover + reaccionar · 2 PA":"Responder al ataque · 1 PA"}
+      {busy?"Resolviendo…":!hasReactionBudget?"Recibir impacto (sin reacción)":reactionMovement?"Mover + reaccionar · 2 PA":"Responder al ataque · 1 PA"}
      </button>
     </div>}
     {!pending&&state.status==="ACTIVE"&&hasAccess&&<div className="mt-5 space-y-4">
@@ -816,23 +862,36 @@ export default function CombatEncounter({id}:{id:string}) {
           <span className="ml-2 text-xs text-zinc-400">{preparedAreaSkill&&attackMode==="MAGIC_AREA"?"Configurado en la habilidad":"Configurado en la ficha o el arma"}</span>
         </div>
        </div>
-       {!preparedAreaSkill&&basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">El objetivo está a {attackDistance.toFixed(2)} m y el alcance máximo del ataque básico es {basicReach.toFixed(2)} m. Acércate antes de atacar.</p>}
-       {!(attackMode==="MAGIC_AREA"&&preparedAreaSkill)&&<button disabled={!ready||basicOutOfRange||(!!preparedMovement&&!canCombine)||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
+       {!preparedAreaSkill&&basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">
+         {movementOrder==="AFTER"?"«Atacar y mover» exige estar al alcance antes del desplazamiento. ":""}
+         El objetivo está a {attackDistance.toFixed(2)} m; el alcance máximo de este ataque es {basicReach.toFixed(2)} m.
+         {drawnMovement&&afterMovementDistance>basicReach
+          ?" Incluso después de avanzar sigue fuera de alcance. Usa «Solo mover» para acercarte otra vez."
+          :" Dibuja un paso hacia el rival y elige «Mover y atacar»."}
+        </p>}
+        {missingMoveTrace&&<p role="status" className="mb-2 text-xs text-cyan-200">Dibuja primero el desplazamiento en el plano izquierdo o selecciona «Solo mover».</p>}
+        {preparedMovement&&!canCombineAttack&&<p role="status" className="mb-2 text-xs text-amber-300">Faltan PA o ticks para combinar movimiento y ataque (requiere 2 PA).</p>}
+        {attackMode==="MAGIC_AREA"&&!areaCenter&&<p role="status" className="mb-2 text-xs text-violet-300">Marca el centro de la magia en el plano vertical para poder lanzarla.</p>}
+       {!(attackMode==="MAGIC_AREA"&&preparedAreaSkill)&&<button disabled={!ready||basicOutOfRange||missingMoveTrace||(!!preparedMovement&&!canCombineAttack)||(attackMode==="RANGED"&&selectedWeapon?.mode!=="RANGED")||(attackMode==="THROW"&&!selectedWeapon?.throwable)||(attackMode==="PHYSICAL"&&selectedWeapon?.mode==="RANGED")||(attackMode!=="PHYSICAL"?!areaCenter:points.length<2)||(attackMode==="MAGIC_AREA"&&(state?.mana?.[side]?.current??0)<BASIC_MAGIC_MANA_COST)}
          onClick={()=>void submit(attackMode==="MAGIC_AREA"
-           ? {kind:"ATTACK",planarMove:preparedMovement,usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
-           : attackMode==="THROW"?{kind:"ATTACK",planarMove:preparedMovement,throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
-           : attackMode==="RANGED"?{kind:"ATTACK",planarMove:preparedMovement,rangedPhysical:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
-           : {kind:"ATTACK",planarMove:preparedMovement,attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath,targetConstructionId:selectedAttackTargetId||undefined})}
+           ? {kind:"ATTACK",planarMove:preparedMovement,movementOrder,usesMagic:true,attackType:actor?.attackType??"CUT",areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : attackMode==="THROW"?{kind:"ATTACK",planarMove:preparedMovement,movementOrder,throwWeapon:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : attackMode==="RANGED"?{kind:"ATTACK",planarMove:preparedMovement,movementOrder,rangedPhysical:true,attackSource:activeAttackSource,attackType:displayedAttackType,areaCenter:areaCenter??undefined,targetConstructionId:selectedAttackTargetId||undefined}
+           : {kind:"ATTACK",planarMove:preparedMovement,movementOrder,attackSource:activeAttackSource,attackType:displayedAttackType,trajectory:normalizedPath,targetConstructionId:selectedAttackTargetId||undefined})}
          className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-zinc-950 disabled:opacity-40">
-        {preparedMovement?"Mover + atacar · 2 PA":attackMode==="MAGIC_AREA"?"Lanzar magia básica":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
+        {movementOrder==="BEFORE"?
+          (attackMode==="MAGIC_AREA"?"Mover y lanzar magia · 2 PA":"Mover y atacar · 2 PA"):
+          movementOrder==="AFTER"?
+          (attackMode==="MAGIC_AREA"?"Lanzar magia y mover · 2 PA":"Atacar y mover · 2 PA"):
+          attackMode==="MAGIC_AREA"?"Lanzar magia básica":attackMode==="RANGED"?"Disparar proyectil":attackMode==="THROW"?"Arrojar arma":"Atacar"}
        </button>}
        {attackMode==="MAGIC_AREA"&&preparedAreaSkill?.attackArea&&<button type="button"
          disabled={!ready||!areaCenter||attackDistance>(preparedAreaSkill.rangeMeters??0)||
-           (!!preparedMovement&&!canCombine)||
+           missingMoveTrace||(!!preparedMovement&&!canCombineAttack)||
            (state.mana?.[side]?.current??0)<preparedAreaSkill.manaCost}
          onClick={()=>castSkill(preparedAreaSkill)}
          className="rounded-lg bg-violet-500 px-5 py-2 font-bold text-white disabled:opacity-40">
-         {preparedMovement?"Mover + lanzar":"Lanzar"} {preparedAreaSkill.name} · {preparedAreaSkill.manaCost} maná {preparedMovement?"· 2 PA":""}
+         {movementOrder==="BEFORE"?"Mover y lanzar":movementOrder==="AFTER"?"Lanzar y mover":"Lanzar"} {preparedAreaSkill.name} · {preparedAreaSkill.manaCost} maná {preparedMovement?"· 2 PA":""}
        </button>}
        {attackMode==="MAGIC_AREA"&&preparedAreaSkill&&<button type="button"
          onClick={()=>{setPreparedAreaSkill(null);setAreaCenter(null);}}
@@ -931,7 +990,7 @@ export default function CombatEncounter({id}:{id:string}) {
     </p>}
    <CombatSkillLoadout encounterId={id} side={side} authorized={hasAccess}
     onPrepareArea={prepareAreaSkill} preparedAreaSkillId={preparedAreaSkill?.id??null}
-    canUseSkill={ready&&(!preparedMovement||canCombine)} busy={busy} round={state.round}
+    canUseSkill={ready&&!missingMoveTrace&&(!preparedMovement||canCombineAttack)} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
     onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance}/>

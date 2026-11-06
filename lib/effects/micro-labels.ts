@@ -5,6 +5,8 @@
 export const MICRO_STEP_LABELS: Record<string,string> = {
   READ_STAT:"Leer estadística",READ_STORED:"Consultar cargas guardadas",
   READ_ITEM:"Leer objeto",REPAIR_DURABILITY:"Restaurar durabilidad",
+  CONSUME_COMBAT_CHARGES:"Consumir cargas de combate",
+  APPLY_CHARGE_BUFF:"Potenciar estadísticas por carga",
   CALCULATE:"Calcular valor",STORE:"Guardar cargas",CONSUME:"Consumir cargas",
   HEAL:"Curar",DAMAGE:"Causar daño",MODIFIER:"Multiplicar una estadística",
   BONUS:"Sumar bono",CAPABILITY:"Efecto narrativo",

@@ -152,6 +152,10 @@ export default function CombatEncounter({id}:{id:string}) {
  const canvas=useRef<SVGSVGElement|null>(null);
  const castRequestRef=useRef<{key:string;id:string}|null>(null);
  const itemRequestRef=useRef<{key:string;id:string}|null>(null);
+ // Retain the same request ID after a network failure or repeated tap while
+ // the rendered combat snapshot has not changed. A genuine next action gets
+ // a new ID after the server response updates the snapshot.
+ const actionRequestRef=useRef<{key:string;id:string}|null>(null);
  const load=useCallback(async()=>{
   try {
    const r=await fetch("/api/combat/"+id+"/actions",{cache:"no-store"});
@@ -192,17 +196,37 @@ export default function CombatEncounter({id}:{id:string}) {
   const handle=window.setInterval(()=>{void load();},3500);
   return ()=>window.clearInterval(handle);
  },[load,encounterFinished]);
- async function submit(command:CombatCommand | {kind:"ADVANCE"}) {
+ async function submit(command:CombatCommand | {kind:"ADVANCE";requestId?:string}) {
   if(busy)return;
+  // The request ID travels in the payload, never in an untrusted server-side
+  // inference. Retries of the same action and initiative state reuse it.
+  let outgoing:CombatCommand | {kind:"ADVANCE";requestId?:string}=command;
+  const snapshot=view?.state;
+  if(command.kind==="ADVANCE"){
+   const key=[id,snapshot?.round??0,snapshot?.tick??0,
+    snapshot?.actors.NPC.spentTicks??0,snapshot?.actors.PLAYER.spentTicks??0,
+    snapshot?.actors.NPC.spentAp??0].join(":");
+   outgoing={...command,requestId:"npc-advance-"+key};
+  }else if(["MOVE","WAIT","ATTACK","DEFEND"].includes(command.kind)){
+   const key=JSON.stringify([id,side,snapshot?.round,snapshot?.tick,
+    snapshot?.actors[side].spentTicks,snapshot?.actors[side].spentAp,
+    snapshot?.pending?.launchedAtTick,snapshot?.log.at(-1)?.summary,command]);
+   const previous=actionRequestRef.current;
+   const requestId=previous?.key===key?previous.id:crypto.randomUUID();
+   actionRequestRef.current={key,id:requestId};
+   outgoing={...command,requestId};
+  }
   setBusy(true);setError("");setActionFeedback("");
   try {
    const r=await fetch("/api/combat/"+id+"/actions",{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({side,command}),
+    body:JSON.stringify({side,command:outgoing}),
    });
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"Acción rechazada");
    setView(v=>v?{...v,state:data.state}:v);
+   if(["MOVE","WAIT","ATTACK","DEFEND"].includes(command.kind))
+    actionRequestRef.current=null;
    if(command.kind==="BOOST_KARMA"){setKarmaAllocation({});karmaRequestRef.current=null;void load();}
    if(command.kind==="DEFEND")setPredictedCenter(null);
    if(command.kind==="ATTACK"||command.kind==="CAST_SKILL"||command.kind==="MOVE"||command.kind==="WAIT")
@@ -335,7 +359,7 @@ export default function CombatEncounter({id}:{id:string}) {
   setAdvancingNpc(true);
   fetch("/api/combat/"+id+"/actions",{
    method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({side:"PLAYER",command:{kind:"ADVANCE"}}),
+   body:JSON.stringify({side:"PLAYER",command:{kind:"ADVANCE",requestId:"npc-advance-"+key}}),
   }).then(async response=>{
    const data=await response.json();
    if(!response.ok)throw new Error(data?.error??"No se pudo avanzar la iniciativa rival.");

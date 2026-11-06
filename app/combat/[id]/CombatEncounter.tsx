@@ -904,6 +904,12 @@ export default function CombatEncounter({id}:{id:string}) {
        </div>}
      </section>
     </div>
+    {(combatChargeBalance(state,side,"LUNAR_CHARGES")>0||
+      (state.summons??[]).some(x=>x.owner===side&&x.contactEffects?.some(e=>
+        e.kind==="INVERT_STATUS"&&e.chargeAccumulator==="LUNAR_CHARGES")))&&
+       <p className="mt-3 rounded-lg border border-violet-500/40 px-3 py-2 text-sm text-violet-200" role="status">
+        🌙 Reserva Lunar: <strong>{combatChargeBalance(state,side,"LUNAR_CHARGES")}/6</strong> cargas propias
+       </p>}
     {(state.summons?.length??0)>0&&<section className="mt-4 space-y-2 rounded-xl border border-emerald-500/30 bg-zinc-950/70 p-3" aria-label="Criaturas invocadas">
      <h2 className="text-sm font-semibold text-emerald-200">🐇 Criaturas en el campo</h2>
      <p className="text-xs text-zinc-400">Cada orden consume 1 PA y los ticks del invocador. El mantenimiento se descuenta al comenzar el siguiente turno: no hay ataques gratuitos.</p>
@@ -936,8 +942,8 @@ export default function CombatEncounter({id}:{id:string}) {
        </div>
        <p className="text-zinc-300">Integridad {Math.ceil(summon.integrity)} · Golpes {summon.hitCount}/{summon.hitLimit} · Mantenimiento {summon.maintenanceMana} maná</p>
        <p className="text-zinc-400">Comportamiento {summon.behavior.mode} · Objetivo {summon.behavior.target==="USER"?"invocador":"oponente"}</p>
-       {Object.entries(summon.charges??{}).map(([name,value])=>
-         <p key={name} className="text-violet-300">🌙 {name}: {value}/6 cargas</p>)}
+       {Object.keys(summon.charges??{}).filter(name=>!summon.chargesMigrated).map(name=>
+         <p key={name} className="text-violet-300">🌙 {friendlyMicroKey(name)}: {combatChargeBalance(state,summon.owner,name)}/6 cargas del propietario</p>)}
        {summon.contactEffects?.length? <p className="text-emerald-300">
          {summon.contactEffects.length} efecto(s) al contacto · {summon.behavior.trigger==="HP_DAMAGE"?"requiere daño real a HP":"requiere contacto"}
        </p>:null}

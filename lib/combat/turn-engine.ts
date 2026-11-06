@@ -774,7 +774,82 @@ function advanceSummonToward(state:CombatState,summon:CombatSummon,point:Point,s
   if(step<=0)return 0;
   return moveSummonOnField(state,summon,{x:dx/distance*step,y:dy/distance*step});
 }
-function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{kind:"COMMAND_SUMMON"}>):void {
+/** Inspect an already-approved creature's contact configuration before paying
+ * an action. User-selected stats and status IDs must belong to this encounter.
+ * A pending attack can then safely resolve without a late invalid input.
+ */
+function validateSummonContactSelection(state:CombatState,summon:CombatSummon,
+ chosenStat?:string,chosenStatusId?:string):void {
+ for(const effect of summon.contactEffects??[]){
+   const target:Side=effect.target==="USER"?summon.owner:other(summon.owner);
+   if(effect.kind==="APPLY_STATUS"&&typeof effect.stat!=="string"&&effect.stat.mode==="COMBAT"){
+     if(!chosenStat||!effect.stat.allowed.includes(chosenStat))
+       throw new Error("Elige una estadística autorizada para el contacto de la criatura.");
+   }
+   if(effect.kind==="INVERT_STATUS"&&effect.selection==="SELECTED_DEBUFF"){
+     const status=state.summonStatuses?.find(s=>s.id===chosenStatusId&&s.target===target&&isDebuffStatus(s));
+     if(!status)throw new Error("Selecciona un debilitamiento activo del objetivo para invertirlo.");
+   }
+   if(effect.kind==="INVERT_STATUS"&&
+     (state.summonStatuses??[]).some(s=>s.target===target&&isDebuffStatus(s))){
+     const available=state.mana?.[summon.owner]?.current??0;
+     if(available<effect.manaCost)
+       throw new Error("Maná insuficiente para invertir el debilitamiento.");
+   }
+ }
+}
+function resolveSummonContact(state:CombatState,summon:CombatSummon,params:{
+ target:Side;contact:boolean;hpDamage:number;randomRoll:number;
+ chosenStat?:string;chosenStatusId?:string;
+}):void {
+ if(!params.contact || !(summon.contactEffects?.length))return;
+ if(summon.behavior.trigger==="HP_DAMAGE"&&params.hpDamage<=0)return;
+ for(const [index,effect] of summon.contactEffects.entries()){
+   const target:Side=effect.target==="USER"?summon.owner:other(summon.owner);
+   if(target!==params.target)continue;
+   if(effect.kind==="APPLY_STATUS"){
+     const stat=typeof effect.stat==="string"?effect.stat:
+       effect.stat.mode==="FIXED"?effect.stat.fixed:
+       effect.stat.mode==="COMBAT"?params.chosenStat:
+       effect.stat.allowed[Math.min(effect.stat.allowed.length-1,
+         Math.floor(params.randomRoll*effect.stat.allowed.length))];
+     if(!stat||!resolveStatusStat(stat))
+       throw new Error("La estadística seleccionada no es válida para este estado.");
+     const status=applySummonStatus(state,{
+       id:summon.id+":"+state.round+":"+state.tick+":"+state.log.length+":"+index,
+       sourceSummonId:summon.id,by:summon.owner,target,stat,
+       operation:effect.operation,value:effect.value,durationTurns:effect.durationTurns,
+     });
+     addLog(state,{kind:"STATUS",tick:state.tick,by:summon.owner,against:target,
+       summonId:summon.id,summary:summon.label+" aplicó "+
+       (isDebuffStatus(status)?"un debilitamiento":"una mejora")+" a "+
+       state.actors[target].name+": "+status.stat+" ("+
+       (status.operation==="MULTIPLIER"?"×"+status.value:String(status.value>=0?"+":"")+status.value)+
+       ") durante "+effect.durationTurns+" turnos."});
+   }else{
+     const available=(state.summonStatuses??[]).filter(s=>s.target===target&&isDebuffStatus(s));
+     const selected=effect.selection==="SELECTED_DEBUFF"
+       ?available.find(s=>s.id===params.chosenStatusId):available.at(-1);
+     if(!selected)continue;
+     const mana=state.mana?.[summon.owner];
+     if(!mana||mana.current<effect.manaCost)
+       throw new Error("Maná insuficiente para invertir el debilitamiento.");
+     const inverted=invertSummonStatus(state,target,selected.id);
+     if(!inverted)continue;
+     mana.current-=effect.manaCost;
+     if(effect.chargeAccumulator){
+       summon.charges??={};
+       const before=summon.charges[effect.chargeAccumulator]??0;
+       summon.charges[effect.chargeAccumulator]=Math.min(6,before+1);
+     }
+     addLog(state,{kind:"STATUS",tick:state.tick,by:summon.owner,against:target,
+       summonId:summon.id,manaCost:effect.manaCost,
+       summary:summon.label+" invirtió "+inverted.stat+" de "+state.actors[target].name+
+       " y pagó "+effect.manaCost+" maná."});
+   }
+ }
+}
+function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{kind:"COMMAND_SUMMON"}>,rolls:{hit:number;critical:number;defense:number}):void {
   const summon=state.summons?.find(s=>s.id===command.summonId&&s.owner===by);
   if(!summon)throw new Error("No controlas esa invocación o ha desaparecido.");
   const owner=state.actors[by];

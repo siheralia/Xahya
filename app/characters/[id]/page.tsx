@@ -1151,7 +1151,22 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
       "",
       "*BONOS DE EQUIPO*",
       character.equipment.filter((entry) => entry.equipped && (entry.item?.effects?.length ?? 0) > 0).flatMap((entry) =>
-        (entry.item?.effects ?? []).map((effect) => "• " + (entry.item?.name ?? "Objeto") + ": " + (effect.description?.trim() || (effect.type === "stat_multiplier" ? "×" + formatNumber(Number(effect.value)) : effect.type === "stat_bonus" ? signed(Number(effect.value)) : effect.type + " " + formatNumber(Number(effect.value))) + (effect.stat ? " " + (({ LCK: "Suerte", INT: "Inteligencia", STR: "Fuerza", AGI: "Agilidad", CON: "Constitución", WIS: "Sabiduría", CHA: "Carisma", SPI: "Espíritu" } as Record<string, string>)[String(effect.stat).toUpperCase()] ?? String(effect.stat)) : "")))
+        (entry.item?.effects ?? []).map((effect) => {
+          const name = entry.item?.name ?? "Objeto";
+          if (effect.type === "auto_repair_durability") {
+            const params = effect as typeof effect & {manaCost?:number;intervalTurns?:number};
+            return "• " + name + ": Autorreparación · " +
+              Number(params.manaCost ?? 0) + " maná cada " +
+              Number(params.intervalTurns ?? 0) + " turno(s)";
+          }
+          return "• " + name + ": " + (
+            effect.description?.trim() ||
+            (effect.type === "stat_multiplier" ? "×" + formatNumber(Number(effect.value))
+              : effect.type === "stat_bonus" ? signed(Number(effect.value))
+              : effect.type + " " + formatNumber(Number(effect.value))) +
+              (effect.stat ? " " + (({ LCK: "Suerte", INT: "Inteligencia", STR: "Fuerza", AGI: "Agilidad", CON: "Constitución", WIS: "Sabiduría", CHA: "Carisma", SPI: "Espíritu" } as Record<string, string>)[String(effect.stat).toUpperCase()] ?? String(effect.stat)) : "")
+          );
+        })
       ).join("\n") || "• Ninguno",
       "",
       "*RECURSOS PERMANENTES*",

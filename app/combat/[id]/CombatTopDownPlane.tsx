@@ -121,7 +121,7 @@ export default function CombatTopDownPlane({
       <circle cx={x} cy={y} r="3.1"
         fill={summon.owner===side?"#34d399":"#f472b6"} fillOpacity=".20"
         stroke={summon.owner===side?"#6ee7b7":"#f9a8d4"} strokeWidth=".7"/>
-      <text x={x} y={y+1.2} textAnchor="middle" fontSize="4.8">🐇</text>
+      <text x={x} y={y+1.2} textAnchor="middle" fontSize="4.8">{summon.fusedFrom?.length?"🌀":"🐇"}</text>
       <text x={x} y={Math.max(5,y-4.4)} fontSize="2.7"
         textAnchor="middle" fill={summon.owner===side?"#bbf7d0":"#fbcfe8"}>
         {summon.label.slice(0,15)}

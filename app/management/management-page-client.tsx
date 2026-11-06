@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import ManagementModal from "./_components/ManagementModal";
+import ManagementNavigation from "./_components/ManagementNavigation";
 
 type Character = {
   id: number;
@@ -49,7 +50,6 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [allowedPages,setAllowedPages]=useState<string[]>([]);
-  const canSee=(page:string)=>allowedPages.includes("management."+page);
   const [isGM, setIsGM] = useState(false);
   const [capabilities, setCapabilities] = useState({global:false,resources:false,details:false,characters:false});
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -454,147 +454,13 @@ export default function ManagementPage({ toolsMode = false }: { toolsMode?: bool
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-5xl px-6 py-6">
         <h1 className="text-4xl font-bold">{toolsMode ? "Herramientas de gestión" : "Gestión"}</h1>
-        {!toolsMode && <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-zinc-500">{toolsMode ? "Administra personajes y sus recursos según tus permisos." : "Consulta y administra las secciones de Xahya habilitadas para tu cuenta."}</p>
-          <div className="flex flex-wrap gap-3">
-            {canSee("logs") && (<Link
-              href="/management/logs"
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-            >
-              Ver logs
-            </Link>)}
-            {canSee("rankings") && (<Link
-              href="/management/rankings"
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-            >
-              Rankings
-            </Link>)}
+        {!toolsMode && (
+          <>
+            <p className="mt-2 text-zinc-500">Administra los sistemas y contenidos de Xahya.</p>
+            <ManagementNavigation allowedPages={allowedPages} isAdmin={isAdmin} isGM={isGM} />
+          </>
+        )}
 
-            {canSee("rules") && (<Link
-              href="/management/rules"
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-            >
-              Reglas
-            </Link>)}
-
-            {canSee("casino") && (<Link
-                href="/management/casino"
-                className="rounded-lg border border-amber-500/30 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-950/30"
-              >
-                Casino
-              </Link>)}
-
-            <>
-                {canSee("items") && (<Link
-                  href="/management/items"
-                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-                >
-                  Objetos
-                </Link>)}
-                {canSee("store") && (<Link
-                  href="/management/store"
-                  className="rounded-lg border border-emerald-500/30 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-950/30"
-                >
-                  Tienda
-                </Link>)}
-            </>
-
-
-            {canSee("world") && (<Link
-                href="/management/world"
-                className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30"
-              >
-                Mundo
-              </Link>)}
-
-            {canSee("businesses") && (<Link
-                href="/management/businesses"
-                className="rounded-lg border border-emerald-500/30 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-950/30"
-              >
-                Negocios y empleos
-              </Link>)}
-
-            {canSee("perks") && (<Link
-                href="/management/perks"
-                className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-              >
-                Perks
-              </Link>)}
-            {canSee("races") && (<Link
-                href="/management/races"
-                className="rounded-lg border border-violet-500/30 px-4 py-2 text-sm font-medium text-violet-300 transition hover:bg-violet-950/30"
-              >
-                Razas
-              </Link>)}
-
-            {canSee("skills") && (<Link
-                href="/management/skills"
-                className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-              >
-                Habilidades
-              </Link>)}
-
-            {canSee("roles") && (<Link href="/management/roles" className="rounded-lg border border-cyan-700 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950">Gestionar roles</Link>)}
-
-            {canSee("users") && (<Link
-                href="/management/users"
-                className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-              >
-                Ver usuarios
-              </Link>)}
-
-            {canSee("social") && (<Link
-              href="/management/social"
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-            >
-              Relaciones sociales
-            </Link>)}
-            {canSee("statistics") && (<Link
-                href="/management/statistics"
-                className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30"
-              >
-                Estadísticas
-              </Link>)}
-
-            {canSee("elements") && (<Link href="/management/elements" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de elementos</Link>)}
-
-            {(canSee("materials")||canSee("items")) && (<Link href="/management/material-types" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de tipos</Link>)}
-             {(canSee("materials")||canSee("items")) && (<Link href="/management/materials" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de materiales</Link>)}
-
-             {canSee("effects") && (<Link href="/management/effects" className="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-950/30">Gestión de efectos</Link>)}
-
-            {canSee("labyrinth") && (<Link
-              href="/management/maze"
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-            >
-              Laberintos
-            </Link>)}
-            {(isGM || isAdmin) && (
-              <>
-                {canSee("enemies") && (<Link
-                  href="/management/enemies"
-                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-                >
-                  Enemigos
-                </Link>)}
-                {canSee("ambientations") && (<Link
-                  href="/management/ambientations"
-                  className="rounded-lg border border-fuchsia-500/30 px-4 py-2 text-sm font-medium text-fuchsia-300 transition hover:bg-fuchsia-950/30"
-                >
-                  Ambientaciones
-                </Link>)}
-                {canSee("themes") && (<Link
-                  href="/management/themes"
-                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white"
-                >
-                  Temáticas
-                </Link>)}
-              </>
-            )}
-          </div>
-        </div>}
-
-        {!toolsMode && (canSee("characters")||canSee("character-resources")||canSee("character-details")||canSee("global-delivery")) && <div className="mt-5"><Link href="/management/character-tools" className="inline-flex rounded-lg border border-cyan-600 bg-cyan-950/30 px-5 py-3 font-semibold text-cyan-300">Entregas y edición de personajes</Link></div>}
         {toolsMode && <div className="mb-4"><Link href="/management" className="text-cyan-300">← Volver a Gestión</Link></div>}
         {error && (
           <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">

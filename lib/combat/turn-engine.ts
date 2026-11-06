@@ -721,7 +721,7 @@ export function basicCounterAttack(state:CombatState,side:Side,preferMagic=false
   const anchor=physicalAttackStart(state,side,source)??{x:0.1,y:0.5};
   const crossesCenter=attackType==="CUT";
   const destination:Point=crossesCenter
-    ? {x:anchor.x<0.5?0.9:0.1,y:anchor.y<0.5?0.9:0.1}
+    ? {x:anchor.x<0.5?0.9:0.1,y:anchor.y===0.5?0.5:anchor.y<0.5?0.9:0.1}
     : {x:0.5,y:0.5};
   return {kind:"ATTACK",attackSource:source,attackType,
    trajectory:[{...anchor},destination]};

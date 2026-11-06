@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {
   MODULE_DEPOSIT_PER_STEP,isComposedSkillEffect,validateComposedSkillList,
-  canonicalPlayerComposedEffects,composedEffectBasePch,composedDepositPch,
+  canonicalPlayerComposedEffects,composedEffectBasePch,composedDepositPch,previewComposedEffectBasePch,
 } from "../lib/skills/composed-effects.ts";
-import {configuredSkillEffectPch} from "../lib/skills/configured-effect-pricing.ts";
+import {configuredSkillEffectPch,previewConfiguredSkillEffectPch} from "../lib/skills/configured-effect-pricing.ts";
 import {defaultEffectPricing} from "../lib/skills/pch.ts";
 import {DEFAULT_DURATION_PRICING} from "../lib/effects/duration-pricing.ts";
 import {GLORIA_MICRO_PRESETS} from "../lib/effects/micro-template-presets.ts";
@@ -65,4 +65,48 @@ test("approved skill review verifies final cost and sufficient PCH inside existi
  assert.match(approve,/PCH_INSUFFICIENT/);
  assert.match(approve,/hasComposed \? 0/);
  assert.match(approve,/El PCH modular definitivo se liquida al aprobar/);
+});
+
+test("editing a reading module output to empty does not throw during live PCH preview",()=>{
+ const working=fresh(2);
+ const oldPrice=price(working);
+ assert.equal(oldPrice,5);
+ const reading=working.module.steps[0];
+ assert.equal(reading.kind,"READ_STAT");
+ const original=reading.output;
+ reading.output="";
+ const preview=previewComposedEffectBasePch(working);
+ assert.equal(preview.amount,oldPrice);
+ assert.match(preview.error,/lectura de estadística inválida/);
+ assert.equal(previewConfiguredSkillEffectPch(working,[],defaultEffectPricing(),DEFAULT_DURATION_PRICING),oldPrice);
+ assert.throws(()=>configuredSkillEffectPch(working,[],defaultEffectPricing(),DEFAULT_DURATION_PRICING),
+  /lectura de estadística inválida/,"server pricing still rejects incomplete fields");
+ reading.output="newResistanceBase";
+ assert.equal(previewComposedEffectBasePch(working).amount,oldPrice);
+ assert.equal(previewComposedEffectBasePch(working).error!==null,true,
+  "dependent outputs are still invalid until rewired to the new name");
+ working.module.steps[1].expression={operator:"MULTIPLY",args:[{source:"OUTPUT",key:"newResistanceBase"},0.1]};
+ assert.equal(previewComposedEffectBasePch(working).error,null);
+ assert.equal(price(working),oldPrice);
+ assert.notEqual(reading.output,original);
+});
+
+test("strict modular approval remains unchanged; editor and both floating PCH panels use preview",()=>{
+ const bad=fresh(0);
+ bad.module.steps[0].output="";
+ assert.match(validateComposedSkillList([bad],"PLAYER"),/salida de cálculo duplicada o inválida/);
+ assert.throws(()=>composedDepositPch(bad));
+ assert.equal(previewComposedEffectBasePch(bad).amount,5);
+ for(const path of [
+  "../components/skills/SkillEffectsEditor.tsx",
+  "../app/characters/[id]/page.tsx",
+  "../app/management/skills/page.tsx",
+ ]){
+  const code=readFileSync(new URL(path,import.meta.url),"utf8");
+  assert.match(code,/preview(?:ComposedEffectBasePch|ConfiguredSkillEffectPch)/,
+   path+" must never call strict PCH while editing unfinished values");
+ }
+ const configCode=readFileSync(new URL("../lib/skills/configured-effect-pricing.ts",import.meta.url),"utf8");
+ assert.match(configCode,/if\(isComposedSkillEffect\(effect\)\)return composedEffectBasePch\(effect\)/,
+  "production pricing is still strict");
 });

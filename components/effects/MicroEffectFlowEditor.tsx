@@ -17,10 +17,11 @@ const nodeTypes={skillStep:StepNode};
 const nodeId=(index:number)=>"step-"+index;
 const indexOfNode=(id:string|null|undefined)=>id?.startsWith("step-")?Number(id.slice(5)):-1;
 const outputOf=(step:MicroStep):string|undefined=>"output" in step?step.output:undefined;
-const referencedOutputs=(expr:NumericExpr|undefined):string[]=>{
- if(expr===undefined||typeof expr==="number")return [];
- if("source" in expr)return expr.source==="OUTPUT"?[expr.key]:[];
- return expr.args.flatMap(referencedOutputs);
+const referencedOutputs=(expr:NumericExpr|undefined|null):string[]=>{
+  // Partially edited or old expressions should never take down the graph.
+  if(expr===undefined||expr===null||typeof expr!=="object")return [];
+  if("source" in expr)return expr.source==="OUTPUT"&&typeof expr.key==="string"?[expr.key]:[];
+  return Array.isArray(expr.args)?expr.args.flatMap(referencedOutputs):[];
 };
 const inputsOf=(step:MicroStep):Port[]=>{
  switch(step.kind){
@@ -39,11 +40,15 @@ const inputsOf=(step:MicroStep):Port[]=>{
   default:return [];
  }
 };
-const exprLabel=(v:NumericExpr|undefined):string=>{
- if(v===undefined)return "Automático";
- if(typeof v==="number")return String(v);
- if("source" in v)return (v.source==="OUTPUT"?"← ":"")+friendlyMicroKey(v.key);
- return (MICRO_OPERATOR_LABELS[v.operator]??v.operator)+"("+v.args.map(exprLabel).join(", ")+")";
+const exprLabel=(v:NumericExpr|undefined|null):string=>{
+  if(v===undefined)return "Automático";
+  if(v===null||(typeof v!=="number"&&typeof v!=="object"))return "Valor incompleto";
+  if(typeof v==="number")return String(v);
+  if("source" in v)return typeof v.key==="string"?
+    (v.source==="OUTPUT"?"← ":"")+friendlyMicroKey(v.key):"Referencia incompleta";
+  return Array.isArray(v.args)?
+    (MICRO_OPERATOR_LABELS[v.operator]??v.operator)+"("+v.args.map(exprLabel).join(", ")+")":
+    "Operación incompleta";
 };
 const display=(step:MicroStep):{title:string;subtitle:string;unresolved:boolean}=>{
  switch(step.kind){

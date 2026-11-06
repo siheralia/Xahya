@@ -97,7 +97,15 @@ test("server submission and upgrades reuse the central per-effect price calculat
   const upgrades=fs.readFileSync(path.join(__dirname,"../lib/skills/upgrade.ts"),"utf8");
   const management=fs.readFileSync(path.join(__dirname,"../app/management/skills/page.tsx"),"utf8");
   const character=fs.readFileSync(path.join(__dirname,"../app/characters/[id]/page.tsx"),"utf8");
-  for(const source of [submission,upgrades,management,character]){
-    assert.match(source,/configuredSkillEffectPch/);
+  for(const source of [submission,upgrades]){
+    assert.match(source,/configuredSkillEffectPch/,"persisted/server PCH must remain strict");
   }
+  for(const source of [management,character]){
+    assert.match(source,/previewConfiguredSkillEffectPch/,"forms need a non-throwing PCH preview");
+  }
+  assert.equal(configured.previewConfiguredSkillEffectPch(earthCardEffect,[card],pch.defaultEffectPricing(),
+    duration.DEFAULT_DURATION_PRICING),
+    configured.configuredSkillEffectPch(earthCardEffect,[card],pch.defaultEffectPricing(),
+      duration.DEFAULT_DURATION_PRICING),
+    "valid effects retain exactly the same price");
 });

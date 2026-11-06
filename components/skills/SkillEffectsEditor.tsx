@@ -7,7 +7,7 @@ import { ElementSelect } from "@/components/effects/ElementSelect";
 import { SkillFieldHelp } from "./SkillFieldHelp";
 import { COPY_MODES } from "@/lib/skills/copy";
 import { MicroEffectBuilder,freshMicroEffect } from "@/components/effects/MicroEffectBuilder";
-import {isComposedSkillEffect,composedEffectBasePch} from "@/lib/skills/composed-effects";
+import {isComposedSkillEffect,previewComposedEffectBasePch} from "@/lib/skills/composed-effects";
 import type {EffectContainer} from "@/lib/effects/micro-modules";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 export type EditableEffect = {type:string;module?:EffectContainer;pricingNotes?:string;reviewedPch?:number;capability?:string;element?:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT";copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean};
@@ -31,7 +31,7 @@ export function SkillEffectsEditor<E extends EditableEffect>({effects,onChange,s
   </div>}
   <p className="mt-3 text-xs text-zinc-400">¿No sabes cuál elegir? Empieza con «Buscar efecto» y añade solo uno. Los módulos personalizados son para configuraciones avanzadas.</p>
   <SharedEffectsEditor className="mt-4" effects={effects} onChange={onChange} onAdd={()=>({type:"STAT_BONUS",target:"STR",value:1} as E)} onTypeChange={(e,type)=>({...e,type,target:targetsFor(type)[0]?.key??""})} hideAdd renderTarget={()=>null} renderCard={(e,i,change,remove)=>{
-   if(isComposedSkillEffect(e))return <div className="space-y-3">
+   if(isComposedSkillEffect(e)){const preview=previewComposedEffectBasePch(e);return <div className="space-y-3">
      <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold text-violet-200">Efecto modular · pendiente de revisión</span><button type="button" onClick={remove} className="rounded border border-rose-700/60 px-2 py-1 text-xs text-rose-300">Quitar</button></div>
      <MicroEffectBuilder value={e.module} onChange={module=>change({module} as Partial<E>)}/>
      <label className="block text-xs text-zinc-400">Justificación para quien aprueba (opcional)
@@ -41,9 +41,10 @@ export function SkillEffectsEditor<E extends EditableEffect>({effects,onChange,s
        <input aria-label="PCH definitivo del efecto modular" type="number" min={1} max={100000} step={1} value={e.reviewedPch??""}
          onChange={event=>change({reviewedPch:event.target.value?Number(event.target.value):undefined} as Partial<E>)} className={"mt-1 w-full "+cls}/>
      </label>}
-     <p className="text-xs text-amber-200">{e.reviewedPch===undefined?"Reserva inicial: "+composedEffectBasePch(e)+" PCH · precio provisional, sujeto a revisión":"PCH de este efecto revisado: "+e.reviewedPch+" (antes de ajustes globales de la habilidad)"}</p>
+     <p className="text-xs text-amber-200">{e.reviewedPch===undefined?"Reserva inicial: "+preview.amount+" PCH · precio provisional, sujeto a revisión":"PCH de este efecto revisado: "+e.reviewedPch+" (antes de ajustes globales de la habilidad)"}</p>
+     {preview.error&&<p role="alert" className="text-xs text-amber-300">Configuración pendiente: {preview.error} Puedes seguir editando; el guardado comprobará todas las conexiones.</p>}
      <p className="text-xs text-zinc-500">Se presenta junto con la habilidad; no funciona en combate antes de contar con un resolutor y aprobación completos.</p>
-   </div>;
+   </div>;}
    const narrative=e.type==="NARRATIVE";const targets=targetsFor(e.type);return <div className="grid gap-2 sm:grid-cols-2">
    <label className="text-xs text-zinc-400">Tipo <SkillFieldHelp field="effectType"/><select value={e.type} onChange={ev=>{const nextType=ev.target.value;const nextTargets=targetsFor(nextType);update(i,{type:nextType,target:nextTargets[0]?.key??""} as Partial<E>);}} className={"mt-1 w-full "+cls}>{!typesForEditor.some(t=>t[0]===e.type)&&<option value={e.type}>{friendlyMicroKey(e.type)}</option>}{typesForEditor.map(t=><option key={t[0]} value={t[0]}>{t[1]}</option>)}{narrative&&<option value="NARRATIVE">Narrativo</option>}</select></label>
    {narrative?<label className="text-xs text-zinc-400">Descripción<input value={e.description??""} onChange={ev=>update(i,{description:ev.target.value} as Partial<E>)} className={"mt-1 w-full "+cls}/></label>:targets.length>0?<label className="text-xs text-zinc-400">Objetivo <SkillFieldHelp field="effectTarget"/><select value={e.target??""} onChange={ev=>update(i,{target:ev.target.value} as Partial<E>)} className={"mt-1 w-full "+cls}>{e.target&&!targets.some(t=>t.key===e.target)&&<option value={e.target}>{friendlyMicroKey(e.target)}</option>}{targets.map(t=><option key={t.key} value={t.key}>{displayLabel(t.key,t.label)}</option>)}</select></label>:null}

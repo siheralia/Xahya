@@ -23,7 +23,7 @@ import { applyCooldownPch } from "@/lib/skills/cooldown";
 import { calculateSkillPch, skillEffectMultiplier, type EffectPricingMap } from "@/lib/skills/pch";
 
 import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/duration-pricing";
-import { configuredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
+import { previewConfiguredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
 import type {EffectContainer} from "@/lib/effects/micro-modules";
 import Link from "next/link";
 import { Swords, Shield, Heart, Droplets, Sparkles, Wind, Orbit, Copy, Check } from "lucide-react";
@@ -581,7 +581,7 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
     mechanics:{} as SkillMechanics,
     effect: [] as SkillEffect[],
   });
-  const priceSkillEffect = (effect: SkillEffect) => configuredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
+  const priceSkillEffect = (effect: SkillEffect) => previewConfiguredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
   const skillBasePch = skillForm.effect.reduce((sum,e)=>sum+priceSkillEffect(e),0) + mechanicsPchCost(skillForm.mechanics);
   const skillPchBeforeRange = manaAdjustedPch(skillBasePch, skillForm.cost) + (!skillForm.speed || skillForm.speed === "DEFAULT" ? 0 : 5);
   const skillPchCost = Number.isSafeInteger(skillForm.maxRangeMeters) && skillForm.maxRangeMeters >= 0 && skillForm.maxRangeMeters <= 100 ? effectRequirementDiscount(applyCooldownPch(applyRangePch(skillPchBeforeRange, skillForm.maxRangeMeters),skillForm.cooldown,skillForm.duration,skillForm.category), skillForm.effectRequirements) : 0;

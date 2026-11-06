@@ -9,7 +9,7 @@ import { executeMicroEvent, emptyMicroState, validateEffectContainers, type Effe
 import {calculateModularVariableResistance} from "../effects/legacy-modular-shadow.ts";
 import {validateConstructionPlacement,resolveConstructionForm,constructionInAreaFootprint,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
-import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,type CombatAttackArea} from "./skill-area.ts";
+import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_METERS,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
@@ -765,6 +765,15 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Defensa desconocida.");
     validateRoll(rolls.hit); validateRoll(rolls.critical); validateRoll(rolls.defense);
     const attacker = state.actors[pending.by];
+    // Basic phase-1 magic has an existing measured .14 radius for object
+    // collisions/reflections, even though its legacy fighter damage model is
+    // not a configured CombatAttackArea. Single-target approved skills and
+    // mirror rays do not inherit an invented splash.
+    const objectImpactArea:CombatAttackArea|undefined=pending.attackArea??
+      (pending.usesMagic&&!pending.skill&&validArenaPoint(pending.targetCenter)
+        ?{shape:"CIRCLE",radiusMeters:BASIC_MAGIC_AREA_RADIUS*AREA_CANVAS_METERS,
+          radiusNormalized:BASIC_MAGIC_AREA_RADIUS}
+        :undefined);
     let defense = command.defense;
     // The defender can trade a normal paid basic attack for full exposure to
     // the incoming strike. Resolve on a separate snapshot first, but apply
@@ -887,8 +896,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       // misses the actual block cannot be intercepted by an unrelated object.
       // Resolve that miss normally, charging the chosen reaction without
       // revealing the private epicenter or rejecting the guess.
-      const overlaps=!pending.attackArea||constructionInAreaFootprint(
-        block,pending.attackArea,pending.targetCenter,pending.areaAngleDegrees,
+      const overlaps=!objectImpactArea||constructionInAreaFootprint(
+        block,objectImpactArea,pending.targetCenter,pending.areaAngleDegrees,
         fieldPosition(attacker));
       if(!overlaps){
         damageScale=1;
@@ -896,7 +905,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           constructionId:block.id,contact:false,
           summary:block.label+" no interceptó el área del ataque."});
       }else{
-      if(pending.attackArea)interceptedAreaBlockId=block.id;
+      if(objectImpactArea)interceptedAreaBlockId=block.id;
       const resistance=block.passive?.resistance;
       // USER is the owner of this defense/construction (fighter). OPPONENT is
       // the attacker. Keep both sides separate in the micro-module context.
@@ -1093,8 +1102,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // successful dodge does not protect every construction within the blast.
     // Mirrors have a separate reflection/destruction path above, and the
     // actively selected defensive block has already paid its own wear.
-    if(pending.attackArea){
-      const area=pending.attackArea;
+    if(objectImpactArea){
+      const area=objectImpactArea;
       const casterPosition=fieldPosition(attacker);
       const pressure=Math.max(1,Math.round(Math.max(0,power)*
        (pending.skill?.damageMultiplier??1)*(pending.skill?.finalMultiplier??1)));

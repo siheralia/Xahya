@@ -734,7 +734,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   mirrorSkill?:{id:number;name:string;damageMultiplier:number;finalMultiplier:number},
   serverSkillArea?:CombatAttackArea,
   /** Internal: an exchanged attack pays resources but not an extra initiative. */
-  exchangedAttack=false): CombatState {
+  exchangedAttack=false,
+  /** An independent server dice roll for the exchanged strike. */
+  counterRolls=rolls): CombatState {
   const state = structuredClone(original);
   if (state.version !== 1 || state.status !== "ACTIVE") throw new Error("El combate no está activo.");
   if (!SIDES.includes(by)) throw new Error("Combatiente no válido.");
@@ -764,9 +766,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       if(!plan)throw new Error("No tienes PA, ticks o un ataque básico al alcance para contraatacar.");
       const shadow=structuredClone(state);
       shadow.pending=null;
-      const launched=applyCombatCommand(shadow,by,plan,rolls,undefined,undefined,undefined,true);
+      const launched=applyCombatCommand(shadow,by,plan,counterRolls,undefined,undefined,undefined,true);
       if(!launched.pending)throw new Error("El contraataque no alcanzó a prepararse.");
-      const resolved=applyCombatCommand(launched,other(by),{kind:"DEFEND",defense:"NONE"},rolls);
+      const resolved=applyCombatCommand(launched,other(by),{kind:"DEFEND",defense:"NONE"},counterRolls);
       exchange={
        damageToAttacker:Math.max(0,attacker.hp-resolved.actors[pending.by].hp),
        damageToDefender:Math.max(0,fighter.hp-resolved.actors[by].hp),

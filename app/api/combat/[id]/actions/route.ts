@@ -7,6 +7,8 @@ import {
   applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, applyResolvedKarmaBoost, canAct, type CombatCommand, type CombatState, type Side,
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
+import { isReplayableCombatKind,isCombatActionReplay,recordCombatAction,
+  type ReplayableCombatCommand } from "@/lib/combat/action-idempotency";
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 import { combatClientView } from "@/lib/combat/magic-area";
 import { canApproveCombat } from "@/lib/combat/permissions";
@@ -76,6 +78,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
     return NextResponse.json({error:"No controlas a este combatiente."},{status:403});
   const advanceNpcOnly=body.command.kind==="ADVANCE";
   const command=body.command as CombatCommand;
+  const replayAction=isReplayableCombatKind(command.kind)
+    ?command as ReplayableCombatCommand:null;
   try {
     const result=await db.transaction(async tx=>{
       // Serialize both players and NPC replies to prevent lost update/double spending.
@@ -84,7 +88,13 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
       const Session=(tx.orm.public as any).CombatSession;
       const fresh=await Session.where({id:a.encounterId}).first();
       const state=(fresh?.lastAction as any)?.combatV1 as CombatState|undefined;
-      if(!state||state.version!==1||String(fresh?.status)!=="ACTIVE")
+      if(!state||state.version!==1)
+        throw new Error("Este encuentro no admite estas acciones.");
+      // Inside the session row lock: distinguish retries from new actions
+      // BEFORE checking FINISHED, spending resources or advancing the NPC.
+      if(replayAction&&isCombatActionReplay(state,side,replayAction))
+        return state;
+      if(String(fresh?.status)!=="ACTIVE")
         throw new Error("El combate ya terminó o no admite estas acciones.");
       let next: CombatState;
       if(advanceNpcOnly) {
@@ -233,6 +243,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
         if(side==="PLAYER" && next.status==="ACTIVE")
           next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);
       }
+      if(replayAction)
+        next=recordCombatAction(state,next,side,replayAction);
       let mechanics=fresh.mechanicsState;
       if(next.round>state.round) {
         const Skill=(tx.orm.public as any).Skill;

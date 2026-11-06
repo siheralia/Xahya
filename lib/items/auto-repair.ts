@@ -32,15 +32,15 @@ function forbiddenInput(value:unknown):boolean{
 }
 /** Staff validation and combat snapshot ingestion share a single schema.
  * No partially invalid item can be interpreted as a different active effect. */
-export function compileWeaponAutoRepair(
+export function compileEquippedItemAutoRepair(
  rawEffects:unknown,itemType:string
 ):AutoRepairItemEffect|null{
  if(!Array.isArray(rawEffects))return null;
  const matched=rawEffects.filter(x=>x&&typeof x==="object"&&!Array.isArray(x)&&
     (x as Record<string,unknown>).type===AUTO_REPAIR_ITEM_EFFECT);
  if(matched.length===0)return null;
- if(matched.length!==1||itemType!=="WEAPON")
-  throw new Error("La autorreparación solo admite un efecto por arma.");
+ if(matched.length!==1||!["WEAPON","ARMOR","ACCESSORY"].includes(itemType))
+  throw new Error("La autorreparación admite un efecto por arma, armadura o accesorio.");
  const raw=matched[0] as Record<string,unknown>;
  if(Object.keys(raw).some(key=>!["type","manaCost","intervalTurns","module"].includes(key)))
   throw new Error("Campos de autorreparación desconocidos.");
@@ -69,8 +69,14 @@ export function compileWeaponAutoRepair(
   intervalTurns:raw.intervalTurns as number,
   module:structuredClone(module)};
 }
+/** Compatibility for existing approved weapon-only snapshots and tests. */
+export function compileWeaponAutoRepair(rawEffects:unknown,itemType:string):AutoRepairItemEffect|null{
+ const value=compileEquippedItemAutoRepair(rawEffects,itemType);
+ if(value&&itemType!=="WEAPON")throw new Error("La autorreparación solo admite un efecto por arma.");
+ return value;
+}
 /** Management form creates one valid, fully connected editable micro-graph. */
-export function defaultWeaponAutoRepair():AutoRepairItemEffect{
+export function defaultEquippedItemAutoRepair():AutoRepairItemEffect{
  return {
   type:AUTO_REPAIR_ITEM_EFFECT,manaCost:5,intervalTurns:1,
   module:{id:"AutoRepairItem",name:"Autorreparación",type:"ItemPassive",
@@ -83,14 +89,16 @@ export function defaultWeaponAutoRepair():AutoRepairItemEffect{
    ]},
  };
 }
+export const defaultWeaponAutoRepair=defaultEquippedItemAutoRepair;
 /** Pure projection. Charging mana and persisting the resulting durability is
  * the caller's job and must be atomic with encounter progression.
  */
-export function evaluateWeaponAutoRepair(
+export function evaluateEquippedItemAutoRepair(
  rule:AutoRepairItemEffect,item:RepairableItem,stats:Record<string,number>,
+ itemType:"WEAPON"|"ARMOR"|"ACCESSORY",
  actors?:Record<string,Record<string,number>>
 ):AutoRepairEvaluation{
- const valid=compileWeaponAutoRepair([rule],"WEAPON");
+ const valid=compileEquippedItemAutoRepair([rule],itemType);
  if(!valid)throw new Error("Configuración de autorreparación ausente.");
  const result=executeMicroEvent(emptyMicroState(),[valid.module],{
   eventId:"WeaponRepair",ownerId:item.characterItemId,trigger:"TURN_START",
@@ -105,6 +113,12 @@ export function evaluateWeaponAutoRepair(
  return {restored:repairs.reduce((sum,repair)=>sum+repair.applied,0),
   after:repairs.at(-1)?.after??item.durability,
   intents:repairs};
+}
+export function evaluateWeaponAutoRepair(
+ rule:AutoRepairItemEffect,item:RepairableItem,stats:Record<string,number>,
+ actors?:Record<string,Record<string,number>>
+):AutoRepairEvaluation{
+ return evaluateEquippedItemAutoRepair(rule,item,stats,"WEAPON",actors);
 }
 /** Round 1 has no automatic start event: first possible activation is round 2. */
 export function shouldAutoRepairAtRound(round:number,intervalTurns:number):boolean{

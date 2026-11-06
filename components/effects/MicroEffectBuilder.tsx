@@ -643,7 +643,14 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
             update({steps:[...value.steps,next]});
           }}>+ Añadir micromódulo</button>
       </div>
-      <button type="button" disabled={value.steps.length>19}
+      <button type="button"
+         className="rounded border border-violet-600 bg-violet-950/30 px-3 py-2 text-xs text-violet-200"
+         onClick={()=>update({name:"Sobreflujo Lunar",type:"COMPOSED",trigger:"ACTIVATE",
+           impactKind:undefined,requirements:[],
+           steps:[defaultStep("CONSUME_COMBAT_CHARGES"),defaultStep("APPLY_CHARGE_BUFF")]})}>
+         🌙 Plantilla: Sobreflujo Lunar
+       </button>
+       <button type="button" disabled={value.steps.length>19}
         className="rounded border border-teal-700 px-3 py-2 text-xs disabled:opacity-40"
         onClick={()=>{
           const keys=new Set(value.steps.flatMap(s=>"entityKey" in s?[s.entityKey]:[]));

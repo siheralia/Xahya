@@ -119,7 +119,9 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
    if(!resource)throw new Error("MANA_RESOURCE_MISSING");
    const maxMana=Math.max(0,Math.floor(Number(values.derived?.maxMana??0)));
    const mana=resource.currentMana==null?maxMana:Number(resource.currentMana);
-   const hp=resource.currentHp==null?Number(values.derived?.maxHp??1):Number(resource.currentHp);
+   // The character sheet has no persisted current HP outside encounters.
+   // Repair plans reading current HP are rejected at compilation.
+   const hp=Number(values.derived?.maxHp??1);
    const stats=repairSkillStats(
      values.effectiveStats as Record<string,number>,
      values.derived as Record<string,number>,hp,mana);

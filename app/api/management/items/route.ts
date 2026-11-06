@@ -7,7 +7,8 @@ import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { hasRolePermission, canManageItemOrigin } from "@/lib/role-permissions";
 import {selectedMaterialId} from "@/lib/items/materials";
-import {AUTO_REPAIR_ITEM_EFFECT,compileWeaponAutoRepair} from "@/lib/items/auto-repair";
+import {AUTO_REPAIR_ITEM_EFFECT,compileEquippedItemAutoRepair} from "@/lib/items/auto-repair";
+import {EQUIPPED_WEAR_EFFECT,compileEquippedWear} from "@/lib/items/equipped-wear";
 
 const ITEM_TYPES = ["WEAPON","ARMOR","ACCESSORY","CONSUMABLE","MATERIAL","PROPERTY","OTHER"] as const;
 const ACQUISITION_TYPES = ["PURCHASABLE","CRAFTED","ABILITY_GENERATED","QUEST","EVENT","SYSTEM","OTHER"] as const;
@@ -60,11 +61,11 @@ function validate(body: any, statistics: Awaited<ReturnType<typeof readStatistic
   if (!Number.isInteger(price) || price < 0) return "El precio debe ser un entero no negativo.";
   if (propertyBusinessId !== null && (!Number.isInteger(propertyBusinessId) || propertyBusinessId <= 0)) return "Negocio exclusivo inválido.";
   if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return "Slots de equipo inválidos.";
-  try{compileWeaponAutoRepair(effects,itemType);}catch(e){
+  try{compileEquippedItemAutoRepair(effects,itemType);compileEquippedWear(effects,itemType);}catch(e){
     return e instanceof Error?e.message:"Autorreparación inválida.";
   }
   for (const effect of effects) {
-    if(effect?.type===AUTO_REPAIR_ITEM_EFFECT)continue;
+    if(effect?.type===AUTO_REPAIR_ITEM_EFFECT||effect?.type===EQUIPPED_WEAR_EFFECT)continue;
     if (!effect || typeof effect !== "object") return "Efecto de objeto inválido.";
     if (typeof effect.type !== "string" || !effect.type.trim()) return "Tipo de efecto inválido.";
     if (effect.type === "system_action") {

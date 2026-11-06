@@ -275,7 +275,7 @@ function conditionsMet(conditions: MicroCondition[] | undefined, ctx: MicroConte
 export function executeMicroEvent(input: MicroState, effects: readonly EffectContainer[], ctx: MicroContext): MicroResult {
   const error = validateEffectContainers(effects);
   if (error) throw new Error(error);
-  if (!integer(ctx.ownerId, 1, 2_147_483_647) || !validKey(ctx.eventId) || !["DAMAGE_RESOLVED", "TURN_START", "IMPACT", "PASSIVE"].includes(ctx.trigger)
+  if (!integer(ctx.ownerId, 1, 2_147_483_647) || !validKey(ctx.eventId) || !["DAMAGE_RESOLVED", "TURN_START", "IMPACT", "PASSIVE", "ACTIVATE"].includes(ctx.trigger)
     || !ctx.stats || !finite(ctx.stats.HP) || !finite(ctx.stats.MAX_HP) || ctx.stats.MAX_HP < 1 || ctx.stats.HP < 0 || ctx.stats.HP > ctx.stats.MAX_HP)
     fail("contexto de combate inválido");
   const state = parseMicroState(input);

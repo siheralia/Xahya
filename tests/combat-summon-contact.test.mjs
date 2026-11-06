@@ -161,13 +161,13 @@ test("inversion consumes mana only when a debuff exists and grants at most six l
  s=applyCombatCommand(s,"PLAYER",{kind:"COMMAND_SUMMON",summonId:interior,order:"ACT"},rolls);
  assert.equal(s.actors.PLAYER.physicalAttack,130);
  assert.equal(s.mana.PLAYER.current,mana-10);
- assert.equal(s.summons.find(x=>x.entityKey==="INTERIOR").charges.LUNAR_CHARGES,1);
+ assert.equal(s.combatCharges.PLAYER.LUNAR_CHARGES,1);
  assert.equal(s.summonStatuses.length,1,"inversion changes the existing effect, not a duplicate");
  assert.equal(isDebuffStatus(s.summonStatuses[0]),false);
  const m=s.mana.PLAYER.current;
  s=applyCombatCommand(s,"PLAYER",{kind:"COMMAND_SUMMON",summonId:interior,order:"ACT"},rolls);
  assert.equal(s.mana.PLAYER.current,m,"cannot charge mana when nothing is available to invert");
- assert.equal(s.summons.find(x=>x.entityKey==="INTERIOR").charges.LUNAR_CHARGES,1);
+ assert.equal(s.combatCharges.PLAYER.LUNAR_CHARGES,1);
 });
 
 test("server rejects unsupported status formulas and target selectors",()=>{

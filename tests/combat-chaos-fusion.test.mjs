@@ -87,7 +87,7 @@ test("fusion graph validates and pure interpreter emits requests only",()=>{
  assert.equal(compileFusionPlan(fusionSkill().effect,30).sourceEntityKeys.length,7);
  const pure=executeMicroEvent(emptyMicroState(),[
   module("FUSION_REQUEST_ONLY",[steps[0],steps[5]]).module
- ],{eventId:"chaos-fusion-pure",ownerId:10,trigger:"ACTIVATE",stats:{HP:100}});
+ ],{eventId:"chaos-fusion-pure",ownerId:10,trigger:"ACTIVATE",stats:{HP:100,MAX_HP:100}});
  assert.equal(pure.intents[0].kind,"FUSE_SUMMONS");
  assert.equal(pure.intents[1].kind,"CHAOS_FIELD");
  assert.deepEqual(pure.state.accumulators,{});

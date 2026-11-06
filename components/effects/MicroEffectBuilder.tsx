@@ -19,7 +19,7 @@ const events:MicroEvent[]=["DAMAGE_RESOLVED","TURN_START","IMPACT","PASSIVE","AC
 const stepKinds:MicroStep["kind"][]=["READ_STAT","READ_STORED","READ_ITEM","CALCULATE",
   "STORE","CONSUME","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS",
   "SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","REQUIRE_CONTACT","SUMMON_ENTITY",
-  "LINK_ENTITY_STAT","SET_ENTITY_BEHAVIOR","APPLY_STATUS","READ_STATUSES","INVERT_STATUS",
+  "LINK_ENTITY_STAT","SET_ENTITY_STAT","SET_ENTITY_BEHAVIOR","APPLY_STATUS","READ_STATUSES","INVERT_STATUS",
   "CAPABILITY","VARIABLE_RESISTANCE"];
 const destinationStats:readonly string[]=["STR","AGI","CON","INT","WIS","CHA","SPI",
   "HP","MAX_HP","MANA","RESISTANCE","MAGIC_DEF","PHYS_DEF","MAGIC_ATTACK","PHYSICAL_ATTACK"];
@@ -47,6 +47,7 @@ const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
       maintenanceMana:20,durationTurns:2,controlRangeMeters:15,hitLimit:3};
     case "LINK_ENTITY_STAT":return {kind,entityKey:"FAMILIAR",sourceStat:"PHYSICAL_ATTACK",
       destStat:"PHYSICAL_ATTACK",factor:0.2};
+    case "SET_ENTITY_STAT":return {kind,entityKey:"FAMILIAR",destStat:"PHYSICAL_ATTACK",value:100};
     case "SET_ENTITY_BEHAVIOR":return {kind,entityKey:"FAMILIAR",mode:"FOLLOW",
       allowedModes:["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"],target:"USER",trigger:"CONTACT"};
     case "APPLY_STATUS":return {kind,target:{source:"OUTPUT",key:"chosenTarget"},stat:"STR",
@@ -326,6 +327,25 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItem
       <p className="text-xs">Factor del vínculo (ej. 0.2 para 20%; 1 para 100%; 2 para 200%)</p>
       <NumericEditor value={step.factor} outputOptions={availableOutputs} onChange={factor=>change({factor})}/>
       <p className="text-xs text-zinc-400">El vínculo se recalcula con las estadísticas efectivas del invocador al resolverlo.</p>
+    </div>}
+    {step.kind==="SET_ENTITY_STAT"&&<div className="space-y-2">
+      <p className="text-xs text-cyan-200">Valor propio y constante de la criatura. No depende del invocador. Puedes combinar este módulo con vínculos dinámicos en otros atributos.</p>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <label className="text-xs">Identificador de criatura
+          <input className={"mt-1 "+field} value={step.entityKey} onChange={e=>change({entityKey:e.target.value})}/>
+        </label>
+        <label className="text-xs">Atributo de la criatura
+          <select className={"mt-1 "+field} value={step.destStat} onChange={e=>change({destStat:e.target.value})}>
+            {["PHYSICAL_ATTACK","PHYSICAL_DEFENSE","AGI","INTEGRITY","MOVE_SPEED","PRECISION","DODGE","STRENGTH"].map(stat=>
+              <option key={stat} value={stat}>{friendlyMicroKey(stat)}</option>)}
+          </select>
+        </label>
+        <label className="text-xs">Valor fijo
+          <input type="number" min={0} max={1000000} step="any" className={"mt-1 "+field}
+            value={step.value} onChange={e=>change({value:Number(e.target.value)})}/>
+        </label>
+      </div>
+      <p className="text-xs text-zinc-400">Si eliges Integridad, ese valor será la resistencia inicial real de la criatura, sin calcularla a partir de defensa física del personaje.</p>
     </div>}
     {step.kind==="SET_ENTITY_BEHAVIOR"&&<div className="space-y-2">
       <label className="block text-xs">Identificador de criatura

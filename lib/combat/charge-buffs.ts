@@ -31,7 +31,8 @@ export function compileChargeBuff(effects:readonly unknown[],manaCost:number):Ch
  const [consume,buff]=module.steps;
  if(consume.kind!=="CONSUME_COMBAT_CHARGES"||buff.kind!=="APPLY_CHARGE_BUFF")
    throw new Error("Conecta primero el consumo de cargas y después la potenciación.");
- if(!object(buff.charges)||buff.charges.source!=="OUTPUT"||buff.charges.key!==consume.output)
+ if(!buff.charges||typeof buff.charges!=="object"||!("source" in buff.charges)||
+   buff.charges.source!=="OUTPUT"||buff.charges.key!==consume.output)
    throw new Error("La potenciación debe conectarse directamente al conteo gastado.");
  if(consume.manaCost!==manaCost)
    throw new Error("El maná de la habilidad debe coincidir con el coste del micromódulo de cargas.");

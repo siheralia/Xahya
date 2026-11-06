@@ -705,6 +705,23 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
            steps:[defaultStep("CONSUME_COMBAT_CHARGES"),defaultStep("APPLY_CHARGE_BUFF")]})}>
          🌙 Plantilla: Sobreflujo Lunar
        </button>
+       <button type="button"
+         className="rounded border border-fuchsia-700 bg-fuchsia-950/20 px-3 py-2 text-xs text-fuchsia-200"
+         onClick={()=>{
+           const source=defaultStep("FUSE_SUMMONS");
+           if(source.kind!=="FUSE_SUMMONS")return;
+           const entityKey=source.entityKey;
+           update({name:"Reino del Caos",type:"COMPOSED",trigger:"ACTIVATE",
+             impactKind:undefined,requirements:[],steps:[
+               source,
+               {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"PHYSICAL_ATTACK",destStat:"PHYSICAL_ATTACK",factor:1},
+               {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"AGI",destStat:"AGI",factor:1},
+               {kind:"LINK_ENTITY_STAT",entityKey,sourceStat:"PHYSICAL_DEFENSE",destStat:"INTEGRITY",factor:2},
+               {kind:"SET_ENTITY_BEHAVIOR",entityKey,mode:"HOLD",
+                 allowedModes:["HOLD","ATTACK","MANUAL"],target:"OPPONENT",trigger:"COMMAND"},
+               defaultStep("CHAOS_FIELD")
+             ]});
+         }}>🌀 Plantilla: Reino del Caos (6 nodos)</button>
        <button type="button" disabled={value.steps.length>19}
         className="rounded border border-teal-700 px-3 py-2 text-xs disabled:opacity-40"
         onClick={()=>{

@@ -7,17 +7,19 @@ import {compileCombatAttackArea,type CombatAttackArea} from "./skill-area.ts";
 import {parseSkillArea} from "../skills/area-of-effect.ts";
 import {creationPlanFromEffect,type ConstructionPlan} from "./constructs.ts";
 import {compileSummonTemplates,type SummonTemplate} from "./summons.ts";
+import {compileChargeBuff,type ChargeBuffPlan} from "./charge-buffs.ts";
 import type {VariableResistance} from "../skills/variable-resistance.ts";
 import type {CombatAttackType} from "./matchup-types.ts";
 
 export type CombatBuffStat = "physicalAttack"|"magicAttack"|"physicalDefense"|"magicDefense"|"precision"|"dodge";
 export type CombatSkillPlan = {
- id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT"|"CONSTRUCTION"|"SUMMON";
+ id:number;name:string;cost:number;category:"OFFENSE"|"SUPPORT"|"CONSTRUCTION"|"SUMMON"|"CHARGE_BUFF";
  /** Linked approved parent skill, but not by itself an active combat effect. */
  requiredParentSkillId?:number;
  construction?:ConstructionPlan;
  /** Server-approved creatures; costs are paid individually. */
  summons?:SummonTemplate[];
+  chargeBuff?:ChargeBuffPlan;
  creationPassive?:{sourceSkillId:number;resistance:VariableResistance};
  /** Executable persistent mirror with one automatic ray per owner's round. */
  mirror?:{rayMultiplier:number;reflectionMultiplier:number;durability:number};
@@ -75,6 +77,26 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
  const effects=Array.isArray(row.effect)?row.effect:[];
  if(effects.length<1||effects.length>20)
   fail("La habilidad necesita efectos configurados válidos.");
+ const charged=compileChargeBuff(effects,cost);
+ if(charged){
+   if(Number(row.maintenanceCost??0)!==0)
+     fail("La potenciación por cargas no admite mantenimiento de maná.");
+   const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
+   if(cooldown&&!["Sin cooldown","Una vez por combate","Igual a duración","1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(cooldown))
+     fail("Cooldown no reconocido.");
+   const duration=String(row.duration??"").trim();
+   if(duration && duration!=="0 turnos" && duration!==charged.durationTurns+" turnos"&&
+     duration!==charged.durationTurns+" turno")
+     fail("La duración de la habilidad no coincide con el efecto de cargas.");
+   return {
+     id,name:typeof row.name==="string"?row.name.slice(0,120):"Potenciación de cargas",
+     cost,requiredParentSkillId,category:"CHARGE_BUFF",chargeBuff:charged,
+     rangeMeters:0,damageMultiplier:1,defenseFactor:1,finalMultiplier:1,
+     healing:0,bonuses:[],durationTurns:charged.durationTurns,
+     cooldownRounds:cooldownTurns(cooldown,String(row.duration??"")),
+     oncePerCombat:cooldown==="Una vez por combate",usesMagic:false,
+   };
+ }
  const summonTemplates=compileSummonTemplates(effects,cost);
  if(summonTemplates){
    const expectedMaintenance=summonTemplates.reduce((sum,t)=>sum+t.maintenanceMana,0);
@@ -258,12 +280,14 @@ export function previewSkillExecution(row:Record<string,unknown>){
  try {
   const plan=compileCombatSkill(row);
   return {executable:true as const,skillKind:plan.category,
-   needsAim:plan.category!=="SUPPORT"&&plan.category!=="SUMMON"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
+    chargeBuff:plan.chargeBuff??null,
+   needsAim:plan.category!=="SUPPORT"&&plan.category!=="SUMMON"&&plan.category!=="CHARGE_BUFF"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
    attackArea:plan.attackArea??null,
    constructionMaterial:plan.construction?.material??null,
    disabledReason:null};
  }catch(e) {
   return {executable:false as const,skillKind:null,
+    chargeBuff:null,
    needsAim:false,usesMagic:false,attackArea:null,
    disabledReason:e instanceof Error?e.message:"No disponible."};
  }

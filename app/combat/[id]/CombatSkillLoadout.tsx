@@ -2,7 +2,9 @@
 import {useEffect,useState} from "react";
 import {EFFECT_LABELS} from "@/lib/effects/catalog";
 import {availableConstructionMaterials,type CombatSkillPreview} from "@/lib/combat/skill-preview";
-import type {Side} from "@/lib/combat/turn-engine";
+import type {Side,CombatState} from "@/lib/combat/turn-engine";
+import {combatChargeBalance} from "@/lib/combat/charge-pools";
+import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 
 type RosterResponse={skills:Record<Side,CombatSkillPreview[]>};
 const categories:Record<string,string>={
@@ -17,10 +19,11 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,onCast,onPrepareArea,preparedAreaSkillId,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,
+ encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,chargeState,onCast,onPrepareArea,preparedAreaSkillId,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,
 }:{encounterId:string;side:Side;authorized:boolean;
  canUseSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
- onCast:(skill:CombatSkillPreview)=>void;
+ chargeState?:CombatState|null;
+ onCast:(skill:CombatSkillPreview,chargesToSpend?:number)=>void;
  onPrepareArea:(skill:CombatSkillPreview)=>void;preparedAreaSkillId:number|null;
  aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean;
  onConstructionMaterialsChange:(side:Side,materials:string[])=>void;
@@ -29,6 +32,7 @@ export default function CombatSkillLoadout({
  const [skills,setSkills]=useState<Record<Side,CombatSkillPreview[]>>({PLAYER:[],NPC:[]});
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
+ const [chargeChoices,setChargeChoices]=useState<Record<number,number>>({});
  useEffect(()=>{
   onConstructionMaterialsChange(side,authorized
    ?availableConstructionMaterials(skills[side]??[]):[]);
@@ -98,9 +102,16 @@ export default function CombatSkillLoadout({
          ?!constructionAimReady:skill.attackArea
           ?(preparedAreaSkillId!==skill.id||aimMode!=="MAGIC_AREA"||!magicAimReady)
           :skill.usesMagic&&(aimMode!=="MAGIC_AREA"||!magicAimReady));
-       const blocked=!skill.requirementsSatisfied||!canUseSkill||busy||onCooldown||
+       const availableCharges=skill.chargeBuff&&chargeState?
+         combatChargeBalance(chargeState,side,skill.chargeBuff.accumulator):0;
+       const selectedCharges=chargeChoices[skill.id]??skill.chargeBuff?.minCharges??1;
+       const missingCharges=Boolean(skill.chargeBuff)&&
+         (selectedCharges>availableCharges||selectedCharges<(skill.chargeBuff?.minCharges??1)||
+           selectedCharges>(skill.chargeBuff?.maxCharges??6));
+       const blocked=!skill.requirementsSatisfied||!canUseSkill||busy||onCooldown||missingCharges||
          mana===null||mana<skill.manaCost||missingAim||outOfRange;
-       const reason=outOfRange
+       const reason=missingCharges
+         ?"No tienes suficientes cargas para el número seleccionado." :outOfRange
          ?"Objetivo fuera del alcance de la habilidad ("+skill.rangeMeters+" m). Muévete primero."
          :onCooldown
          ? nextRound===-1?"Ya utilizada una vez en este encuentro.":"Cooldown hasta el turno "+nextRound
@@ -109,6 +120,21 @@ export default function CombatSkillLoadout({
          : missingAim?(skill.skillKind==="CONSTRUCTION"?"Marca la posición de la construcción en el terreno.":skill.attackArea?"Prepara esta área en el lienzo superior y marca el epicentro.":"Marca el centro en modalidad Explosión mágica del lienzo superior.")
          : !canUseSkill?"La habilidad está lista, pero debes esperar tu iniciativa o resolver una reacción pendiente.":null;
        return <div className="space-y-2">
+        {skill.chargeBuff&&<div className="space-y-2 rounded-lg border border-violet-500/30 bg-violet-950/10 p-3">
+          <p className="text-xs text-violet-200">
+            🌙 Reserva: {availableCharges}/6 cargas · +{skill.chargeBuff.perChargePercent}% por carga durante {skill.chargeBuff.durationTurns} turnos
+          </p>
+          <label className="block text-xs">Cargas a consumir
+            <select className="mt-1 w-full rounded-lg border border-violet-700 bg-zinc-900 p-2"
+              value={selectedCharges} onChange={e=>setChargeChoices(v=>({...v,[skill.id]:Number(e.target.value)}))}>
+              {Array.from({length:skill.chargeBuff.maxCharges-skill.chargeBuff.minCharges+1},
+                (_,i)=>i+skill.chargeBuff!.minCharges).map(n=><option key={n} value={n}>
+                {n} {n===1?"carga":"cargas"} · +{n*skill.chargeBuff!.perChargePercent}% a cada atributo
+              </option>)}
+            </select>
+          </label>
+          <p className="text-xs text-zinc-300">Afecta a: {skill.chargeBuff.stats.map(friendlyMicroKey).join(", ")}.</p>
+        </div>}
         {reason&&<p className="text-xs text-amber-300">{reason}</p>}
         {skill.skillKind==="OFFENSE"&&skill.attackArea?.shape==="SELF_FIELD"&&
          <p className="text-xs text-cyan-300">La técnica barre alrededor de tu personaje. No necesitas marcar un epicentro ni dibujar una trayectoria; acércate hasta el alcance indicado.</p>}
@@ -123,9 +149,9 @@ export default function CombatSkillLoadout({
             :skill.attackArea?.shape==="CIRCLE"?`Preparar área circular de ${skill.attackArea.radiusMeters} m de radio`:"Preparar área"}
          </button>}
         <button type="button" disabled={blocked}
-         onClick={()=>onCast(skill)}
+         onClick={()=>onCast(skill,skill.chargeBuff?selectedCharges:undefined)}
          className="rounded-lg border border-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-40">
-         {skill.skillKind==="OFFENSE"?(skill.attackArea?.shape==="SELF_FIELD"?"Ejecutar barrido":"Lanzar ataque de habilidad"):skill.skillKind==="CONSTRUCTION"?"Crear construcción":skill.skillKind==="SUMMON"?"Invocar criaturas":"Activar habilidad"}
+         {skill.skillKind==="OFFENSE"?(skill.attackArea?.shape==="SELF_FIELD"?"Ejecutar barrido":"Lanzar ataque de habilidad"):skill.skillKind==="CONSTRUCTION"?"Crear construcción":skill.skillKind==="SUMMON"?"Invocar criaturas":skill.skillKind==="CHARGE_BUFF"?"Activar potenciación":"Activar habilidad"}
         </button>
        </div>;
       })()}

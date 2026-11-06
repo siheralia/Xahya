@@ -22,6 +22,11 @@ export type MicroCondition = { left: NumericExpr; compare: "EQ" | "NE" | "GT" | 
 export type MicroStep = (
   | { kind: "STORE"; accumulator: string; capacity: number; value: NumericExpr }
   | { kind: "CONSUME"; accumulator: string; output: string; charges: "ALL" | number }
+  /** A player chooses how many charges to consume from their persistent combat pool. */
+  | {kind:"CONSUME_COMBAT_CHARGES";accumulator:string;minCharges:number;maxCharges:number;manaCost:number;output:string}
+  /** Each stat gains (1 + perChargePercent × charges / 100), for durationTurns. */
+  | {kind:"APPLY_CHARGE_BUFF";charges:NumericExpr;stats:string[];
+      perChargePercent:number;durationTurns:number}
   /** Read a combatant's actual stat into a named output (no mutation). */
   | { kind: "READ_STAT"; actor: "USER" | "OPPONENT"; stat: string; output: string }
   /** Read stored charges without consuming them. */
@@ -81,6 +86,8 @@ export type MicroContext = {
   selectedStats?: Record<string,string>;
   contactTargetIds?: readonly number[];
   selectedStatusId?: string;
+  /** Authoritative amount validated by the encounter, not by the skill graph. */
+  chosenCombatCharges?:Record<string,number>;
   statuses?: readonly {id:string;targetId:number;stat:string;multiplier?:number;bonus?:number;durationTurns:number}[];
   /** Server-resolved combat roles relative to the skill owner. OPPONENT
    * must be supplied explicitly; it never aliases the owner. */
@@ -107,6 +114,8 @@ export type MicroIntent =
       target:EntityTargetSlot;trigger:"CONTACT"|"HP_DAMAGE"|"COMMAND"}
   | {kind:"APPLY_STATUS";targetId:number;stat:string;operation:"MULTIPLIER"|"BONUS";value:number;durationTurns:number}
   | {kind:"INVERT_STATUS";targetId:number;statusId:string;manaCost:number;chargeAccumulator?:string}
+  | {kind:"CONSUME_COMBAT_CHARGES";accumulator:string;amount:number}
+  | {kind:"APPLY_CHARGE_BUFF";charges:number;stats:string[];perChargePercent:number;durationTurns:number}
   | { kind: "VARIABLE_RESISTANCE"; stat: string; input: string; multiplier: number; resistance: number };
 export type MicroResult = { state: MicroState; hp: number; intents: MicroIntent[]; skipped: boolean };
 
@@ -190,6 +199,20 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
           case "STORE":
             if (!validKey(step.accumulator) || !integer(step.capacity, 1, 100)) fail("almacenamiento inválido");
             checkExpr(step.value);checkSourceLinks(step.value,outputs,opaqueOutputs); break;
+          case "CONSUME_COMBAT_CHARGES":
+            if(!validKey(step.accumulator)||!newOutput(step.output)||
+              !integer(step.minCharges,1,6)||!integer(step.maxCharges,1,6)||
+              step.minCharges>step.maxCharges||!integer(step.manaCost,0,1000000))
+              fail("consumo de cargas de combate inválido");
+            outputs.add(step.output);break;
+          case "APPLY_CHARGE_BUFF":
+            if(!Array.isArray(step.stats)||step.stats.length<1||step.stats.length>8||
+              step.stats.some((k:string)=>!validKey(k))||
+              new Set(step.stats).size!==step.stats.length||
+              !finite(step.perChargePercent)||step.perChargePercent<=0||step.perChargePercent>100||
+              !integer(step.durationTurns,1,20))
+              fail("potenciación por cargas inválida");
+            checkExpr(step.charges);checkSourceLinks(step.charges,outputs,opaqueOutputs);break;
           case "CONSUME":
             if (!validKey(step.accumulator) || !validKey(step.output) || outputs.has(step.output)
               || (step.charges !== "ALL" && !integer(step.charges, 1, 100))) fail("consumo inválido");
@@ -424,6 +447,22 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
             state.accumulators[key] = {capacity:step.capacity,charges:[]};
           }
           if (state.accumulators[key].charges.length < step.capacity) state.accumulators[key].charges.push(value);
+          break;
+        }
+        case "CONSUME_COMBAT_CHARGES": {
+          const count=ctx.chosenCombatCharges?.[step.accumulator];
+          if(!integer(count,step.minCharges,step.maxCharges))
+            fail("cantidad de cargas elegida fuera del rango permitido");
+          outputs[step.output]=count;
+          intents.push({kind:"CONSUME_COMBAT_CHARGES",accumulator:step.accumulator,amount:count});
+          break;
+        }
+        case "APPLY_CHARGE_BUFF": {
+          const count=evaluate(step.charges,ctx,state,outputs,hp);
+          if(!integer(count,1,6))fail("cantidad de cargas para potenciar inválida");
+          intents.push({kind:"APPLY_CHARGE_BUFF",charges:count,
+            stats:[...step.stats],perChargePercent:step.perChargePercent,
+            durationTurns:step.durationTurns});
           break;
         }
         case "CONSUME": {

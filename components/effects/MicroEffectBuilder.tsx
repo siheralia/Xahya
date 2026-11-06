@@ -17,7 +17,7 @@ const sources=["EVENT","STAT","CHARGES","STORED_TOTAL","OUTPUT"] as const;
 const ops=["ADD","SUBTRACT","MULTIPLY","DIVIDE","MIN","MAX","PERCENT"] as const;
 const events:MicroEvent[]=["DAMAGE_RESOLVED","TURN_START","IMPACT","PASSIVE","ACTIVATE"];
 const stepKinds:MicroStep["kind"][]=["READ_STAT","READ_STORED","READ_ITEM","CALCULATE",
-  "STORE","CONSUME","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS",
+  "STORE","CONSUME","CONSUME_COMBAT_CHARGES","APPLY_CHARGE_BUFF","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS",
   "SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","REQUIRE_CONTACT","SUMMON_ENTITY",
   "LINK_ENTITY_STAT","SET_ENTITY_STAT","SET_ENTITY_BEHAVIOR","APPLY_STATUS","READ_STATUSES","INVERT_STATUS",
   "CAPABILITY","VARIABLE_RESISTANCE"];
@@ -30,6 +30,10 @@ const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
   switch(kind){
     case "STORE":return {kind,accumulator:"ENERGY",capacity:5,value:{source:"EVENT",key:"MITIGATED_DAMAGE"}};
     case "CONSUME":return {kind,accumulator:"ENERGY",output:"energy",charges:"ALL"};
+    case "CONSUME_COMBAT_CHARGES":return {kind,accumulator:"LUNAR_CHARGES",
+      minCharges:1,maxCharges:6,manaCost:30,output:"spentLunarCharges"};
+    case "APPLY_CHARGE_BUFF":return {kind,charges:{source:"OUTPUT",key:"spentLunarCharges"},
+      stats:["STR","AGI","DODGE"],perChargePercent:25,durationTurns:2};
     case "READ_STAT":return {kind,actor:"USER",stat:"magicDefense",output:"resistanceBase"};
     case "READ_STORED":return {kind,accumulator:"ENERGY",metric:"TOTAL",output:"storedTotal"};
     case "CALCULATE":return {kind,output:"calculated",expression:1};
@@ -442,6 +446,46 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItem
       </label>
       <p className="text-xs text-amber-300">La carga no aparece hasta que el servidor haya pagado el maná e invertido el estado de manera efectiva.</p>
     </div>}
+    {step.kind==="CONSUME_COMBAT_CHARGES"&&<div className="space-y-2">
+      <p className="text-xs text-cyan-200">Elige cuántas cargas usar al lanzar la habilidad. Las cargas pertenecen al personaje y sobreviven a las invocaciones.</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs">Almacén de cargas
+          <input className={"mt-1 "+field} value={step.accumulator} onChange={e=>change({accumulator:e.target.value})}/>
+        </label>
+        <label className="text-xs">Salida numérica
+          <input className={"mt-1 "+field} value={step.output} onChange={e=>change({output:e.target.value})}/>
+        </label>
+        {([["minCharges","Mínimo"],["maxCharges","Máximo"],["manaCost","Maná de activación"]] as const).map(([k,label])=>
+          <label key={k} className="text-xs">{label}
+            <input type="number" min={k==="manaCost"?0:1} max={k==="manaCost"?1000000:6}
+              className={"mt-1 "+field} value={step[k]} onChange={e=>change({[k]:Number(e.target.value)})}/>
+          </label>)}
+      </div>
+      <p className="text-xs text-zinc-400">El coste de maná de la habilidad debe coincidir con el configurado aquí.</p>
+    </div>}
+    {step.kind==="APPLY_CHARGE_BUFF"&&<div className="space-y-2">
+      <p className="text-xs text-cyan-200">Cada carga consumida aporta un porcentaje a todas las estadísticas seleccionadas.</p>
+      <p className="text-xs">Entrada de cargas consumidas</p>
+      <NumericEditor value={step.charges} outputOptions={availableOutputs} onChange={charges=>change({charges})}/>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {(["STR","AGI","DODGE","PHYSICAL_ATTACK","PHYSICAL_DEFENSE","MAGIC_ATTACK",
+           "MAGIC_DEFENSE","PRECISION","CON","LUCK"] as const).map(stat=>
+          <label key={stat} className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={step.stats.includes(stat)}
+              onChange={e=>change({stats:e.target.checked?[...step.stats,stat]:step.stats.filter(x=>x!==stat)})}/>
+            {friendlyMicroKey(stat)}
+          </label>)}
+      </div>
+      <label className="block text-xs">Porcentaje por carga (25 = +25 %)
+        <input type="number" min={0} max={100} step="any" className={"mt-1 "+field}
+          value={step.perChargePercent} onChange={e=>change({perChargePercent:Number(e.target.value)})}/>
+      </label>
+      <label className="block text-xs">Duración en turnos
+        <input type="number" min={1} max={20} className={"mt-1 "+field}
+          value={step.durationTurns} onChange={e=>change({durationTurns:Number(e.target.value)})}/>
+      </label>
+      <p className="text-xs text-zinc-400">6 cargas al 25 % = ×2.5 (+150 %) durante los turnos configurados.</p>
+    </div>}
     {step.kind==="CAPABILITY"&&<div className="space-y-2">
       <p className="text-xs text-amber-200">Capacidad declarativa: no modifica daño, PV ni estadísticas hasta que tenga un resolutor autorizado.</p>
       <label className="block text-xs">Código de capacidad<input className={"mt-1 "+field} value={step.code} onChange={e=>change({code:e.target.value})} placeholder="CARD:W032 o NARRATIVE:OTHER"/></label>
@@ -599,7 +643,14 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
             update({steps:[...value.steps,next]});
           }}>+ Añadir micromódulo</button>
       </div>
-      <button type="button" disabled={value.steps.length>19}
+      <button type="button"
+         className="rounded border border-violet-600 bg-violet-950/30 px-3 py-2 text-xs text-violet-200"
+         onClick={()=>update({name:"Sobreflujo Lunar",type:"COMPOSED",trigger:"ACTIVATE",
+           impactKind:undefined,requirements:[],
+           steps:[defaultStep("CONSUME_COMBAT_CHARGES"),defaultStep("APPLY_CHARGE_BUFF")]})}>
+         🌙 Plantilla: Sobreflujo Lunar
+       </button>
+       <button type="button" disabled={value.steps.length>19}
         className="rounded border border-teal-700 px-3 py-2 text-xs disabled:opacity-40"
         onClick={()=>{
           const keys=new Set(value.steps.flatMap(s=>"entityKey" in s?[s.entityKey]:[]));

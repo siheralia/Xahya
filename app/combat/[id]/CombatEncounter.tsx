@@ -8,6 +8,7 @@ import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
 import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
 import {combatWeaponOperational} from "@/lib/combat/weapon-readiness";
+import {combatChargeBalance} from "@/lib/combat/charge-pools";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2, Eye, ChevronDown, X, Info} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
@@ -519,10 +520,10 @@ export default function CombatEncounter({id}:{id:string}) {
   setAttackMode("MAGIC_AREA");
   closePanel();
  }
- function castSkill(skill:CombatSkillPreview,movementOverride?:Point|null,orderOverride?:"BEFORE"|"AFTER"){
+ function castSkill(skill:CombatSkillPreview,movementOverride?:Point|null,orderOverride?:"BEFORE"|"AFTER",chargesToSpend?:number){
   const skillMovement=movementOverride===null?undefined:movementOverride??preparedMovement;
   const skillMovementOrder=movementOverride===null?undefined:orderOverride??movementOrder;
-  const key=side+":"+skill.id+":"+state?.round;
+  const key=side+":"+skill.id+":"+state?.round+":"+(chargesToSpend??"");
   const previous=castRequestRef.current;
   const requestId=previous?.key===key?previous.id:crypto.randomUUID();
   castRequestRef.current={key,id:requestId};
@@ -530,8 +531,8 @@ export default function CombatEncounter({id}:{id:string}) {
   const measuredBlock=construction&&skill.constructionMaterial!=="LIGHT"&&
     skill.constructionMaterial!=="MIRROR"&&constructionForm==="BLOCK";
   void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
-   trajectory:construction||skill.skillKind==="SUMMON"||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
-   attackSource:construction||skill.skillKind==="SUMMON"||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
+   trajectory:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
+   attackSource:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
    planarMove:!construction&&skill.skillKind==="OFFENSE"?skillMovement:undefined,
    movementOrder:!construction&&skill.skillKind==="OFFENSE"?skillMovementOrder:undefined,
    constructionFieldPoint:construction?constructionFieldPoint??undefined:undefined,
@@ -544,8 +545,9 @@ export default function CombatEncounter({id}:{id:string}) {
    areaAngleDegrees:isOrientedCombatArea(skill.attackArea)?areaAngleDegrees:undefined,
    constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
    constructionLabel:construction?constructionLabel.trim():undefined,
-   targetConstructionId:!construction&&skill.attackArea?.shape!=="SELF_FIELD"?selectedMirrorId:undefined,
-   targetSummonId:!construction&&skill.attackArea?.shape!=="SELF_FIELD"?selectedSummonId:undefined});
+   targetConstructionId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedMirrorId:undefined,
+   targetSummonId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedSummonId:undefined,
+   chargesToSpend:skill.skillKind==="CHARGE_BUFF"?chargesToSpend:undefined});
  }
  const chronicle=state?.status==="FINISHED"
   ?((state.narrativeVersion??0)>=2&&state.narrativeText
@@ -902,6 +904,12 @@ export default function CombatEncounter({id}:{id:string}) {
        </div>}
      </section>
     </div>
+    {(combatChargeBalance(state,side,"LUNAR_CHARGES")>0||
+      (state.summons??[]).some(x=>x.owner===side&&x.contactEffects?.some(e=>
+        e.kind==="INVERT_STATUS"&&e.chargeAccumulator==="LUNAR_CHARGES")))&&
+       <p className="mt-3 rounded-lg border border-violet-500/40 px-3 py-2 text-sm text-violet-200" role="status">
+        🌙 Reserva Lunar: <strong>{combatChargeBalance(state,side,"LUNAR_CHARGES")}/6</strong> cargas propias
+       </p>}
     {(state.summons?.length??0)>0&&<section className="mt-4 space-y-2 rounded-xl border border-emerald-500/30 bg-zinc-950/70 p-3" aria-label="Criaturas invocadas">
      <h2 className="text-sm font-semibold text-emerald-200">🐇 Criaturas en el campo</h2>
      <p className="text-xs text-zinc-400">Cada orden consume 1 PA y los ticks del invocador. El mantenimiento se descuenta al comenzar el siguiente turno: no hay ataques gratuitos.</p>
@@ -934,8 +942,8 @@ export default function CombatEncounter({id}:{id:string}) {
        </div>
        <p className="text-zinc-300">Integridad {Math.ceil(summon.integrity)} · Golpes {summon.hitCount}/{summon.hitLimit} · Mantenimiento {summon.maintenanceMana} maná</p>
        <p className="text-zinc-400">Comportamiento {summon.behavior.mode} · Objetivo {summon.behavior.target==="USER"?"invocador":"oponente"}</p>
-       {Object.entries(summon.charges??{}).map(([name,value])=>
-         <p key={name} className="text-violet-300">🌙 {name}: {value}/6 cargas</p>)}
+       {Object.keys(summon.charges??{}).filter(name=>!summon.chargesMigrated).map(name=>
+         <p key={name} className="text-violet-300">🌙 {friendlyMicroKey(name)}: {combatChargeBalance(state,summon.owner,name)}/6 cargas del propietario</p>)}
        {summon.contactEffects?.length? <p className="text-emerald-300">
          {summon.contactEffects.length} efecto(s) al contacto · {summon.behavior.trigger==="HP_DAMAGE"?"requiere daño real a HP":"requiere contacto"}
        </p>:null}
@@ -1325,7 +1333,8 @@ export default function CombatEncounter({id}:{id:string}) {
     canUseSkill={ready&&!missingMoveTrace&&(!preparedMovement||canCombineAttack)} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
-    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance}/>
+    chargeState={state}
+    onCast={(skill,charges)=>castSkill(skill,undefined,undefined,charges)} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance}/>
 
    </CombatDialog>
    <CombatDialog open={panel==="stats"} title="Estado y estadísticas" onClose={closePanel}>

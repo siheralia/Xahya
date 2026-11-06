@@ -670,6 +670,8 @@ export default function CombatEncounter({id}:{id:string}) {
        disabled={!hasAccess||state.status!=="ACTIVE"||(!!pending&&!defending)||(!pending&&!ready)}
        move={fieldMove??(panel!=="construction"&&fieldMode==="MOVE"?suggestedMove??null:null)}
        onMove={setFieldMove} placement={constructionFieldPoint}
+       plannedFootprintRadiusMeters={panel==="construction"&&constructionForm==="BLOCK"&&
+        constructionFootprintRadiusMeters!==""?Number(constructionFootprintRadiusMeters):null}
        onPlacement={p=>{setConstructionFieldPoint(p);if(!constructionCenter)setConstructionCenter({x:0.5,y:0.5});}}/>
       <p className="text-[10px] text-zinc-400 sm:text-xs">
        {panel==="construction"?"Marca el lugar donde aparecerá la construcción.":

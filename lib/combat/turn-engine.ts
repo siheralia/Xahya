@@ -376,12 +376,14 @@ export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):v
   const seen=new Set<number>();
   for(const weapon of [fighter.equippedWeapon,fighter.offhandWeapon]){
     const rule=weapon?.autoRepair;
-    if(!weapon||!rule||!weapon.characterItemId||!Number.isSafeInteger(weapon.durability))
+    const durability=weapon?.durability;
+    if(!weapon||!rule||!weapon.characterItemId||
+      typeof durability!=="number"||!Number.isSafeInteger(durability))
       continue;
     const characterItemId=weapon.characterItemId;
     if(seen.has(characterItemId))continue; // no duplicate inventory copy
     seen.add(characterItemId);
-    if(weapon.durability<0||weapon.durability>=100||
+    if(durability<0||durability>=100||
       !shouldAutoRepairAtRound(state.round,rule.intervalTurns)||
       weapon.lastAutoRepairRound===state.round||
       !Number.isSafeInteger(rule.manaCost)||rule.manaCost<1||
@@ -404,7 +406,7 @@ export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):v
       magicDefense:opponent.magicDefense,
     };
     const calculated=evaluateWeaponAutoRepair(rule,{
-      characterItemId,durability:weapon.durability,
+      characterItemId,durability,
     },stats,{USER:stats,OPPONENT:opponentStats});
     if(calculated.restored<=0)continue;
     mana.current-=rule.manaCost;

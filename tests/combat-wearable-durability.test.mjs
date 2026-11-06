@@ -27,7 +27,7 @@ const armor=(name="Cota",durability=70,id=123,slot="BODY",type="ARMOR")=>({
 });
 const state=(worn=armor())=>{
  const s=newCombatState(fighter("Atacante",11,0),
-  fighter("Defensor",22,1,{equippedWearables:[worn]}));
+  fighter("Defensor",22,0.4,{equippedWearables:[worn]}));
  s.mana={PLAYER:{current:30,max:30},NPC:{current:30,max:30}};
  return s;
 };

@@ -1,6 +1,9 @@
 "use client";
 import {EffectCard,useEffectElementColors,sharedEffectTypes} from "@/components/effects/EffectCard";
 import {SharedEffectsEditor} from "@/components/effects/SharedEffectsEditor";
+import {MicroEffectBuilder} from "@/components/effects/MicroEffectBuilder";
+import {AUTO_REPAIR_ITEM_EFFECT,defaultWeaponAutoRepair,
+ type AutoRepairItemEffect} from "@/lib/items/auto-repair";
 
 import { useEffect, useState } from "react";
 import ManagementModal from "../_components/ManagementModal";
@@ -10,7 +13,7 @@ import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
 type Effect = { type: string; stat: string; action?: string; value: number; description: string; element?: string };
 type Item = {
   id: number; name: string; description: string | null; itemType: string; itemSubtype: string | null; materialId?:number|null; attackType: string | null; weaponMode?:string; effectiveRangeMeters?:number; maximumRangeMeters?:number; throwable?:boolean; throwRangeMeters?:number;
-  acquisitionType: string; price: number; propertyBusinessId?: number | null; effects: Effect[]; allowedSlots: string[]; imagePath?: string | null; imageUrl?: string | null;
+  acquisitionType: string; price: number; propertyBusinessId?: number | null; effects: Array<Effect|AutoRepairItemEffect>; allowedSlots: string[]; imagePath?: string | null; imageUrl?: string | null;
 };
 
 const itemTypes = [
@@ -54,6 +57,7 @@ export default function ItemsManagementPage() {
   const materialTypeName=(type:string)=>materialTypes.find(m=>m.code===type)?.name??type;
   const [selected,setSelected]=useState<number|null>(null);
   const [form,setForm]=useState({name:"",description:"",itemType:"OTHER",itemSubtype:"",materialId:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:"PURCHASABLE",price:0,propertyBusinessId:"",effects:[emptyEffect()],allowedSlots:defaultSlots});
+  const [autoRepair,setAutoRepair]=useState<AutoRepairItemEffect|null>(null);
   const [loading,setLoading]=useState(true); const [saving,setSaving]=useState(false);
   const [error,setError]=useState(""); const [success,setSuccess]=useState("");
   const [modalOpen,setModalOpen]=useState(false); const [imageFile,setImageFile]=useState<File|null>(null); const [imagePreview,setImagePreview]=useState<string|null>(null);
@@ -80,20 +84,23 @@ export default function ItemsManagementPage() {
     const matchesType = filterType === "ALL" || item.itemType === filterType;
     const matchesSubtype = filterSubtype === "ALL" || String(item.itemSubtype ?? "") === filterSubtype;
     const matchesSlot = filterSlot === "ALL" || (Array.isArray(item.allowedSlots) && item.allowedSlots.includes(filterSlot));
-    const matchesStat = filterStat === "ALL" || item.effects.some(effect => String(effect.stat ?? "") === filterStat || (filterStat === "ATTACK_TOTAL" && effect.type === "attack_multiplier_all"));
+    const matchesStat = filterStat === "ALL" || item.effects.some(effect => String("stat" in effect?effect.stat:"") === filterStat || (filterStat === "ATTACK_TOTAL" && effect.type === "attack_multiplier_all"));
     const minValue = filterMinValue === "" ? null : Number(filterMinValue);
-    const matchesMinValue = minValue === null || filterStat === "ALL" || item.effects.some(effect => String(effect.stat ?? "") === filterStat && Number(effect.value) >= minValue);
+    const matchesMinValue = minValue === null || filterStat === "ALL" || item.effects.some(effect => String("stat" in effect?effect.stat:"") === filterStat && Number("value" in effect?effect.value:0) >= minValue);
     const matchesAcquisition = filterAcquisition === "ALL" || item.acquisitionType === filterAcquisition;
     return matchesSearch && matchesType && matchesSubtype && matchesSlot && matchesAcquisition && matchesStat && matchesMinValue;
   });
 
   function edit(item: Item){
     setSelected(item.id);
-    setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",materialId:item.materialId==null?"":String(item.materialId),attackType:item.attackType??"CUT",weaponMode:item.weaponMode??"MELEE",effectiveRangeMeters:Number(item.effectiveRangeMeters??1.5),maximumRangeMeters:Number(item.maximumRangeMeters??1.5),throwable:Boolean(item.throwable),throwRangeMeters:Number(item.throwRangeMeters??0),acquisitionType:item.acquisitionType,price:Number(item.price),propertyBusinessId:item.propertyBusinessId==null?"":String(item.propertyBusinessId),effects:Array.isArray(item.effects)?item.effects.map((effect:any)=>({type:String(effect.type??"stat_multiplier"),stat:String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":String(effect.stat??"OTHER"),action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??""),element:String(effect.element??"NEUTRAL")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
+    const equippedRepair=item.effects.find(effect=>effect.type===AUTO_REPAIR_ITEM_EFFECT);
+    setAutoRepair(equippedRepair&&"module" in equippedRepair
+      ?structuredClone(equippedRepair):null);
+    setForm({name:item.name,description:item.description??"",itemType:item.itemType,itemSubtype:item.itemSubtype??"",materialId:item.materialId==null?"":String(item.materialId),attackType:item.attackType??"CUT",weaponMode:item.weaponMode??"MELEE",effectiveRangeMeters:Number(item.effectiveRangeMeters??1.5),maximumRangeMeters:Number(item.maximumRangeMeters??1.5),throwable:Boolean(item.throwable),throwRangeMeters:Number(item.throwRangeMeters??0),acquisitionType:item.acquisitionType,price:Number(item.price),propertyBusinessId:item.propertyBusinessId==null?"":String(item.propertyBusinessId),effects:Array.isArray(item.effects)?item.effects.filter((effect:any)=>effect?.type!==AUTO_REPAIR_ITEM_EFFECT).map((effect:any)=>({type:String(effect.type??"stat_multiplier"),stat:String(effect.stat)==="OTHER"&&String(effect.description??"").toLowerCase().includes("todos los ataques")?"ATTACK_TOTAL":String(effect.stat??"OTHER"),action:String(effect.action??"ESCAPE_MAZE"),value:Number(effect.value),description:String(effect.description??""),element:String(effect.element??"NEUTRAL")})): [],allowedSlots:Array.isArray(item.allowedSlots)?item.allowedSlots:defaultSlots});
     setSuccess(""); setError(""); setImageFile(null); setImagePreview(item.imageUrl ?? null);
     setModalOpen(true);
   }
-  function newItem(){setSelected(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",materialId:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:acquisitionTypes.find(([origin])=>canAction("create",origin))?.[0]??"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
+  function newItem(){setSelected(null);setAutoRepair(null);setForm({name:"",description:"",itemType:"OTHER",itemSubtype:"",materialId:"",attackType:"CUT",weaponMode:"MELEE",effectiveRangeMeters:1.5,maximumRangeMeters:1.5,throwable:false,throwRangeMeters:0,acquisitionType:acquisitionTypes.find(([origin])=>canAction("create",origin))?.[0]??"PURCHASABLE",price:0,propertyBusinessId:"",effects:[],allowedSlots:defaultSlots});setSuccess("");setError("");setImageFile(null);setImagePreview(null);setModalOpen(true);}
   function updateEffect(index:number,key:keyof Effect,value:string){
     setForm(f=>({...f,effects:f.effects.map((e,i)=>{
       if(i!==index) return e;
@@ -107,7 +114,7 @@ export default function ItemsManagementPage() {
     setSaving(true);setError("");setSuccess("");
     try{
       const url=selected?"/api/management/items/"+selected:"/api/management/items";
-      const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,attackType:form.itemType==="WEAPON"?form.attackType:null,propertyBusinessId:form.propertyBusinessId?Number(form.propertyBusinessId):null})});
+      const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,effects:[...form.effects,...(form.itemType==="WEAPON"&&autoRepair?[autoRepair]:[])],attackType:form.itemType==="WEAPON"?form.attackType:null,propertyBusinessId:form.propertyBusinessId?Number(form.propertyBusinessId):null})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error);
       const savedId=Number(d?.item?.id ?? selected);
       if(imageFile && savedId && form.itemType==="PROPERTY"){
@@ -195,6 +202,35 @@ export default function ItemsManagementPage() {
           </div>
           {form.itemType !== "PROPERTY" && <div><h3 className="font-medium">Slots de equipo</h3><p className="mt-1 text-xs text-zinc-500">{form.allowedSlots.length ? "El objeto solo podrá equiparse en los slots seleccionados." : "Este objeto no se equipa."}</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{equipmentSlots.map(([value,label])=><label key={value} className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"><input type="checkbox" checked={form.allowedSlots.includes(value)} onChange={(e)=>setForm(f=>({...f,allowedSlots:e.target.checked?[...f.allowedSlots,value]:f.allowedSlots.filter(slot=>slot!==value)}))}/>{label}</label>)}</div></div>}
           <SharedEffectsEditor effects={form.effects} onChange={effects=>setForm(f=>({...f,effects}))} onAdd={emptyEffect} types={EFFECT_TYPES} onTypeChange={(effect,type)=>type==="system_action"?{...effect,type,stat:"SYSTEM_ACTION",action:"ESCAPE_MAZE",value:1}:type==="narrative"?{...effect,type,stat:"OTHER",value:1}:type==="maze_utility"?{...effect,type,stat:"INVISIBILITY",value:1}:type==="damage_reduction"||type==="damage_increase"?{...effect,type,stat:"ALL",value:100}:{...effect,type,stat:effect.stat==="SYSTEM_ACTION"?"STR":effect.stat}} renderTarget={(effect,_index,update)=>effect.type==="system_action"?<label className="text-xs text-zinc-400">Acción<select value={effect.action??"ESCAPE_MAZE"} onChange={e=>update({action:e.target.value})} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{SYSTEM_ACTIONS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>:<label className="text-xs text-zinc-400">Objetivo<select value={effect.stat} onChange={e=>update({stat:e.target.value})} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{!EFFECT_TARGETS.some(([value])=>value===effect.stat)&&<option value={effect.stat}>{effect.stat}</option>}{(effect.type==="damage_reduction"||effect.type==="damage_increase"?DAMAGE_TARGETS:EFFECT_TARGETS).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>} renderExtra={(effect,_index,update)=><input value={effect.description} onChange={e=>update({description:e.target.value})} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Descripción del efecto"/>}/>
+          {form.itemType==="WEAPON"&&<section className="rounded-xl border border-amber-700/40 bg-zinc-950/70 p-4">
+            <label className="flex items-center gap-3 text-sm font-semibold text-amber-200">
+              <input type="checkbox" checked={autoRepair!==null}
+                onChange={e=>setAutoRepair(e.target.checked?defaultWeaponAutoRepair():null)}/>
+              Autorreparación de esta arma
+            </label>
+            <p className="mt-2 text-xs text-zinc-400">Un micromódulo de objeto restaura su propia durabilidad
+              al inicio de turnos completos de combate. No se activa al abrir la ficha ni al equipar.
+              Se cobra maná real del encuentro y solo funciona mientras el arma siga en la mano.</p>
+            {autoRepair&&<div className="mt-4 space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs text-zinc-300">Maná por activación
+                  <input type="number" min={1} max={1000} step={1} value={autoRepair.manaCost}
+                    onChange={e=>setAutoRepair(r=>r?{...r,manaCost:Number(e.target.value)}:null)}
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2 text-sm"/>
+                </label>
+                <label className="text-xs text-zinc-300">Cada cuántos turnos
+                  <input type="number" min={1} max={50} step={1} value={autoRepair.intervalTurns}
+                    onChange={e=>setAutoRepair(r=>r?{...r,intervalTurns:Number(e.target.value)}:null)}
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2 text-sm"/>
+                </label>
+              </div>
+              <MicroEffectBuilder value={autoRepair.module} onChange={module=>
+                setAutoRepair(r=>r?{...r,module}:null)}/>
+              <p className="text-xs text-amber-300">Configuración válida: disparador «Inicio de turno»,
+                «Leer objeto» → «Este objeto», cálculos y «Restaurar durabilidad».
+                No admite curaciones, daño, cargas gratuitas ni otros objetivos.</p>
+            </div>}
+          </section>}
           <div className="flex flex-wrap gap-3"><button onClick={save} disabled={saving} className="rounded-lg bg-white px-5 py-3 font-medium text-black">{saving?"Guardando...":selected?"Guardar cambios":"Fabricar objeto"}</button>{selected&&canAction("delete",items.find(item=>item.id===selected)?.acquisitionType??"")&&<button onClick={remove} className="rounded-lg border border-red-900/70 px-5 py-3 text-red-300">Eliminar</button>}</div>
         </div>
       </section>

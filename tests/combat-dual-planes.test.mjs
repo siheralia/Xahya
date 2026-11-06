@@ -69,8 +69,8 @@ test("move plus attack costs exactly 2 AP, moves first, then checks reach",()=>{
  const next=applyCombatCommand(s,"PLAYER",strike({planarMove:{x:.5,y:0}}),dice);
  assert.equal(remainingAp(next.actors.PLAYER),ap-2);
  assert.equal(next.actors.PLAYER.spentTicks,
-   turnTicks(s.actors.PLAYER)+turnTicks(s.actors.PLAYER,"PIERCE"),
-   "movement uses neutral ticks, attack uses the equipped weapon speed factor");
+   Math.max(turnTicks(s.actors.PLAYER),turnTicks(s.actors.PLAYER,"PIERCE")),
+   "the combined action occupies the slower component's tick window");
  assert.equal(fieldPosition(next.actors.PLAYER).x,.5);
  assert.equal(next.pending?.by,"PLAYER");
  assert.deepEqual(next.pending?.planarMove,{x:.5,y:0});

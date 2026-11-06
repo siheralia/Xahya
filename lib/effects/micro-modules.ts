@@ -58,6 +58,13 @@ export type MicroStep = (
   | { kind:"LINK_ENTITY_STAT"; entityKey:string; sourceStat:string; destStat:string; factor:NumericExpr }
   /** Constant intrinsic creature stat: never reads the summoner. */
   | { kind:"SET_ENTITY_STAT"; entityKey:string; destStat:string; value:number }
+  /** Fuse approved, already active summons; no free activation of sources. */
+  | {kind:"FUSE_SUMMONS";sourceEntityKeys:string[];entityKey:string;label:string;
+      manaCost:number;maintenanceMana:number;durationTurns:number;
+      controlRangeMeters:number;hitLimit:number}
+  /** Rotate authorized opponent movement around a living fusion source. */
+  | {kind:"CHAOS_FIELD";entityKey:string;radiusMeters:number;
+      rotationDegrees:90|180|270;rotateEachRound:boolean}
   | { kind:"SET_ENTITY_BEHAVIOR"; entityKey:string; mode:EntityBehaviorMode;
       allowedModes:EntityBehaviorMode[]; target:EntityTargetSlot; trigger:"CONTACT"|"HP_DAMAGE"|"COMMAND" }
   | { kind:"APPLY_STATUS"; target:EntityTargetRef; stat:EntityStatRef;
@@ -110,6 +117,10 @@ export type MicroIntent =
       maintenanceMana:number;durationTurns:number;controlRangeMeters:number;hitLimit:number}
   | {kind:"LINK_ENTITY_STAT";entityKey:string;sourceStat:string;destStat:string;factor:number;value:number;dynamic:true}
   | {kind:"SET_ENTITY_STAT";entityKey:string;destStat:string;value:number;dynamic:false}
+  | {kind:"FUSE_SUMMONS";ownerId:number;sourceEntityKeys:string[];entityKey:string;label:string;
+      manaCost:number;maintenanceMana:number;durationTurns:number;controlRangeMeters:number;hitLimit:number}
+  | {kind:"CHAOS_FIELD";entityKey:string;radiusMeters:number;
+      rotationDegrees:90|180|270;rotateEachRound:boolean}
   | {kind:"SET_ENTITY_BEHAVIOR";entityKey:string;mode:EntityBehaviorMode;allowedModes:EntityBehaviorMode[];
       target:EntityTargetSlot;trigger:"CONTACT"|"HP_DAMAGE"|"COMMAND"}
   | {kind:"APPLY_STATUS";targetId:number;stat:string;operation:"MULTIPLIER"|"BONUS";value:number;durationTurns:number}
@@ -285,7 +296,38 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
             if(!validKey(step.entityKey)||!validKey(step.sourceStat)||!validKey(step.destStat))
               fail("vínculo de estadística inválido");
             checkExpr(step.factor);checkSourceLinks(step.factor,outputs,opaqueOutputs);break;
-          case "SET_ENTITY_STAT":
+          case "FUSE_SUMMONS":
+            if(!Array.isArray(step.sourceEntityKeys)||step.sourceEntityKeys.length<2||
+              step.sourceEntityKeys.length>8||
+              step.sourceEntityKeys.some((key:string)=>!validKey(key)||key===step.entityKey)||
+              new Set(step.sourceEntityKeys).size!==step.sourceEntityKeys.length||
+              !validKey(step.entityKey)||!step.label?.trim()||step.label.length>120||
+              !integer(step.manaCost,0,1000000)||!integer(step.maintenanceMana,0,1000000)||
+              !integer(step.durationTurns,1,100)||!finite(step.controlRangeMeters)||
+              step.controlRangeMeters<=0||step.controlRangeMeters>1000||
+              !integer(step.hitLimit,1,100))
+              fail("fusión de criaturas inválida");
+            break;
+          case "CHAOS_FIELD":
+            if(!validKey(step.entityKey)||!finite(step.radiusMeters)||
+              step.radiusMeters<0.5||step.radiusMeters>15||
+              ![90,180,270].includes(step.rotationDegrees)||
+              typeof step.rotateEachRound!=="boolean")
+              fail("distorsión de dirección inválida");
+            break;
+          case "FUSE_SUMMONS":
+          intents.push({kind:"FUSE_SUMMONS",ownerId:ctx.ownerId,
+            sourceEntityKeys:[...step.sourceEntityKeys],entityKey:step.entityKey,
+            label:step.label,manaCost:step.manaCost,maintenanceMana:step.maintenanceMana,
+            durationTurns:step.durationTurns,controlRangeMeters:step.controlRangeMeters,
+            hitLimit:step.hitLimit});
+          break;
+        case "CHAOS_FIELD":
+          intents.push({kind:"CHAOS_FIELD",entityKey:step.entityKey,
+            radiusMeters:step.radiusMeters,rotationDegrees:step.rotationDegrees,
+            rotateEachRound:step.rotateEachRound});
+          break;
+        case "SET_ENTITY_STAT":
             if(!validKey(step.entityKey)||!validKey(step.destStat)||!finite(step.value)||
                step.value<0||step.value>1_000_000)
               fail("valor fijo de entidad inválido");

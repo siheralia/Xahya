@@ -34,4 +34,4 @@ Un botón **«🌀 Plantilla: Reino del Caos»** crea el grafo de seis pasos de 
 
 Los valores numéricos de la plantilla son **ejemplos de autoría**, no decisiones de balance definitivas. El coste formal de PCH requerirá investigación posterior. Se conserva idempotencia por `requestId` y protección contra fuentes falsificadas, criaturas ajenas, fusión de sí misma, costes de maná discordantes, módulos adicionales, doble asignación de estadísticas y ángulos de distorsión fuera de la lista permitida.
 
-No se implementa una IA autónoma adicional ni un mapa visual de áreas de influencia en el plano todavía. El campo solo altera **desplazamientos voluntarios** mientras la criatura resultante está en combate: no altera las salidas del laberinto ni la navegación del mundo.
+No se implementa una IA autónoma adicional. El plano superior muestra la circunferencia del campo y, si el combatiente está afectado, una vista previa punteada del **desplazamiento real girado** y sus colisiones. El campo solo altera **desplazamientos voluntarios** mientras la criatura resultante está en combate: no altera las salidas del laberinto ni la navegación del mundo.

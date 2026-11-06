@@ -254,9 +254,11 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
         mechanics=advanceCombatMechanics(mechanics,Number(fresh.playerCharacterId),
           approved,active.map((x:any)=>Number(x.skillId)));
       }
-      // Persist each equipped weapon's own wear within the locked encounter
-      // transaction. Blocking with the offhand must not wear the main hand.
-      // LEAST preserves damage already recorded by another encounter.
+      // Persist wear on the SAME inventory item copy captured at combat
+      // start, even if someone subsequently unequips or moves that copy to
+      // another slot outside the encounter. Equipment is an encounter
+      // snapshot; the old equipped=true filter silently lost this wear.
+      // LEAST also preserves damage already recorded by another encounter.
       for(const who of ["PLAYER","NPC"] as const){
         const fighter=next.actors[who],characterId=fighter.characterId;
         if(characterId===null)continue;
@@ -268,7 +270,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
             UPDATE public."characterItem"
               SET durability=LEAST(durability,${integrity})
             WHERE id=${weapon.characterItemId} AND "characterId"=${characterId}
-              AND "itemId"=${weapon.itemId??0} AND equipped=true
+              AND "itemId"=${weapon.itemId??0}
           `.affectedCount().build();
           await tx.execute(query);
         }

@@ -740,14 +740,23 @@ function summonAsFighter(summon:CombatSummon,owner:CombatFighter):CombatFighter 
     strength:summonStat(summon,owner,"STRENGTH"),
     precision:summonStat(summon,owner,"PRECISION"),
     dodge:summonStat(summon,owner,"DODGE"),
-    massKg:Math.max(1,owner.massKg*0.08),
+    magicAttack:summonStat(summon,owner,"MAGIC_ATTACK"),
+    magicDefense:summonStat(summon,owner,"MAGIC_DEFENSE"),
+    constitution:summonStat(summon,owner,"CON"),
+    critical:summonStat(summon,owner,"CRITICAL"),
+    luck:summonStat(summon,owner,"LUCK"),
+    race:summonStat(summon,owner,"RACE"),
+    massKg:Math.max(1,summonStat(summon,owner,"MASS_KG")),
     equippedWeapon:undefined,offhandWeapon:undefined,
     perkIds:[],damageTakenFactors:undefined};
 }
 function summonStepLimit(summon:CombatSummon,owner:CombatFighter):number {
-  const base=Math.max(1,Math.round(Math.max(0,owner.race)/10));
+  const base=Math.max(1,Math.round(Math.max(0,summonStat(summon,owner,"RACE"))/10));
   const current=summonStat(summon,owner,"MOVE_SPEED");
-  return Math.min(15,base*Math.max(0,current)/effectiveCombatSpeed(owner));
+  const agility=Math.max(1,summonStat(summon,owner,"AGI"));
+  // Every component can be independently preconfigured; linked summons retain
+  // the old speed/race behavior when no intrinsic values are specified.
+  return Math.min(15,base*Math.max(0,current)/agility);
 }
 function moveSummonOnField(state:CombatState,summon:CombatSummon,delta:Point):number {
   if(!finite(delta.x)||!finite(delta.y))throw new Error("Movimiento de invocación inválido.");

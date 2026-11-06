@@ -903,8 +903,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       // No equipped weapon preserves the original unarmed guard behavior.
       // A broken equipped tool cannot masquerade as a full-integrity arm.
       const unarmed=!(fighter.equippedWeapon||fighter.offhandWeapon);
-      const previousIntegrity=blockWeapon?.durability??
-        (unarmed?fighter.weaponIntegrity:0);
+      const previousIntegrity=blockWeapon
+        ?blockWeapon.durability??fighter.weaponIntegrity
+        :unarmed?fighter.weaponIntegrity:0;
       const contest = contestChance(fighter.constitution * typeFactor, attacker.strength);
       const held = previousIntegrity > 0 && rolls.defense < contest;
       // Tool durability never substitutes for the wielder's CON.

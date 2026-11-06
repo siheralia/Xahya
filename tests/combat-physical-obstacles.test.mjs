@@ -259,3 +259,23 @@ test("NPC chooses a paid WAIT instead of throwing when no one-meter escape route
  assert.ok(progressed.log.some(e=>e.kind==="WAIT"&&e.by==="NPC"),
   "a blocked training NPC must not freeze the encounter");
 });
+
+test("simultaneous physical counter persists cover wear without gaining a free attack",()=>{
+ const s=initial();
+ s.constructions=[block("counter-cover",.75,0,{heightMeters:4,solidHeightMeters:2,durability:90})];
+ let launched=applyCombatCommand(s,"PLAYER",
+  {kind:"ATTACK",attackType:"BLUNT",attackSource:"MAIN_HAND"},dice);
+ assert.equal(launched.pending.explicitTrajectory,false,
+  "the incoming placeholder stroke must not receive invented cover");
+ launched=applyCombatCommand(launched,"NPC",
+  {kind:"DEFEND",defense:"COUNTER",counterMagic:false},dice);
+ assert.equal(launched.pending,null);
+ assert.equal(launched.constructions[0].durability,65,
+  "cover hit on the simultaneous shadow must be persisted to the real state");
+ assert.equal(launched.constructions[0].hitCount,1);
+ assert.equal(launched.actors.PLAYER.hp,100,"the counter was physically intercepted");
+ assert.ok(launched.actors.NPC.hp<100,"the original attack still resolves");
+ assert.equal(launched.actors.NPC.spentAp,1,"counter pays one PA");
+ assert.ok(launched.log.some(e=>e.kind==="CONSTRUCTION"&&
+  e.constructionId==="counter-cover"&&e.summary.includes("Intercambio simultáneo")));
+});

@@ -108,9 +108,14 @@ export default function CombatSkillLoadout({
        const missingCharges=Boolean(skill.chargeBuff)&&
          (selectedCharges>availableCharges||selectedCharges<(skill.chargeBuff?.minCharges??1)||
            selectedCharges>(skill.chargeBuff?.maxCharges??6));
-       const blocked=!skill.requirementsSatisfied||!canUseSkill||busy||onCooldown||missingCharges||
+       const missingFusion=Boolean(skill.fusion)&&!skill.fusion!.sourceEntityKeys.every(key=>
+         chargeState?.summons?.some(s=>s.owner===side&&s.entityKey===key&&
+           s.integrity>0&&s.expiresAtRound>round));
+       const blocked=!skill.requirementsSatisfied||!canUseSkill||busy||onCooldown||missingCharges||missingFusion||
          mana===null||mana<skill.manaCost||missingAim||outOfRange;
-       const reason=missingCharges
+       const reason=missingFusion
+         ?"Necesitas tener activas todas las criaturas que participarán en la fusión."
+         :missingCharges
          ?"No tienes suficientes cargas para el número seleccionado." :outOfRange
          ?"Objetivo fuera del alcance de la habilidad ("+skill.rangeMeters+" m). Muévete primero."
          :onCooldown
@@ -120,6 +125,15 @@ export default function CombatSkillLoadout({
          : missingAim?(skill.skillKind==="CONSTRUCTION"?"Marca la posición de la construcción en el terreno.":skill.attackArea?"Prepara esta área en el lienzo superior y marca el epicentro.":"Marca el centro en modalidad Explosión mágica del lienzo superior.")
          : !canUseSkill?"La habilidad está lista, pero debes esperar tu iniciativa o resolver una reacción pendiente.":null;
        return <div className="space-y-2">
+        {skill.fusion&&<div className="space-y-2 rounded-lg border border-fuchsia-700/40 bg-fuchsia-950/20 p-3 text-xs">
+          <p className="font-semibold text-fuchsia-200">🌀 Fusión: {skill.fusion.summon.label}</p>
+          <p className="text-zinc-300">Requiere: {skill.fusion.sourceEntityKeys.map(name=>{
+            const present=chargeState?.summons?.some(s=>s.owner===side&&s.entityKey===name);
+            return (present?"✓ ":"○ ")+friendlyMicroKey(name);
+          }).join(", ")}</p>
+          <p className="text-zinc-300">Mantenimiento: {skill.fusion.summon.maintenanceMana} maná/ronda · Duración: {skill.fusion.summon.durationTurns} turnos</p>
+          {skill.fusion.chaosField&&<p className="text-violet-300">Campo: {skill.fusion.chaosField.radiusMeters} m · gira {skill.fusion.chaosField.rotationDegrees}°{skill.fusion.chaosField.rotateEachRound?" (cambia cada ronda)":""}.</p>}
+        </div>}
         {skill.chargeBuff&&<div className="space-y-2 rounded-lg border border-violet-500/30 bg-violet-950/10 p-3">
           <p className="text-xs text-violet-200">
             🌙 Reserva: {availableCharges}/6 cargas · +{skill.chargeBuff.perChargePercent}% por carga durante {skill.chargeBuff.durationTurns} turnos
@@ -151,7 +165,7 @@ export default function CombatSkillLoadout({
         <button type="button" disabled={blocked}
          onClick={()=>onCast(skill,skill.chargeBuff?selectedCharges:undefined)}
          className="rounded-lg border border-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-40">
-         {skill.skillKind==="OFFENSE"?(skill.attackArea?.shape==="SELF_FIELD"?"Ejecutar barrido":"Lanzar ataque de habilidad"):skill.skillKind==="CONSTRUCTION"?"Crear construcción":skill.skillKind==="SUMMON"?"Invocar criaturas":skill.skillKind==="CHARGE_BUFF"?"Activar potenciación":"Activar habilidad"}
+         {skill.skillKind==="OFFENSE"?(skill.attackArea?.shape==="SELF_FIELD"?"Ejecutar barrido":"Lanzar ataque de habilidad"):skill.skillKind==="CONSTRUCTION"?"Crear construcción":skill.skillKind==="SUMMON"?"Invocar criaturas":skill.skillKind==="CHARGE_BUFF"?"Activar potenciación":skill.skillKind==="FUSION"?"Fusionar criaturas":"Activar habilidad"}
         </button>
        </div>;
       })()}

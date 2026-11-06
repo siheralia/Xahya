@@ -14,7 +14,7 @@ import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
 import {combatWeaponOperational} from "./weapon-readiness.ts";
 import {summonStat,type CombatSummon,type SummonContactEffect} from "./summons.ts";
-import {creditCombatCharge,spendCombatCharges} from "./charge-pools.ts";
+import {creditCombatCharge,ensureCombatChargePool,spendCombatCharges} from "./charge-pools.ts";
 import {applySummonStatus,invertSummonStatus,expireSummonStatuses,
  isDebuffStatus,resolveStatusStat,type SummonStatus} from "./summon-status.ts";
 import {evaluateWeaponAutoRepair,shouldAutoRepairAtRound,
@@ -951,6 +951,9 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
   throw new Error("Orden de criatura desconocida.");
 }
 function upkeepSummons(state:CombatState):void {
+  // Migrate charges before removing a legacy summon at the round boundary.
+  ensureCombatChargePool(state,"PLAYER");
+  ensureCombatChargePool(state,"NPC");
   const retained:CombatSummon[]=[];
   for(const summon of state.summons??[]){
     const owner=state.actors[summon.owner],mana=state.mana?.[summon.owner];

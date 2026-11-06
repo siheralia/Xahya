@@ -1466,6 +1466,19 @@ export function applyResolvedCombatSkill(
    existing.some(x=>x.owner===by&&x.sourceSkillId===plan.id&&x.form==="FIELD"));
   const userLabel=typeof aim.constructionLabel==="string"?aim.constructionLabel.trim():"";
   if(userLabel.length>60||/[\x00-\x1f]/.test(userLabel))throw new Error("Nombre de construcción inválido.");
+  const collider=form==="BLOCK"
+    ?validatePhysicalCollider(aim.constructionFootprintRadiusMeters,
+       aim.constructionSolidHeightMeters,aim.constructionHeightMeters,fieldPoint)
+    :undefined;
+  if(form!=="BLOCK"&&(aim.constructionFootprintRadiusMeters!==undefined||
+    aim.constructionSolidHeightMeters!==undefined))
+    throw new Error("Solo un bloque material puede tener volumen físico sólido.");
+  if(collider&&fieldPoint&&aim.constructionHeightMeters===0){
+    for(const occupant of Object.values(next.actors))
+      if(Math.hypot(fieldPoint.x-fieldPosition(occupant).x,
+        fieldPoint.y-fieldPosition(occupant).y)<collider.radiusMeters)
+        throw new Error("No puedes crear un bloque sólido dentro de un combatiente.");
+  }
   const resistance=plan.creationPassive;
   const baseRes=resistance
     ?Math.max(0,Number((owner as unknown as Record<string,number>)[resistance.resistance.baseStat]??owner.magicDefense)):0;
@@ -1474,6 +1487,7 @@ export function applyResolvedCombatSkill(
     owner:by,sourceSkillId:plan.id,material:plan.construction.material,form,
     label:userLabel||plan.construction.label,center:point,createdRound:next.round,
     fieldPosition:fieldPoint,heightMeters:aim.constructionHeightMeters,
+    footprintRadiusMeters:collider?.radiusMeters,solidHeightMeters:collider?.solidHeightMeters,
     tangible:form==="BLOCK",durability:form==="BLOCK"?Math.max(1,Math.round(baseRes)):undefined,
     passive:resistance?structuredClone(resistance):undefined,
   };

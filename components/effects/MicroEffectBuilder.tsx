@@ -16,6 +16,11 @@ const key="^[A-Za-z][A-Za-z0-9_.:-]{0,63}$";
 const sources=["EVENT","STAT","CHARGES","STORED_TOTAL","OUTPUT"] as const;
 const ops=["ADD","SUBTRACT","MULTIPLY","DIVIDE","MIN","MAX","PERCENT"] as const;
 const events:MicroEvent[]=["DAMAGE_RESOLVED","TURN_START","IMPACT","PASSIVE","ACTIVATE"];
+const stepKinds:MicroStep["kind"][]=["READ_STAT","READ_STORED","READ_ITEM","CALCULATE",
+  "STORE","CONSUME","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS",
+  "SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","REQUIRE_CONTACT","SUMMON_ENTITY",
+  "LINK_ENTITY_STAT","SET_ENTITY_BEHAVIOR","APPLY_STATUS","READ_STATUSES","INVERT_STATUS",
+  "CAPABILITY","VARIABLE_RESISTANCE"];
 const destinationStats:readonly string[]=["STR","AGI","CON","INT","WIS","CHA","SPI",
   "HP","MAX_HP","MANA","RESISTANCE","MAGIC_DEF","PHYS_DEF","MAGIC_ATTACK","PHYSICAL_ATTACK"];
 const defaultCondition=():MicroCondition=>({left:{source:"CHARGES",key:"DIVINE_GRACE"},compare:"GTE",right:1});
@@ -165,7 +170,7 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItem
     <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold">Micromódulo {index+1}</h4>
       <button type="button" onClick={onDelete} className="text-xs text-rose-300">Eliminar</button></div>
     <label className="block text-xs">Operación<select className={"mt-1 "+field} value={step.kind} onChange={e=>onChange({...defaultStep(e.target.value as MicroStep["kind"]),when:step.when})}>
-      {["READ_STAT","READ_STORED","READ_ITEM","CALCULATE","STORE","CONSUME","REPAIR_DURABILITY","HEAL","DAMAGE","MODIFIER","BONUS","SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","REQUIRE_CONTACT","SUMMON_ENTITY","LINK_ENTITY_STAT","SET_ENTITY_BEHAVIOR","APPLY_STATUS","READ_STATUSES","INVERT_STATUS","CAPABILITY","VARIABLE_RESISTANCE"].map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
+      {stepKinds.map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
     </select></label>
     {step.kind==="READ_STAT"&&<div className="grid gap-2 sm:grid-cols-3">
       <label className="text-xs">¿De quién?
@@ -530,6 +535,7 @@ function StepEditor({step,onChange,onDelete,index,availableOutputs,availableItem
 }
 export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onChange:(next:EffectContainer)=>void}){
   const [showFlow,setShowFlow]=useState(true);
+  const [newKind,setNewKind]=useState<MicroStep["kind"]>("SELECT_TARGET");
   const [selectedStep,setSelectedStep]=useState<number|null>(null);
   const update=(patch:Partial<EffectContainer>)=>onChange({...value,...patch});
   return <section className="space-y-4">
@@ -555,6 +561,24 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
     </div>
     {showFlow&&<MicroEffectFlowEditor value={value} onChange={onChange} onEditStep={index=>{setSelectedStep(index);document.getElementById("micro-step-"+index)?.scrollIntoView({behavior:"smooth",block:"center"});}}/>}
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Pasos del efecto (en orden)</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <select aria-label="Micromódulo a añadir" className={field} value={newKind}
+          onChange={e=>setNewKind(e.target.value as MicroStep["kind"])}>
+          {stepKinds.map(kind=><option key={kind} value={kind}>{MICRO_STEP_LABELS[kind]}</option>)}
+        </select>
+        <button type="button" disabled={value.steps.length>=24}
+          className="rounded border border-teal-600 px-3 py-2 text-xs disabled:opacity-40"
+          onClick={()=>{
+            let next=defaultStep(newKind);
+            if("output" in next){
+              const used=new Set(value.steps.flatMap(s=>"output" in s?[s.output]:[]));
+              const base=next.output;let name=base,n=1;
+              while(used.has(name))name=base+"_"+n++;
+              next={...next,output:name};
+            }
+            update({steps:[...value.steps,next]});
+          }}>+ Añadir micromódulo</button>
+      </div>
       <button type="button" disabled={value.steps.length>21}
         className="rounded border border-violet-700 px-3 py-2 text-xs disabled:opacity-40"
         onClick={()=>{

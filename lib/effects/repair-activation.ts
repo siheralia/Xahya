@@ -15,6 +15,14 @@ const ALLOWED_STEPS=new Set(["READ_ITEM","READ_STAT","CALCULATE","REPAIR_DURABIL
 export type RepairSkillPlan={
   definitions:EffectContainer[];manaCost:number;skillId:number;
 };
+function readsCurrentHp(value:unknown):boolean{
+  if(!value||typeof value!=="object")return false;
+  if(Array.isArray(value))return value.some(readsCurrentHp);
+  const record=value as Record<string,unknown>;
+  if(record.kind==="READ_STAT"&&record.stat==="HP")return true;
+  if(record.source==="STAT"&&record.key==="HP")return true;
+  return Object.values(record).some(readsCurrentHp);
+}
 export function compileApprovedRepairSkill(skill:Record<string,unknown>):RepairSkillPlan {
   if(skill.status!=="APPROVED")throw new Error("La habilidad aún no está aprobada.");
   const skillId=Number(skill.id);
@@ -38,6 +46,8 @@ export function compileApprovedRepairSkill(skill:Record<string,unknown>):RepairS
     throw new Error("La habilidad no contiene el micromódulo Restaurar durabilidad.");
   const error=validateEffectContainers(definitions);
   if(error)throw new Error(error);
+  if(readsCurrentHp(definitions))
+    throw new Error("La vida actual no está disponible fuera de combate. Usa vida máxima u otra estadística.");
   const manaCost=Number(skill.cost??0);
   if(!Number.isSafeInteger(manaCost)||manaCost<0||manaCost>1_000_000)
     throw new Error("Coste de maná inválido.");

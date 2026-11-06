@@ -83,7 +83,9 @@ const display=(step:MicroStep):{title:string;subtitle:string;unresolved:boolean}
   case "SET_ENTITY_BEHAVIOR":return {title:"Configurar comportamiento",subtitle:step.entityKey+" · "+friendlyMicroKey(step.mode),unresolved:true};
   case "APPLY_STATUS":return {title:"Aplicar estado",subtitle:typeof step.stat==="string"?friendlyMicroKey(step.stat):"Estadística conectada",unresolved:true};
   case "READ_STATUSES":return {title:"Contar estados",subtitle:friendlyMicroKey(step.filter),unresolved:true};
-  case "INVERT_STATUS":return {title:"Invertir debilitamiento",subtitle:step.manaCost+" maná por inversión",unresolved:true};
+  case "CONSUME_COMBAT_CHARGES":return {title:"Elegir y consumir cargas",subtitle:friendlyMicroKey(step.accumulator)+" · "+step.minCharges+"–"+step.maxCharges,unresolved:false};
+   case "APPLY_CHARGE_BUFF":return {title:"Potenciación por carga",subtitle:step.stats.map(friendlyMicroKey).join(", ")+" · +"+step.perChargePercent+"%/carga",unresolved:false};
+   case "INVERT_STATUS":return {title:"Invertir debilitamiento",subtitle:step.manaCost+" maná por inversión",unresolved:true};
   case "READ_STAT":return {title:"Leer estadística",subtitle:(step.actor==="USER"?"Usuario":"Oponente")+" · "+friendlyMicroKey(step.stat),unresolved:false};
   case "READ_ITEM":return {title:"Leer objeto",subtitle:friendlyMicroKey(step.selector),unresolved:false};
   case "REPAIR_DURABILITY":return {title:"Restaurar durabilidad",subtitle:"Objeto y cantidad conectables · máx. 100",unresolved:false};
@@ -147,7 +149,8 @@ function wire(step:MicroStep,port:string,expr:NumericExpr):MicroStep{
     if(port==="stat"&&typeof expr==="object"&&"source" in expr&&expr.source==="OUTPUT")
       return {...step,stat:{source:"STAT_SELECTION",key:expr.key}};
     return port==="value"?{...step,value:expr}:step;
-  case "LINK_ENTITY_STAT":return port==="factor"?{...step,factor:expr}:step;
+  case "APPLY_CHARGE_BUFF":return port==="charges"?{...step,charges:expr}:step;
+   case "LINK_ENTITY_STAT":return port==="factor"?{...step,factor:expr}:step;
   case "STORE":return port==="value"?{...step,value:expr}:step;
   case "HEAL":return port==="amount"?{...step,amount:expr}:step;
   case "REPAIR_DURABILITY":

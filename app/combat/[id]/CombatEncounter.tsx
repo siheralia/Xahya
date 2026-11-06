@@ -203,6 +203,8 @@ export default function CombatEncounter({id}:{id:string}) {
    setView(v=>v?{...v,state:data.state}:v);
    if(command.kind==="BOOST_KARMA"){setKarmaAllocation({});karmaRequestRef.current=null;void load();}
    if(command.kind==="DEFEND")setPredictedCenter(null);
+   if(command.kind==="ATTACK"||command.kind==="CAST_SKILL"||command.kind==="MOVE"||command.kind==="WAIT")
+    setAttackOptionsOpen(false);
    if(command.kind==="DEFEND"||command.kind==="ATTACK"||command.kind==="MOVE"||command.kind==="CAST_SKILL")
     setFieldMove(null);
    if(command.kind==="ATTACK"||command.kind==="CAST_SKILL")setMovementPlan("MOVE_ONLY");
@@ -360,7 +362,7 @@ export default function CombatEncounter({id}:{id:string}) {
  })():undefined;
  const drawnMovement=fieldMode==="MOVE"&&panel!=="construction"&&fieldMove&&
   Math.hypot(fieldMove.x,fieldMove.y)>=0.01?fieldMove:undefined;
- const proposedMovement=drawnMovement??suggestedMove;
+ const proposedMovement=fieldMode==="MOVE"&&panel!=="construction"?drawnMovement??suggestedMove:undefined;
  const preparedMovement=movementPlan!=="MOVE_ONLY"&&fieldMode==="MOVE"?proposedMovement:undefined;
  const reactionMovement=defending?drawnMovement:undefined;
  const movementOrder=preparedMovement
@@ -567,7 +569,7 @@ export default function CombatEncounter({id}:{id:string}) {
       </p>:
       <p className="mt-4 text-sm text-zinc-400">
        {ready?"Puedes actuar.":"En espera: el oponente debe avanzar sus ticks o se agotaron tus PA."}
-       {" "}El turno se comparte: 100 ticks y 9 + CON puntos de acción por combatiente. Si ambos tienen igual velocidad, alternan iniciativas (la defensa no consume iniciativa, pero sí PA y ticks). El NPC de entrenamiento actúa automáticamente.
+       {" "}Las acciones gastan PA y ticks según la velocidad; la IA rival avanza automáticamente.
       </p>}
     {state.status==="ACTIVE" && !pending && !ready && side==="PLAYER" && hasAccess
       && state.actors.NPC.characterId===null &&
@@ -600,18 +602,6 @@ export default function CombatEncounter({id}:{id:string}) {
         onClick={()=>{setFieldMode("VIEW");setFieldMove(null);setMovementPlan("MOVE_ONLY");}}
         className="flex h-9 min-w-0 flex-1 items-center justify-center rounded-md border border-zinc-600 text-zinc-300"><Eye size={18}/></button>
       </div>
-      {defending&&<div className="flex gap-1" role="group" aria-label="Reacciones de movimiento">
-       {(["DODGE","BLOCK","DEFLECT"] as const).map(choice=>{
-        const Icon=defenseIcons[choice];
-        return <button type="button" key={choice} title={options.find(o=>o.value===choice)?.label}
-         aria-label={options.find(o=>o.value===choice)?.label} aria-pressed={selectedDefense===choice}
-         onClick={()=>{setDefense(choice);setFieldMode("MOVE");}}
-         disabled={pending?.usesMagic&&choice!=="DODGE"||Boolean(pending?.attackArea)&&choice==="DEFLECT"}
-         className={"flex size-9 items-center justify-center rounded-md border disabled:opacity-30 "+
-          (selectedDefense===choice?"border-amber-400 text-amber-200":"border-zinc-700")}>
-         <Icon size={18}/></button>;
-       })}
-      </div>}
       <CombatTopDownPlane state={state} side={side}
        mode={panel==="construction"?"CONSTRUCT":fieldMode==="CONSTRUCT"?"MOVE":fieldMode}
        disabled={!hasAccess||state.status!=="ACTIVE"||(!!pending&&!defending)||(!pending&&!ready)}
@@ -1009,11 +999,11 @@ export default function CombatEncounter({id}:{id:string}) {
         <span className="mt-1 block text-xs text-zinc-400">0° horizontal · 90° vertical · el ángulo solo se revela tras la reacción.</span>
        </label>}
       <div className="mt-3 flex flex-wrap items-end gap-3">
-       <div className="text-sm">{attackMode==="MAGIC_AREA"?(preparedAreaSkill?"Tipo de ataque de la habilidad":"Tipo de magia básica"):"Tipo de ataque físico"}
-        <div className="mt-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">{attackNames[displayedAttackType]}
-          <span className="ml-2 text-xs text-zinc-400">{preparedAreaSkill&&attackMode==="MAGIC_AREA"?"Configurado en la habilidad":"Configurado en la ficha o el arma"}</span>
-        </div>
-       </div>
+       <p className="flex items-center gap-2 text-xs text-zinc-300">
+        <Swords size={16} className="text-rose-300"/> {attackNames[displayedAttackType]}
+        <span className="text-zinc-500">{preparedAreaSkill&&attackMode==="MAGIC_AREA"?
+         "Tipo de la habilidad":"Según ficha o arma"}</span>
+       </p>
        {!preparedAreaSkill&&basicOutOfRange&&<p role="status" className="mb-2 text-xs text-amber-300">
          {movementOrder==="AFTER"?"«Atacar y mover» exige estar al alcance antes del desplazamiento. ":""}
          El objetivo está a {attackDistance.toFixed(2)} m; el alcance máximo de este ataque es {basicReach.toFixed(2)} m.

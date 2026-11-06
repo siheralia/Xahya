@@ -80,6 +80,7 @@ test("a zero-durability weapon cannot attack as melee or be thrown",()=>{
   assert.throws(()=>applyCombatCommand(s,"PLAYER",command,rolls),/rota/);
  }
  assert.deepEqual(s,before,"rejected actions cannot spend PA/ticks or drop items");
+ s.actors.NPC.positionMeters=0.5; // within the unarmed reach, not broken weapon reach
  const fist=applyCombatCommand(s,"PLAYER",
   {kind:"ATTACK",attackType:"BLUNT",attackSource:"FIST_RIGHT",
    trajectory:[{x:.1,y:.5},{x:.5,y:.5}]},rolls);
@@ -143,6 +144,7 @@ test("counterattack can continue unarmed or with an intact offhand when the main
  const s=base();
  s.actors.NPC.equippedWeapon.durability=0;
  s.actors.NPC.offhandWeapon=undefined;
+ s.actors.NPC.positionMeters=.5; // a fist is shorter than the broken sword
  let launched=attack(s);
  const plan=basicCounterAttack(launched,"NPC",false);
  assert.equal(plan.attackSource,"FIST_RIGHT");

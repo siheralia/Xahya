@@ -264,8 +264,11 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
         const fighter=next.actors[who],characterId=fighter.characterId;
         if(characterId===null)continue;
         const previous=state.actors[who];
+        const persistedCopies=new Set<number>();
         for(const weapon of [fighter.equippedWeapon,fighter.offhandWeapon]){
           if(!weapon?.characterItemId)continue;
+          if(persistedCopies.has(weapon.characterItemId))continue;
+          persistedCopies.add(weapon.characterItemId);
           const current=weapon.durability??fighter.weaponIntegrity;
           const integrity=Math.max(0,Math.min(100,Math.floor(current)));
           const prior=[previous.equippedWeapon,previous.offhandWeapon,

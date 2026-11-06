@@ -35,6 +35,9 @@ export function validateComposedSkillEffect(row:unknown,scope:"PLAYER"|"REVIEW")
   if(scope==="PLAYER"&&r.reviewedPch!==undefined)return "El PCH aprobado solo puede asignarlo administración.";
   if(scope==="REVIEW" && (typeof r.reviewedPch!=="number" || !Number.isSafeInteger(r.reviewedPch)
     || r.reviewedPch<1 || r.reviewedPch>100000))return "Asigna un PCH revisado válido a cada efecto modular.";
+  if(scope==="REVIEW" &&
+    Number(r.reviewedPch)<Math.max(1,pricedModularStepCount(module as EffectContainer)*MODULE_DEPOSIT_PER_STEP))
+    return "El PCH revisado no puede ser inferior a la reserva mínima de los micromódulos.";
   return null;
 }
 export function validateComposedSkillList(rows:unknown,scope:"PLAYER"|"REVIEW"):string|null {
@@ -71,6 +74,9 @@ export function composedEffectBasePch(row:ComposedSkillEffect):number {
   if(err)throw new Error(err);
   const value=row.reviewedPch??Math.max(1,pricedModularStepCount(row.module)*MODULE_DEPOSIT_PER_STEP);
   if(!Number.isSafeInteger(value)||value<1||value>100000)throw new Error("PCH modular inválido.");
+  if(row.reviewedPch!==undefined &&
+    value<Math.max(1,pricedModularStepCount(row.module)*MODULE_DEPOSIT_PER_STEP))
+    throw new Error("El PCH revisado no puede ser inferior a la reserva modular.");
   return value;
 }
 export function composedDepositPch(row:ComposedSkillEffect):number {

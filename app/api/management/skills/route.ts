@@ -8,6 +8,17 @@ import {parseSkillArea} from "@/lib/skills/area-of-effect";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
+import {validateComposedSkillList,isComposedSkillEffect} from "@/lib/skills/composed-effects";
+import {configuredSkillEffectPch} from "@/lib/skills/configured-effect-pricing";
+import {defaultEffectPricing} from "@/lib/skills/pch";
+import {readEffectPricing} from "@/lib/effects/pricing";
+import {readNarrativeEffectCards} from "@/lib/effects/narrative-cards";
+import {readDurationPricing} from "@/lib/effects/duration-pricing-settings";
+import {mechanicsPchCost} from "@/lib/skills/mechanics-pricing";
+import {manaAdjustedPch} from "@/lib/skills/mana-pricing";
+import {speedSurcharge} from "@/lib/skills/speed-settings";
+import {applyRangePch} from "@/lib/skills/range-pricing";
+import {applyCooldownPch} from "@/lib/skills/cooldown";
 import {validateSkillMechanics} from "@/lib/skills/interaction-engine";
 import {validateSkillCombatTypes,normalizeSkillCombatType} from "@/lib/combat/matchup-types";
 
@@ -78,6 +89,39 @@ export async function POST(request: Request) {
   if (!Number.isSafeInteger(characterId) || characterId <= 0 || !validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Personaje o requisitos inválidos."},{status:400});
   const pchCost = Number(body.pchCost ?? 0);
   if (!Number.isSafeInteger(pchCost) || pchCost < 0) return NextResponse.json({error:"Costo PCH inválido."},{status:400});
+  const effects=Array.isArray(body.effect)?body.effect:[];
+  const hasComposed=effects.some(isComposedSkillEffect);
+  if(hasComposed) {
+    // A management-created APPROVED skill needs the same reviewed modular
+    // graph and complete PCH formula as an ordinary approval PATCH.
+    const reviewError=validateComposedSkillList(effects,body.approve===true?"REVIEW":"PLAYER");
+    if(reviewError)return NextResponse.json({error:reviewError},{status:400});
+    if(body.approve===true) {
+      try {
+        const pricing={...defaultEffectPricing(),...await readEffectPricing()};
+        const cards=await readNarrativeEffectCards();
+        const durations=await readDurationPricing();
+        const base=effects.reduce((sum:number,effect:any)=>
+          sum+configuredSkillEffectPch(effect,cards,pricing,durations),0)
+          +mechanicsPchCost(body.mechanics??{});
+        const exact=effectRequirementDiscount(
+          applyCooldownPch(
+            applyRangePch(
+              manaAdjustedPch(base,Number(body.cost))
+              +speedSurcharge(body.speed),
+              Number(body.maxRangeMeters??5)
+            ),
+            body.cooldown,body.duration,body.category
+          ),effectRequirements
+        );
+        if(pchCost!==exact)return NextResponse.json({
+          error:"El PCH aprobado no coincide con la valoración completa de los efectos: "+exact+" PCH."
+        },{status:400});
+      }catch(error){
+        return NextResponse.json({error:error instanceof Error?error.message:"Valoración modular inválida."},{status:400});
+      }
+    }
+  }
   const action = body.approve === true ? "approve" : body.reject === true ? "reject" : null;
   if (body.approve === true && body.reject === true) return NextResponse.json({error:"No puedes aprobar y rechazar al mismo tiempo."},{status:400});
   if (action && !(await hasRolePermission(admin,"management.skills",action))) return NextResponse.json({error:"Sin permiso para aprobar o rechazar."},{status:403});

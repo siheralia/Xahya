@@ -82,3 +82,22 @@ test("character flair stays on one line inside a wider emblem badge",()=>{
  assert.match(hud,/\{"⟨"\+flair\+"⟩"\}/);
  assert.doesNotMatch(hud,/h-14 w-16 shrink-0/);
 });
+
+
+test("mobile combat actions remain attached to the right canvas, with aligned toolbars and short labels",()=>{
+ const planes=page.indexOf('aria-label="Dos planos del combate"');
+ const actionRow=page.indexOf('aria-label="Acciones junto al plano vertical"');
+ const expanded=page.indexOf('title="Opciones avanzadas del ataque"');
+ assert.ok(planes>=0&&actionRow>planes,"the attack controls are inside the dual-plane grid");
+ assert.ok(expanded>actionRow,"verbose details live outside the canvas in a dialog");
+ for(const label of ["Solo mover · 1 PA","Mover y atacar · 2 PA","Atacar y mover · 2 PA","Solo atacar · 1 PA"])
+  assert.ok(page.includes(label),label);
+ assert.doesNotMatch(page,/min-h-8 text-\[10px\] text-cyan-200/,"no mode label can offset the left canvas");
+ assert.doesNotMatch(page,/Siguiente acción/,"the former long action section is not visible");
+ assert.match(page,/const suggestedMove=/);
+ assert.match(page,/setFieldMove\(suggestedMove\)/,"choosing a composite mode previews the suggested step");
+ assert.match(page,/move=\{fieldMove\?\?/,"the movement remains visible before confirmation");
+ assert.match(page,/open=\{constructionOptionsOpen&&panel==="construction"\}/);
+ assert.match(page,/opponentCardRef/);
+ assert.match(page,/!opponentInView&&/);
+});

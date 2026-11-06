@@ -22,6 +22,7 @@ import {readStatisticsCatalog,CORE_BASIC_STAT_KEYS} from "@/lib/stats/dynamic";
 import {readMechanics} from "@/lib/stats/mechanics";
 import { meetsEffectRequirements } from "@/lib/skills/effect-requirements";
 import {compileCombatConsumable} from "@/lib/items/combat-consumables";
+import {weaponWearSinceSnapshot} from "@/lib/combat/weapon-persistence";
 
 const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
   critical:randomInt(1_000_000)/1_000_000,defense:randomInt(1_000_000)/1_000_000});
@@ -279,7 +280,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
               .reduce((sum,op)=>sum+op.restored,0):0;
           // A block and a round-start repair can occur in ONE combat action.
           // Subtract the real wear first, then add only authorized repair.
-          const worn=Math.max(0,before-integrity+repaired);
+          const worn=weaponWearSinceSnapshot(before,integrity,repaired);
           if(repaired>0){
             const query=db.raw.sql`
               UPDATE public."characterItem"

@@ -396,7 +396,9 @@ export function turnTicks(f: CombatFighter, attackType?: CombatAttackType) {
 /** A combined movement and action use one overlapping temporal window,
  * but each constituent still costs its own action point. */
 export function compositeActionTicks(f: CombatFighter, attackType?: CombatAttackType) {
-  return Math.max(turnTicks(f), turnTicks(f, attackType));
+  // Single actions already saturate the 100-tick round rather than refusing
+  // slow attacks. Composites follow the same rule while spending exactly 2 PA.
+  return Math.min(LIMIT,Math.max(turnTicks(f), turnTicks(f, attackType)));
 }
 export function remainingAp(f: CombatFighter) {
   return Math.max(0, actionPoints(f.constitution) - f.spentAp);
@@ -418,7 +420,7 @@ const hasInitiativeBudget = (f: CombatFighter) =>
 function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEFORE"|"AFTER"="BEFORE",actionTicks?:number){
  const fighter=state.actors[by],vector=validatePlanarMove(requested);
  if(remainingAp(fighter)<2)throw new Error("Moverse y actuar a la vez requiere 2 PA.");
- if(fighter.spentTicks+Math.max(turnTicks(fighter),actionTicks??turnTicks(fighter))>LIMIT)
+ if(fighter.spentTicks+Math.min(LIMIT,Math.max(turnTicks(fighter),actionTicks??turnTicks(fighter)))>LIMIT)
   throw new Error("No quedan ticks suficientes para combinar movimiento y acción.");
  spend(fighter,turnTicks(fighter));
  if(order==="BEFORE")finishCompositeStep(state,by,vector);

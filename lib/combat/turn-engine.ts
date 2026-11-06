@@ -14,6 +14,7 @@ import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
 import {combatWeaponOperational} from "./weapon-readiness.ts";
 import {summonStat,type CombatSummon,type SummonContactEffect} from "./summons.ts";
+import {creditCombatCharge,spendCombatCharges} from "./charge-pools.ts";
 import {applySummonStatus,invertSummonStatus,expireSummonStatuses,
  isDebuffStatus,resolveStatusStat,type SummonStatus} from "./summon-status.ts";
 import {evaluateWeaponAutoRepair,shouldAutoRepairAtRound,
@@ -145,6 +146,8 @@ export type CombatState = {
   constructions?: CombatConstruction[];
   /** Persistent, targetable creatures for the encounter. */
   summons?: CombatSummon[];
+  /** Charges belong to the combatant, not to a disappearing summon. */
+  combatCharges?: Partial<Record<Side,Record<string,number>>>;
   /** Statuses created by physical entity contact; persisted in combatV1. */
   summonStatuses?: SummonStatus[];
   /** Opt-in modules persist with combatV1. Preexisting encounters omit this property. */
@@ -170,7 +173,7 @@ export type CombatCommand =
        order:"ACT"|"MOVE"|"ATTACK"|"CHANGE_BEHAVIOR";planarMove?:Point;newBehavior?:"FOLLOW"|"ATTACK"|"PROTECT"|"HOLD"|"MANUAL" }
   | { kind: "ATTACK"; requestId?:string; targetSummonId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; requestId?:string; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;targetSummonId?:string };
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;chargesToSpend?:number;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;targetSummonId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -487,7 +490,7 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
-    physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],summonStatuses:[],mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
+    physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],summonStatuses:[],combatCharges:{PLAYER:{},NPC:{}},mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
     processedKarmaRequests:[],perHandWeaponDurability:true,narrativeHistory:[],pending:null,log:[]};
 }
 export const effectiveCombatSpeed = (f: CombatFighter) =>
@@ -846,11 +849,8 @@ function resolveSummonContact(state:CombatState,summon:CombatSummon,params:{
      const inverted=invertSummonStatus(state,target,selected.id);
      if(!inverted)continue;
      mana.current-=effect.manaCost;
-     if(effect.chargeAccumulator){
-       summon.charges??={};
-       const before=summon.charges[effect.chargeAccumulator]??0;
-       summon.charges[effect.chargeAccumulator]=Math.min(6,before+1);
-     }
+     if(effect.chargeAccumulator)
+       creditCombatCharge(state,summon.owner,effect.chargeAccumulator);
      addLog(state,{kind:"STATUS",tick:state.tick,by:summon.owner,against:target,
        summonId:summon.id,manaCost:effect.manaCost,
        summary:summon.label+" invirtió "+inverted.stat+" de "+state.actors[target].name+
@@ -1867,7 +1867,8 @@ export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
  aim:{requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
   constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;targetSummonId?:string;
-  constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number},
+  constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;
+  chargesToSpend?:number},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))
@@ -1918,7 +1919,38 @@ export function applyResolvedCombatSkill(
    if(historical){historical.skillId=plan.id;historical.manaCost=plan.cost;
     historical.skillName=plan.name;historical.summary=event.summary;}
   }
- }else if(plan.category==="SUMMON") {
+  }else if(plan.category==="CHARGE_BUFF") {
+   const buff=plan.chargeBuff;
+   if(!buff)throw new Error("La habilidad no incluye una potenciación válida.");
+   if(aim.planarMove||aim.trajectory||aim.areaCenter||aim.targetSummonId||
+      aim.targetConstructionId||aim.constructionFieldPoint)
+     throw new Error("La potenciación es personal y no admite movimiento ni objetivos externos.");
+   const count=aim.chargesToSpend;
+   if(!Number.isSafeInteger(count)||count===undefined||
+      count<buff.minCharges||count>buff.maxCharges)
+     throw new Error("Elige entre "+buff.minCharges+" y "+buff.maxCharges+" cargas.");
+   next=structuredClone(original);
+   spendCombatCharges(next,by,buff.accumulator,count);
+   const owner=next.actors[by],factor=1+buff.perChargePercent*count/100;
+   if(buff.stats.length>8||(next.summonStatuses?.length??0)+buff.stats.length>100)
+     throw new Error("No hay capacidad para aplicar más estados temporales.");
+   for(const [index,stat] of buff.stats.entries()){
+     applySummonStatus(next,{
+       id:"CHARGE:"+by+":"+plan.id+":"+aim.requestId+":"+index,
+       sourceSummonId:"SKILL:"+plan.id,by,target:by,stat,
+       operation:"MULTIPLIER",value:factor,durationTurns:buff.durationTurns,
+     });
+   }
+   spend(owner,turnTicks(owner));
+   next.tick=Math.max(next.tick,(next.round-1)*LIMIT+owner.spentTicks);
+   // Pay the activation cost before an automatic round advance.
+   next.mana![by].current-=plan.cost;
+   addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,skillName:plan.name,
+     manaCost:plan.cost,summary:owner.name+" activó "+plan.name+
+       " consumiendo "+count+" carga(s) de "+buff.accumulator+
+       " y obtuvo ×"+factor.toFixed(2)+" durante "+buff.durationTurns+" turnos."});
+   advanceRoundIfComplete(next);
+  }else if(plan.category==="SUMMON") {
   if(!plan.summons?.length)throw new Error("La habilidad no contiene invocaciones ejecutables.");
   if(aim.planarMove||aim.areaCenter||aim.constructionFieldPoint||aim.trajectory)
     throw new Error("La invocación usa una formación alrededor del usuario, sin trayectoria ni epicentro.");
@@ -1955,7 +1987,7 @@ export function applyResolvedCombatSkill(
       maintenanceMana:template.maintenanceMana,
       integrity,hitCount:0,hitLimit:template.hitLimit,
       links:structuredClone(template.links),behavior:structuredClone(template.behavior),
-      contactEffects:structuredClone(template.contactEffects),charges:{},
+      contactEffects:structuredClone(template.contactEffects),charges:{},chargesMigrated:true,
     });
   }
   next.summons=[...(next.summons??[]),...fresh];
@@ -2080,7 +2112,7 @@ export function applyResolvedCombatSkill(
    summary:actor.name+" usó "+plan.name+(plan.healing?" y recuperó hasta "+plan.healing+" HP":"")});
   advanceRoundIfComplete(next);
  }
- if(plan.category!=="SUMMON")next.mana![by].current-=plan.cost;
+ if(plan.category!=="SUMMON"&&plan.category!=="CHARGE_BUFF")next.mana![by].current-=plan.cost;
  next.skillCooldowns??={};
  next.skillCooldowns[by]??={};
  next.skillCooldowns[by]![key]=plan.oncePerCombat?-1:

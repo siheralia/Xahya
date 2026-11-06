@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { isEquipmentSlot } from "@/lib/equipment";
+import { equipmentCopyDurability } from "@/lib/combat/weapon-readiness";
 import { getPerkSlotCapacity } from "@/lib/perks";
 
 async function getUser() {
@@ -144,6 +145,9 @@ export async function PATCH(
       equipped: true,
       equippedSlot: slot,
       flair: owned.flair ?? null,
+      // This is the SAME worn item copy from a stacked inventory row,
+      // not an automatically repaired item with the DB's 100 default.
+      durability: equipmentCopyDurability(owned.durability),
     });
     equippedId = Number(updated.id);
   } else {

@@ -12,6 +12,7 @@ import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, 
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_METERS,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
+import {combatWeaponOperational} from "./weapon-readiness.ts";
 import {assertMovementClear,blockingMovement,firstCoverAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
@@ -249,13 +250,15 @@ function clearKarmaBoostsAtCombatEnd(state:CombatState){
  * Its world-space separation is checked independently in meters. */
 export const targetHitboxCenter: Point = {x:0.5,y:0.5};
 export function defaultAttackSource(f:CombatFighter):PhysicalAttackSource {
- return f.equippedWeapon?"MAIN_HAND":f.offhandWeapon?"OFF_HAND":"FIST_RIGHT";
+ return combatWeaponOperational(f.equippedWeapon)?"MAIN_HAND":
+  combatWeaponOperational(f.offhandWeapon)?"OFF_HAND":"FIST_RIGHT";
 }
 export function weaponForSource(f:CombatFighter,source:PhysicalAttackSource):CombatWeapon|undefined {
  return source==="MAIN_HAND"?f.equippedWeapon:source==="OFF_HAND"?f.offhandWeapon:undefined;
 }
 export function effectiveWeaponReachMeters(f:CombatFighter, thrown=false, source:PhysicalAttackSource=defaultAttackSource(f)):number {
  const weapon=weaponForSource(f,source);
+ if(weapon&&!combatWeaponOperational(weapon))return 0;
  if(thrown)return weapon?.throwable?Math.max(0,weapon.throwRangeMeters??0):0;
  if(weapon)return Math.max(0,weapon.maximumRangeMeters??weapon.effectiveRangeMeters);
  return Math.max(0.3,f.unarmedReachMeters??(f.heightMeters??1.7)*0.45);
@@ -888,12 +891,21 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     } else if (defense === "BLOCK") {
       // One explicitly selected hand owns the wear. Without a selection use
       // the main hand, then offhand. Legacy/unarmed blocks keep neutral wear.
-      const blockWeapon=command.weaponSlot==="OFF_HAND"?fighter.offhandWeapon:
-        command.weaponSlot==="MAIN_HAND"?fighter.equippedWeapon:
-        fighter.equippedWeapon??fighter.offhandWeapon;
-      if(command.weaponSlot&&!blockWeapon)
+      const requestedWeapon=command.weaponSlot==="OFF_HAND"?fighter.offhandWeapon:
+        command.weaponSlot==="MAIN_HAND"?fighter.equippedWeapon:undefined;
+      if(command.weaponSlot&&!requestedWeapon)
         throw new Error("No tienes un arma equipada en la mano elegida para bloquear.");
-      const previousIntegrity=blockWeapon?.durability??fighter.weaponIntegrity;
+      if(command.weaponSlot&&requestedWeapon&&!combatWeaponOperational(requestedWeapon))
+        throw new Error("El arma elegida está rota y no puede bloquear.");
+      const blockWeapon=requestedWeapon??
+        (combatWeaponOperational(fighter.equippedWeapon)?fighter.equippedWeapon:
+         combatWeaponOperational(fighter.offhandWeapon)?fighter.offhandWeapon:undefined);
+      // No equipped weapon preserves the original unarmed guard behavior.
+      // A broken equipped tool cannot masquerade as a full-integrity arm.
+      const unarmed=!(fighter.equippedWeapon||fighter.offhandWeapon);
+      const previousIntegrity=blockWeapon
+        ?blockWeapon.durability??fighter.weaponIntegrity
+        :unarmed?fighter.weaponIntegrity:0;
       const contest = contestChance(fighter.constitution * typeFactor, attacker.strength);
       const held = previousIntegrity > 0 && rolls.defense < contest;
       // Tool durability never substitutes for the wielder's CON.
@@ -901,8 +913,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const baseWear=Math.max(1,Math.ceil(power / 8));
       const wear=calculateMaterialBlockWear(baseWear,blockWeapon?.materialPhysicalResistance);
       const newIntegrity=Math.max(0,previousIntegrity-wear);
-      if(blockWeapon)blockWeapon.durability=newIntegrity;
-      fighter.weaponIntegrity=newIntegrity;
+      if(blockWeapon||unarmed)fighter.weaponIntegrity=newIntegrity;
+      if(blockWeapon){
+        blockWeapon.durability=newIntegrity;
+        if(previousIntegrity>0&&newIntegrity===0)
+          addLog(state,{kind:"WEAPON_BREAK",tick:state.tick,by,
+            summary:fighter.name+" rompió "+blockWeapon.name+" al bloquear. No puede usarla hasta repararla."});
+      }
     } else if (defense === "MAGIC_FIELD") {
       // Basic defensive field: active reaction, paid AP/ticks, no persistent
       // barrier or mana expenditure until the configurable-skills phase.
@@ -1302,6 +1319,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const source=command.attackSource??defaultAttackSource(fighter);
     if(!["MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT","KICK"].includes(source))throw new Error("Origen de ataque inválido.");
     const selectedWeapon=weaponForSource(fighter,source);
+    if(command.usesMagic!==true&&selectedWeapon&&!combatWeaponOperational(selectedWeapon))
+      throw new Error("El arma de "+(source==="OFF_HAND"?"la mano secundaria":"la mano principal")+
+        " está rota. Usa otra mano, un puño o una patada.");
     const targetedMirror=command.targetConstructionId?
       state.constructions?.find(c=>c.id===command.targetConstructionId&&
        c.owner===other(by)&&c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0):undefined;

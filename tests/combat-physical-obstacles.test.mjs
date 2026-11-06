@@ -196,11 +196,11 @@ test("explicitly measured constructions keep base, radius and solid height witho
  assert.deepEqual(s,stateBefore);
  const created=applyResolvedCombatSkill(s,"PLAYER",construct,{
   requestId:"make-block-volume-001",areaCenter:{x:.5,y:.5},
-  constructionForm:"BLOCK",constructionFieldPoint:{x:.65,y:.5},
+  constructionForm:"BLOCK",constructionFieldPoint:{x:.6,y:.5},
   constructionHeightMeters:0,constructionFootprintRadiusMeters:.35,
   constructionSolidHeightMeters:2},dice);
  const wall=created.constructions.find(c=>c.form==="BLOCK");
- assert.equal(wall.fieldPosition.x,1.5);
+ assert.equal(wall.fieldPosition.x,1);
  assert.equal(wall.footprintRadiusMeters,.35);
  assert.equal(wall.solidHeightMeters,2);
  assert.equal(wall.heightMeters,0);

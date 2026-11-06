@@ -134,10 +134,17 @@ test("active CONSTRUCTION defense wears its own barrier once, plus incidental we
  const s=initial();
  s.constructions=[block("defense"),block("other",.7,.5)];
  const launched=cast(s,840,circle,true);
- const result=applyCombatCommand(launched,"NPC",
-  {kind:"DEFEND",defense:"CONSTRUCTION",constructionId:"defense"},dice);
+ const command={kind:"DEFEND",defense:"CONSTRUCTION",constructionId:"defense"};
+ // Compare with the pre-existing single-target reaction rule. The material
+ // matchup scales the paid defense pressure, so it must not be hardcoded to
+ // the unrelated raw area-impact value.
+ const baseline=structuredClone(launched);
+ baseline.pending.attackArea=undefined;
+ const baselineResponse=applyCombatCommand(baseline,"NPC",command,dice);
+ const result=applyCombatCommand(launched,"NPC",command,dice);
  assert.equal(result.actors.NPC.hp,180,"barrier with adequate resistance fully holds");
- assert.equal(find(result,"defense").durability,50,"reactive block takes one pressure, not two");
+ assert.equal(find(result,"defense").durability,find(baselineResponse,"defense").durability,
+  "area collision must not add a second wear to the selected defensive block");
  assert.equal(find(result,"defense").hitCount,1);
  assert.equal(impacts(result,"defense").length,0,"not counted as incidental AoE damage");
  assert.equal(find(result,"other").durability,50);

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {compileCombatSkill,previewSkillExecution} from "../lib/combat/skill-casting.ts";
 import {applyResolvedCombatSkill,newCombatState,applyCombatCommand,remainingAp} from "../lib/combat/turn-engine.ts";
-import {combatChargeBalance,creditCombatCharge,spendCombatCharges} from "../lib/combat/charge-pools.ts";
+import {combatChargeBalance,creditCombatCharge,ensureCombatChargePool,spendCombatCharges} from "../lib/combat/charge-pools.ts";
 import {emptyMicroState,executeMicroEvent,validateEffectContainers} from "../lib/effects/micro-modules.ts";
 const fighter=(name,positionMeters,patch={})=>({
  characterId:null,name,hp:250,maxHp:250,agility:200,speedValue:200,
@@ -113,7 +113,7 @@ test("insufficient charges, invalid count, mana and cooldown cannot spend an act
 test("the compiler rejects mismatched prices, fake outputs, duplicate or unsafe stats",()=>{
  assert.throws(()=>compileCombatSkill(skill([consume,buff],{cost:0})),/maná de la habilidad/);
  assert.throws(()=>compileCombatSkill(skill([consume,buff],{maintenanceCost:20})),/mantenimiento/);
- assert.throws(()=>compileCombatSkill(skill([buff,consume])),/Conecta primero|salida no existe/);
+ assert.throws(()=>compileCombatSkill(skill([buff,consume])),/Conecta primero|conexión OUTPUT sin módulo productor anterior/);
  assert.throws(()=>compileCombatSkill(skill([
   consume,{...buff,charges:6}
  ])),/directamente al conteo/);
@@ -139,6 +139,9 @@ test("old summon wallets migrate exactly once and do not vanish when the summon 
  assert.equal(spendCombatCharges(s,"PLAYER","LUNAR_CHARGES",3),2);
  assert.equal(combatChargeBalance(s,"PLAYER","LUNAR_CHARGES"),2);
  assert.ok(s.summons.filter(v=>v.owner==="PLAYER").every(v=>v.chargesMigrated===true));
+ // The round transition migrates both owners. Reproduce its migration step
+ // before explicitly removing the old objects in this unit fixture.
+ ensureCombatChargePool(s,"NPC");
  // Legacy summon disappears, but owner-scoped charges do not.
  s.summons=[];
  assert.equal(combatChargeBalance(s,"PLAYER","LUNAR_CHARGES"),2);

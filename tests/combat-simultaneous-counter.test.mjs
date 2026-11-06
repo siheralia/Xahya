@@ -99,3 +99,32 @@ test("combat UI offers explicit simultaneous exchange and server-selected attack
  assert.match(page,/counterMagic:selectedDefense==="COUNTER"/);
  assert.match(page,/el daño recibido/i);
 });
+
+test("a simultaneous exchange advances the round only after paying both 100-tick actions",()=>{
+ let state=newCombatState(fighter("Hero",8),fighter("NPC",8,1.5));
+ state.mana={PLAYER:{current:4,max:4},NPC:{current:4,max:4}};
+ state=applyCombatCommand(state,"PLAYER",magic,dice);
+ assert.equal(state.actors.PLAYER.spentTicks,100);
+ state=applyCombatCommand(state,"NPC",{kind:"DEFEND",defense:"COUNTER"},dice);
+ assert.equal(state.round,2,"the shared round finishes after both paid actions");
+ assert.equal(state.actors.NPC.spentTicks,0,"the new round resets the spent ticks");
+ assert.equal(state.actors.NPC.spentAp,0,"the new round resets spent PA");
+ assert.equal(state.log.filter(e=>e.kind==="ROUND").length,1);
+ assert.equal(state.log.filter(e=>e.kind==="ATTACK"&&e.by==="NPC").length,1);
+});
+
+test("the counterstrike uses its own server dice rather than reusing the incoming hit roll",()=>{
+ const setup=()=>{
+  let s=newCombatState(fighter("Hero",11),fighter("NPC",16,1.5));
+  s.mana={PLAYER:{current:5,max:5},NPC:{current:5,max:5}};
+  return applyCombatCommand(s,"PLAYER",magic,dice);
+ };
+ const normal=applyCombatCommand(setup(),"NPC",{kind:"DEFEND",defense:"COUNTER"},
+  dice,undefined,undefined,undefined,false,{hit:.15,critical:.99,defense:.9});
+ const critical=applyCombatCommand(setup(),"NPC",{kind:"DEFEND",defense:"COUNTER"},
+  dice,undefined,undefined,undefined,false,{hit:.15,critical:0,defense:.9});
+ assert.ok(critical.actors.PLAYER.hp<normal.actors.PLAYER.hp,
+  "changing only counter dice must affect the counter damage");
+ assert.equal(critical.actors.NPC.hp,normal.actors.NPC.hp,
+  "incoming attack damage must remain unchanged");
+});

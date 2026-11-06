@@ -87,7 +87,7 @@ test("durability is always integer 0..100, never a stack multiplier or an HP hea
  for(const amount of [-1,NaN,Infinity,1_000_001]){
   assert.throws(()=>calculateDurabilityRepair({characterItemId:77,durability:40},amount),/Cantidad/);
  }
- for(const bad of [0,-1,101,1.5,NaN,Infinity]){
+ for(const bad of [-1,101,1.5,NaN,Infinity]){
   assert.throws(()=>validateRepairableItem({characterItemId:77,durability:bad}),/inválidos/);
  }
  assert.throws(()=>validateRepairableItem({characterItemId:0,durability:50}),/inválidos/);
@@ -131,7 +131,7 @@ test("repair only uses the explicit item list and a server-bound selector",()=>{
   itemSelectors:{},
  })),/autorizado/);
  assert.deepEqual([...REPAIR_TARGET_SELECTORS],
-  ["OWNER_MAIN_HAND","OWNER_OFFHAND","SELECTED_ITEM","SOURCE_ITEM"]);
+  ["OWNER_MAIN_HAND","OWNER_OFF_HAND","SELECTED_ITEM","SOURCE_ITEM"]);
 });
 
 test("item selectors are free typed connectors, but an actual repair is priced",()=>{

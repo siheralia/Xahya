@@ -12,6 +12,7 @@ import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, 
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_METERS,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
+import {assertMovementClear,blockingMovement,firstMeasuredObstacle,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
 
@@ -59,6 +60,8 @@ export type PendingAttack = {
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
   mirrorId?:string; mirrorAuto?:boolean;
+  /** Only user-specified vertical strokes can authorize 3D cover tests. */
+  explicitTrajectory?:boolean;
 };
 export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
@@ -141,7 +144,7 @@ export type CombatCommand =
   | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
   | { kind: "ATTACK"; requestId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; requestId?:string; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
-  | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
+  | { kind: "CAST_SKILL";skillId:number;requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string };
 
 const SIDES: Side[] = ["PLAYER", "NPC"];
 const LIMIT = COMBAT_TICKS_PER_TURN;
@@ -444,6 +447,8 @@ function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEF
 /** Apply an already paid and validated move, without charging a third PA. */
 function finishCompositeStep(state:CombatState,by:Side,vector:Point){
  const fighter=state.actors[by];
+ const from=fieldPosition(fighter),to={x:from.x+vector.x,y:from.y+vector.y};
+ assertMovementClear(state.constructions,from,to);
  moveFighterOnField(fighter,vector);
  clearPhysicalStrokes(state,by);
  addLog(state,{kind:"POSITION",tick:(state.round-1)*LIMIT+fighter.spentTicks,by,
@@ -453,11 +458,17 @@ function finishCompositeStep(state:CombatState,by:Side,vector:Point){
 /** Involuntary knockback must update the same 2D ground position shown in
  * the horizontal panel. On legacy one-dimensional encounters this reduces
  * exactly to the old signed X movement. */
-function pushAwayOnField(mover:CombatFighter,reference:CombatFighter,meters:number){
+function pushAwayOnField(state:CombatState,mover:CombatFighter,reference:CombatFighter,meters:number):number{
  const a=fieldPosition(mover),b=fieldPosition(reference);
  const dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
  const sign=d>1e-9?{x:dx/d,y:dy/d}:{x:1,y:0};
- moveFighterOnField(mover,{x:sign.x*meters,y:sign.y*meters});
+ const destination={x:a.x+sign.x*meters,y:a.y+sign.y*meters};
+ const collision=blockingMovement(state.constructions,a,destination);
+ // Forced knockback stops at the measured wall, without cancelling the hit
+ // or rolling back the whole combat transaction. Voluntary movement rejects.
+ const actual=collision?Math.max(0,meters*collision.t-1e-4):meters;
+ moveFighterOnField(mover,{x:sign.x*actual,y:sign.y*actual});
+ return actual;
 }
 function lastInitiativeSide(state: CombatState): Side | null {
   for (let i = state.log.length - 1; i >= 0; i--) {
@@ -964,7 +975,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const target=direction==="WEAPON"?dropped!.positionMeters:attacker.positionMeters;
       const sign=Math.sign(target-fighter.positionMeters)||1;
       const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
-      fighter.positionMeters+=sign*(direction==="AWAY"?-0.5:step);
+      const from=fieldPosition(fighter);
+      const nextX=fighter.positionMeters+sign*(direction==="AWAY"?-0.5:step);
+      assertMovementClear(state.constructions,from,{x:nextX,y:from.y});
+      fighter.positionMeters=nextX;
       if(fighter.fieldPosition)fighter.fieldPosition.x=fighter.positionMeters;
       clearPhysicalStrokes(state,by);
       if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2){
@@ -1013,11 +1027,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       displaced = knockbackMeters(attacker.strength, fighter.constitution, fighter.massKg) * (defense === "BLOCK" ? 0.25 : 1);
     if (displaced > 0) {
       if (defense === "REPEL" && damageScale < 1) {
-        pushAwayOnField(attacker,fighter,displaced);
+        displaced=pushAwayOnField(state,attacker,fighter,displaced);
         // An involuntary displacement also breaks the continuity of a stroke.
         clearPhysicalStrokes(state,pending.by);
       } else {
-        pushAwayOnField(fighter,attacker,displaced);
+        displaced=pushAwayOnField(state,fighter,attacker,displaced);
         clearPhysicalStrokes(state,by);
       }
     }
@@ -1170,6 +1184,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const vector=validatePlanarMove(command.planarMove);
       if(Math.abs(Math.hypot(vector.x,vector.y)-command.meters)>0.02)
         throw new Error("Los metros no coinciden con el trazo dibujado.");
+      const start=fieldPosition(fighter);
+      assertMovementClear(state.constructions,start,{x:start.x+vector.x,y:start.y+vector.y});
       moveFighterOnField(fighter,vector);clearPhysicalStrokes(state,by);
       spend(fighter,turnTicks(fighter));
       state.tick=Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
@@ -1183,7 +1199,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const target=direction==="WEAPON"?dropped!.positionMeters:rival.positionMeters;
     const sign = Math.sign(target-fighter.positionMeters)||1;
     const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(target-fighter.positionMeters));
-    fighter.positionMeters += sign*magnitude;
+    const start=fieldPosition(fighter);
+    const destination=fighter.positionMeters+sign*magnitude;
+    assertMovementClear(state.constructions,start,{x:destination,y:start.y});
+    fighter.positionMeters=destination;
     if(fighter.fieldPosition)fighter.fieldPosition.x=fighter.positionMeters;
     let recoveredWeapon:string|undefined;
     if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&restoreWeapon(state,dropped)){
@@ -1296,7 +1315,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       return state;
     }
     state.pending = {by,against:other(by),attackType:command.attackType,
-      trajectory:points,launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
+      trajectory:points,explicitTrajectory:Array.isArray(command.trajectory)&&command.trajectory.length>=2,
+      launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
       targetCenter:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?command.areaCenter:undefined,
       areaHint:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?magicImpactZone(command.areaCenter!):undefined,
@@ -1333,7 +1353,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
  aim:{requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
-  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string},
+  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;
+  constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number},
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))

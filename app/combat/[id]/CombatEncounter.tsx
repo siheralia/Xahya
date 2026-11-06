@@ -531,8 +531,8 @@ export default function CombatEncounter({id}:{id:string}) {
   const measuredBlock=construction&&skill.constructionMaterial!=="LIGHT"&&
     skill.constructionMaterial!=="MIRROR"&&constructionForm==="BLOCK";
   void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
-   trajectory:construction||skill.skillKind==="SUMMON"||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
-   attackSource:construction||skill.skillKind==="SUMMON"||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
+   trajectory:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
+   attackSource:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
    planarMove:!construction&&skill.skillKind==="OFFENSE"?skillMovement:undefined,
    movementOrder:!construction&&skill.skillKind==="OFFENSE"?skillMovementOrder:undefined,
    constructionFieldPoint:construction?constructionFieldPoint??undefined:undefined,

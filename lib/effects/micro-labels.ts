@@ -9,6 +9,11 @@ export const MICRO_STEP_LABELS: Record<string,string> = {
   HEAL:"Curar",DAMAGE:"Causar daño",MODIFIER:"Multiplicar una estadística",
   BONUS:"Sumar bono",CAPABILITY:"Efecto narrativo",
   VARIABLE_RESISTANCE:"Resistencia variable",
+  SELECT_TARGET:"Seleccionar objetivo",SELECT_STAT:"Seleccionar estadística",
+  READ_HP_DAMAGE:"Leer daño real a HP",REQUIRE_CONTACT:"Comprobar contacto",
+  SUMMON_ENTITY:"Invocar entidad",LINK_ENTITY_STAT:"Vincular estadística de entidad",
+  SET_ENTITY_BEHAVIOR:"Configurar comportamiento",APPLY_STATUS:"Aplicar estado",
+  READ_STATUSES:"Leer estados activos",INVERT_STATUS:"Invertir debilitamiento",
 };
 export const MICRO_SOURCE_LABELS: Record<string,string> = {
   EVENT:"Dato del suceso",STAT:"Estadística",CHARGES:"Cantidad de cargas",
@@ -49,7 +54,9 @@ export const MICRO_STAT_LABELS: Record<string,string> = {
   RESISTANCE:"Resistencia",ATTACK_SPEED:"Velocidad del ataque",
   PHYSICAL_ATTACK:"Ataque físico",MAGIC_ATTACK:"Ataque mágico",
   PHYS_ATK:"Ataque físico",MAGIC_ATK:"Ataque mágico",
-  MITIGATED_DAMAGE:"Daño mitigado",INCOMING_DAMAGE:"Daño recibido",
+  MITIGATED_DAMAGE:"Daño mitigado",INCOMING_DAMAGE:"Daño recibido",HP_DAMAGE:"Pérdida real de HP",
+  DODGE:"Evasión",physicalAttack:"Ataque físico",physicalDefense:"Defensa física",
+  chosenTarget:"Objetivo elegido",chosenStat:"Estadística elegida",hpDamage:"Daño efectivo",
   DIVINE_GRACE:"Gracia divina",ENERGY:"Energía",
   resistanceBase:"Defensa base",resistanceInput:"Variable de resistencia",
   OWNER_MAIN_HAND:"Arma principal del propietario",
@@ -63,11 +70,11 @@ export const MICRO_STAT_LABELS: Record<string,string> = {
 };
 export const MICRO_STAT_SUGGESTIONS = [
   "STR","AGI","CON","INT","WIS","CHA","SPI","LCK",
-  "HP","MAX_HP","MANA","magicDefense","ATTACK_SPEED",
+  "HP","MAX_HP","MANA","magicDefense","PHYSICAL_ATTACK","PHYSICAL_DEFENSE","DODGE","ATTACK_SPEED",
 ] as const;
 export const MICRO_REFERENCE_SUGGESTIONS: Record<string,readonly string[]> = {
   STAT:MICRO_STAT_SUGGESTIONS,
-  EVENT:["MITIGATED_DAMAGE","INCOMING_DAMAGE"],
+  EVENT:["MITIGATED_DAMAGE","INCOMING_DAMAGE","HP_DAMAGE"],
 };
 
 /** Para textos visibles; no usar nunca el resultado como clave de almacenamiento. */

@@ -284,75 +284,6 @@ export function validateEffectContainers(effects: readonly EffectContainer[]): s
               ||(step.chargeAccumulator!==undefined&&!validKey(step.chargeAccumulator)))
               fail("inversión de estado inválida");
             break;
-          case "SELECT_TARGET": {
-          const id=step.selector==="USER"?ctx.ownerId:ctx.targetIds?.[step.selector];
-          if(!integer(id,1,2_147_483_647))fail("falta objetivo autorizado: "+step.selector);
-          outputs[step.output]=id;
-          break;
-        }
-        case "SELECT_STAT": {
-          const stat=step.mode==="FIXED"?step.fixed:ctx.selectedStats?.[step.output];
-          if(typeof stat!=="string"||!step.allowed.includes(stat))
-            fail("estadística no elegida o fuera de las permitidas");
-          statsSelected[step.output]=stat;
-          break;
-        }
-        case "READ_HP_DAMAGE": {
-          const amount=ctx.event?.HP_DAMAGE;
-          if(!finite(amount)||amount<0)fail("falta daño real a HP resuelto");
-          outputs[step.output]=amount;
-          break;
-        }
-        case "REQUIRE_CONTACT": {
-          if(!ctx.contactTargetIds?.includes(targetId(step.target.key,outputs)))
-            contactBlocked=true;
-          break;
-        }
-        case "SUMMON_ENTITY":
-          intents.push({kind:"SUMMON_ENTITY",ownerId:ctx.ownerId,entityKey:step.entityKey,
-            label:step.label,manaCost:step.manaCost,maintenanceMana:step.maintenanceMana,
-            durationTurns:step.durationTurns,controlRangeMeters:step.controlRangeMeters,hitLimit:step.hitLimit});
-          break;
-        case "LINK_ENTITY_STAT": {
-          const value=ctx.actors?.USER?.[step.sourceStat]??ctx.stats[step.sourceStat];
-          if(!finite(value))fail("estadística de la entidad no disponible: "+step.sourceStat);
-          const factor=evaluate(step.factor,ctx,state,outputs,hp);
-          if(factor<0||factor>100)fail("factor de entidad fuera de límites");
-          intents.push({kind:"LINK_ENTITY_STAT",entityKey:step.entityKey,
-            sourceStat:step.sourceStat,destStat:step.destStat,factor,value:bounded(value*factor),dynamic:true});
-          break;
-        }
-        case "SET_ENTITY_BEHAVIOR":
-          intents.push({kind:"SET_ENTITY_BEHAVIOR",entityKey:step.entityKey,mode:step.mode,
-            allowedModes:[...step.allowedModes],target:step.target,trigger:step.trigger});
-          break;
-        case "APPLY_STATUS": {
-          const value=evaluate(step.value,ctx,state,outputs,hp);
-          if(step.operation==="MULTIPLIER"&&(value<0||value>100))
-            fail("multiplicador de estado fuera de límites");
-          const stat=typeof step.stat==="string"?step.stat:statsSelected[step.stat.key];
-          if(!validKey(stat))fail("estadística de estado no elegida");
-          intents.push({kind:"APPLY_STATUS",targetId:targetId(step.target.key,outputs),
-            stat,operation:step.operation,value,durationTurns:step.durationTurns});
-          break;
-        }
-        case "READ_STATUSES": {
-          if(!Array.isArray(ctx.statuses))fail("lista de estados no autorizada");
-          const id=targetId(step.target.key,outputs);
-          outputs[step.output]=ctx.statuses.filter(st=>st.targetId===id&&
-            (step.filter==="ALL"||(step.filter==="DEBUFF")===isDebuff(st))).length;
-          break;
-        }
-        case "INVERT_STATUS": {
-          if(!Array.isArray(ctx.statuses))fail("lista de estados no autorizada");
-          const id=targetId(step.target.key,outputs);
-          const available=ctx.statuses.filter(st=>st.targetId===id&&isDebuff(st));
-          const status=step.selection==="SELECTED_DEBUFF"?
-            available.find(st=>st.id===ctx.selectedStatusId):available[available.length-1];
-          if(status)intents.push({kind:"INVERT_STATUS",targetId:id,statusId:status.id,
-            manaCost:step.manaCost,chargeAccumulator:step.chargeAccumulator});
-          break;
-        }
         case "CAPABILITY":
             if (!/^(CARD:W[0-9]{3}|NARRATIVE:OTHER)$/.test(step.code)
               || typeof step.description !== "string" || step.description.length > 1500
@@ -553,6 +484,75 @@ export function executeMicroEvent(input: MicroState, effects: readonly EffectCon
         case "BONUS": {
           const amount = evaluate(step.amount,ctx,state,outputs,hp);
           intents.push({kind:"BONUS",stat:step.stat,amount});
+          break;
+        }
+          case "SELECT_TARGET": {
+          const id=step.selector==="USER"?ctx.ownerId:ctx.targetIds?.[step.selector];
+          if(!integer(id,1,2_147_483_647))fail("falta objetivo autorizado: "+step.selector);
+          outputs[step.output]=id;
+          break;
+        }
+        case "SELECT_STAT": {
+          const stat=step.mode==="FIXED"?step.fixed:ctx.selectedStats?.[step.output];
+          if(typeof stat!=="string"||!step.allowed.includes(stat))
+            fail("estadística no elegida o fuera de las permitidas");
+          statsSelected[step.output]=stat;
+          break;
+        }
+        case "READ_HP_DAMAGE": {
+          const amount=ctx.event?.HP_DAMAGE;
+          if(!finite(amount)||amount<0)fail("falta daño real a HP resuelto");
+          outputs[step.output]=amount;
+          break;
+        }
+        case "REQUIRE_CONTACT": {
+          if(!ctx.contactTargetIds?.includes(targetId(step.target.key,outputs)))
+            contactBlocked=true;
+          break;
+        }
+        case "SUMMON_ENTITY":
+          intents.push({kind:"SUMMON_ENTITY",ownerId:ctx.ownerId,entityKey:step.entityKey,
+            label:step.label,manaCost:step.manaCost,maintenanceMana:step.maintenanceMana,
+            durationTurns:step.durationTurns,controlRangeMeters:step.controlRangeMeters,hitLimit:step.hitLimit});
+          break;
+        case "LINK_ENTITY_STAT": {
+          const value=ctx.actors?.USER?.[step.sourceStat]??ctx.stats[step.sourceStat];
+          if(!finite(value))fail("estadística de la entidad no disponible: "+step.sourceStat);
+          const factor=evaluate(step.factor,ctx,state,outputs,hp);
+          if(factor<0||factor>100)fail("factor de entidad fuera de límites");
+          intents.push({kind:"LINK_ENTITY_STAT",entityKey:step.entityKey,
+            sourceStat:step.sourceStat,destStat:step.destStat,factor,value:bounded(value*factor),dynamic:true});
+          break;
+        }
+        case "SET_ENTITY_BEHAVIOR":
+          intents.push({kind:"SET_ENTITY_BEHAVIOR",entityKey:step.entityKey,mode:step.mode,
+            allowedModes:[...step.allowedModes],target:step.target,trigger:step.trigger});
+          break;
+        case "APPLY_STATUS": {
+          const value=evaluate(step.value,ctx,state,outputs,hp);
+          if(step.operation==="MULTIPLIER"&&(value<0||value>100))
+            fail("multiplicador de estado fuera de límites");
+          const stat=typeof step.stat==="string"?step.stat:statsSelected[step.stat.key];
+          if(!validKey(stat))fail("estadística de estado no elegida");
+          intents.push({kind:"APPLY_STATUS",targetId:targetId(step.target.key,outputs),
+            stat,operation:step.operation,value,durationTurns:step.durationTurns});
+          break;
+        }
+        case "READ_STATUSES": {
+          if(!Array.isArray(ctx.statuses))fail("lista de estados no autorizada");
+          const id=targetId(step.target.key,outputs);
+          outputs[step.output]=ctx.statuses.filter(st=>st.targetId===id&&
+            (step.filter==="ALL"||(step.filter==="DEBUFF")===isDebuff(st))).length;
+          break;
+        }
+        case "INVERT_STATUS": {
+          if(!Array.isArray(ctx.statuses))fail("lista de estados no autorizada");
+          const id=targetId(step.target.key,outputs);
+          const available=ctx.statuses.filter(st=>st.targetId===id&&isDebuff(st));
+          const status=step.selection==="SELECTED_DEBUFF"?
+            available.find(st=>st.id===ctx.selectedStatusId):available[available.length-1];
+          if(status)intents.push({kind:"INVERT_STATUS",targetId:id,statusId:status.id,
+            manaCost:step.manaCost,chargeAccumulator:step.chargeAccumulator});
           break;
         }
         case "CAPABILITY":

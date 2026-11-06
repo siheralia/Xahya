@@ -8,6 +8,7 @@ import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
 import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
 import {combatWeaponOperational} from "@/lib/combat/weapon-readiness";
+import {combatChargeBalance} from "@/lib/combat/charge-pools";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2, Eye, ChevronDown, X, Info} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
@@ -519,10 +520,10 @@ export default function CombatEncounter({id}:{id:string}) {
   setAttackMode("MAGIC_AREA");
   closePanel();
  }
- function castSkill(skill:CombatSkillPreview,movementOverride?:Point|null,orderOverride?:"BEFORE"|"AFTER"){
+ function castSkill(skill:CombatSkillPreview,movementOverride?:Point|null,orderOverride?:"BEFORE"|"AFTER",chargesToSpend?:number){
   const skillMovement=movementOverride===null?undefined:movementOverride??preparedMovement;
   const skillMovementOrder=movementOverride===null?undefined:orderOverride??movementOrder;
-  const key=side+":"+skill.id+":"+state?.round;
+  const key=side+":"+skill.id+":"+state?.round+":"+(chargesToSpend??"");
   const previous=castRequestRef.current;
   const requestId=previous?.key===key?previous.id:crypto.randomUUID();
   castRequestRef.current={key,id:requestId};
@@ -544,8 +545,9 @@ export default function CombatEncounter({id}:{id:string}) {
    areaAngleDegrees:isOrientedCombatArea(skill.attackArea)?areaAngleDegrees:undefined,
    constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
    constructionLabel:construction?constructionLabel.trim():undefined,
-   targetConstructionId:!construction&&skill.attackArea?.shape!=="SELF_FIELD"?selectedMirrorId:undefined,
-   targetSummonId:!construction&&skill.attackArea?.shape!=="SELF_FIELD"?selectedSummonId:undefined});
+   targetConstructionId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedMirrorId:undefined,
+   targetSummonId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedSummonId:undefined,
+   chargesToSpend:skill.skillKind==="CHARGE_BUFF"?chargesToSpend:undefined});
  }
  const chronicle=state?.status==="FINISHED"
   ?((state.narrativeVersion??0)>=2&&state.narrativeText
@@ -1325,7 +1327,8 @@ export default function CombatEncounter({id}:{id:string}) {
     canUseSkill={ready&&!missingMoveTrace&&(!preparedMovement||canCombineAttack)} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
-    onCast={castSkill} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance}/>
+    chargeState={state}
+    onCast={(skill,charges)=>castSkill(skill,undefined,undefined,charges)} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance}/>
 
    </CombatDialog>
    <CombatDialog open={panel==="stats"} title="Estado y estadísticas" onClose={closePanel}>

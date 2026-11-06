@@ -150,7 +150,9 @@ export function progressTrainingNpc(
     if(next.status!=="ACTIVE")return next;
     if(next.pending) {
       if(next.pending.against==="PLAYER")return next;
-      next=applyCombatCommand(next,"NPC",chooseNpcReaction(next,random),makeDice());
+      const reaction=chooseNpcReaction(next,random);
+      next=applyCombatCommand(next,"NPC",reaction,makeDice(),undefined,undefined,undefined,false,
+        reaction.defense==="COUNTER"?makeDice():undefined);
       continue;
     }
     if(!canAct(next,"NPC"))return next;

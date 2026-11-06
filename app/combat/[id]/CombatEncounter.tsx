@@ -13,7 +13,7 @@ import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
 import {angularAreaSvgPath,isOrientedCombatArea} from "@/lib/combat/skill-area";
 import {
-  actionPoints, canAct, compositeActionTicks, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, effectiveWeaponReachMeters, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  actionPoints, basicCounterAttack, canAct, compositeActionTicks, defaultAttackSource, deflectionAlignment, effectiveCombatSpeed, effectiveWeaponReachMeters, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type PhysicalAttackSource, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
@@ -29,10 +29,11 @@ const options: Array<{value:DefenseChoice,label:string,description:string}> = [
  {value:"MAGIC_FIELD",label:"Campo defensivo mágico",description:"DEF mágica vs ataque mágico y ventajas por tipo de campo"},
  {value:"CONSTRUCTION",label:"Bloque de construcción",description:"Interceptar usando una barrera colocada en el terreno"},
  {value:"NONE",label:"No reaccionar",description:"Recibir el impacto sin respuesta activa"},
+ {value:"COUNTER",label:"Intercambiar golpes",description:"Recibir el ataque completo mientras lanzas un ataque básico propio. Cuesta 1 PA y los ticks de ese ataque."},
 ];
 const defenseIcons:Record<DefenseChoice,typeof Footprints>={
  DODGE:Footprints,BLOCK:Shield,ENDURE:ShieldCheck,REPEL:MoveUpRight,
- DEFLECT:Swords,MAGIC_FIELD:WandSparkles,CONSTRUCTION:Box,NONE:Ban,
+ DEFLECT:Swords,MAGIC_FIELD:WandSparkles,CONSTRUCTION:Box,COUNTER:Swords,NONE:Ban,
 };
 const defaultPath:Point[]=[{x:0.1,y:0.5},{x:0.9,y:0.5}];
 const attackNames={CUT:"Corte",BLUNT:"Contundente",PIERCE:"Penetración"} as const;
@@ -142,6 +143,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [points,setPoints]=useState<Point[]>(defaultPath);
  const [drawing,setDrawing]=useState(false);
  const [defense,setDefense]=useState<DefenseChoice>("DODGE");
+ const [counterMagic,setCounterMagic]=useState(false);
  const [dodgeDirection,setDodgeDirection]=useState<"AWAY"|"TOWARD"|"WEAPON">("AWAY");
  const [angle,setAngle]=useState(90);
  const [guardDrawing,setGuardDrawing]=useState(false);
@@ -294,6 +296,7 @@ export default function CombatEncounter({id}:{id:string}) {
  // A fully spent 100-tick turn (or exhausted PA) cannot pay a defense.
  // Reflect the authoritative server fallback before the user draws an aim point.
  const hasReactionBudget=!!actor&&remainingAp(actor)>0&&actor.spentTicks<100;
+ const counterPlan=state?basicCounterAttack(state,side,counterMagic):null;
  const selectedDefense:DefenseChoice=!hasReactionBudget?"NONE":(defense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
   ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
   : (defense==="MAGIC_FIELD"||(pending?.attackArea&&defense==="DEFLECT")?"DODGE":defense);
@@ -821,14 +824,15 @@ export default function CombatEncounter({id}:{id:string}) {
      </p>}
      <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Opciones de defensa">
       {options.filter(opt=>!hasReactionBudget?opt.value==="NONE":pending.usesMagic
-        ? ["DODGE","MAGIC_FIELD","CONSTRUCTION","ENDURE","NONE"].includes(opt.value)&&
+        ? ["DODGE","MAGIC_FIELD","CONSTRUCTION","ENDURE","COUNTER","NONE"].includes(opt.value)&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)
         : opt.value!=="MAGIC_FIELD"&&(!pending.attackArea||opt.value!=="DEFLECT")&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).map(opt=>{
        const DefenseIcon=defenseIcons[opt.value];
        const active=selectedDefense===opt.value;
        return <button key={opt.value} type="button" aria-pressed={active} aria-label={opt.label} title={opt.label}
-        disabled={opt.value==="MAGIC_FIELD"&&(state.mana?.[side]?.current??0)<1}
+        disabled={(opt.value==="MAGIC_FIELD"&&(state.mana?.[side]?.current??0)<1)||
+          (opt.value==="COUNTER"&&!counterPlan)}
         onClick={()=>setDefense(opt.value)}
         className={"flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-[10px] transition disabled:opacity-30 "+
           (active?"border-amber-400 bg-amber-400/15 text-amber-200":"border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:border-zinc-500 hover:text-white")}>
@@ -841,6 +845,25 @@ export default function CombatEncounter({id}:{id:string}) {
       {selectedDefense==="MAGIC_FIELD"&&actor?.magicFieldDescription?" · "+actor.magicFieldDescription:""}
       {selectedDefense==="MAGIC_FIELD"?" · "+fieldNames[actor?.magicFieldType??"CONCENTRATED"]:""}
      </p>
+     {selectedDefense==="COUNTER"&&<div className="space-y-2 rounded-lg border border-rose-500/30 bg-rose-950/10 p-2 text-xs">
+      <p className="font-semibold text-rose-200">Intercambio simultáneo: ambos golpes se resuelven, aunque uno resulte letal. No se reduce el daño recibido.</p>
+      <div className="flex flex-wrap gap-2">
+       <button type="button" aria-pressed={!counterMagic} onClick={()=>setCounterMagic(false)}
+        className={"rounded-lg border px-2 py-1.5 "+(!counterMagic?"border-rose-300 text-rose-100":"border-zinc-700 text-zinc-400")}>
+        Priorizar arma o golpe
+       </button>
+       <button type="button" aria-pressed={counterMagic} onClick={()=>setCounterMagic(true)}
+        disabled={(state.mana?.[side]?.current??0)<1}
+        className={"rounded-lg border px-2 py-1.5 disabled:opacity-35 "+(counterMagic?"border-violet-300 text-violet-100":"border-zinc-700 text-zinc-400")}>
+        Priorizar magia · 1 maná
+       </button>
+      </div>
+      <p role="status" className="text-zinc-300">{counterPlan
+        ? "Preparado: "+(counterPlan.usesMagic?"magia básica":
+            counterPlan.rangedPhysical?"proyectil físico":"golpe físico")+
+          " · 1 PA · "+Math.min(100,turnTicks(actor!,counterPlan.usesMagic?undefined:counterPlan.attackType))+" ticks"
+        :"No tienes un ataque al alcance o te faltan PA, ticks o maná."}</p>
+     </div>}
      {(pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)&&<div className="space-y-2">
       <p className="text-sm text-zinc-300">{pending.rangedPhysical?"Predice el impacto del proyectil para esquivar o interceptarlo; NO marques una zona segura.":pending.attackArea?.shape==="STRIP"?"Predice el centro de la franja; su orientación exacta se revelará tras el ataque."
        :pending.attackArea?.shape==="CONE"?"Predice el vértice del cono; su dirección exacta permanece oculta."
@@ -887,14 +910,16 @@ export default function CombatEncounter({id}:{id:string}) {
        </select>
       </label>}
      <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,
-       planarMove:selectedDefense!=="NONE"?reactionMovement:undefined,
+       counterMagic:selectedDefense==="COUNTER"?counterMagic:undefined,
+       planarMove:!["NONE","COUNTER"].includes(selectedDefense)?reactionMovement:undefined,
        constructionId:selectedDefense==="CONSTRUCTION"?chosenDefenseConstruction:undefined,defenseAngle:angle,weaponSlot:selectedDefense==="BLOCK"?activeBlockSlot:
         selectedDefense==="DODGE"&&dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,
        dodgeDirection:selectedDefense==="DODGE"&&!preparedMovement?dodgeDirection:undefined,
         predictedCenter:(pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
-      disabled={busy||(!!reactionMovement&&!canCombine)||
+      disabled={busy||(selectedDefense==="COUNTER"&&!counterPlan)||
+        (selectedDefense!=="COUNTER"&&!!reactionMovement&&!canCombine)||
         ((pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
-      {busy?"Resolviendo…":!hasReactionBudget?"Recibir impacto (sin reacción)":reactionMovement?"Mover + reaccionar · 2 PA":"Responder al ataque · 1 PA"}
+      {busy?"Resolviendo…":!hasReactionBudget?"Recibir impacto (sin reacción)":selectedDefense==="COUNTER"?"Atacar mientras recibes el impacto · 1 PA":reactionMovement?"Mover + reaccionar · 2 PA":"Responder al ataque · 1 PA"}
      </button>
     </div>}
     {!pending&&state.status==="ACTIVE"&&hasAccess&&<CombatDialog

@@ -165,10 +165,11 @@ test("UI modes and zoom use icon-only aligned controls, while physical/magic com
  for(const term of ['MOVE_ONLY','MOVE_BEFORE','MOVE_AFTER','aria-label={item.label}','movementOrder']){
   assert.ok(ui.includes(term),term);
  }
- assert.match(ui,/movementOrder,usesMagic:true/);
- assert.match(ui,/planarMove:preparedMovement,movementOrder/);
+ assert.match(ui,/movementOrder:order,usesMagic:true|movementOrder:order,usesMagic:true/s);
+ assert.match(ui,/planarMove:move,movementOrder:order/);
+ assert.match(ui,/function launchAttack\(order/);
  assert.match(ui,/canCombineAttack/);
- assert.match(ui,/No alcanzan los ticks/);
+ assert.match(ui,/Los ticks restantes no permiten combinar/);
  assert.match(ui,/afterMovementDistance/);
  assert.match(ui,/solo mover/i);
  assert.match(top,/battleFieldViewport/);

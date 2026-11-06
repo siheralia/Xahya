@@ -1166,7 +1166,7 @@ export default function CombatEncounter({id}:{id:string}) {
      <select value={constructionForm} onChange={e=>{
       const form=e.target.value as "FIELD"|"BLOCK";
       setConstructionForm(form);
-      if(form==="BLOCK")setConstructionHeightMeters(0);
+      if(form==="BLOCK"){setConstructionHeightMeters(0);setConstructionCenter({x:0.5,y:1});}
      }}
       className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2">
       <option value="FIELD">Campo de material</option><option value="BLOCK">Bloque defensivo</option>

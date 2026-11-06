@@ -368,6 +368,11 @@ export default function CombatEncounter({id}:{id:string}) {
  const proposedMovement=fieldMode==="MOVE"&&panel!=="construction"?drawnMovement??suggestedMove:undefined;
  const preparedMovement=movementPlan!=="MOVE_ONLY"&&fieldMode==="MOVE"?proposedMovement:undefined;
  const reactionMovement=defending?drawnMovement:undefined;
+ // A drawn trace is only payable for an active defense. Accepting the hit
+ // (NONE) and exchanging blows (COUNTER) must remain available without
+ // borrowing the 2-PA movement budget or silently moving the character.
+ const paidReactionMovement=selectedDefense==="NONE"||selectedDefense==="COUNTER"
+  ?undefined:reactionMovement;
  const movementOrder=preparedMovement
   ?movementPlan==="MOVE_AFTER"?"AFTER" as const:"BEFORE" as const:undefined;
  const movedPosition=actor&&proposedMovement?{x:fieldPosition(actor).x+proposedMovement.x,
@@ -910,15 +915,15 @@ export default function CombatEncounter({id}:{id:string}) {
       </label>}
      <button onClick={()=>void submit({kind:"DEFEND",defense:selectedDefense,
        counterMagic:selectedDefense==="COUNTER"?counterMagic:undefined,
-       planarMove:!["NONE","COUNTER"].includes(selectedDefense)?reactionMovement:undefined,
+       planarMove:paidReactionMovement,
        constructionId:selectedDefense==="CONSTRUCTION"?chosenDefenseConstruction:undefined,defenseAngle:angle,weaponSlot:selectedDefense==="BLOCK"?activeBlockSlot:
         selectedDefense==="DODGE"&&dodgeDirection==="WEAPON"?activeRecoverSlot:undefined,
        dodgeDirection:selectedDefense==="DODGE"&&!preparedMovement?dodgeDirection:undefined,
         predictedCenter:(pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)?predictedCenter??undefined:undefined})}
       disabled={busy||(selectedDefense==="COUNTER"&&!counterPlan)||
-        (selectedDefense!=="COUNTER"&&!!reactionMovement&&!canCombine)||
+        (!!paidReactionMovement&&!canCombine)||
         ((pending.usesMagic||pending.rangedPhysical||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"))&&["DODGE","DEFLECT"].includes(selectedDefense)&&!predictedCenter)} className="rounded-lg bg-amber-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">
-      {busy?"Resolviendo…":!hasReactionBudget?"Recibir impacto (sin reacción)":selectedDefense==="COUNTER"?"Atacar mientras recibes el impacto · 1 PA":reactionMovement?"Mover + reaccionar · 2 PA":"Responder al ataque · 1 PA"}
+      {busy?"Resolviendo…":!hasReactionBudget?"Recibir impacto (sin reacción)":selectedDefense==="COUNTER"?"Atacar mientras recibes el impacto · 1 PA":selectedDefense==="NONE"?"Recibir impacto · 0 PA":paidReactionMovement?"Mover + reaccionar · 2 PA":"Responder al ataque · 1 PA"}
      </button>
     </div>}
     {!pending&&state.status==="ACTIVE"&&hasAccess&&<CombatDialog

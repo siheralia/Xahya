@@ -73,7 +73,7 @@ export function compileWeaponAutoRepair(
 export function defaultWeaponAutoRepair():AutoRepairItemEffect{
  return {
   type:AUTO_REPAIR_ITEM_EFFECT,manaCost:5,intervalTurns:1,
-  module:{id:"AUTO_REPAIR_ITEM",name:"Autorreparación",type:"ITEM_PASSIVE",
+  module:{id:"AutoRepairItem",name:"Autorreparación",type:"ItemPassive",
    description:"Recupera durabilidad propia al comienzo de turnos de combate.",
    trigger:"TURN_START",steps:[
     {kind:"READ_ITEM",selector:"SOURCE_ITEM",output:"sourceItem"},

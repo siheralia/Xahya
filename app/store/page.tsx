@@ -15,7 +15,7 @@ type Item = {
   basePrice: number;
   price: number;
   appliedPromotions: Promotion[];
-  effects: { type: string; stat?: string; value: number; description?: string }[];
+  effects: { type: string; stat?: string; value?: number; description?: string; manaCost?:number; intervalTurns?:number }[];
   allowedSlots?: string[];
 };
 type OwnedItem = { id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null; flair: string | null; item: Item | null };
@@ -272,7 +272,12 @@ export default function StorePage() {
                     </div>
                     {item.appliedPromotions.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{item.appliedPromotions.map((promotion) => <span key={promotion.id} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-300">{promotion.name}</span>)}</div>}
                     {item.description && <p className="mt-4 text-sm" style={{ color: readableSubtle }}>{item.description}</p>}
-                    {item.effects.length > 0 && <div className="mt-4 space-y-1" style={{ color: readableSubtle }}>{item.effects.map((effect, index) => <p key={index} className="text-xs" style={{ color: readableSubtle }}>{effect.description || effectLabels[effect.type] || effect.type}: {effect.type.includes("multiplier") ? "×" + effect.value / 100 : effect.value}</p>)}</div>}
+                    {item.effects.length > 0 && <div className="mt-4 space-y-1" style={{ color: readableSubtle }}>{item.effects.map((effect, index) => <p key={index} className="text-xs" style={{ color: readableSubtle }}>
+    {effect.type==="auto_repair_durability"
+      ? "Autorreparación · "+Number(effect.manaCost??0)+" maná cada "+Number(effect.intervalTurns??0)+" turno(s)"
+      : (effect.description || effectLabels[effect.type] || effect.type)+": "+
+        (effect.type.includes("multiplier")?"×"+Number(effect.value??0)/100:Number(effect.value??0))}
+  </p>)}</div>}
                     <div className="mt-5 flex gap-2">
                       <input type="number" min={1} max={99} value={quantity} onChange={(event) => setQuantities((current) => ({ ...current, [item.id]: Math.max(1, Math.min(99, Number(event.target.value) || 1)) }))} className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-center" />
                       <button type="button" onClick={() => buy(item)} disabled={buying !== null || selling !== null || !selectedCharacter || total > money} className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40">{buying === item.id ? "Comprando..." : "Comprar · ◈ " + total.toLocaleString("es-MX")}</button>

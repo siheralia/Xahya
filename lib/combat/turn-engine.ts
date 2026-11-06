@@ -13,6 +13,8 @@ import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_ME
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import {calculateMaterialBlockWear} from "./material-durability.ts";
 import {combatWeaponOperational} from "./weapon-readiness.ts";
+import {evaluateWeaponAutoRepair,shouldAutoRepairAtRound,
+ type AutoRepairItemEffect} from "../items/auto-repair.ts";
 import {assertMovementClear,blockingMovement,firstCoverAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
@@ -27,6 +29,11 @@ export type CombatWeapon = {name:string;attackType:CombatAttackType;mode:"MELEE"
   /** Catalog snapshot: 100 is neutral; values above 100 reduce BLOCK wear. */
   materialPhysicalResistance?:number;
   materialName?:string;
+  /** Server-compiled item catalog effect snapshot (never sent by command). */
+  autoRepair?:AutoRepairItemEffect;
+  lastAutoRepairRound?:number;
+  /** Invalid staff-configured formulas must never block the whole encounter. */
+  autoRepairDisabled?:boolean;
 };
 export type CombatFighter = {
   characterId: number | null; name: string; hp: number; maxHp: number;
@@ -119,6 +126,9 @@ export type CombatState = {
    * Older combat JSON used one fighter.weaponIntegrity; upgrade on first action.
    */
   perHandWeaponDurability?:boolean;
+  /** Self-repair events for the current new round only. The DB resolver
+   * combines these positive gains with any same-action weapon wear. */
+  itemRepairsThisRound?:Array<{by:Side;characterItemId:number;restored:number;round:number}>;
   /** Encounter inventory. Real character copies are spent in the session transaction. */
   consumables?:Partial<Record<Side,CombatConsumable[]>>;
   processedItemRequests?:string[];
@@ -354,6 +364,77 @@ function dispatchCombatMicroEvent(state:CombatState,side:Side,
     }
   }
   runtime.state=result.state;
+}
+
+/** Item-bound repair runs only when the authoritative encounter advances to
+ * a new full round. It consumes encounter mana (not persistent sheet mana),
+ * never AP/ticks, and cannot repair a weapon lying on the field.
+ */
+export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):void{
+  if(state.status!=="ACTIVE")return;
+  const fighter=state.actors[side];
+  const mana=state.mana?.[side];
+  if(!mana||!Number.isSafeInteger(mana.current))return;
+  const seen=new Set<number>();
+  for(const weapon of [fighter.equippedWeapon,fighter.offhandWeapon]){
+    const rule=weapon?.autoRepair;
+    const durability=weapon?.durability;
+    if(!weapon||!rule||!weapon.characterItemId||
+      typeof durability!=="number"||!Number.isSafeInteger(durability))
+      continue;
+    const characterItemId=weapon.characterItemId;
+    if(seen.has(characterItemId))continue; // no duplicate inventory copy
+    seen.add(characterItemId);
+    if(durability<0||durability>=100||weapon.autoRepairDisabled||
+      !shouldAutoRepairAtRound(state.round,rule.intervalTurns)||
+      weapon.lastAutoRepairRound===state.round||
+      !Number.isSafeInteger(rule.manaCost)||rule.manaCost<1||
+      mana.current<rule.manaCost)continue;
+    const stats={
+      ...microStats(fighter),
+      AGI:fighter.agility,CON:fighter.constitution,
+      PHYSICAL_ATTACK:fighter.physicalAttack,MAGIC_ATTACK:fighter.magicAttack,
+      PRECISION:fighter.precision,
+      strength:fighter.strength,agility:fighter.agility,
+      constitution:fighter.constitution,
+      physicalAttack:fighter.physicalAttack,magicAttack:fighter.magicAttack,
+      physicalDefense:fighter.physicalDefense,magicDefense:fighter.magicDefense,
+      precision:fighter.precision,
+    };
+    const opponent=state.actors[other(side)];
+    const opponentStats={
+      ...microStats(opponent),AGI:opponent.agility,CON:opponent.constitution,
+      strength:opponent.strength,agility:opponent.agility,
+      magicDefense:opponent.magicDefense,
+    };
+    // A staff-configured formula may reference a statistic disabled in the
+    // current character catalog. Never trap both fighters at round rollover.
+    let calculated:ReturnType<typeof evaluateWeaponAutoRepair>;
+    try{
+      calculated=evaluateWeaponAutoRepair(rule,{
+        characterItemId,durability,
+      },stats,{USER:stats,OPPONENT:opponentStats});
+    }catch{
+      weapon.autoRepairDisabled=true;
+      addLog(state,{kind:"WEAPON_REPAIR_SKIP",tick:state.tick,by:side,
+        weaponName:weapon.name,
+        summary:weapon.name+" no pudo autorrepararse por una configuración incompatible."});
+      continue;
+    }
+    if(calculated.restored<=0)continue;
+    mana.current-=rule.manaCost;
+    weapon.durability=calculated.after;
+    weapon.lastAutoRepairRound=state.round;
+    if(fighter.equippedWeapon===weapon)fighter.weaponIntegrity=calculated.after;
+    state.itemRepairsThisRound??=[];
+    state.itemRepairsThisRound.push({
+      by:side,characterItemId,restored:calculated.restored,round:state.round,
+    });
+    addLog(state,{kind:"WEAPON_REPAIR",tick:state.tick,by:side,
+      weaponName:weapon.name,weaponIntegrity:calculated.after,manaCost:rule.manaCost,
+      summary:weapon.name+" restauró "+calculated.restored+
+        " de durabilidad al comenzar el turno; consumió "+rule.manaCost+" maná."});
+  }
 }
 
 export const actionPoints = (constitution: number) => Math.max(1, Math.floor(9 + normalize(constitution)));
@@ -613,7 +694,11 @@ function advanceRoundIfComplete(state: CombatState) {
     }
     state.skillBonuses=active.filter(b=>b.expiresAtRound>state.round);
     addLog(state,{kind:"ROUND",tick:state.tick,by:"PLAYER",summary:"Comienza el turno " + state.round});
-    for(const side of SIDES)dispatchCombatMicroEvent(state,side,"TURN_START");
+    state.itemRepairsThisRound=[];
+    for(const side of SIDES){
+      dispatchCombatMicroEvent(state,side,"TURN_START");
+      applyWeaponSelfRepairAtRoundStart(state,side);
+    }
     // Each active mirror fires at most once on the following and later rounds.
     state.mirrorRayQueue=(state.constructions??[])
       .filter(c=>c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0)

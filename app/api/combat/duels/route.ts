@@ -16,6 +16,7 @@ import { canApproveCombat } from "@/lib/combat/permissions";
 import { racialDamageFactors,perkDamageFactors,mergeDamageTakenFactors } from "@/lib/combat/innate-traits";
 import { getPerkEffects } from "@/lib/perks";
 import {characterCombatConsumables,npcStartingConsumables} from "@/lib/items/combat-consumables";
+import {compileWeaponAutoRepair} from "@/lib/items/auto-repair";
 
 async function snapshotEquippedWeapons(characterId:number):Promise<{
   main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
@@ -46,6 +47,12 @@ async function snapshotEquippedWeapons(characterId:number):Promise<{
        itemId:Number(item.id),characterItemId:Number(equipped.id),
        durability:Math.max(0,Math.min(100,Number(equipped.durability??100)))
     } as NonNullable<CombatFighter["equippedWeapon"]>;
+    // Copy staff-managed item passives into the immutable combat equipment
+    // snapshot. Invalid historical effects are ignored, not executed.
+    try{
+      const repair=compileWeaponAutoRepair(item.effects,String(item.itemType));
+      if(repair)weapon.autoRepair=repair;
+    }catch{}
     if(item.materialId!=null){
       const material=await Material.where({id:Number(item.materialId)}).first();
       if(material){

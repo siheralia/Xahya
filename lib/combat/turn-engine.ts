@@ -772,10 +772,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       exchange={
        damageToAttacker:Math.max(0,attacker.hp-resolved.actors[pending.by].hp),
        damageToDefender:Math.max(0,fighter.hp-resolved.actors[by].hp),
-       spentAp:resolved.actors[by].spentAp,spentTicks:resolved.actors[by].spentTicks,
-       manaRemaining:resolved.mana?.[by]?.current,
-       physicalPathEnd:resolved.physicalPathEnd,
-       physicalPathEnds:resolved.physicalPathEnds,
+       // The shadow's automatic round advance may reset AP/ticks after
+       // resolving the strike. Preserve the actual cost at launch instead;
+       // the real state advances its round only after BOTH attacks land.
+       spentAp:launched.actors[by].spentAp,spentTicks:launched.actors[by].spentTicks,
+       manaRemaining:launched.mana?.[by]?.current,
+       physicalPathEnd:launched.physicalPathEnd,
+       physicalPathEnds:launched.physicalPathEnds,
        events:resolved.log.slice(state.log.length).filter(e=>["ATTACK","RESOLVE","REFLECTION"].includes(e.kind)),
        attackerPosition:resolved.actors[pending.by].fieldPosition,
        attackerPositionMeters:resolved.actors[pending.by].positionMeters

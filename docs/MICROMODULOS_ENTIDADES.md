@@ -60,7 +60,7 @@ Ninguna habilidad de ejemplo se inserta automáticamente en la base de datos. Se
 
 ## Implementación actual: atributos propios y contacto (PR #172)
 
-**Valores independientes del invocador:** agrega `SET_ENTITY_STAT` por cada atributo que quieras fijar. Por ejemplo, un dragón puede materializarse siempre con `PHYSICAL_ATTACK=180`, `PHYSICAL_DEFENSE=90`, `AGI=60`, `MOVE_SPEED=60`, `PRECISION=75`, `DODGE=30`, `STRENGTH=120` e `INTEGRITY=300`. Las estadísticas que no fijes pueden quedar enlazadas al invocador mediante `LINK_ENTITY_STAT` o utilizar los valores predeterminados del motor. No se permite fijar y enlazar el mismo destino simultáneamente. Por compatibilidad, los vínculos antiguos siguen siendo dinámicos.
+**Valores independientes del invocador:** agrega `SET_ENTITY_STAT` por cada atributo que quieras fijar. Por ejemplo, un dragón puede materializarse siempre con `PHYSICAL_ATTACK=180`, `PHYSICAL_DEFENSE=90`, `AGI=60`, `MOVE_SPEED=60`, `PRECISION=75`, `DODGE=30`, `STRENGTH=120` e `INTEGRITY=300`; también `MAGIC_ATTACK`, `MAGIC_DEFENSE`, `CON`, `CRITICAL`, `LUCK`, `RACE` y `MASS_KG` son configurables de forma independiente. Las estadísticas que no fijes pueden quedar enlazadas al invocador mediante `LINK_ENTITY_STAT` o utilizar los valores predeterminados del motor. No se permite fijar y enlazar el mismo destino simultáneamente. Por compatibilidad, los vínculos antiguos siguen siendo dinámicos.
 
 **Estados en combate:** después de `SUMMON_ENTITY`, sus estadísticas y `SET_ENTITY_BEHAVIOR`, conecta:
 1. `SELECT_TARGET` con `USER` para tocar al invocador o `OPPONENT` para golpear al rival.

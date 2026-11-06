@@ -1265,6 +1265,15 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const weaponStrike=command.usesMagic!==true&&!!plannedWeapon&&
         (serverSkillRangeMeters===undefined||plannedSource==="MAIN_HAND"||plannedSource==="OFF_HAND");
       const actionTicks=turnTicks(fighter,weaponStrike?command.attackType:undefined);
+      // AFTER must be checked at launch. A pending strike may only be
+      // resolved by the defender, who cannot edit the attacker's movement;
+      // discovering a blocked path during DEFEND would deadlock the fight.
+      if(command.movementOrder==="AFTER"){
+       const step=validatePlanarMove(command.planarMove);
+       const from=fieldPosition(fighter);
+       assertMovementClear(state.constructions,from,
+        {x:from.x+step.x,y:from.y+step.y});
+      }
       applyCompositeStep(state,by,command.planarMove,command.movementOrder??"BEFORE",actionTicks);
     }
     const points = command.trajectory?.length ? command.trajectory : [{x:0.1,y:0.5},{x:0.9,y:0.5}];

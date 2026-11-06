@@ -130,9 +130,27 @@ test("basic magic can move first within 4m, and can cast before moving when alre
  assert.equal(outcome.mana.PLAYER.current,4);
 });
 
+test("20 PA and a full tick budget allow a combined kick using one temporal window",()=>{
+ const s=fight(1);
+ Object.assign(s.actors.PLAYER,{
+  constitution:11,agility:11,speedValue:11,equippedWeapon:undefined
+ });
+ assert.equal(remainingAp(s.actors.PLAYER),20);
+ assert.equal(turnTicks(s.actors.PLAYER),91);
+ const launched=applyCombatCommand(s,"PLAYER",{
+  kind:"ATTACK",attackType:"BLUNT",attackSource:"KICK",
+  trajectory:[{x:.1,y:.5},{x:.5,y:.5}],
+  planarMove:{x:.4,y:0},movementOrder:"BEFORE"
+ },rolls);
+ assert.equal(remainingAp(launched.actors.PLAYER),18);
+ assert.equal(launched.actors.PLAYER.spentTicks,91);
+ assert.equal(fieldPosition(launched.actors.PLAYER).x,.4);
+ assert.ok(launched.pending);
+});
+
 test("movement with slow weapon checks actual combined ticks before spending",()=>{
  const s=fight(1.4);
- s.actors.PLAYER.spentTicks=100-turnTicks(s.actors.PLAYER)-turnTicks(s.actors.PLAYER,"PIERCE")+1;
+ s.actors.PLAYER.spentTicks=100-Math.max(turnTicks(s.actors.PLAYER),turnTicks(s.actors.PLAYER,"PIERCE"))+1;
  // Keep the opponent's initiative clock aligned so the action reaches the
  // specific composite-tick validation rather than failing canAct() first.
  s.actors.NPC.spentTicks=s.actors.PLAYER.spentTicks;
@@ -150,6 +168,7 @@ test("UI modes and zoom use icon-only aligned controls, while physical/magic com
  assert.match(ui,/movementOrder,usesMagic:true/);
  assert.match(ui,/planarMove:preparedMovement,movementOrder/);
  assert.match(ui,/canCombineAttack/);
+ assert.match(ui,/No alcanzan los ticks/);
  assert.match(ui,/afterMovementDistance/);
  assert.match(ui,/solo mover/i);
  assert.match(top,/battleFieldViewport/);

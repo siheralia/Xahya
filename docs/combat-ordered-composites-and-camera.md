@@ -18,8 +18,13 @@ inhabilitado, pero **Mover** está disponible. Se indican la distancia y
 el alcance real y se explica qué corregir. El disparo de magia básica
 requiere también seleccionar su centro en el plano vertical.
 
-La comprobación de ticks compuestos incluye la penalización de velocidad
-del arma equipada. Puños, patadas y magia no la heredan automáticamente.
+El movimiento combinado consume **2 PA** (1 por cada componente), pero
+ocupa **una única ventana temporal**: el mayor entre los ticks de moverse
+y los de atacar. No se suman dos ventanas para una maniobra combinada.
+Se sigue comprobando el presupuesto restante de 100 ticks, incluida la
+penalización de velocidad del arma equipada. Puños, patadas y magia no
+la heredan automáticamente. La interfaz informa por separado de PA
+insuficientes y ticks insuficientes, con los valores reales.
 Las reacciones siguen teniendo su desplazamiento independiente.
 
 ## Cámara dinámica para los dos combatientes

@@ -56,6 +56,17 @@ test("the approved skill's real calculated amount goes to a specific owned insta
  assert.equal(another[0].after,100);
 });
 
+test("manual repair rejects current HP references because the sheet lacks live HP",()=>{
+ assert.throws(()=>compileApprovedRepairSkill(skill({effect:[reviewed([
+  item("SELECTED_ITEM"),{kind:"CALCULATE",output:"life",expression:{source:"STAT",key:"HP"}},
+  repair({source:"OUTPUT",key:"life"}),
+ ])]})),/vida actual no está disponible/);
+ assert.throws(()=>compileApprovedRepairSkill(skill({effect:[reviewed([
+  item("SELECTED_ITEM"),{kind:"READ_STAT",actor:"USER",stat:"HP",output:"life"},
+  repair({source:"OUTPUT",key:"life"}),
+ ])]})),/vida actual no está disponible/);
+});
+
 test("zero mana requires a real cooldown and cannot be a free repeatable repair",()=>{
  assert.throws(()=>compileApprovedRepairSkill(skill({cost:0,cooldown:""})),/maná o un cooldown/);
  assert.throws(()=>compileApprovedRepairSkill(skill({cost:0,cooldown:"Sin cooldown"})),/maná o un cooldown/);

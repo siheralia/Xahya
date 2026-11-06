@@ -605,13 +605,13 @@ export default function CombatEncounter({id}:{id:string}) {
       <CombatTopDownPlane state={state} side={side}
        mode={panel==="construction"?"CONSTRUCT":fieldMode==="CONSTRUCT"?"MOVE":fieldMode}
        disabled={!hasAccess||state.status!=="ACTIVE"||(!!pending&&!defending)||(!pending&&!ready)}
-       move={fieldMove??(panel!=="construction"&&fieldMode==="MOVE"&&movementPlan!=="MOVE_ONLY"?suggestedMove??null:null)}
+       move={fieldMove??(panel!=="construction"&&fieldMode==="MOVE"?suggestedMove??null:null)}
        onMove={setFieldMove} placement={constructionFieldPoint}
        onPlacement={p=>{setConstructionFieldPoint(p);if(!constructionCenter)setConstructionCenter({x:0.5,y:0.5});}}/>
       <p className="text-[10px] text-zinc-400 sm:text-xs">
        {panel==="construction"?"Marca el lugar donde aparecerá la construcción.":
         fieldMode==="MOVE"?proposedMovement
-          ?"Paso: "+Math.hypot(proposedMovement.x,proposedMovement.y).toFixed(2)+" m · "+(movementPlan==="MOVE_ONLY"?"1 PA":"combinación 2 PA")
+          ?(drawnMovement?"Trazo: ":"Paso sugerido: ")+Math.hypot(proposedMovement.x,proposedMovement.y).toFixed(2)+" m · "+(movementPlan==="MOVE_ONLY"?"1 PA":"combinación 2 PA")
           :"Dibuja un desplazamiento de hasta 1 m.":"Vista del terreno desde arriba."}
       </p>
       {fieldMode==="MOVE"&&panel!=="construction"&&drawnMovement&&
@@ -765,9 +765,12 @@ export default function CombatEncounter({id}:{id:string}) {
          {attackMode==="MAGIC_AREA"&&!areaCenter?"Marca primero el impacto en el plano vertical.":
           "Prepara el ataque o revisa el maná y el arma seleccionada."}
         </p>}
+        <p className="text-[11px] text-zinc-400">
+         Rival: {targetDistance.toFixed(2)} m · Tras el paso: {afterMovementDistance.toFixed(2)} m · Alcance: {configuredReach.toFixed(2)} m
+        </p>
         {!inRangeFor("BEFORE")&&<p role="status" className="text-[11px] text-amber-200">
-         Tras avanzar, el rival queda a {afterMovementDistance.toFixed(2)} m; alcance {configuredReach.toFixed(2)} m.
-        </p>}
+         El objetivo sigue fuera de alcance tras avanzar; utiliza «Solo mover» para acercarte.
+        </p>
         {!canCombineAttack&&<p role="status" className="text-[11px] text-amber-200">
          {actor&&remainingAp(actor)<2?"Faltan PA para combinar.":"Los ticks restantes no permiten combinar."}
         </p>}

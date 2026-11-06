@@ -115,6 +115,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
      resolvedItems.set(id,{itemId:Number(entry.itemId),durability});
    }
    const values=await getEffectiveCharacterStats(characterId,tx);
+   if(!values)throw new Error("STATS_NOT_AVAILABLE");
    const resource=await tx.orm.public.CharacterResource.where({characterId}).first();
    if(!resource)throw new Error("MANA_RESOURCE_MISSING");
    const maxMana=Math.max(0,Math.floor(Number(values.derived?.maxMana??0)));
@@ -177,6 +178,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
    MANA_INSUFFICIENT:"Maná insuficiente para reparar.",
    MANA_CHANGED:"El saldo de maná cambió; vuelve a intentarlo.",
    MANA_RESOURCE_MISSING:"El personaje no tiene sus recursos de maná inicializados.",
+   STATS_NOT_AVAILABLE:"No están disponibles las estadísticas efectivas del personaje.",
   };
   const active=/^REPAIR_COOLDOWN:(\d+)$/.exec(code);
   const message=active?

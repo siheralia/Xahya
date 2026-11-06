@@ -27,7 +27,9 @@ export function snapshotEquippedWearables(catalog:readonly RawRow[],owned:readon
   const definition=definitions.get(copy.itemId as number);
   const itemType=definition?.itemType;
   if(itemType!=="ARMOR"&&itemType!=="ACCESSORY")continue;
-  if(!wearableSlotAllowed(itemType,copy.equippedSlot))continue;
+  const allowedSlots=Array.isArray(definition?.allowedSlots)
+    ?(definition.allowedSlots as unknown[]).filter((value):value is string=>typeof value==="string"):undefined;
+  if(!wearableSlotAllowed(itemType,copy.equippedSlot,allowedSlots))continue;
   const rawDurability=copy.durability==null?100:Number(copy.durability);
   if(!Number.isFinite(rawDurability))continue;
   const wearable:CombatWearable={

@@ -78,14 +78,14 @@ test("only self item may be read and only one allowlisted effect family can act"
 
 test("item graph varies its amount by live combat statistics but cannot target someone else's item",()=>{
  const rule=defaultWeaponAutoRepair();
- rule.module.steps[1]={kind:"READ_STAT",actor:"USER",stat:"MAGIC_DEFENSE",output:"repairAmount"};
+ rule.module.steps[1]={kind:"READ_STAT",actor:"USER",stat:"magicDefense",output:"repairAmount"};
  const projection=evaluateWeaponAutoRepair(rule,{characterItemId:1610,durability:92},
-  {HP:100,MAX_HP:100,MAGIC_DEFENSE:18});
+  {HP:100,MAX_HP:100,magicDefense:18});
  assert.equal(projection.restored,8);
  assert.equal(projection.after,100);
  assert.deepEqual(projection.intents.map(x=>x.characterItemId),[1610]);
  assert.equal(evaluateWeaponAutoRepair(rule,{characterItemId:1610,durability:100},
-  {HP:100,MAX_HP:100,MAGIC_DEFENSE:18}).restored,0);
+  {HP:100,MAX_HP:100,magicDefense:18}).restored,0);
 });
 
 test("turn advance repairs only equipped weapon's exact copy and debits encounter mana",()=>{

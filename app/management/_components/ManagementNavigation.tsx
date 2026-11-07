@@ -101,6 +101,7 @@ const groups: readonly ManagementGroup[] = [
       { label: "Casino", href: "/management/casino", permissions: ["casino"], tone: "amber" },
       { label: "Negocios y empleos", href: "/management/businesses", permissions: ["businesses"], tone: "emerald" },
       { label: "Servicios de herrería", href: "/management/businesses/repair-services", permissions: ["businesses"], tone: "amber", adminOnly: true },
+      { label: "Forja y fabricación", href: "/management/businesses/crafting", permissions: ["businesses"], tone: "amber", adminOnly: true },
     ],
   },
 ];

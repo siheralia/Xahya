@@ -148,7 +148,8 @@ export async function POST(req:Request){
    if((await tx.execute(lockMoney)).affectedRows!==1)
     throw new Error("RESOURCES_MISSING");
    const resources=await tx.orm.public.CharacterResource.where({characterId}).first();
-   const money=Number(resources?.money);
+   if(!resources)throw new Error("RESOURCES_MISSING");
+   const money=Number(resources.money);
    if(!Number.isSafeInteger(money)||money<recipe.fee)
     throw new Error("INSUFFICIENT_MONEY");
 

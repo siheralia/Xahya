@@ -13,6 +13,7 @@ const sectionMap: Record<string, { label: string; color: string }> = {
   casino: { label: "Casino", color: "text-amber-300/70" },
   characters: { label: "Personajes", color: "text-cyan-300/70" },
   profile: { label: "Perfil", color: "text-violet-300/70" },
+  "musica-orbital": { label: "Música", color: "text-violet-300/70" },
   management: { label: "Gestión", color: "text-rose-300/70" },
   store: { label: "Tienda", color: "text-emerald-300/70" },
   businesses: { label: "Negocios", color: "text-emerald-300/70" },

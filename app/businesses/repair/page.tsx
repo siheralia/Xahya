@@ -110,7 +110,7 @@ export default function BusinessRepairPage(){
      <select value={businessId} onChange={e=>{setBusinessId(e.target.value);operation.current=null;setSuccess("");}}
       className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-3">
       {businesses.length===0&&<option value="">No hay talleres autorizados</option>}
-      {businesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>}
+      {businesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}
      </select>
     </label>
     <label className="block text-sm">Personaje que paga y entrega el objeto

@@ -3,18 +3,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { angleDistance, crossedOrbitalNote, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
+import { createGoldenScore, parseOrbitalScore, SCORE_FORMAT } from "@/lib/orbital-score.mjs";
+import type { OrbitalScore } from "@/lib/orbital-score.mjs";
 
-const CENTER = 320;
-// Escala natural de Do mayor, afinación temperada (La4 = 440 Hz).
-// Índices 0–3: recorrido interior; índices 4–6: recorrido exterior.
+const CENTER = 450;
+const SCORE_STORAGE_KEY = "xahya.orbital-scores.v1";
+// Afinación temperada con La4 = 440 Hz. Mayor radio = nota más aguda.
+// Los 4 anillos centrales conservan el primer recorrido; los exteriores el segundo.
+// Fa♯5 añade el semitono que necesita la melodía importable.
 const RINGS = [
-  { radius: 88, note: "Do4", hz: 261.6256, color: "#ffd37c" },
-  { radius: 119, note: "Re4", hz: 293.6648, color: "#ffe075" },
-  { radius: 150, note: "Mi4", hz: 329.6276, color: "#eae86a" },
-  { radius: 181, note: "Fa4", hz: 349.2282, color: "#caea71" },
-  { radius: 212, note: "Sol4", hz: 391.9954, color: "#98eb84" },
-  { radius: 243, note: "La4", hz: 440, color: "#65e99b" },
-  { radius: 274, note: "Si4", hz: 493.8833, color: "#39daa8" },
+  { radius: 96, pitch: "C4", note: "Do4", hz: 261.6256, color: "#ffd37c" },
+  { radius: 118, pitch: "D4", note: "Re4", hz: 293.6648, color: "#f7d768" },
+  { radius: 140, pitch: "E4", note: "Mi4", hz: 329.6276, color: "#e8df65" },
+  { radius: 162, pitch: "F4", note: "Fa4", hz: 349.2282, color: "#cee870" },
+  { radius: 184, pitch: "G4", note: "Sol4", hz: 391.9954, color: "#b2e97b" },
+  { radius: 206, pitch: "A4", note: "La4", hz: 440, color: "#91ea86" },
+  { radius: 228, pitch: "B4", note: "Si4", hz: 493.8833, color: "#7ee899" },
+  { radius: 250, pitch: "C5", note: "Do5", hz: 523.2511, color: "#6aeca5" },
+  { radius: 272, pitch: "D5", note: "Re5", hz: 587.3295, color: "#61eeb8" },
+  { radius: 294, pitch: "E5", note: "Mi5", hz: 659.2551, color: "#54dfc8" },
+  { radius: 316, pitch: "F5", note: "Fa5", hz: 698.4565, color: "#4bd4cf" },
+  { radius: 338, pitch: "F#5", note: "Fa♯5", hz: 739.9888, color: "#42d0d8" },
+  { radius: 360, pitch: "G5", note: "Sol5", hz: 783.9909, color: "#5bd5e9" },
+  { radius: 382, pitch: "A5", note: "La5", hz: 880, color: "#7bc8f4" },
+  { radius: 404, pitch: "B5", note: "Si5", hz: 987.7666, color: "#9cb7ff" },
+  { radius: 426, pitch: "C6", note: "Do6", hz: 1046.5023, color: "#c1aaff" },
 ] as const;
 
 // Notas fijas iniciales, de dentro hacia fuera.
@@ -26,10 +39,11 @@ const INITIAL_NOTES = [
   [11, 46, 82, 120, 156, 191, 218, 252, 286, 318],
   [19, 47, 73, 98, 136, 163, 201, 239, 267, 293, 328],
   [7, 30, 60, 88, 117, 144, 169, 192, 220, 248, 278, 311, 342],
+  [], [], [], [], [], [], [], [], [],
 ];
 // Cada grupo tiene su propia zona de partida, como en el gráfico de referencia.
-const INITIAL_PHASES = [354, 2, 9, 16, 83, 90, 97];
-const INITIAL_DELAYS = [0, 0.5, 1, 1.5, 0, 0.5, 1];
+const INITIAL_PHASES = [354, 2, 9, 16, 83, 90, 97, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const INITIAL_DELAYS = [0, 0.5, 1, 1.5, 0, 0.5, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 function makeNotes() {
   return INITIAL_NOTES.map((ring) => [...ring]);
@@ -79,6 +93,11 @@ export default function OrbitalMusicPage() {
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
+  const [scoreName, setScoreName] = useState("Mi partitura");
+  const [savedScores, setSavedScores] = useState<OrbitalScore[]>([]);
+  const [selectedScore, setSelectedScore] = useState("");
+  const [scoreMessage, setScoreMessage] = useState("");
+  const [expandedRing, setExpandedRing] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const contextRef = useRef<AudioContext | null>(null);
   const elapsedRef = useRef(0);
@@ -201,8 +220,8 @@ export default function OrbitalMusicPage() {
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Órbitas sonoras</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-emerald-100/75 sm:text-base">
             Los puntos luminosos recorren sus anillos. Cuando alcanzan una nota vacía, la iluminan y la hacen sonar.
-            Las cuatro órbitas interiores y las tres exteriores tienen recorridos independientes.
-            Puedes configurar el sentido de giro, la duración de cada vuelta y cuándo empieza cada anillo.
+            Dieciséis órbitas musicales, desde Do4 hasta Do6: las notas más agudas están en el exterior.
+            Puedes editar los dos recorridos, encender o apagar anillos y guardar partituras.
           </p>
         </header>
 
@@ -213,8 +232,8 @@ export default function OrbitalMusicPage() {
           >
             <svg
               ref={svgRef}
-              viewBox="0 0 640 640"
-              className="mx-auto block h-auto w-full max-w-[720px] touch-manipulation"
+              viewBox="0 0 900 900"
+              className="mx-auto block h-auto w-full max-w-[900px] touch-manipulation"
               role="group"
               aria-label="Pulsa un anillo para añadir notas o una nota vacía para quitarla"
             >
@@ -231,19 +250,19 @@ export default function OrbitalMusicPage() {
                   </filter>
                 ))}
               </defs>
-              <circle cx={CENTER} cy={CENTER} r="282" fill="url(#orbital-center-glow)" />
+              <circle cx={CENTER} cy={CENTER} r="436" fill="url(#orbital-center-glow)" />
               {RINGS.map((ring, index) => (
-                <g key={"ring-" + index}>
+                <g key={"ring-" + index} opacity={muted[index] ? 0.12 : 1}>
                   <circle cx={CENTER} cy={CENTER} r={ring.radius} fill="none" stroke="#d3ffe2" strokeOpacity={0.78} strokeWidth={2.2} />
                   <circle
                     cx={CENTER} cy={CENTER} r={ring.radius} fill="none"
-                    stroke="transparent" strokeWidth={22}
-                    className="cursor-crosshair"
+                    stroke="transparent" strokeWidth={16}
+                    className={muted[index] ? "pointer-events-none" : "cursor-crosshair"}
                     onClick={(event) => addNote(index, event)}
                     aria-label={"Añadir nota al anillo " + ring.note}
                   />
                   {notes[index].map((angle, noteIndex) => {
-                    const point = orbitalPoint(ring.radius, angle);
+                    const point = orbitalPoint(ring.radius, angle, CENTER);
                     const turn = ringTurn(index);
                     const headAngle = normalizeDegrees((turn ?? phases[index] / 360) * 360);
                     const lit = turn !== null && angleDistance(headAngle, angle) < 8 && playing && !muted[index];
@@ -258,11 +277,11 @@ export default function OrbitalMusicPage() {
                           fill={lit ? ring.color : "#062017"}
                           stroke={lit ? "#fffedb" : "#c8ffe0"} strokeWidth={lit ? 3.5 : 2.5}
                           className="cursor-pointer transition-[fill,stroke] duration-100"
-                          role="button" tabIndex={0}
+                          role="button" tabIndex={muted[index] ? -1 : 0}
                           aria-label={"Quitar nota " + (noteIndex + 1) + " del anillo " + ring.note}
-                          onClick={(event) => { event.stopPropagation(); removeNote(index, noteIndex); }}
+                          onClick={(event) => { event.stopPropagation(); if (!muted[index]) removeNote(index, noteIndex); }}
                           onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
+                            if (!muted[index] && (event.key === "Enter" || event.key === " ")) {
                               event.preventDefault();
                               removeNote(index, noteIndex);
                             }
@@ -275,9 +294,9 @@ export default function OrbitalMusicPage() {
               ))}
               {RINGS.map((ring, index) => {
                 const turn = ringTurn(index);
-                const point = orbitalPoint(ring.radius, (turn ?? phases[index] / 360) * 360);
+                const point = orbitalPoint(ring.radius, (turn ?? phases[index] / 360) * 360, CENTER);
                 return (
-                  <g key={"head-" + index} opacity={muted[index] ? 0.3 : turn === null ? 0.5 : 1}>
+                  <g key={"head-" + index} opacity={muted[index] ? 0 : turn === null ? 0.5 : 1}>
                     <circle cx={point.x} cy={point.y} r="16" fill={ring.color} opacity=".7"
                       filter={"url(#orbital-glow-" + index + ")"} />
                     <circle cx={point.x} cy={point.y} r="10" fill={ring.color} stroke="#f3fff0" strokeWidth={2.8} />
@@ -322,10 +341,10 @@ export default function OrbitalMusicPage() {
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
               <h2 className="text-lg font-semibold">Dos recorridos</h2>
               <p className="mt-1 text-xs leading-5 text-emerald-100/65">
-                Los cuatro anillos centrales siguen un recorrido; los tres externos siguen otro.
+                Los cuatro anillos centrales siguen un recorrido y los doce exteriores siguen otro.
                 Dentro de cada grupo todos tardan lo mismo en completar una vuelta.
               </p>
-              {(["Interiores · Do a Fa", "Exteriores · Sol a Si"] as const).map((label, group) => (
+              {(["Interiores · Do4 a Fa4", "Exteriores · Sol4 a Do6"] as const).map((label, group) => (
                 <div key={label} className="mt-4 border-t border-emerald-100/10 pt-3">
                   <h3 className="text-sm font-medium">{label}</h3>
                   <label className="mt-3 block text-xs">
@@ -359,8 +378,8 @@ export default function OrbitalMusicPage() {
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
               <h2 className="text-lg font-semibold">Anillos e inicio</h2>
               <p className="mt-1 text-xs leading-5 text-emerald-100/65">
-                Del centro hacia afuera: Do, Re, Mi, Fa, Sol, La, Si. Cada anillo tiene un
-                punto de partida angular y un retraso de inicio independientes.
+                Cada círculo tiene su propia nota, posición y retraso de inicio.
+                Desmarcar el interruptor apaga el círculo sin borrar sus notas.
               </p>
               <div className="mt-4 space-y-4">
                 {RINGS.map((ring, index) => (

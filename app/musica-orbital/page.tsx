@@ -675,6 +675,9 @@ export default function OrbitalMusicPage() {
                   Circunferencia de origen
                   <select value={slideRing} onChange={(event) => {
                     setSlideRing(event.target.value);
+                    if (slideTarget === event.target.value) {
+                      setSlideTarget(RINGS.find((item) => item.pitch !== event.target.value)?.pitch ?? "");
+                    }
                     const index = RINGS.findIndex((item) => item.pitch === event.target.value);
                     setSlideAngle(String(notes[index]?.[0] ?? ""));
                   }}

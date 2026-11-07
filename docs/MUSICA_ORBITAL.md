@@ -31,7 +31,7 @@ La partitura puede guardarse y exportarse como cualquier otra composición. No s
 
 ## Tema épico de Xahya
 
-**Ascenso de Xahya — batalla** es la composición predeterminada del laboratorio. Está escrita específicamente para Xahya y es sintetizada por Web Audio sin muestras ni archivos de terceros. Una vuelta de 16 segundos combina motivos ascendentes y descendentes, contrapunto grave y pulsaciones. Incluye siete glissandos (deslizamientos de tono).
+**Ascenso de Xahya — batalla** es la composición predeterminada del laboratorio y los encuentros. Está escrita específicamente para Xahya, con una sensibilidad de aventura y JRPG clásico, sin copiar melodías de videojuegos. Se sintetiza con Web Audio sin muestras ni archivos de terceros. Una vuelta de **8 segundos** (antes 16) desarrolla cuatro secciones armónicas **La menor → Fa mayor → Sol mayor → Mi menor**, contrapunto grave y pulsos rítmicos. Incluye **tres glissandos breves de semitono** en lugar de siete barridos largos.
 
 Los deslizamientos son notas existentes ampliadas con una lista opcional `slides: [{ angle, toPitch, duration }]` por circunferencia. La duración es de 0,1 a 3 segundos; el origen siempre debe corresponder a una nota real. En el gráfico se dibuja un arco luminoso desde el origen hasta el anillo de destino y un marcador lo recorre durante la reproducción. El oscilador cambia continuamente de frecuencia, en vez de disparar dos notas separadas.
 
@@ -49,3 +49,9 @@ Los borradores múltiples del laboratorio siguen viviendo en `localStorage`. La 
 ## Música durante combates
 
 El encuentro incluye un panel **Música** para elegir entre Ascenso de Xahya y el tema personal del jugador, pulsar reproducir/pausar, ajustar el volumen y visitar el editor. La reproducción no empieza automáticamente: requiere una interacción explícita por las restricciones de audio de los navegadores. Se detiene al finalizar el combate o abandonar la página, no utiliza la API de combate y no modifica PA, maná, ticks, el orden de iniciativa ni las acciones.
+
+### Timbre y notas de transición
+
+El sintetizador utiliza voces diferenciadas: graves más redondos (fundamental senoidal con subarmónico), agudos de carácter casi orquestal/retro (diente de sierra suavizado con filtro de paso bajo). Los sonidos normales tienen articulación corta para destacar el ritmo, no colas de casi un segundo. Los glissandos sostienen su primera altura y sólo se deslizan durante los **últimos 60–140 ms** de la nota; así se conservan efectos largos personalizados sin convertirlos en sirenas. Las partituras personalizadas siguen siendo compatibles; su período de vuelta y configuración de glissandos no se alteran.
+
+El tema de sistema mantiene un ciclo de 8 s. Si un usuario había guardado una versión anterior como **tema personal**, se conserva tal cual: debe cargar la nueva partitura del sistema y guardarla otra vez si desea adoptarla.

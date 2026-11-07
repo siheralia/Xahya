@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
-import { angleDistance, crossedOrbitalNote, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
+import { angleDistance, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
+import { createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
+import { elapsedSlideProgress, orbitalEventsBetween, playOrbitalSound } from "@/lib/orbital-playback.mjs";
 import { createGoldenScore, parseOrbitalScore, SCORE_FORMAT } from "@/lib/orbital-score.mjs";
-import type { OrbitalScore } from "@/lib/orbital-score.mjs";
+import type { OrbitalScore, OrbitalSlide } from "@/lib/orbital-score.mjs";
 
 const CENTER = 450;
 const SCORE_STORAGE_KEY = "xahya.orbital-scores.v1";
@@ -30,70 +32,31 @@ const RINGS = [
   { radius: 426, pitch: "C6", note: "Do6", hz: 1046.5023, color: "#c1aaff" },
 ] as const;
 
-// Notas fijas iniciales, de dentro hacia fuera.
-const INITIAL_NOTES = [
-  [30, 75, 120, 170, 220, 268, 310],
-  [15, 60, 110, 155, 204, 248, 293, 335],
-  [20, 65, 100, 143, 185, 228, 270, 315],
-  [25, 65, 103, 143, 186, 225, 270, 302, 337],
-  [11, 46, 82, 120, 156, 191, 218, 252, 286, 318],
-  [19, 47, 73, 98, 136, 163, 201, 239, 267, 293, 328],
-  [7, 30, 60, 88, 117, 144, 169, 192, 220, 248, 278, 311, 342],
-  [], [], [], [], [], [], [], [], [],
-];
-// Cada grupo tiene su propia zona de partida, como en el gráfico de referencia.
-const INITIAL_PHASES = [354, 2, 9, 16, 83, 90, 97, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-const INITIAL_DELAYS = [0, 0.5, 1, 1.5, 0, 0.5, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const BATTLE_SCORE = createBattleThemeScore();
 
 function makeNotes() {
-  return INITIAL_NOTES.map((ring) => [...ring]);
-}
-
-/** Sonido sintetizado localmente: ningún archivo externo ni reproducción automática. */
-function playSound(context: AudioContext, frequency: number, volume: number) {
-  const at = context.currentTime + 0.005;
-  const envelope = context.createGain();
-  const fundamental = context.createOscillator();
-  const overtone = context.createOscillator();
-  const overtoneLevel = context.createGain();
-  fundamental.type = "sine";
-  fundamental.frequency.setValueAtTime(frequency, at);
-  overtone.type = "triangle";
-  overtone.frequency.setValueAtTime(frequency * 2, at);
-  overtoneLevel.gain.value = 0.12;
-  fundamental.connect(envelope);
-  overtone.connect(overtoneLevel);
-  overtoneLevel.connect(envelope);
-  envelope.connect(context.destination);
-  const peak = Math.max(0.0001, (volume / 100) * 0.14);
-  envelope.gain.setValueAtTime(0.0001, at);
-  envelope.gain.exponentialRampToValueAtTime(peak, at + 0.018);
-  envelope.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak * 0.3), at + 0.22);
-  envelope.gain.exponentialRampToValueAtTime(0.0001, at + 0.72);
-  fundamental.start(at);
-  overtone.start(at);
-  fundamental.stop(at + 0.74);
-  overtone.stop(at + 0.74);
-  fundamental.onended = () => {
-    fundamental.disconnect();
-    overtone.disconnect();
-    overtoneLevel.disconnect();
-    envelope.disconnect();
-  };
+  return BATTLE_SCORE.rings.map((ring) => [...ring.angles]);
 }
 
 export default function OrbitalMusicPage() {
   const [notes, setNotes] = useState<number[][]>(makeNotes);
-  const [phases, setPhases] = useState<number[]>([...INITIAL_PHASES]);
-  const [muted, setMuted] = useState<boolean[]>(RINGS.map(() => false));
-  const [groupDurations, setGroupDurations] = useState<[number, number]>([12, 12]);
-  const [groupDirections, setGroupDirections] = useState<[1 | -1, 1 | -1]>([1, -1]);
-  const [startDelays, setStartDelays] = useState<number[]>([...INITIAL_DELAYS]);
+  const [slides, setSlides] = useState<OrbitalSlide[][]>(() => BATTLE_SCORE.rings.map((ring) => [...ring.slides]));
+  const [phases, setPhases] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.phase));
+  const [muted, setMuted] = useState<boolean[]>(() => BATTLE_SCORE.rings.map((ring) => !ring.enabled));
+  const [groupDurations, setGroupDurations] = useState<[number, number]>([16, 16]);
+  const [groupDirections, setGroupDirections] = useState<[1 | -1, 1 | -1]>([1, 1]);
+  const [startDelays, setStartDelays] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.delay));
   const [volume, setVolume] = useState(55);
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
-  const [scoreName, setScoreName] = useState("Mi partitura");
+  const [scoreName, setScoreName] = useState(BATTLE_SCORE.title);
+  const [ownTheme, setOwnTheme] = useState<OrbitalScore | null>(null);
+  const [themeBusy, setThemeBusy] = useState(false);
+  const [slideRing, setSlideRing] = useState("E5");
+  const [slideAngle, setSlideAngle] = useState("5.625");
+  const [slideTarget, setSlideTarget] = useState("G5");
+  const [slideDuration, setSlideDuration] = useState(0.5);
   const [savedScores, setSavedScores] = useState<OrbitalScore[]>([]);
   const [selectedScore, setSelectedScore] = useState("");
   const [scoreMessage, setScoreMessage] = useState("");
@@ -138,6 +101,7 @@ export default function OrbitalMusicPage() {
         phase: phases[index],
         delay: startDelays[index],
         angles: notes[index],
+        slides: slides[index],
       })),
     });
   }
@@ -148,6 +112,7 @@ export default function OrbitalMusicPage() {
     elapsedRef.current = 0;
     setElapsed(0);
     setNotes(safe.rings.map((ring) => [...ring.angles]));
+    setSlides(safe.rings.map((ring) => [...ring.slides]));
     setPhases(safe.rings.map((ring) => ring.phase));
     setStartDelays(safe.rings.map((ring) => ring.delay));
     setMuted(safe.rings.map((ring) => !ring.enabled));
@@ -264,23 +229,12 @@ export default function OrbitalMusicPage() {
       const from = elapsedRef.current;
       const to = from + dt;
       elapsedRef.current = to;
-      if (dt > 0) {
-        RINGS.forEach((ring, ringIndex) => {
-          if (muted[ringIndex]) return;
-          const group = ringIndex < 4 ? 0 : 1;
-          const delay = startDelays[ringIndex];
-          const previousTurn = orbitalTurnAt(
-            Math.max(from, delay), delay, phases[ringIndex], groupDurations[group], groupDirections[group]
-          );
-          const currentTurn = orbitalTurnAt(
-            to, delay, phases[ringIndex], groupDurations[group], groupDirections[group]
-          );
-          for (const noteAngle of notes[ringIndex]) {
-            if (crossedOrbitalNote(previousTurn, currentTurn, noteAngle) && contextRef.current) {
-              playSound(contextRef.current, ring.hz, volume);
-            }
-          }
-        });
+      if (dt > 0 && contextRef.current) {
+        const score = createCurrentScore();
+        for (const note of orbitalEventsBetween(score, from, to)) {
+          playOrbitalSound(contextRef.current, pitchFrequency(note.pitch), volume,
+            note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration);
+        }
       }
       if (time - lastPaintRef.current >= 28) {
         lastPaintRef.current = time;
@@ -290,7 +244,7 @@ export default function OrbitalMusicPage() {
     };
     animationFrame = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(animationFrame);
-  }, [playing, notes, phases, muted, groupDurations, groupDirections, startDelays, volume]);
+  }, [playing, notes, slides, phases, muted, groupDurations, groupDirections, startDelays, volume, scoreName]);
 
   const resetPlayhead = () => {
     elapsedRef.current = 0;
@@ -310,11 +264,15 @@ export default function OrbitalMusicPage() {
   };
 
   const removeNote = (ringIndex: number, noteIndex: number) => {
+    const angle = notes[ringIndex]?.[noteIndex];
     setNotes((current) => current.map((ringNotes, index) =>
       index === ringIndex ? ringNotes.filter((_, position) => position !== noteIndex) : ringNotes));
+    setSlides((current) => current.map((ringSlides, index) =>
+      index === ringIndex ? ringSlides.filter((slide) => slide.angle !== angle) : ringSlides));
   };
 
   const shuffleNotes = () => {
+    setSlides(RINGS.map(() => []));
     setNotes((current) => current.map((ringNotes) =>
       Array.from({ length: ringNotes.length }, () => Math.floor(Math.random() * 72) * 5)
         .filter((angle, index, all) => all.findIndex((other) => angleDistance(other, angle) < 10) === index)

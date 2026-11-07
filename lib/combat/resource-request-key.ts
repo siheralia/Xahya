@@ -9,9 +9,10 @@ import type {CombatState,Side} from "./turn-engine.ts";
  * This is only a client-side key: the server's persisted request ledgers remain
  * the source of truth for idempotency and all resource expenditures.
  */
-export function combatResourceRequestKey(
- encounterId:string,side:Side,state:CombatState|undefined,
- command:{kind:"CAST_SKILL"|"BOOST_KARMA"|"USE_ITEM";requestId?:string},
+export function combatResourceRequestKey<T extends {
+ kind:"CAST_SKILL"|"BOOST_KARMA"|"USE_ITEM";requestId?:string
+}>(
+ encounterId:string,side:Side,state:CombatState|undefined,command:T,
 ):string {
  const actor=state?.actors[side];
  // Intentionally exclude any previously generated ID from the intent.

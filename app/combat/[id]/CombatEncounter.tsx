@@ -164,6 +164,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [flash,setFlash]=useState(false);
  const lastResolution=useRef("");
  const canvas=useRef<SVGSVGElement|null>(null);
+ const reactionSectionRef=useRef<HTMLDivElement|null>(null);
  const castRequestRef=useRef<{key:string;id:string}|null>(null);
  const itemRequestRef=useRef<{key:string;id:string}|null>(null);
  // Retain the same request ID after a network failure or repeated tap while
@@ -387,6 +388,15 @@ export default function CombatEncounter({id}:{id:string}) {
    selectedAttackTargetId.slice(7):undefined;
  const selectedMirrorId=selectedSummonId?undefined:selectedAttackTargetId||undefined;
  const defending=!!pending&&pending.against===side;
+ const hasIncomingReaction=defending&&hasAccess;
+ // Do not leave actual defense choices hidden under unrelated skill modals.
+ useEffect(()=>{
+  if(!hasIncomingReaction)return;
+  setPanel("none");
+  setAttackOptionsOpen(false);
+  setConstructionOptionsOpen(false);
+  reactionSectionRef.current?.scrollIntoView({behavior:"smooth",block:"start"});
+ },[hasIncomingReaction,pending?.launchedAtTick]);
  const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
  const npcNeedsInitiative=Boolean(state&&state.status==="ACTIVE"&&
    state.actors.NPC.characterId===null&&hasAccess&&side==="PLAYER"&&!state.pending&&
@@ -599,6 +609,10 @@ export default function CombatEncounter({id}:{id:string}) {
   {shareStatus&&<p role="status" className="mb-3 text-sm text-cyan-300">{shareStatus}</p>}
   {actionFeedback&&<p role="status" className="mb-3 rounded-lg border border-emerald-700/50 bg-emerald-950/20 p-3 text-sm text-emerald-200">{actionFeedback}</p>}
   {!state?<p>Cargando combate…</p>:<>
+   {hasIncomingReaction&&<div role="alert"
+    className="sticky top-1 z-[65] mb-3 rounded-lg border border-amber-300 bg-amber-950/95 p-3 text-sm font-semibold text-amber-100 shadow-xl">
+     ¡Ataque entrante contra {state.actors[side].name}! Debes elegir una defensa en el panel de reacción.
+    </div>}
    {incomingDamage&&incomingNoticeKey!==dismissedIncomingNotice&&
     <aside role="alert" aria-label="Daño recibido del oponente"
      className="sticky top-1 z-[60] mb-4 rounded-xl border border-rose-400 bg-rose-950/95 px-3 py-3 text-sm text-rose-100 shadow-xl backdrop-blur">
@@ -1048,7 +1062,7 @@ export default function CombatEncounter({id}:{id:string}) {
       </div>;})}
      </div>
     </section>}
-    {defending&&hasAccess&&<div className="mt-4 space-y-3">
+    {defending&&hasAccess&&<div ref={reactionSectionRef} className="mt-4 scroll-mt-24 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
      {!hasReactionBudget&&<p role="status" className="rounded-lg border border-amber-400/50 bg-amber-400/10 p-3 text-sm text-amber-200">
       No puedes esquivar ni defenderte activamente: {actor&&remainingAp(actor)<=0?"agotaste tus puntos de acción":"agotaste los 100 ticks de este turno"}. Puedes recibir el impacto sin gastar otra acción.

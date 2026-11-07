@@ -6650,6 +6650,13 @@
                   "kind": "scalar"
                 }
               },
+              "musicTheme": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/json@1",
+                  "kind": "scalar"
+                }
+              },
               "name": {
                 "nullable": true,
                 "type": {
@@ -6734,6 +6741,9 @@
                 },
                 "lastNotificationReadAt": {
                   "column": "lastNotificationReadAt"
+                },
+                "musicTheme": {
+                  "column": "musicTheme"
                 },
                 "name": {
                   "column": "name"
@@ -13604,6 +13614,11 @@
                   "nativeType": "timestamptz",
                   "nullable": true
                 },
+                "musicTheme": {
+                  "codecId": "pg/json@1",
+                  "nativeType": "json",
+                  "nullable": true
+                },
                 "name": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -15069,7 +15084,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "b9c09446c4a30a682a6f04901c33dc7cf254fd004b03f5069f4037e4e6fcf3fc"
+    "storageHash": "164772bdc98ad14dbe0d98fd5f4e4be82df94373a247c510582e481506d0e2f9"
   },
   "execution": {
     "executionHash": "c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96",

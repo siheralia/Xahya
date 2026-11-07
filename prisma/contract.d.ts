@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'b9c09446c4a30a682a6f04901c33dc7cf254fd004b03f5069f4037e4e6fcf3fc'>;
+  StorageHashBase<'164772bdc98ad14dbe0d98fd5f4e4be82df94373a247c510582e481506d0e2f9'>;
 export type ExecutionHash =
   ExecutionHashBase<'c5f81d4235e18c9a9c33300926a446a3a04b19992cd75a347b179b7ee0717e96'>;
 export type ProfileHash =
@@ -734,6 +734,7 @@ export type FieldOutputTypes = {
       readonly lastLoginAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly lastLoginSessionId: CodecTypes['pg/text@1']['output'] | null;
       readonly lastNotificationReadAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly musicTheme: CodecTypes['pg/json@1']['output'] | null;
     };
     readonly WorldInfrastructure: {
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -1352,6 +1353,7 @@ export type FieldInputTypes = {
       readonly lastLoginAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly lastLoginSessionId: CodecTypes['pg/text@1']['input'] | null;
       readonly lastNotificationReadAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly musicTheme: CodecTypes['pg/json@1']['input'] | null;
     };
     readonly WorldInfrastructure: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -1968,6 +1970,7 @@ export type StorageColumnTypes = {
       readonly lastLoginAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly lastLoginSessionId: CodecTypes['pg/text@1']['output'] | null;
       readonly lastNotificationReadAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly musicTheme: CodecTypes['pg/json@1']['output'] | null;
       readonly name: CodecTypes['pg/text@1']['output'] | null;
       readonly role: CodecTypes['pg/text@1']['output'];
     };
@@ -2586,6 +2589,7 @@ export type StorageColumnInputTypes = {
       readonly lastLoginAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly lastLoginSessionId: CodecTypes['pg/text@1']['input'] | null;
       readonly lastNotificationReadAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly musicTheme: CodecTypes['pg/json@1']['input'] | null;
       readonly name: CodecTypes['pg/text@1']['input'] | null;
       readonly role: CodecTypes['pg/text@1']['input'];
     };
@@ -2724,6 +2728,7 @@ export namespace Models {
     lastLoginAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     lastLoginSessionId: CodecTypes['pg/text@1']['output'] | null;
     lastNotificationReadAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+    musicTheme: CodecTypes['pg/json@1']['output'] | null;
     auditLogsAsActor: public_AuditLog[];
     auditLogsAsTarget: public_AuditLog[];
     characters: public_Character[];
@@ -8078,6 +8083,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-temporal@1';
                   readonly nullable: true;
                 };
+                readonly musicTheme: {
+                  readonly nativeType: 'json';
+                  readonly codecId: 'pg/json@1';
+                  readonly nullable: true;
+                };
               };
               primaryKey: { readonly columns: readonly ['id'] };
               uniques: readonly [
@@ -13416,6 +13426,10 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-temporal@1';
                 };
               };
+              readonly musicTheme: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
+              };
             };
             readonly relations: {
               readonly auditLogsAsActor: {
@@ -13465,6 +13479,7 @@ type ContractBase = Omit<
                 readonly lastLoginAt: { readonly column: 'lastLoginAt' };
                 readonly lastLoginSessionId: { readonly column: 'lastLoginSessionId' };
                 readonly lastNotificationReadAt: { readonly column: 'lastNotificationReadAt' };
+                readonly musicTheme: { readonly column: 'musicTheme' };
               };
             };
           };

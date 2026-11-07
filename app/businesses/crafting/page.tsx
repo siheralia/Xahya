@@ -7,6 +7,7 @@ import type {ManagedCraftRecipe} from "@/lib/managed-crafting";
 
 type Offer={
  businessId:number;businessName:string;
+ artisans:{characterId:number;name:string;source:"OWNER"|"EMPLOYEE"}[];
  recipe:ManagedCraftRecipe;
  output:{id:number;name:string;itemType:string};
  materials:{itemId:number;name:string;quantity:number}[];
@@ -20,6 +21,7 @@ export default function CraftingPage(){
  const [inventory,setInventory]=useState<Owned[]>([]);
  const [businessId,setBusinessId]=useState("");
  const [recipeId,setRecipeId]=useState("");
+ const [artisanId,setArtisanId]=useState("");
  const [characterId,setCharacterId]=useState("");
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
@@ -38,7 +40,8 @@ export default function CraftingPage(){
    const items=(catalog.offers??[]) as Offer[];
    const chars=Array.isArray(characters)?characters as Character[]:[];
    setOffers(items);setCharacters(chars);
-   if(items.length){setBusinessId(String(items[0].businessId));setRecipeId(items[0].recipe.id);}
+   if(items.length){setBusinessId(String(items[0].businessId));setRecipeId(items[0].recipe.id);
+    setArtisanId(String(items[0].artisans?.[0]?.characterId??""));}
    if(chars.length)setCharacterId(String(chars[0].id));
   }).catch(e=>{if(alive)setError(e instanceof Error?e.message:"No se pudieron cargar las forjas.");})
    .finally(()=>{if(alive)setLoading(false);});
@@ -61,15 +64,16 @@ export default function CraftingPage(){
  const shops=[...new Map(offers.map(x=>[x.businessId,x.businessName])).entries()];
  const inShop=offers.filter(x=>String(x.businessId)===businessId);
  const selected=inShop.find(x=>x.recipe.id===recipeId)??inShop[0];
+ const artisan=selected?.artisans.find(x=>String(x.characterId)===artisanId)??selected?.artisans[0];
  const character=characters.find(x=>String(x.id)===characterId);
  const holdings=(itemId:number)=>inventory.filter(x=>x.itemId===itemId&&!x.equipped)
   .reduce((sum,x)=>sum+Number(x.quantity),0);
- const canCraft=!!selected&&!!character&&Number(character.money)>=selected.recipe.fee&&
+ const canCraft=!!selected&&!!artisan&&!!character&&Number(character.money)>=selected.recipe.fee&&
   selected.materials.every(x=>holdings(x.itemId)>=x.quantity)&&!busy;
  async function craft(){
-  if(!selected||!characterId||busy)return;
+  if(!selected||!artisan||!characterId||busy)return;
   setBusy(true);setError("");setMessage("");
-  const signature=[selected.businessId,selected.recipe.id,characterId].join(":");
+  const signature=[selected.businessId,selected.recipe.id,characterId,artisan.characterId].join(":");
   if(!currentRequest.current||currentRequest.current.signature!==signature)
    currentRequest.current={
     signature,requestId:"Craft"+crypto.randomUUID().replaceAll("-","")
@@ -79,14 +83,17 @@ export default function CraftingPage(){
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
      businessId:selected.businessId,recipeId:selected.recipe.id,
-     characterId:Number(characterId),requestId:currentRequest.current.requestId
+     characterId:Number(characterId),artisanCharacterId:artisan.characterId,
+     requestId:currentRequest.current.requestId
     })
    });
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"No se pudo fabricar.");
    currentRequest.current=null;
    setMessage((data.replayed?"Encargo recuperado: ":"Fabricación completada: ")+
-    data.quantity+" × "+data.itemName+" añadidos al inventario. Coste: ◈ "+data.fee+".");
+    data.quantity+" × "+data.itemName+" añadidos al inventario. Coste: ◈ "+data.fee+". "+
+    "Artesano: "+data.artisanName+" · "+(data.craftsmanship?.grade??"NORMAL").toLowerCase()+". "+
+    (data.craftsmanship?.savedMaterials?.length?"Se ahorraron algunos materiales.":""));
    setCharacters(xs=>xs.map(x=>x.id===Number(characterId)?{...x,money:data.money}:x));
    await loadInventory(characterId);
   }catch(e){setError(e instanceof Error?e.message:"No se pudo completar el encargo.");}
@@ -111,18 +118,32 @@ export default function CraftingPage(){
        <label className="block text-sm">Taller
         <select className={field} value={businessId} onChange={e=>{
          setBusinessId(e.target.value);
-         setRecipeId(offers.find(x=>String(x.businessId)===e.target.value)?.recipe.id??"");
+         const first=offers.find(x=>String(x.businessId)===e.target.value);
+         setRecipeId(first?.recipe.id??"");setArtisanId(String(first?.artisans?.[0]?.characterId??""));
          currentRequest.current=null;setMessage("");
         }}>{shops.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select>
        </label>
        <label className="block text-sm">Receta autorizada
         <select className={field} value={selected?.recipe.id??""} onChange={e=>{
-         setRecipeId(e.target.value);currentRequest.current=null;setMessage("");
+         const next=inShop.find(x=>x.recipe.id===e.target.value);
+         setRecipeId(e.target.value);setArtisanId(String(next?.artisans?.[0]?.characterId??""));
+         currentRequest.current=null;setMessage("");
         }}>{inShop.map(x=><option key={x.recipe.id} value={x.recipe.id}>
          {x.recipe.kind==="FORGE"?"Forjar":"Fabricar"} · {x.recipe.name}
         </option>)}</select>
        </label>
       </>}
+     {selected&&<label className="block text-sm">Artesano responsable
+      <select className={field} value={artisan?.characterId??""} onChange={e=>{
+       setArtisanId(e.target.value);currentRequest.current=null;setMessage("");
+      }}>
+       {selected.artisans.length===0&&<option value="">Sin artesanos habilitados</option>}
+       {selected.artisans.map(x=><option key={x.characterId} value={x.characterId}>
+        {x.name} · {x.source==="EMPLOYEE"?"Empleado contratado":"Propietario"}
+       </option>)}
+      </select>
+      <p className="mt-1 text-xs text-zinc-500">Su inteligencia, sabiduría y agilidad efectivas determinan cuánto material puede aprovechar. Las recetas muestran el consumo máximo.</p>
+     </label>}
      <label className="block text-sm">Personaje que paga, entrega los materiales y recibe el objeto
       <select className={field} value={characterId} onChange={e=>{
        setCharacterId(e.target.value);currentRequest.current=null;setMessage("");
@@ -143,7 +164,7 @@ export default function CraftingPage(){
         {x.quantity} × {x.name} · Tienes {holdings(x.itemId)}
        </li>)}
       </ul>
-      {selected.recipe.requiresEmployee&&<p className="text-xs text-sky-300">Requiere empleado contratado activo.</p>}
+      {selected.recipe.requiresEmployee&&<p className="text-xs text-sky-300">Requiere un empleado contratado y activo para realizar el trabajo.</p>}
       {selected.recipe.customerAccess==="OWNER_ONLY"&&
        <p className="text-xs text-orange-300">Solo el personaje dueño puede encargar esta receta.</p>}
       <p className="text-xs text-zinc-500">El encargo consume materiales sin equipar y dinero en una única transacción, y entrega objetos reales al inventario. No se puede fabricar durante un combate.</p>

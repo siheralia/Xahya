@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
 import { angleDistance, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
-import { createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
+import { BATTLE_TURN_SECONDS, createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
 import { elapsedSlideProgress, orbitalEventsBetween, playOrbitalSound } from "@/lib/orbital-playback.mjs";
 import { createGoldenScore, parseOrbitalScore, SCORE_FORMAT } from "@/lib/orbital-score.mjs";
 import type { OrbitalScore, OrbitalSlide } from "@/lib/orbital-score.mjs";
@@ -43,7 +43,7 @@ export default function OrbitalMusicPage() {
   const [slides, setSlides] = useState<OrbitalSlide[][]>(() => BATTLE_SCORE.rings.map((ring) => [...ring.slides]));
   const [phases, setPhases] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.phase));
   const [muted, setMuted] = useState<boolean[]>(() => BATTLE_SCORE.rings.map((ring) => !ring.enabled));
-  const [groupDurations, setGroupDurations] = useState<[number, number]>([16, 16]);
+  const [groupDurations, setGroupDurations] = useState<[number, number]>([BATTLE_TURN_SECONDS, BATTLE_TURN_SECONDS]);
   const [groupDirections, setGroupDirections] = useState<[1 | -1, 1 | -1]>([1, 1]);
   const [startDelays, setStartDelays] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.delay));
   const [volume, setVolume] = useState(55);
@@ -53,10 +53,10 @@ export default function OrbitalMusicPage() {
   const [scoreName, setScoreName] = useState(BATTLE_SCORE.title);
   const [ownTheme, setOwnTheme] = useState<OrbitalScore | null>(null);
   const [themeBusy, setThemeBusy] = useState(false);
-  const [slideRing, setSlideRing] = useState("E5");
-  const [slideAngle, setSlideAngle] = useState("5.625");
-  const [slideTarget, setSlideTarget] = useState("G5");
-  const [slideDuration, setSlideDuration] = useState(0.5);
+  const [slideRing, setSlideRing] = useState("B5");
+  const [slideAngle, setSlideAngle] = useState("39.375");
+  const [slideTarget, setSlideTarget] = useState("C6");
+  const [slideDuration, setSlideDuration] = useState(0.15);
   const [savedScores, setSavedScores] = useState<OrbitalScore[]>([]);
   const [selectedScore, setSelectedScore] = useState("");
   const [scoreMessage, setScoreMessage] = useState("");
@@ -703,7 +703,7 @@ export default function OrbitalMusicPage() {
                 </label>
                 <label className="block text-xs text-emerald-100/75">
                   <span className="flex justify-between"><span>Duración del deslizamiento</span><span>{slideDuration.toFixed(1)} s</span></span>
-                  <input type="range" min="0.1" max="3" step="0.1" value={slideDuration}
+                  <input type="range" min="0.1" max="3" step="0.05" value={slideDuration}
                     onChange={(event) => setSlideDuration(Number(event.target.value))}
                     className="mt-2 w-full accent-emerald-300"/>
                 </label>

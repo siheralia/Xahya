@@ -1,13 +1,14 @@
 /**
- * Contract for business-managed repair services.
- * An advertised service is not an arbitrary executable skill; its only legal
- * intent is to restore one server-selected inventory copy.
- * Configurations live in AppSetting under a per-business key (no migration).
+ * Repair service contract and safe modular effect evaluator.
+ * Definitions are now created centrally in management and assigned by
+ * lib/managed-repair-services.ts. The old per-business helpers below are
+ * retained only to parse historical rows; no live route executes them.
  */
 import {emptyMicroState,executeMicroEvent,validateEffectContainers,
  type EffectContainer,type MicroIntent} from "./effects/micro-modules.ts";
 import type {RepairableItem} from "./effects/repair-durability.ts";
 
+/** Deprecated, read-only historical identifier. Never authorize a repair with it. */
 export const REPAIR_SERVICE_PREFIX="business_repair_service_v1:";
 export const businessRepairKey=(businessId:number)=>REPAIR_SERVICE_PREFIX+businessId;
 export type RepairService={

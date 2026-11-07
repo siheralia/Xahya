@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {compileCombatSkill,previewSkillExecution} from "../lib/combat/skill-casting.ts";
 import {compileSummonTemplates,summonStat} from "../lib/combat/summons.ts";
-import {newCombatState,applyResolvedCombatSkill,applyCombatCommand,canAct,remainingAp} from "../lib/combat/turn-engine.ts";
+import {newCombatState,applyResolvedCombatSkill,applyCombatCommand,basicCounterAttack,canAct,remainingAp} from "../lib/combat/turn-engine.ts";
+import {chooseNpcReaction,progressTrainingNpc} from "../lib/combat/npc-policy.ts";
 import {isCombatActionReplay,recordCombatAction} from "../lib/combat/action-idempotency.ts";
 
 const fighter=(name,positionMeters,override={})=>({
@@ -86,6 +87,21 @@ test("order an attack with linked 20% offense, resolving through normal paid def
  assert.ok(s.actors.NPC.hp<hp,"summon attack must actually lower the target's HP");
  assert.ok(hp-s.actors.NPC.hp<40,"20% summon offense must not inherit owner's full 100 attack");
  assert.equal(s.pending,null);
+});
+
+test("training NPC never chooses a simultaneous counter against a summon strike",()=>{
+ const plan=compileCombatSkill(configured(selected()));
+ let s=cast(makeState(fighter("Caster",0,{speedValue:250,agility:250}),
+   fighter("Training NPC",1.2,{speedValue:20,agility:20})),plan);
+ const summonId=s.summons[0].id;
+ s=applyCombatCommand(s,"PLAYER",{kind:"COMMAND_SUMMON",order:"ATTACK",summonId});
+ assert.equal(s.pending.summonId,summonId);
+ s.actors.NPC.spentTicks=80; // A normal defense would consume the NPC's remaining window.
+ assert.ok(basicCounterAttack(s,"NPC"),"the original bug could offer a forbidden counter");
+ assert.notEqual(chooseNpcReaction(s,()=>0.2).defense,"COUNTER");
+ const resolved=progressTrainingNpc(s,()=>rolls,()=>0.2);
+ assert.ok(resolved.log.some(e=>e.kind==="RESOLVE"&&e.summonId===summonId));
+ assert.equal(resolved.pending,null);
 });
 
 test("owner can change only approved behaviors, and summon manual move obeys the radius",()=>{

@@ -29,7 +29,8 @@ test("a basic counter accepts the incoming magic damage and deals simultaneous p
  assert.equal(response.actors.NPC.spentTicks,turnTicks(before.actors.NPC,"CUT"));
  assert.equal(remainingAp(response.actors.NPC),remainingAp(before.actors.NPC)-1);
  assert.equal(response.mana.NPC.current,10,"physical counter does not consume magic");
- assert.ok(response.log.some(e=>e.kind==="RESOLVE"&&e.by==="NPC"));
+ assert.ok(response.log.some(e=>e.kind==="RESOLVE"&&e.by==="NPC"&&e.simultaneousCounter===true),
+  "the retaliatory strike must be identifiable to the damage-notification UI");
  assert.ok(response.log.some(e=>e.kind==="RESOLVE"&&e.by==="PLAYER"&&e.defense==="COUNTER"));
 });
 

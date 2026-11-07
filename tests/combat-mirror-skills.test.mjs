@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {compileCombatSkill,previewSkillExecution} from "../lib/combat/skill-casting.ts";
 import {projectApprovedCombatSkills,availableConstructionMaterials} from "../lib/combat/skill-preview.ts";
-import {newCombatState,applyCombatCommand,applyResolvedCombatSkill} from "../lib/combat/turn-engine.ts";
-import {progressTrainingNpc} from "../lib/combat/npc-policy.ts";
+import {newCombatState,applyCombatCommand,applyResolvedCombatSkill,canAct} from "../lib/combat/turn-engine.ts";
+import {chooseNpcReaction,progressTrainingNpc} from "../lib/combat/npc-policy.ts";
 import {combatClientView} from "../lib/combat/magic-area.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "../lib/combat/narration.ts";
 const skill={
@@ -81,6 +81,41 @@ test("casting creates mirror at chosen position and launches piercing magical ra
  assert.ok(defended.actors.NPC.hp<100);
  assert.equal(defended.constructions.length,1,"mirror survives initial ray");
 });
+test("encounter 66: after NPC dodges mirror, a second mirror can be cast in the same round",()=>{
+ let s=cast(initial(),"mirror-first-same-round");
+ const firstMirror=s.constructions[0].id;
+ assert.equal(s.round,1);
+ s=progressTrainingNpc(s,()=>dice,()=>0.1);
+ assert.equal(s.pending,null,"the NPC must resolve the first mirror before the player acts again");
+ assert.equal(s.round,1);
+ assert.ok(canAct(s,"PLAYER"),"there is still initiative budget for another mirror in round 1");
+ assert.equal(s.skillCooldowns?.PLAYER?.["1"],0,"mirror has no same-round cooldown");
+ s=cast(s,"mirror-second-same-round",{x:.62,y:.38});
+ assert.equal(s.round,1);
+ assert.equal(s.constructions.length,2);
+ assert.equal(s.pending.mirrorId,s.constructions[1].id);
+ assert.notEqual(s.pending.mirrorId,firstMirror);
+ assert.equal(s.mana.PLAYER.current,30,"each mirror pays its normal 15-mana cost");
+});
+
+test("mirror casting UI is not blocked by an unrelated movement-attack plan",()=>{
+ const encounter=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
+ const loadout=readFileSync(new URL("../app/combat/[id]/CombatSkillLoadout.tsx",import.meta.url),"utf8");
+ assert.match(encounter,/canUseSkill=\{ready\}/,
+  "the general skill gate must depend on real initiative, not attack movement");
+ assert.match(encounter,/canUseAttackSkill=\{ready&&!missingMoveTrace/);
+ assert.match(loadout,/invalidAttackMovement=skill\.skillKind==="OFFENSE"&&!canUseAttackSkill/);
+ assert.match(loadout,/!canUseSkill\|\|invalidAttackMovement\|\|busy/);
+ assert.match(encounter,/No es un ataque entrante/,
+  "a pending defense against the player's mirror must not claim the player is being attacked");
+ assert.match(encounter,/const hasIncomingReaction=defending&&hasAccess/,
+  "do not auto-focus the player's reaction while the NPC is dodging a mirror");
+ assert.match(encounter,/reactionSectionRef\.current\?\.scrollIntoView/,
+  "a real incoming attack must bring defensive choices into view");
+ assert.match(encounter,/ref=\{reactionSectionRef\}/);
+
+});
+
 test("surviving mirror fires next round without spending another PA or mana",()=>{
  let s=cast(initial());
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
@@ -99,6 +134,30 @@ test("surviving mirror fires next round without spending another PA or mana",()=
  assert.equal(s.actors.PLAYER.spentAp,0);
  assert.equal(s.mana.PLAYER.current,45);
 });
+test("encounter 66: training NPC uses a normal defense against manual and automatic mirror rays",()=>{
+ let manual=cast(initial());
+ manual.actors.NPC.speedValue=11;
+ manual.actors.NPC.agility=11;
+ assert.equal(manual.pending.mirrorId,manual.constructions[0].id);
+ assert.notEqual(chooseNpcReaction(manual,()=>0.2).defense,"COUNTER");
+ const first=progressTrainingNpc(manual,()=>dice,()=>0.2);
+ assert.ok(first.log.some(e=>e.kind==="RESOLVE"&&e.mirrorShot),
+   "an NPC response must resolve the player's mirror without throwing");
+
+ let automatic=cast(initial(),"mirror-auto-regression-66");
+ automatic=applyCombatCommand(automatic,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ automatic.actors.PLAYER.spentTicks=100;
+ automatic.actors.NPC.spentTicks=80;
+ automatic=applyCombatCommand(automatic,"NPC",{kind:"WAIT"},dice);
+ assert.equal(automatic.pending?.mirrorAuto,true);
+ automatic.actors.NPC.speedValue=11;
+ automatic.actors.NPC.agility=11;
+ assert.notEqual(chooseNpcReaction(automatic,()=>0.2).defense,"COUNTER");
+ const second=progressTrainingNpc(automatic,()=>dice,()=>0.2);
+ assert.ok(second.log.filter(e=>e.kind==="RESOLVE"&&e.mirrorShot).length>=2,
+   "the automatic ray must resolve instead of trapping the encounter");
+});
+
 test("physical attack aimed at enemy mirror breaks it, leaving fighter uninjured",()=>{
  let s=cast(initial());
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);

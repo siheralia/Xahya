@@ -9,6 +9,7 @@ import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
 import {combatWeaponOperational} from "@/lib/combat/weapon-readiness";
 import {combatChargeBalance} from "@/lib/combat/charge-pools";
+import {summarizeIncomingDamage} from "@/lib/combat/incoming-damage";
 import {activeChaosField,chaosRotationDegrees} from "@/lib/combat/chaos-fusion";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2, Eye, ChevronDown, X, Info} from "lucide-react";
@@ -117,6 +118,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [error,setError]=useState("");
  const [shareStatus,setShareStatus]=useState("");
  const [actionFeedback,setActionFeedback]=useState("");
+ const [dismissedIncomingNotice,setDismissedIncomingNotice]=useState("");
  const [narrativeCopyStatus,setNarrativeCopyStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
  useEffect(()=>{setPreparedAreaSkill(null);setFieldMove(null);setConstructionFieldPoint(null);},[side]);
@@ -162,6 +164,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [flash,setFlash]=useState(false);
  const lastResolution=useRef("");
  const canvas=useRef<SVGSVGElement|null>(null);
+ const reactionSectionRef=useRef<HTMLDivElement|null>(null);
  const castRequestRef=useRef<{key:string;id:string}|null>(null);
  const itemRequestRef=useRef<{key:string;id:string}|null>(null);
  // Retain the same request ID after a network failure or repeated tap while
@@ -353,9 +356,11 @@ export default function CombatEncounter({id}:{id:string}) {
  // Reflect the authoritative server fallback before the user draws an aim point.
  const hasReactionBudget=!!actor&&remainingAp(actor)>0&&actor.spentTicks<100;
  const counterPlan=state?basicCounterAttack(state,side,counterMagic):null;
- const selectedDefense:DefenseChoice=!hasReactionBudget?"NONE":(defense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
-  ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
-  : (defense==="MAGIC_FIELD"||(pending?.attackArea&&defense==="DEFLECT")?"DODGE":defense);
+ const counterAllowed=!(pending?.summonId||pending?.mirrorAuto||pending?.mirrorId);
+ const requestedDefense:DefenseChoice=!counterAllowed&&defense==="COUNTER"?"DODGE":defense;
+ const selectedDefense:DefenseChoice=!hasReactionBudget?"NONE":(requestedDefense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
+  ? (["BLOCK","REPEL","DEFLECT"].includes(requestedDefense)?"DODGE":requestedDefense)
+  : (requestedDefense==="MAGIC_FIELD"||(pending?.attackArea&&requestedDefense==="DEFLECT")?"DODGE":requestedDefense);
  const hasAccess=view?.permissions[side]??false;
  useEffect(()=>{
   const characterId=actor?.characterId;
@@ -383,6 +388,15 @@ export default function CombatEncounter({id}:{id:string}) {
    selectedAttackTargetId.slice(7):undefined;
  const selectedMirrorId=selectedSummonId?undefined:selectedAttackTargetId||undefined;
  const defending=!!pending&&pending.against===side;
+ const hasIncomingReaction=defending&&hasAccess;
+ // Do not leave actual defense choices hidden under unrelated skill modals.
+ useEffect(()=>{
+  if(!hasIncomingReaction)return;
+  setPanel("none");
+  setAttackOptionsOpen(false);
+  setConstructionOptionsOpen(false);
+  reactionSectionRef.current?.scrollIntoView({behavior:"smooth",block:"start"});
+ },[hasIncomingReaction,pending?.launchedAtTick]);
  const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
  const npcNeedsInitiative=Boolean(state&&state.status==="ACTIVE"&&
    state.actors.NPC.characterId===null&&hasAccess&&side==="PLAYER"&&!state.pending&&
@@ -561,6 +575,11 @@ export default function CombatEncounter({id}:{id:string}) {
    setNarrativeCopyStatus("No se pudo copiar automáticamente. Selecciona el texto y cópialo manualmente.");
   }
  }
+ // Reconstruct missed damage notices from the durable combat log, even on reload.
+ const incomingDamage=state?summarizeIncomingDamage(state.log,side):null;
+ const incomingNoticeKey=incomingDamage?
+  [id,side,incomingDamage.hitCount,incomingDamage.latest.tick,incomingDamage.latest.summary].join(":"):"";
+ const counterRisk=!!state&&!pending&&!!basicCounterAttack(state,opposingSide);
  const combatStatRows:Array<[string,string|number|undefined]>=[
   ["HP",actor?actor.hp+"/"+actor.maxHp:"—"],
   ["Maná",state?.mana?.[side]?state.mana[side].current+"/"+state.mana[side].max:"—"],
@@ -590,6 +609,33 @@ export default function CombatEncounter({id}:{id:string}) {
   {shareStatus&&<p role="status" className="mb-3 text-sm text-cyan-300">{shareStatus}</p>}
   {actionFeedback&&<p role="status" className="mb-3 rounded-lg border border-emerald-700/50 bg-emerald-950/20 p-3 text-sm text-emerald-200">{actionFeedback}</p>}
   {!state?<p>Cargando combate…</p>:<>
+   {hasIncomingReaction&&<div role="alert"
+    className="sticky top-1 z-[65] mb-3 rounded-lg border border-amber-300 bg-amber-950/95 p-3 text-sm font-semibold text-amber-100 shadow-xl">
+     ¡Ataque entrante contra {state.actors[side].name}! Debes elegir una defensa en el panel de reacción.
+    </div>}
+   {incomingDamage&&incomingNoticeKey!==dismissedIncomingNotice&&
+    <aside role="alert" aria-label="Daño recibido del oponente"
+     className="sticky top-1 z-[60] mb-4 rounded-xl border border-rose-400 bg-rose-950/95 px-3 py-3 text-sm text-rose-100 shadow-xl backdrop-blur">
+     <div className="flex items-start justify-between gap-3">
+      <div>
+       <p className="font-bold">¡Te golpeó el oponente! −{incomingDamage.latest.damage} HP · tick {incomingDamage.latest.tick}</p>
+       <p className="mt-1">{incomingDamage.latest.summary}</p>
+       <p className="mt-1 text-rose-200">
+        En este encuentro recibiste {incomingDamage.hitCount} {incomingDamage.hitCount===1?"golpe":"golpes"}
+        {" "}({incomingDamage.totalDamage} HP de daño en total). HP actual: {state.actors[side].hp}/{state.actors[side].maxHp}.
+       </p>
+       {incomingDamage.latest.simultaneous&&
+        <p className="mt-1 text-amber-200">
+         Fue un intercambio simultáneo durante tu ataque; esta mecánica no abre una segunda oportunidad de esquivar.
+        </p>}
+      </div>
+      <button type="button" aria-label="Cerrar aviso de daño"
+       onClick={()=>setDismissedIncomingNotice(incomingNoticeKey)}
+       className="shrink-0 rounded-md border border-rose-400/50 p-1 text-rose-100 hover:bg-rose-900">
+       <X size={18}/>
+      </button>
+     </div>
+    </aside>}
    <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-zinc-700 p-3 text-sm">
     <span>Turno: <b>{state.round}</b></span><span>Tick global: <b>{state.tick}</b></span>
     <span>{state.status==="ACTIVE"?"En curso":"Finalizado"}</span>
@@ -651,6 +697,12 @@ export default function CombatEncounter({id}:{id:string}) {
        {ready?"Puedes actuar.":"En espera: el oponente debe avanzar sus ticks o se agotaron tus PA."}
        {" "}Las acciones gastan PA y ticks según la velocidad; la IA rival avanza automáticamente.
       </p>}
+    {ready&&counterRisk&&
+     <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+      Atención: si atacas, el oponente podría responder con «Intercambiar golpes».
+      Ambos ataques se resuelven juntos, sin una segunda pantalla para esquivar.
+      Si recibes daño, aparecerá un aviso persistente.
+     </p>}
     {state.status==="ACTIVE" && !pending && !ready && side==="PLAYER" && hasAccess
       && state.actors.NPC.characterId===null &&
       <button type="button" disabled={busy} onClick={()=>void submit({kind:"ADVANCE"})}
@@ -1010,7 +1062,7 @@ export default function CombatEncounter({id}:{id:string}) {
       </div>;})}
      </div>
     </section>}
-    {defending&&hasAccess&&<div className="mt-4 space-y-3">
+    {defending&&hasAccess&&<div ref={reactionSectionRef} className="mt-4 scroll-mt-24 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
      {!hasReactionBudget&&<p role="status" className="rounded-lg border border-amber-400/50 bg-amber-400/10 p-3 text-sm text-amber-200">
       No puedes esquivar ni defenderte activamente: {actor&&remainingAp(actor)<=0?"agotaste tus puntos de acción":"agotaste los 100 ticks de este turno"}. Puedes recibir el impacto sin gastar otra acción.
@@ -1020,7 +1072,7 @@ export default function CombatEncounter({id}:{id:string}) {
         ? ["DODGE","MAGIC_FIELD","CONSTRUCTION","ENDURE","COUNTER","NONE"].includes(opt.value)&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)
         : opt.value!=="MAGIC_FIELD"&&(!pending.attackArea||opt.value!=="DEFLECT")&&
-          (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).filter(opt=>!pending.summonId||opt.value!=="COUNTER").map(opt=>{
+          (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).filter(opt=>counterAllowed||opt.value!=="COUNTER").map(opt=>{
        const DefenseIcon=defenseIcons[opt.value];
        const active=selectedDefense===opt.value;
        return <button key={opt.value} type="button" aria-pressed={active} aria-label={opt.label} title={opt.label}
@@ -1341,11 +1393,12 @@ export default function CombatEncounter({id}:{id:string}) {
    <CombatDialog open={panel==="skills"} title="Habilidades de combate" onClose={closePanel}>
     {error&&<p role="alert" className="mb-3 rounded-lg border border-rose-700/50 p-2 text-sm text-rose-200">{error}</p>}
     {!ready&&state.status==="ACTIVE"&&<p role="status" className="mb-3 rounded-lg border border-amber-500/40 p-2 text-sm text-amber-300">
-      {advancingNpc?"El adversario está tomando su iniciativa.":defending?"Tienes una reacción pendiente; resuélvela antes de lanzar una habilidad.":"La habilidad estará disponible cuando te corresponda actuar."}
+      {advancingNpc?"El adversario está tomando su iniciativa.":defending?"Tienes una reacción pendiente; resuélvela antes de lanzar una habilidad.":pending?.against===opposingSide?"Tu ataque está pendiente de la reacción del adversario. No es un ataque entrante; espera a que se resuelva.":"La habilidad estará disponible cuando te corresponda actuar."}
     </p>}
    <CombatSkillLoadout encounterId={id} side={side} authorized={hasAccess}
     onPrepareArea={prepareAreaSkill} preparedAreaSkillId={preparedAreaSkill?.id??null}
-    canUseSkill={ready&&!missingMoveTrace&&(!preparedMovement||canCombineAttack)} busy={busy} round={state.round}
+    canUseSkill={ready}
+    canUseAttackSkill={ready&&!missingMoveTrace&&(!preparedMovement||canCombineAttack)} busy={busy} round={state.round}
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
     chargeState={state}

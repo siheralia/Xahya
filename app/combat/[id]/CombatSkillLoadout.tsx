@@ -19,9 +19,9 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,canUseSkill,busy,round,mana,cooldowns,chargeState,onCast,onPrepareArea,preparedAreaSkillId,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,
+ encounterId,side,authorized,canUseSkill,canUseAttackSkill,busy,round,mana,cooldowns,chargeState,onCast,onPrepareArea,preparedAreaSkillId,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,
 }:{encounterId:string;side:Side;authorized:boolean;
- canUseSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
+ canUseSkill:boolean;canUseAttackSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
  chargeState?:CombatState|null;
  onCast:(skill:CombatSkillPreview,chargesToSpend?:number)=>void;
  onPrepareArea:(skill:CombatSkillPreview)=>void;preparedAreaSkillId:number|null;
@@ -111,7 +111,11 @@ export default function CombatSkillLoadout({
        const missingFusion=Boolean(skill.fusion)&&!skill.fusion!.sourceEntityKeys.every(key=>
          chargeState?.summons?.some(s=>s.owner===side&&s.entityKey===key&&
            s.integrity>0&&s.expiresAtRound>round));
-       const blocked=!skill.requirementsSatisfied||!canUseSkill||busy||onCooldown||missingCharges||missingFusion||
+       // Only OFFENSE skills inherit the movement+attack trace/PA checks.
+       // Construction (including magic mirrors), summons and support skills
+       // spend their own action without consuming a prepared movement trace.
+       const invalidAttackMovement=skill.skillKind==="OFFENSE"&&!canUseAttackSkill;
+       const blocked=!skill.requirementsSatisfied||!canUseSkill||invalidAttackMovement||busy||onCooldown||missingCharges||missingFusion||
          mana===null||mana<skill.manaCost||missingAim||outOfRange;
        const reason=missingFusion
          ?"Necesitas tener activas todas las criaturas que participarán en la fusión."
@@ -123,7 +127,8 @@ export default function CombatSkillLoadout({
          : mana===null?"El encuentro no tiene maná de fase 2. Inicia uno nuevo."
          : mana<skill.manaCost?"Maná insuficiente"
          : missingAim?(skill.skillKind==="CONSTRUCTION"?"Marca la posición de la construcción en el terreno.":skill.attackArea?"Prepara esta área en el lienzo superior y marca el epicentro.":"Marca el centro en modalidad Explosión mágica del lienzo superior.")
-         : !canUseSkill?"La habilidad está lista, pero debes esperar tu iniciativa o resolver una reacción pendiente.":null;
+         : !canUseSkill?"La habilidad está lista, pero debes esperar tu iniciativa o resolver una reacción pendiente."
+         : invalidAttackMovement?"Para combinar movimiento y ataque necesitas un trazo válido y 2 PA. Ajusta el movimiento antes de lanzar esta técnica.":null;
        return <div className="space-y-2">
         {skill.fusion&&<div className="space-y-2 rounded-lg border border-fuchsia-700/40 bg-fuchsia-950/20 p-3 text-xs">
           <p className="font-semibold text-fuchsia-200">🌀 Fusión: {skill.fusion.summon.label}</p>

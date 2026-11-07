@@ -8,6 +8,20 @@ const source = fs.readFileSync(path.join(__dirname, "../lib/skills/pch.ts"), "ut
 const pchExports = {};
 vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: pchExports, require });
 test("each skill coin represents ten PCH", () => assert.equal(pchExports.PCH_PER_COIN, 10));
+test("upgrade coin separately gives five PCH", () => assert.equal(pchExports.PCH_PER_UPGRADE_COIN, 5));
+test("copy capacity prices linearly in 5-PCH steps, preserving the original 25 capacity",()=>{
+  assert.equal(pchExports.effectPchCost({type:"COPY_SKILL",value:25}),20);
+  assert.equal(pchExports.effectPchCost({type:"COPY_SKILL",value:94}),34);
+  assert.equal(pchExports.effectPchCost({type:"COPY_SKILL",value:368}),89);
+  const initial=Math.ceil(2 * pchExports.effectPchCost({type:"COPY_SKILL",value:25}) - 50/5);
+  const upgraded=Math.ceil(2 * pchExports.effectPchCost({type:"COPY_SKILL",value:94}) - 50/5);
+  assert.equal(initial,30);
+  assert.equal(upgraded,58);
+  assert.equal(upgraded-initial,28);
+  assert.ok(pchExports.effectPchCost({type:"COPY_SKILL",value:100})>
+    pchExports.effectPchCost({type:"COPY_SKILL",value:94}));
+});
+
 test("narrative effect has a fixed starting price", () => assert.equal(pchExports.calculateSkillPch([{ type: "NARRATIVE", description: "A narrative effect" }]), 5));
 test("effects sum and power raises their cost", () => assert.equal(pchExports.calculateSkillPch([{ type: "STAT_BONUS", value: 1 }, { type: "STAT_BONUS", value: 4 }]), 6));
 test("empty skills cannot be priced", () => assert.equal(pchExports.calculateSkillPch([]), 0));

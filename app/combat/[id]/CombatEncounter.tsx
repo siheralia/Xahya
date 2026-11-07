@@ -4,6 +4,7 @@ import Link from "next/link";
 import CombatSkillLoadout from "./CombatSkillLoadout";
 import CombatCharacterHud, {type CombatPanel} from "./CombatCharacterHud";
 import CombatDialog from "./CombatDialog";
+import CombatMusicPlayer from "@/components/music/CombatMusicPlayer";
 import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
 import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
@@ -607,6 +608,7 @@ export default function CombatEncounter({id}:{id:string}) {
     <Link className="text-cyan-300" href="/combat">Nuevo encuentro</Link>
    </div>
   </div>
+  <CombatMusicPlayer active={state?.status === "ACTIVE"}/>
   {error&&<p role="alert" className="mb-4 rounded-lg border border-rose-600/50 p-3 text-rose-300">{error}</p>}
   {shareStatus&&<p role="status" className="mb-3 text-sm text-cyan-300">{shareStatus}</p>}
   {actionFeedback&&<p role="status" className="mb-3 rounded-lg border border-emerald-700/50 bg-emerald-950/20 p-3 text-sm text-emerald-200">{actionFeedback}</p>}

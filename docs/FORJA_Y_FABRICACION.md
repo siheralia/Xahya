@@ -68,10 +68,11 @@ En una transacción:
 
 ### Pendientes deliberados
 
-- **Calidad variable y maestría del artesano:** aún no afecta al resultado;
-  el producto es el objeto del catálogo. Evita crear bonificaciones arbitrarias
-  desde la empresa. Antes de ello habría que usar las estadísticas del
-  empleado realmente asignado, junto con una regla central de calidad.
+- **Calidad del objeto / bonificaciones de combate:** siguen pendientes;
+  los efectos y atributos del objeto resultante son exclusivamente los del
+  catálogo de Gestión, sin aumentos arbitrarios por la empresa.
+  La pericia del artesano ahora permite **ahorrar materiales**, pero no altera
+  atributos de equipo ni genera encantamientos.
 - **Fabricación para inventario del negocio**, costes de aprovisionamiento y
   catálogo de venta posterior: este incremento entrega el objeto al personaje
   que aporta los materiales. No introduce stock infinito ni hace que un
@@ -82,3 +83,41 @@ En una transacción:
   grafos para habilidades. Las recetas no ejecutan micromódulos arbitrarios;
   la operación permitida es consumir materiales, cobrar y generar
   **exclusivamente** un `item` preaprobado.
+
+## Segunda etapa: artesanos y aprovechamiento material
+
+Cada encargo se atribuye a **un artesano concreto**. Son elegibles los
+personajes con contrato de empleo activo en un puesto activo del taller. En
+recetas que no exigen empleado también se admite al personaje propietario.
+Un empleado despedido o de otro establecimiento no puede ser seleccionado;
+la transacción bloquea el contrato elegido y revalida su pertenencia antes de
+cobrar. Un artesano en un combate activo no puede fabricar.
+
+Las estadísticas proceden del resolutor de estadísticas efectivas del servidor,
+no de valores enviados desde el navegador. Por ahora el **grado de proceso**
+se determina mediante una fórmula estable, documentada y verificable:
+
+```text
+puntuación = floor(0.5 × INT + 0.3 × WIS + 0.2 × AGI)
+Cada estadística se restringe a 0..100; puntuación 0..100.
+0..39   → NORMAL:  0 % de ahorro
+40..74  → EXPERTO: hasta 20 % por ingrediente (floor(cantidad / 5))
+75..100 → MAESTRO: hasta 25 % por ingrediente (floor(cantidad / 4))
+```
+
+Cada ingrediente conserva un mínimo de **una unidad consumida**. El ahorro
+se calcula de forma determinista y antes de consultar la disponibilidad del
+inventario, y solo afecta a cantidades gastadas, **no al objeto entregado ni
+al precio de la receta**. El recibo auditable incluye artesano, puntuación,
+graduación y cantidades efectivamente economizadas. Una repetición con el
+mismo `requestId` y otro artesano se rechaza, evitando recálculos oportunistas.
+
+La interfaz muestra el consumo **nominal máximo** de la receta; el servidor
+aplica el ahorro calculado para ese artesano. El cliente puede ordenar incluso
+si sus materiales están por debajo del nominal, porque un artesano diestro
+podría reducir el requerimiento. En caso de no alcanzar el consumo reducido,
+la operación se rechaza sin cobrar ni generar ningún objeto.
+
+Esta etapa aún no implementa habilidades artesanales específicas con efectos
+modulares, ni valor económico adicional por calidad. Son extensiones futuras
+separadas de la fórmula de conservación de materiales.

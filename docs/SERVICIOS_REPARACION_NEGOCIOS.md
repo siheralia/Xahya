@@ -1,38 +1,66 @@
-# Servicios de reparación: negocios, herreros, materiales y micromódulos
+# Servicios de herrería y reparación — catálogo central
 
-Este hito sigue las PR #168 (autorreparación de armas) y #173 (armaduras y accesorios). No modifica el combate ni requiere migraciones.
+## Autoridad: Gestión, no el propietario del negocio
 
-## Administración de servicios (Mis negocios)
+Las definiciones se crean en **Gestión → Negocios y empleos → Servicios de herrería**.
+Solo un usuario con rol `ADMIN` puede editar el catálogo en
+`/management/businesses/repair-services`. El control se repite en la API
+`/api/management/businesses/repair-services`: cambiar el navegador o enviar
+POSTs manuales desde una cuenta de jugador no concede autoridad.
 
-Cada **propietario** de negocio, o un administrador del sistema, puede publicar hasta 12 servicios independientes desde `/businesses`:
+Cada definición autorizada comprende:
 
-- Nombre, descripción y estado disponible/inactivo.
-- Tarifa en ◈ de **0 a 1 000 000** por activación.
-- Opcionalmente, un objeto de catálogo de tipo **MATERIAL** y su cantidad **1–100**. Los materiales los entrega el personaje cliente desde sus propias pilas.
-- Permiso de clientes: **Público** o **solo el personaje dueño del negocio**.
-- Requisito opcional de **al menos un empleado contratado y activo** en un puesto activo del negocio.
-- Fórmula visual de micromódulos con `ACTIVATE`: `READ_ITEM SELECTED_ITEM`, `READ_STAT USER`, `CALCULATE`, `REPAIR_DURABILITY`. El servidor enlaza el objeto real seleccionado y solo las estadísticas del propietario del taller. No se pueden ejecutar otros efectos, usar selectores de otro personaje ni recuperar durabilidad con dinero y materiales ambos a cero.
+- Nombre, descripción y disponibilidad global.
+- Tarifa en ◈, entre 0 y 1 000 000.
+- Material opcional del catálogo (tipo `MATERIAL`) y cantidad, 1–100.
+- Clientes admitidos: público o solo el personaje propietario.
+- Requisito opcional de un empleado activo contratado.
+- Fórmula modular `ACTIVATE` limitada a lectura del objeto elegido y estadísticas
+  del reparador, cálculos y una única `REPAIR_DURABILITY`.
+- **Negocios autorizados**, elegidos mediante casillas desde Gestión.
 
-Los servicios se almacenan por negocio en la tabla ya existente `AppSetting`, con clave `business_repair_service_v1:<id>`; las escrituras serializan por el negocio. No hay tablas nuevas ni cambios de esquema.
+La configuración se almacena en el `AppSetting` único
+`managed_repair_services_v1`, con hasta 100 definiciones globales y 12
+asignaciones por negocio. Se guarda como lista de definiciones completas y listas
+de identificadores de negocios autorizados. No requiere migración SQL.
 
-## Contratar reparación (Catálogo de negocios → Talleres de reparación)
+La configuración antigua por negocio con clave
+`business_repair_service_v1:<id>` es **histórica e inactiva**: no se ejecuta
+ni autoriza ofertas. No había registros con estas claves en producción al
+preparar este cambio; no se migra ni se publica ninguna oferta por defecto.
 
-1. Elegir negocio, personaje propio, oferta y ejemplar dañado.
-2. El servidor verifica que el personaje pertenezca al usuario, el negocio esté activo, la oferta sea válida y activa, el cliente tenga permiso y, si se pide, haya personal contratado activo.
-3. Se comprueba que el ejemplar sea **una copia real**, no una pila, de tipo `WEAPON`, `ARMOR`, `ACCESSORY` u `OTHER`, con durabilidad menor que 100, fuera de todo combate (incluido el lado rival de PvP).
-4. La fórmula se evalúa sobre esa copia y sobre las estadísticas efectivas actuales del propietario, con la autorización del servidor. Debe restaurar al menos 1 punto.
-5. Se bloquea el saldo del cliente, se exige dinero suficiente, se bloquean y consumen las pilas necesarias del material no equipado, se acredita la tarifa al negocio, se actualiza la durabilidad **de esa misma copia** hasta un máximo de 100 y se crea la auditoría.
+## Qué puede hacer cada participante
 
-Todos esos pasos suceden dentro **de una sola transacción**. Un material insuficiente, objeto cambiado, falta de permiso, falta de personal o fórmula inválida revierten el conjunto completo: no hay cobros parciales.
+**Administración** crea y modifica servicios, incluso el precio, coste de
+material, fórmula y negocios elegibles. Retirar un negocio de la autorización
+inhabilita inmediatamente todas sus ofertas de ese servicio.
 
-Un `requestId` estable evita que un reintento tras perder la respuesta HTTP vuelva a cobrar o a reparar. La misma clave usada para cambiar negocio, servicio u objeto es rechazada en lugar de crear una segunda reparación.
+**Dueños de negocios** consultan las ofertas asignadas desde «Mis negocios»,
+pero no pueden crear, editar ni asignar servicios. La antigua ruta de escritura
+`POST /api/businesses/repair-services` responde 403 para todos.
 
-**No se cobra maná del cliente**: aquí la contraprestación es dinero o materiales, distinta de una habilidad manual y de los pasivos de combate.
+**Clientes** ven solamente negocios activos con servicios autorizados activos
+en «Talleres de reparación», eligen el servicio, un personaje propio y un
+ejemplar dañado del inventario.
 
-## Limitaciones deliberadas
+## Ejecución y protección de recursos
 
-- La tarifa se transfiere **al saldo del negocio**. Los materiales se consumen del cliente; no se crea todavía un almacén de materiales de negocio ni recetas de forja.
-- El reparador cuya estadística se consulta es, en esta versión, el **propietario**. El requisito de un empleado contratado no cambia todavía la fuente de estadísticas; una fase posterior puede incorporar elección del artesano y experiencia del oficio.
-- No hay recorrido físico ni horarios de apertura de talleres. El requisito de empleado verifica un contrato activo, no un fichaje en tiempo real.
-- La reparación conserva las demás reglas existentes para habilidades y autorreparación. No constituye una manera de reparar durante combate.
-- Los servicios solo se pueden gestionar desde el panel del dueño del negocio, no mediante parámetros arbitrarios del cliente.
+La contratación mantiene una sola transacción: bloquear personaje y negocio,
+bloquear el **catálogo global** antes de comprobar la asignación actual, validar
+el ejemplar de inventario con cantidad 1, empleado contratado si se requiere,
+estadísticas efectivas del propietario, dinero y materiales aportados por el
+cliente, y finalmente aplicar la restauración y registrar auditoría.
+
+El servidor nunca utiliza fórmulas ni precios del cliente o del propietario del
+negocio, tampoco una definición histórica. Los reintentos siguen usando
+`requestId` idempotente. El servicio está prohibido mientras el personaje
+participa en combate. El daño no se revierte y no hay reparación en PvP activo.
+
+### Limitaciones
+
+Los materiales se consumen del cliente; aún no existe almacén de taller ni
+selección del empleado que realiza la reparación. La estadística de reparación
+sigue siendo la del personaje propietario. No hay horarios, desplazamiento
+físico ni recetas de forja; son hitos posteriores, diferentes de crear una
+definición de servicio. No se modifican las reglas de autorreparación de equipo,
+ni los HP/maná del personaje de combate.

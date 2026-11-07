@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import {MANAGED_REPAIR_SERVICES_KEY,readManagedRepairServices,authorizedRepairServices} from "@/lib/managed-repair-services";
 
 async function user() {
   const { userId: clerkId } = await auth();
@@ -40,14 +41,16 @@ export async function GET() {
   const Subscription = (db.orm.public as any).BusinessSubscription;
   const Character = db.orm.public.Character;
 
-  const [businesses, products, plans, items, characters, subscriptions] = await Promise.all([
+  const [businesses, products, plans, items, characters, subscriptions, repairSetting] = await Promise.all([
     Business.all(),
     Product.all(),
     Plan.all(),
     Item.all(),
     Character.all(),
     Subscription.all(),
+    (db.orm.public as any).AppSetting.where({key:MANAGED_REPAIR_SERVICES_KEY}).first(),
   ]);
+  const managedRepairs=readManagedRepairServices(repairSetting?.value);
 
   const myCharacters = characters.filter((c: any) => Number(c.userId) === Number(current.id));
   const myCharacterIds = new Set(myCharacters.map((c: any) => Number(c.id)));
@@ -118,6 +121,7 @@ export async function GET() {
 
       return {
         id: businessId,
+        repairEnabled:authorizedRepairServices(managedRepairs,businessId).length>0,
         name: String(b.name),
         description: b.description ?? null,
         ownerCharacterId: Number(b.ownerCharacterId),

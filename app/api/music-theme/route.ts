@@ -26,16 +26,19 @@ export async function PUT(request: Request) {
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const text = await request.text();
   if (text.length > 36000) return NextResponse.json({ error: "Partitura demasiado grande" }, { status: 413 });
+  let score;
   try {
     const body: unknown = JSON.parse(text);
-    const score = parseOrbitalScore(body);
-    // Only this authenticated profile is writable; no mutation to combat mechanics.
+    score = parseOrbitalScore(body);
+  } catch (error) {
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : "Partitura JSON inválida",
+    }, { status: 400 });
+  }
+  try {
     await db.orm.public.User.where({ id: user.id }).update({ musicTheme: score });
     return NextResponse.json({ theme: score });
-  } catch (error) {
-    if (error instanceof SyntaxError || error instanceof Error && /partitura|circunferencia|archivo|parámetros/i.test(error.message)) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+  } catch {
     return NextResponse.json({ error: "No se pudo guardar el tema personal" }, { status: 500 });
   }
 }

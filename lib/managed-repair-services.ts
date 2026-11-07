@@ -19,7 +19,8 @@ export function normalizeManagedRepairService(input:unknown):ManagedRepairServic
   new Set(businessIds).size!==businessIds.length)
   throw new Error("Selecciona negocios válidos sin duplicados.");
  const base=normalizeRepairService(config);
- return {...base,businessIds:[...businessIds].sort((a,b)=>a-b)};
+ const approvedIds=businessIds as number[];
+ return {...base,businessIds:[...approvedIds].sort((a,b)=>a-b)};
 }
 
 export function readManagedRepairServices(value:unknown):ManagedRepairService[]{

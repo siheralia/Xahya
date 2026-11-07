@@ -55,7 +55,8 @@ export async function GET(req:Request){
     characters:characters.map(c=>({id:Number(c.id),name:String(c.name)}))
    });
    return [{
-    businessId:Number(b.id),businessName:String(b.name),artisans,
+    businessId:Number(b.id),businessName:String(b.name),
+    artisans:artisans.map(({characterId,name,source})=>({characterId,name,source})),
     recipe:{...recipe,businessIds:undefined},
     output:{id:Number(output.id),name:String(output.name),itemType:String(output.itemType)},
     materials

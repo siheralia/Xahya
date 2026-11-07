@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import type { ChangeEvent, MouseEvent } from "react";
 import { angleDistance, crossedOrbitalNote, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
 import { createGoldenScore, parseOrbitalScore, SCORE_FORMAT } from "@/lib/orbital-score.mjs";
 import type { OrbitalScore } from "@/lib/orbital-score.mjs";
@@ -102,6 +102,125 @@ export default function OrbitalMusicPage() {
   const contextRef = useRef<AudioContext | null>(null);
   const elapsedRef = useRef(0);
   const lastPaintRef = useRef(0);
+
+  // Composiciones personales guardadas localmente: no consumen base de datos.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SCORE_STORAGE_KEY);
+      if (!raw) return;
+      const value: unknown = JSON.parse(raw);
+      if (!Array.isArray(value)) return;
+      const valid: OrbitalScore[] = [];
+      for (const entry of value.slice(0, 30)) {
+        try {
+          valid.push(parseOrbitalScore(entry));
+        } catch {
+          // Ignorar solamente la partitura dañada.
+        }
+      }
+      setSavedScores(valid);
+    } catch {
+      setScoreMessage("No se pudieron leer las partituras guardadas en este navegador.");
+    }
+  }, []);
+
+  function createCurrentScore(): OrbitalScore {
+    return parseOrbitalScore({
+      format: SCORE_FORMAT,
+      version: 1,
+      title: scoreName.trim() || "Mi partitura",
+      groups: groupDurations.map((duration, group) => ({
+        duration, direction: groupDirections[group],
+      })),
+      rings: RINGS.map((ring, index) => ({
+        pitch: ring.pitch,
+        enabled: !muted[index],
+        phase: phases[index],
+        delay: startDelays[index],
+        angles: notes[index],
+      })),
+    });
+  }
+
+  function loadScore(score: OrbitalScore) {
+    const safe = parseOrbitalScore(score);
+    setPlaying(false);
+    elapsedRef.current = 0;
+    setElapsed(0);
+    setNotes(safe.rings.map((ring) => [...ring.angles]));
+    setPhases(safe.rings.map((ring) => ring.phase));
+    setStartDelays(safe.rings.map((ring) => ring.delay));
+    setMuted(safe.rings.map((ring) => !ring.enabled));
+    setGroupDurations([safe.groups[0].duration, safe.groups[1].duration]);
+    setGroupDirections([safe.groups[0].direction, safe.groups[1].direction]);
+    setScoreName(safe.title);
+    setScoreMessage('Partitura cargada: "' + safe.title + '". Pulsa Reproducir para escucharla.');
+  }
+
+  function saveScore() {
+    try {
+      const score = createCurrentScore();
+      const next = [...savedScores.filter((item) => item.title !== score.title), score].slice(-30);
+      window.localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(next));
+      setSavedScores(next);
+      setSelectedScore(score.title);
+      setScoreMessage('Partitura guardada en este navegador: "' + score.title + '".');
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo guardar la partitura.");
+    }
+  }
+
+  function removeSavedScore() {
+    if (!selectedScore) return;
+    try {
+      const next = savedScores.filter((score) => score.title !== selectedScore);
+      window.localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(next));
+      setSavedScores(next);
+      setSelectedScore("");
+      setScoreMessage("Partitura guardada eliminada del navegador.");
+    } catch {
+      setScoreMessage("No se pudo eliminar la partitura guardada.");
+    }
+  }
+
+  function exportScore() {
+    try {
+      const score = createCurrentScore();
+      const json = JSON.stringify(score, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = (score.title.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 70) || "partitura") + ".json";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setScoreMessage("Partitura exportada en formato JSON.");
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo exportar la partitura.");
+    }
+  }
+
+  async function importScore(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > 1024 * 1024) {
+      setScoreMessage("El archivo JSON es demasiado grande (máximo: 1 MB).");
+      return;
+    }
+    try {
+      const raw: unknown = JSON.parse(await file.text());
+      const score = parseOrbitalScore(raw);
+      loadScore(score);
+      setSelectedScore("");
+      setScoreMessage('Partitura importada: "' + score.title + '". Usa Guardar para conservarla aquí.');
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo importar el archivo JSON.");
+    }
+  }
 
   const stop = useCallback(() => setPlaying(false), []);
 

@@ -8,13 +8,13 @@ const CENTER = 320;
 // Escala natural de Do mayor, afinación temperada (La4 = 440 Hz).
 // Índices 0–3: recorrido interior; índices 4–6: recorrido exterior.
 const RINGS = [
-  { radius: 73, note: "Do4", hz: 261.6256, color: "#ffd37c" },
-  { radius: 107, note: "Re4", hz: 293.6648, color: "#ffe075" },
-  { radius: 141, note: "Mi4", hz: 329.6276, color: "#eae86a" },
-  { radius: 175, note: "Fa4", hz: 349.2282, color: "#caea71" },
-  { radius: 209, note: "Sol4", hz: 391.9954, color: "#98eb84" },
+  { radius: 88, note: "Do4", hz: 261.6256, color: "#ffd37c" },
+  { radius: 119, note: "Re4", hz: 293.6648, color: "#ffe075" },
+  { radius: 150, note: "Mi4", hz: 329.6276, color: "#eae86a" },
+  { radius: 181, note: "Fa4", hz: 349.2282, color: "#caea71" },
+  { radius: 212, note: "Sol4", hz: 391.9954, color: "#98eb84" },
   { radius: 243, note: "La4", hz: 440, color: "#65e99b" },
-  { radius: 277, note: "Si4", hz: 493.8833, color: "#39daa8" },
+  { radius: 274, note: "Si4", hz: 493.8833, color: "#39daa8" },
 ] as const;
 
 // Notas fijas iniciales, de dentro hacia fuera.

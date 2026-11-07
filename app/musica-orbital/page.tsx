@@ -302,9 +302,9 @@ export default function OrbitalMusicPage() {
     if (!matrix) return;
     const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
     const angle = normalizeDegrees(Math.atan2(point.y - CENTER, point.x - CENTER) * 180 / Math.PI + 90);
-    const rounded = normalizeDegrees(Math.round(angle / 5) * 5);
+    const rounded = normalizeDegrees(Math.round(angle));
     setNotes((current) => current.map((ringNotes, index) => {
-      if (index !== ringIndex || ringNotes.some((existing) => angleDistance(existing, rounded) < 10)) return ringNotes;
+      if (index !== ringIndex || ringNotes.some((existing) => angleDistance(existing, rounded) < 3)) return ringNotes;
       return [...ringNotes, rounded].sort((a, b) => a - b);
     }));
   };
@@ -384,7 +384,7 @@ export default function OrbitalMusicPage() {
                     const point = orbitalPoint(ring.radius, angle, CENTER);
                     const turn = ringTurn(index);
                     const headAngle = normalizeDegrees((turn ?? phases[index] / 360) * 360);
-                    const lit = turn !== null && angleDistance(headAngle, angle) < 8 && playing && !muted[index];
+                    const lit = turn !== null && angleDistance(headAngle, angle) < 2.5 && playing && !muted[index];
                     return (
                       <g key={index + "-" + angle}>
                         {lit && (

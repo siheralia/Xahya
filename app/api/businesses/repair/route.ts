@@ -3,7 +3,8 @@ import {NextResponse} from "next/server";
 import {db} from "@/lib/db";
 import {getEffectiveCharacterStats} from "@/lib/stats/effective";
 import {repairSkillStats} from "@/lib/effects/repair-activation";
-import {businessRepairKey,readBusinessRepairServices,evaluateBusinessRepairService} from "@/lib/business-repair";
+import {evaluateBusinessRepairService} from "@/lib/business-repair";
+import {MANAGED_REPAIR_SERVICES_KEY,readManagedRepairServices,authorizedRepairServices} from "@/lib/managed-repair-services";
 
 const valid=(v:unknown):v is number=>Number.isSafeInteger(v)&&Number(v)>0;
 /** Buy a workshop repair with character-owned currency and/or materials.
@@ -59,8 +60,16 @@ export async function POST(req:Request){
    const Business=(tx.orm.public as any).Business;
    const business=await Business.where({id:businessId}).first();
    if(!business||business.active!==true)throw new Error("BUSINESS_INACTIVE");
-   const setting=await (tx.orm.public as any).AppSetting.where({key:businessRepairKey(businessId)}).first();
-   const service=readBusinessRepairServices(setting?.value).find(x=>x.id===serviceId&&x.active);
+   // Lock the same global catalog as admin writes. Revocation and purchase
+   // serialize; legacy owner-authored per-business services never execute.
+   const lockCatalog=db.raw.sql`UPDATE public."appSetting" SET id=id
+     WHERE key=${MANAGED_REPAIR_SERVICES_KEY}`.affectedCount().build();
+   if((await tx.execute(lockCatalog)).affectedRows!==1)throw new Error("SERVICE_UNAVAILABLE");
+   const setting=await (tx.orm.public as any).AppSetting
+    .where({key:MANAGED_REPAIR_SERVICES_KEY}).first();
+   const service=authorizedRepairServices(
+    readManagedRepairServices(setting?.value),businessId
+   ).find(x=>x.id===serviceId);
    if(!service)throw new Error("SERVICE_UNAVAILABLE");
    if(service.customerAccess==="OWNER_ONLY"&&Number(business.ownerCharacterId)!==characterId)
     throw new Error("SERVICE_PRIVATE");

@@ -157,6 +157,8 @@ export async function POST(req:Request){
     artisans.find(x=>x.characterId===requestedArtisanId);
    if(!artisan)throw new Error("ARTISAN_UNAVAILABLE");
    if(artisan.source==="EMPLOYEE"){
+    if(artisan.contractId===null||artisan.positionId===null)
+     throw new Error("ARTISAN_UNAVAILABLE");
     // Serialize with termination of this employment contract. A previously
     // valid artisan cannot continue manufacturing after being dismissed.
     const lockContract=db.raw.sql`

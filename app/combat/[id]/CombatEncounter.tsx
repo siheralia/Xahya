@@ -9,6 +9,7 @@ import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
 import {combatWeaponOperational} from "@/lib/combat/weapon-readiness";
 import {combatChargeBalance} from "@/lib/combat/charge-pools";
+import {summarizeIncomingDamage} from "@/lib/combat/incoming-damage";
 import {activeChaosField,chaosRotationDegrees} from "@/lib/combat/chaos-fusion";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2, Eye, ChevronDown, X, Info} from "lucide-react";
@@ -117,6 +118,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const [error,setError]=useState("");
  const [shareStatus,setShareStatus]=useState("");
  const [actionFeedback,setActionFeedback]=useState("");
+ const [dismissedIncomingNotice,setDismissedIncomingNotice]=useState("");
  const [narrativeCopyStatus,setNarrativeCopyStatus]=useState("");
  const [side,setSide]=useState<Side>("PLAYER");
  useEffect(()=>{setPreparedAreaSkill(null);setFieldMove(null);setConstructionFieldPoint(null);},[side]);
@@ -563,6 +565,11 @@ export default function CombatEncounter({id}:{id:string}) {
    setNarrativeCopyStatus("No se pudo copiar automáticamente. Selecciona el texto y cópialo manualmente.");
   }
  }
+ // Reconstruct missed damage notices from the durable combat log, even on reload.
+ const incomingDamage=state?summarizeIncomingDamage(state.log,side):null;
+ const incomingNoticeKey=incomingDamage?
+  [id,side,incomingDamage.hitCount,incomingDamage.latest.tick,incomingDamage.latest.summary].join(":"):"";
+ const counterRisk=!!state&&!pending&&!!basicCounterAttack(state,opposingSide);
  const combatStatRows:Array<[string,string|number|undefined]>=[
   ["HP",actor?actor.hp+"/"+actor.maxHp:"—"],
   ["Maná",state?.mana?.[side]?state.mana[side].current+"/"+state.mana[side].max:"—"],
@@ -592,6 +599,29 @@ export default function CombatEncounter({id}:{id:string}) {
   {shareStatus&&<p role="status" className="mb-3 text-sm text-cyan-300">{shareStatus}</p>}
   {actionFeedback&&<p role="status" className="mb-3 rounded-lg border border-emerald-700/50 bg-emerald-950/20 p-3 text-sm text-emerald-200">{actionFeedback}</p>}
   {!state?<p>Cargando combate…</p>:<>
+   {incomingDamage&&incomingNoticeKey!==dismissedIncomingNotice&&
+    <aside role="alert" aria-label="Daño recibido del oponente"
+     className="sticky top-1 z-[60] mb-4 rounded-xl border border-rose-400 bg-rose-950/95 px-3 py-3 text-sm text-rose-100 shadow-xl backdrop-blur">
+     <div className="flex items-start justify-between gap-3">
+      <div>
+       <p className="font-bold">¡Te golpeó el oponente! −{incomingDamage.latest.damage} HP · tick {incomingDamage.latest.tick}</p>
+       <p className="mt-1">{incomingDamage.latest.summary}</p>
+       <p className="mt-1 text-rose-200">
+        En este encuentro recibiste {incomingDamage.hitCount} {incomingDamage.hitCount===1?"golpe":"golpes"}
+        {" "}({incomingDamage.totalDamage} HP de daño en total). HP actual: {state.actors[side].hp}/{state.actors[side].maxHp}.
+       </p>
+       {incomingDamage.latest.simultaneous&&
+        <p className="mt-1 text-amber-200">
+         Fue un intercambio simultáneo durante tu ataque; esta mecánica no abre una segunda oportunidad de esquivar.
+        </p>}
+      </div>
+      <button type="button" aria-label="Cerrar aviso de daño"
+       onClick={()=>setDismissedIncomingNotice(incomingNoticeKey)}
+       className="shrink-0 rounded-md border border-rose-400/50 p-1 text-rose-100 hover:bg-rose-900">
+       <X size={18}/>
+      </button>
+     </div>
+    </aside>}
    <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-zinc-700 p-3 text-sm">
     <span>Turno: <b>{state.round}</b></span><span>Tick global: <b>{state.tick}</b></span>
     <span>{state.status==="ACTIVE"?"En curso":"Finalizado"}</span>
@@ -653,6 +683,12 @@ export default function CombatEncounter({id}:{id:string}) {
        {ready?"Puedes actuar.":"En espera: el oponente debe avanzar sus ticks o se agotaron tus PA."}
        {" "}Las acciones gastan PA y ticks según la velocidad; la IA rival avanza automáticamente.
       </p>}
+    {ready&&counterRisk&&
+     <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+      Atención: si atacas, el oponente podría responder con «Intercambiar golpes».
+      Ambos ataques se resuelven juntos, sin una segunda pantalla para esquivar.
+      Si recibes daño, aparecerá un aviso persistente.
+     </p>}
     {state.status==="ACTIVE" && !pending && !ready && side==="PLAYER" && hasAccess
       && state.actors.NPC.characterId===null &&
       <button type="button" disabled={busy} onClick={()=>void submit({kind:"ADVANCE"})}

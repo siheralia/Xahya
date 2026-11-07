@@ -542,7 +542,7 @@ export default function CombatEncounter({id}:{id:string}) {
   const construction=skill.skillKind==="CONSTRUCTION";
   const measuredBlock=construction&&skill.constructionMaterial!=="LIGHT"&&
     skill.constructionMaterial!=="MIRROR"&&constructionForm==="BLOCK";
-  const castPayload={kind:"CAST_SKILL" as const,skillId:skill.id,
+  const castPayload:Omit<Extract<CombatCommand,{kind:"CAST_SKILL"}>,"requestId">={kind:"CAST_SKILL",skillId:skill.id,
    trajectory:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.skillKind==="FUSION"||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
    attackSource:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.skillKind==="FUSION"||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
    planarMove:!construction&&skill.skillKind==="OFFENSE"?skillMovement:undefined,

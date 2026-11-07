@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ManagementModal from "../management/_components/ManagementModal";
+import RepairServicesPanel from "@/components/businesses/RepairServicesPanel";
 
 type Character = { id: number; name: string; flair: string | null };
 type PropertyItem = { id:number; name:string; description:string|null; propertyBusinessId:number|null; imageUrl:string|null };
@@ -116,6 +117,7 @@ export default function BusinessesPage() {
                   </div>
                 </div>
 
+                <RepairServicesPanel businessId={business.id}/>
                 <div className="mt-5 grid gap-3 md:grid-cols-3">
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">Seguridad</p><p className="mt-1 text-xl font-bold text-blue-300">◈ {Number(business.securityInvestment??0).toLocaleString("es-MX")}</p><p className="mt-1 text-xs text-zinc-600">Inversión acumulada</p></div>
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-xs text-zinc-500">Crecimiento</p><p className="mt-1 text-xl font-bold text-emerald-300">◈ {Number(business.growthInvestment??0).toLocaleString("es-MX")}</p><p className="mt-1 text-xs text-zinc-600">+◈ {Math.floor(Number(business.growthInvestment??0)*0.1).toLocaleString("es-MX")} por semana</p></div>

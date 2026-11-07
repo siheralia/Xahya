@@ -87,6 +87,8 @@ export type PendingAttack = {
 export type CombatLog = {
   kind: string; tick: number; by: Side; against?: Side; summary: string;
   damage?: number; critical?: boolean; contact?: boolean;
+  /** Mark the defender's retaliatory strike; it has no separate dodge prompt. */
+  simultaneousCounter?:boolean;
   /** The amount prevented specifically by the physical/magical defense stat. */
   mitigatedByResistance?:number;
   materialAttackBonus?:number;
@@ -1683,7 +1685,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
        const summary=event.kind==="ATTACK"
         ?event.summary.replace("; esperando reacción","")
         :event.summary;
-       addLog(state,{...event,tick:state.tick,
+       addLog(state,{...event,tick:state.tick,simultaneousCounter:true,
         summary:"Intercambio simultáneo: "+summary});
       }
     }

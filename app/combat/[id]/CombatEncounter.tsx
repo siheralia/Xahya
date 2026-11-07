@@ -9,6 +9,7 @@ import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
 import {combatWeaponOperational} from "@/lib/combat/weapon-readiness";
 import {combatChargeBalance} from "@/lib/combat/charge-pools";
+import {combatResourceRequestKey} from "@/lib/combat/resource-request-key";
 import {summarizeIncomingDamage} from "@/lib/combat/incoming-damage";
 import {activeChaosField,chaosRotationDegrees} from "@/lib/combat/chaos-fusion";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
@@ -521,7 +522,7 @@ export default function CombatEncounter({id}:{id:string}) {
    : points.length>1?points:defaultPath;
  function boostKarma(){
   const allocation=Object.fromEntries(Object.entries(karmaAllocation).filter(([,n])=>Number.isSafeInteger(n)&&n>0));
-  const key=side+":"+JSON.stringify(allocation);
+  const key=combatResourceRequestKey(id,side,state,{kind:"BOOST_KARMA",allocation});
   const previous=karmaRequestRef.current;
   const requestId=previous?.key===key?previous.id:crypto.randomUUID();
   karmaRequestRef.current={key,id:requestId};
@@ -538,14 +539,10 @@ export default function CombatEncounter({id}:{id:string}) {
  function castSkill(skill:CombatSkillPreview,movementOverride?:Point|null,orderOverride?:"BEFORE"|"AFTER",chargesToSpend?:number){
   const skillMovement=movementOverride===null?undefined:movementOverride??preparedMovement;
   const skillMovementOrder=movementOverride===null?undefined:orderOverride??movementOrder;
-  const key=side+":"+skill.id+":"+state?.round+":"+(chargesToSpend??"");
-  const previous=castRequestRef.current;
-  const requestId=previous?.key===key?previous.id:crypto.randomUUID();
-  castRequestRef.current={key,id:requestId};
   const construction=skill.skillKind==="CONSTRUCTION";
   const measuredBlock=construction&&skill.constructionMaterial!=="LIGHT"&&
     skill.constructionMaterial!=="MIRROR"&&constructionForm==="BLOCK";
-  void submit({kind:"CAST_SKILL",skillId:skill.id,requestId,
+  const castPayload={kind:"CAST_SKILL" as const,skillId:skill.id,
    trajectory:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.skillKind==="FUSION"||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
    attackSource:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.skillKind==="FUSION"||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
    planarMove:!construction&&skill.skillKind==="OFFENSE"?skillMovement:undefined,
@@ -562,7 +559,12 @@ export default function CombatEncounter({id}:{id:string}) {
    constructionLabel:construction?constructionLabel.trim():undefined,
    targetConstructionId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.skillKind!=="FUSION"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedMirrorId:undefined,
    targetSummonId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.skillKind!=="FUSION"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedSummonId:undefined,
-   chargesToSpend:skill.skillKind==="CHARGE_BUFF"?chargesToSpend:undefined});
+   chargesToSpend:skill.skillKind==="CHARGE_BUFF"?chargesToSpend:undefined};
+  const key=combatResourceRequestKey(id,side,state,castPayload);
+  const previous=castRequestRef.current;
+  const requestId=previous?.key===key?previous.id:crypto.randomUUID();
+  castRequestRef.current={key,id:requestId};
+  void submit({...castPayload,requestId});
  }
  const chronicle=state?.status==="FINISHED"
   ?((state.narrativeVersion??0)>=2&&state.narrativeText
@@ -1184,7 +1186,8 @@ export default function CombatEncounter({id}:{id:string}) {
          (state.mana?.[side]?.current??0)>=(state.mana?.[side]?.max??0);
         return <button type="button" key={item.itemId+":"+(item.characterItemId??index)}
          onClick={()=>{
-          const key=side+":"+item.itemId+":"+(item.characterItemId??"npc")+":"+state.round+":"+(actor?.spentTicks??0);
+          const key=combatResourceRequestKey(id,side,state,{kind:"USE_ITEM",
+           itemId:item.itemId,characterItemId:item.characterItemId});
           const previous=itemRequestRef.current;
           const requestId=previous?.key===key?previous.id:crypto.randomUUID();
           itemRequestRef.current={key,id:requestId};

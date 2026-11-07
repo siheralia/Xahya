@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
 import { angleDistance, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
-import { createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
-import { elapsedSlideProgress, orbitalEventsBetween, playOrbitalSound } from "@/lib/orbital-playback.mjs";
+import { BATTLE_TURN_SECONDS, createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
+import { elapsedSlideProgress, orbitalEventsBetween, orbitalPercussionBetween, playOrbitalSound, playOrbitalPercussion } from "@/lib/orbital-playback.mjs";
 import { createGoldenScore, parseOrbitalScore, SCORE_FORMAT } from "@/lib/orbital-score.mjs";
 import type { OrbitalScore, OrbitalSlide } from "@/lib/orbital-score.mjs";
 
@@ -43,8 +43,11 @@ export default function OrbitalMusicPage() {
   const [slides, setSlides] = useState<OrbitalSlide[][]>(() => BATTLE_SCORE.rings.map((ring) => [...ring.slides]));
   const [phases, setPhases] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.phase));
   const [muted, setMuted] = useState<boolean[]>(() => BATTLE_SCORE.rings.map((ring) => !ring.enabled));
-  const [groupDurations, setGroupDurations] = useState<[number, number]>([16, 16]);
+  const [groupDurations, setGroupDurations] = useState<[number, number]>([BATTLE_TURN_SECONDS, BATTLE_TURN_SECONDS]);
   const [groupDirections, setGroupDirections] = useState<[1 | -1, 1 | -1]>([1, 1]);
+  const [ringDurations, setRingDurations] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.duration));
+  const [ringDirections, setRingDirections] = useState<Array<1 | -1>>(() => BATTLE_SCORE.rings.map((ring) => ring.direction));
+  const [percussion, setPercussion] = useState<"none" | "battle">(BATTLE_SCORE.percussion);
   const [startDelays, setStartDelays] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.delay));
   const [volume, setVolume] = useState(55);
   const [playing, setPlaying] = useState(false);
@@ -53,10 +56,10 @@ export default function OrbitalMusicPage() {
   const [scoreName, setScoreName] = useState(BATTLE_SCORE.title);
   const [ownTheme, setOwnTheme] = useState<OrbitalScore | null>(null);
   const [themeBusy, setThemeBusy] = useState(false);
-  const [slideRing, setSlideRing] = useState("E5");
-  const [slideAngle, setSlideAngle] = useState("5.625");
-  const [slideTarget, setSlideTarget] = useState("G5");
-  const [slideDuration, setSlideDuration] = useState(0.5);
+  const [slideRing, setSlideRing] = useState("B5");
+  const [slideAngle, setSlideAngle] = useState(String(BATTLE_SCORE.rings.find((ring) => ring.pitch === "B5")?.slides[0]?.angle ?? ""));
+  const [slideTarget, setSlideTarget] = useState("C6");
+  const [slideDuration, setSlideDuration] = useState(0.15);
   const [savedScores, setSavedScores] = useState<OrbitalScore[]>([]);
   const [selectedScore, setSelectedScore] = useState("");
   const [scoreMessage, setScoreMessage] = useState("");
@@ -171,6 +174,7 @@ export default function OrbitalMusicPage() {
       format: SCORE_FORMAT,
       version: 1,
       title: scoreName.trim() || "Mi partitura",
+      percussion,
       groups: groupDurations.map((duration, group) => ({
         duration, direction: groupDirections[group],
       })),
@@ -179,6 +183,8 @@ export default function OrbitalMusicPage() {
         enabled: !muted[index],
         phase: phases[index],
         delay: startDelays[index],
+        duration: ringDurations[index],
+        direction: ringDirections[index],
         angles: notes[index],
         slides: slides[index],
       })),
@@ -195,6 +201,9 @@ export default function OrbitalMusicPage() {
     setPhases(safe.rings.map((ring) => ring.phase));
     setStartDelays(safe.rings.map((ring) => ring.delay));
     setMuted(safe.rings.map((ring) => !ring.enabled));
+    setRingDurations(safe.rings.map((ring) => ring.duration));
+    setRingDirections(safe.rings.map((ring) => ring.direction));
+    setPercussion(safe.percussion);
     setGroupDurations([safe.groups[0].duration, safe.groups[1].duration]);
     setGroupDirections([safe.groups[0].direction, safe.groups[1].direction]);
     setScoreName(safe.title);
@@ -314,6 +323,9 @@ export default function OrbitalMusicPage() {
           playOrbitalSound(contextRef.current, pitchFrequency(note.pitch), volume,
             note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration);
         }
+        for (const beat of orbitalPercussionBetween(score, from, to)) {
+          playOrbitalPercussion(contextRef.current, beat.type, volume);
+        }
       }
       if (time - lastPaintRef.current >= 28) {
         lastPaintRef.current = time;
@@ -323,7 +335,7 @@ export default function OrbitalMusicPage() {
     };
     animationFrame = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(animationFrame);
-  }, [playing, notes, slides, phases, muted, groupDurations, groupDirections, startDelays, volume, scoreName]);
+  }, [playing, notes, slides, phases, muted, groupDurations, groupDirections, ringDurations, ringDirections, startDelays, percussion, volume, scoreName]);
 
   const resetPlayhead = () => {
     elapsedRef.current = 0;
@@ -359,12 +371,10 @@ export default function OrbitalMusicPage() {
   };
 
   const noteCount = notes.reduce((sum, ring) => sum + ring.length, 0);
-  const ringTurn = (ringIndex: number) => {
-    const group = ringIndex < 4 ? 0 : 1;
-    return orbitalTurnAt(
-      elapsed, startDelays[ringIndex], phases[ringIndex], groupDurations[group], groupDirections[group]
-    );
-  };
+  const ringTurn = (ringIndex: number) => orbitalTurnAt(
+    elapsed, startDelays[ringIndex], phases[ringIndex],
+    ringDurations[ringIndex], ringDirections[ringIndex],
+  );
 
   return (
     <main className="min-h-screen bg-[#03130d] px-4 py-8 text-[#e4ffed] sm:px-8">
@@ -454,15 +464,14 @@ export default function OrbitalMusicPage() {
                   {slides[index].map((slide) => {
                     const destination = RINGS.find((item) => item.pitch === slide.toPitch);
                     if (!destination) return null;
-                    const group = index < 4 ? 0 : 1;
-                    const sweep = groupDirections[group] * 360 * slide.duration / groupDurations[group];
+                    const sweep = ringDirections[index] * 360 * slide.duration / ringDurations[index];
                     const from = orbitalPoint(ring.radius, slide.angle, CENTER);
                     const middle = orbitalPoint((ring.radius + destination.radius) / 2, slide.angle + sweep / 2, CENTER);
                     const to = orbitalPoint(destination.radius, slide.angle + sweep, CENTER);
                     const d = "M " + from.x + " " + from.y + " Q " + middle.x + " " + middle.y + " " + to.x + " " + to.y;
                     const progress = elapsedSlideProgress(elapsed,
                       { enabled: !muted[index], phase: phases[index], delay: startDelays[index] },
-                      { duration: groupDurations[group], direction: groupDirections[group] }, slide);
+                      { duration: ringDurations[index], direction: ringDirections[index] }, slide);
                     const px = progress === null ? 0 : (1 - progress) ** 2 * from.x +
                       2 * (1 - progress) * progress * middle.x + progress ** 2 * to.x;
                     const py = progress === null ? 0 : (1 - progress) ** 2 * from.y +
@@ -523,46 +532,35 @@ export default function OrbitalMusicPage() {
                   min="0" max="100" step="1" value={volume}
                   onChange={(event) => setVolume(Number(event.target.value))} />
               </label>
+              <label className="mt-3 flex items-center gap-2 text-xs text-emerald-100/75">
+                <input type="checkbox" checked={percussion === "battle"}
+                  onChange={(event) => setPercussion(event.target.checked ? "battle" : "none")}
+                  className="accent-amber-300" />
+                Percusión marcial (tambor y platillos sintetizados)
+              </label>
               <div className="mt-3 flex justify-between text-xs text-emerald-100/60">
                 <span>{noteCount} notas</span><span>Tiempo: {elapsed.toFixed(1)} s</span>
               </div>
             </section>
 
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
-              <h2 className="text-lg font-semibold">Dos recorridos</h2>
-              <p className="mt-1 text-xs leading-5 text-emerald-100/65">
-                Los cuatro anillos centrales siguen un recorrido y los doce exteriores siguen otro.
-                Dentro de cada grupo todos tardan lo mismo en completar una vuelta.
+              <h2 className="text-lg font-semibold">Movimiento independiente</h2>
+              <p className="mt-2 text-xs leading-5 text-emerald-100/65">
+                Cada circunferencia tiene su propia velocidad, sentido, posición y retraso.
+                Abre <strong>Ajustar</strong> en la sección de anillos para configurarlas.
+                Al variar un movimiento cambiará también cuándo suenan sus notas.
               </p>
-              {(["Interiores · Do4 a Fa4", "Exteriores · Sol4 a Do6"] as const).map((label, group) => (
-                <div key={label} className="mt-4 border-t border-emerald-100/10 pt-3">
-                  <h3 className="text-sm font-medium">{label}</h3>
-                  <label className="mt-3 block text-xs">
-                    <span className="flex justify-between gap-3">
-                      <span>Duración de la vuelta</span>
-                      <span className="font-mono text-emerald-300">{groupDurations[group]} s</span>
-                    </span>
-                    <input className="mt-2 w-full accent-emerald-300" type="range" min="4" max="30" step="1"
-                      value={groupDurations[group]} onChange={(event) => setGroupDurations((current) => {
-                        const next: [number, number] = [...current];
-                        next[group] = Number(event.target.value);
-                        return next;
-                      })} />
-                  </label>
-                  <label className="mt-3 flex items-center justify-between gap-3 text-xs">
-                    <span>Sentido</span>
-                    <select value={groupDirections[group]} onChange={(event) => setGroupDirections((current) => {
-                      const next: [1 | -1, 1 | -1] = [...current];
-                      next[group] = Number(event.target.value) as 1 | -1;
-                      return next;
-                    })}
-                      className="rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-1.5 text-emerald-50">
-                      <option value={1}>Horario ↻</option>
-                      <option value={-1}>Antihorario ↺</option>
-                    </select>
-                  </label>
-                </div>
-              ))}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setRingDurations(RINGS.map(() => BATTLE_TURN_SECONDS))}
+                  className="rounded-lg border border-emerald-200/25 px-2 py-2 text-xs hover:bg-emerald-100/10">
+                  Igualar velocidades
+                </button>
+                <button type="button" onClick={() => setRingDirections((values) =>
+                  values.map((value) => value === 1 ? -1 : 1))}
+                  className="rounded-lg border border-emerald-200/25 px-2 py-2 text-xs hover:bg-emerald-100/10">
+                  Invertir todos los giros
+                </button>
+              </div>
             </section>
 
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
@@ -703,7 +701,7 @@ export default function OrbitalMusicPage() {
                 </label>
                 <label className="block text-xs text-emerald-100/75">
                   <span className="flex justify-between"><span>Duración del deslizamiento</span><span>{slideDuration.toFixed(1)} s</span></span>
-                  <input type="range" min="0.1" max="3" step="0.1" value={slideDuration}
+                  <input type="range" min="0.1" max="3" step="0.05" value={slideDuration}
                     onChange={(event) => setSlideDuration(Number(event.target.value))}
                     className="mt-2 w-full accent-emerald-300"/>
                 </label>
@@ -730,8 +728,8 @@ export default function OrbitalMusicPage() {
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
               <h2 className="text-lg font-semibold">Anillos e inicio</h2>
               <p className="mt-1 text-xs leading-5 text-emerald-100/65">
-                Cada círculo tiene su propia nota, posición y retraso de inicio.
-                Desmarcar el interruptor apaga el círculo sin borrar sus notas.
+                Cada circunferencia tiene su propia velocidad, dirección, posición y retraso.
+                Desmarcarla apaga su sonido sin borrar las notas.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <button type="button" onClick={() => setMuted(RINGS.map(() => false))}
@@ -755,6 +753,9 @@ export default function OrbitalMusicPage() {
                         <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: ring.color }} />
                         {ring.note}
                         <span className="text-xs font-normal text-emerald-100/50">({notes[index].length})</span>
+                        <span className="text-[11px] font-normal text-emerald-200/60">
+                          {ringDurations[index]}s {ringDirections[index] === 1 ? "↻" : "↺"}
+                        </span>
                       </label>
                       <button type="button" aria-expanded={expandedRing === index}
                         aria-label={"Configurar circunferencia " + ring.note}
@@ -766,6 +767,25 @@ export default function OrbitalMusicPage() {
                     {expandedRing === index && (
                       <div className="mt-3 border-t border-emerald-100/10 pt-2">
                         <label className="block text-xs text-emerald-100/65">
+                          <span className="flex justify-between"><span>Duración de una vuelta (velocidad)</span><span>{ringDurations[index]} s</span></span>
+                          <input type="range" min="2" max="30" step="0.5" value={ringDurations[index]}
+                            onChange={(event) => setRingDurations((current) =>
+                              current.map((value, i) => i === index ? Number(event.target.value) : value))}
+                            aria-label={"Duración de vuelta de " + ring.note}
+                            className="mt-2 w-full accent-emerald-300" />
+                        </label>
+                        <label className="mt-3 flex items-center justify-between gap-3 text-xs text-emerald-100/65">
+                          <span>Sentido de giro</span>
+                          <select value={ringDirections[index]}
+                            onChange={(event) => setRingDirections((current) =>
+                              current.map((value, i) => i === index ? Number(event.target.value) as 1 | -1 : value))}
+                            aria-label={"Sentido de giro de " + ring.note}
+                            className="rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-2 text-emerald-50">
+                            <option value={1}>Horario ↻</option>
+                            <option value={-1}>Antihorario ↺</option>
+                          </select>
+                        </label>
+                        <label className="mt-3 block text-xs text-emerald-100/65">
                           <span className="flex justify-between"><span>Posición inicial</span><span>{phases[index]}°</span></span>
                           <input type="range" min="0" max="359" step="1" value={phases[index]}
                             onChange={(event) => setPhases((current) =>

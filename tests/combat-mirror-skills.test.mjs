@@ -108,6 +108,12 @@ test("mirror casting UI is not blocked by an unrelated movement-attack plan",()=
  assert.match(loadout,/!canUseSkill\|\|invalidAttackMovement\|\|busy/);
  assert.match(encounter,/No es un ataque entrante/,
   "a pending defense against the player's mirror must not claim the player is being attacked");
+ assert.match(encounter,/const hasIncomingReaction=defending&&hasAccess/,
+  "do not auto-focus the player's reaction while the NPC is dodging a mirror");
+ assert.match(encounter,/reactionSectionRef\.current\?\.scrollIntoView/,
+  "a real incoming attack must bring defensive choices into view");
+ assert.match(encounter,/ref=\{reactionSectionRef\}/);
+
 });
 
 test("surviving mirror fires next round without spending another PA or mana",()=>{

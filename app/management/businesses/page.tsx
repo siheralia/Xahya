@@ -257,7 +257,7 @@ export default function BusinessesManagementPage() {
           className="mt-5 inline-flex rounded-lg border border-amber-500/50 bg-amber-950/20 px-4 py-2 text-sm text-amber-200">
           Configurar servicios de herrería y negocios autorizados
         </Link>
-        {error && <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>
+        {error && <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 p-4 text-red-300">{error}</div>}
         {success && <div className="mt-6 rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-4 text-emerald-300">{success}</div>}
 
         <div className="mt-8 flex flex-wrap justify-end gap-3">

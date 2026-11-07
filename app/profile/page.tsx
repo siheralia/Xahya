@@ -93,6 +93,17 @@ export default function ProfilePage() {
           </button>
         </section>
 
+        <section className="mt-8 rounded-2xl border border-violet-700/40 bg-violet-950/15 p-6">
+          <h2 className="text-xl font-semibold text-violet-100">Mi tema musical de combate</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">
+            Crea tu propia banda sonora con órbitas y notas deslizantes. Guárdala en tu cuenta y
+            podrás elegirla durante los combates, sin alterar las mecánicas del encuentro.
+          </p>
+          <a href="/musica-orbital" className="mt-4 inline-flex rounded-lg bg-violet-300 px-4 py-2 font-semibold text-violet-950 hover:bg-violet-200">
+            Abrir editor musical
+          </a>
+        </section>
+
         <SalaryWallet />
 
         <section className="mt-8 rounded-2xl border border-emerald-900/40 bg-emerald-950/10 p-6">

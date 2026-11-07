@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
-import { angleDistance, crossedOrbitalNote, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
+import { angleDistance, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
+import { createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
+import { elapsedSlideProgress, orbitalEventsBetween, playOrbitalSound } from "@/lib/orbital-playback.mjs";
 import { createGoldenScore, parseOrbitalScore, SCORE_FORMAT } from "@/lib/orbital-score.mjs";
-import type { OrbitalScore } from "@/lib/orbital-score.mjs";
+import type { OrbitalScore, OrbitalSlide } from "@/lib/orbital-score.mjs";
 
 const CENTER = 450;
 const SCORE_STORAGE_KEY = "xahya.orbital-scores.v1";
@@ -30,70 +32,31 @@ const RINGS = [
   { radius: 426, pitch: "C6", note: "Do6", hz: 1046.5023, color: "#c1aaff" },
 ] as const;
 
-// Notas fijas iniciales, de dentro hacia fuera.
-const INITIAL_NOTES = [
-  [30, 75, 120, 170, 220, 268, 310],
-  [15, 60, 110, 155, 204, 248, 293, 335],
-  [20, 65, 100, 143, 185, 228, 270, 315],
-  [25, 65, 103, 143, 186, 225, 270, 302, 337],
-  [11, 46, 82, 120, 156, 191, 218, 252, 286, 318],
-  [19, 47, 73, 98, 136, 163, 201, 239, 267, 293, 328],
-  [7, 30, 60, 88, 117, 144, 169, 192, 220, 248, 278, 311, 342],
-  [], [], [], [], [], [], [], [], [],
-];
-// Cada grupo tiene su propia zona de partida, como en el gráfico de referencia.
-const INITIAL_PHASES = [354, 2, 9, 16, 83, 90, 97, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-const INITIAL_DELAYS = [0, 0.5, 1, 1.5, 0, 0.5, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const BATTLE_SCORE = createBattleThemeScore();
 
 function makeNotes() {
-  return INITIAL_NOTES.map((ring) => [...ring]);
-}
-
-/** Sonido sintetizado localmente: ningún archivo externo ni reproducción automática. */
-function playSound(context: AudioContext, frequency: number, volume: number) {
-  const at = context.currentTime + 0.005;
-  const envelope = context.createGain();
-  const fundamental = context.createOscillator();
-  const overtone = context.createOscillator();
-  const overtoneLevel = context.createGain();
-  fundamental.type = "sine";
-  fundamental.frequency.setValueAtTime(frequency, at);
-  overtone.type = "triangle";
-  overtone.frequency.setValueAtTime(frequency * 2, at);
-  overtoneLevel.gain.value = 0.12;
-  fundamental.connect(envelope);
-  overtone.connect(overtoneLevel);
-  overtoneLevel.connect(envelope);
-  envelope.connect(context.destination);
-  const peak = Math.max(0.0001, (volume / 100) * 0.14);
-  envelope.gain.setValueAtTime(0.0001, at);
-  envelope.gain.exponentialRampToValueAtTime(peak, at + 0.018);
-  envelope.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak * 0.3), at + 0.22);
-  envelope.gain.exponentialRampToValueAtTime(0.0001, at + 0.72);
-  fundamental.start(at);
-  overtone.start(at);
-  fundamental.stop(at + 0.74);
-  overtone.stop(at + 0.74);
-  fundamental.onended = () => {
-    fundamental.disconnect();
-    overtone.disconnect();
-    overtoneLevel.disconnect();
-    envelope.disconnect();
-  };
+  return BATTLE_SCORE.rings.map((ring) => [...ring.angles]);
 }
 
 export default function OrbitalMusicPage() {
   const [notes, setNotes] = useState<number[][]>(makeNotes);
-  const [phases, setPhases] = useState<number[]>([...INITIAL_PHASES]);
-  const [muted, setMuted] = useState<boolean[]>(RINGS.map(() => false));
-  const [groupDurations, setGroupDurations] = useState<[number, number]>([12, 12]);
-  const [groupDirections, setGroupDirections] = useState<[1 | -1, 1 | -1]>([1, -1]);
-  const [startDelays, setStartDelays] = useState<number[]>([...INITIAL_DELAYS]);
+  const [slides, setSlides] = useState<OrbitalSlide[][]>(() => BATTLE_SCORE.rings.map((ring) => [...ring.slides]));
+  const [phases, setPhases] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.phase));
+  const [muted, setMuted] = useState<boolean[]>(() => BATTLE_SCORE.rings.map((ring) => !ring.enabled));
+  const [groupDurations, setGroupDurations] = useState<[number, number]>([16, 16]);
+  const [groupDirections, setGroupDirections] = useState<[1 | -1, 1 | -1]>([1, 1]);
+  const [startDelays, setStartDelays] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.delay));
   const [volume, setVolume] = useState(55);
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
-  const [scoreName, setScoreName] = useState("Mi partitura");
+  const [scoreName, setScoreName] = useState(BATTLE_SCORE.title);
+  const [ownTheme, setOwnTheme] = useState<OrbitalScore | null>(null);
+  const [themeBusy, setThemeBusy] = useState(false);
+  const [slideRing, setSlideRing] = useState("E5");
+  const [slideAngle, setSlideAngle] = useState("5.625");
+  const [slideTarget, setSlideTarget] = useState("G5");
+  const [slideDuration, setSlideDuration] = useState(0.5);
   const [savedScores, setSavedScores] = useState<OrbitalScore[]>([]);
   const [selectedScore, setSelectedScore] = useState("");
   const [scoreMessage, setScoreMessage] = useState("");
@@ -124,6 +87,85 @@ export default function OrbitalMusicPage() {
     }
   }, []);
 
+  // The shared account soundtrack is distinct from local drafts.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/music-theme", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("No se pudo consultar el tema de la cuenta.");
+        return response.json();
+      })
+      .then((data) => {
+        if (alive && data.theme) setOwnTheme(parseOrbitalScore(data.theme));
+      })
+      .catch(() => {
+        if (alive) setScoreMessage("No se pudo consultar tu tema guardado en la cuenta.");
+      });
+    return () => { alive = false; };
+  }, []);
+
+  async function savePersonalTheme() {
+    setThemeBusy(true);
+    try {
+      const response = await fetch("/api/music-theme", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(createCurrentScore()),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar tu tema.");
+      setOwnTheme(parseOrbitalScore(data.theme));
+      setScoreMessage("Tu tema personal quedó guardado para tus próximos combates.");
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo guardar tu tema.");
+    } finally {
+      setThemeBusy(false);
+    }
+  }
+
+  async function resetPersonalTheme() {
+    setThemeBusy(true);
+    try {
+      const response = await fetch("/api/music-theme", { method: "DELETE" });
+      if (!response.ok) throw new Error("No se pudo restaurar el tema predeterminado.");
+      setOwnTheme(null);
+      setScoreMessage("Tu cuenta vuelve a utilizar Ascenso de Xahya en combate.");
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo restaurar el tema.");
+    } finally {
+      setThemeBusy(false);
+    }
+  }
+
+  const slideRingIndex = RINGS.findIndex((ring) => ring.pitch === slideRing);
+  const slideOptions = notes[slideRingIndex] ?? [];
+  const chosenAngle = slideOptions.includes(Number(slideAngle)) ? Number(slideAngle) : slideOptions[0];
+  const allSlides = slides.flatMap((items, index) => items.map((slide) => ({
+    ...slide, index, source: RINGS[index].note,
+  })));
+
+  function upsertSlide() {
+    if (slideRingIndex < 0 || chosenAngle === undefined) {
+      setScoreMessage("Añade primero una nota a la circunferencia de origen.");
+      return;
+    }
+    if (slideTarget === slideRing) {
+      setScoreMessage("El destino del deslizamiento debe ser otra nota.");
+      return;
+    }
+    const slide: OrbitalSlide = { angle: chosenAngle, toPitch: slideTarget, duration: slideDuration };
+    setSlides((current) => current.map((entries, index) =>
+      index !== slideRingIndex ? entries : [
+        ...entries.filter((entry) => entry.angle !== chosenAngle), slide,
+      ]));
+    setScoreMessage("Deslizamiento creado. El tono cambiará gradualmente al pasar por esa nota.");
+  }
+
+  function removeSlide(index: number, angle: number) {
+    setSlides((current) => current.map((entries, i) =>
+      i !== index ? entries : entries.filter((slide) => slide.angle !== angle)));
+  }
+
   function createCurrentScore(): OrbitalScore {
     return parseOrbitalScore({
       format: SCORE_FORMAT,
@@ -138,6 +180,7 @@ export default function OrbitalMusicPage() {
         phase: phases[index],
         delay: startDelays[index],
         angles: notes[index],
+        slides: slides[index],
       })),
     });
   }
@@ -148,6 +191,7 @@ export default function OrbitalMusicPage() {
     elapsedRef.current = 0;
     setElapsed(0);
     setNotes(safe.rings.map((ring) => [...ring.angles]));
+    setSlides(safe.rings.map((ring) => [...ring.slides]));
     setPhases(safe.rings.map((ring) => ring.phase));
     setStartDelays(safe.rings.map((ring) => ring.delay));
     setMuted(safe.rings.map((ring) => !ring.enabled));
@@ -264,23 +308,12 @@ export default function OrbitalMusicPage() {
       const from = elapsedRef.current;
       const to = from + dt;
       elapsedRef.current = to;
-      if (dt > 0) {
-        RINGS.forEach((ring, ringIndex) => {
-          if (muted[ringIndex]) return;
-          const group = ringIndex < 4 ? 0 : 1;
-          const delay = startDelays[ringIndex];
-          const previousTurn = orbitalTurnAt(
-            Math.max(from, delay), delay, phases[ringIndex], groupDurations[group], groupDirections[group]
-          );
-          const currentTurn = orbitalTurnAt(
-            to, delay, phases[ringIndex], groupDurations[group], groupDirections[group]
-          );
-          for (const noteAngle of notes[ringIndex]) {
-            if (crossedOrbitalNote(previousTurn, currentTurn, noteAngle) && contextRef.current) {
-              playSound(contextRef.current, ring.hz, volume);
-            }
-          }
-        });
+      if (dt > 0 && contextRef.current) {
+        const score = createCurrentScore();
+        for (const note of orbitalEventsBetween(score, from, to)) {
+          playOrbitalSound(contextRef.current, pitchFrequency(note.pitch), volume,
+            note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration);
+        }
       }
       if (time - lastPaintRef.current >= 28) {
         lastPaintRef.current = time;
@@ -290,7 +323,7 @@ export default function OrbitalMusicPage() {
     };
     animationFrame = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(animationFrame);
-  }, [playing, notes, phases, muted, groupDurations, groupDirections, startDelays, volume]);
+  }, [playing, notes, slides, phases, muted, groupDurations, groupDirections, startDelays, volume, scoreName]);
 
   const resetPlayhead = () => {
     elapsedRef.current = 0;
@@ -310,11 +343,15 @@ export default function OrbitalMusicPage() {
   };
 
   const removeNote = (ringIndex: number, noteIndex: number) => {
+    const angle = notes[ringIndex]?.[noteIndex];
     setNotes((current) => current.map((ringNotes, index) =>
       index === ringIndex ? ringNotes.filter((_, position) => position !== noteIndex) : ringNotes));
+    setSlides((current) => current.map((ringSlides, index) =>
+      index === ringIndex ? ringSlides.filter((slide) => slide.angle !== angle) : ringSlides));
   };
 
   const shuffleNotes = () => {
+    setSlides(RINGS.map(() => []));
     setNotes((current) => current.map((ringNotes) =>
       Array.from({ length: ringNotes.length }, () => Math.floor(Math.random() * 72) * 5)
         .filter((angle, index, all) => all.findIndex((other) => angleDistance(other, angle) < 10) === index)
@@ -411,6 +448,40 @@ export default function OrbitalMusicPage() {
                   })}
                 </g>
               ))}
+              {/* Estelas curvadas: una nota sostenida cambia de altura al recorrer un arco. */}
+              {RINGS.map((ring, index) => (
+                <g key={"slides-" + ring.pitch} pointerEvents="none" opacity={muted[index] ? 0.1 : 1}>
+                  {slides[index].map((slide) => {
+                    const destination = RINGS.find((item) => item.pitch === slide.toPitch);
+                    if (!destination) return null;
+                    const group = index < 4 ? 0 : 1;
+                    const sweep = groupDirections[group] * 360 * slide.duration / groupDurations[group];
+                    const from = orbitalPoint(ring.radius, slide.angle, CENTER);
+                    const middle = orbitalPoint((ring.radius + destination.radius) / 2, slide.angle + sweep / 2, CENTER);
+                    const to = orbitalPoint(destination.radius, slide.angle + sweep, CENTER);
+                    const d = "M " + from.x + " " + from.y + " Q " + middle.x + " " + middle.y + " " + to.x + " " + to.y;
+                    const progress = elapsedSlideProgress(elapsed,
+                      { enabled: !muted[index], phase: phases[index], delay: startDelays[index] },
+                      { duration: groupDurations[group], direction: groupDirections[group] }, slide);
+                    const px = progress === null ? 0 : (1 - progress) ** 2 * from.x +
+                      2 * (1 - progress) * progress * middle.x + progress ** 2 * to.x;
+                    const py = progress === null ? 0 : (1 - progress) ** 2 * from.y +
+                      2 * (1 - progress) * progress * middle.y + progress ** 2 * to.y;
+                    return (
+                      <g key={slide.angle + "-" + slide.toPitch}>
+                        <path d={d} fill="none" stroke={ring.color} strokeOpacity={0.12} strokeWidth={11} />
+                        <path d={d} fill="none" stroke={ring.color} strokeOpacity={0.8}
+                          strokeWidth={3.2} strokeLinecap="round" strokeDasharray="6 3" />
+                        <circle cx={to.x} cy={to.y} r="4" fill={destination.color} />
+                        {playing && progress !== null && (
+                          <circle cx={px} cy={py} r={11} fill="#fff7bf"
+                            stroke={ring.color} strokeWidth={3} filter={"url(#orbital-glow-" + index + ")"}/>
+                        )}
+                      </g>
+                    );
+                  })}
+                </g>
+              ))}
               {RINGS.map((ring, index) => {
                 const turn = ringTurn(index);
                 const point = orbitalPoint(ring.radius, (turn ?? phases[index] / 360) * 360, CENTER);
@@ -501,15 +572,48 @@ export default function OrbitalMusicPage() {
                 Los archivos importados conservan notas, anillos encendidos, fases y tiempos.
               </p>
               <button type="button" onClick={() => {
+                loadScore(BATTLE_SCORE);
+                setSelectedScore("");
+              }}
+                className="mt-4 w-full rounded-xl bg-amber-200 px-3 py-3 text-sm font-semibold text-emerald-950 hover:bg-amber-100">
+                ⚔️ Ascenso de Xahya · tema épico original
+              </button>
+              <button type="button" onClick={() => {
                 loadScore(createGoldenScore());
                 setSelectedScore("");
               }}
-                className="mt-4 w-full rounded-xl bg-emerald-200 px-3 py-3 text-sm font-semibold text-emerald-950 hover:bg-emerald-100">
+                className="mt-2 w-full rounded-xl border border-emerald-300/50 px-3 py-3 text-sm font-semibold text-emerald-200 hover:bg-emerald-100/10">
                 Cargar melodía proporcionada · 53 notas
               </button>
               <p className="mt-2 text-xs text-emerald-100/60">
                 Registro agudo y ritmo uniforme aproximados; la secuencia original no especifica octavas ni duraciones.
               </p>
+              <div className="mt-4 rounded-xl border border-amber-200/30 bg-amber-950/20 p-3">
+                <h3 className="text-sm font-semibold text-amber-100">Mi tema de combate</h3>
+                <p className="mt-1 text-xs leading-5 text-amber-100/70">
+                  Cada jugador puede publicar su composición como tema personal de combate.
+                  Se guarda en su cuenta y se podrá escuchar desde los encuentros.
+                </p>
+                <p className="mt-2 text-xs text-amber-100/80">
+                  {ownTheme ? "Tema actual: " + ownTheme.title : "Usarás Ascenso de Xahya hasta guardar uno propio."}
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => void savePersonalTheme()} disabled={themeBusy}
+                    className="rounded-lg bg-amber-200 px-2 py-2 text-xs font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-50">
+                    Guardar como mi tema
+                  </button>
+                  <button type="button" onClick={() => ownTheme && loadScore(ownTheme)}
+                    disabled={!ownTheme || themeBusy}
+                    className="rounded-lg border border-amber-200/30 px-2 py-2 text-xs hover:bg-amber-100/10 disabled:opacity-40">
+                    Cargar mi tema
+                  </button>
+                  <button type="button" onClick={() => void resetPersonalTheme()}
+                    disabled={!ownTheme || themeBusy}
+                    className="col-span-2 rounded-lg border border-amber-200/30 px-2 py-2 text-xs hover:bg-amber-100/10 disabled:opacity-40">
+                    Volver al tema predeterminado en mi cuenta
+                  </button>
+                </div>
+              </div>
               <label className="mt-5 block text-xs text-emerald-100/75">
                 Nombre de la partitura
                 <input type="text" maxLength={120} value={scoreName}
@@ -558,6 +662,69 @@ export default function OrbitalMusicPage() {
                 Guardar aquí conserva las partituras en este navegador, no en tu cuenta.
                 Usa Exportar para respaldarlas o llevarlas a otro dispositivo.
               </p>
+            </section>
+
+            <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
+              <h2 className="text-lg font-semibold">Notas que se deslizan</h2>
+              <p className="mt-1 text-xs leading-5 text-emerald-100/65">
+                Una nota puede prolongarse y subir o bajar de altura en lugar de sonar
+                como un punto. En el gráfico aparecerá como una estela curva luminosa.
+              </p>
+              <div className="mt-3 space-y-3">
+                <label className="block text-xs text-emerald-100/75">
+                  Circunferencia de origen
+                  <select value={slideRing} onChange={(event) => {
+                    setSlideRing(event.target.value);
+                    if (slideTarget === event.target.value) {
+                      setSlideTarget(RINGS.find((item) => item.pitch !== event.target.value)?.pitch ?? "");
+                    }
+                    const index = RINGS.findIndex((item) => item.pitch === event.target.value);
+                    setSlideAngle(String(notes[index]?.[0] ?? ""));
+                  }}
+                    className="mt-1 w-full rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-2 text-sm text-white">
+                    {RINGS.map((ring) => <option key={ring.pitch} value={ring.pitch}>{ring.note}</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs text-emerald-100/75">
+                  Nota que se desliza (posición angular)
+                  <select value={chosenAngle ?? ""} onChange={(event) => setSlideAngle(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-2 text-sm text-white">
+                    {slideOptions.length === 0 ? <option value="">Sin notas: añade una en el gráfico</option> :
+                      slideOptions.map((angle) => <option key={angle} value={angle}>{angle.toFixed(2)}°</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs text-emerald-100/75">
+                  Tono al terminar
+                  <select value={slideTarget} onChange={(event) => setSlideTarget(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-2 text-sm text-white">
+                    {RINGS.filter((ring) => ring.pitch !== slideRing).map((ring) =>
+                      <option key={ring.pitch} value={ring.pitch}>{ring.note}</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs text-emerald-100/75">
+                  <span className="flex justify-between"><span>Duración del deslizamiento</span><span>{slideDuration.toFixed(1)} s</span></span>
+                  <input type="range" min="0.1" max="3" step="0.1" value={slideDuration}
+                    onChange={(event) => setSlideDuration(Number(event.target.value))}
+                    className="mt-2 w-full accent-emerald-300"/>
+                </label>
+                <button type="button" onClick={upsertSlide} disabled={chosenAngle === undefined}
+                  className="w-full rounded-lg bg-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-950 hover:bg-cyan-100 disabled:opacity-40">
+                  Crear o actualizar deslizamiento
+                </button>
+              </div>
+              <p className="mt-4 text-xs text-emerald-100/65">Deslizamientos en esta partitura: {allSlides.length}</p>
+              <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
+                {allSlides.map((slide) => (
+                  <div key={slide.index + "-" + slide.angle}
+                    className="flex items-center justify-between gap-2 rounded-md border border-emerald-100/10 px-2 py-1.5 text-xs">
+                    <span>{slide.source} → {RINGS.find((ring) => ring.pitch === slide.toPitch)?.note ?? slide.toPitch}
+                      {" · "}{slide.angle.toFixed(1)}° · {slide.duration} s</span>
+                    <button type="button" onClick={() => removeSlide(slide.index, slide.angle)}
+                      className="rounded border border-emerald-200/20 px-2 py-1 hover:bg-emerald-100/10"
+                      aria-label={"Eliminar deslizamiento desde " + slide.source}>Quitar</button>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
@@ -635,11 +802,11 @@ export default function OrbitalMusicPage() {
                   className="rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
                   Variar notas
                 </button>
-                <button type="button" onClick={() => setNotes(makeNotes())}
+                <button type="button" onClick={() => loadScore(BATTLE_SCORE)}
                   className="rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
-                  Restaurar
+                  Tema épico
                 </button>
-                <button type="button" onClick={() => setNotes(RINGS.map(() => []))}
+                <button type="button" onClick={() => { setNotes(RINGS.map(() => [])); setSlides(RINGS.map(() => [])); }}
                   className="col-span-2 rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
                   Vaciar circunferencias
                 </button>

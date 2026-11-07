@@ -9,6 +9,7 @@ model User {
   lastLoginAt DateTime?
   lastLoginSessionId String?
   lastNotificationReadAt DateTime?
+  musicTheme Json?
   characters Character[]
   auditLogsAsActor AuditLog[] @relation("AuditActor")
   auditLogsAsTarget AuditLog[] @relation("AuditTarget")

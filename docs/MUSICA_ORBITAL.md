@@ -28,3 +28,24 @@ El botón **Cargar melodía proporcionada · 53 notas** distribuye las seis fras
 Asignación provisional: La4, Si4, Do5, Re5, Mi5, Fa♯5, Sol5. Ambas familias giran en sentido horario, con duración de 16 segundos por vuelta, fase e inicio 0°. Así la secuencia suena en orden. Como las letras de notas no especifican octavas, tempo, silencios exactos o duración individual, es una **aproximación editable**, no una transcripción rítmica exacta.
 
 La partitura puede guardarse y exportarse como cualquier otra composición. No se almacena audio.
+
+## Tema épico de Xahya
+
+**Ascenso de Xahya — batalla** es la composición predeterminada del laboratorio. Está escrita específicamente para Xahya y es sintetizada por Web Audio sin muestras ni archivos de terceros. Una vuelta de 16 segundos combina motivos ascendentes y descendentes, contrapunto grave y pulsaciones. Incluye siete glissandos (deslizamientos de tono).
+
+Los deslizamientos son notas existentes ampliadas con una lista opcional `slides: [{ angle, toPitch, duration }]` por circunferencia. La duración es de 0,1 a 3 segundos; el origen siempre debe corresponder a una nota real. En el gráfico se dibuja un arco luminoso desde el origen hasta el anillo de destino y un marcador lo recorre durante la reproducción. El oscilador cambia continuamente de frecuencia, en vez de disparar dos notas separadas.
+
+El formato **sigue siendo versión 1**: partituras antiguas sin `slides` se importan sin efectos deslizantes.
+
+## Tema personal de cada jugador
+
+La nueva ruta protegida `/api/music-theme` permite a cada usuario autenticado:
+- GET: leer exclusivamente su partitura personal.
+- PUT: guardar la partitura que edita en el laboratorio (reemplaza el tema personal).
+- DELETE: volver a utilizar el tema épico predeterminado.
+
+Los borradores múltiples del laboratorio siguen viviendo en `localStorage`. La composición marcada **Guardar como mi tema** se guarda en el perfil y se puede usar al iniciar sesión en otro dispositivo. Para ello se añade `User.musicTheme Json?` al contrato y la migración `migrations/20261107223000_user_orbital_music_theme.sql`. **La migración debe aplicarse a la base de datos antes de publicar esta PR**.
+
+## Música durante combates
+
+El encuentro incluye un panel **Música** para elegir entre Ascenso de Xahya y el tema personal del jugador, pulsar reproducir/pausar, ajustar el volumen y visitar el editor. La reproducción no empieza automáticamente: requiere una interacción explícita por las restricciones de audio de los navegadores. Se detiene al finalizar el combate o abandonar la página, no utiliza la API de combate y no modifica PA, maná, ticks, el orden de iniciativa ni las acciones.

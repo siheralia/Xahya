@@ -15,7 +15,7 @@ type Item = {
   basePrice: number;
   price: number;
   appliedPromotions: Promotion[];
-  effects: { type: string; stat?: string; value?: number; description?: string; manaCost?:number; intervalTurns?:number }[];
+  effects: { type: string; stat?: string; value?: number; description?: string; manaCost?:number; intervalTurns?:number; wearPercent?:number; channel?:string }[];
   allowedSlots?: string[];
 };
 type OwnedItem = { id: number; itemId: number; quantity: number; equipped: boolean; equippedSlot: string | null; flair: string | null; item: Item | null };
@@ -273,7 +273,9 @@ export default function StorePage() {
                     {item.appliedPromotions.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{item.appliedPromotions.map((promotion) => <span key={promotion.id} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-300">{promotion.name}</span>)}</div>}
                     {item.description && <p className="mt-4 text-sm" style={{ color: readableSubtle }}>{item.description}</p>}
                     {item.effects.length > 0 && <div className="mt-4 space-y-1" style={{ color: readableSubtle }}>{item.effects.map((effect, index) => <p key={index} className="text-xs" style={{ color: readableSubtle }}>
-    {effect.type==="auto_repair_durability"
+    {effect.type==="durability_wear_on_hit"
+      ? "Desgaste "+Number(effect.wearPercent??0)+"% por daño "+(effect.channel==="MAGICAL"?"mágico":effect.channel==="PHYSICAL"?"físico":"físico/mágico")
+      : effect.type==="auto_repair_durability"
       ? "Autorreparación · "+Number(effect.manaCost??0)+" maná cada "+Number(effect.intervalTurns??0)+" turno(s)"
       : (effect.description || effectLabels[effect.type] || effect.type)+": "+
         (effect.type.includes("multiplier")?"×"+Number(effect.value??0)/100:Number(effect.value??0))}

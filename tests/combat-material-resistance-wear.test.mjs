@@ -141,7 +141,7 @@ test("persistent route, snapshot and combat UI are connected to material and eac
  assert.match(start,/material\.physicalResistance/);
  assert.match(start,/weapon\.materialPhysicalResistance=resistance/);
  assert.match(engine,/calculateMaterialBlockWear\(baseWear,blockWeapon\?\.materialPhysicalResistance\)/);
- assert.match(save,/for\(const weapon of \[fighter\.equippedWeapon,fighter\.offhandWeapon\]\)/);
+ assert.match(save,/for\(const weapon of \[fighter\.equippedWeapon,fighter\.offhandWeapon,/);
  assert.match(save,/durability=LEAST\(durability/);
  assert.match(ui,/Arma con la que bloquear/);
  assert.match(ui,/Resistencia física del material/);

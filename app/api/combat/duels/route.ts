@@ -17,6 +17,7 @@ import { racialDamageFactors,perkDamageFactors,mergeDamageTakenFactors } from "@
 import { getPerkEffects } from "@/lib/perks";
 import {characterCombatConsumables,npcStartingConsumables} from "@/lib/items/combat-consumables";
 import {compileWeaponAutoRepair} from "@/lib/items/auto-repair";
+import {snapshotEquippedWearables} from "@/lib/items/combat-wearables";
 
 async function snapshotEquippedWeapons(characterId:number):Promise<{
   main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
@@ -288,10 +289,18 @@ export async function POST(req:Request) {
   const Item=(db.orm.public as any).Item;
   const CharacterItem=(db.orm.public as any).CharacterItem;
   const catalog=await Item.all();
+  const ownerCopies=await CharacterItem.where({characterId}).all();
+  const rivalCopies=opponent.characterId!==null
+    ?await CharacterItem.where({characterId:opponent.characterId}).all():[];
+  // Only staff-defined configurations bound to actual equipped copies enter
+  // the immutable encounter snapshot. Synthetic NPCs own no persistent gear.
+  initial.actors.PLAYER.equippedWearables=snapshotEquippedWearables(catalog,ownerCopies);
+  initial.actors.NPC.equippedWearables=opponent.characterId!==null
+    ?snapshotEquippedWearables(catalog,rivalCopies):[];
   initial.consumables={
-    PLAYER:characterCombatConsumables(catalog,await CharacterItem.where({characterId}).all()),
+    PLAYER:characterCombatConsumables(catalog,ownerCopies),
     NPC:opponent.characterId!==null
-      ?characterCombatConsumables(catalog,await CharacterItem.where({characterId:opponent.characterId}).all())
+      ?characterCombatConsumables(catalog,rivalCopies)
       :npcStartingConsumables(catalog.filter((item:any)=>item.acquisitionType==="PURCHASABLE"),
         ()=>randomInt(1_000_000)/1_000_000),
   };

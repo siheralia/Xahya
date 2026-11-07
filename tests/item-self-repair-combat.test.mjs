@@ -204,8 +204,8 @@ test("staff UI and protected management APIs provide the same strict item contra
  assert.match(page,/<MicroEffectBuilder value=\{autoRepair\.module\}/);
  assert.match(page,/Maná por activación/);
  assert.match(page,/Cada cuántos turnos/);
- assert.match(create,/compileWeaponAutoRepair\(effects,itemType\)/);
- assert.match(edit,/compileWeaponAutoRepair\(effects,itemType\)/);
+ assert.match(create,/compileEquippedItemAutoRepair\(effects,itemType\)/);
+ assert.match(edit,/compileEquippedItemAutoRepair\(effects,itemType\)/);
  assert.match(create,/canManageItemOrigin/);
  assert.match(edit,/canManageItemOrigin/);
  assert.match(duel,/compileWeaponAutoRepair\(item.effects,String\(item.itemType\)\)/);

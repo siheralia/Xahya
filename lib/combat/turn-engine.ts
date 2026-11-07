@@ -18,8 +18,10 @@ import {activeChaosField,distortChaosMove} from "./chaos-fusion.ts";
 import {creditCombatCharge,ensureCombatChargePool,spendCombatCharges} from "./charge-pools.ts";
 import {applySummonStatus,invertSummonStatus,expireSummonStatuses,
  isDebuffStatus,resolveStatusStat,type SummonStatus} from "./summon-status.ts";
-import {evaluateWeaponAutoRepair,shouldAutoRepairAtRound,
+import {evaluateEquippedItemAutoRepair,shouldAutoRepairAtRound,
  type AutoRepairItemEffect} from "../items/auto-repair.ts";
+import {equipmentWearFromHit} from "../items/equipped-wear.ts";
+import type {CombatWearable} from "../items/combat-wearables.ts";
 import {assertMovementClear,blockingMovement,firstCoverAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
@@ -50,6 +52,8 @@ export type CombatFighter = {
   fieldPosition?:Point;
   equippedWeapon?: CombatWeapon;
   offhandWeapon?: CombatWeapon;
+  /** Real equipped armor / accessory copies from the server-side duel snapshot. */
+  equippedWearables?:CombatWearable[];
   defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
   magicFieldDescription?: string | null; damageTakenFactors?:DamageTakenFactors; perkIds?:number[]; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
@@ -387,7 +391,8 @@ function dispatchCombatMicroEvent(state:CombatState,side:Side,
 
 /** Item-bound repair runs only when the authoritative encounter advances to
  * a new full round. It consumes encounter mana (not persistent sheet mana),
- * never AP/ticks, and cannot repair a weapon lying on the field.
+ * never AP/ticks, and repairs ONLY items still in an equipped slot.
+ * This keeps the existing weapon contract while extending to wearables.
  */
 export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):void{
   if(state.status!=="ACTIVE")return;
@@ -395,7 +400,8 @@ export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):v
   const mana=state.mana?.[side];
   if(!mana||!Number.isSafeInteger(mana.current))return;
   const seen=new Set<number>();
-  for(const weapon of [fighter.equippedWeapon,fighter.offhandWeapon]){
+  for(const weapon of [fighter.equippedWeapon,fighter.offhandWeapon,
+    ...(fighter.equippedWearables??[])]){
     const rule=weapon?.autoRepair;
     const durability=weapon?.durability;
     if(!weapon||!rule||!weapon.characterItemId||
@@ -428,11 +434,12 @@ export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):v
     };
     // A staff-configured formula may reference a statistic disabled in the
     // current character catalog. Never trap both fighters at round rollover.
-    let calculated:ReturnType<typeof evaluateWeaponAutoRepair>;
+    let calculated:ReturnType<typeof evaluateEquippedItemAutoRepair>;
     try{
-      calculated=evaluateWeaponAutoRepair(rule,{
+      calculated=evaluateEquippedItemAutoRepair(rule,{
         characterItemId,durability,
-      },stats,{USER:stats,OPPONENT:opponentStats});
+      },stats,"itemType" in weapon?weapon.itemType:"WEAPON",
+       {USER:stats,OPPONENT:opponentStats});
     }catch{
       weapon.autoRepairDisabled=true;
       addLog(state,{kind:"WEAPON_REPAIR_SKIP",tick:state.tick,by:side,
@@ -449,11 +456,35 @@ export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):v
     state.itemRepairsThisRound.push({
       by:side,characterItemId,restored:calculated.restored,round:state.round,
     });
-    addLog(state,{kind:"WEAPON_REPAIR",tick:state.tick,by:side,
+    addLog(state,{kind:"itemType" in weapon?"EQUIPMENT_REPAIR":"WEAPON_REPAIR",tick:state.tick,by:side,
       weaponName:weapon.name,weaponIntegrity:calculated.after,manaCost:rule.manaCost,
       summary:weapon.name+" restauró "+calculated.restored+
         " de durabilidad al comenzar el turno; consumió "+rule.manaCost+" maná."});
   }
+}
+
+/** An opt-in, non-defensive equipment wear event triggered AFTER resolving
+ * real HP damage. A miss, dodge or fully absorbed attack wears nothing.
+ * Wearable copies are independent: damage does not magically distribute to
+ * arbitrary inventory objects. Only equipped and configured pieces react.
+ */
+export function applyWearableOnConfirmedHpHit(
+ state:CombatState,defender:Side,appliedHpDamage:number,magic:boolean
+):void{
+ if(state.status!=="ACTIVE"||!Number.isSafeInteger(appliedHpDamage)||appliedHpDamage<=0)return;
+ const fighter=state.actors[defender];
+ const seen=new Set<number>();
+ for(const item of fighter.equippedWearables??[]){
+  if(seen.has(item.characterItemId))continue;
+  seen.add(item.characterItemId);
+  if(!item.wearOnHit||item.durability<=0)continue;
+  const wear=equipmentWearFromHit(item.durability,appliedHpDamage,magic,item.wearOnHit);
+  if(!wear)continue;
+  item.durability-=wear;
+  addLog(state,{kind:"EQUIPMENT_WEAR",tick:state.tick,by:defender,
+   weaponName:item.name,weaponIntegrity:item.durability,
+   summary:item.name+" perdió "+wear+" de durabilidad tras recibir "+appliedHpDamage+" HP de daño."});
+ }
 }
 
 export const actionPoints = (constitution: number) => Math.max(1, Math.floor(9 + normalize(constitution)));
@@ -1494,7 +1525,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
             :wall.label+" interceptó el ataque físico y recibió "+wear+" de desgaste."});
       }
     }
+    const actualHpDamage=Math.min(fighter.hp,damage);
     fighter.hp = Math.max(0, fighter.hp - damage);
+    if(contact&&actualHpDamage>0)
+      applyWearableOnConfirmedHpHit(state,by,actualHpDamage,pending.usesMagic);
     // Status effects from a real summon hit run only after geometric contact,
     // defense and actual HP damage have been fully resolved.
     if(summonedAttacker&&contact)

@@ -7,7 +7,8 @@ import { EFFECT_TYPES, validateEffectTarget } from "@/lib/effects/catalog";
 import { readStatisticsCatalog } from "@/lib/stats/dynamic";
 import { hasRolePermission, canManageItemOrigin } from "@/lib/role-permissions";
 import {selectedMaterialId} from "@/lib/items/materials";
-import {AUTO_REPAIR_ITEM_EFFECT,compileWeaponAutoRepair} from "@/lib/items/auto-repair";
+import {AUTO_REPAIR_ITEM_EFFECT,compileEquippedItemAutoRepair} from "@/lib/items/auto-repair";
+import {EQUIPPED_WEAR_EFFECT,compileEquippedWear} from "@/lib/items/equipped-wear";
 
 const ATTACK_TYPES = ["CUT", "BLUNT", "PIERCE"] as const;
 const ITEM_TYPES = ["WEAPON", "ARMOR", "ACCESSORY", "CONSUMABLE", "MATERIAL", "PROPERTY", "OTHER"] as const;
@@ -53,11 +54,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if (allowedSlots.some((slot: string) => !EQUIPMENT_SLOTS.includes(slot as any))) return NextResponse.json({ error: "Slots de equipo inválidos." }, { status: 400 });
   const statistics = await readStatisticsCatalog();
-  try{compileWeaponAutoRepair(effects,itemType);}catch(e){
+  try{compileEquippedItemAutoRepair(effects,itemType);compileEquippedWear(effects,itemType);}catch(e){
     return NextResponse.json({error:e instanceof Error?e.message:"Autorreparación inválida."},{status:400});
   }
   for (const effect of effects) {
-    if(effect?.type===AUTO_REPAIR_ITEM_EFFECT)continue;
+    if(effect?.type===AUTO_REPAIR_ITEM_EFFECT||effect?.type===EQUIPPED_WEAR_EFFECT)continue;
     if (!effect || typeof effect !== "object" || typeof effect.type !== "string" || !effect.type.trim() || !Number.isFinite(Number(effect.value)) || Number(effect.value) <= 0) return NextResponse.json({ error: "Efecto de objeto inválido." }, { status: 400 });
     if (effect.type === "system_action") {
       if (itemType !== "CONSUMABLE" || !systemActions.includes(String(effect.action))) return NextResponse.json({ error: "Acción del sistema inválida para este objeto." }, { status: 400 });

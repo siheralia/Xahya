@@ -3,7 +3,8 @@
 ## Alcance
 - El efecto configurable `COPY_SKILL` tiene las modalidades permanente, temporal, imitación instantánea y colección.
 - `value` representa complejidad máxima en PCH. Mejorar esta propiedad (o las demás de una habilidad) usa una moneda de mejora y **únicamente el incremento positivo de PCH**.
-- La moneda es un consumible de sistema `IMPROVE_SKILL`, registrado en el catálogo de objetos y entregable desde Gestión. Al consumirlo concede un crédito de mejora, no PCH.
+- La moneda es un consumible de sistema `IMPROVE_SKILL`, registrado en el catálogo de objetos y entregable desde Gestión. Al consumirlo concede **1 crédito de mejora + 5 PCH** en la misma transacción. El crédito autoriza una solicitud y los PCH pueden gastarse para cubrir parte de la diferencia de construcción.
+- La complejidad máxima `COPY_SKILL` se cobra en escalones de **5 PCH de capacidad**, no mediante crecimiento logarítmico. Esto preserva el coste actual de una capacidad de 25 (30 PCH con 50 de maná): aumentar la capacidad a 94 cuesta 58 PCH totales, es decir, 28 PCH de diferencia, de los cuales una moneda aporta 5 PCH al saldo. El precio total se sigue ajustando por maná, alcance, condiciones, etc.
 - Las solicitudes de mejora se cargan y se cobran con una transacción y quedan pendientes de aprobación; el rechazo devuelve un crédito y los PCH.
 - Las copias requieren aprobación de Gestión → Habilidades. La solicitud inicial no concede nada; después de aprobar, las copias permanentes producen una habilidad aprobada, las temporales duran turnos de combate reales y las de colección pueden almacenarse y equiparse de una en una por habilidad copiadora. La imitación guarda el resultado de un solo uso en el registro aprobado (aún no ejecuta automáticamente efectos en combate).
 - La fidelidad porcentual afecta valores numéricos y multiplicadores; el origen se conserva mediante la tabla `skillCopy`.

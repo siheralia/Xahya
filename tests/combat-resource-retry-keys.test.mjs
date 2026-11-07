@@ -4,13 +4,13 @@ import {readFileSync} from "node:fs";
 import {combatResourceRequestKey} from "../lib/combat/resource-request-key.ts";
 
 const snapshot=()=>({
- version:1,round:4,tick:381,status:"ACTIVE",
+ version:1,round:4,tick:321,status:"ACTIVE",
  actors:{
-  PLAYER:{spentTicks:81,spentAp:3},
+  PLAYER:{spentTicks:21,spentAp:3},
   NPC:{spentTicks:54,spentAp:2},
  },
  pending:null,
- log:[{kind:"SKILL",tick:381,summary:"Última acción del jugador"}],
+ log:[{kind:"SKILL",tick:321,summary:"Última acción del jugador"}],
 });
 const cast={kind:"CAST_SKILL",skillId:41,
  constructionFieldPoint:{x:0.4,y:0.3},constructionForm:"FIELD"};
@@ -27,9 +27,9 @@ test("two valid casts of the same mirror in a round get distinct request IDs",()
  const before=snapshot();
  const after=structuredClone(before);
  after.actors.PLAYER.spentAp++;
- after.actors.PLAYER.spentTicks=100;
- after.tick=400;
- after.log.push({kind:"SKILL",tick:400,summary:"Espejo colocado"});
+ after.actors.PLAYER.spentTicks=48;
+ after.tick=348;
+ after.log.push({kind:"SKILL",tick:348,summary:"Espejo colocado"});
  assert.equal(after.round,before.round);
  assert.notEqual(key(before),key(after),
   "a successful GET after a lost POST must not suppress the next mirror");

@@ -17,7 +17,7 @@ function groupLinks(id) {
   return [...group[1].matchAll(/href: "([^"]+)"/g)].map((match) => match[1]);
 }
 
-test("Gestión conserva sus 25 accesos sin duplicarlos", () => {
+test("Gestión conserva sus 26 accesos sin duplicarlos", () => {
   const expected = {
     system: [
       "/management/logs", "/management/rankings", "/management/rules",
@@ -37,13 +37,14 @@ test("Gestión conserva sus 25 accesos sin duplicarlos", () => {
     economy: [
       "/management/world", "/management/store", "/management/casino",
       "/management/businesses", "/management/businesses/repair-services",
+      "/management/businesses/crafting",
     ],
   };
   for (const [id, hrefs] of Object.entries(expected)) {
     assert.deepEqual(groupLinks(id), hrefs, "Accesos o agrupación incorrectos: " + id);
   }
   const allLinks = Object.values(expected).flat();
-  assert.equal(allLinks.length, 25);
+  assert.equal(allLinks.length, 26);
   assert.equal(new Set(allLinks).size, allLinks.length);
 });
 

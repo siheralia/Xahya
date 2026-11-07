@@ -6,7 +6,7 @@ Ruta: `/musica-orbital` (requiere iniciar sesión).
 
 - 16 círculos, de Do4 a Do6 (afinación temperada, La4 = 440 Hz), incluyendo Fa♯5.
 - Más lejos del centro = sonido más agudo.
-- Los anillos 1–4 comparten un recorrido y los anillos 5–16 otro. Ambos tienen duración de vuelta y dirección independientes.
+- Cada anillo tiene **su propia duración de vuelta (2–30 segundos) y dirección**. La velocidad y el sentido controlan realmente cuándo se disparan sus notas, no solo el SVG.
 - Cada anillo se puede activar/desactivar sin perder sus notas, retrasar su inicio de 0 a 30 segundos y configurar su posición angular.
 - Los controles angulares se despliegan desde **Ajustar** en cada anillo para simplificar la interfaz.
 
@@ -19,7 +19,7 @@ Ruta: `/musica-orbital` (requiere iniciar sesión).
 - La importación valida formato, versión, rangos de ángulos y grupos, notas duplicadas y un máximo de 1 MB por archivo.
 - No se han añadido tablas ni datos de usuario en el servidor.
 
-Formato `xahya-orbital-score` versión 1: propiedades `format`, `version`, `title`, `groups` (2 elementos con `duration` y `direction`) y `rings` (cada uno con `pitch`, `enabled`, `phase`, `delay` y `angles`). Se identifican los anillos por `pitch`, para admitir archivos anteriores que contengan menos anillos.
+Formato `xahya-orbital-score` versión 1: `format`, `version`, `title`, `groups` (se mantienen como configuración de respaldo de archivos antiguos), `percussion: "battle" | "none"` y `rings` (cada anillo incluye `pitch`, `enabled`, `phase`, `delay`, `duration`, `direction`, `angles` y `slides`). Se identifican los anillos por `pitch`, para admitir archivos anteriores con menos anillos. Si un archivo antiguo no contiene `duration`/`direction` por anillo, se heredan del grupo; si no contiene `percussion`, se asume `"none"`.
 
 ## Melodía proporcionada
 
@@ -31,11 +31,13 @@ La partitura puede guardarse y exportarse como cualquier otra composición. No s
 
 ## Tema épico de Xahya
 
-**Ascenso de Xahya — batalla** es la composición predeterminada del laboratorio y los encuentros. Está escrita específicamente para Xahya, con una sensibilidad de aventura y JRPG clásico, sin copiar melodías de videojuegos. Se sintetiza con Web Audio sin muestras ni archivos de terceros. Una vuelta de **8 segundos** (antes 16) desarrolla cuatro secciones armónicas **La menor → Fa mayor → Sol mayor → Mi menor**, contrapunto grave y pulsos rítmicos. Incluye **tres glissandos breves de semitono** en lugar de siete barridos largos.
+**Ascenso de Xahya — batalla** es la composición predeterminada. Tiene **8 segundos por ciclo**, melodía original de fantasía oscura con voces sincopadas, bajo marcial y una progresión La menor → Sol → Fa → Mi menor. El último Si5 se desliza a Do6 y enlaza con el primer Do6 del siguiente ciclo; el bajo resuelve de Mi a La. El acompañamiento de percusión sintetizada es opcional y recorre la misma vuelta de 8 segundos.
 
-Los deslizamientos son notas existentes ampliadas con una lista opcional `slides: [{ angle, toPitch, duration }]` por circunferencia. La duración es de 0,1 a 3 segundos; el origen siempre debe corresponder a una nota real. En el gráfico se dibuja un arco luminoso desde el origen hasta el anillo de destino y un marcador lo recorre durante la reproducción. El oscilador cambia continuamente de frecuencia, en vez de disparar dos notas separadas.
+La partitura demuestra movimiento independiente real: Re4 gira en 4 segundos, Fa♯5 en 16, los demás en 8, y varias órbitas giran en sentido antihorario. Las notas están colocadas en ángulos calculados para conservar la secuencia completa **cada 8 segundos**, incluso con revoluciones diferentes. Un anillo lento repite su motivo en puntos opuestos; uno rápido reitera un ostinato. El usuario puede editar libremente cada velocidad y sentido (ello modifica el ritmo). Los tres deslizamientos audibles por vuelta duran 0,14 segundos y son de un solo semitono. Su sonido hace una transición breve al final de una nota sostenida, evitando los largos barridos que sonaban artificiales.
 
-El formato **sigue siendo versión 1**: partituras antiguas sin `slides` se importan sin efectos deslizantes.
+Los deslizamientos son notas existentes ampliadas con una lista opcional `slides: [{ angle, toPitch, duration }]` por circunferencia. La duración es de 0,1 a 3 segundos; el origen siempre debe corresponder a una nota real. Los ejemplos de batalla usan 0,14 s para un portamento sutil. En el gráfico se dibuja un arco luminoso desde el origen hasta el anillo de destino y un marcador lo recorre durante la reproducción. El oscilador cambia continuamente de frecuencia, en vez de disparar dos notas separadas.
+
+El formato **sigue siendo versión 1**: partituras antiguas sin `slides` se importan sin efectos deslizantes, y sin ajustes de giro individuales se usa el recorrido original.
 
 ## Tema personal de cada jugador
 

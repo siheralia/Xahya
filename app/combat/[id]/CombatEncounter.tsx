@@ -1402,7 +1402,7 @@ export default function CombatEncounter({id}:{id:string}) {
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
     chargeState={state}
-    onCast={(skill,charges)=>castSkill(skill,undefined,undefined,charges)} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance}/>
+    onCast={(skill,charges)=>castSkill(skill,undefined,undefined,charges)} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance} constructionDistanceMeters={targetDistance}/>
 
    </CombatDialog>
    <CombatDialog open={panel==="stats"} title="Estado y estadísticas" onClose={closePanel}>

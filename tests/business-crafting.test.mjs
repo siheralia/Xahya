@@ -126,7 +126,7 @@ test("real manufacturing transaction debits materials and money before granting 
  assert.match(route,/durability:100/);
  const charge=route.indexOf("UPDATE public.\"characterItem\" SET quantity=quantity-");
  const credit=route.indexOf("const createdIds:number[]");
- const audit=route.indexOf('action:"BUSINESS_ITEM_CRAFT"');
+ const audit=route.lastIndexOf('action:"BUSINESS_ITEM_CRAFT"');
  assert.ok(charge>=0&&credit>charge&&audit>credit);
 });
 test("idempotency, PvP lock and employee/customer restrictions are server-side",()=>{

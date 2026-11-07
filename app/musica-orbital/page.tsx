@@ -495,44 +495,130 @@ export default function OrbitalMusicPage() {
             </section>
 
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
+              <h2 className="text-lg font-semibold">Partituras</h2>
+              <p className="mt-1 text-xs leading-5 text-emerald-100/65">
+                Guarda composiciones aquí o compártelas como archivos JSON.
+                Los archivos importados conservan notas, anillos encendidos, fases y tiempos.
+              </p>
+              <button type="button" onClick={() => {
+                loadScore(createGoldenScore());
+                setSelectedScore("");
+              }}
+                className="mt-4 w-full rounded-xl bg-emerald-200 px-3 py-3 text-sm font-semibold text-emerald-950 hover:bg-emerald-100">
+                Cargar melodía proporcionada · 53 notas
+              </button>
+              <p className="mt-2 text-xs text-emerald-100/60">
+                Registro agudo y ritmo uniforme aproximados; la secuencia original no especifica octavas ni duraciones.
+              </p>
+              <label className="mt-5 block text-xs text-emerald-100/75">
+                Nombre de la partitura
+                <input type="text" maxLength={120} value={scoreName}
+                  onChange={(event) => setScoreName(event.target.value)}
+                  placeholder="Mi partitura" className="mt-2 w-full rounded-lg border border-emerald-200/25 bg-[#08251b] px-3 py-2 text-sm text-white" />
+              </label>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <button type="button" onClick={saveScore}
+                  className="rounded-lg border border-emerald-300/40 px-3 py-2 font-medium text-emerald-200 hover:bg-emerald-100/10">
+                  Guardar aquí
+                </button>
+                <button type="button" onClick={exportScore}
+                  className="rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
+                  Exportar JSON
+                </button>
+              </div>
+              <label className="mt-4 block text-xs text-emerald-100/75">
+                Importar partitura JSON
+                <input type="file" accept=".json,application/json" onChange={importScore}
+                  className="mt-2 block w-full cursor-pointer rounded-lg border border-emerald-200/25 bg-[#08251b] p-2 text-xs text-emerald-100 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-200 file:px-3 file:py-2 file:text-xs file:text-emerald-950" />
+              </label>
+              <label className="mt-4 block text-xs text-emerald-100/75">
+                Partituras guardadas ({savedScores.length})
+                <select value={selectedScore} onChange={(event) => setSelectedScore(event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-emerald-200/25 bg-[#08251b] px-3 py-2 text-sm text-white">
+                  <option value="">Seleccionar partitura…</option>
+                  {savedScores.map((score) => <option key={score.title} value={score.title}>{score.title}</option>)}
+                </select>
+              </label>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <button type="button" disabled={!selectedScore}
+                  onClick={() => {
+                    const score = savedScores.find((entry) => entry.title === selectedScore);
+                    if (score) loadScore(score);
+                  }}
+                  className="rounded-lg border border-emerald-200/25 px-3 py-2 enabled:hover:bg-emerald-100/10 disabled:opacity-35">
+                  Cargar
+                </button>
+                <button type="button" disabled={!selectedScore} onClick={removeSavedScore}
+                  className="rounded-lg border border-emerald-200/25 px-3 py-2 enabled:hover:bg-emerald-100/10 disabled:opacity-35">
+                  Borrar guardada
+                </button>
+              </div>
+              {scoreMessage && <p role="status" className="mt-3 text-xs leading-5 text-emerald-200">{scoreMessage}</p>}
+              <p className="mt-3 text-xs text-emerald-100/50">
+                Guardar aquí conserva las partituras en este navegador, no en tu cuenta.
+                Usa Exportar para respaldarlas o llevarlas a otro dispositivo.
+              </p>
+            </section>
+
+            <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
               <h2 className="text-lg font-semibold">Anillos e inicio</h2>
               <p className="mt-1 text-xs leading-5 text-emerald-100/65">
                 Cada círculo tiene su propia nota, posición y retraso de inicio.
                 Desmarcar el interruptor apaga el círculo sin borrar sus notas.
               </p>
-              <div className="mt-4 space-y-4">
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <button type="button" onClick={() => setMuted(RINGS.map(() => false))}
+                  className="rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
+                  Encender todas
+                </button>
+                <button type="button" onClick={() => setMuted(RINGS.map(() => true))}
+                  className="rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
+                  Apagar todas
+                </button>
+              </div>
+              <div className="mt-3 space-y-1">
                 {RINGS.map((ring, index) => (
-                  <div key={"settings-" + ring.note} className="border-t border-emerald-100/10 pt-3">
-                    <div className="flex items-center justify-between gap-3">
+                  <div key={"settings-" + ring.note} className="rounded-lg border border-emerald-100/10 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
                       <label className="inline-flex items-center gap-2 text-sm font-medium">
                         <input type="checkbox" checked={!muted[index]}
                           onChange={(event) => setMuted((current) =>
                             current.map((value, i) => i === index ? !event.target.checked : value))}
-                          className="accent-emerald-300" aria-label={"Activar sonido de " + ring.note} />
+                          className="accent-emerald-300" aria-label={"Encender circunferencia " + ring.note} />
                         <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: ring.color }} />
                         {ring.note}
+                        <span className="text-xs font-normal text-emerald-100/50">({notes[index].length})</span>
                       </label>
-                      <span className="font-mono text-xs text-emerald-100/75">{phases[index]}°</span>
+                      <button type="button" aria-expanded={expandedRing === index}
+                        aria-label={"Configurar circunferencia " + ring.note}
+                        onClick={() => setExpandedRing((current) => current === index ? null : index)}
+                        className="rounded-md border border-emerald-200/15 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-100/10">
+                        {expandedRing === index ? "Cerrar" : "Ajustar"}
+                      </button>
                     </div>
-                    <label className="mt-2 block text-xs text-emerald-100/65">
-                      Posición inicial
-                      <input type="range" min="0" max="359" step="1" value={phases[index]}
-                        onChange={(event) => setPhases((current) =>
-                          current.map((value, i) => i === index ? Number(event.target.value) : value))}
-                        aria-label={"Posición inicial del anillo " + ring.note}
-                        className="mt-1 w-full accent-emerald-300" />
-                    </label>
-                    <label className="mt-2 block text-xs text-emerald-100/65">
-                      <span className="flex justify-between gap-2">
-                        <span>Comenzar tras</span>
-                        <span className="font-mono text-emerald-300">{startDelays[index]} s</span>
-                      </span>
-                      <input type="range" min="0" max="30" step="0.5" value={startDelays[index]}
-                        onChange={(event) => setStartDelays((current) =>
-                          current.map((value, i) => i === index ? Number(event.target.value) : value))}
-                        aria-label={"Retraso de inicio del anillo " + ring.note}
-                        className="mt-1 w-full accent-emerald-300" />
-                    </label>
+                    {expandedRing === index && (
+                      <div className="mt-3 border-t border-emerald-100/10 pt-2">
+                        <label className="block text-xs text-emerald-100/65">
+                          <span className="flex justify-between"><span>Posición inicial</span><span>{phases[index]}°</span></span>
+                          <input type="range" min="0" max="359" step="1" value={phases[index]}
+                            onChange={(event) => setPhases((current) =>
+                              current.map((value, i) => i === index ? Number(event.target.value) : value))}
+                            aria-label={"Posición inicial del anillo " + ring.note}
+                            className="mt-2 w-full accent-emerald-300" />
+                        </label>
+                        <label className="mt-3 block text-xs text-emerald-100/65">
+                          <span className="flex justify-between gap-2">
+                            <span>Comenzar tras</span>
+                            <span className="font-mono text-emerald-300">{startDelays[index]} s</span>
+                          </span>
+                          <input type="range" min="0" max="30" step="0.5" value={startDelays[index]}
+                            onChange={(event) => setStartDelays((current) =>
+                              current.map((value, i) => i === index ? Number(event.target.value) : value))}
+                            aria-label={"Retraso de inicio del anillo " + ring.note}
+                            className="mt-2 w-full accent-emerald-300" />
+                        </label>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

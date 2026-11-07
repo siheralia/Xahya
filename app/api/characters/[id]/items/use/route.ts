@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
-import { PCH_PER_COIN } from "@/lib/skills/pch";
+import { PCH_PER_COIN, PCH_PER_UPGRADE_COIN } from "@/lib/skills/pch";
 
 const SYSTEM_ACTIONS = ["ESCAPE_MAZE", "DISARM_MAZE_TRAP", "RELEASE_MAZE_TRAPPED", "CREATE_SKILL", "IMPROVE_SKILL"] as const;
 
@@ -123,32 +123,52 @@ export async function POST(
   }
 
   if (action === "IMPROVE_SKILL") {
+    let pchBalance: number;
     try {
-      await db.transaction(async (tx) => {
+      pchBalance = await db.transaction(async (tx) => {
         const consume = db.raw.sql`
           UPDATE public."characterItem" SET "quantity" = "quantity" - 1
           WHERE id = ${characterItemId} AND "characterId" = ${characterId} AND "quantity" >= 1
         `.affectedCount().build();
         if ((await tx.execute(consume)).affectedRows !== 1) throw new Error("ITEM_NOT_AVAILABLE");
-        const credit = db.raw.sql`
+
+        // One consumed coin always gives both the upgrade authorization and
+        // five spendable PCH. The debit, credit and audit must be atomic.
+        const grant = db.raw.sql`
           UPDATE public."character"
-          SET "skillUpgradeCredits" = "skillUpgradeCredits" + 1
-          WHERE id = ${characterId} AND "skillUpgradeCredits" < 2147483647
+          SET "skillUpgradeCredits" = "skillUpgradeCredits" + 1,
+              "pchBalance" = "pchBalance" + ${PCH_PER_UPGRADE_COIN}
+          WHERE id = ${characterId}
+            AND "skillUpgradeCredits" < 2147483647
+            AND "pchBalance" <= ${2147483647 - PCH_PER_UPGRADE_COIN}
         `.affectedCount().build();
-        if ((await tx.execute(credit)).affectedRows !== 1) throw new Error("UPGRADE_CREDIT_OVERFLOW");
+        if ((await tx.execute(grant)).affectedRows !== 1) throw new Error("UPGRADE_COIN_GRANT_CONFLICT");
+
         await (tx.orm.public as any).CharacterItem.where({ id: characterItemId, quantity: 0 }).delete();
+        const fresh = await tx.orm.public.Character.where({ id: characterId }).first();
+        if (!fresh) throw new Error("CHARACTER_NOT_FOUND");
+        const balance = Number(fresh.pchBalance);
         await tx.orm.public.AuditLog.create({
           actorUserId: user.id, action: "ITEM_USE_SYSTEM", entityType: "ITEM",
           entityId: Number(item.id), characterId, targetUserId: null,
-          details: JSON.stringify({ characterItemId, action, grantedUpgradeCredits: 1 }),
+          details: JSON.stringify({
+            characterItemId, action, grantedUpgradeCredits: 1,
+            pchGranted: PCH_PER_UPGRADE_COIN, pchBalance: balance
+          }),
         });
+        return balance;
       });
     } catch (error) {
       if (error instanceof Error && error.message === "ITEM_NOT_AVAILABLE")
         return NextResponse.json({ error: "Esta moneda ya fue consumida." }, { status: 409 });
+      if (error instanceof Error && error.message === "UPGRADE_COIN_GRANT_CONFLICT")
+        return NextResponse.json({ error: "No se pudo entregar el crédito y los PCH de esta moneda." }, { status: 409 });
       throw error;
     }
-    return NextResponse.json({ success: true, action, consumed: 1, upgradeCreditsGranted: 1 });
+    return NextResponse.json({
+      success: true, action, consumed: 1, upgradeCreditsGranted: 1,
+      pchGranted: PCH_PER_UPGRADE_COIN, pchBalance,
+    });
   }
 
   if (action === "CREATE_SKILL") {

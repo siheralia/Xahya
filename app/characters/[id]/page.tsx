@@ -1459,8 +1459,9 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
         setSkillsOpen(true);
         setSuccess("Moneda consumida. Recibiste 10 PCH. Puedes comprar una habilidad genérica o crear una personalizada.");
       } else if (data.action === "IMPROVE_SKILL") {
-        setSkillUpgradeCredits(current => current + 1);
-        setSuccess("Moneda consumida. Recibiste 1 crédito de mejora de habilidades.");
+        setSkillUpgradeCredits(current => current + Number(data.upgradeCreditsGranted ?? 1));
+        setPchBalance(Number(data.pchBalance ?? pchBalance + Number(data.pchGranted ?? 5)));
+        setSuccess("Moneda consumida. Recibiste 1 crédito de mejora y 5 PCH para mejorar habilidades.");
       } else {
         setSuccess(data.action === "ESCAPE_MAZE" ? "Consumible usado. Has regresado a la habitación inicial del laberinto." : "Consumible usado.");
       }

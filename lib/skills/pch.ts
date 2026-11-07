@@ -60,9 +60,15 @@ export function effectPchCost(effect: PricedEffect, pricing?: EffectPricingMap):
   const raw = Number(effect?.value ?? (type.endsWith("_MULTIPLIER") ? 100 : 1));
   const power = skillEffectMultiplier(type, raw);
   if (!Number.isFinite(power) || power < 0) throw new Error("Potencia de efecto inválida");
-  const steps = type.endsWith("_MULTIPLIER")
-    ? Math.max(0, Math.ceil((power - 1) / 0.5 - 1e-9))
-    : (power > 1 ? Math.ceil(Math.log2(power)) : 0);
+  // Copy capacity is an ability to reproduce *other* skills' full complexity.
+  // Log2 pricing let 25 -> 94 PCH capacity cost only four more construction
+  // points after mana adjustment. Charge one pricing step per five PCH
+  // of COPY_SKILL capacity; preserve the existing 25-capacity baseline.
+  const steps = type === "COPY_SKILL"
+    ? Math.ceil(power / 5)
+    : type.endsWith("_MULTIPLIER")
+      ? Math.max(0, Math.ceil((power - 1) / 0.5 - 1e-9))
+      : (power > 1 ? Math.ceil(Math.log2(power)) : 0);
   return base + steps * (pricing?.[type]?.step ?? 1) + elementPchCost(effect.element);
 }
 
@@ -72,3 +78,4 @@ export function calculateSkillPch(effects: PricedEffect[], pricing?: EffectPrici
 }
 
 export const PCH_PER_COIN = 10;
+export const PCH_PER_UPGRADE_COIN = 5;

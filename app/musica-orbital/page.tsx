@@ -572,15 +572,48 @@ export default function OrbitalMusicPage() {
                 Los archivos importados conservan notas, anillos encendidos, fases y tiempos.
               </p>
               <button type="button" onClick={() => {
+                loadScore(BATTLE_SCORE);
+                setSelectedScore("");
+              }}
+                className="mt-4 w-full rounded-xl bg-amber-200 px-3 py-3 text-sm font-semibold text-emerald-950 hover:bg-amber-100">
+                ⚔️ Ascenso de Xahya · tema épico original
+              </button>
+              <button type="button" onClick={() => {
                 loadScore(createGoldenScore());
                 setSelectedScore("");
               }}
-                className="mt-4 w-full rounded-xl bg-emerald-200 px-3 py-3 text-sm font-semibold text-emerald-950 hover:bg-emerald-100">
+                className="mt-2 w-full rounded-xl border border-emerald-300/50 px-3 py-3 text-sm font-semibold text-emerald-200 hover:bg-emerald-100/10">
                 Cargar melodía proporcionada · 53 notas
               </button>
               <p className="mt-2 text-xs text-emerald-100/60">
                 Registro agudo y ritmo uniforme aproximados; la secuencia original no especifica octavas ni duraciones.
               </p>
+              <div className="mt-4 rounded-xl border border-amber-200/30 bg-amber-950/20 p-3">
+                <h3 className="text-sm font-semibold text-amber-100">Mi tema de combate</h3>
+                <p className="mt-1 text-xs leading-5 text-amber-100/70">
+                  Cada jugador puede publicar su composición como tema personal de combate.
+                  Se guarda en su cuenta y se podrá escuchar desde los encuentros.
+                </p>
+                <p className="mt-2 text-xs text-amber-100/80">
+                  {ownTheme ? "Tema actual: " + ownTheme.title : "Usarás Ascenso de Xahya hasta guardar uno propio."}
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => void savePersonalTheme()} disabled={themeBusy}
+                    className="rounded-lg bg-amber-200 px-2 py-2 text-xs font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-50">
+                    Guardar como mi tema
+                  </button>
+                  <button type="button" onClick={() => ownTheme && loadScore(ownTheme)}
+                    disabled={!ownTheme || themeBusy}
+                    className="rounded-lg border border-amber-200/30 px-2 py-2 text-xs hover:bg-amber-100/10 disabled:opacity-40">
+                    Cargar mi tema
+                  </button>
+                  <button type="button" onClick={() => void resetPersonalTheme()}
+                    disabled={!ownTheme || themeBusy}
+                    className="col-span-2 rounded-lg border border-amber-200/30 px-2 py-2 text-xs hover:bg-amber-100/10 disabled:opacity-40">
+                    Volver al tema predeterminado en mi cuenta
+                  </button>
+                </div>
+              </div>
               <label className="mt-5 block text-xs text-emerald-100/75">
                 Nombre de la partitura
                 <input type="text" maxLength={120} value={scoreName}
@@ -629,6 +662,66 @@ export default function OrbitalMusicPage() {
                 Guardar aquí conserva las partituras en este navegador, no en tu cuenta.
                 Usa Exportar para respaldarlas o llevarlas a otro dispositivo.
               </p>
+            </section>
+
+            <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
+              <h2 className="text-lg font-semibold">Notas que se deslizan</h2>
+              <p className="mt-1 text-xs leading-5 text-emerald-100/65">
+                Una nota puede prolongarse y subir o bajar de altura en lugar de sonar
+                como un punto. En el gráfico aparecerá como una estela curva luminosa.
+              </p>
+              <div className="mt-3 space-y-3">
+                <label className="block text-xs text-emerald-100/75">
+                  Circunferencia de origen
+                  <select value={slideRing} onChange={(event) => {
+                    setSlideRing(event.target.value);
+                    const index = RINGS.findIndex((item) => item.pitch === event.target.value);
+                    setSlideAngle(String(notes[index]?.[0] ?? ""));
+                  }}
+                    className="mt-1 w-full rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-2 text-sm text-white">
+                    {RINGS.map((ring) => <option key={ring.pitch} value={ring.pitch}>{ring.note}</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs text-emerald-100/75">
+                  Nota que se desliza (posición angular)
+                  <select value={chosenAngle ?? ""} onChange={(event) => setSlideAngle(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-2 text-sm text-white">
+                    {slideOptions.length === 0 ? <option value="">Sin notas: añade una en el gráfico</option> :
+                      slideOptions.map((angle) => <option key={angle} value={angle}>{angle.toFixed(2)}°</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs text-emerald-100/75">
+                  Tono al terminar
+                  <select value={slideTarget} onChange={(event) => setSlideTarget(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-2 text-sm text-white">
+                    {RINGS.filter((ring) => ring.pitch !== slideRing).map((ring) =>
+                      <option key={ring.pitch} value={ring.pitch}>{ring.note}</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs text-emerald-100/75">
+                  <span className="flex justify-between"><span>Duración del deslizamiento</span><span>{slideDuration.toFixed(1)} s</span></span>
+                  <input type="range" min="0.1" max="3" step="0.1" value={slideDuration}
+                    onChange={(event) => setSlideDuration(Number(event.target.value))}
+                    className="mt-2 w-full accent-emerald-300"/>
+                </label>
+                <button type="button" onClick={upsertSlide} disabled={chosenAngle === undefined}
+                  className="w-full rounded-lg bg-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-950 hover:bg-cyan-100 disabled:opacity-40">
+                  Crear o actualizar deslizamiento
+                </button>
+              </div>
+              <p className="mt-4 text-xs text-emerald-100/65">Deslizamientos en esta partitura: {allSlides.length}</p>
+              <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
+                {allSlides.map((slide) => (
+                  <div key={slide.index + "-" + slide.angle}
+                    className="flex items-center justify-between gap-2 rounded-md border border-emerald-100/10 px-2 py-1.5 text-xs">
+                    <span>{slide.source} → {RINGS.find((ring) => ring.pitch === slide.toPitch)?.note ?? slide.toPitch}
+                      {" · "}{slide.angle.toFixed(1)}° · {slide.duration} s</span>
+                    <button type="button" onClick={() => removeSlide(slide.index, slide.angle)}
+                      className="rounded border border-emerald-200/20 px-2 py-1 hover:bg-emerald-100/10"
+                      aria-label={"Eliminar deslizamiento desde " + slide.source}>Quitar</button>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
@@ -706,11 +799,11 @@ export default function OrbitalMusicPage() {
                   className="rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
                   Variar notas
                 </button>
-                <button type="button" onClick={() => setNotes(makeNotes())}
+                <button type="button" onClick={() => loadScore(BATTLE_SCORE)}
                   className="rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
-                  Restaurar
+                  Tema épico
                 </button>
-                <button type="button" onClick={() => setNotes(RINGS.map(() => []))}
+                <button type="button" onClick={() => { setNotes(RINGS.map(() => [])); setSlides(RINGS.map(() => [])); }}
                   className="col-span-2 rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
                   Vaciar circunferencias
                 </button>

@@ -4,7 +4,7 @@ import {readFileSync} from "node:fs";
 import {compileCombatSkill,previewSkillExecution} from "../lib/combat/skill-casting.ts";
 import {projectApprovedCombatSkills,availableConstructionMaterials} from "../lib/combat/skill-preview.ts";
 import {newCombatState,applyCombatCommand,applyResolvedCombatSkill} from "../lib/combat/turn-engine.ts";
-import {progressTrainingNpc} from "../lib/combat/npc-policy.ts";
+import {chooseNpcReaction,progressTrainingNpc} from "../lib/combat/npc-policy.ts";
 import {combatClientView} from "../lib/combat/magic-area.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "../lib/combat/narration.ts";
 const skill={
@@ -99,6 +99,30 @@ test("surviving mirror fires next round without spending another PA or mana",()=
  assert.equal(s.actors.PLAYER.spentAp,0);
  assert.equal(s.mana.PLAYER.current,45);
 });
+test("encounter 66: training NPC uses a normal defense against manual and automatic mirror rays",()=>{
+ let manual=cast(initial());
+ manual.actors.NPC.speedValue=11;
+ manual.actors.NPC.agility=11;
+ assert.equal(manual.pending.mirrorId,manual.constructions[0].id);
+ assert.notEqual(chooseNpcReaction(manual,()=>0.2).defense,"COUNTER");
+ const first=progressTrainingNpc(manual,()=>dice,()=>0.2);
+ assert.ok(first.log.some(e=>e.kind==="RESOLVE"&&e.mirrorShot),
+   "an NPC response must resolve the player's mirror without throwing");
+
+ let automatic=cast(initial(),"mirror-auto-regression-66");
+ automatic=applyCombatCommand(automatic,"NPC",{kind:"DEFEND",defense:"NONE"},dice);
+ automatic.actors.PLAYER.spentTicks=100;
+ automatic.actors.NPC.spentTicks=80;
+ automatic=applyCombatCommand(automatic,"NPC",{kind:"WAIT"},dice);
+ assert.equal(automatic.pending?.mirrorAuto,true);
+ automatic.actors.NPC.speedValue=11;
+ automatic.actors.NPC.agility=11;
+ assert.notEqual(chooseNpcReaction(automatic,()=>0.2).defense,"COUNTER");
+ const second=progressTrainingNpc(automatic,()=>dice,()=>0.2);
+ assert.ok(second.log.filter(e=>e.kind==="RESOLVE"&&e.mirrorShot).length>=2,
+   "the automatic ray must resolve instead of trapping the encounter");
+});
+
 test("physical attack aimed at enemy mirror breaks it, leaving fighter uninjured",()=>{
  let s=cast(initial());
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);

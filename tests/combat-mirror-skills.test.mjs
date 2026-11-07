@@ -98,6 +98,18 @@ test("encounter 66: after NPC dodges mirror, a second mirror can be cast in the 
  assert.equal(s.mana.PLAYER.current,30,"each mirror pays its normal 15-mana cost");
 });
 
+test("mirror casting UI is not blocked by an unrelated movement-attack plan",()=>{
+ const encounter=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
+ const loadout=readFileSync(new URL("../app/combat/[id]/CombatSkillLoadout.tsx",import.meta.url),"utf8");
+ assert.match(encounter,/canUseSkill=\{ready\}/,
+  "the general skill gate must depend on real initiative, not attack movement");
+ assert.match(encounter,/canUseAttackSkill=\{ready&&!missingMoveTrace/);
+ assert.match(loadout,/invalidAttackMovement=skill\.skillKind==="OFFENSE"&&!canUseAttackSkill/);
+ assert.match(loadout,/!canUseSkill\|\|invalidAttackMovement\|\|busy/);
+ assert.match(encounter,/No es un ataque entrante/,
+  "a pending defense against the player's mirror must not claim the player is being attacked");
+});
+
 test("surviving mirror fires next round without spending another PA or mana",()=>{
  let s=cast(initial());
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);

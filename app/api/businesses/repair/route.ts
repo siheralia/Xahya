@@ -31,12 +31,13 @@ export async function POST(req:Request){
    if((await tx.execute(lockCharacter)).affectedRows!==1)throw new Error("CHARACTER_NOT_FOUND");
    const Audit=(tx.orm.public as any).AuditLog;
    const previous=await Audit.where({
-    characterId,action:"BUSINESS_ITEM_REPAIR",entityType:"BUSINESS",entityId:businessId,
+    characterId,action:"BUSINESS_ITEM_REPAIR",entityType:"BUSINESS",
    }).all();
    for(const entry of previous){
     let data:any;try{data=typeof entry.details==="string"?JSON.parse(entry.details):entry.details;}catch{}
     if(data?.requestId===requestId){
-     if(data.characterItemId!==characterItemId||data.serviceId!==serviceId)
+     if(data.characterItemId!==characterItemId||data.serviceId!==serviceId||
+        Number(data.result?.businessId)!==businessId)
       throw new Error("REQUEST_REUSED");
      return {...data.result,replayed:true};
     }

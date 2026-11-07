@@ -48,6 +48,9 @@ function tangentGuardAngle(points: Point[]): number {
 export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extract<CombatCommand,{kind:"DEFEND"}> {
   if (state.pending?.against !== "NPC") throw new Error("El NPC no tiene un ataque pendiente.");
   const npc = state.actors.NPC, attacker = state.actors[state.pending.by];
+  // Mirror rays and summon strikes must be answered with an ordinary defense.
+  // The combat engine rejects a simultaneous exchange against these sources.
+  const exchangeAllowed=!state.pending.mirrorAuto&&!state.pending.mirrorId&&!state.pending.summonId;
   if (remainingAp(npc) < 1 || npc.spentTicks >= 100) return {kind:"DEFEND",defense:"NONE"};
   // Reserve an actual paid counterturn when defending would exhaust the
   // 100-tick window. This is essential for slow training opponents facing
@@ -66,7 +69,7 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   // the NPC's own PA/ticks but does NOT need to finish before the attacker's
   // initiative clock. Requiring canCounterNow here makes slow NPCs spend
   // their last window only defending and never strike back against fast magic.
-  if(!attackedThisRound&&!canDefendAndCounter){
+  if(exchangeAllowed&&!attackedThisRound&&!canDefendAndCounter){
     const preferMagic=random()<0.45;
     const available=basicCounterAttack(state,"NPC",preferMagic);
     if(available){
@@ -108,7 +111,7 @@ export function chooseNpcReaction(state: CombatState, random: NpcRandom): Extrac
   }
   // Physical attacks share the budget check above; reaction types below are
   // weighted only when they leave a viable counterturn or prevent a lethal hit.
-  if(state.trainingNpc?.difficulty==="AGGRESSIVE"&&canCounterNow&&
+  if(exchangeAllowed&&state.trainingNpc?.difficulty==="AGGRESSIVE"&&canCounterNow&&
     npc.hp>2*worstDirectDamage&&random()<0.45){
     const plan=basicCounterAttack(state,"NPC",false);
     if(plan)return {kind:"DEFEND",defense:"COUNTER",counterMagic:plan.usesMagic===true};

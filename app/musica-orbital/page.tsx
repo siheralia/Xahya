@@ -87,6 +87,85 @@ export default function OrbitalMusicPage() {
     }
   }, []);
 
+  // The shared account soundtrack is distinct from local drafts.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/music-theme", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("No se pudo consultar el tema de la cuenta.");
+        return response.json();
+      })
+      .then((data) => {
+        if (alive && data.theme) setOwnTheme(parseOrbitalScore(data.theme));
+      })
+      .catch(() => {
+        if (alive) setScoreMessage("No se pudo consultar tu tema guardado en la cuenta.");
+      });
+    return () => { alive = false; };
+  }, []);
+
+  async function savePersonalTheme() {
+    setThemeBusy(true);
+    try {
+      const response = await fetch("/api/music-theme", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(createCurrentScore()),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar tu tema.");
+      setOwnTheme(parseOrbitalScore(data.theme));
+      setScoreMessage("Tu tema personal quedó guardado para tus próximos combates.");
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo guardar tu tema.");
+    } finally {
+      setThemeBusy(false);
+    }
+  }
+
+  async function resetPersonalTheme() {
+    setThemeBusy(true);
+    try {
+      const response = await fetch("/api/music-theme", { method: "DELETE" });
+      if (!response.ok) throw new Error("No se pudo restaurar el tema predeterminado.");
+      setOwnTheme(null);
+      setScoreMessage("Tu cuenta vuelve a utilizar Ascenso de Xahya en combate.");
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo restaurar el tema.");
+    } finally {
+      setThemeBusy(false);
+    }
+  }
+
+  const slideRingIndex = RINGS.findIndex((ring) => ring.pitch === slideRing);
+  const slideOptions = notes[slideRingIndex] ?? [];
+  const chosenAngle = slideOptions.includes(Number(slideAngle)) ? Number(slideAngle) : slideOptions[0];
+  const allSlides = slides.flatMap((items, index) => items.map((slide) => ({
+    ...slide, index, source: RINGS[index].note,
+  })));
+
+  function upsertSlide() {
+    if (slideRingIndex < 0 || chosenAngle === undefined) {
+      setScoreMessage("Añade primero una nota a la circunferencia de origen.");
+      return;
+    }
+    if (slideTarget === slideRing) {
+      setScoreMessage("El destino del deslizamiento debe ser otra nota.");
+      return;
+    }
+    const slide: OrbitalSlide = { angle: chosenAngle, toPitch: slideTarget, duration: slideDuration };
+    setSlides((current) => current.map((entries, index) =>
+      index !== slideRingIndex ? entries : [
+        ...entries.filter((entry) => entry.angle !== chosenAngle), slide,
+      ]));
+    setScoreMessage("Deslizamiento creado. El tono cambiará gradualmente al pasar por esa nota.");
+  }
+
+  function removeSlide(index: number, angle: number) {
+    setSlides((current) => current.map((entries, i) =>
+      i !== index ? entries : entries.filter((slide) => slide.angle !== angle)));
+  }
+
   function createCurrentScore(): OrbitalScore {
     return parseOrbitalScore({
       format: SCORE_FORMAT,

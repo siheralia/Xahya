@@ -3,7 +3,7 @@
  * construction skills (including mirrors) cannot combine creation with a move.
  */
 export function combatSkillTargetOutOfRange(
- skill:{skillKind:string;constructionMaterial?:string|null;rangeMeters:number|null},
+ skill:{skillKind?:string|null;constructionMaterial?:string|null;rangeMeters:number|null},
  distance:{attackMeters:number;currentOpponentMeters:number},
 ):boolean {
  if(skill.rangeMeters===null||!Number.isFinite(skill.rangeMeters))return false;

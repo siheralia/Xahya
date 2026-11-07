@@ -18,7 +18,7 @@ const example=()=>({
  customerAccess:"PUBLIC",requiresEmployee:false,
  module:defaultBusinessRepairModule(),
 });
-test("one setting key per business, never an unowned global service",()=>{
+test("legacy per-business keys remain isolated, but authorization is now global",()=>{
  assert.equal(businessRepairKey(8),"business_repair_service_v1:8");
  assert.notEqual(businessRepairKey(8),businessRepairKey(9));
 });
@@ -182,6 +182,7 @@ test("only the management page edits modular repair plans and assigns businesses
  const shop=source("app/businesses/repair/page.tsx");
  const catalog=source("app/businesses/catalog/page.tsx");
  const nav=source("app/management/_components/ManagementNavigation.tsx");
+ const businessesCatalog=source("app/api/businesses/catalog/route.ts");
  assert.match(staff,/<MicroEffectBuilder value=\{draft.module\}/);
  assert.match(staff,/toggleBusiness/);
  assert.match(staff,/businessIds/);
@@ -195,4 +196,7 @@ test("only the management page edits modular repair plans and assigns businesses
  assert.match(shop,/characterItemId:Number\(itemId\)/);
  assert.match(catalog,/href="\/businesses\/repair"/);
  assert.match(nav,/adminOnly: true/);
+ assert.match(businessesCatalog,/repairEnabled:authorizedRepairServices/);
+ assert.match(shop,/filter\(shop=>shop.repairEnabled===true\)/);
+ assert.match(staff,/Negocios autorizados/);
 });

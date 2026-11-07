@@ -16,6 +16,7 @@ type ManagementLink = {
   permissions: readonly string[];
   tone?: LinkTone;
   staffOnly?: boolean;
+  adminOnly?: boolean;
   ariaLabel?: string;
   featured?: boolean;
 };
@@ -99,6 +100,7 @@ const groups: readonly ManagementGroup[] = [
       { label: "Tienda", href: "/management/store", permissions: ["store"], tone: "emerald" },
       { label: "Casino", href: "/management/casino", permissions: ["casino"], tone: "amber" },
       { label: "Negocios y empleos", href: "/management/businesses", permissions: ["businesses"], tone: "emerald" },
+      { label: "Servicios de herrería", href: "/management/businesses/repair-services", permissions: ["businesses"], tone: "amber", adminOnly: true },
     ],
   },
 ];
@@ -128,7 +130,7 @@ export default function ManagementNavigation({
     <nav aria-label="Secciones de gestión" className="mt-7 grid items-start gap-x-5 gap-y-7 lg:grid-cols-2">
       {groups.map((group) => {
         const links = group.links.filter((link) =>
-          (!link.staffOnly || isStaff) && link.permissions.some(canSee),
+          (!link.staffOnly || isStaff) && (!link.adminOnly || isAdmin) && link.permissions.some(canSee),
         );
         if (links.length === 0) return null;
         const Icon = group.icon;

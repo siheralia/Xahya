@@ -1246,7 +1246,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }|null=null;
     if(defense==="COUNTER"){
       if(pending.mirrorAuto||pending.mirrorId||pending.summonId)
-        throw new Error("El ataque de una invocación exige una reacción normal, no un contraataque simultáneo.");
+        throw new Error("El ataque de un espejo o una invocación exige una defensa normal, no un contraataque simultáneo.");
       const plan=basicCounterAttack(state,by,command.counterMagic===true);
       if(!plan)throw new Error("No tienes PA, ticks o un ataque básico al alcance para contraatacar.");
       const shadow=structuredClone(state);

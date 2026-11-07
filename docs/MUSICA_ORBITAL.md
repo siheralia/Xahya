@@ -50,7 +50,9 @@ Los borradores múltiples del laboratorio siguen viviendo en `localStorage`. La 
 
 ## Música durante combates
 
-El encuentro incluye un panel **Música** para elegir entre Ascenso de Xahya y el tema personal del jugador, pulsar reproducir/pausar, ajustar el volumen y visitar el editor. La reproducción no empieza automáticamente: requiere una interacción explícita por las restricciones de audio de los navegadores. Se detiene al finalizar el combate o abandonar la página, no utiliza la API de combate y no modifica PA, maná, ticks, el orden de iniciativa ni las acciones.
+La **ficha de personaje propia** tiene el acceso **Editar mi tema** junto a las demás acciones de la ficha. Se muestra únicamente al propietario: el tema se almacena por **cuenta**, no por personaje. El perfil también conserva su acceso al editor.
+
+El encuentro incluye un panel **Música** para elegir entre Ascenso de Xahya y el tema personal del jugador, pulsar reproducir/pausar y ajustar el volumen, **sin enlazar al editor durante el combate**. La reproducción no empieza automáticamente: requiere una interacción explícita por las restricciones de audio de los navegadores. Se detiene al finalizar el combate o abandonar la página, no utiliza la API de combate y no modifica PA, maná, ticks, el orden de iniciativa ni las acciones.
 
 ### Timbre y notas de transición
 

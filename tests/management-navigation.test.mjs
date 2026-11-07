@@ -17,7 +17,7 @@ function groupLinks(id) {
   return [...group[1].matchAll(/href: "([^"]+)"/g)].map((match) => match[1]);
 }
 
-test("Gestión conserva los 24 accesos sin duplicarlos", () => {
+test("Gestión conserva sus 25 accesos sin duplicarlos", () => {
   const expected = {
     system: [
       "/management/logs", "/management/rankings", "/management/rules",
@@ -36,14 +36,14 @@ test("Gestión conserva los 24 accesos sin duplicarlos", () => {
     ],
     economy: [
       "/management/world", "/management/store", "/management/casino",
-      "/management/businesses",
+      "/management/businesses", "/management/businesses/repair-services",
     ],
   };
   for (const [id, hrefs] of Object.entries(expected)) {
     assert.deepEqual(groupLinks(id), hrefs, "Accesos o agrupación incorrectos: " + id);
   }
   const allLinks = Object.values(expected).flat();
-  assert.equal(allLinks.length, 24);
+  assert.equal(allLinks.length, 25);
   assert.equal(new Set(allLinks).size, allLinks.length);
 });
 
@@ -51,6 +51,7 @@ test("Los accesos respetan las restricciones de permisos originales", () => {
   assert.match(navigation, /allowedPages\.includes\("management\." \+ permission\)/);
   assert.match(navigation, /link\.permissions\.some\(canSee\)/);
   assert.match(navigation, /\(!link\.staffOnly \|\| isStaff\)/);
+  assert.match(navigation, /\(!link\.adminOnly \|\| isAdmin\)/);
   for (const page of ["enemies", "ambientations", "themes"]) {
     assert.match(navigation, new RegExp('href: "/management/' + page + '".*staffOnly: true'));
   }

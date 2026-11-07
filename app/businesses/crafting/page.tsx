@@ -68,8 +68,10 @@ export default function CraftingPage(){
  const character=characters.find(x=>String(x.id)===characterId);
  const holdings=(itemId:number)=>inventory.filter(x=>x.itemId===itemId&&!x.equipped)
   .reduce((sum,x)=>sum+Number(x.quantity),0);
- const canCraft=!!selected&&!!artisan&&!!character&&Number(character.money)>=selected.recipe.fee&&
-  selected.materials.every(x=>holdings(x.itemId)>=x.quantity)&&!busy;
+ // A skilled artisan may need fewer than the nominal materials shown.
+ // Do not falsely disable the order; the server checks actual discounted inputs.
+ const canCraft=!!selected&&!!artisan&&!!character&&
+  Number(character.money)>=selected.recipe.fee&&!busy;
  async function craft(){
   if(!selected||!artisan||!characterId||busy)return;
   setBusy(true);setError("");setMessage("");
@@ -157,7 +159,7 @@ export default function CraftingPage(){
        <span className="whitespace-nowrap text-sm text-amber-300">◈ {selected.recipe.fee}</span>
       </div>
       <p className="text-sm">Resultado: <strong>{selected.recipe.outputQuantity} × {selected.output.name}</strong></p>
-      <h3 className="text-sm font-medium text-zinc-300">Materiales que se consumirán</h3>
+      <h3 className="text-sm font-medium text-zinc-300">Materiales de la receta (consumo máximo)</h3>
       <ul className="space-y-1 text-sm">
        {selected.materials.map(x=><li key={x.itemId} className={
         holdings(x.itemId)>=x.quantity?"text-emerald-300":"text-rose-300"}>

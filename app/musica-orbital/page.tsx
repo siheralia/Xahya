@@ -448,6 +448,40 @@ export default function OrbitalMusicPage() {
                   })}
                 </g>
               ))}
+              {/* Estelas curvadas: una nota sostenida cambia de altura al recorrer un arco. */}
+              {RINGS.map((ring, index) => (
+                <g key={"slides-" + ring.pitch} pointerEvents="none" opacity={muted[index] ? 0.1 : 1}>
+                  {slides[index].map((slide) => {
+                    const destination = RINGS.find((item) => item.pitch === slide.toPitch);
+                    if (!destination) return null;
+                    const group = index < 4 ? 0 : 1;
+                    const sweep = groupDirections[group] * 360 * slide.duration / groupDurations[group];
+                    const from = orbitalPoint(ring.radius, slide.angle, CENTER);
+                    const middle = orbitalPoint((ring.radius + destination.radius) / 2, slide.angle + sweep / 2, CENTER);
+                    const to = orbitalPoint(destination.radius, slide.angle + sweep, CENTER);
+                    const d = "M " + from.x + " " + from.y + " Q " + middle.x + " " + middle.y + " " + to.x + " " + to.y;
+                    const progress = elapsedSlideProgress(elapsed,
+                      { enabled: !muted[index], phase: phases[index], delay: startDelays[index] },
+                      { duration: groupDurations[group], direction: groupDirections[group] }, slide);
+                    const px = progress === null ? 0 : (1 - progress) ** 2 * from.x +
+                      2 * (1 - progress) * progress * middle.x + progress ** 2 * to.x;
+                    const py = progress === null ? 0 : (1 - progress) ** 2 * from.y +
+                      2 * (1 - progress) * progress * middle.y + progress ** 2 * to.y;
+                    return (
+                      <g key={slide.angle + "-" + slide.toPitch}>
+                        <path d={d} fill="none" stroke={ring.color} strokeOpacity={0.12} strokeWidth={11} />
+                        <path d={d} fill="none" stroke={ring.color} strokeOpacity={0.8}
+                          strokeWidth={3.2} strokeLinecap="round" strokeDasharray="6 3" />
+                        <circle cx={to.x} cy={to.y} r="4" fill={destination.color} />
+                        {playing && progress !== null && (
+                          <circle cx={px} cy={py} r={11} fill="#fff7bf"
+                            stroke={ring.color} strokeWidth={3} filter={"url(#orbital-glow-" + index + ")"}/>
+                        )}
+                      </g>
+                    );
+                  })}
+                </g>
+              ))}
               {RINGS.map((ring, index) => {
                 const turn = ringTurn(index);
                 const point = orbitalPoint(ring.radius, (turn ?? phases[index] / 360) * 360, CENTER);

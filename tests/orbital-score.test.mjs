@@ -45,3 +45,25 @@ test("rechaza archivos inválidos y ángulos fuera del anillo", () => {
   sample.rings[0].delay = -1;
   assert.throws(() => parseOrbitalScore(sample), /inválidos/);
 });
+
+test("el recorrido sincronizado interpreta las 53 notas en el mismo orden al reproducir", async () => {
+  const { orbitalTurnAt, crossedOrbitalNote } = await import("../lib/orbital-sequencer.mjs");
+  const score = createGoldenScore();
+  const heard = [];
+  for (let ms = 0; ms < 16000; ms += 20) {
+    for (const [index, ring] of score.rings.entries()) {
+      if (!ring.enabled) continue;
+      const group = score.groups[index < 4 ? 0 : 1];
+      const before = orbitalTurnAt(ms / 1000, ring.delay, ring.phase, group.duration, group.direction);
+      const after = orbitalTurnAt((ms + 20) / 1000, ring.delay, ring.phase, group.duration, group.direction);
+      for (const angle of ring.angles) {
+        if (crossedOrbitalNote(before, after, angle)) {
+          heard.push({ time: ms, pitch: ring.pitch });
+        }
+      }
+    }
+  }
+  heard.sort((a, b) => a.time - b.time);
+  const mapped = { A: "A4", B: "B4", C: "C5", D: "D5", E: "E5", "F#": "F#5", G: "G5" };
+  assert.deepEqual(heard.map(({ pitch }) => pitch), GOLDEN_PHRASES.flat().map((pitch) => mapped[pitch]));
+});

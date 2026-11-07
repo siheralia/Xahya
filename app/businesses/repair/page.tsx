@@ -4,7 +4,7 @@ import {useEffect,useRef,useState} from "react";
 import Link from "next/link";
 import type {RepairService} from "@/lib/business-repair";
 
-type Business={id:number;name:string;description:string|null};
+type Business={id:number;name:string;description:string|null;repairEnabled:boolean};
 type Character={id:number;name:string;money:number};
 type Owned={id:number;itemId:number;quantity:number;durability?:number;equipped?:boolean;
  item?:{name:string;itemType:string}|null};
@@ -31,7 +31,7 @@ export default function BusinessRepairPage(){
    fetch("/api/characters?mine=true",{cache:"no-store"}).then(r=>r.json()),
   ]).then(([catalog,c])=>{
    if(!active)return;
-   const shops=(catalog?.businesses??[]) as Business[];
+   const shops=((catalog?.businesses??[]) as Business[]).filter(shop=>shop.repairEnabled===true);
    const chars=Array.isArray(c)?c as Character[]:[];
    setBusinesses(shops);setCharacters(chars);
    if(shops.length)setBusinessId(String(shops[0].id));
@@ -109,7 +109,8 @@ export default function BusinessRepairPage(){
     <label className="block text-sm">Negocio
      <select value={businessId} onChange={e=>{setBusinessId(e.target.value);operation.current=null;setSuccess("");}}
       className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-3">
-      {businesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}
+      {businesses.length===0&&<option value="">No hay talleres autorizados</option>}
+      {businesses.map(b=><option key={b.id} value={b.id}>{b.name}</option>}
      </select>
     </label>
     <label className="block text-sm">Personaje que paga y entrega el objeto
@@ -140,7 +141,7 @@ export default function BusinessRepairPage(){
       {items.map(item=><option key={item.id} value={item.id}>{item.item?.name??"Objeto"} · {item.durability??100}/100</option>)}
      </select>
     </label>
-    <p className="text-xs text-zinc-500">El taller calcula la reparación desde el micromódulo de su dueño. Solo se cobran materiales y dinero si la reparación tiene éxito. No funciona en combate.</p>
+    <p className="text-xs text-zinc-500">La fórmula, tarifa y materiales fueron aprobados en Gestión. El cálculo puede usar estadísticas del propietario. Solo se cobra si la reparación tiene éxito y nunca durante combate.</p>
     <button type="button" disabled={!canPay||busy} onClick={hire}
      className="w-full rounded-lg bg-white p-3 font-semibold text-black disabled:opacity-40">
      {busy?"Procesando reparación...":"Reparar objeto"}</button>

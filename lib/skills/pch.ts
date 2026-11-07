@@ -78,3 +78,4 @@ export function calculateSkillPch(effects: PricedEffect[], pricing?: EffectPrici
 }
 
 export const PCH_PER_COIN = 10;
+export const PCH_PER_UPGRADE_COIN = 5;

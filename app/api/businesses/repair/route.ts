@@ -108,7 +108,8 @@ export async function POST(req:Request){
    `.affectedCount().build();
    if((await tx.execute(lockResources)).affectedRows!==1)throw new Error("NO_RESOURCES");
    const resource=await Resources.where({characterId}).first();
-   const money=Number(resource?.money??0);
+   if(!resource)throw new Error("NO_RESOURCES");
+   const money=Number(resource.money);
    if(!Number.isSafeInteger(money)||money<service.fee)throw new Error("NO_MONEY");
    const consumed:Array<{characterItemId:number;itemId:number;quantity:number}>=[];
    if(service.materialItemId!==null){

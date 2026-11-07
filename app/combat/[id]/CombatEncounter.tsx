@@ -353,9 +353,11 @@ export default function CombatEncounter({id}:{id:string}) {
  // Reflect the authoritative server fallback before the user draws an aim point.
  const hasReactionBudget=!!actor&&remainingAp(actor)>0&&actor.spentTicks<100;
  const counterPlan=state?basicCounterAttack(state,side,counterMagic):null;
- const selectedDefense:DefenseChoice=!hasReactionBudget?"NONE":(defense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
-  ? (["BLOCK","REPEL","DEFLECT"].includes(defense)?"DODGE":defense)
-  : (defense==="MAGIC_FIELD"||(pending?.attackArea&&defense==="DEFLECT")?"DODGE":defense);
+ const counterAllowed=!(pending?.summonId||pending?.mirrorAuto||pending?.mirrorId);
+ const requestedDefense:DefenseChoice=!counterAllowed&&defense==="COUNTER"?"DODGE":defense;
+ const selectedDefense:DefenseChoice=!hasReactionBudget?"NONE":(requestedDefense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
+  ? (["BLOCK","REPEL","DEFLECT"].includes(requestedDefense)?"DODGE":requestedDefense)
+  : (requestedDefense==="MAGIC_FIELD"||(pending?.attackArea&&requestedDefense==="DEFLECT")?"DODGE":requestedDefense);
  const hasAccess=view?.permissions[side]??false;
  useEffect(()=>{
   const characterId=actor?.characterId;
@@ -1020,7 +1022,7 @@ export default function CombatEncounter({id}:{id:string}) {
         ? ["DODGE","MAGIC_FIELD","CONSTRUCTION","ENDURE","COUNTER","NONE"].includes(opt.value)&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)
         : opt.value!=="MAGIC_FIELD"&&(!pending.attackArea||opt.value!=="DEFLECT")&&
-          (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).filter(opt=>!pending.summonId||opt.value!=="COUNTER").map(opt=>{
+          (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).filter(opt=>counterAllowed||opt.value!=="COUNTER").map(opt=>{
        const DefenseIcon=defenseIcons[opt.value];
        const active=selectedDefense===opt.value;
        return <button key={opt.value} type="button" aria-pressed={active} aria-label={opt.label} title={opt.label}

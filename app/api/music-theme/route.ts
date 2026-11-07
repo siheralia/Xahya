@@ -36,7 +36,8 @@ export async function PUT(request: Request) {
     }, { status: 400 });
   }
   try {
-    await db.orm.public.User.where({ id: user.id }).update({ musicTheme: score });
+    // The ORM JSON codec accepts JSON-shaped data; a validated score is serialized to that shape.
+    await db.orm.public.User.where({ id: user.id }).update({ musicTheme: JSON.parse(JSON.stringify(score)) });
     return NextResponse.json({ theme: score });
   } catch {
     return NextResponse.json({ error: "No se pudo guardar el tema personal" }, { status: 500 });

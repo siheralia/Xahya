@@ -20,12 +20,12 @@ test("one setting key per business, never an unowned global service",()=>{
 });
 test("default service repairs only SELECTED_ITEM through typed modular graph",()=>{
  const service=normalizeRepairService(example());
- const change=evaluateBusinessRepairService(service,{characterItemId:123,durability:65},{});
+ const change=evaluateBusinessRepairService(service,{characterItemId:123,durability:65},{HP:100,MAX_HP:100});
  assert.equal(change.characterItemId,123);
  assert.equal(change.applied,25);
  assert.equal(change.after,90);
  assert.equal(change.before,65);
- const capped=evaluateBusinessRepairService(service,{characterItemId:123,durability:95},{});
+ const capped=evaluateBusinessRepairService(service,{characterItemId:123,durability:95},{HP:100,MAX_HP:100});
  assert.equal(capped.after,100);assert.equal(capped.applied,5);
  assert.deepEqual(calculateDurabilityRepair({characterItemId:123,durability:95},25),{
   characterItemId:123,requested:25,applied:5,before:95,after:100
@@ -74,7 +74,7 @@ test("service module accepts owner stats and arithmetic without trusting client 
    amount:{source:"OUTPUT",key:"amount"}},
  ]};
  const service=normalizeRepairService({...x,module});
- const result=evaluateBusinessRepairService(service,{characterItemId:45,durability:10},{STR:12});
+ const result=evaluateBusinessRepairService(service,{characterItemId:45,durability:10},{HP:100,MAX_HP:100,STR:12});
  assert.equal(result.applied,24);
  assert.equal(result.characterItemId,45);
  const invalid={...module,steps:module.steps.map(s=>

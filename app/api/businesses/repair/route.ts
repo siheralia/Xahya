@@ -29,6 +29,9 @@ export async function POST(req:Request){
   const result=await db.transaction(async tx=>{
    const lockCharacter=db.raw.sql`UPDATE public."character" SET id=id WHERE id=${characterId}`.affectedCount().build();
    if((await tx.execute(lockCharacter)).affectedRows!==1)throw new Error("CHARACTER_NOT_FOUND");
+   const currentCharacter=await tx.orm.public.Character.where({id:characterId}).first();
+   if(!currentCharacter||Number(currentCharacter.userId)!==Number(user.id))
+    throw new Error("CHARACTER_CHANGED");
    const Audit=(tx.orm.public as any).AuditLog;
    const previous=await Audit.where({
     characterId,action:"BUSINESS_ITEM_REPAIR",entityType:"BUSINESS",
@@ -169,6 +172,7 @@ export async function POST(req:Request){
   const code=error instanceof Error?error.message:"REPAIR_FAILED";
   const labels:Record<string,string>={
    CHARACTER_NOT_FOUND:"Personaje no encontrado.",
+   CHARACTER_CHANGED:"El personaje cambió de propietario; vuelve a consultar tus personajes.",
    REQUEST_REUSED:"Ese identificador de operación ya se utilizó para otra reparación.",
    IN_COMBAT:"No puedes utilizar un taller mientras este personaje participa en un combate.",
    BUSINESS_NOT_FOUND:"Negocio no encontrado.",BUSINESS_INACTIVE:"Este negocio no está disponible.",

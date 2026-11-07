@@ -1,0 +1,121 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { Music2, Pause, Play, Volume2 } from "lucide-react";
+import { createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
+import { parseOrbitalScore } from "@/lib/orbital-score.mjs";
+import type { OrbitalScore } from "@/lib/orbital-score.mjs";
+import { orbitalEventsBetween, playOrbitalSound } from "@/lib/orbital-playback.mjs";
+
+const EPIC_THEME = createBattleThemeScore();
+
+/** Optional combat soundtrack: never consumes PA, ticks, mana, or server calls per note. */
+export default function CombatMusicPlayer({ active }: { active: boolean }) {
+  const [personal, setPersonal] = useState<OrbitalScore | null>(null);
+  const [selection, setSelection] = useState<"default" | "personal">("default");
+  const [playing, setPlaying] = useState(false);
+  const [volume, setVolume] = useState(38);
+  const [message, setMessage] = useState("");
+  const clockRef = useRef(0);
+  const audioRef = useRef<AudioContext | null>(null);
+  const score = selection === "personal" && personal ? personal : EPIC_THEME;
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/music-theme", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Sincronización musical no disponible");
+        return response.json();
+      })
+      .then((data) => {
+        if (!alive || !data.theme) return;
+        const parsed = parseOrbitalScore(data.theme);
+        setPersonal(parsed);
+        setSelection("personal");
+      })
+      .catch(() => {
+        if (alive) setMessage("Tema predeterminado disponible; no se pudo consultar el tema personal.");
+      });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (active) return;
+    // End of encounter: never continue soundtrack into the next screen.
+    setPlaying(false);
+  }, [active]);
+
+  useEffect(() => {
+    return () => { if (audioRef.current) void audioRef.current.close(); };
+  }, []);
+
+  useEffect(() => {
+    if (!playing || !active) return;
+    let frame = 0;
+    let before: number | null = null;
+    const step = (now: number) => {
+      const delta = before === null ? 0 : Math.min(0.15, Math.max(0, (now - before) / 1000));
+      before = now;
+      const start = clockRef.current;
+      clockRef.current += delta;
+      if (delta > 0 && audioRef.current) {
+        for (const note of orbitalEventsBetween(score, start, clockRef.current)) {
+          playOrbitalSound(audioRef.current, pitchFrequency(note.pitch), volume,
+            note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration);
+        }
+      }
+      frame = window.requestAnimationFrame(step);
+    };
+    frame = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(frame);
+  }, [playing, active, score, volume]);
+
+  async function toggle() {
+    if (playing) { setPlaying(false); return; }
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new AudioContext();
+      }
+      await audioRef.current.resume();
+      setMessage("");
+      setPlaying(true);
+    } catch {
+      setMessage("Toca de nuevo para activar el audio de este navegador.");
+    }
+  }
+
+  return (
+    <section aria-label="Música de combate"
+      className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-violet-400/25 bg-violet-950/20 px-3 py-2 text-xs text-violet-100">
+      <Music2 size={18} aria-hidden="true" className="text-violet-300"/>
+      <span className="font-semibold">Música</span>
+      <select aria-label="Tema de combate" value={selection}
+        onChange={(event) => {
+          setPlaying(false);
+          clockRef.current = 0;
+          setSelection(event.target.value as "default" | "personal");
+        }}
+        className="max-w-[170px] flex-1 rounded-md border border-violet-400/30 bg-zinc-950 px-2 py-2 text-xs">
+        <option value="default">Ascenso de Xahya</option>
+        {personal && <option value="personal">Mi tema: {personal.title}</option>}
+      </select>
+      <button type="button" onClick={toggle} disabled={!active}
+        aria-label={playing ? "Pausar música" : "Reproducir música"}
+        className="inline-flex min-h-9 items-center gap-1 rounded-md border border-violet-400/40 px-3 py-2 hover:bg-violet-500/15 disabled:opacity-40">
+        {playing ? <Pause size={16}/> : <Play size={16}/>}
+        {playing ? "Pausar" : "Sonar"}
+      </button>
+      <label className="flex items-center gap-1">
+        <Volume2 size={14} aria-hidden="true"/>
+        <input type="range" min="0" max="100" step="1" value={volume}
+          onChange={(event) => setVolume(Number(event.target.value))}
+          aria-label="Volumen de música en combate" className="w-16 accent-violet-300"/>
+      </label>
+      <Link href="/musica-orbital" className="rounded-md border border-violet-400/30 px-3 py-2 hover:bg-violet-500/15">
+        Editar mi tema
+      </Link>
+      {message && <span role="status" className="w-full text-xs text-amber-200">{message}</span>}
+    </section>
+  );
+}

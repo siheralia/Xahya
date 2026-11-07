@@ -26,7 +26,7 @@ import { DEFAULT_DURATION_PRICING, type DurationPricing } from "@/lib/effects/du
 import { previewConfiguredSkillEffectPch } from "@/lib/skills/configured-effect-pricing";
 import type {EffectContainer} from "@/lib/effects/micro-modules";
 import Link from "next/link";
-import { Swords, Shield, Heart, Droplets, Sparkles, Wind, Orbit, Copy, Check } from "lucide-react";
+import { Swords, Shield, Heart, Droplets, Sparkles, Wind, Orbit, Copy, Check, Music2 } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { CharacterSilhouette, getCharacterSilhouetteSvg } from "@/components/CharacterSilhouette";
@@ -2018,6 +2018,15 @@ export default function CharacterPage({ params }: { params: Promise<{ id: string
           <h1 className="w-full text-4xl font-bold" style={{ color: themePalette.foreground, textShadow: "0 0 28px " + themePalette.primary + "55" }}>{character.name} {character.flair && <span className="text-2xl font-normal" style={{ color: themePalette.primary }}>⟨{character.flair}⟩</span>}</h1>
           {character.canLevelUp && <Link href={"/characters/" + character.id + "/levelup"} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-300">Level Up</Link>}
           {character.canManageCharacter && <Link href={"/management?characterId=" + character.id} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Gestionar personaje</Link>}
+          {character.isOwner && (
+            <Link href="/musica-orbital"
+              title="El tema musical se guarda en tu cuenta y puedes usarlo en tus combates"
+              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition hover:brightness-125"
+              style={{ borderColor: themePalette.primary + "88", color: themePalette.foreground, backgroundColor: themePalette.primary + "18" }}>
+              <Music2 size={17} aria-hidden="true" />
+              Editar mi tema
+            </Link>
+          )}
           <button type="button" onClick={copyFichaToClipboard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">{copied === "ficha" ? "✓ Ficha copiada" : "Copiar ficha"}</button>
           <button type="button" onClick={exportProfileCard} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 hover:text-white">Exportar imagen</button>
         </div>

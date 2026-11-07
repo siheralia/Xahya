@@ -6,7 +6,7 @@ import { Music2, Pause, Play, Volume2 } from "lucide-react";
 import { createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
 import { parseOrbitalScore } from "@/lib/orbital-score.mjs";
 import type { OrbitalScore } from "@/lib/orbital-score.mjs";
-import { orbitalEventsBetween, playOrbitalSound } from "@/lib/orbital-playback.mjs";
+import { orbitalEventsBetween, orbitalPercussionBetween, playOrbitalSound, playOrbitalPercussion } from "@/lib/orbital-playback.mjs";
 
 const EPIC_THEME = createBattleThemeScore();
 
@@ -63,6 +63,9 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
         for (const note of orbitalEventsBetween(score, start, clockRef.current)) {
           playOrbitalSound(audioRef.current, pitchFrequency(note.pitch), volume,
             note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration);
+        }
+        for (const beat of orbitalPercussionBetween(score, start, clockRef.current)) {
+          playOrbitalPercussion(audioRef.current, beat.type, volume);
         }
       }
       frame = window.requestAnimationFrame(step);

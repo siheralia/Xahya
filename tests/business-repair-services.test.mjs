@@ -28,7 +28,7 @@ test("default service repairs only SELECTED_ITEM through typed modular graph",()
  const capped=evaluateBusinessRepairService(service,{characterItemId:123,durability:95},{});
  assert.equal(capped.after,100);assert.equal(capped.applied,5);
  assert.deepEqual(calculateDurabilityRepair({characterItemId:123,durability:95},25),{
-  characterItemId:123,durability:undefined,requested:25,applied:5,before:95,after:100
+  characterItemId:123,requested:25,applied:5,before:95,after:100
  },"original calculation module sets a single copy");
 });
 test("out-of-range fees, quantities and malformed permissions are rejected",()=>{

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {compileCombatSkill,previewSkillExecution} from "../lib/combat/skill-casting.ts";
 import {projectApprovedCombatSkills,availableConstructionMaterials} from "../lib/combat/skill-preview.ts";
-import {newCombatState,applyCombatCommand,applyResolvedCombatSkill} from "../lib/combat/turn-engine.ts";
+import {newCombatState,applyCombatCommand,applyResolvedCombatSkill,canAct} from "../lib/combat/turn-engine.ts";
 import {chooseNpcReaction,progressTrainingNpc} from "../lib/combat/npc-policy.ts";
 import {combatClientView} from "../lib/combat/magic-area.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "../lib/combat/narration.ts";
@@ -81,6 +81,23 @@ test("casting creates mirror at chosen position and launches piercing magical ra
  assert.ok(defended.actors.NPC.hp<100);
  assert.equal(defended.constructions.length,1,"mirror survives initial ray");
 });
+test("encounter 66: after NPC dodges mirror, a second mirror can be cast in the same round",()=>{
+ let s=cast(initial(),"mirror-first-same-round");
+ const firstMirror=s.constructions[0].id;
+ assert.equal(s.round,1);
+ s=progressTrainingNpc(s,()=>dice,()=>0.1);
+ assert.equal(s.pending,null,"the NPC must resolve the first mirror before the player acts again");
+ assert.equal(s.round,1);
+ assert.ok(canAct(s,"PLAYER"),"there is still initiative budget for another mirror in round 1");
+ assert.equal(s.skillCooldowns?.PLAYER?.["1"],0,"mirror has no same-round cooldown");
+ s=cast(s,"mirror-second-same-round",{x:.62,y:.38});
+ assert.equal(s.round,1);
+ assert.equal(s.constructions.length,2);
+ assert.equal(s.pending.mirrorId,s.constructions[1].id);
+ assert.notEqual(s.pending.mirrorId,firstMirror);
+ assert.equal(s.mana.PLAYER.current,30,"each mirror pays its normal 15-mana cost");
+});
+
 test("surviving mirror fires next round without spending another PA or mana",()=>{
  let s=cast(initial());
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},dice);

@@ -4,6 +4,7 @@ import {EFFECT_LABELS} from "@/lib/effects/catalog";
 import {availableConstructionMaterials,type CombatSkillPreview} from "@/lib/combat/skill-preview";
 import type {Side,CombatState} from "@/lib/combat/turn-engine";
 import {combatChargeBalance} from "@/lib/combat/charge-pools";
+import {combatSkillTargetOutOfRange} from "@/lib/combat/skill-target-range";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
 
 type RosterResponse={skills:Record<Side,CombatSkillPreview[]>};
@@ -19,7 +20,7 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,canUseSkill,canUseAttackSkill,busy,round,mana,cooldowns,chargeState,onCast,onPrepareArea,preparedAreaSkillId,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,
+ encounterId,side,authorized,canUseSkill,canUseAttackSkill,busy,round,mana,cooldowns,chargeState,onCast,onPrepareArea,preparedAreaSkillId,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,constructionDistanceMeters,
 }:{encounterId:string;side:Side;authorized:boolean;
  canUseSkill:boolean;canUseAttackSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
  chargeState?:CombatState|null;
@@ -28,7 +29,7 @@ export default function CombatSkillLoadout({
  aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean;
  onConstructionMaterialsChange:(side:Side,materials:string[])=>void;
  onConstructionSkillsChange?:(side:Side,skills:CombatSkillPreview[])=>void;
- categoryFilter?:string|null;distanceMeters?:number}) {
+ categoryFilter?:string|null;distanceMeters?:number;constructionDistanceMeters?:number}) {
  const [skills,setSkills]=useState<Record<Side,CombatSkillPreview[]>>({PLAYER:[],NPC:[]});
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
@@ -96,8 +97,12 @@ export default function CombatSkillLoadout({
       {(()=>{
        const nextRound=cooldowns[String(skill.id)]??0;
        const onCooldown=nextRound===-1||nextRound>round;
-       const outOfRange=typeof distanceMeters==="number"&&skill.rangeMeters!==null&&
-         (skill.skillKind==="OFFENSE"||skill.constructionMaterial==="MIRROR")&&distanceMeters>skill.rangeMeters;
+       // Construction/mirror creation does not include the prepared step that
+       // an OFFENSE skill may use to close the distance.
+       const outOfRange=combatSkillTargetOutOfRange(skill,{
+        attackMeters:distanceMeters??Number.NaN,
+        currentOpponentMeters:constructionDistanceMeters??Number.NaN,
+       });
        const missingAim=skill.needsAim&&(skill.skillKind==="CONSTRUCTION"
          ?!constructionAimReady:skill.attackArea
           ?(preparedAreaSkillId!==skill.id||aimMode!=="MAGIC_AREA"||!magicAimReady)

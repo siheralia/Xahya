@@ -2,27 +2,34 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
-import { angleDistance, crossedNote, normalizeDegrees, orbitalPoint } from "@/lib/orbital-sequencer.mjs";
+import { angleDistance, crossedOrbitalNote, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
 
 const CENTER = 320;
+// Escala natural de Do mayor, afinación temperada (La4 = 440 Hz).
+// Índices 0–3: recorrido interior; índices 4–6: recorrido exterior.
 const RINGS = [
-  { radius: 274, note: "Do3", hz: 130.81, color: "#36e6a4" },
-  { radius: 236, note: "Sol3", hz: 196.0, color: "#73f09b" },
-  { radius: 198, note: "Do4", hz: 261.63, color: "#a2f27a" },
-  { radius: 160, note: "Mi4", hz: 329.63, color: "#d5ee69" },
-  { radius: 122, note: "Sol4", hz: 392.0, color: "#f5dc65" },
-  { radius: 84, note: "Do5", hz: 523.25, color: "#ffd17b" },
+  { radius: 73, note: "Do4", hz: 261.6256, color: "#ffd37c" },
+  { radius: 107, note: "Re4", hz: 293.6648, color: "#ffe075" },
+  { radius: 141, note: "Mi4", hz: 329.6276, color: "#eae86a" },
+  { radius: 175, note: "Fa4", hz: 349.2282, color: "#caea71" },
+  { radius: 209, note: "Sol4", hz: 391.9954, color: "#98eb84" },
+  { radius: 243, note: "La4", hz: 440, color: "#65e99b" },
+  { radius: 277, note: "Si4", hz: 493.8833, color: "#39daa8" },
 ] as const;
 
+// Notas fijas iniciales, de dentro hacia fuera.
 const INITIAL_NOTES = [
-  [7, 30, 60, 88, 117, 144, 169, 192, 220, 248, 278, 311, 342],
-  [19, 47, 73, 98, 136, 163, 201, 239, 267, 293, 328],
-  [11, 46, 82, 120, 156, 191, 218, 252, 286, 318],
+  [30, 75, 120, 170, 220, 268, 310],
+  [15, 60, 110, 155, 204, 248, 293, 335],
+  [20, 65, 100, 143, 185, 228, 270, 315],
   [25, 65, 103, 143, 186, 225, 270, 302, 337],
-  [16, 58, 100, 150, 200, 250, 290, 330],
-  [30, 76, 123, 171, 218, 265, 311],
+  [11, 46, 82, 120, 156, 191, 218, 252, 286, 318],
+  [19, 47, 73, 98, 136, 163, 201, 239, 267, 293, 328],
+  [7, 30, 60, 88, 117, 144, 169, 192, 220, 248, 278, 311, 342],
 ];
-const INITIAL_PHASES = [0, 8, 352, 12, 5, 348];
+// Cada grupo tiene su propia zona de partida, como en el gráfico de referencia.
+const INITIAL_PHASES = [354, 2, 9, 16, 83, 90, 97];
+const INITIAL_DELAYS = [0, 0.5, 1, 1.5, 0, 0.5, 1];
 
 function makeNotes() {
   return INITIAL_NOTES.map((ring) => [...ring]);
@@ -65,7 +72,9 @@ export default function OrbitalMusicPage() {
   const [notes, setNotes] = useState<number[][]>(makeNotes);
   const [phases, setPhases] = useState<number[]>([...INITIAL_PHASES]);
   const [muted, setMuted] = useState<boolean[]>(RINGS.map(() => false));
-  const [secondsPerTurn, setSecondsPerTurn] = useState(12);
+  const [groupDurations, setGroupDurations] = useState<[number, number]>([12, 12]);
+  const [groupDirections, setGroupDirections] = useState<[1 | -1, 1 | -1]>([1, -1]);
+  const [startDelays, setStartDelays] = useState<number[]>([...INITIAL_DELAYS]);
   const [volume, setVolume] = useState(55);
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -120,11 +129,16 @@ export default function OrbitalMusicPage() {
       if (dt > 0) {
         RINGS.forEach((ring, ringIndex) => {
           if (muted[ringIndex]) return;
-          const offset = phases[ringIndex] / 360;
-          const previousTurn = offset + from / secondsPerTurn;
-          const currentTurn = offset + to / secondsPerTurn;
+          const group = ringIndex < 4 ? 0 : 1;
+          const delay = startDelays[ringIndex];
+          const previousTurn = orbitalTurnAt(
+            Math.max(from, delay), delay, phases[ringIndex], groupDurations[group], groupDirections[group]
+          );
+          const currentTurn = orbitalTurnAt(
+            to, delay, phases[ringIndex], groupDurations[group], groupDirections[group]
+          );
           for (const noteAngle of notes[ringIndex]) {
-            if (crossedNote(previousTurn, currentTurn, noteAngle) && contextRef.current) {
+            if (crossedOrbitalNote(previousTurn, currentTurn, noteAngle) && contextRef.current) {
               playSound(contextRef.current, ring.hz, volume);
             }
           }
@@ -138,7 +152,7 @@ export default function OrbitalMusicPage() {
     };
     animationFrame = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(animationFrame);
-  }, [playing, notes, phases, muted, secondsPerTurn, volume]);
+  }, [playing, notes, phases, muted, groupDurations, groupDirections, startDelays, volume]);
 
   const resetPlayhead = () => {
     elapsedRef.current = 0;
@@ -170,7 +184,12 @@ export default function OrbitalMusicPage() {
   };
 
   const noteCount = notes.reduce((sum, ring) => sum + ring.length, 0);
-  const rotationDegrees = elapsed / secondsPerTurn * 360;
+  const ringTurn = (ringIndex: number) => {
+    const group = ringIndex < 4 ? 0 : 1;
+    return orbitalTurnAt(
+      elapsed, startDelays[ringIndex], phases[ringIndex], groupDurations[group], groupDirections[group]
+    );
+  };
 
   return (
     <main className="min-h-screen bg-[#03130d] px-4 py-8 text-[#e4ffed] sm:px-8">
@@ -182,7 +201,8 @@ export default function OrbitalMusicPage() {
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Órbitas sonoras</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-emerald-100/75 sm:text-base">
             Los puntos luminosos recorren sus anillos. Cuando alcanzan una nota vacía, la iluminan y la hacen sonar.
-            Las órbitas comparten la misma duración de vuelta, pero cada una tiene su propio desfase.
+            Las cuatro órbitas interiores y las tres exteriores tienen recorridos independientes.
+            Puedes configurar el sentido de giro, la duración de cada vuelta y cuándo empieza cada anillo.
           </p>
         </header>
 
@@ -224,8 +244,9 @@ export default function OrbitalMusicPage() {
                   />
                   {notes[index].map((angle, noteIndex) => {
                     const point = orbitalPoint(ring.radius, angle);
-                    const headAngle = normalizeDegrees(rotationDegrees + phases[index]);
-                    const lit = angleDistance(headAngle, angle) < 8 && playing && !muted[index];
+                    const turn = ringTurn(index);
+                    const headAngle = normalizeDegrees((turn ?? phases[index] / 360) * 360);
+                    const lit = turn !== null && angleDistance(headAngle, angle) < 8 && playing && !muted[index];
                     return (
                       <g key={index + "-" + angle}>
                         {lit && (
@@ -253,9 +274,10 @@ export default function OrbitalMusicPage() {
                 </g>
               ))}
               {RINGS.map((ring, index) => {
-                const point = orbitalPoint(ring.radius, rotationDegrees + phases[index]);
+                const turn = ringTurn(index);
+                const point = orbitalPoint(ring.radius, (turn ?? phases[index] / 360) * 360);
                 return (
-                  <g key={"head-" + index} opacity={muted[index] ? 0.3 : 1}>
+                  <g key={"head-" + index} opacity={muted[index] ? 0.3 : turn === null ? 0.5 : 1}>
                     <circle cx={point.x} cy={point.y} r="16" fill={ring.color} opacity=".7"
                       filter={"url(#orbital-glow-" + index + ")"} />
                     <circle cx={point.x} cy={point.y} r="10" fill={ring.color} stroke="#f3fff0" strokeWidth={2.8} />
@@ -286,12 +308,6 @@ export default function OrbitalMusicPage() {
                 </button>
               </div>
               {error && <p role="alert" className="mt-3 text-sm text-amber-200">{error}</p>}
-              <label className="mt-5 block text-sm">
-                <span className="flex justify-between"><span>Duración de cada vuelta</span><span className="font-mono text-emerald-300">{secondsPerTurn} s</span></span>
-                <input className="mt-2 w-full accent-emerald-300" type="range"
-                  min="4" max="30" step="1" value={secondsPerTurn}
-                  onChange={(event) => setSecondsPerTurn(Number(event.target.value))} />
-              </label>
               <label className="mt-3 block text-sm">
                 <span className="flex justify-between"><span>Volumen</span><span className="font-mono text-emerald-300">{volume}%</span></span>
                 <input className="mt-2 w-full accent-emerald-300" type="range"
@@ -299,14 +315,52 @@ export default function OrbitalMusicPage() {
                   onChange={(event) => setVolume(Number(event.target.value))} />
               </label>
               <div className="mt-3 flex justify-between text-xs text-emerald-100/60">
-                <span>{noteCount} notas</span><span>{((elapsed / secondsPerTurn) % 1 * 100).toFixed(0)}% de la vuelta</span>
+                <span>{noteCount} notas</span><span>Tiempo: {elapsed.toFixed(1)} s</span>
               </div>
             </section>
 
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
-              <h2 className="text-lg font-semibold">Anillos y desfases</h2>
+              <h2 className="text-lg font-semibold">Dos recorridos</h2>
               <p className="mt-1 text-xs leading-5 text-emerald-100/65">
-                De fuera hacia dentro: sonidos graves a agudos. El desfase mueve cada punto sin alterar su velocidad angular.
+                Los cuatro anillos centrales siguen un recorrido; los tres externos siguen otro.
+                Dentro de cada grupo todos tardan lo mismo en completar una vuelta.
+              </p>
+              {(["Interiores · Do a Fa", "Exteriores · Sol a Si"] as const).map((label, group) => (
+                <div key={label} className="mt-4 border-t border-emerald-100/10 pt-3">
+                  <h3 className="text-sm font-medium">{label}</h3>
+                  <label className="mt-3 block text-xs">
+                    <span className="flex justify-between gap-3">
+                      <span>Duración de la vuelta</span>
+                      <span className="font-mono text-emerald-300">{groupDurations[group]} s</span>
+                    </span>
+                    <input className="mt-2 w-full accent-emerald-300" type="range" min="4" max="30" step="1"
+                      value={groupDurations[group]} onChange={(event) => setGroupDurations((current) => {
+                        const next: [number, number] = [...current];
+                        next[group] = Number(event.target.value);
+                        return next;
+                      })} />
+                  </label>
+                  <label className="mt-3 flex items-center justify-between gap-3 text-xs">
+                    <span>Sentido</span>
+                    <select value={groupDirections[group]} onChange={(event) => setGroupDirections((current) => {
+                      const next: [1 | -1, 1 | -1] = [...current];
+                      next[group] = Number(event.target.value) as 1 | -1;
+                      return next;
+                    })}
+                      className="rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-1.5 text-emerald-50">
+                      <option value={1}>Horario ↻</option>
+                      <option value={-1}>Antihorario ↺</option>
+                    </select>
+                  </label>
+                </div>
+              ))}
+            </section>
+
+            <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
+              <h2 className="text-lg font-semibold">Anillos e inicio</h2>
+              <p className="mt-1 text-xs leading-5 text-emerald-100/65">
+                Del centro hacia afuera: Do, Re, Mi, Fa, Sol, La, Si. Cada anillo tiene un
+                punto de partida angular y un retraso de inicio independientes.
               </p>
               <div className="mt-4 space-y-4">
                 {RINGS.map((ring, index) => (
@@ -322,17 +376,31 @@ export default function OrbitalMusicPage() {
                       </label>
                       <span className="font-mono text-xs text-emerald-100/75">{phases[index]}°</span>
                     </div>
-                    <input type="range" min="0" max="359" step="1" value={phases[index]}
-                      onChange={(event) => setPhases((current) =>
-                        current.map((value, i) => i === index ? Number(event.target.value) : value))}
-                      aria-label={"Desfase del anillo " + ring.note}
-                      className="mt-2 w-full accent-emerald-300" />
+                    <label className="mt-2 block text-xs text-emerald-100/65">
+                      Posición inicial
+                      <input type="range" min="0" max="359" step="1" value={phases[index]}
+                        onChange={(event) => setPhases((current) =>
+                          current.map((value, i) => i === index ? Number(event.target.value) : value))}
+                        aria-label={"Posición inicial del anillo " + ring.note}
+                        className="mt-1 w-full accent-emerald-300" />
+                    </label>
+                    <label className="mt-2 block text-xs text-emerald-100/65">
+                      <span className="flex justify-between gap-2">
+                        <span>Comenzar tras</span>
+                        <span className="font-mono text-emerald-300">{startDelays[index]} s</span>
+                      </span>
+                      <input type="range" min="0" max="30" step="0.5" value={startDelays[index]}
+                        onChange={(event) => setStartDelays((current) =>
+                          current.map((value, i) => i === index ? Number(event.target.value) : value))}
+                        aria-label={"Retraso de inicio del anillo " + ring.note}
+                        className="mt-1 w-full accent-emerald-300" />
+                    </label>
                   </div>
                 ))}
               </div>
               <button type="button" onClick={() => setPhases(RINGS.map(() => 0))}
                 className="mt-4 w-full rounded-lg border border-emerald-200/25 px-3 py-2 text-sm hover:bg-emerald-100/10">
-                Alinear todos los puntos
+                Alinear puntos de partida
               </button>
             </section>
 

@@ -6,7 +6,7 @@ import type {CraftIngredient} from "./managed-crafting.ts";
 type Position={id:number;businessId:number;active:boolean};
 type Contract={id:number;positionId:number;characterId:number;active:boolean};
 type Character={id:number;name:string};
-export type CraftArtisan={characterId:number;name:string;source:"OWNER"|"EMPLOYEE"};
+export type CraftArtisan={characterId:number;name:string;source:"OWNER"|"EMPLOYEE";contractId:number|null;positionId:number|null};
 export type CraftQualityGrade="NORMAL"|"EXPERTO"|"MAESTRO";
 
 export function eligibleCraftArtisans({
@@ -26,11 +26,11 @@ export function eligibleCraftArtisans({
   const name=names.get(contract.characterId);
   if(!name)continue;
   seen.add(contract.characterId);
-  list.push({characterId:contract.characterId,name,source:"EMPLOYEE"});
+  list.push({characterId:contract.characterId,name,source:"EMPLOYEE",contractId:contract.id,positionId:contract.positionId});
  }
  if(!requiresEmployee&&!seen.has(ownerCharacterId)){
   const name=names.get(ownerCharacterId);
-  if(name)list.unshift({characterId:ownerCharacterId,name,source:"OWNER"});
+  if(name)list.unshift({characterId:ownerCharacterId,name,source:"OWNER",contractId:null,positionId:null});
  }
  return list;
 }

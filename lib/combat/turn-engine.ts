@@ -1231,7 +1231,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         ?{shape:"CIRCLE",radiusMeters:BASIC_MAGIC_AREA_RADIUS*AREA_CANVAS_METERS,
           radiusNormalized:BASIC_MAGIC_AREA_RADIUS}
         :undefined);
-    let defense = command.defense;
+    // A pending hit must be resolvable even when the defender already spent
+    // their last PA or tick on an earlier reaction in this same round.
+    // Downgrade BEFORE validating/launching COUNTER or other paid defenses:
+    // otherwise a stale client selection can strand the pending attack.
+    const exhaustedReaction=remainingAp(fighter)<=0||fighter.spentTicks>=LIMIT;
+    let defense:DefenseChoice=exhaustedReaction?"NONE":command.defense;
     // The defender can trade a normal paid basic attack for full exposure to
     // the incoming strike. Resolve on a separate snapshot first, but apply
     // both results together so an otherwise lethal strike cannot cancel it.
@@ -1294,13 +1299,15 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // NONE without misreporting its displacement as an illegal choice.
     if(command.dodgeDirection && command.defense!=="DODGE")
       throw new Error("Solo puedes elegir desplazamiento para Esquivar.");
-    if (remainingAp(fighter) <= 0 || fighter.spentTicks >= LIMIT) defense = "NONE";
     if(defense==="MAGIC_FIELD"){
       const mana=state.mana?.[by];
       if(!mana || mana.current<1)throw new Error("Necesitas 1 punto de maná para activar el campo mágico.");
       mana.current-=1;
     }
-    if(command.planarMove!==undefined){
+    // An exhausted defender cannot move for free. Ignore a stale prepared
+    // movement when auto-accepting damage; still reject an explicit
+    // move+NONE combination from an actor who could actually react.
+    if(command.planarMove!==undefined&&!exhaustedReaction){
       if(defense==="NONE")throw new Error("No puedes combinar movimiento con una reacción sin PA.");
       applyCompositeStep(state,by,command.planarMove);
     }

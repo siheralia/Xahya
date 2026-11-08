@@ -10,6 +10,8 @@ import type { OrbitalScore, OrbitalSlide, OrbitalNoteLength, OrbitalInstrument, 
 import { importOrbitalMidi } from "@/lib/orbital-midi.mjs";
 import { midiFromPitch, orchestralEventsBetween, playOrchestralNote, prepareOrchestralInstruments, stopOrchestralVoices } from "@/lib/orbital-orchestra.mjs";
 import OrchestralTracksEditor from "@/components/music/OrchestralTracksEditor";
+import InstrumentOrbitCanvas from "@/components/music/InstrumentOrbitCanvas";
+import { loadCoronaDefault, orchestrateInstrumentOrbits } from "@/lib/orbital-instrument-rings.mjs";
 
 const CENTER = 450;
 const SCORE_STORAGE_KEY = "xahya.orbital-scores.v1";
@@ -56,6 +58,9 @@ export default function OrbitalMusicPage() {
   const [noteLengths, setNoteLengths] = useState<OrbitalNoteLength[][]>(() => BATTLE_SCORE.rings.map((ring) => [...ring.noteLengths]));
   const [ringInstruments, setRingInstruments] = useState<OrbitalInstrument[]>(() => BATTLE_SCORE.rings.map((ring) => ring.instrument));
   const [tracks, setTracks] = useState<OrchestralTrack[]>(() => BATTLE_SCORE.tracks);
+  const [viewMode, setViewMode] = useState<"instruments" | "pitches">("instruments");
+  const [selectedTrack, setSelectedTrack] = useState(0);
+  const [defaultBusy, setDefaultBusy] = useState(true);
   const [loadingSounds, setLoadingSounds] = useState(false);
   const [phases, setPhases] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.phase));
   const [muted, setMuted] = useState<boolean[]>(() => BATTLE_SCORE.rings.map((ring) => !ring.enabled));
@@ -225,6 +230,9 @@ export default function OrbitalMusicPage() {
   function loadScore(score: OrbitalScore) {
     const safe = parseOrbitalScore(score);
     setPlaying(false);
+    stopOrchestralVoices(contextRef.current);
+    setSelectedTrack(0);
+    setViewMode(safe.tracks.length ? "instruments" : "pitches");
     elapsedRef.current = 0;
     setElapsed(0);
     setNotes(safe.rings.map((ring) => [...ring.angles]));
@@ -243,6 +251,21 @@ export default function OrbitalMusicPage() {
     setScoreName(safe.title);
     setScoreMessage('Partitura cargada: "' + safe.title + '". Pulsa Reproducir para escucharla.');
   }
+
+  // The approved orchestral composition is the editor's actual default.
+  // Preserve existing personal drafts in the user's account and browser.
+  useEffect(() => {
+    let alive = true;
+    loadCoronaDefault().then((score) => {
+      if (alive) { loadScore(score); setDefaultBusy(false); }
+    }).catch(() => {
+      if (alive) {
+        setDefaultBusy(false);
+        setScoreMessage("No se pudo cargar Corona de Cenizas. La melodía anterior sigue disponible.");
+      }
+    });
+    return () => { alive = false; };
+  }, []);
 
   function saveScore() {
     try {
@@ -314,9 +337,9 @@ export default function OrbitalMusicPage() {
     event.target.value = "";
     if (!file) return;
     try {
-      const score = importOrbitalMidi(await file.arrayBuffer(), file.name.replace(/\.mid(i)?$/i, "").slice(0, 120));
-      loadScore(score);
-      setScoreMessage("MIDI cargado con sus pistas, acordes y duraciones originales.");
+      const midi = importOrbitalMidi(await file.arrayBuffer(), file.name.replace(/\.mid(i)?$/i, "").slice(0, 120));
+      loadScore(orchestrateInstrumentOrbits(midi));
+      setScoreMessage("MIDI convertido a órbitas instrumentales, con acordes y tiempos originales.");
     } catch (cause) {
       setScoreMessage(cause instanceof Error ? cause.message : "No se pudo importar el MIDI.");
     }
@@ -325,19 +348,10 @@ export default function OrbitalMusicPage() {
   async function loadCorona() {
     try {
       setThemeBusy(true);
-      const response = await fetch("/music/corona-de-cenizas.mid.gz.b64");
-      if (!response.ok) throw new Error("No se encontró la partitura orquestal.");
-      if (typeof DecompressionStream === "undefined") {
-        throw new Error("Este navegador no puede abrir la partitura comprimida. Puedes importar el MIDI manualmente.");
-      }
-      const encoded = (await response.text()).trim();
-      const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
-      const decoded = new Response(new Blob([bytes]).stream()
-        .pipeThrough(new DecompressionStream("gzip")));
-      loadScore(importOrbitalMidi(await decoded.arrayBuffer(), "Corona de Cenizas — orquestal"));
-      setScoreMessage("Corona de Cenizas cargada como pistas orquestales editables.");
+      loadScore(await loadCoronaDefault());
+      setScoreMessage("Corona de Cenizas cargada como órbitas instrumentales editables.");
     } catch (cause) {
-      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo cargar el tema.");
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo cargar Corona de Cenizas.");
     } finally {
       setThemeBusy(false);
     }
@@ -349,7 +363,7 @@ export default function OrbitalMusicPage() {
   }, []);
 
   const togglePlayback = async () => {
-    if (playing || loadingSounds) {
+    if (defaultBusy || playing || loadingSounds) {
       if (playing) stop();
       return;
     }
@@ -478,22 +492,58 @@ export default function OrbitalMusicPage() {
     ringDurations[ringIndex], ringDirections[ringIndex],
   );
 
+  const addInstrumentNote = (index: number, start: number) => {
+    const total = tracks.reduce((sum, track) => sum + track.notes.length, 0);
+    if (total >= 4096 || tracks[index]?.notes.length >= 2048) {
+      setScoreMessage("La partitura ha alcanzado el límite de notas.");
+      return;
+    }
+    setTracks((current) => current.map((track, i) => i === index
+      ? { ...track, notes: [...track.notes, {
+          pitch: track.notes.at(-1)?.pitch ?? 60,
+          start, duration: 0.5, velocity: 100,
+        }].sort((a, b) => a.start - b.start) }
+      : track));
+    setSelectedTrack(index);
+    setScoreMessage("Nota añadida en " + start.toFixed(2) + " s; puedes editarla en la pista.");
+  };
+
   return (
-    <main className="min-h-screen bg-[#03130d] px-4 py-8 text-[#e4ffed] sm:px-8">
-      <div className="mx-auto max-w-7xl">
+    <main className="min-h-screen w-full min-w-0 max-w-full overflow-x-clip bg-[#03130d] px-3 py-8 text-[#e4ffed] sm:px-8">
+      <div className="mx-auto w-full min-w-0 max-w-7xl">
         <header className="mb-7">
           <div className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-300/70">
             Xahya · Laboratorio musical
           </div>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Órbitas sonoras</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-emerald-100/75 sm:text-base">
-            Los puntos luminosos recorren sus anillos. Cuando alcanzan una nota vacía, la iluminan y la hacen sonar.
-            Dieciséis órbitas musicales, desde Do4 hasta Do6: las notas más agudas están en el exterior.
-            Puedes editar los dos recorridos, encender o apagar anillos y guardar partituras.
+            Cada instrumento puede recorrer su propia órbita y tocar diferentes notas,
+            acordes o melodías en cada vuelta. Corona de Cenizas es ahora la composición
+            predeterminada. También puedes utilizar las dieciséis órbitas de alturas clásicas.
           </p>
         </header>
 
-        <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_330px]">
+        {tracks.length > 0 && (
+          <div className="mb-3 flex min-w-0 flex-wrap gap-2 text-xs">
+            <button type="button" onClick={() => setViewMode("instruments")}
+              className={"rounded-lg border px-3 py-2 " + (viewMode === "instruments"
+                ? "border-violet-200 bg-violet-200 text-violet-950" : "border-violet-300/30 text-violet-100")}>
+              Órbitas de instrumentos ({tracks.length})
+            </button>
+            <button type="button" onClick={() => setViewMode("pitches")}
+              className={"rounded-lg border px-3 py-2 " + (viewMode === "pitches"
+                ? "border-emerald-200 bg-emerald-200 text-emerald-950" : "border-emerald-300/30 text-emerald-100")}>
+              Órbitas de notas (16)
+            </button>
+          </div>
+        )}
+        <div className="grid w-full min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,330px)] lg:gap-7">
+          {tracks.length > 0 && viewMode === "instruments" ? (
+            <InstrumentOrbitCanvas tracks={tracks} elapsed={elapsed}
+              masterDuration={groupDurations[0]} playing={playing}
+              selectedTrack={selectedTrack} onSelect={setSelectedTrack}
+              onAdd={addInstrumentNote} />
+          ) : (
           <section
             className="min-w-0 overflow-hidden rounded-3xl border border-emerald-300/15 bg-[radial-gradient(circle_at_50%_48%,#1d310b_0%,#08321c_42%,#01160f_75%,#000d08_100%)] p-2 shadow-[0_0_80px_rgba(7,170,71,.09)] sm:p-5"
             aria-label="Secuenciador orbital interactivo"
@@ -624,14 +674,14 @@ export default function OrbitalMusicPage() {
               Toca una línea para añadir una nota · Toca un círculo vacío para borrarla
             </p>
           </section>
-
-          <aside className="space-y-5">
+          )}
+          <aside className="min-w-0 max-w-full space-y-5">
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
               <h2 className="text-lg font-semibold">Reproducción</h2>
               <div className="mt-4 flex gap-2">
-                <button type="button" onClick={togglePlayback} disabled={loadingSounds}
+                <button type="button" onClick={togglePlayback} disabled={loadingSounds || defaultBusy}
                   className="flex-1 rounded-xl bg-emerald-300 px-4 py-3 font-semibold text-emerald-950 hover:bg-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200">
-                  {loadingSounds ? "Cargando instrumentos…" : playing ? "⏸ Pausar" : "▶ Reproducir"}
+                  {defaultBusy ? "Cargando Corona…" : loadingSounds ? "Cargando instrumentos…" : playing ? "⏸ Pausar" : "▶ Reproducir"}
                 </button>
                 <button type="button" onClick={resetPlayhead}
                   className="rounded-xl border border-emerald-200/25 px-4 py-3 text-sm hover:bg-emerald-100/10">
@@ -676,7 +726,9 @@ export default function OrbitalMusicPage() {
               </div>
             </section>
 
-            <OrchestralTracksEditor tracks={tracks} setTracks={setTracks} period={groupDurations[0]} />
+            <OrchestralTracksEditor tracks={tracks} setTracks={setTracks}
+              period={groupDurations[0]} selectedTrack={selectedTrack}
+              onSelectTrack={setSelectedTrack} />
           <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
               <h2 className="text-lg font-semibold">Partituras</h2>
               <p className="mt-1 text-xs leading-5 text-emerald-100/65">
@@ -688,11 +740,11 @@ export default function OrbitalMusicPage() {
                 setSelectedScore("");
               }}
                 className="mt-4 w-full rounded-xl bg-amber-200 px-3 py-3 text-sm font-semibold text-emerald-950 hover:bg-amber-100">
-                ⚔️ Ascenso de Xahya · tema épico original
+                ⚔️ Ascenso de Xahya · tema anterior
               </button>
               <button type="button" onClick={() => void loadCorona()} disabled={themeBusy}
                 className="mt-2 w-full rounded-xl border border-violet-300/50 bg-violet-950/25 px-3 py-3 text-sm font-semibold text-violet-100 hover:bg-violet-950/50 disabled:opacity-40">
-                🎻 Corona de Cenizas · orquesta (MIDI multipista)
+                🎻 Corona de Cenizas · tema predeterminado orbital
               </button>
               <button type="button" onClick={() => {
                 loadScore(createGoldenScore());
@@ -711,7 +763,7 @@ export default function OrbitalMusicPage() {
                   Se guarda en su cuenta y se podrá escuchar desde los encuentros.
                 </p>
                 <p className="mt-2 text-xs text-amber-100/80">
-                  {ownTheme ? "Tema actual: " + ownTheme.title : "Usarás Ascenso de Xahya hasta guardar uno propio."}
+                  {ownTheme ? "Tema actual: " + ownTheme.title : "Usarás Corona de Cenizas hasta guardar uno propio."}
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button type="button" onClick={() => void savePersonalTheme()} disabled={themeBusy}
@@ -990,9 +1042,9 @@ export default function OrbitalMusicPage() {
                   className="rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
                   Variar notas
                 </button>
-                <button type="button" onClick={() => loadScore(BATTLE_SCORE)}
+                <button type="button" onClick={() => void loadCorona()}
                   className="rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">
-                  Tema épico
+                  Corona de Cenizas
                 </button>
                 <button type="button" onClick={() => { setNotes(RINGS.map(() => [])); setSlides(RINGS.map(() => [])); }}
                   className="col-span-2 rounded-lg border border-emerald-200/25 px-3 py-2 hover:bg-emerald-100/10">

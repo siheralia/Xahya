@@ -23,14 +23,27 @@ Formato `xahya-orbital-score` versión 1: `format`, `version`, `title`, `groups`
 
 ## Orquesta polifónica y MIDI (propuesta experimental)
 
-Esta evolución **no cambia** el tema de sistema `Ascenso de Xahya` por defecto. Conserva las 16 órbitas y las partituras JSON versión 1, pero añade dos mecanismos combinables:
+**Corona de Cenizas es ahora el tema predeterminado del editor y de combate**, salvo que el jugador haya guardado un tema personal. **Ascenso de Xahya** sigue disponible como alternativa y respaldo si el MIDI comprimido no puede cargarse. Las 16 órbitas clásicas se conservan en una vista alternativa.
+
+### Órbitas instrumentales
+
+- Las **12 pistas y 587 notas de Corona de Cenizas** se convierten en **12 anillos instrumentales interactivos**: cada círculo puede contener notas de varias alturas, acordes superpuestos y duraciones distintas.
+- Hay **velocidades de 1, 2, 4 y 8 vueltas por pieza**, según el tipo de instrumento. Las cuerdas melódicas hacen una vuelta larga; bajo, guitarra, violonchelo, trémolo y batería pueden girar más rápido.
+- El sistema mantiene las notas en su **vuelta original**: una nota de la segunda media vuelta no suena por accidente en la primera. Se comprueba que la conversión respete todos los inicios, duraciones, notas y velocidades MIDI.
+- Cada pista guarda `orbit: { duration, direction, phase, enabled }`. Cambiar duración, sentido o fase **recalcula los tiempos de sus notas**, conservando su ángulo y vuelta, mientras la partitura sigue dentro del ciclo global. Si la modificación haría perder notas, se rechaza con una advertencia.
+- Selecciona el instrumento tocando su círculo; una segunda pulsación sobre el anillo permite añadir una nota en la vuelta actual. Las notas se pueden ajustar desde **Pistas orquestales** y la vista de **Órbitas de notas (16)** permanece disponible para las partituras anteriores.
+- Se corrigió la anchura móvil: contenedores flexibles con `min-w-0`, elementos que pueden envolver texto y recorte de desbordamiento horizontal, evitando que los paneles ensanchen toda la página.
+
+La versión 1 del JSON continúa compatible; las partituras que no contienen `track.orbit` reciben un período igual al grupo principal, sentido horario y activación automática.
+
+Esta evolución conserva las partituras JSON versión 1 y añade los mecanismos siguientes:
 
 - **Duraciones reales por nota en cada círculo**: `ring.noteLengths: [{ angle, duration }]`, donde `duration` está entre 0,05 y 30 segundos. Las notas aparecen como **arcos** que muestran cuánto se mantienen. Una partitura antigua sin `noteLengths` conserva sus ataques cortos originales.
 - **Instrumento por círculo**: `ring.instrument` opcional, predeterminado `"synth"`. Desde **Ajustar** se pueden elegir violín, conjunto de cuerdas, trompa, violonchelo, contrabajo, guitarra, coro, trémolo, timbales, metales y batería.
 - **Pistas polifónicas independientes**: `tracks: [{ name, instrument, notes: [{ pitch, start, duration, velocity }] }]`. `pitch` es la altura MIDI (21–108), `start` y `duration` son segundos y `velocity` va de 1 a 127. Varias voces pueden comenzar a la vez, incluso con la misma altura; las pistas se ejecutan **simultáneamente con los círculos**.
 - **Importar MIDI estándar**: lector de archivos `.mid` con mapa de tempo, múltiples pistas, cambios de instrumento GM y voces superpuestas. Cada pista se puede editar desde el panel **Pistas orquestales** con paginación para no mostrar cientos de notas juntas.
-- **Preset Corona de Cenizas**: botón **Corona de Cenizas · orquesta (MIDI multipista)**, basado en la composición original ya aprobada en audio. Contiene 12 pistas y 587 notas, y dura aproximadamente 28 segundos. El MIDI está incluido como recurso estático comprimido `public/music/corona-de-cenizas.mid.gz.b64`; el navegador lo descomprime al cargar el preset. Si `DecompressionStream` no está disponible, se puede importar el archivo `.mid` manualmente.
-- **Guardado por usuario**: el PUT de `/api/music-theme` admite hasta 160 KB de JSON validado; la cuenta conserva el tema personal, mientras que el predeterminado del sistema continúa intacto.
+- **Preset Corona de Cenizas**: botón **Corona de Cenizas · tema predeterminado orbital**, basado en la composición original aprobada en audio. Contiene 12 pistas y 587 notas, y dura aproximadamente 28 segundos. El MIDI original (fuente de importación) está incluido como recurso estático comprimido `public/music/corona-de-cenizas.mid.gz.b64`; el navegador lo descomprime al cargar el preset. Si `DecompressionStream` no está disponible, se puede importar el archivo `.mid` manualmente.
+- **Guardado por usuario**: el PUT de `/api/music-theme` admite hasta 160 KB de JSON validado; la cuenta conserva el tema personal; si no existe uno, se utiliza Corona de Cenizas.
 
 ### Reproducción y licencias
 

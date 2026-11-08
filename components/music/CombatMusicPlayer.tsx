@@ -7,12 +7,15 @@ import { parseOrbitalScore } from "@/lib/orbital-score.mjs";
 import type { OrbitalScore } from "@/lib/orbital-score.mjs";
 import { orbitalEventsBetween, orbitalPercussionBetween, playOrbitalSound, playOrbitalPercussion } from "@/lib/orbital-playback.mjs";
 import { midiFromPitch, orchestralEventsBetween, playOrchestralNote, prepareOrchestralInstruments, stopOrchestralVoices } from "@/lib/orbital-orchestra.mjs";
+import { loadCoronaDefault } from "@/lib/orbital-instrument-rings.mjs";
 
 const EPIC_THEME = createBattleThemeScore();
 
 /** Optional combat soundtrack: never consumes PA, ticks, mana, or server calls per note. */
 export default function CombatMusicPlayer({ active }: { active: boolean }) {
   const [personal, setPersonal] = useState<OrbitalScore | null>(null);
+  const [corona, setCorona] = useState<OrbitalScore | null>(null);
+  const [defaultBusy, setDefaultBusy] = useState(true);
   const [selection, setSelection] = useState<"default" | "personal">("default");
   const [playing, setPlaying] = useState(false);
   const [loadingSounds, setLoadingSounds] = useState(false);
@@ -20,7 +23,20 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
   const [message, setMessage] = useState("");
   const clockRef = useRef(0);
   const audioRef = useRef<AudioContext | null>(null);
-  const score = selection === "personal" && personal ? personal : EPIC_THEME;
+  const score = selection === "personal" && personal ? personal : corona ?? EPIC_THEME;
+
+  useEffect(() => {
+    let alive = true;
+    loadCoronaDefault().then((score) => {
+      if (alive) { setCorona(score); setDefaultBusy(false); }
+    }).catch(() => {
+      if (alive) {
+        setDefaultBusy(false);
+        setMessage("No se pudo cargar Corona de Cenizas; se usará temporalmente Ascenso de Xahya.");
+      }
+    });
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -93,7 +109,7 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
 
   async function toggle() {
     if (playing) { setPlaying(false); return; }
-    if (loadingSounds) return;
+    if (loadingSounds || (selection === "default" && defaultBusy)) return;
     try {
       if (!audioRef.current) {
         audioRef.current = new AudioContext();
@@ -123,14 +139,14 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
           setSelection(event.target.value as "default" | "personal");
         }}
         className="max-w-[170px] flex-1 rounded-md border border-violet-400/30 bg-zinc-950 px-2 py-2 text-xs">
-        <option value="default">Ascenso de Xahya</option>
+        <option value="default">Corona de Cenizas</option>
         {personal && <option value="personal">Mi tema: {personal.title}</option>}
       </select>
-      <button type="button" onClick={toggle} disabled={!active || loadingSounds}
+      <button type="button" onClick={toggle} disabled={!active || loadingSounds || (selection === "default" && defaultBusy)}
         aria-label={playing ? "Pausar música" : "Reproducir música"}
         className="inline-flex min-h-9 items-center gap-1 rounded-md border border-violet-400/40 px-3 py-2 hover:bg-violet-500/15 disabled:opacity-40">
         {playing ? <Pause size={16}/> : <Play size={16}/>}
-        {loadingSounds ? "Cargando…" : playing ? "Pausar" : "Sonar"}
+        {defaultBusy && selection === "default" ? "Cargando Corona…" : loadingSounds ? "Cargando…" : playing ? "Pausar" : "Sonar"}
       </button>
       <label className="flex items-center gap-1">
         <Volume2 size={14} aria-hidden="true"/>

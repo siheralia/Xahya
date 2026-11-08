@@ -78,7 +78,8 @@ test("offhand blocking reduces only selected offhand durability, not the main we
  assert.equal(resolved.actors.NPC.offhandWeapon.durability,57,
   "base 10 wear * 100/160 is rounded up to 7");
  assert.equal(resolved.actors.NPC.equippedWeapon.durability,84);
- assert.equal(resolved.actors.NPC.weaponIntegrity,57);
+ assert.equal(resolved.actors.NPC.weaponIntegrity,84,
+  "el indicador histórico pertenece a la mano principal, no a la secundaria");
 });
 
 test("unconfigured and missing materials use resistance 100 and durability remains 0–100",()=>{

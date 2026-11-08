@@ -197,11 +197,24 @@ test("mirror skill's FIRST ray uses the placed mirror position, not its owner's 
  const round2=applyCombatCommand(next,"NPC",{kind:"WAIT"},dice);
  assert.equal(round2.round,2);
  assert.equal(round2.pending?.mirrorAuto,true);
- assert.deepEqual(round2.pending?.directedMagicRay,launched.pending.directedMagicRay);
- const hitAgain=none(round2);
- assert.equal(reflections(hitAgain).length,2);
- assert.equal(hitAgain.actors.NPC.hp,180);
- assert.equal(hitAgain.mana.PLAYER.current,45,"automatic ray costs no extra mana");
+ assert.equal(round2.pending?.by,"NPC",
+  "the enemy mirror fires first because it was already placed");
+ assert.deepEqual(round2.pending?.directedMagicRay,{
+  from:{x:2,y:0},to:{x:0,y:0}
+ });
+ const npcAuto=applyCombatCommand(round2,"PLAYER",
+  {kind:"DEFEND",defense:"NONE"},dice);
+ assert.equal(npcAuto.pending?.mirrorAuto,true);
+ assert.equal(npcAuto.pending?.by,"PLAYER",
+  "the owner's mirror must fire next in the same round");
+ assert.equal(npcAuto.pending?.mirrorId,launched.pending.mirrorId);
+ assert.deepEqual(npcAuto.pending?.directedMagicRay,launched.pending.directedMagicRay);
+ const hitAgain=none(npcAuto);
+ assert.equal(reflections(hitAgain).length,3,
+  "the initial ray and both automatic rays can each be intercepted once");
+ assert.equal(hitAgain.actors.NPC.hp,140,
+  "only the NPC's own reflected ray causes NPC damage");
+ assert.equal(hitAgain.mana.PLAYER.current,45,"automatic rays cost no extra mana");
 });
 
 test("lethal reflection from a mid-flight mirror ends the fight for its owner",()=>{

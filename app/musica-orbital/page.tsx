@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
 import { angleDistance, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
 import { BATTLE_TURN_SECONDS, createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
@@ -210,6 +210,14 @@ export default function OrbitalMusicPage() {
     });
   }
 
+  // MIDI scores contain hundreds of notes. Validate/normalize only when the
+  // musical content changes, not during every animation frame.
+  const playbackScore = useMemo(() => createCurrentScore(), [
+    notes, slides, noteLengths, ringInstruments, tracks, phases, muted,
+    groupDurations, groupDirections, ringDurations, ringDirections, startDelays,
+    percussion, scoreName,
+  ]);
+
   function loadScore(score: OrbitalScore) {
     const safe = parseOrbitalScore(score);
     setPlaying(false);
@@ -353,7 +361,7 @@ export default function OrbitalMusicPage() {
       }
       await contextRef.current.resume();
       setLoadingSounds(true);
-      const availability = await prepareOrchestralInstruments(contextRef.current, createCurrentScore());
+      const availability = await prepareOrchestralInstruments(contextRef.current, playbackScore);
       await contextRef.current.resume();
       setLoadingSounds(false);
       if (availability.fallback) {
@@ -387,7 +395,7 @@ export default function OrbitalMusicPage() {
       const to = from + dt;
       elapsedRef.current = to;
       if (dt > 0 && contextRef.current) {
-        const score = createCurrentScore();
+        const score = playbackScore;
         for (const note of orbitalEventsBetween(score, from, to)) {
           if (note.instrument === "synth") {
             playOrbitalSound(contextRef.current, pitchFrequency(note.pitch), volume,
@@ -417,7 +425,7 @@ export default function OrbitalMusicPage() {
       cancelAnimationFrame(animationFrame);
       stopOrchestralVoices(contextRef.current);
     };
-  }, [playing, notes, slides, noteLengths, ringInstruments, tracks, phases, muted, groupDurations, groupDirections, ringDurations, ringDirections, startDelays, percussion, volume, scoreName]);
+  }, [playing, playbackScore, volume]);
 
   const resetPlayhead = () => {
     elapsedRef.current = 0;

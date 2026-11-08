@@ -80,33 +80,39 @@ test("SELF_FIELD physical sweep hits nearby enemy mirror, not remote or legacy m
  assert.equal(impacts(settled,"near","REFLECTION").length,0);
 });
 
-test("SELF_FIELD magical aura reflects once from each real enemy mirror within its world radius",()=>{
+test("magical circle reflects once per intersected enemy mirror and damages nearby blocks",()=>{
  const s=state();
  s.constructions=[
-  mirror("near-1",{x:1.8,y:0},{x:.95,y:.95}),
-  mirror("near-2",{x:0,y:1.99},{x:.9,y:.1}),
-  mirror("outside",{x:2.01,y:0},{x:.5,y:.5}),
-  mirror("legacy",undefined,{x:.5,y:.5}),
-  mirror("friendly",{x:1,y:0},{x:.5,y:.5},{owner:"PLAYER"}),
-  block("near-block",{x:1,y:0}),
+  mirror("near-1",undefined,{x:.53,y:.50}),
+  mirror("near-2",undefined,{x:.52,y:.54}),
+  mirror("outside",undefined,{x:.95,y:.95}),
+  mirror("legacy",undefined,{x:.54,y:.52}),
+  mirror("friendly",undefined,{x:.51,y:.50},{owner:"PLAYER"}),
+  {...block("near-block",{x:1,y:0}),center:{x:.53,y:.51}},
  ];
- const launched=cast(s,901,field,true);
+ const launched=cast(s,901,"Área circular de 3 m | Alcance máximo: 5 m",true,{x:.5,y:.5});
  const publicPending=combatClientView(launched);
  assert.equal(publicPending.pending.targetCenter,undefined);
- assert.equal(publicPending.pending.areaHint,undefined);
+ assert.ok(publicPending.pending.areaHint);
  const hp=launched.actors.PLAYER.hp;
  const settled=resolve(launched);
  assert.equal(impacts(settled,"near-1","REFLECTION").length,1);
  assert.equal(impacts(settled,"near-2","REFLECTION").length,1);
  assert.equal(impacts(settled,"outside","REFLECTION").length,0);
- assert.equal(impacts(settled,"legacy","REFLECTION").length,0);
+ assert.equal(impacts(settled,"legacy","REFLECTION").length,1,
+  "legacy mirrors retain their original defender-facing positions for targeted areas");
  assert.equal(impacts(settled,"friendly","REFLECTION").length,0);
- assert.equal(active(settled,"near-1").durability,5,"magical reflection does not destroy mirror");
- assert.equal(active(settled,"near-block").durability,50,"same aura damages touched block");
- const reflected=impacts(settled,"near-1","REFLECTION")[0].damage+
-  impacts(settled,"near-2","REFLECTION")[0].damage;
+ assert.equal(active(settled,"near-1").durability,5);
+ assert.equal(active(settled,"near-block").durability,50,"the same area damages touched blocks");
+ const reflected=["near-1","near-2","legacy"]
+  .reduce((sum,id)=>sum+impacts(settled,id,"REFLECTION")[0].damage,0);
  assert.equal(hp-settled.actors.PLAYER.hp,reflected);
  assert.equal(settled.actors.NPC.spentAp,0);
+});
+
+test("SELF_FIELD stays physical-only; area collision cannot authorize magic on its own",()=>{
+ assert.throws(()=>compileCombatSkill(skill(905,field,true)),
+  /barrido alrededor del usuario requiere un ataque físico/);
 });
 
 test("magical single-target skill does not inherit basic magic's area against nearby mirrors",()=>{

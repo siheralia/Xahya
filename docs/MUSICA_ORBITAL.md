@@ -50,7 +50,7 @@ Los borradores múltiples del laboratorio siguen viviendo en `localStorage`. La 
 
 ## Música durante combates
 
-La **ficha de personaje propia** tiene el acceso **Editar mi tema** junto a las demás acciones de la ficha. Se muestra únicamente al propietario: el tema se almacena por **cuenta**, no por personaje. El perfil también conserva su acceso al editor.
+El acceso al editor está en **Mi perfil → Mi tema musical de combate → Abrir editor musical**. El tema personal se guarda por **cuenta**, no por personaje, de modo que el mismo tema puede seleccionarse al combatir con distintos personajes. La ficha de personaje no necesita un acceso adicional.
 
 El encuentro incluye un panel **Música** para elegir entre Ascenso de Xahya y el tema personal del jugador, pulsar reproducir/pausar y ajustar el volumen, **sin enlazar al editor durante el combate**. La reproducción no empieza automáticamente: requiere una interacción explícita por las restricciones de audio de los navegadores. Se detiene al finalizar el combate o abandonar la página, no utiliza la API de combate y no modifica PA, maná, ticks, el orden de iniciativa ni las acciones.
 

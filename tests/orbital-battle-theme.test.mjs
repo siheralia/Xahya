@@ -24,10 +24,20 @@ test("la partitura batalla tiene 16 órbitas, 3 velocidades y giros independient
   assert.deepEqual(score.groups, [{ duration: 8, direction: 1 }, { duration: 8, direction: 1 }]);
   assert.deepEqual([...new Set(score.rings.filter((ring) => ring.enabled).map((ring) => ring.duration))].sort((a,b) => a-b), [4, 8, 16]);
   assert.deepEqual([...new Set(score.rings.filter((ring) => ring.enabled).map((ring) => ring.direction))].sort((a,b) => a-b), [-1, 1]);
-  assert.equal(score.rings.reduce((sum, ring) => sum + ring.angles.length, 0), 70);
-  assert.equal(score.rings.flatMap((ring) => ring.slides).length, 4);
+  assert.equal(score.rings.reduce((sum, ring) => sum + ring.angles.length, 0), 30);
+  assert.equal(score.rings.flatMap((ring) => ring.slides).length, 3);
   assert.deepEqual(score.rings.filter((ring) => ring.instrument === "strings").map((ring) => ring.pitch),
-    ["E5", "F5", "F#5", "G5", "A5", "B5", "C6"]);
+    ["C5", "D5", "E5", "F5", "F#5", "G5", "A5", "B5", "C6"]);
+  // The preceding version had 71 attacks every 8 seconds; this arrangement
+  // gives the listener room for long string phrases instead of repeated runs.
+  const audible = hear(score, 8);
+  assert.equal(audible.length, 30);
+  const counts = new Map();
+  for (const event of audible) {
+    const beat = Math.floor(event.time / 0.5);
+    counts.set(beat, (counts.get(beat) ?? 0) + 1);
+  }
+  assert.ok(Math.max(...counts.values()) <= 4);
   assert.ok(score.rings.some((ring) => ring.instrument === "synth"));
 });
 
@@ -36,8 +46,8 @@ test("el sonido repite exactamente la misma melodía cada 8 s aunque las órbita
   const notes = hear(score, 16);
   const first = notes.filter((note) => note.time < 8.001);
   const second = notes.filter((note) => note.time >= 8.001);
-  assert.equal(first.length, 71);
-  assert.equal(second.length, 71);
+  assert.equal(first.length, 30);
+  assert.equal(second.length, 30);
   const voices = (items) => items.map(({ pitch, toPitch, duration }) => [pitch, toPitch, duration]);
   assert.deepEqual(voices(second), voices(first));
 });
@@ -46,20 +56,20 @@ test("el final Si5 enlaza por semitono con el Do6 del comienzo", () => {
   const score = createBattleThemeScore();
   const events = hear(score, 16);
   const finish = events.find((event) => event.pitch === "B5" && event.toPitch === "C6" &&
-    event.time > 7.8 && event.time < 8);
+    event.time > 7.45 && event.time < 7.6);
   assert.ok(finish, "Falta el enlace melódico al final de la vuelta");
   const opening = events.find((event) => event.pitch === "C6" && event.time > 8 && event.time < 8.3);
   assert.ok(opening, "La nueva vuelta no retoma el Do6");
-  assert.ok(opening.time - finish.time < 0.3, "Hay un silencio largo entre vueltas");
+  assert.ok(opening.time - (finish.time + 0.58) < 0.15, "El legato de Si5 no llega al siguiente Do6");
   assert.ok(Math.abs(12 * Math.log2(pitchFrequency("C6") / pitchFrequency("B5")) - 1) < 0.001);
-  assert.ok(events.find((event) => event.pitch === "E4" && event.time > 7.5 && event.time < 8));
+  assert.ok(events.find((event) => event.pitch === "B4" && event.time > 7 && event.time < 7.25));
   assert.ok(events.find((event) => event.pitch === "A4" && event.time > 8 && event.time < 8.3));
 });
 
-test("los tres glissandos audibles son breves y sólo recorren un semitono", () => {
+test("los dos glissandos audibles recorren un semitono y conservan el legato", () => {
   const events = hear(createBattleThemeScore(), 8);
   const slides = events.filter((event) => event.toPitch !== null);
-  assert.equal(slides.length, 3);
+  assert.equal(slides.length, 2);
   for (const event of slides) {
     assert.ok(event.duration <= 0.15);
     const steps = 12 * Math.log2(pitchFrequency(event.toPitch) / pitchFrequency(event.pitch));
@@ -71,11 +81,14 @@ test("el glissando que cierra el bucle sigue animándose a través del límite 8
   const score = createBattleThemeScore();
   const ring = score.rings.find((lane) => lane.pitch === "B5");
   const slide = ring.slides.find((item) => item.toPitch === "C6");
-  const midpoint = elapsedSlideProgress(7.945, ring, {
+  assert.equal(elapsedSlideProgress(7.8, ring, {
+    duration: ring.duration, direction: ring.direction,
+  }, slide), null, "El portamento visual espera al final de la nota sostenida");
+  const midpoint = elapsedSlideProgress(8.01, ring, {
     duration: ring.duration, direction: ring.direction,
   }, slide);
   assert.ok(Math.abs(midpoint - 0.5) < 0.00001);
-  assert.equal(elapsedSlideProgress(8.03, ring, {
+  assert.equal(elapsedSlideProgress(8.12, ring, {
     duration: ring.duration, direction: ring.direction,
   }, slide), null);
 });
@@ -159,12 +172,14 @@ test("las cuerdas prolongan la nota y mantienen legato en cada órbita", () => {
   const synth = orbitalVoicePlan(pitchFrequency("G5"));
   assert.equal(violin.strings, true);
   assert.equal(synth.strings, false);
+  assert.equal(violin.hold, 0.58);
   assert.ok(violin.hold > synth.hold);
   assert.ok(violin.release > synth.release);
   const slide = orbitalVoicePlan(pitchFrequency("B5"), pitchFrequency("C6"), 0.14, "strings");
   assert.equal(slide.gliding, true);
   assert.ok(slide.bend <= 0.14);
-  assert.equal(slide.hold, 0.14);
+  assert.equal(slide.hold, 0.58);
+  assert.equal(slide.bend, 0.14);
 });
 
 test("el instrumento emplea legato breve, no barridos largos", () => {

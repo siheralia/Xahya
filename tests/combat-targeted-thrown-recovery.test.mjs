@@ -193,3 +193,22 @@ test("measured cover catches a thrown weapon at the cover's complete world point
  assert.deepEqual(done.droppedWeapons[0].fieldPosition,{x:1.5,y:0});
  assert.equal(done.droppedWeapons[0].weapon.durability,69);
 });
+
+test("a successful dodge toward a dropped weapon respects the lateral world coordinate",()=>{
+ const s=state({
+  equippedWeapon:undefined,fieldPosition:{x:0,y:0},speedValue:50,
+ },{positionMeters:.5,speedValue:110});
+ s.droppedWeapons=[{owner:"PLAYER",slot:"MAIN_HAND",weapon:mallet(),
+  positionMeters:0,fieldPosition:{x:0,y:.4}}];
+ const launched=applyCombatCommand(s,"NPC",{
+  kind:"ATTACK",attackType:"BLUNT",
+  trajectory:[{x:.1,y:.5},{x:.5,y:.5}]
+ },rolls);
+ assert.ok(launched.pending);
+ const done=applyCombatCommand(launched,"PLAYER",{
+  kind:"DEFEND",defense:"DODGE",dodgeDirection:"WEAPON"
+ },{hit:.99,critical:.99,defense:.99});
+ assert.ok(Math.abs(done.actors.PLAYER.fieldPosition.y-.4)<1e-9);
+ assert.equal(done.actors.PLAYER.equippedWeapon.characterItemId,1910);
+ assert.equal(done.droppedWeapons.length,0);
+});

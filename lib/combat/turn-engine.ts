@@ -1624,11 +1624,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // Physical areas damage enemy mirrors within their actual footprint,
     // including a SELF_FIELD around the caster. Other oriented shapes use
     // their exact defender-facing geometry, never an inferred world position.
-    if(pending.attackArea&&!pending.usesMagic){
+    const physicalMirrorArea=!pending.usesMagic?pending.attackArea:undefined;
+    if(physicalMirrorArea){
       const casterPosition=fieldPosition(attacker);
       const mirrors=(state.constructions??[]).filter(c=>c.owner===by&&
        c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0&&
-       constructionInAreaFootprint(c,pending.attackArea,pending.targetCenter,
+       constructionInAreaFootprint(c,physicalMirrorArea,pending.targetCenter,
          pending.areaAngleDegrees,casterPosition));
       const direct=Math.max(1,Math.round(Math.max(0,power)*
        (pending.skill?.damageMultiplier??1)*(pending.skill?.finalMultiplier??1)));

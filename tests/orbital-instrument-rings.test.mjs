@@ -35,8 +35,9 @@ test("Corona pasa de MIDI oculto a doce órbitas con 587 notas originales", () =
 });
 
 test("Acordes simultáneos y vueltas distintas no duplican ni pierden ataques", () => {
-  const first = orchestralEventsBetween(original, 0, period);
-  const orbitEvents = orchestralEventsBetween(corona, 0, period);
+  // The exact right boundary starts the next loop, so stop just before it.
+  const first = orchestralEventsBetween(original, 0, period - .0001);
+  const orbitEvents = orchestralEventsBetween(corona, 0, period - .0001);
   assert.equal(first.length, 587);
   assert.deepEqual(orbitEvents, first, "The new orbit score has exactly the same played notes");
   const second = orchestralEventsBetween(corona, period - .01, period + .3);
@@ -46,7 +47,7 @@ test("Acordes simultáneos y vueltas distintas no duplican ni pierden ataques", 
   assert.equal(chord.length, 4);
   const silent = structuredClone(corona);
   silent.tracks[0].orbit.enabled = false;
-  assert.equal(orchestralEventsBetween(silent, 0, period).length,
+  assert.equal(orchestralEventsBetween(silent, 0, period - .0001).length,
     587 - corona.tracks[0].notes.length);
 });
 

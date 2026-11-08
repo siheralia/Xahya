@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { getEffectiveCombatCharacterStats } from "@/lib/stats/effective";
 import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { readMechanics } from "@/lib/stats/mechanics";
-import { canAct, massDefaultKg, newCombatState, weaponIntegrityDefault, type CombatFighter } from "@/lib/combat/turn-engine";
+import { canAct, massDefaultKg, newCombatState, reconcileWearableBonusesAtCombatStart, weaponIntegrityDefault, type CombatFighter } from "@/lib/combat/turn-engine";
 import { progressTrainingNpc } from "@/lib/combat/npc-policy";
 import { combatClientView } from "@/lib/combat/magic-area";
 import { varyTrainingNpcStats } from "@/lib/combat/training-npc";
@@ -167,6 +167,7 @@ export async function POST(req:Request) {
     catch {return NextResponse.json({error:"Dificultad de entrenamiento inválida."},{status:400});}
   }
   let opponentManaMax=0;
+  let rivalWearableStatBonuses:typeof first.combatWearableStatBonuses=[];
   let trainingIdentity:ReturnType<typeof selectTrainingIdentity>|null=null;
   let npcPlans:ReturnType<typeof compileTrainingNpcSkills>=[];
   if(Number.isSafeInteger(opponentId) && opponentId>0) {
@@ -176,6 +177,7 @@ export async function POST(req:Request) {
     const rival=await db.orm.public.Character.where({id:opponentId}).first();
     const stats=await getEffectiveCombatCharacterStats(opponentId);
     if(!rival||!stats)return NextResponse.json({error:"Oponente no encontrado."},{status:404});
+    rivalWearableStatBonuses=stats.combatWearableStatBonuses;
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
       (rival as any).magicAttackType,(rival as any).blockDefenseType,
       (rival as any).fieldDefenseType,(rival as any).fieldDefenseDescription);
@@ -296,9 +298,15 @@ export async function POST(req:Request) {
     ?await CharacterItem.where({characterId:opponent.characterId}).all():[];
   // Only staff-defined configurations bound to actual equipped copies enter
   // the immutable encounter snapshot. Synthetic NPCs own no persistent gear.
-  initial.actors.PLAYER.equippedWearables=snapshotEquippedWearables(catalog,ownerCopies,materials);
+  initial.actors.PLAYER.equippedWearables=snapshotEquippedWearables(catalog,ownerCopies,materials,
+    first.combatWearableStatBonuses);
   initial.actors.NPC.equippedWearables=opponent.characterId!==null
-    ?snapshotEquippedWearables(catalog,rivalCopies,materials):[];
+    ?snapshotEquippedWearables(catalog,rivalCopies,materials,
+        rivalWearableStatBonuses):[];
+  // The effective stats resolver initially counted every equipped copy.
+  // Explicitly drop bonuses from copies already broken before round one.
+  reconcileWearableBonusesAtCombatStart(initial,"PLAYER");
+  reconcileWearableBonusesAtCombatStart(initial,"NPC");
   initial.consumables={
     PLAYER:characterCombatConsumables(catalog,ownerCopies),
     NPC:opponent.characterId!==null

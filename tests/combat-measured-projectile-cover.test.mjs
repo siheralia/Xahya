@@ -198,5 +198,5 @@ test("player-facing ranged controls expose both independent elevations",()=>{
  const ui=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
  assert.match(ui,/Altura de salida del proyectil/);
  assert.match(ui,/Altura de impacto del proyectil/);
- assert.match(ui,/projectileHeights:\{launchMeters:projectileLaunchHeight,impactMeters:projectileImpactHeight\}/);
+ assert.match(ui,/projectileHeights:\{launchMeters:projectileLaunchHeight,impactMeters:projectileImpactHeight,[\s\S]*arcRiseMeters:projectileArcRise\}/);
 });

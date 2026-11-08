@@ -1089,6 +1089,33 @@ function resolveTargetedMirrorAttack(
     constructionId:mirror.id,damage:reflected,contact:true,
     summary:mirror.label+" reflejó "+reflected+" puntos de daño mágico hacia "+actor.name});
   }else{
+   // Directly aimed physical swings contact this tangible mirror. Reuse the
+   // existing solid-cover formula, charging only the integrity it absorbs.
+   // Ranged attacks, thrown weapons, unarmed strikes and magic do not wear
+   // an equipped melee weapon here.
+   const source=command.attackSource??defaultAttackSource(actor);
+   if(mirror.tangible&&!ranged&&(source==="MAIN_HAND"||source==="OFF_HAND")){
+    const weapon=source==="MAIN_HAND"?actor.equippedWeapon:actor.offhandWeapon;
+    if(weapon?.mode==="MELEE"&&combatWeaponOperational(weapon)){
+     const previous=weapon.durability??(source==="MAIN_HAND"?actor.weaponIntegrity:100);
+     const absorbed=Math.min(Math.max(0,mirror.durability??0),damage);
+     const wear=meleeWeaponWearFromCover(damage,absorbed,weapon.materialPhysicalResistance);
+     if(wear>0){
+      const next=Math.max(0,previous-wear);
+      weapon.durability=next;
+      if(source==="MAIN_HAND")actor.weaponIntegrity=next;
+      addLog(state,{kind:"WEAPON_WEAR",tick:state.tick,by,
+       weaponName:weapon.name,weaponIntegrity:next,damage:previous-next,
+       summary:weapon.name+" perdió "+(previous-next)+
+        " de durabilidad al golpear un espejo tangible."});
+      if(previous>0&&next===0)
+       addLog(state,{kind:"WEAPON_BREAK",tick:state.tick,by,
+        weaponName:weapon.name,weaponIntegrity:0,
+        summary:actor.name+" rompió "+weapon.name+
+         " al golpear un espejo. Debe repararla para volver a usarla."});
+     }
+    }
+   }
    mirror.durability=Math.max(0,(mirror.durability??0)-damage);
    if(mirror.durability===0){
     state.constructions=state.constructions?.filter(c=>c.id!==mirror.id);
@@ -1422,7 +1449,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const baseWear=Math.max(1,Math.ceil(power / 8));
       const wear=calculateMaterialBlockWear(baseWear,blockWeapon?.materialPhysicalResistance);
       const newIntegrity=Math.max(0,previousIntegrity-wear);
-      if(blockWeapon||unarmed)fighter.weaponIntegrity=newIntegrity;
+      // The legacy gauge mirrors MAIN_HAND only; OFF_HAND owns its own copy.
+      if(unarmed||blockWeapon===fighter.equippedWeapon)fighter.weaponIntegrity=newIntegrity;
       if(blockWeapon){
         blockWeapon.durability=newIntegrity;
         if(previousIntegrity>0&&newIntegrity===0)

@@ -117,6 +117,7 @@ test("blocking can break exactly the selected weapon, leave the other copy alone
 test("explicit blocking with a broken copy is rejected; implicit block uses intact offhand",()=>{
  const s=base();
  s.actors.NPC.equippedWeapon.durability=0;
+ s.actors.NPC.weaponIntegrity=0; // main-hand legacy gauge stays with the broken copy
  s.actors.NPC.offhandWeapon=weapon("Daga","PIERCE",90,503);
  const launched=attack(s);
  assert.throws(()=>defend(launched,{defense:"BLOCK",weaponSlot:"MAIN_HAND"}),/rota/);
@@ -125,8 +126,8 @@ test("explicit blocking with a broken copy is rejected; implicit block uses inta
  assert.equal(fallback.actors.NPC.equippedWeapon.durability,0);
  assert.ok(fallback.actors.NPC.offhandWeapon.durability<90);
  assert.ok(fallback.actors.NPC.offhandWeapon.durability>0);
- assert.equal(fallback.actors.NPC.weaponIntegrity,
-  fallback.actors.NPC.offhandWeapon.durability);
+ assert.equal(fallback.actors.NPC.weaponIntegrity,0,
+  "blocking with an intact offhand does not restore the broken main-hand gauge");
 });
 
 test("legacy unarmed BLOCK remains compatible and does not invent a new weapon",()=>{

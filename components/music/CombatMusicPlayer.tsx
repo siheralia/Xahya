@@ -61,7 +61,7 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
       if (delta > 0 && audioRef.current) {
         for (const note of orbitalEventsBetween(score, start, clockRef.current)) {
           playOrbitalSound(audioRef.current, pitchFrequency(note.pitch), volume,
-            note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration);
+            note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration, note.instrument);
         }
         for (const beat of orbitalPercussionBetween(score, start, clockRef.current)) {
           playOrbitalPercussion(audioRef.current, beat.type, volume);

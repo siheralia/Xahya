@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Music2, Pause, Play, Volume2 } from "lucide-react";
 import { createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
 import { parseOrbitalScore } from "@/lib/orbital-score.mjs";
@@ -115,9 +114,6 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
           onChange={(event) => setVolume(Number(event.target.value))}
           aria-label="Volumen de música en combate" className="w-16 accent-violet-300"/>
       </label>
-      <Link href="/musica-orbital" className="rounded-md border border-violet-400/30 px-3 py-2 hover:bg-violet-500/15">
-        Editar mi tema
-      </Link>
       {message && <span role="status" className="w-full text-xs text-amber-200">{message}</span>}
     </section>
   );

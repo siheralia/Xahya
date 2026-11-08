@@ -1599,14 +1599,16 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
             " con su ataque circular de "+pending.attackArea.radiusMeters+" m de radio ("+damage+" HP)"
           :attacker.name + (pending.usesMagic?" acertó con su explosión mágica a ":" impactó a ") + fighter.name + " (" + damage + " HP)"});
-    // Magical areas can strike placed mirrors even when the caster targeted
-    // the character. Reflection depends on actual spatial contact, not on a
-    // defender guessing the attack center or choosing a defensive action.
-    if(pending.usesMagic&&validArenaPoint(pending.targetCenter)){
+    // A mirror reflects only when a REAL area touches it. In particular an
+    // approved single-target skill or mirror ray must never inherit the basic
+    // explosion's 1.4 m footprint. SELF_FIELD checks measured world distance,
+    // without inventing a center for the defender-facing 2D canvas.
+    if(pending.usesMagic&&objectImpactArea){
+      const casterPosition=fieldPosition(attacker);
       const mirrors=(state.constructions??[]).filter(c=>c.owner===by&&
         c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0&&
-        (pending.attackArea?attackAreaHits(pending.targetCenter!,c.center,pending.attackArea,pending.areaAngleDegrees):
-         Math.hypot(c.center.x-pending.targetCenter!.x,c.center.y-pending.targetCenter!.y)<=BASIC_MAGIC_AREA_RADIUS));
+        constructionInAreaFootprint(c,objectImpactArea,pending.targetCenter,
+          pending.areaAngleDegrees,casterPosition));
       const reflectionPower=pending.skill
         ?Math.max(1,Math.round(Math.max(0,power)*pending.skill.damageMultiplier*
          pending.skill.finalMultiplier))
@@ -1619,13 +1621,15 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
          summary:mirror.label+" devolvió "+reflected+" puntos de daño mágico hacia "+attacker.name});
       }
     }
-    // A physical circular blast also intersects objects in its actual footprint.
-    // It is not a free strike against every object: only mirrors overlapping the
-    // selected zone take damage. Magical circles use the reflection path above.
-    if(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"&&!pending.usesMagic&&validArenaPoint(pending.targetCenter)){
+    // Physical areas damage enemy mirrors within their actual footprint,
+    // including a SELF_FIELD around the caster. Other oriented shapes use
+    // their exact defender-facing geometry, never an inferred world position.
+    if(pending.attackArea&&!pending.usesMagic){
+      const casterPosition=fieldPosition(attacker);
       const mirrors=(state.constructions??[]).filter(c=>c.owner===by&&
        c.form==="MIRROR"&&c.mirror&&(c.durability??0)>0&&
-       attackAreaHits(pending.targetCenter!,c.center,pending.attackArea!,pending.areaAngleDegrees));
+       constructionInAreaFootprint(c,pending.attackArea,pending.targetCenter,
+         pending.areaAngleDegrees,casterPosition));
       const direct=Math.max(1,Math.round(Math.max(0,power)*
        (pending.skill?.damageMultiplier??1)*(pending.skill?.finalMultiplier??1)));
       for(const mirror of mirrors){
@@ -1635,7 +1639,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         state.mirrorRayQueue=state.mirrorRayQueue?.filter(id=>id!==mirror.id);
         addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by:pending.by,
          constructionId:mirror.id,damage:direct,contact:true,
-         summary:attacker.name+" destruyó "+mirror.label+" con un ataque circular físico."});
+         summary:attacker.name+" destruyó "+mirror.label+" con un ataque físico de área."});
        }
       }
     }

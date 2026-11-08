@@ -1562,7 +1562,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       ?{from:projectilePath.from,to:projectilePath.to,
         stroke:[{x:0.1,y:1-projectilePath.launchHeightMeters/10},
                 {x:0.9,y:1-projectilePath.impactHeightMeters/10}]}
-      :pending.explicitTrajectory&&pending.trajectory.length>=2
+      :!pending.rangedPhysical&&pending.explicitTrajectory&&pending.trajectory.length>=2
         ?{from:fieldPosition(attacker),to:fieldPosition(fighter),
           stroke:pending.trajectory}:undefined;
     if((contact||projectilePath)&&!pending.usesMagic&&!pending.attackArea&&!pending.mirrorId&&

@@ -3,6 +3,7 @@ import { readStatisticsCatalog, CORE_BASIC_STAT_KEYS } from "@/lib/stats/dynamic
 import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { getPerkEffects } from "@/lib/perks";
 import {activeStatMultipliers,parseEnvironment} from "@/lib/skills/interaction-engine";
+import {combatWearableStatSnapshots,WEARABLE_DIRECT_COMBAT_STATS} from "@/lib/combat/wearable-stat-bonus";
 
 const CORE_CODES: Record<string,string> = {strength:"STR",agility:"AGI",constitution:"CON",intelligence:"INT",wisdom:"WIS",charisma:"CHA",spirit:"SPI",luck:"LCK"};
 
@@ -184,7 +185,20 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     derivedStatMultipliers.physicalAttack=(derivedStatMultipliers.physicalAttack??1)*attackMultiplier;
     derivedStatMultipliers.magicAttack=(derivedStatMultipliers.magicAttack??1)*attackMultiplier;
   }
-  return {effectiveStats:base,derived,statBreakdown:breakdown,derivedStatMultipliers};
+  // Capture only mathematically reversible, direct derived flat bonuses.
+  // They are added after derived multipliers, so only global mechanics and
+  // ATTACK_TOTAL multiply their actual contribution. No base-stat,
+  // resource or multiplicative effects are approximated.
+  const combatWearableStatBonuses=options.combatPassives?combatWearableStatSnapshots(
+    owned,items,aliases,Object.fromEntries(WEARABLE_DIRECT_COMBAT_STATS.map(key=>{
+      const code=derivedCodes[key];
+      const mechanic=code===undefined?1:
+        mechanicFactors[code]??mechanicFactors[key.toUpperCase()]??1;
+      return [key,mechanic*(key==="physicalAttack"||key==="magicAttack"?attackMultiplier:1)];
+    })),
+  ):[];
+  return {effectiveStats:base,derived,statBreakdown:breakdown,derivedStatMultipliers,
+    combatWearableStatBonuses};
 }
 
 /** Opt in explicitly from new-combat snapshot and its karma delta calculation. */

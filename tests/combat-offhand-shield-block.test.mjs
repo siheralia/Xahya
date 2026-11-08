@@ -176,7 +176,7 @@ test("duel server, inventory persistence, and defender UI all use shield snapsho
  const duel=read("app/api/combat/duels/route.ts");
  const route=read("app/api/combat/[id]/actions/route.ts");
  const ui=read("app/combat/[id]/CombatEncounter.tsx");
- assert.match(duel,/snapshotEquippedWearables\(catalog,ownerCopies,materials\)/);
+ assert.match(duel,/snapshotEquippedWearables\(catalog,ownerCopies,materials,/);
  assert.match(route,/\.\.\.\(fighter\.equippedWearables\?\?\[\]\)/);
  assert.match(route,/persistedCopies\.has\(weapon\.characterItemId\)/);
  assert.match(ui,/offhandArmorShield\(actor\?\.equippedWearables\)/);

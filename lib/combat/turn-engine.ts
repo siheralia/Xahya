@@ -21,7 +21,7 @@ import {applySummonStatus,invertSummonStatus,expireSummonStatuses,
 import {evaluateEquippedItemAutoRepair,shouldAutoRepairAtRound,
  type AutoRepairItemEffect} from "../items/auto-repair.ts";
 import {equipmentWearFromHit} from "../items/equipped-wear.ts";
-import type {CombatWearable} from "../items/combat-wearables.ts";
+import {offhandArmorShield,type CombatWearable} from "../items/combat-wearables.ts";
 import {assertMovementClear,blockingMovement,coversAlongStroke,coversAlongProjectileFlight,validateProjectileHeights,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
@@ -513,6 +513,10 @@ export function applyWearableOnConfirmedHpHit(
   addLog(state,{kind:"EQUIPMENT_WEAR",tick:state.tick,by:defender,
    weaponName:item.name,weaponIntegrity:item.durability,
    summary:item.name+" perdió "+wear+" de durabilidad tras recibir "+appliedHpDamage+" HP de daño."});
+  if(item.durability===0)
+   addLog(state,{kind:"EQUIPMENT_BREAK",tick:state.tick,by:defender,
+    weaponName:item.name,weaponIntegrity:0,
+    summary:item.name+" quedó roto tras el impacto. Debe repararse para recuperar su durabilidad."});
  }
 }
 
@@ -1447,22 +1451,29 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         avoided = rolls.hit >= contestChance(attacker.precision, fighter.dodge);
       }
     } else if (defense === "BLOCK") {
-      // One explicitly selected hand owns the wear. Without a selection use
-      // the main hand, then offhand. Legacy/unarmed blocks keep neutral wear.
-      const requestedWeapon=command.weaponSlot==="OFF_HAND"?fighter.offhandWeapon:
+      // The OFF_HAND slot may hold a staff-authorized ARMOR shield rather
+      // than a weapon. The shield wears its own inventory copy and never
+      // changes the main-hand integrity gauge.
+      const shield=offhandArmorShield(fighter.equippedWearables);
+      const requestedWeapon=command.weaponSlot==="OFF_HAND"
+        ?fighter.offhandWeapon??shield:
         command.weaponSlot==="MAIN_HAND"?fighter.equippedWeapon:undefined;
       if(command.weaponSlot&&!requestedWeapon)
-        throw new Error("No tienes un arma equipada en la mano elegida para bloquear.");
-      if(command.weaponSlot&&requestedWeapon&&!combatWeaponOperational(requestedWeapon))
-        throw new Error("El arma elegida está rota y no puede bloquear.");
+        throw new Error("No tienes un arma equipada en la mano elegida para bloquear ni un escudo autorizado.");
+      if(command.weaponSlot&&requestedWeapon&&requestedWeapon.durability!==undefined&&
+         (!Number.isFinite(requestedWeapon.durability)||requestedWeapon.durability<=0))
+        throw new Error(requestedWeapon===shield
+          ?"El escudo elegido está roto y no puede bloquear."
+          :"El arma elegida está rota y no puede bloquear.");
       const blockWeapon=requestedWeapon??
         (combatWeaponOperational(fighter.equippedWeapon)?fighter.equippedWeapon:
-         combatWeaponOperational(fighter.offhandWeapon)?fighter.offhandWeapon:undefined);
-      // No equipped weapon preserves the original unarmed guard behavior.
-      // A broken equipped tool cannot masquerade as a full-integrity arm.
-      const unarmed=!(fighter.equippedWeapon||fighter.offhandWeapon);
+         combatWeaponOperational(fighter.offhandWeapon)?fighter.offhandWeapon:
+          shield&&shield.durability>0?shield:undefined);
+      // Preserve historical empty-hands blocking, but a broken equipped
+      // shield cannot masquerade as an undamaged bare hand.
+      const unarmed=!(fighter.equippedWeapon||fighter.offhandWeapon||shield);
       const previousIntegrity=blockWeapon
-        ?blockWeapon.durability??fighter.weaponIntegrity
+        ?blockWeapon.durability??(blockWeapon===fighter.equippedWeapon?fighter.weaponIntegrity:100)
         :unarmed?fighter.weaponIntegrity:0;
       const contest = contestChance(fighter.constitution * typeFactor, attacker.strength);
       const held = previousIntegrity > 0 && rolls.defense < contest;
@@ -1472,12 +1483,17 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const wear=calculateMaterialBlockWear(baseWear,blockWeapon?.materialPhysicalResistance);
       const newIntegrity=Math.max(0,previousIntegrity-wear);
       // The legacy gauge mirrors MAIN_HAND only; OFF_HAND owns its own copy.
-      if(unarmed||blockWeapon===fighter.equippedWeapon)fighter.weaponIntegrity=newIntegrity;
+      // An absent main weapon is not the blocking tool. In particular a
+      // broken OFF_HAND shield must not erase MAIN_HAND's legacy gauge.
+      if(unarmed||(blockWeapon!==undefined&&blockWeapon===fighter.equippedWeapon))
+        fighter.weaponIntegrity=newIntegrity;
       if(blockWeapon){
         blockWeapon.durability=newIntegrity;
         if(previousIntegrity>0&&newIntegrity===0)
-          addLog(state,{kind:"WEAPON_BREAK",tick:state.tick,by,
-            summary:fighter.name+" rompió "+blockWeapon.name+" al bloquear. No puede usarla hasta repararla."});
+          addLog(state,{kind:blockWeapon===shield?"EQUIPMENT_BREAK":"WEAPON_BREAK",
+            tick:state.tick,by,weaponName:blockWeapon.name,weaponIntegrity:0,
+            summary:fighter.name+" rompió "+blockWeapon.name+
+              " al bloquear. Debe repararlo antes de volver a utilizarlo."});
       }
     } else if (defense === "MAGIC_FIELD") {
       // Basic defensive field: active reaction, paid AP/ticks, no persistent

@@ -11,11 +11,23 @@ export type CombatWearable={
   characterItemId:number;itemId:number;name:string;
   itemType:WearableItemType;slot:WearableSlot;durability:number;
   wearOnHit?:EquipmentWearRule;autoRepair?:AutoRepairItemEffect;
+  /** Staff-assigned material, used when an OFF_HAND armor shield blocks. */
+  materialPhysicalResistance?:number;materialName?:string;
   lastAutoRepairRound?:number;autoRepairDisabled?:boolean;
 };
 type RawRow=Record<string,unknown>;
 const id=(v:unknown):v is number=>Number.isSafeInteger(v)&&Number(v)>0;
-export function snapshotEquippedWearables(catalog:readonly RawRow[],owned:readonly RawRow[]):CombatWearable[]{
+/** A staff-authorized armor copy on OFF_HAND is a shield, never a melee weapon.
+ * Return even broken copies so BLOCK can reject them instead of silently
+ * granting an unarmed full-integrity guard. */
+export function offhandArmorShield(equipment?:readonly CombatWearable[]):CombatWearable|undefined {
+ return equipment?.find(item=>item.itemType==="ARMOR"&&item.slot==="OFF_HAND");
+}
+export function snapshotEquippedWearables(
+ catalog:readonly RawRow[],owned:readonly RawRow[],materials:readonly RawRow[]=[]
+):CombatWearable[]{
+ const byMaterial=new Map<number,RawRow>();
+ for(const material of materials){if(id(material.id))byMaterial.set(material.id as number,material);}
  const definitions=new Map<number,RawRow>();
  for(const item of catalog){if(id(item.id))definitions.set(item.id as number,item);}
  const usedSlots=new Set<string>(),usedCopies=new Set<number>();
@@ -38,6 +50,13 @@ export function snapshotEquippedWearables(catalog:readonly RawRow[],owned:readon
    itemType,slot:copy.equippedSlot,
    durability:Math.max(0,Math.min(100,Math.floor(rawDurability))),
   };
+  const material=id(definition?.materialId)
+    ?byMaterial.get(definition.materialId as number):undefined;
+  const resistance=Number(material?.physicalResistance);
+  if(material&&Number.isFinite(resistance)&&resistance>=0&&resistance<=1_000_000){
+   wearable.materialPhysicalResistance=resistance;
+   wearable.materialName=String(material.name??"Material").slice(0,120);
+  }
   // Invalid legacy staff recipes must not grant an effect or crash a duel.
   try{const value=compileEquippedWear(definition?.effects,itemType);
    if(value)wearable.wearOnHit=value;}catch{}

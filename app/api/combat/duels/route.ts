@@ -288,15 +288,17 @@ export async function POST(req:Request) {
   // potion of each type selected randomly from the purchasable catalog.
   const Item=(db.orm.public as any).Item;
   const CharacterItem=(db.orm.public as any).CharacterItem;
-  const catalog=await Item.all();
-  const ownerCopies=await CharacterItem.where({characterId}).all();
+  const Material=(db.orm.public as any).Material;
+  const [catalog,materials,ownerCopies]=await Promise.all([
+    Item.all(),Material?Material.all():[],CharacterItem.where({characterId}).all(),
+  ]);
   const rivalCopies=opponent.characterId!==null
     ?await CharacterItem.where({characterId:opponent.characterId}).all():[];
   // Only staff-defined configurations bound to actual equipped copies enter
   // the immutable encounter snapshot. Synthetic NPCs own no persistent gear.
-  initial.actors.PLAYER.equippedWearables=snapshotEquippedWearables(catalog,ownerCopies);
+  initial.actors.PLAYER.equippedWearables=snapshotEquippedWearables(catalog,ownerCopies,materials);
   initial.actors.NPC.equippedWearables=opponent.characterId!==null
-    ?snapshotEquippedWearables(catalog,rivalCopies):[];
+    ?snapshotEquippedWearables(catalog,rivalCopies,materials):[];
   initial.consumables={
     PLAYER:characterCombatConsumables(catalog,ownerCopies),
     NPC:opponent.characterId!==null

@@ -22,7 +22,7 @@ import {evaluateEquippedItemAutoRepair,shouldAutoRepairAtRound,
  type AutoRepairItemEffect} from "../items/auto-repair.ts";
 import {equipmentWearFromHit} from "../items/equipped-wear.ts";
 import type {CombatWearable} from "../items/combat-wearables.ts";
-import {assertMovementClear,blockingMovement,firstCoverAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
+import {assertMovementClear,blockingMovement,coversAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
 
@@ -1508,30 +1508,38 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // must not gain invented line-of-sight occlusion.
     if(contact&&!pending.usesMagic&&!pending.attackArea&&!pending.mirrorId&&
       pending.explicitTrajectory&&pending.trajectory.length>=2){
-      const cover=firstCoverAlongStroke(state.constructions,
+      const covers=coversAlongStroke(state.constructions,
         fieldPosition(attacker),fieldPosition(fighter),pending.trajectory,
         defense==="CONSTRUCTION"?command.constructionId:undefined);
-      if(cover){
-        const wall=cover.block;
+      if(covers.length){
         const pressure=Math.max(1,Math.round(Math.max(0,power)*
           (skill?.damageMultiplier??1)*(skill?.finalMultiplier??1)));
-        const durability=wall.durability??0;
-        const wear=Math.min(durability,pressure);
-        wall.durability=Math.max(0,durability-wear);
-        wall.hitCount=(wall.hitCount??0)+1;
-        physicalCoverLabel=wall.label;
-        const overflow=Math.max(0,pressure-durability)/pressure;
-        damage=Math.max(0,Math.round(damage*overflow));
-        noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*overflow));
+        let remainingPressure=pressure;
+        // Every measured cover consumes only what survived earlier covers.
+        // If a fragile wall breaks, the residual can strike the next wall
+        // before any damage reaches the character behind it.
+        for(const {block:wall} of covers){
+          if(remainingPressure<=0)break;
+          const durability=wall.durability??0;
+          const wear=Math.min(durability,remainingPressure);
+          if(wear<=0)continue;
+          wall.durability=Math.max(0,durability-wear);
+          wall.hitCount=(wall.hitCount??0)+1;
+          physicalCoverLabel??=wall.label;
+          remainingPressure-=wear;
+          if(wall.durability===0)
+            state.constructions=state.constructions?.filter(c=>c.id!==wall.id);
+          addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by:pending.by,
+            against:wall.owner,constructionId:wall.id,damage:wear,contact:true,
+            summary:wall.durability===0
+              ?wall.label+" se rompió al interceptar la trayectoria del ataque."
+              :wall.label+" interceptó el ataque físico y recibió "+wear+" de desgaste."});
+        }
+        const penetration=remainingPressure/pressure;
+        damage=Math.max(0,Math.round(damage*penetration));
+        noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*penetration));
         mitigatedByResistance=Math.max(0,noResistanceDamage-damage);
-        if(overflow===0){contact=false;critical=false;}
-        if(wall.durability===0)
-          state.constructions=state.constructions?.filter(c=>c.id!==wall.id);
-        addLog(state,{kind:"CONSTRUCTION",tick:state.tick,by:pending.by,
-          against:wall.owner,constructionId:wall.id,damage:wear,contact:true,
-          summary:wall.durability===0
-            ?wall.label+" se rompió al interceptar la trayectoria del ataque."
-            :wall.label+" interceptó el ataque físico y recibió "+wear+" de desgaste."});
+        if(remainingPressure===0){contact=false;critical=false;}
       }
     }
     const actualHpDamage=Math.min(fighter.hp,damage);

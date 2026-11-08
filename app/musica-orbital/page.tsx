@@ -473,7 +473,7 @@ export default function OrbitalMusicPage() {
                     const to = orbitalPoint(destination.radius, slide.angle + sweep, CENTER);
                     const d = "M " + from.x + " " + from.y + " Q " + middle.x + " " + middle.y + " " + to.x + " " + to.y;
                     const progress = elapsedSlideProgress(elapsed,
-                      { enabled: !muted[index], phase: phases[index], delay: startDelays[index] },
+                      { enabled: !muted[index], phase: phases[index], delay: startDelays[index], instrument: ringInstruments[index] },
                       { duration: ringDurations[index], direction: ringDirections[index] }, slide);
                     const px = progress === null ? 0 : (1 - progress) ** 2 * from.x +
                       2 * (1 - progress) * progress * middle.x + progress ** 2 * to.x;

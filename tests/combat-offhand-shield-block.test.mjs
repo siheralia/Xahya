@@ -31,7 +31,7 @@ const fighter=(name,id,x,extra={})=>({
 });
 const state=(defender={})=>{
  const s=newCombatState(fighter("Atacante",1,0),
-  fighter("Defensor",2,1,{equippedWearables:[shield()],...defender}));
+  fighter("Defensor",2,0.5,{equippedWearables:[shield()],...defender}));
  s.mana={PLAYER:{current:50,max:50},NPC:{current:50,max:50}};
  return s;
 };

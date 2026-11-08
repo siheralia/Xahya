@@ -68,6 +68,51 @@ export function resolveConstructionForm(material:string,requested:unknown,hasFie
  return form as ConstructionForm;
 }
 
+/** Horizontal interception size of a magical mirror (0.7 m diameter).
+ * This is a combat rule, not inferred from the sprite on the aiming canvas.
+ * A mirror without an explicitly recorded world position cannot block a ray.
+ */
+export const MIRROR_RAY_INTERCEPT_RADIUS_METERS=0.35;
+
+/** Find the FIRST defender-owned mirror between the source and the target
+ * along a directed, single-target magical ray. World coordinates here are
+ * horizontal metres, NOT the 0..1 defender-facing vertical aiming canvas.
+ *
+ * A mirror near the target but off the actual path must not reflect it.
+ * Legacy mirrors without a finite fieldPosition retain their other behavior,
+ * but cannot gain invented ray interception from positionMeters or center.
+ */
+export function firstMirrorAlongMagicRay(
+ constructions:ReadonlyArray<CombatConstruction>|undefined,
+ defender:Side,from:Point,to:Point,excludeId?:string,
+):{mirror:CombatConstruction;t:number}|null {
+ const valid=(p:Point|undefined):p is Point=>
+  !!p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
+ if(!valid(from)||!valid(to))return null;
+ const dx=to.x-from.x,dy=to.y-from.y,dist2=dx*dx+dy*dy;
+ if(dist2<=1e-12)return null;
+ const radius=MIRROR_RAY_INTERCEPT_RADIUS_METERS;
+ let first:{mirror:CombatConstruction;t:number}|null=null;
+ for(const mirror of constructions??[]){
+  if(mirror.id===excludeId||mirror.owner!==defender||mirror.form!=="MIRROR"||
+     !mirror.tangible||!mirror.mirror||(mirror.durability??0)<=0||
+     !valid(mirror.fieldPosition))continue;
+  const x=mirror.fieldPosition.x-from.x,y=mirror.fieldPosition.y-from.y;
+  const tCenter=(x*dx+y*dy)/dist2;
+  if(tCenter<=0||tCenter>=1)continue;
+  const perpendicular2=Math.max(0,x*x+y*y-tCenter*tCenter*dist2);
+  if(perpendicular2>radius*radius+1e-9)continue;
+  const tEntry=tCenter-Math.sqrt(Math.max(0,radius*radius-perpendicular2)/dist2);
+  // The ray must actually meet the mirror AFTER it leaves its origin.
+  // Mirrors containing the launch point are not an intervening obstacle.
+  if(tEntry<=1e-9||tEntry>=1)continue;
+  if(!first||tEntry<first.t-1e-9||
+     (Math.abs(tEntry-first.t)<=1e-9&&mirror.id<first.mirror.id))
+   first={mirror,t:tEntry};
+ }
+ return first;
+}
+
 /** True only when the actual approved attack footprint touches a tangible
  * construction. Targeted circles/strips/sectors use the vertical defender-
  * facing projection; their coordinates are NOT world-map positions.

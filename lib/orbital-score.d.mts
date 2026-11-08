@@ -14,9 +14,16 @@ export const ORCHESTRAL_INSTRUMENTS: readonly OrchestralInstrument[];
 export const RING_INSTRUMENTS: readonly OrbitalInstrument[];
 export interface OrbitalNoteLength { angle: number; duration: number }
 export interface OrchestralNote { pitch: number; start: number; duration: number; velocity: number }
+export interface InstrumentOrbit {
+  duration: number;
+  direction: 1 | -1;
+  phase: number;
+  enabled: boolean;
+}
 export interface OrchestralTrack {
   name: string;
   instrument: OrchestralInstrument;
+  orbit: InstrumentOrbit;
   notes: OrchestralNote[];
 }
 export const GOLDEN_PHRASES: readonly (readonly string[])[];

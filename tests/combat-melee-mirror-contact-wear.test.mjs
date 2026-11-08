@@ -130,7 +130,7 @@ test("misses, non-tangible mirrors and unarmed strikes do not wear an equipped w
  assert.equal(wearLog(fist).length,0);
 });
 
-test("ranged shots and thrown weapons may strike a mirror without wearing the bow or the hand weapon",()=>{
+test("ranged shots do not wear bows; thrown items wear their own copy on mirror impact",()=>{
  const bow={name:"Arco",attackType:"PIERCE",mode:"RANGED",
   effectiveRangeMeters:6,maximumRangeMeters:6,durability:67,
   itemId:500,characterItemId:1500};
@@ -142,8 +142,9 @@ test("ranged shots and thrown weapons may strike a mirror without wearing the bo
   durability:55,throwable:true,throwRangeMeters:4,
  })});
  const thrownDone=strike(thrown,{throwWeapon:true,areaCenter:{x:.5,y:.5}});
- assert.equal(thrownDone.droppedWeapons[0].weapon.durability,55);
- assert.equal(wearLog(thrownDone).length,0);
+ assert.equal(thrownDone.droppedWeapons[0].weapon.durability,51);
+ assert.equal(wearLog(thrownDone).length,1);
+ assert.equal(wearLog(thrownDone)[0].damage,4);
 });
 
 test("basic magic reflects without physical weapon wear",()=>{

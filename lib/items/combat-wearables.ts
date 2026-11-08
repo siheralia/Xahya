@@ -4,6 +4,7 @@
  * The slot belongs to the copy, not to a player command.
  */
 import {compileEquippedItemAutoRepair,type AutoRepairItemEffect} from "./auto-repair.ts";
+import type {WearableStatSnapshot,WearableDirectCombatStat} from "../combat/wearable-stat-bonus.ts";
 import {compileEquippedWear,type EquipmentWearRule,type WearableItemType,
   type WearableSlot,wearableSlotAllowed} from "./equipped-wear.ts";
 
@@ -11,6 +12,10 @@ export type CombatWearable={
   characterItemId:number;itemId:number;name:string;
   itemType:WearableItemType;slot:WearableSlot;durability:number;
   wearOnHit?:EquipmentWearRule;autoRepair?:AutoRepairItemEffect;
+  /** Combat-only, exact-copy direct derived bonuses compiled on the server. */
+  statBonuses?:Partial<Record<WearableDirectCombatStat,number>>;
+  /** Last applied bonus state. Undefined means the initial sheet included it. */
+  statBonusActive?:boolean;
   /** Staff-assigned material, used when an OFF_HAND armor shield blocks. */
   materialPhysicalResistance?:number;materialName?:string;
   lastAutoRepairRound?:number;autoRepairDisabled?:boolean;
@@ -24,10 +29,16 @@ export function offhandArmorShield(equipment?:readonly CombatWearable[]):CombatW
  return equipment?.find(item=>item.itemType==="ARMOR"&&item.slot==="OFF_HAND");
 }
 export function snapshotEquippedWearables(
- catalog:readonly RawRow[],owned:readonly RawRow[],materials:readonly RawRow[]=[]
+ catalog:readonly RawRow[],owned:readonly RawRow[],materials:readonly RawRow[]=[],
+ statSnapshots:readonly WearableStatSnapshot[]=[]
 ):CombatWearable[]{
  const byMaterial=new Map<number,RawRow>();
  for(const material of materials){if(id(material.id))byMaterial.set(material.id as number,material);}
+ const byCopy=new Map<number,WearableStatSnapshot>();
+ for(const record of statSnapshots){
+  if(id(record.characterItemId)&&id(record.itemId)&&!byCopy.has(record.characterItemId))
+   byCopy.set(record.characterItemId,record);
+ }
  const definitions=new Map<number,RawRow>();
  for(const item of catalog){if(id(item.id))definitions.set(item.id as number,item);}
  const usedSlots=new Set<string>(),usedCopies=new Set<number>();
@@ -50,6 +61,9 @@ export function snapshotEquippedWearables(
    itemType,slot:copy.equippedSlot,
    durability:Math.max(0,Math.min(100,Math.floor(rawDurability))),
   };
+  const snap=byCopy.get(copy.id as number);
+  if(snap&&snap.itemId===copy.itemId)
+   wearable.statBonuses={...snap.bonuses};
   const material=id(definition?.materialId)
     ?byMaterial.get(definition.materialId as number):undefined;
   const resistance=Number(material?.physicalResistance);

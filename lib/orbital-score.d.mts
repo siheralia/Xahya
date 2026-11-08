@@ -14,6 +14,7 @@ export interface OrbitalScoreRing {
   delay: number;
   duration: number;
   direction: 1 | -1;
+  instrument: "synth" | "strings";
   angles: number[];
   slides: OrbitalSlide[];
 }
@@ -21,7 +22,7 @@ export interface OrbitalScore {
   format: "xahya-orbital-score";
   version: 1;
   title: string;
-  percussion: "none" | "battle";
+  percussion: "none" | "battle" | "orchestral";
   groups: [{ duration: number; direction: 1 | -1 }, { duration: number; direction: 1 | -1 }];
   rings: OrbitalScoreRing[];
 }

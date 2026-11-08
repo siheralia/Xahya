@@ -1659,6 +1659,36 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
             }
           }
         }
+        // Unlike a bow firing an arrow, the thrown item IS the projectile.
+        // Wear its dropped inventory snapshot once when a measured flight
+        // contacts solid cover, even if the target dodged.
+        if(projectilePath&&pending.thrownWeapon&&
+          (pending.attackSource==="MAIN_HAND"||pending.attackSource==="OFF_HAND")){
+          const slot=pending.attackSource;
+          const striker=state.actors[pending.by];
+          const dropped=state.droppedWeapons?.findLast(entry=>
+            entry.owner===pending.by&&(entry.slot??"MAIN_HAND")===slot);
+          const weapon=dropped?.weapon;
+          if(weapon&&combatWeaponOperational(weapon)){
+            const previous=weapon.durability??(slot==="MAIN_HAND"?striker.weaponIntegrity:100);
+            const wear=meleeWeaponWearFromCover(pressure,pressure-remainingPressure,
+              weapon.materialPhysicalResistance);
+            if(wear>0){
+              const next=Math.max(0,previous-wear);
+              weapon.durability=next;
+              if(slot==="MAIN_HAND")striker.weaponIntegrity=next;
+              addLog(state,{kind:"WEAPON_WEAR",tick:state.tick,by:pending.by,
+                weaponName:weapon.name,weaponIntegrity:next,damage:previous-next,
+                summary:weapon.name+" perdió "+(previous-next)+
+                  " de durabilidad al ser arrojada contra barreras físicas."});
+              if(previous>0&&next===0)
+                addLog(state,{kind:"WEAPON_BREAK",tick:state.tick,by:pending.by,
+                  weaponName:weapon.name,weaponIntegrity:0,
+                  summary:striker.name+" rompió "+weapon.name+
+                    " al arrojarla contra un obstáculo. Debe repararla antes de utilizarla."});
+            }
+          }
+        }
         const penetration=remainingPressure/pressure;
         damage=Math.max(0,Math.round(damage*penetration));
         noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*penetration));

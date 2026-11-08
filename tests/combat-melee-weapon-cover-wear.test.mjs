@@ -190,3 +190,27 @@ test("a projectile intercepted by measured cover does NOT damage the bow",()=>{
  assert.equal(wearLog(done).length,0);
  assert.equal(done.constructions[0].durability,65);
 });
+
+test("simultaneous COUNTER transfers real weapon wear from its shadow strike",()=>{
+ const s=state();
+ s.actors.NPC.equippedWeapon=bluntWeapon("Contraataque");
+ // The incoming lower stroke misses this elevated barrier. The counter's
+ // server-generated centerline is at 5 m, so it contacts real 3D cover.
+ s.constructions=[wall("raised",.75,90,{
+  heightMeters:4,solidHeightMeters:2,footprintRadiusMeters:.18,
+ })];
+ const launched=swing(s);
+ const resolved=applyCombatCommand(launched,"NPC",{
+  kind:"DEFEND",defense:"COUNTER",counterMagic:false,
+ },dice);
+ assert.equal(resolved.pending,null);
+ assert.equal(resolved.actors.PLAYER.equippedWeapon.durability,100);
+ assert.ok(resolved.actors.NPC.equippedWeapon.durability<100,
+  "the counter striker's weapon cannot retain shadow-only durability");
+ assert.equal(resolved.actors.NPC.weaponIntegrity,
+  resolved.actors.NPC.equippedWeapon.durability);
+ const events=wearLog(resolved).filter(e=>e.by==="NPC"&&e.simultaneousCounter);
+ assert.equal(events.length,1);
+ assert.ok(events[0].damage>0);
+ assert.equal(resolved.actors.NPC.spentAp,1);
+});

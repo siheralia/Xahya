@@ -7,7 +7,7 @@ import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
 import { executeMicroEvent, emptyMicroState, validateEffectContainers, type EffectContainer, type MicroState } from "../effects/micro-modules.ts";
 import {calculateModularVariableResistance} from "../effects/legacy-modular-shadow.ts";
-import {validateConstructionPlacement,resolveConstructionForm,constructionInAreaFootprint,type CombatConstruction} from "./constructs.ts";
+import {validateConstructionPlacement,resolveConstructionForm,constructionInAreaFootprint,firstMirrorAlongMagicRay,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_METERS,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
@@ -81,6 +81,11 @@ export type PendingAttack = {
   summonId?:string;
   chosenSummonStat?:string;
   chosenSummonStatusId?:string;
+  /** Server-only horizontal path of a directed magical single-target strike.
+   * Captured on launch, before dodge/movement. Never sent to the client.
+   * Undefined for instant/area/basic spells or historical pending attacks.
+   */
+  directedMagicRay?:{from:Point;to:Point};
   /** Only user-specified vertical strokes can authorize 3D cover tests. */
   explicitTrajectory?:boolean;
 };
@@ -691,6 +696,8 @@ function beginNextMirrorRay(state:CombatState) {
    trajectory:mirrorRayTrajectory(mirror),
    launchedAtTick:(state.round-1)*LIMIT,usesMagic:true,areaHint:magicImpactZone(point),
    targetCenter:point,mirrorId:id,mirrorAuto:true,
+   directedMagicRay:mirror.fieldPosition?{
+    from:{...mirror.fieldPosition},to:fieldPosition(rival)}:undefined,
    skill:{id:mirror.sourceSkillId,name:mirror.label+" · Rayo",damageMultiplier:mirror.mirror!.rayMultiplier,
     defenseFactor:1,finalMultiplier:1}};
   state.tick=Math.max(state.tick,(state.round-1)*LIMIT);
@@ -1222,6 +1229,42 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("La criatura que atacaba ya no está disponible.");
     const attacker = summonedAttacker?
       summonAsFighter(summonedAttacker,state.actors[pending.by]):state.actors[pending.by];
+    // A directed magical strike can be intercepted before any defender
+    // reaction is charged. Only the server-captured world ray counts: a
+    // defender-facing canvas marker or longitudinal legacy mirror coordinate
+    // is NOT an invented world position or a line-of-sight obstacle.
+    const rayIntercept=pending.usesMagic&&!pending.attackArea&&pending.directedMagicRay
+      ?firstMirrorAlongMagicRay(state.constructions,by,
+         pending.directedMagicRay.from,pending.directedMagicRay.to,pending.mirrorId)
+      :null;
+    if(rayIntercept){
+      const mirror=rayIntercept.mirror;
+      const power=Math.max(0,attacker.magicAttack);
+      const direct=Math.max(1,Math.round(power*
+        (pending.skill?.damageMultiplier??1)*(pending.skill?.finalMultiplier??1)));
+      const reflected=Math.max(0,Math.round(direct*(mirror.mirror?.reflectionMultiplier??0)));
+      attacker.hp=Math.max(0,attacker.hp-reflected);
+      state.tick=Math.max(state.tick,(state.round-1)*LIMIT+attacker.spentTicks,
+        (state.round-1)*LIMIT+fighter.spentTicks);
+      addLog(state,{kind:"REFLECTION",tick:state.tick,by,against:pending.by,
+        constructionId:mirror.id,contact:true,damage:reflected,
+        summary:mirror.label+" interceptó el rayo mágico de "+attacker.name+
+          " y reflejó "+reflected+" de daño hacia su origen."});
+      addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,
+        attackType:pending.attackType,usesMagic:true,contact:false,critical:false,
+        damage:0,defense:"NONE",skillId:pending.skill?.id,
+        mirrorShot:Boolean(pending.mirrorId),constructionId:mirror.id,
+        areaCenter:pending.targetCenter,
+        summary:mirror.label+" interceptó la trayectoria del hechizo antes de alcanzar a "+
+          fighter.name+" (0 HP)."});
+      state.pending=null;
+      if(pending.movementOrder==="AFTER"&&pending.planarMove&&attacker.hp>0)
+        finishCompositeStep(state,pending.by,pending.planarMove);
+      if(attacker.hp<=0)finishEncounter(state,by);
+      if(state.status==="ACTIVE")beginNextMirrorRay(state);
+      advanceRoundIfComplete(state);
+      return state;
+    }
     // Basic phase-1 magic has an existing measured .14 radius for object
     // collisions/reflections, even though its legacy fighter damage model is
     // not a configured CombatAttackArea. Single-target approved skills and
@@ -1897,6 +1940,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     state.pending = {by,against:other(by),attackType:command.attackType,
       trajectory:points,explicitTrajectory:Array.isArray(command.trajectory)&&command.trajectory.length>=2,
+      directedMagicRay:magic&&mirrorSkill&&!serverSkillArea
+        ?{from:fieldPosition(fighter),to:fieldPosition(rival)}:undefined,
       launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
       targetCenter:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?command.areaCenter:undefined,
@@ -2167,6 +2212,9 @@ export function applyResolvedCombatSkill(
      trajectory:mirrorRayTrajectory(mirror)},rolls,plan.rangeMeters);
     if(!next.pending)throw new Error("No se pudo lanzar el primer rayo del espejo.");
     next.pending.mirrorId=mirror.id;
+    // A mirror ray starts at the mirror, never from the summoner's body.
+    next.pending.directedMagicRay=mirror.fieldPosition?{
+      from:{...mirror.fieldPosition},to:fieldPosition(next.actors[other(by)])}:undefined;
     next.pending.skill={id:plan.id,name:plan.name+" · Rayo",
      damageMultiplier:plan.mirror.rayMultiplier,defenseFactor:1,finalMultiplier:1};
     const event=next.log.at(-1);

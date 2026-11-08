@@ -1459,10 +1459,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         ?fighter.offhandWeapon??shield:
         command.weaponSlot==="MAIN_HAND"?fighter.equippedWeapon:undefined;
       if(command.weaponSlot&&!requestedWeapon)
-        throw new Error("No tienes un arma o escudo equipado en la mano elegida para bloquear.");
+        throw new Error("No tienes un arma equipada en la mano elegida para bloquear ni un escudo autorizado.");
       if(command.weaponSlot&&requestedWeapon&&requestedWeapon.durability!==undefined&&
          (!Number.isFinite(requestedWeapon.durability)||requestedWeapon.durability<=0))
-        throw new Error("El arma o escudo elegido está roto y no puede bloquear.");
+        throw new Error(requestedWeapon===shield
+          ?"El escudo elegido está roto y no puede bloquear."
+          :"El arma elegida está rota y no puede bloquear.");
       const blockWeapon=requestedWeapon??
         (combatWeaponOperational(fighter.equippedWeapon)?fighter.equippedWeapon:
          combatWeaponOperational(fighter.offhandWeapon)?fighter.offhandWeapon:

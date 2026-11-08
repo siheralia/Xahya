@@ -313,9 +313,16 @@ export default function OrbitalMusicPage() {
   async function loadCorona() {
     try {
       setThemeBusy(true);
-      const response = await fetch("/music/corona-de-cenizas.mid");
+      const response = await fetch("/music/corona-de-cenizas.mid.gz.b64");
       if (!response.ok) throw new Error("No se encontró la partitura orquestal.");
-      loadScore(importOrbitalMidi(await response.arrayBuffer(), "Corona de Cenizas — orquestal"));
+      if (typeof DecompressionStream === "undefined") {
+        throw new Error("Este navegador no puede abrir la partitura comprimida. Puedes importar el MIDI manualmente.");
+      }
+      const encoded = (await response.text()).trim();
+      const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
+      const decoded = new Response(new Blob([bytes]).stream()
+        .pipeThrough(new DecompressionStream("gzip")));
+      loadScore(importOrbitalMidi(await decoded.arrayBuffer(), "Corona de Cenizas — orquestal"));
       setScoreMessage("Corona de Cenizas cargada como pistas orquestales editables.");
     } catch (cause) {
       setScoreMessage(cause instanceof Error ? cause.message : "No se pudo cargar el tema.");

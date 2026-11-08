@@ -11,7 +11,7 @@ import {validateConstructionPlacement,resolveConstructionForm,constructionInArea
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_METERS,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
-import {calculateMaterialBlockWear} from "./material-durability.ts";
+import {calculateMaterialBlockWear,meleeWeaponWearFromCover} from "./material-durability.ts";
 import {combatWeaponOperational} from "./weapon-readiness.ts";
 import {summonStat,resolveSummonStat,type CombatSummon,type SummonContactEffect} from "./summons.ts";
 import {activeChaosField,distortChaosMove} from "./chaos-fusion.ts";
@@ -1592,6 +1592,35 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
             summary:wall.durability===0
               ?wall.label+" se rompió al interceptar la trayectoria del ataque."
               :wall.label+" interceptó el ataque físico y recibió "+wear+" de desgaste."});
+        }
+        // One melee weapon owns one contact-wear event for the entire strike,
+        // not one per wall. The weapon must have physically struck a measured
+        // BLOCK. Ranged bows do not touch their arrows' obstructions, and
+        // fists/kicks have no external tool whose durability may be spent.
+        if(drawnMelee&&contact&&
+           (pending.attackSource==="MAIN_HAND"||pending.attackSource==="OFF_HAND")){
+          const slot=pending.attackSource;
+          const striker=state.actors[pending.by];
+          const weapon=slot==="MAIN_HAND"?striker.equippedWeapon:striker.offhandWeapon;
+          if(weapon&&combatWeaponOperational(weapon)&&weapon.mode==="MELEE"){
+            const previous=weapon.durability??(slot==="MAIN_HAND"?striker.weaponIntegrity:100);
+            const wear=meleeWeaponWearFromCover(pressure,pressure-remainingPressure,
+              weapon.materialPhysicalResistance);
+            const next=Math.max(0,previous-wear);
+            if(wear>0){
+              weapon.durability=next;
+              if(slot==="MAIN_HAND")striker.weaponIntegrity=next;
+              addLog(state,{kind:"WEAPON_WEAR",tick:state.tick,by:pending.by,
+                weaponName:weapon.name,weaponIntegrity:next,damage:previous-next,
+                summary:weapon.name+" perdió "+(previous-next)+
+                  " de durabilidad al golpear barreras físicas."});
+              if(previous>0&&next===0)
+                addLog(state,{kind:"WEAPON_BREAK",tick:state.tick,by:pending.by,
+                  weaponName:weapon.name,weaponIntegrity:0,
+                  summary:striker.name+" rompió "+weapon.name+
+                    " al golpear un obstáculo. Debe repararla para volver a usarla."});
+            }
+          }
         }
         const penetration=remainingPressure/pressure;
         damage=Math.max(0,Math.round(damage*penetration));

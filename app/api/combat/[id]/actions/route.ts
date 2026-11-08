@@ -265,8 +265,13 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
         if(characterId===null)continue;
         const previous=state.actors[who];
         const persistedCopies=new Set<number>();
+        // A thrown weapon remains the same owned inventory copy while it lies
+        // on the field. Persist its physical collision wear even before pickup.
+        // At combat completion settleDroppedWeapons returns it to a hand;
+        // the per-copy Set prevents a second write when snapshots overlap.
         for(const weapon of [fighter.equippedWeapon,fighter.offhandWeapon,
-          ...(fighter.equippedWearables??[])]){
+          ...(fighter.equippedWearables??[]),
+          ...(next.droppedWeapons??[]).filter(d=>d.owner===who).map(d=>d.weapon)]){
           if(!weapon?.characterItemId)continue;
           if(persistedCopies.has(weapon.characterItemId))continue;
           persistedCopies.add(weapon.characterItemId);

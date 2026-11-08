@@ -112,7 +112,7 @@ test("batería rock: caja en beats 2/4, bajo y bombo en pulsos fuertes", () => {
   assert.ok(drums.every(e => e.type !== "timpani"));
   const old = structuredClone(score);
   old.percussion = "battle";
-  assert.deepEqual(orbitalPercussionBetween(old, 0, .26).map(e => e.type), ["kick","hat"]);
+  assert.deepEqual(orbitalPercussionBetween(old, 0, .38).map(e => e.type), ["kick","hat"]);
   old.percussion = "none";
   assert.deepEqual(orbitalPercussionBetween(old, 0,12), []);
 });

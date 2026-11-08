@@ -1483,7 +1483,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const wear=calculateMaterialBlockWear(baseWear,blockWeapon?.materialPhysicalResistance);
       const newIntegrity=Math.max(0,previousIntegrity-wear);
       // The legacy gauge mirrors MAIN_HAND only; OFF_HAND owns its own copy.
-      if(unarmed||blockWeapon===fighter.equippedWeapon)fighter.weaponIntegrity=newIntegrity;
+      // An absent main weapon is not the blocking tool. In particular a
+      // broken OFF_HAND shield must not erase MAIN_HAND's legacy gauge.
+      if(unarmed||(blockWeapon!==undefined&&blockWeapon===fighter.equippedWeapon))
+        fighter.weaponIntegrity=newIntegrity;
       if(blockWeapon){
         blockWeapon.durability=newIntegrity;
         if(previousIntegrity>0&&newIntegrity===0)

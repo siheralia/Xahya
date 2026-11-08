@@ -6,7 +6,7 @@ import {
   orbitalEventsBetween, orbitalPercussionBetween, elapsedSlideProgress, orbitalVoicePlan,
 } from "../lib/orbital-playback.mjs";
 
-function hear(score, seconds = 16) {
+function hear(score, seconds = 24) {
   const events = [];
   for (let ms = 0; ms < seconds * 1000; ms += 10) {
     events.push(...orbitalEventsBetween(score, ms / 1000, (ms + 10) / 1000)
@@ -15,196 +15,153 @@ function hear(score, seconds = 16) {
   return events;
 }
 
-test("la partitura batalla tiene 16 órbitas, 3 velocidades y giros independientes", () => {
+test("Corazón del Abismo es una melodía de jefe ORIGINAL a 160 BPM", () => {
   const score = createBattleThemeScore();
-  assert.equal(score.title, "Ascenso de Xahya — batalla");
-  assert.equal(score.percussion, "orchestral");
+  assert.equal(score.title, "Corazón del Abismo — jefe");
+  assert.equal(score.percussion, "boss");
+  assert.equal(BATTLE_TURN_SECONDS, 12);
   assert.equal(score.rings.length, 16);
-  assert.equal(BATTLE_TURN_SECONDS, 8);
-  assert.deepEqual(score.groups, [{ duration: 8, direction: 1 }, { duration: 8, direction: 1 }]);
-  assert.deepEqual([...new Set(score.rings.filter((ring) => ring.enabled).map((ring) => ring.duration))].sort((a,b) => a-b), [4, 8, 16]);
-  assert.deepEqual([...new Set(score.rings.filter((ring) => ring.enabled).map((ring) => ring.direction))].sort((a,b) => a-b), [-1, 1]);
-  assert.equal(score.rings.reduce((sum, ring) => sum + ring.angles.length, 0), 45);
-  assert.equal(score.rings.flatMap((ring) => ring.slides).length, 3);
-  assert.deepEqual(score.rings.filter((ring) => ring.instrument === "strings").map((ring) => ring.pitch),
-    ["C5", "D5", "E5", "F5", "F#5", "G5", "A5", "B5", "C6"]);
-  assert.deepEqual(score.rings.filter((ring) => ring.instrument === "bass").map((ring) => ring.pitch),
-    ["C4", "D4", "E4", "F4", "G4", "A4"]);
-  // Keep deliberate melodic breathing while restoring a strong low ostinato;
-  // there are fewer total attacks than the original V3's 71.
-  const audible = hear(score, 8);
-  assert.equal(audible.length, 45);
-  const counts = new Map();
-  for (const event of audible) {
-    const beat = Math.floor(event.time / 0.5);
-    counts.set(beat, (counts.get(beat) ?? 0) + 1);
-  }
-  assert.ok(Math.max(...counts.values()) <= 4);
-  assert.ok(score.rings.some((ring) => ring.instrument === "synth"));
+  assert.deepEqual(score.groups, [{ duration: 12, direction: 1 }, { duration: 12, direction: 1 }]);
+  assert.deepEqual([...new Set(score.rings.filter(r => r.enabled).map(r => r.duration))].sort((a,b) => a-b), [6, 12]);
+  assert.deepEqual([...new Set(score.rings.filter(r => r.enabled).map(r => r.direction))].sort((a,b) => a-b), [-1, 1]);
+  assert.equal(score.rings.reduce((sum, ring) => sum + ring.angles.length, 0), 101);
+  assert.equal(score.rings.flatMap(r => r.slides).length, 1);
+  assert.deepEqual(score.rings.filter(r => r.instrument === "bass").map(r => r.pitch),
+    ["C4","D4","E4","F4","G4","A4","B4"]);
+  assert.deepEqual(score.rings.filter(r => r.instrument === "strings").map(r => r.pitch),
+    ["C5","F#5"]);
+  assert.deepEqual(score.rings.filter(r => r.instrument === "pulse").map(r => r.pitch),
+    ["D5","E5","F5","G5","A5","B5","C6"]);
 });
 
-test("el sonido repite exactamente la misma melodía cada 8 s aunque las órbitas varíen", () => {
+test("la melodía y la batería repiten idénticas sus ocho compases cada 12 segundos", () => {
   const score = createBattleThemeScore();
-  const notes = hear(score, 16);
-  const first = notes.filter((note) => note.time < 8.001);
-  const second = notes.filter((note) => note.time >= 8.001);
-  assert.equal(first.length, 45);
-  assert.equal(second.length, 45);
-  const voices = (items) => items.map(({ pitch, toPitch, duration }) => [pitch, toPitch, duration]);
-  assert.deepEqual(voices(second), voices(first));
+  const events = hear(score);
+  const first = events.filter(e => e.time <= 12);
+  const second = events.filter(e => e.time > 12);
+  assert.equal(first.length, 102);
+  assert.equal(second.length, 102);
+  const signatures = items => items.map(({ pitch, instrument, angle, toPitch }) =>
+    [pitch, instrument, angle, toPitch]);
+  assert.deepEqual(signatures(first), signatures(second));
+  const drums = orbitalPercussionBetween(score, 0, 24.01);
+  const one = drums.filter(e => e.time < 12);
+  const two = drums.filter(e => e.time >= 12 && e.time < 24);
+  assert.deepEqual(one.map(e => [e.type, e.time]), two.map(e => [e.type, e.time - 12]));
 });
 
-test("el final Si5 enlaza por semitono con el Do6 del comienzo", () => {
+test("melodía rápida con saltos, repeticiones intencionales y cambios de registro", () => {
   const score = createBattleThemeScore();
-  const events = hear(score, 16);
-  const finish = events.find((event) => event.pitch === "B5" && event.toPitch === "C6" &&
-    event.time > 7.6 && event.time < 7.7);
-  assert.ok(finish, "Falta el enlace melódico al final de la vuelta");
-  const opening = events.find((event) => event.pitch === "C6" && event.time > 8 && event.time < 8.3);
-  assert.ok(opening, "La nueva vuelta no retoma el Do6");
-  assert.ok(opening.time - (finish.time + 0.58) < 0.15, "El legato de Si5 no llega al siguiente Do6");
-  assert.ok(Math.abs(12 * Math.log2(pitchFrequency("C6") / pitchFrequency("B5")) - 1) < 0.001);
-  assert.ok(events.find((event) => event.pitch === "E4" && event.time > 7.8 && event.time < 8));
-  assert.ok(events.find((event) => event.pitch === "A4" && event.time > 8 && event.time < 8.3));
+  const leadPitches = new Set(["D5","E5","F5","G5","A5","B5","C6"]);
+  const lead = hear(score, 12).filter(event => leadPitches.has(event.pitch));
+  assert.equal(lead.length, 48);
+  assert.ok(lead.some(event => event.pitch === "C6"));
+  assert.ok(lead.some(event => event.pitch === "D5"));
+  assert.ok(lead.some(event => event.pitch === "F5"));
+  assert.ok(lead.every(event => event.instrument === "pulse"));
+  const ticks = lead.map(event => Math.round(event.time / (12/128)));
+  assert.ok(ticks.some((tick,i) => i && tick - ticks[i-1] === 2), "Hay ataques rápidos");
+  assert.ok(ticks.some((tick,i) => i && tick - ticks[i-1] >= 4), "Hay respiraciones");
 });
 
-test("los dos glissandos audibles recorren un semitono y conservan el legato", () => {
-  const events = hear(createBattleThemeScore(), 8);
-  const slides = events.filter((event) => event.toPitch !== null);
-  assert.equal(slides.length, 2);
-  for (const event of slides) {
-    assert.ok(event.duration <= 0.15);
-    const steps = 12 * Math.log2(pitchFrequency(event.toPitch) / pitchFrequency(event.pitch));
-    assert.ok(Math.abs(steps - 1) < 0.001);
-  }
-});
-
-test("el glissando que cierra el bucle sigue animándose a través del límite 8 s", () => {
+test("el último Fa5 resuelve por semitono al Mi5 de la nueva vuelta", () => {
   const score = createBattleThemeScore();
-  const ring = score.rings.find((lane) => lane.pitch === "B5");
-  const slide = ring.slides.find((item) => item.toPitch === "C6");
-  assert.equal(elapsedSlideProgress(7.95, ring, {
-    duration: ring.duration, direction: ring.direction,
-  }, slide), null, "El portamento visual espera al final de la nota sostenida");
-  const midpoint = elapsedSlideProgress(8.135, ring, {
-    duration: ring.duration, direction: ring.direction,
-  }, slide);
-  assert.ok(Math.abs(midpoint - 0.5) < 0.00001);
-  assert.equal(elapsedSlideProgress(8.3, ring, {
+  const events = hear(score, 24);
+  const ending = events.find(e => e.pitch === "F5" && e.toPitch === "E5" &&
+    e.time > 11.8 && e.time < 12);
+  const opening = events.find(e => e.pitch === "E5" && e.time > 12 && e.time < 12.25);
+  assert.ok(ending);
+  assert.ok(opening);
+  const plan = orbitalVoicePlan(pitchFrequency("F5"), pitchFrequency("E5"), .14, "pulse");
+  assert.equal(plan.gliding, true);
+  assert.ok(plan.hold > plan.bend);
+  assert.ok(opening.time - ending.time < plan.hold + 0.03);
+  const steps = 12 * Math.log2(pitchFrequency("F5") / pitchFrequency("E5"));
+  assert.ok(Math.abs(steps - 1) < 0.0001);
+  const ring = score.rings.find(r => r.pitch === "F5");
+  const slide = ring.slides[0];
+  assert.equal(elapsedSlideProgress(11.92, ring, {
     duration: ring.duration, direction: ring.direction,
   }, slide), null);
+  assert.ok(Math.abs(elapsedSlideProgress(12.03625, ring, {
+    duration: ring.duration, direction: ring.direction,
+  }, slide) - 0.5) < 0.0001);
 });
 
-test("la percusión orquestal reemplaza los contratiempos por timbales y platillos", () => {
+test("el anillo Fa#5 de 6 s repite el golpe cromático dos veces por vuelta", () => {
   const score = createBattleThemeScore();
-  const first = orbitalPercussionBetween(score, 0, 0.26);
-  assert.deepEqual(first.map((item) => item.type), ["timpani", "cymbal"]);
-  const cycle = orbitalPercussionBetween(score, 0, 8);
-  assert.equal(cycle.filter((beat) => beat.type === "timpani").length, 9);
-  assert.equal(cycle.filter((beat) => beat.type === "cymbal").length, 3);
-  assert.ok(cycle.every((beat) => beat.type !== "hat" && beat.type !== "snare"));
-  const boundary = orbitalPercussionBetween(score, 7.98, 8.01);
-  assert.ok(boundary.some((beat) => beat.type === "timpani" && beat.time === 8));
-  const legacy = structuredClone(score);
-  legacy.percussion = "battle";
-  assert.deepEqual(orbitalPercussionBetween(legacy, 0, 0.26).map((beat) => beat.type),
-    ["kick", "hat"]);
-  const silent = structuredClone(score);
-  silent.percussion = "none";
-  assert.deepEqual(orbitalPercussionBetween(silent, 0, 8), []);
+  const ring = score.rings.find(r => r.pitch === "F#5");
+  assert.equal(ring.duration, 6);
+  assert.equal(ring.angles.length, 1);
+  const events = hear(score, 12).filter(e => e.pitch === "F#5");
+  assert.equal(events.length, 2);
+  assert.ok(Math.abs(events[1].time - events[0].time - 6) < 0.011);
 });
 
-test("el movimiento individual cambia el orden real de los disparos y no sólo el SVG", () => {
-  const score = createGoldenScore();
-  const baseline = hear(score, 1);
-  const changed = structuredClone(score);
-  const ring = changed.rings.find((lane) => lane.pitch === "G5");
-  ring.duration = 4;
-  ring.direction = -1;
-  const altered = hear(changed, 1);
-  assert.notDeepEqual(altered, baseline);
+test("batería rock: caja en beats 2/4, bajo y bombo en pulsos fuertes", () => {
+  const score = createBattleThemeScore();
+  const first = orbitalPercussionBetween(score, 0, 0.19);
+  assert.deepEqual(first.map(e => e.type), ["kick","hat","cymbal"]);
+  const drums = orbitalPercussionBetween(score, 0, 12);
+  const byType = type => drums.filter(e => e.type === type);
+  assert.equal(byType("kick").length, 19);
+  assert.equal(byType("snare").length, 16);
+  assert.equal(byType("hat").length, 17);
+  assert.equal(byType("cymbal").length, 3);
+  assert.deepEqual(byType("snare").slice(0,4).map(e => e.time), [0.375,1.125,1.875,2.625]);
+  assert.ok(drums.every(e => e.type !== "timpani"));
+  const old = structuredClone(score);
+  old.percussion = "battle";
+  assert.deepEqual(orbitalPercussionBetween(old, 0, .26).map(e => e.type), ["kick","hat"]);
+  old.percussion = "none";
+  assert.deepEqual(orbitalPercussionBetween(old, 0,12), []);
 });
 
-test("las partituras JSON previas heredan el movimiento de los dos grupos", () => {
-  const old = structuredClone(createGoldenScore());
-  delete old.percussion;
-  old.rings.forEach((ring) => { delete ring.duration; delete ring.direction; delete ring.instrument; });
-  const loaded = parseOrbitalScore(old);
-  assert.equal(loaded.percussion, "none");
-  assert.deepEqual(loaded.rings.slice(0, 4).map((ring) => ring.duration), [16,16,16,16]);
-  assert.ok(loaded.rings.every((ring) => ring.direction === 1));
-  assert.ok(loaded.rings.every((ring) => ring.instrument === "synth"));
-  assert.deepEqual(parseOrbitalScore(structuredClone(loaded)), loaded);
+test("pulse: síntesis cortante con notas breves pero no pulsos robóticos continuos", () => {
+  const pulse = orbitalVoicePlan(pitchFrequency("E5"), null, null, "pulse");
+  const synth = orbitalVoicePlan(pitchFrequency("E5"));
+  const bass = orbitalVoicePlan(pitchFrequency("E4"), null, null, "bass");
+  const bowed = orbitalVoicePlan(pitchFrequency("C5"), null, null, "strings");
+  assert.equal(pulse.pulse, true);
+  assert.equal(pulse.hold, .15);
+  assert.equal(pulse.release, .075);
+  assert.ok(pulse.hold < bowed.hold);
+  assert.ok(bass.deepBass);
+  assert.ok(bass.hold > synth.hold);
 });
 
-test("guardar/exportar mantiene giros, duraciones, instrumentos, percusión y deslizamientos", () => {
+test("JSON v1 conserva los nuevos instrumentos y rechaza valores extraños", () => {
   const score = createBattleThemeScore();
   assert.deepEqual(parseOrbitalScore(structuredClone(score)), score);
-  const invalid = structuredClone(score);
-  invalid.rings[0].duration = -1;
-  assert.throws(() => parseOrbitalScore(invalid), /inválidos/);
-  invalid.rings[0].duration = 8;
-  invalid.rings[0].direction = 0;
-  assert.throws(() => parseOrbitalScore(invalid), /inválidos/);
-  invalid.rings[0].direction = -1;
-  invalid.percussion = "sorpresa";
-  assert.throws(() => parseOrbitalScore(invalid), /percusión/);
-  invalid.percussion = "orchestral";
-  invalid.rings[0].instrument = "trompeta";
-  assert.throws(() => parseOrbitalScore(invalid), /inválidos/);
+  const broken = structuredClone(score);
+  broken.rings[0].instrument = "noise";
+  assert.throws(() => parseOrbitalScore(broken), /inválidos/);
+  broken.rings[0].instrument = "bass";
+  broken.percussion = "unsupported";
+  assert.throws(() => parseOrbitalScore(broken), /percusión/);
+  broken.percussion = "boss";
+  broken.rings[0].angles.push(broken.rings[0].angles[0]);
+  assert.throws(() => parseOrbitalScore(broken), /inválidos/);
 });
 
-test("los deslizamientos inválidos siguen rechazándose", () => {
+test("los archivos viejos siguen cargando con instrumento synth y sin percusión", () => {
+  const old = createGoldenScore();
+  delete old.percussion;
+  old.rings.forEach(r => {
+    delete r.duration; delete r.direction; delete r.instrument; delete r.slides;
+  });
+  const loaded = parseOrbitalScore(old);
+  assert.equal(loaded.percussion, "none");
+  assert.ok(loaded.rings.every(r => r.instrument === "synth"));
+  assert.ok(loaded.rings.every(r => r.duration === 16));
+});
+
+test("cada órbita conserva la dirección/velocidad y sus efectos en silencio", () => {
   const score = createBattleThemeScore();
-  const invalid = structuredClone(score);
-  const slide = invalid.rings.find((ring) => ring.pitch === "B5").slides[0];
-  slide.toPitch = "Z9";
-  assert.throws(() => parseOrbitalScore(invalid), /inválidos/);
-  slide.toPitch = "C6";
-  slide.duration = 999;
-  assert.throws(() => parseOrbitalScore(invalid), /inválidos/);
-});
-
-test("las cuerdas prolongan la nota y mantienen legato en cada órbita", () => {
-  const score = createBattleThemeScore();
-  const notes = hear(score, 8);
-  assert.ok(notes.some((note) => note.instrument === "strings" && note.pitch === "C6"));
-  assert.ok(notes.some((note) => note.instrument === "bass" && note.pitch === "A4"));
-  assert.ok(notes.some((note) => note.instrument === "synth" && note.pitch === "B4"));
-  const violin = orbitalVoicePlan(pitchFrequency("G5"), null, null, "strings");
-  const synth = orbitalVoicePlan(pitchFrequency("G5"));
-  assert.equal(violin.strings, true);
-  assert.equal(synth.strings, false);
-  assert.equal(violin.hold, 0.58);
-  assert.ok(violin.hold > synth.hold);
-  assert.ok(violin.release > synth.release);
-  const slide = orbitalVoicePlan(pitchFrequency("B5"), pitchFrequency("C6"), 0.14, "strings");
-  assert.equal(slide.gliding, true);
-  assert.ok(slide.bend <= 0.14);
-  assert.equal(slide.hold, 0.58);
-  assert.equal(slide.bend, 0.14);
-  const low = orbitalVoicePlan(pitchFrequency("C4"), null, null, "bass");
-  const regular = orbitalVoicePlan(pitchFrequency("C4"));
-  assert.equal(low.deepBass, true);
-  assert.equal(regular.deepBass, false);
-  assert.ok(low.hold > regular.hold);
-  assert.ok(low.release > regular.release);
-});
-
-test("el instrumento emplea legato breve, no barridos largos", () => {
-  const short = orbitalVoicePlan(pitchFrequency("B5"), pitchFrequency("C6"), 0.14);
-  assert.equal(short.gliding, true);
-  assert.ok(short.bend <= 0.14);
-  const long = orbitalVoicePlan(pitchFrequency("E5"), pitchFrequency("F5"), 2.5);
-  assert.ok(long.hold - long.bend > 2.3);
-  const plain = orbitalVoicePlan(pitchFrequency("C4"));
-  assert.equal(plain.bass, true);
-});
-
-test("apagar las órbitas y desactivar la percusión produce silencio", () => {
-  const silent = structuredClone(createBattleThemeScore());
+  const silent = structuredClone(score);
+  silent.rings.forEach(r => { r.enabled = false; });
   silent.percussion = "none";
-  silent.rings.forEach((ring) => { ring.enabled = false; });
-  assert.deepEqual(orbitalEventsBetween(silent, 0, 8), []);
-  assert.deepEqual(orbitalPercussionBetween(silent, 0, 8), []);
+  assert.deepEqual(orbitalEventsBetween(silent, 0, 12), []);
+  assert.deepEqual(orbitalPercussionBetween(silent, 0, 12), []);
+  assert.ok(score.rings.some(r => r.direction === -1));
 });

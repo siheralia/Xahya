@@ -8,7 +8,7 @@ Ruta: `/musica-orbital` (requiere iniciar sesión).
 - Más lejos del centro = sonido más agudo.
 - Cada anillo tiene **su propia duración de vuelta (2–30 segundos) y dirección**. La velocidad y el sentido controlan realmente cuándo se disparan sus notas, no solo el SVG.
 - Cada anillo se puede activar/desactivar sin perder sus notas, retrasar su inicio de 0 a 30 segundos y configurar su posición angular.
-- Cada órbita admite un **instrumento independiente**, a elegir entre sintetizador clásico y cuerdas sintetizadas (tipo violín). La selección se guarda en el JSON y controla el sonido real.
+- Cada órbita admite un **instrumento independiente**, a elegir entre sintetizador, cuerdas tipo violín, bajo profundo y pulso retro de jefe. La selección se guarda en el JSON y controla el sonido real.
 - Los controles angulares se despliegan desde **Ajustar** en cada anillo para simplificar la interfaz.
 
 ## Guardar, importar y exportar
@@ -20,7 +20,7 @@ Ruta: `/musica-orbital` (requiere iniciar sesión).
 - La importación valida formato, versión, rangos de ángulos y grupos, notas duplicadas y un máximo de 1 MB por archivo.
 - No se han añadido tablas ni datos de usuario en el servidor.
 
-Formato `xahya-orbital-score` versión 1: `format`, `version`, `title`, `groups` (se mantienen como configuración de respaldo de archivos antiguos), `percussion: "orchestral" | "battle" | "none"` y `rings` (cada anillo incluye `pitch`, `enabled`, `phase`, `delay`, `duration`, `direction`, `instrument`, `angles` y `slides`). Se identifican los anillos por `pitch`, para admitir archivos anteriores con menos anillos. Si un archivo antiguo no contiene `duration`/`direction` por anillo, se heredan del grupo; si no contiene `percussion`, se asume `"none"`; si no indica `instrument`, el anillo mantiene el timbre `"synth"` anterior.
+Formato `xahya-orbital-score` versión 1: `format`, `version`, `title`, `groups` (se mantienen como configuración de respaldo de archivos antiguos), `percussion: "boss" | "orchestral" | "battle" | "none"` y `rings` (cada anillo incluye `pitch`, `enabled`, `phase`, `delay`, `duration`, `direction`, `instrument`, `angles` y `slides`). Se identifican los anillos por `pitch`, para admitir archivos anteriores con menos anillos. Si un archivo antiguo no contiene `duration`/`direction` por anillo, se heredan del grupo; si no contiene `percussion`, se asume `"none"`; si no indica `instrument`, el anillo mantiene el timbre `"synth"` anterior.
 
 ## Melodía proporcionada
 
@@ -30,15 +30,15 @@ Asignación provisional: La4, Si4, Do5, Re5, Mi5, Fa♯5, Sol5. Ambas familias g
 
 La partitura puede guardarse y exportarse como cualquier otra composición. No se almacena audio.
 
-## Tema épico de Xahya
+## Tema épico de Xahya: Corazón del Abismo — jefe
 
-**Ascenso de Xahya — batalla** (propuesta V6) conserva la progresión La menor → Sol → Fa → Mi menor y su bucle de 8 segundos, pero cambia el fraseo a **16 notas melódicas abiertas, cuatro por compás**. Es un punto intermedio entre la melodía demasiado rápida de V3 y la lentitud de V5. El final Si5 se desliza hacia Do6 durante los últimos 0,14 segundos de una nota sostenida, enlazando con la siguiente vuelta.
+**Corazón del Abismo — jefe** es un **tema completamente original** de combate contra jefe, inspirado en la energía del sonido retro sin reproducir melodías conocidas. El período es de **12 segundos (8 compases de 4/4 a 160 BPM)**. Usa un motivo angular en modo Mi frigio, con cambios de registro, notas rápidas y pequeños silencios, en lugar de las frases demasiado continuas o pausadas de las versiones anteriores.
 
-El acompañamiento incluye un **ostinato de raíces y quintas de 20 notas por vuelta**; seis órbitas graves utilizan un nuevo instrumento «Bajo profundo» con **suboscilador una octava por debajo** y una envolvente más contundente. Los acordes de cuerdas cubren los huecos entre las frases principales sin un patrón de contratiempos de baile. La percusión predeterminada es **orquestal**: timbal en tiempos fuertes y platillos en entradas de sección, sin hi-hat. Las opciones anteriores de batería y silencio siguen disponibles.
+La melodía incluye **48 ataques de pulso electrónico por vuelta**: el nuevo instrumento **Pulso de jefe · distorsión retro** combina onda cuadrada, armónico ligeramente desafinado, filtro y saturación suave; las notas tienen ataque inmediato y final breve. El bajo profundo usa la fundamental y una suboctava, con raíces y quintas en los tiempos fuertes (48 ataques por vuelta). Los dos anillos de cuerdas aportan cuatro acordes sostenidos y dos golpes cromáticos de Fa♯5; este último gira cada 6 segundos y se repite dentro del período general de 12 segundos. El final Fa5 se desliza brevemente al Mi5 del principio para conectar las vueltas.
 
-En total la partitura tiene **45 notas audibles por vuelta** (frente a 30 en V5 y 71 en V3), con mayor peso en graves en lugar de multiplicar las notas agudas. Nueve órbitas medias/agudas tienen timbre de cuerdas y la de Si4 conserva el sintetizador habitual. La selección de instrumento se guarda por órbita y se puede elegir entre **Sintetizador**, **Cuerdas · violín** y **Bajo profundo · octava grave**. Las partituras importadas antiguas mantienen su timbre sintético.
+La nueva opción **Jefe · batería rock** marca la caja en los tiempos **2 y 4**, con bombo en 1 y 3, pequeños anticipos al final de algunas frases y platos en las entradas de sección. No usa el patrón de timbales o de contratiempos que podía sonar bailable. Las opciones anteriores **Orquestal · timbales**, **Marcial · batería** y silencio permanecen disponibles para todas las partituras existentes.
 
-La animación orbital sigue siendo independiente: Re4 gira cada 4 segundos, Fa♯5 cada 16 y los demás cada 8. Los ángulos se calculan para que la composición musical conserve su vuelta de 8 segundos. Los dos deslizamientos audibles siguen recorriendo un semitono y se animan solamente cuando se produce el portamento real al final de la nota.
+Cada circunferencia conserva la edición independiente de dirección, velocidad, instrumento y deslizamientos. Las nuevas opciones de timbre (**Sintetizador**, **Cuerdas · violín**, **Bajo profundo · octava grave** y **Pulso de jefe · distorsión retro**) se guardan en el JSON v1; los archivos antiguos siguen heredando "synth" y su percusión original. La partitura de jefe nueva es un reemplazo propuesto para el tema predeterminado de sistema, no modifica por sí misma las partituras personales ya guardadas.
 
 Los deslizamientos son notas existentes ampliadas con una lista opcional `slides: [{ angle, toPitch, duration }]` por circunferencia. La duración es de 0,1 a 3 segundos; el origen siempre debe corresponder a una nota real. Los ejemplos de batalla usan 0,14 s para un portamento sutil. En el gráfico se dibuja un arco luminoso desde el origen hasta el anillo de destino y un marcador lo recorre durante la reproducción. El oscilador cambia continuamente de frecuencia, en vez de disparar dos notas separadas.
 

@@ -11,7 +11,7 @@ import {validateConstructionPlacement,resolveConstructionForm,constructionInArea
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_METERS,type CombatAttackArea} from "./skill-area.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
-import {calculateMaterialBlockWear} from "./material-durability.ts";
+import {calculateMaterialBlockWear,meleeWeaponWearFromCover} from "./material-durability.ts";
 import {combatWeaponOperational} from "./weapon-readiness.ts";
 import {summonStat,resolveSummonStat,type CombatSummon,type SummonContactEffect} from "./summons.ts";
 import {activeChaosField,distortChaosMove} from "./chaos-fusion.ts";
@@ -1299,6 +1299,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       * damage already dealt by the incoming strike to the same wall.
       */
      constructionWear:Array<{id:string;wear:number}>;
+     /** Resolve a paid counter in its shadow, then transfer its weapon wear
+      * just as the existing construction wear is transferred.
+      */
+     counterWeaponWear?:{slot:"MAIN_HAND"|"OFF_HAND";wear:number};
      attackerPosition?:Point;attackerPositionMeters:number;
     }|null=null;
     if(defense==="COUNTER"){
@@ -1321,7 +1325,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
        manaRemaining:launched.mana?.[by]?.current,
        physicalPathEnd:launched.physicalPathEnd,
        physicalPathEnds:launched.physicalPathEnds,
-       events:resolved.log.slice(state.log.length).filter(e=>["ATTACK","RESOLVE","REFLECTION","CONSTRUCTION"].includes(e.kind)),
+       events:resolved.log.slice(state.log.length).filter(e=>
+         ["ATTACK","RESOLVE","REFLECTION","CONSTRUCTION","WEAPON_WEAR","WEAPON_BREAK"].includes(e.kind)),
+       counterWeaponWear:(plan.attackSource==="MAIN_HAND"||plan.attackSource==="OFF_HAND")
+        ?{slot:plan.attackSource,wear:resolved.log.slice(state.log.length)
+          .filter(e=>e.by===by&&e.kind==="WEAPON_WEAR")
+          .reduce((sum,e)=>sum+Math.max(0,e.damage??0),0)}:undefined,
        constructionWear:(state.constructions??[]).flatMap(wall=>{
         if(wall.form!=="BLOCK"||!measuredBlock(wall))return [];
         const remaining=resolved.constructions?.find(c=>c.id===wall.id)?.durability??0;
@@ -1593,6 +1602,35 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
               ?wall.label+" se rompió al interceptar la trayectoria del ataque."
               :wall.label+" interceptó el ataque físico y recibió "+wear+" de desgaste."});
         }
+        // One melee weapon owns one contact-wear event for the entire strike,
+        // not one per wall. The weapon must have physically struck a measured
+        // BLOCK. Ranged bows do not touch their arrows' obstructions, and
+        // fists/kicks have no external tool whose durability may be spent.
+        if(drawnMelee&&contact&&
+           (pending.attackSource==="MAIN_HAND"||pending.attackSource==="OFF_HAND")){
+          const slot=pending.attackSource;
+          const striker=state.actors[pending.by];
+          const weapon=slot==="MAIN_HAND"?striker.equippedWeapon:striker.offhandWeapon;
+          if(weapon&&combatWeaponOperational(weapon)&&weapon.mode==="MELEE"){
+            const previous=weapon.durability??(slot==="MAIN_HAND"?striker.weaponIntegrity:100);
+            const wear=meleeWeaponWearFromCover(pressure,pressure-remainingPressure,
+              weapon.materialPhysicalResistance);
+            const next=Math.max(0,previous-wear);
+            if(wear>0){
+              weapon.durability=next;
+              if(slot==="MAIN_HAND")striker.weaponIntegrity=next;
+              addLog(state,{kind:"WEAPON_WEAR",tick:state.tick,by:pending.by,
+                weaponName:weapon.name,weaponIntegrity:next,damage:previous-next,
+                summary:weapon.name+" perdió "+(previous-next)+
+                  " de durabilidad al golpear barreras físicas."});
+              if(previous>0&&next===0)
+                addLog(state,{kind:"WEAPON_BREAK",tick:state.tick,by:pending.by,
+                  weaponName:weapon.name,weaponIntegrity:0,
+                  summary:striker.name+" rompió "+weapon.name+
+                    " al golpear un obstáculo. Debe repararla para volver a usarla."});
+            }
+          }
+        }
         const penetration=remainingPressure/pressure;
         damage=Math.max(0,Math.round(damage*penetration));
         noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*penetration));
@@ -1754,6 +1792,18 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // defender reaches zero HP. No second defense, extra initiative or
     // opportunity to counter the counter is granted in this exchange.
     if(exchange){
+      // COUNTER resolves on a shadow to keep both attacks simultaneous, but
+      // equipment is committed from the real state. Transfer only the wear
+      // charged by the counter (never replace the current equipment snapshot).
+      if(exchange.counterWeaponWear?.wear){
+        const {slot,wear}=exchange.counterWeaponWear;
+        const weapon=slot==="MAIN_HAND"?fighter.equippedWeapon:fighter.offhandWeapon;
+        if(weapon){
+          const before=weapon.durability??(slot==="MAIN_HAND"?fighter.weaponIntegrity:100);
+          weapon.durability=Math.max(0,before-wear);
+          if(slot==="MAIN_HAND")fighter.weaponIntegrity=weapon.durability;
+        }
+      }
       for(const wear of exchange.constructionWear){
         const wall=state.constructions?.find(c=>c.id===wear.id);
         if(!wall)continue;

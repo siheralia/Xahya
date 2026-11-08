@@ -106,7 +106,11 @@ test("broken melee weapons cannot strike again until authorized repair",()=>{
  assert.equal(wearLog(done).length,1);
  assert.equal(wearLog(done)[0].damage,3);
  assert.equal(done.log.filter(e=>e.kind==="WEAPON_BREAK").length,1);
- assert.throws(()=>strike(done),/rota/);
+ // A direct retry in this round is denied by initiative before equipment.
+ // A separately authorized action must still reject the broken hand.
+ const stillBroken=setup(100,{equippedWeapon:weapon("Frágil",{durability:0}),
+  weaponIntegrity:0});
+ assert.throws(()=>strike(stillBroken),/rota/);
 });
 
 test("misses, non-tangible mirrors and unarmed strikes do not wear an equipped weapon",()=>{

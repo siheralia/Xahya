@@ -60,6 +60,13 @@ test("a direct melee hit against a tangible mirror wears one real main-hand copy
  assert.equal(persistedDurabilityAfterAction(100,100,96,0),96);
 });
 
+test("legacy commands without an explicit hand use the server-selected main weapon",()=>{
+ const done=strike(setup(),{attackSource:undefined});
+ assert.equal(done.actors.PLAYER.equippedWeapon.durability,96);
+ assert.equal(done.actors.PLAYER.weaponIntegrity,96);
+ assert.equal(wearLog(done).length,1);
+});
+
 test("fragile mirrors consume only the impact pressure they absorb",()=>{
  const done=strike(setup(5));
  assert.equal(done.constructions.length,0);

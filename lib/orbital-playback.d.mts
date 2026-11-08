@@ -14,4 +14,4 @@ export function orbitalVoicePlan(frequency: number, glideToHz?: number | null, g
   cutoff: number;
 };
 export function playOrbitalSound(context: AudioContext, frequency: number, volume: number, glideToHz?: number | null, glideSeconds?: number | null, instrument?: "synth" | "strings"): void;
-export function elapsedSlideProgress(elapsedSeconds: number, ring: Pick<OrbitalScore["rings"][number], "enabled" | "phase" | "delay">, group: OrbitalScore["groups"][number], slide: OrbitalScore["rings"][number]["slides"][number]): number | null;
+export function elapsedSlideProgress(elapsedSeconds: number, ring: Pick<OrbitalScore["rings"][number], "enabled" | "phase" | "delay"> & { instrument?: "synth" | "strings" }, group: OrbitalScore["groups"][number], slide: OrbitalScore["rings"][number]["slides"][number]): number | null;

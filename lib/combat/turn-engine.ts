@@ -1093,7 +1093,7 @@ function resolveTargetedMirrorAttack(
    // existing solid-cover formula, charging only the integrity it absorbs.
    // Ranged attacks, thrown weapons, unarmed strikes and magic do not wear
    // an equipped melee weapon here.
-   const source=command.attackSource;
+   const source=command.attackSource??defaultAttackSource(actor);
    if(mirror.tangible&&!ranged&&(source==="MAIN_HAND"||source==="OFF_HAND")){
     const weapon=source==="MAIN_HAND"?actor.equippedWeapon:actor.offhandWeapon;
     if(weapon?.mode==="MELEE"&&combatWeaponOperational(weapon)){

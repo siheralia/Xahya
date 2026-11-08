@@ -27,10 +27,14 @@ export default function CombatMusicPlayer({
   const clockRef = useRef(0);
   const tempoRef = useRef(1);
   const tempoTargetRef = useRef(1);
-  // The HP snapshot changes without restarting the audio effect or notes.
-  tempoTargetRef.current = active && criticalHealth ? CRITICAL_TEMPO_MULTIPLIER : 1;
   const audioRef = useRef<AudioContext | null>(null);
   const score = selection === "personal" && personal ? personal : corona ?? EPIC_THEME;
+
+  // Update the target from combat HP without restarting the audio loop, even
+  // while currently sustained samples are still playing.
+  useEffect(() => {
+    tempoTargetRef.current = active && criticalHealth ? CRITICAL_TEMPO_MULTIPLIER : 1;
+  }, [active, criticalHealth]);
 
   useEffect(() => {
     let alive = true;

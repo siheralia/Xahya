@@ -25,3 +25,23 @@ export function calculateMaterialBlockWear(baseWear:number,materialResistance?:n
  const resistance=effectiveMaterialPhysicalResistance(materialResistance);
  return Math.max(1,Math.ceil(base*NEUTRAL_MATERIAL_PHYSICAL_RESISTANCE/resistance));
 }
+
+/** Contact with REAL solid cover strains the melee weapon, even if the
+ * fighter behind that cover takes no HP damage. The base wear depends on the
+ * pressure actually absorbed by measured walls (not the nominal attack or
+ * the sum of walls encountered after the strike has stopped).
+ *
+ * This is ONE wear event per strike regardless of how many walls were hit;
+ * ordinary misses, unarmed hits, arrows fired from bows, decorative/legacy
+ * obstacles and magic must not use this weapon-contact formula.
+ */
+export function meleeWeaponWearFromCover(
+ attackPressure:number,absorbedPressure:number,materialResistance?:number|null,
+):number {
+ if(!Number.isFinite(attackPressure)||!Number.isFinite(absorbedPressure)||
+    attackPressure<0||absorbedPressure<0)
+  throw new Error("La presión sobre el arma no es válida.");
+ const absorbed=Math.min(attackPressure,absorbedPressure);
+ if(absorbed<=0)return 0;
+ return calculateMaterialBlockWear(Math.max(1,Math.ceil(absorbed/8)),materialResistance);
+}

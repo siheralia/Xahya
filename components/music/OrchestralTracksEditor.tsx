@@ -69,6 +69,7 @@ export default function OrchestralTracksEditor({
             setTracks((items) => [...items, {
               name: "Nueva pista " + (items.length + 1),
               instrument: "violin", notes: [],
+              orbit: { duration: period, direction: 1, phase: 0, enabled: true },
             }]);
             onSelectTrack(tracks.length);
             setPage(0);

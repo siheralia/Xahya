@@ -22,7 +22,7 @@ import {evaluateEquippedItemAutoRepair,shouldAutoRepairAtRound,
  type AutoRepairItemEffect} from "../items/auto-repair.ts";
 import {equipmentWearFromHit} from "../items/equipped-wear.ts";
 import type {CombatWearable} from "../items/combat-wearables.ts";
-import {assertMovementClear,blockingMovement,coversAlongStroke,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
+import {assertMovementClear,blockingMovement,coversAlongStroke,coversAlongProjectileFlight,validateProjectileHeights,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
 
@@ -89,7 +89,7 @@ export type PendingAttack = {
   /** Captured straight projectile route, with explicitly selected elevations.
    * Never infer an old shot's 3D path from a 2D aiming sprite.
    */
-  projectileFlight?:{from:Point;to:Point;launchHeightMeters:number;impactHeightMeters:number};
+  projectileFlight?:{from:Point;to:Point;launchHeightMeters:number;impactHeightMeters:number;arcRiseMeters?:number};
   /** Only user-specified vertical strokes can authorize 3D cover tests. */
   explicitTrajectory?:boolean;
 };
@@ -189,7 +189,7 @@ export type CombatCommand =
        order:"ACT"|"MOVE"|"ATTACK"|"CHANGE_BEHAVIOR";planarMove?:Point;newBehavior?:"FOLLOW"|"ATTACK"|"PROTECT"|"HOLD"|"MANUAL" }
   | { kind: "ATTACK"; requestId?:string; targetSummonId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point;
     /** Real measured projectile elevations. Optional to preserve old encounter and bot commands. */
-    projectileHeights?:{launchMeters:number;impactMeters:number};
+    projectileHeights?:{launchMeters:number;impactMeters:number;arcRiseMeters?:number};
     areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; requestId?:string; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
   | { kind: "CAST_SKILL";skillId:number;requestId:string;chargesToSpend?:number;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;targetSummonId?:string };
@@ -1558,18 +1558,15 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // Physical projectiles still strike real barriers after a successful
     // dodge: the defender's movement cannot erase the projectile mid-flight.
     const projectilePath=pending.rangedPhysical?pending.projectileFlight:undefined;
-    const physicalCoverPath=projectilePath
-      ?{from:projectilePath.from,to:projectilePath.to,
-        stroke:[{x:0.1,y:1-projectilePath.launchHeightMeters/10},
-                {x:0.9,y:1-projectilePath.impactHeightMeters/10}]}
-      :!pending.rangedPhysical&&pending.explicitTrajectory&&pending.trajectory.length>=2
-        ?{from:fieldPosition(attacker),to:fieldPosition(fighter),
-          stroke:pending.trajectory}:undefined;
+    const drawnMelee=!pending.rangedPhysical&&pending.explicitTrajectory&&
+      pending.trajectory.length>=2;
     if((contact||projectilePath)&&!pending.usesMagic&&!pending.attackArea&&!pending.mirrorId&&
-      physicalCoverPath){
-      const covers=coversAlongStroke(state.constructions,
-        physicalCoverPath.from,physicalCoverPath.to,physicalCoverPath.stroke,
-        defense==="CONSTRUCTION"?command.constructionId:undefined);
+      (projectilePath||drawnMelee)){
+      const exclude=defense==="CONSTRUCTION"?command.constructionId:undefined;
+      const covers=projectilePath
+        ?coversAlongProjectileFlight(state.constructions,projectilePath,exclude)
+        :coversAlongStroke(state.constructions,
+          fieldPosition(attacker),fieldPosition(fighter),pending.trajectory,exclude);
       if(covers.length){
         const pressure=Math.max(1,Math.round(Math.max(0,power)*
           (skill?.damageMultiplier??1)*(skill?.finalMultiplier??1)));
@@ -1898,10 +1895,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(magic&&ranged)throw new Error("El ataque no puede ser mágico y proyectil físico a la vez.");
     if(command.projectileHeights!==undefined){
       const heights=command.projectileHeights;
-      if(!ranged||!heights||!finite(heights.launchMeters)||!finite(heights.impactMeters)||
-         heights.launchMeters<0||heights.launchMeters>10||
-         heights.impactMeters<0||heights.impactMeters>10)
+      if(!ranged||!heights)
         throw new Error("Indica alturas de salida e impacto del proyectil entre 0 y 10 m.");
+      validateProjectileHeights(heights.launchMeters,heights.impactMeters,heights.arcRiseMeters);
     }
     if(!magic&&serverSkillRangeMeters===undefined){
       const weapon=selectedWeapon;
@@ -1985,7 +1981,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
            (command.attackType==="BLUNT"?0.17:command.attackType==="CUT"?0.11:0.07)
         ?{from:fieldPosition(fighter),to:fieldPosition(rival),
           launchHeightMeters:command.projectileHeights.launchMeters,
-          impactHeightMeters:command.projectileHeights.impactMeters}:undefined,
+          impactHeightMeters:command.projectileHeights.impactMeters,
+          ...(command.projectileHeights.arcRiseMeters!==undefined
+            ?{arcRiseMeters:command.projectileHeights.arcRiseMeters}:{})}:undefined,
       launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
       targetCenter:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?command.areaCenter:undefined,

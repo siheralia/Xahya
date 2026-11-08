@@ -138,6 +138,7 @@ export default function CombatEncounter({id}:{id:string}) {
  // the defender-facing canvas marker. No old ranged attack is backfilled.
  const [projectileLaunchHeight,setProjectileLaunchHeight]=useState(1.5);
  const [projectileImpactHeight,setProjectileImpactHeight]=useState(1.5);
+ const [projectileArcRise,setProjectileArcRise]=useState(0);
  const [constructionCenter,setConstructionCenter]=useState<Point|null>(null);
  const [constructionFieldPoint,setConstructionFieldPoint]=useState<Point|null>(null);
  const [constructionHeightMeters,setConstructionHeightMeters]=useState(5);
@@ -487,6 +488,10 @@ export default function CombatEncounter({id}:{id:string}) {
      (preparedAreaSkill?.attackArea?preparedAreaSkill.manaCost:BASIC_MAGIC_MANA_COST)));
  const inRangeFor=(order?:"BEFORE"|"AFTER")=>
    (order==="BEFORE"?afterMovementDistance:targetDistance)<=configuredReach;
+ // A conservative UI limit keeps the entire arc below the 10 m ceiling.
+ // The server also checks the exact parabolic maximum independently.
+ const maxProjectileArcRise=Math.max(0,Math.min(5,
+   10-Math.max(projectileLaunchHeight,projectileImpactHeight)));
  const canExecuteAttack=(order?:"BEFORE"|"AFTER")=>
    ready&&attackConfigurationReady&&inRangeFor(order)&&
    (!order||!!proposedMovement&&canCombineAttack);
@@ -503,12 +508,14 @@ export default function CombatEncounter({id}:{id:string}) {
    :attackMode==="THROW"
     ?{kind:"ATTACK",planarMove:move,movementOrder:order,throwWeapon:true,
       attackSource:activeAttackSource,attackType:displayedAttackType,
-      projectileHeights:{launchMeters:projectileLaunchHeight,impactMeters:projectileImpactHeight},
+      projectileHeights:{launchMeters:projectileLaunchHeight,impactMeters:projectileImpactHeight,
+        arcRiseMeters:projectileArcRise},
       areaCenter:areaCenter??undefined,targetConstructionId:selectedMirrorId,targetSummonId:selectedSummonId}
     :attackMode==="RANGED"
      ?{kind:"ATTACK",planarMove:move,movementOrder:order,rangedPhysical:true,
        attackSource:activeAttackSource,attackType:displayedAttackType,
-       projectileHeights:{launchMeters:projectileLaunchHeight,impactMeters:projectileImpactHeight},
+       projectileHeights:{launchMeters:projectileLaunchHeight,impactMeters:projectileImpactHeight,
+        arcRiseMeters:projectileArcRise},
        areaCenter:areaCenter??undefined,targetConstructionId:selectedMirrorId,targetSummonId:selectedSummonId}
      :{kind:"ATTACK",planarMove:move,movementOrder:order,attackSource:activeAttackSource,
        attackType:displayedAttackType,trajectory:normalizedPath,
@@ -1293,15 +1300,30 @@ export default function CombatEncounter({id}:{id:string}) {
        <div className="mb-3 grid gap-3 rounded-lg border border-amber-800/50 bg-zinc-950/50 p-3 sm:grid-cols-2" aria-label="Alturas de la trayectoria del proyectil">
         <label className="text-xs text-amber-100">Altura de salida: {projectileLaunchHeight.toFixed(2)} m
          <input type="range" min={0} max={10} step={0.25} value={projectileLaunchHeight}
-          aria-label="Altura de salida del proyectil" onChange={e=>setProjectileLaunchHeight(Number(e.target.value))}
+          aria-label="Altura de salida del proyectil" onChange={e=>{
+            const next=Number(e.target.value);setProjectileLaunchHeight(next);
+            setProjectileArcRise(prev=>Math.min(prev,Math.max(0,10-Math.max(next,projectileImpactHeight))));
+          }}
           className="mt-2 w-full accent-amber-400"/>
         </label>
         <label className="text-xs text-amber-100">Altura de impacto: {projectileImpactHeight.toFixed(2)} m
          <input type="range" min={0} max={10} step={0.25} value={projectileImpactHeight}
-          aria-label="Altura de impacto del proyectil" onChange={e=>setProjectileImpactHeight(Number(e.target.value))}
+          aria-label="Altura de impacto del proyectil" onChange={e=>{
+            const next=Number(e.target.value);setProjectileImpactHeight(next);
+            setProjectileArcRise(prev=>Math.min(prev,Math.max(0,10-Math.max(projectileLaunchHeight,next))));
+          }}
           className="mt-2 w-full accent-amber-400"/>
         </label>
-        <p className="text-[11px] text-zinc-400 sm:col-span-2">Estas alturas definen la línea física del proyectil entre las posiciones reales de los combatientes. Las barreras con volumen medido pueden detenerla o romperse. El punto rojo del lienzo sigue definiendo si apuntas al combatiente.</p>
+        <label className="text-xs text-amber-100 sm:col-span-2">
+         Elevación del arco sobre la línea recta: {projectileArcRise.toFixed(2)} m
+         <input type="range" min={0} max={maxProjectileArcRise} step={0.25}
+          value={Math.min(projectileArcRise,maxProjectileArcRise)}
+          aria-label="Elevación del arco del proyectil" onChange={e=>setProjectileArcRise(Number(e.target.value))}
+          className="mt-2 w-full accent-amber-400"/>
+        </label>
+        <p className="text-[11px] text-zinc-400 sm:col-span-2">
+         Con 0 m de arco el proyectil sigue una línea recta. Al aumentarlo, asciende sobre ella a mitad del recorrido y vuelve a la altura de impacto. La colisión comprueba toda la curva en el plano horizontal real: puede superar paredes bajas, chocar con obstáculos elevados o romper varias barreras. El punto del lienzo sigue determinando si aciertas al objetivo.
+        </p>
        </div>}
       
       {attackMode==="MAGIC_AREA"&&isOrientedCombatArea(preparedAreaSkill?.attackArea)&&

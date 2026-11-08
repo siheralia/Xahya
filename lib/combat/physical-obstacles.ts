@@ -166,3 +166,80 @@ export function firstCoverAlongStroke(
 ):SolidIntersection|null {
  return coversAlongStroke(constructions,from,to,stroke,excludeId)[0]??null;
 }
+
+/** A ballistic arc is a deliberately selected spatial path, not a trajectory
+ * inferred from the defender-facing vertical drawing. The rise is the extra
+ * elevation AT THE MIDPOINT above the straight launch-to-impact line.
+ * Zero rise is exactly the previous straight-shot geometry.
+ */
+export type MeasuredProjectileFlight={
+ from:Point;to:Point;launchHeightMeters:number;impactHeightMeters:number;
+ arcRiseMeters?:number;
+};
+export const MAX_PROJECTILE_ARC_RISE_METERS=5;
+export const PROJECTILE_ARC_SEGMENTS=64;
+export function projectileHeightAt(flight:MeasuredProjectileFlight,t:number):number {
+ const rise=flight.arcRiseMeters??0;
+ return flight.launchHeightMeters+
+  (flight.impactHeightMeters-flight.launchHeightMeters)*t+
+  4*rise*t*(1-t);
+}
+export function validateProjectileHeights(
+ launch:unknown,impact:unknown,arcRise:unknown=0,
+):{launchHeightMeters:number;impactHeightMeters:number;arcRiseMeters:number} {
+ if(!finite(launch)||!finite(impact)||launch<0||launch>10||impact<0||impact>10)
+  throw new Error("Indica alturas de salida e impacto del proyectil entre 0 y 10 m.");
+ if(!finite(arcRise)||arcRise<0||arcRise>MAX_PROJECTILE_ARC_RISE_METERS)
+  throw new Error("El arco del proyectil debe elevarse entre 0 y 5 m.");
+ // A parabola can climb above BOTH endpoints, even if the UI shows legal
+ // values. Verify the analytic vertex to reject impossible 10m+ flights.
+ const delta=impact-launch;
+ const vertex=arcRise>0?Math.max(0,Math.min(1,0.5+delta/(8*arcRise))):0;
+ const maxAltitude=Math.max(launch,impact,launch+delta*vertex+
+   4*arcRise*vertex*(1-vertex));
+ if(maxAltitude>10+1e-8)
+  throw new Error("El arco del proyectil supera la altura máxima de 10 m.");
+ return {launchHeightMeters:launch,impactHeightMeters:impact,arcRiseMeters:arcRise};
+}
+
+/** Ordered cylinder intersections along the measured projectile arc.
+ * Sample 64 straight 3D chords (at most 1.3mm chord error for a 5m rise)
+ * and compute an exact intersection for EVERY piece; never infer a collider
+ * from a decorative map sprite. A barrier touched more than once wears once.
+ */
+export function coversAlongProjectileFlight(
+ constructions:ReadonlyArray<CombatConstruction>|undefined,
+ flight:MeasuredProjectileFlight,excludeId?:string,
+):SolidIntersection[] {
+ if(!point(flight.from)||!point(flight.to))return [];
+ const {launchHeightMeters,impactHeightMeters,arcRiseMeters}=flight;
+ if(!finite(launchHeightMeters)||!finite(impactHeightMeters)||
+  !finite(arcRiseMeters??0)||launchHeightMeters<0||impactHeightMeters<0||
+  launchHeightMeters>10||impactHeightMeters>10||
+  (arcRiseMeters??0)<0||(arcRiseMeters??0)>MAX_PROJECTILE_ARC_RISE_METERS)
+  return [];
+ const steps=(arcRiseMeters??0)>0?PROJECTILE_ARC_SEGMENTS:1;
+ const blockers=(constructions??[]).filter(c=>c.id!==excludeId&&measuredBlock(c));
+ const hits=new Map<string,SolidIntersection>();
+ const pointAt=(t:number)=>({
+  x:flight.from.x+(flight.to.x-flight.from.x)*t,
+  y:flight.from.y+(flight.to.y-flight.from.y)*t,
+ });
+ for(let i=0;i<steps;i++){
+  const t0=i/steps,t1=(i+1)/steps;
+  const from=pointAt(t0),to=pointAt(t1);
+  const h0=projectileHeightAt(flight,t0),h1=projectileHeightAt(flight,t1);
+  for(const block of blockers){
+   const localT=measuredSegmentHit(block,from,to,h0,h1);
+   if(localT===null)continue;
+   const globalT=t0+(t1-t0)*localT;
+   const previous=hits.get(block.id);
+   if(!previous||globalT<previous.t)
+    hits.set(block.id,{block,t:globalT});
+  }
+ }
+ return [...hits.values()].sort((a,b)=>
+  Math.abs(a.t-b.t)<=1e-9
+   ?a.block.id.localeCompare(b.block.id)
+   :a.t-b.t);
+}

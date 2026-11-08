@@ -99,7 +99,7 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
           setSelection(event.target.value as "default" | "personal");
         }}
         className="max-w-[170px] flex-1 rounded-md border border-violet-400/30 bg-zinc-950 px-2 py-2 text-xs">
-        <option value="default">Ascenso de Xahya</option>
+        <option value="default">Corazón del Abismo</option>
         {personal && <option value="personal">Mi tema: {personal.title}</option>}
       </select>
       <button type="button" onClick={toggle} disabled={!active}

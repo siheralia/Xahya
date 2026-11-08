@@ -5,8 +5,10 @@ import type { ChangeEvent, MouseEvent } from "react";
 import { angleDistance, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
 import { BATTLE_TURN_SECONDS, createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
 import { elapsedSlideProgress, orbitalEventsBetween, orbitalPercussionBetween, playOrbitalSound, playOrbitalPercussion } from "@/lib/orbital-playback.mjs";
-import { createGoldenScore, parseOrbitalScore, SCORE_FORMAT } from "@/lib/orbital-score.mjs";
-import type { OrbitalScore, OrbitalSlide } from "@/lib/orbital-score.mjs";
+import { createGoldenScore, parseOrbitalScore, SCORE_FORMAT, RING_INSTRUMENTS } from "@/lib/orbital-score.mjs";
+import type { OrbitalScore, OrbitalSlide, OrbitalNoteLength, OrbitalInstrument, OrchestralTrack } from "@/lib/orbital-score.mjs";
+import { importOrbitalMidi } from "@/lib/orbital-midi.mjs";
+import { midiFromPitch, pitchFromMidi, orchestralEventsBetween, playOrchestralNote, prepareOrchestralInstruments, stopOrchestralVoices } from "@/lib/orbital-orchestra.mjs";
 
 const CENTER = 450;
 const SCORE_STORAGE_KEY = "xahya.orbital-scores.v1";
@@ -33,6 +35,15 @@ const RINGS = [
 ] as const;
 
 const BATTLE_SCORE = createBattleThemeScore();
+const INSTRUMENT_LABELS: Record<OrbitalInstrument, string> = {
+  synth: "Sintetizador orbital",
+  violin: "Violín", string_ensemble_1: "Conjunto de cuerdas",
+  french_horn: "Trompa", cello: "Violonchelo",
+  acoustic_bass: "Contrabajo", distortion_guitar: "Guitarra eléctrica",
+  choir_aahs: "Coro", tremolo_strings: "Cuerdas trémolo",
+  timpani: "Timbales", brass_section: "Metales", drumkit: "Batería",
+};
+const ORCHESTRA_OPTIONS = RING_INSTRUMENTS.filter((name) => name !== "synth");
 
 function makeNotes() {
   return BATTLE_SCORE.rings.map((ring) => [...ring.angles]);
@@ -41,6 +52,12 @@ function makeNotes() {
 export default function OrbitalMusicPage() {
   const [notes, setNotes] = useState<number[][]>(makeNotes);
   const [slides, setSlides] = useState<OrbitalSlide[][]>(() => BATTLE_SCORE.rings.map((ring) => [...ring.slides]));
+  const [noteLengths, setNoteLengths] = useState<OrbitalNoteLength[][]>(() => BATTLE_SCORE.rings.map((ring) => [...ring.noteLengths]));
+  const [ringInstruments, setRingInstruments] = useState<OrbitalInstrument[]>(() => BATTLE_SCORE.rings.map((ring) => ring.instrument));
+  const [tracks, setTracks] = useState<OrchestralTrack[]>(() => BATTLE_SCORE.tracks);
+  const [selectedTrack, setSelectedTrack] = useState(0);
+  const [trackPage, setTrackPage] = useState(0);
+  const [loadingSounds, setLoadingSounds] = useState(false);
   const [phases, setPhases] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.phase));
   const [muted, setMuted] = useState<boolean[]>(() => BATTLE_SCORE.rings.map((ring) => !ring.enabled));
   const [groupDurations, setGroupDurations] = useState<[number, number]>([BATTLE_TURN_SECONDS, BATTLE_TURN_SECONDS]);
@@ -175,6 +192,7 @@ export default function OrbitalMusicPage() {
       version: 1,
       title: scoreName.trim() || "Mi partitura",
       percussion,
+      tracks,
       groups: groupDurations.map((duration, group) => ({
         duration, direction: groupDirections[group],
       })),
@@ -185,7 +203,9 @@ export default function OrbitalMusicPage() {
         delay: startDelays[index],
         duration: ringDurations[index],
         direction: ringDirections[index],
+        instrument: ringInstruments[index],
         angles: notes[index],
+        noteLengths: noteLengths[index],
         slides: slides[index],
       })),
     });
@@ -198,6 +218,11 @@ export default function OrbitalMusicPage() {
     setElapsed(0);
     setNotes(safe.rings.map((ring) => [...ring.angles]));
     setSlides(safe.rings.map((ring) => [...ring.slides]));
+    setNoteLengths(safe.rings.map((ring) => [...ring.noteLengths]));
+    setRingInstruments(safe.rings.map((ring) => ring.instrument));
+    setTracks(safe.tracks);
+    setSelectedTrack(0);
+    setTrackPage(0);
     setPhases(safe.rings.map((ring) => ring.phase));
     setStartDelays(safe.rings.map((ring) => ring.delay));
     setMuted(safe.rings.map((ring) => !ring.enabled));
@@ -275,11 +300,41 @@ export default function OrbitalMusicPage() {
     }
   }
 
-  const stop = useCallback(() => setPlaying(false), []);
+  async function importMidi(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const score = importOrbitalMidi(await file.arrayBuffer(), file.name.replace(/\.mid(i)?$/i, "").slice(0, 120));
+      loadScore(score);
+      setScoreMessage("MIDI cargado con sus pistas, acordes y duraciones originales.");
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo importar el MIDI.");
+    }
+  }
+
+  async function loadCorona() {
+    try {
+      setThemeBusy(true);
+      const response = await fetch("/music/corona-de-cenizas.mid");
+      if (!response.ok) throw new Error("No se encontró la partitura orquestal.");
+      loadScore(importOrbitalMidi(await response.arrayBuffer(), "Corona de Cenizas — orquestal"));
+      setScoreMessage("Corona de Cenizas cargada como pistas orquestales editables.");
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo cargar el tema.");
+    } finally {
+      setThemeBusy(false);
+    }
+  }
+
+  const stop = useCallback(() => {
+    setPlaying(false);
+    stopOrchestralVoices(contextRef.current);
+  }, []);
 
   const togglePlayback = async () => {
-    if (playing) {
-      stop();
+    if (playing || loadingSounds) {
+      if (playing) stop();
       return;
     }
     try {
@@ -293,15 +348,25 @@ export default function OrbitalMusicPage() {
         contextRef.current = new AudioContextConstructor();
       }
       await contextRef.current.resume();
+      setLoadingSounds(true);
+      const availability = await prepareOrchestralInstruments(contextRef.current, createCurrentScore());
+      await contextRef.current.resume();
+      setLoadingSounds(false);
+      if (availability.fallback) {
+        setScoreMessage("Algunos instrumentos no cargaron sus muestras; se usará síntesis local.");
+      }
       setError("");
       setPlaying(true);
     } catch {
       setError("No se pudo activar el audio. Revisa los permisos del navegador.");
+    } finally {
+      setLoadingSounds(false);
     }
   };
 
   useEffect(() => {
     return () => {
+      stopOrchestralVoices(contextRef.current);
       if (contextRef.current) void contextRef.current.close();
     };
   }, []);
@@ -320,8 +385,18 @@ export default function OrbitalMusicPage() {
       if (dt > 0 && contextRef.current) {
         const score = createCurrentScore();
         for (const note of orbitalEventsBetween(score, from, to)) {
-          playOrbitalSound(contextRef.current, pitchFrequency(note.pitch), volume,
-            note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration);
+          if (note.instrument === "synth") {
+            playOrbitalSound(contextRef.current, pitchFrequency(note.pitch), volume,
+              note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration, note.length);
+          } else {
+            playOrchestralNote(contextRef.current, note.instrument, midiFromPitch(note.pitch),
+              note.length ?? 0.5, 100, volume, note.toPitch ? midiFromPitch(note.toPitch) : null,
+              note.duration);
+          }
+        }
+        for (const note of orchestralEventsBetween(score, from, to)) {
+          playOrchestralNote(contextRef.current, note.instrument, note.pitch,
+            note.duration, note.velocity, volume);
         }
         for (const beat of orbitalPercussionBetween(score, from, to)) {
           playOrbitalPercussion(contextRef.current, beat.type, volume);
@@ -334,8 +409,11 @@ export default function OrbitalMusicPage() {
       animationFrame = requestAnimationFrame(frame);
     };
     animationFrame = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [playing, notes, slides, phases, muted, groupDurations, groupDirections, ringDurations, ringDirections, startDelays, percussion, volume, scoreName]);
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      stopOrchestralVoices(contextRef.current);
+    };
+  }, [playing, notes, slides, noteLengths, ringInstruments, tracks, phases, muted, groupDurations, groupDirections, ringDurations, ringDirections, startDelays, percussion, volume, scoreName]);
 
   const resetPlayhead = () => {
     elapsedRef.current = 0;
@@ -360,17 +438,24 @@ export default function OrbitalMusicPage() {
       index === ringIndex ? ringNotes.filter((_, position) => position !== noteIndex) : ringNotes));
     setSlides((current) => current.map((ringSlides, index) =>
       index === ringIndex ? ringSlides.filter((slide) => slide.angle !== angle) : ringSlides));
+    setNoteLengths((current) => current.map((lengths, index) =>
+      index === ringIndex ? lengths.filter((note) => note.angle !== angle) : lengths));
   };
 
   const shuffleNotes = () => {
     setSlides(RINGS.map(() => []));
+    setNoteLengths(RINGS.map(() => []));
     setNotes((current) => current.map((ringNotes) =>
       Array.from({ length: ringNotes.length }, () => Math.floor(Math.random() * 72) * 5)
         .filter((angle, index, all) => all.findIndex((other) => angleDistance(other, angle) < 10) === index)
         .sort((a, b) => a - b)));
   };
 
-  const noteCount = notes.reduce((sum, ring) => sum + ring.length, 0);
+  const noteCount = notes.reduce((sum, ring) => sum + ring.length, 0) +
+    tracks.reduce((sum, track) => sum + track.notes.length, 0);
+  const activeTrack = tracks[selectedTrack] ?? null;
+  const activeTrackNotes = activeTrack?.notes ?? [];
+  const trackPageCount = Math.max(1, Math.ceil(activeTrackNotes.length / 12));
   const ringTurn = (ringIndex: number) => orbitalTurnAt(
     elapsed, startDelays[ringIndex], phases[ringIndex],
     ringDurations[ringIndex], ringDirections[ringIndex],

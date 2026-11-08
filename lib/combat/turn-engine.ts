@@ -513,6 +513,10 @@ export function applyWearableOnConfirmedHpHit(
   addLog(state,{kind:"EQUIPMENT_WEAR",tick:state.tick,by:defender,
    weaponName:item.name,weaponIntegrity:item.durability,
    summary:item.name+" perdió "+wear+" de durabilidad tras recibir "+appliedHpDamage+" HP de daño."});
+  if(item.durability===0)
+   addLog(state,{kind:"EQUIPMENT_BREAK",tick:state.tick,by:defender,
+    weaponName:item.name,weaponIntegrity:0,
+    summary:item.name+" quedó roto tras el impacto. Debe repararse para recuperar su durabilidad."});
  }
 }
 
@@ -1481,8 +1485,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       if(blockWeapon){
         blockWeapon.durability=newIntegrity;
         if(previousIntegrity>0&&newIntegrity===0)
-          addLog(state,{kind:"WEAPON_BREAK",tick:state.tick,by,
-            summary:fighter.name+" rompió "+blockWeapon.name+" al bloquear. No puede usarla hasta repararla."});
+          addLog(state,{kind:blockWeapon===shield?"EQUIPMENT_BREAK":"WEAPON_BREAK",
+            tick:state.tick,by,weaponName:blockWeapon.name,weaponIntegrity:0,
+            summary:fighter.name+" rompió "+blockWeapon.name+
+              " al bloquear. Debe repararlo antes de volver a utilizarlo."});
       }
     } else if (defense === "MAGIC_FIELD") {
       // Basic defensive field: active reaction, paid AP/ticks, no persistent

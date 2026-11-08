@@ -22,6 +22,7 @@ import {evaluateEquippedItemAutoRepair,shouldAutoRepairAtRound,
  type AutoRepairItemEffect} from "../items/auto-repair.ts";
 import {equipmentWearFromHit} from "../items/equipped-wear.ts";
 import {offhandArmorShield,type CombatWearable} from "../items/combat-wearables.ts";
+import {reconcileWearableStatBonuses} from "./wearable-stat-bonus.ts";
 import {assertMovementClear,blockingMovement,coversAlongStroke,coversAlongProjectileFlight,validateProjectileHeights,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
@@ -418,6 +419,28 @@ function dispatchCombatMicroEvent(state:CombatState,side:Side,
   runtime.state=result.state;
 }
 
+/** Reconcile a single inventory copy's direct derived bonuses at the exact
+ * zero/positive durability threshold; other buffs and perks stay untouched.
+ */
+function syncWearableBonuses(state:CombatState,side:Side,item:CombatWearable):void{
+ const change=reconcileWearableStatBonuses(state.actors[side],item);
+ if(!change)return;
+ const stats=Object.entries(change.changes)
+   .filter(([,amount])=>typeof amount==="number"&&amount!==0)
+   .map(([stat,amount])=>stat+" "+((amount as number)>0?"+":"")+(amount as number));
+ if(stats.length)
+  addLog(state,{kind:"EQUIPMENT_STATS",tick:state.tick,by:side,weaponName:item.name,
+   summary:item.name+(change.active?" recuperó sus bonificaciones: ":" perdió sus bonificaciones: ")+
+     stats.join(", ")+"."});
+}
+/** At duel creation, derived stats have already included broken equipped gear.
+ * Remove only the explicitly captured safe bonuses before any action.
+ */
+export function reconcileWearableBonusesAtCombatStart(state:CombatState,side:Side):void{
+ for(const item of state.actors[side].equippedWearables??[])
+  syncWearableBonuses(state,side,item);
+}
+
 /** Item-bound repair runs only when the authoritative encounter advances to
  * a new full round. It consumes encounter mana (not persistent sheet mana),
  * never AP/ticks, and repairs ONLY items still in an equipped slot.
@@ -480,6 +503,7 @@ export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):v
     mana.current-=rule.manaCost;
     weapon.durability=calculated.after;
     weapon.lastAutoRepairRound=state.round;
+    if("itemType" in weapon)syncWearableBonuses(state,side,weapon);
     if(fighter.equippedWeapon===weapon)fighter.weaponIntegrity=calculated.after;
     state.itemRepairsThisRound??=[];
     state.itemRepairsThisRound.push({
@@ -510,6 +534,7 @@ export function applyWearableOnConfirmedHpHit(
   const wear=equipmentWearFromHit(item.durability,appliedHpDamage,magic,item.wearOnHit);
   if(!wear)continue;
   item.durability-=wear;
+  syncWearableBonuses(state,defender,item);
   addLog(state,{kind:"EQUIPMENT_WEAR",tick:state.tick,by:defender,
    weaponName:item.name,weaponIntegrity:item.durability,
    summary:item.name+" perdió "+wear+" de durabilidad tras recibir "+appliedHpDamage+" HP de daño."});
@@ -1489,6 +1514,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         fighter.weaponIntegrity=newIntegrity;
       if(blockWeapon){
         blockWeapon.durability=newIntegrity;
+        if(blockWeapon===shield)syncWearableBonuses(state,by,shield);
         if(previousIntegrity>0&&newIntegrity===0)
           addLog(state,{kind:blockWeapon===shield?"EQUIPMENT_BREAK":"WEAPON_BREAK",
             tick:state.tick,by,weaponName:blockWeapon.name,weaponIntegrity:0,

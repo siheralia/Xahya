@@ -518,8 +518,19 @@ export default function OrbitalMusicPage() {
                     const turn = ringTurn(index);
                     const headAngle = normalizeDegrees((turn ?? phases[index] / 360) * 360);
                     const lit = turn !== null && angleDistance(headAngle, angle) < 2.5 && playing && !muted[index];
+                    const held = noteLengths[index]?.find((note) => note.angle === angle)?.duration;
+                    const sweep = held ? Math.min(359, 360 * held / ringDurations[index]) : 0;
+                    const end = orbitalPoint(ring.radius, angle + ringDirections[index] * sweep, CENTER);
+                    const arc = sweep > 0 ? "M " + point.x + " " + point.y +
+                      " A " + ring.radius + " " + ring.radius + " 0 " +
+                      (sweep > 180 ? 1 : 0) + " " + (ringDirections[index] === 1 ? 1 : 0) +
+                      " " + end.x + " " + end.y : null;
                     return (
                       <g key={index + "-" + angle}>
+                        {arc && (
+                          <path d={arc} fill="none" stroke={ring.color} strokeWidth="6"
+                            strokeLinecap="round" opacity=".76" pointerEvents="none" />
+                        )}
                         {lit && (
                           <circle cx={point.x} cy={point.y} r="17" fill={ring.color} opacity=".65"
                             filter={"url(#orbital-glow-" + index + ")"} />

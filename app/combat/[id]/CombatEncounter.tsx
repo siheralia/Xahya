@@ -10,6 +10,7 @@ import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
 import CombatVerticalActionPlane from "./CombatVerticalActionPlane";
 import {fieldPosition,fieldDistance} from "@/lib/combat/field-plane";
 import {combatWeaponOperational} from "@/lib/combat/weapon-readiness";
+import {offhandArmorShield} from "@/lib/items/combat-wearables";
 import {combatChargeBalance} from "@/lib/combat/charge-pools";
 import {combatResourceRequestKey} from "@/lib/combat/resource-request-key";
 import {summarizeIncomingDamage} from "@/lib/combat/incoming-damage";
@@ -30,7 +31,7 @@ type View = {state:CombatState;karma?:Partial<Record<Side,number>>;
  canMove:{PLAYER:boolean;NPC:boolean}};
 const options: Array<{value:DefenseChoice,label:string,description:string}> = [
  {value:"DODGE",label:"Esquivar",description:"Precisión vs Esquive"},
- {value:"BLOCK",label:"Bloquear",description:"STR vs CON; desgaste del arma"},
+ {value:"BLOCK",label:"Bloquear",description:"STR vs CON; desgaste del arma o escudo"},
  {value:"ENDURE",label:"Resistir",description:"STR vs CON"},
  {value:"REPEL",label:"Repeler",description:"STR vs STR; empuje"},
  {value:"DEFLECT",label:"Desviar",description:"STR vs AGI y orientación de guardia"},
@@ -82,14 +83,16 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <span className="col-span-2">Integridad (último bloqueo): {f.weaponIntegrity}/100</span>
    {(["MAIN_HAND","OFF_HAND"] as const).map(slot=>{
     const weapon=slot==="MAIN_HAND"?f.equippedWeapon:f.offhandWeapon;
-    const resistance=weapon?.materialPhysicalResistance&&weapon.materialPhysicalResistance>0
-     ?weapon.materialPhysicalResistance:100;
+    const shield=slot==="OFF_HAND"&&!weapon?offhandArmorShield(f.equippedWearables):undefined;
+    const tool=weapon??shield;
+    const resistance=tool?.materialPhysicalResistance&&tool.materialPhysicalResistance>0
+     ?tool.materialPhysicalResistance:100;
     return <span key={slot} className="col-span-2">
-     {slot==="MAIN_HAND"?"Mano principal":"Mano secundaria"}: {weapon
-      ?weapon.name+" · "+(weapon.durability??f.weaponIntegrity)+"/100 durabilidad"+
-        (combatWeaponOperational(weapon)?"":" · ROTA (no utilizable)")+
+     {slot==="MAIN_HAND"?"Mano principal":"Mano secundaria"}: {tool
+      ?tool.name+(shield?" (escudo)":"")+" · "+(tool.durability??f.weaponIntegrity)+"/100 durabilidad"+
+        ((shield?shield.durability>0:combatWeaponOperational(weapon))?"":" · ROTA (no utilizable)")+
         " · resistencia "+resistance+
-        (weapon.materialName?" ("+weapon.materialName+")":" (neutra)")
+        (tool.materialName?" ("+tool.materialName+")":" (neutra)")
       :"Libre"}
     </span>;
    })}
@@ -343,11 +346,17 @@ export default function CombatEncounter({id}:{id:string}) {
    (attackSource==="OFF_HAND"&&!combatWeaponOperational(actor.offhandWeapon))
  )?defaultAttackSource(actor):attackSource;
  const selectedWeapon=actor?weaponForSource(actor,activeAttackSource):undefined;
+ const offhandShield=offhandArmorShield(actor?.equippedWearables);
+ const usableOffhandBlock=actor?.offhandWeapon
+   ?combatWeaponOperational(actor.offhandWeapon)
+   :(offhandShield?.durability??0)>0;
  const activeBlockSlot=(blockWeaponSlot==="MAIN_HAND"&&combatWeaponOperational(actor?.equippedWeapon))
-   ||(blockWeaponSlot==="OFF_HAND"&&combatWeaponOperational(actor?.offhandWeapon))
+   ||(blockWeaponSlot==="OFF_HAND"&&usableOffhandBlock)
      ?blockWeaponSlot:combatWeaponOperational(actor?.equippedWeapon)?"MAIN_HAND":
-      combatWeaponOperational(actor?.offhandWeapon)?"OFF_HAND":undefined;
- const activeBlockingWeapon=actor&&activeBlockSlot?weaponForSource(actor,activeBlockSlot):undefined;
+      usableOffhandBlock?"OFF_HAND":undefined;
+ const activeBlockingWeapon=actor&&activeBlockSlot
+   ?activeBlockSlot==="MAIN_HAND"?actor.equippedWeapon:actor.offhandWeapon??offhandShield
+   :undefined;
  const displayedAttackType=attackMode==="MAGIC_AREA"?(preparedAreaSkill?.attackType??actor?.attackType??"CUT"):(selectedWeapon?.attackType??"BLUNT");
  const physicalAnchor=state?physicalAttackStart(state,side,activeAttackSource):null;
  const droppedForActor=state?.droppedWeapons?.filter(w=>w.owner===side)??[];
@@ -1156,20 +1165,22 @@ export default function CombatEncounter({id}:{id:string}) {
          {state.droppedWeapons?.some(w=>w.owner===side)&&<option value="WEAPON">Hacia el arma arrojada</option>}
        </select>
      </label>}
-     {selectedDefense==="BLOCK"&&activeBlockSlot&&<label className="block text-sm">Arma con la que bloquear
+     {selectedDefense==="BLOCK"&&activeBlockSlot&&<label className="block text-sm">Arma con la que bloquear (o escudo)
       <select aria-label="Arma para bloquear" value={activeBlockSlot}
        onChange={e=>setBlockWeaponSlot(e.target.value as "MAIN_HAND"|"OFF_HAND")}
        className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2">
        {combatWeaponOperational(actor?.equippedWeapon)&&<option value="MAIN_HAND">Principal · {actor!.equippedWeapon!.name} ({actor!.equippedWeapon!.durability??actor!.weaponIntegrity}/100)</option>}
        {combatWeaponOperational(actor?.offhandWeapon)&&<option value="OFF_HAND">Secundaria · {actor!.offhandWeapon!.name} ({actor!.offhandWeapon!.durability??actor!.weaponIntegrity}/100)</option>}
+       {!actor?.offhandWeapon&&offhandShield&&offhandShield.durability>0&&
+        <option value="OFF_HAND">Escudo · {offhandShield.name} ({offhandShield.durability}/100)</option>}
       </select>
       <span className="mt-1 block text-xs text-zinc-400">Resistencia física del material: {activeBlockingWeapon?.materialPhysicalResistance&&activeBlockingWeapon.materialPhysicalResistance>0
        ?activeBlockingWeapon.materialPhysicalResistance:100} · el acero (100) tiene desgaste neutro.</span>
      </label>}
      {selectedDefense==="BLOCK"&&!activeBlockSlot&&
-      (actor?.equippedWeapon||actor?.offhandWeapon)&&
+      (actor?.equippedWeapon||actor?.offhandWeapon||offhandShield)&&
       <p role="status" className="text-xs text-amber-300">
-       No hay armas utilizables para bloquear. Las armas rotas no interceptan como armas íntegras; puedes elegir otra defensa.
+       No hay armas ni escudos utilizables para bloquear. El equipamiento roto no intercepta como un objeto íntegro; puedes elegir otra defensa.
       </p>}
      {selectedDefense==="CONSTRUCTION"&&defenderBlocks.length>0&&
       <label className="block text-sm">Bloque que interceptará el golpe

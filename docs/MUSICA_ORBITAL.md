@@ -80,6 +80,12 @@ La nueva ruta protegida `/api/music-theme` permite a cada usuario autenticado:
 
 Los borradores múltiples del laboratorio siguen viviendo en `localStorage`. La composición marcada **Guardar como mi tema** se guarda en el perfil y se puede usar al iniciar sesión en otro dispositivo. Para ello se añade `User.musicTheme Json?` al contrato y la migración `migrations/20261107223000_user_orbital_music_theme.sql`. **La migración debe aplicarse a la base de datos antes de publicar esta PR**.
 
+## Nombres de anillos y fase crítica de combate
+
+En la vista **Órbitas de instrumentos**, al seleccionar un anillo, el recuadro sobre el gráfico y su **centro** muestran el instrumento (por ejemplo, «Violines») y su función musical («Melodía principal», «Armonía sostenida», «Graves», «Percusión», etc.). El panel de pistas muestra la misma identificación, para que los puntos de colores no parezcan ruidos sin relación. Cuando el MIDI no especifica una función clara, se muestra «Pista instrumental» sin atribuirle una melodía que no sabemos si tiene.
+
+En combate, el panel de música detecta **sin nuevas peticiones de red** la vida actual y máxima de **ambos luchadores**. Si **cualquiera que siga vivo tiene 20 % o menos de sus HP máximos**, aparece «Fase crítica» y el tempo pasa suavemente de **×1 a ×1,3**. Se acelera el reloj de los eventos (para órbitas, pistas y percusión) y se acortan proporcionalmente las duraciones de las notas nuevas; **no se salta ni reinicia la canción**. Si todos los combatientes vivos superan el 20 % tras una curación, la música regresa suavemente a la velocidad normal. Los combatientes muertos no mantienen artificialmente la fase crítica. El cambio solo es audiovisual: no modifica PA, ticks, duración de acciones ni reglas de combate. Funciona también para la música personal seleccionada.
+
 ## Música durante combates
 
 El acceso al editor está en **Mi perfil → Mi tema musical de combate → Abrir editor musical**. El tema personal se guarda por **cuenta**, no por personaje, de modo que el mismo tema puede seleccionarse al combatir con distintos personajes. La ficha de personaje no necesita un acceso adicional.

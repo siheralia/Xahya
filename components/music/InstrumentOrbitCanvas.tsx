@@ -8,6 +8,7 @@ import {
   normalizeOrbitAngle, orbitPositionForNote, orbitTimeForAngle,
 } from "@/lib/orbital-instrument-rings.mjs";
 import { pitchFromMidi } from "@/lib/orbital-orchestra.mjs";
+import { orbitTrackLabel, orbitTrackRole, ORBIT_INSTRUMENT_SHORT_NAMES } from "@/lib/orbital-track-labels.mjs";
 
 const CENTER = 450;
 const PALETTE = [
@@ -73,6 +74,12 @@ export default function InstrumentOrbitCanvas({
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const palette = useMemo(() => tracks.map((_, i) => PALETTE[i % PALETTE.length]), [tracks.length]);
+  const selected = tracks[Math.min(selectedTrack, tracks.length - 1)];
+  const selectedLabel = selected ? orbitTrackLabel(selected) : "Órbita instrumental";
+  const selectedShort = selected
+    ? ORBIT_INSTRUMENT_SHORT_NAMES[selected.instrument] ?? "INSTRUMENTO"
+    : "ORQUESTA";
+  const selectedRole = selected ? orbitTrackRole(selected) : "Pistas musicales";
   const addAtPosition = (index: number, event: MouseEvent<SVGCircleElement>) => {
     event.stopPropagation();
     if (selectedTrack !== index) { onSelect(index); return; }
@@ -94,6 +101,17 @@ export default function InstrumentOrbitCanvas({
         <span>{tracks.length} órbitas instrumentales · acordes y notas sostenidas</span>
         <span>Vuelta de la pieza: {masterDuration.toFixed(1)} s</span>
       </div>
+      {selected && (
+        <div role="status" aria-live="polite"
+          className="mx-2 mb-2 min-w-0 rounded-xl border border-violet-300/25 bg-[#0e1c26]/80 px-3 py-2">
+          <p className="break-words text-sm font-semibold text-violet-100">
+            Anillo {Math.min(selectedTrack, tracks.length - 1) + 1} · {selectedLabel}
+          </p>
+          <p className="mt-1 break-words text-xs text-emerald-100/65">
+            {selected.name} · {selected.notes.length} notas · {selected.orbit.duration.toFixed(2)} s/vuelta
+          </p>
+        </div>
+      )}
       <svg ref={svgRef} viewBox="0 0 900 900" role="group"
         className="mx-auto block h-auto w-full max-w-full touch-manipulation"
         aria-label="Toca un anillo para seleccionarlo; vuelve a tocarlo para añadir una nota">
@@ -138,16 +156,17 @@ export default function InstrumentOrbitCanvas({
         })}
         <circle cx={CENTER} cy={CENTER} r="92" fill="#05120f" stroke="#608f7f"
           strokeOpacity=".55" />
-        <text x={CENTER} y={CENTER - 19} fontSize="13" fill="#b4ead5"
-          textAnchor="middle" letterSpacing="3">ORQUESTA</text>
-        <text x={CENTER} y={CENTER + 9} fontSize="20" fill="#f0ffef"
-          fontWeight="600" textAnchor="middle">CORONA</text>
-        <text x={CENTER} y={CENTER + 30} fontSize="14" fill="#d8d9f4"
-          textAnchor="middle">DE CENIZAS</text>
+        <text x={CENTER} y={CENTER - 22} fontSize="12" fill="#b4ead5"
+          textAnchor="middle" letterSpacing="1.5">ANILLO SELECCIONADO</text>
+        <text x={CENTER} y={CENTER + 4} fontSize="17" fill="#f0ffef"
+          fontWeight="600" textAnchor="middle">{selectedShort}</text>
+        <text x={CENTER} y={CENTER + 26} fontSize="12" fill="#d8d9f4"
+          textAnchor="middle">{selectedRole}</text>
       </svg>
       <p className="px-2 pb-3 text-center text-xs leading-5 text-emerald-100/65">
-        Toca un círculo para seleccionar el instrumento. Tócalo de nuevo para
-        añadir una nota en la vuelta actual; edítala en la lista inferior.
+        El centro muestra qué instrumento y parte musical estás editando.
+        Toca otro círculo para seleccionarlo; tócalo de nuevo para añadir una
+        nota en la vuelta actual y edítala en la lista inferior.
         Los puntos de distintas vueltas pueden compartir ángulo sin sonar simultáneamente.
       </p>
     </section>

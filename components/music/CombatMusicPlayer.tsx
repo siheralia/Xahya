@@ -8,11 +8,14 @@ import type { OrbitalScore } from "@/lib/orbital-score.mjs";
 import { orbitalEventsBetween, orbitalPercussionBetween, playOrbitalSound, playOrbitalPercussion } from "@/lib/orbital-playback.mjs";
 import { midiFromPitch, orchestralEventsBetween, playOrchestralNote, prepareOrchestralInstruments, stopOrchestralVoices } from "@/lib/orbital-orchestra.mjs";
 import { loadCoronaDefault } from "@/lib/orbital-instrument-rings.mjs";
+import { CRITICAL_TEMPO_MULTIPLIER, easeCombatTempo } from "@/lib/combat/music-tempo.mjs";
 
 const EPIC_THEME = createBattleThemeScore();
 
 /** Optional combat soundtrack: never consumes PA, ticks, mana, or server calls per note. */
-export default function CombatMusicPlayer({ active }: { active: boolean }) {
+export default function CombatMusicPlayer({
+  active, criticalHealth = false,
+}: { active: boolean; criticalHealth?: boolean }) {
   const [personal, setPersonal] = useState<OrbitalScore | null>(null);
   const [corona, setCorona] = useState<OrbitalScore | null>(null);
   const [defaultBusy, setDefaultBusy] = useState(true);
@@ -22,8 +25,16 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
   const [volume, setVolume] = useState(38);
   const [message, setMessage] = useState("");
   const clockRef = useRef(0);
+  const tempoRef = useRef(1);
+  const tempoTargetRef = useRef(1);
   const audioRef = useRef<AudioContext | null>(null);
   const score = selection === "personal" && personal ? personal : corona ?? EPIC_THEME;
+
+  // Update the target from combat HP without restarting the audio loop, even
+  // while currently sustained samples are still playing.
+  useEffect(() => {
+    tempoTargetRef.current = active && criticalHealth ? CRITICAL_TEMPO_MULTIPLIER : 1;
+  }, [active, criticalHealth]);
 
   useEffect(() => {
     let alive = true;
@@ -77,22 +88,27 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
     const step = (now: number) => {
       const delta = before === null ? 0 : Math.min(0.15, Math.max(0, (now - before) / 1000));
       before = now;
+      tempoRef.current = easeCombatTempo(tempoRef.current, tempoTargetRef.current, delta);
+      const tempo = tempoRef.current;
       const start = clockRef.current;
-      clockRef.current += delta;
+      clockRef.current += delta * tempo;
       if (delta > 0 && audioRef.current) {
         for (const note of orbitalEventsBetween(score, start, clockRef.current)) {
           if (note.instrument === "synth") {
             playOrbitalSound(audioRef.current, pitchFrequency(note.pitch), volume,
-              note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration, note.length);
+              note.toPitch ? pitchFrequency(note.toPitch) : null,
+              note.duration == null ? null : note.duration / tempo,
+              note.length == null ? null : note.length / tempo);
           } else {
             playOrchestralNote(audioRef.current, note.instrument, midiFromPitch(note.pitch),
-              note.length ?? 0.5, 100, volume,
-              note.toPitch ? midiFromPitch(note.toPitch) : null, note.duration);
+              (note.length ?? 0.5) / tempo, 100, volume,
+              note.toPitch ? midiFromPitch(note.toPitch) : null,
+              note.duration == null ? null : note.duration / tempo);
           }
         }
         for (const note of orchestralEventsBetween(score, start, clockRef.current)) {
           playOrchestralNote(audioRef.current, note.instrument,
-            note.pitch, note.duration, note.velocity, volume);
+            note.pitch, note.duration / tempo, note.velocity, volume);
         }
         for (const beat of orbitalPercussionBetween(score, start, clockRef.current)) {
           playOrbitalPercussion(audioRef.current, beat.type, volume);
@@ -132,6 +148,11 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
       className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-violet-400/25 bg-violet-950/20 px-3 py-2 text-xs text-violet-100">
       <Music2 size={18} aria-hidden="true" className="text-violet-300"/>
       <span className="font-semibold">Música</span>
+      {active && criticalHealth && (
+        <span role="status" className="rounded-md border border-rose-300/45 bg-rose-950/35 px-2 py-1 font-semibold text-rose-100">
+          <span aria-hidden="true">⚡ </span>Fase crítica · ×{CRITICAL_TEMPO_MULTIPLIER.toFixed(1)}
+        </span>
+      )}
       <select aria-label="Tema de combate" value={selection}
         onChange={(event) => {
           setPlaying(false);

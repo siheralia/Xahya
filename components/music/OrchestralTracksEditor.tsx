@@ -6,6 +6,7 @@ import { ORCHESTRAL_INSTRUMENTS } from "@/lib/orbital-score.mjs";
 import type { OrchestralTrack } from "@/lib/orbital-score.mjs";
 import { pitchFromMidi } from "@/lib/orbital-orchestra.mjs";
 import { moveInstrumentOrbit } from "@/lib/orbital-instrument-rings.mjs";
+import { orbitTrackLabel } from "@/lib/orbital-track-labels.mjs";
 import type { InstrumentOrbit } from "@/lib/orbital-score.mjs";
 
 const NAMES: Record<OrchestralTrack["instrument"], string> = {
@@ -56,6 +57,11 @@ export default function OrchestralTracksEditor({
   return (
     <section className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-violet-300/20 bg-violet-950/15 p-3 sm:p-5">
       <h2 className="text-lg font-semibold text-violet-100">Pistas orquestales</h2>
+      {track && (
+        <p className="mt-1 break-words text-sm font-semibold text-violet-200">
+          Anillo {selected + 1} · {orbitTrackLabel(track)}
+        </p>
+      )}
       <p className="mt-2 text-xs leading-5 text-emerald-100/65">
         Las pistas tocan a la vez que las órbitas. Puedes superponer acordes,
         sostener violines y contrabajos, o importar un MIDI con todas sus voces.
@@ -86,7 +92,7 @@ export default function OrchestralTracksEditor({
             <select value={selected} onChange={(e) => { onSelectTrack(Number(e.target.value)); setPage(0); }}
               className="mt-1 w-full rounded-lg border border-violet-200/25 bg-[#09271c] p-2 text-emerald-50">
               {tracks.map((item, i) =>
-                <option key={i} value={i}>{item.name} ({item.notes.length} notas)</option>)}
+                <option key={i} value={i}>{orbitTrackLabel(item)} — {item.name} ({item.notes.length} notas)</option>)}
             </select>
           </label>
           <label className="block text-xs text-emerald-100/80">

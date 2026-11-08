@@ -243,3 +243,43 @@ test("combat karma boost delta reuses passive-aware stat snapshot",()=>{
  assert.match(actions,/getEffectiveCombatCharacterStats\(characterId,tx\)/);
  assert.match(actions,/derivedStatMultipliers\[key\]/);
 });
+
+test("combat stat resolver snapshots direct item bonuses with the true final mechanic and attack factors",async()=>{
+ const result=await resolver({
+  combat:true,
+  catalog:[
+   {key:"physicalAttack",code:"PHYS_ATK",kind:"derived",active:true},
+   {key:"magicDefense",code:"MAG_DEF",kind:"derived",active:true},
+  ],
+  items:[{id:10,itemType:"ARMOR",effects:[
+   {type:"stat_bonus",stat:"PHYS_ATK",value:5},
+   {type:"stat_bonus",stat:"MAG_DEF",value:3},
+   {type:"stat_bonus",stat:"STR",value:12},
+  ]},{id:11,itemType:"ACCESSORY",effects:[
+   {type:"stat_multiplier",stat:"ATTACK_TOTAL",value:2},
+  ]}],
+  owned:[
+   {id:101,characterId:1,itemId:10,quantity:1,equipped:true},
+   {id:102,characterId:1,itemId:11,quantity:1,equipped:true},
+  ],
+  mechanicFactors:{PHYS_ATK:1.5},
+  derived:{magicDefense:50},
+ });
+ assert.equal(result.derived.physicalAttack,(112+5)*1.5*2);
+ assert.equal(result.derived.magicDefense,53);
+ assert.equal(result.combatWearableStatBonuses.length,1);
+ const copy=result.combatWearableStatBonuses[0];
+ assert.equal(copy.characterItemId,101);
+ assert.equal(copy.itemId,10);
+ assert.equal(copy.bonuses.physicalAttack,15);
+ assert.equal(copy.bonuses.magicDefense,3);
+ assert.equal(copy.bonuses.strength,undefined,"base stats are not approximated");
+});
+
+test("noncombat stats do not carry mutable combat equipment snapshots",async()=>{
+ const result=await resolver({items:[{id:1,itemType:"ARMOR",effects:[
+  {type:"stat_bonus",stat:"PHYS_ATK",value:7}
+ ]}],owned:[{id:101,characterId:1,itemId:1,quantity:1,equipped:true}]});
+ assert.equal(result.derived.physicalAttack,107);
+ assert.equal(result.combatWearableStatBonuses.length,0);
+});

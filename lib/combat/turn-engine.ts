@@ -170,7 +170,7 @@ export type CombatState = {
   microEffects?: { definitions:Partial<Record<Side,EffectContainer[]>>; state:MicroState; sequence:number };
   /** Ordered rays to resolve on the start of a new round. */
   mirrorRayQueue?: string[];
-  droppedWeapons?: Array<{owner:Side;weapon:CombatWeapon;slot?:"MAIN_HAND"|"OFF_HAND";positionMeters:number}>;
+  droppedWeapons?: Array<{owner:Side;weapon:CombatWeapon;slot?:"MAIN_HAND"|"OFF_HAND";positionMeters:number;fieldPosition?:Point}>;
   /** All chronological events needed to narrate a long fight (not just the last 100 on-screen entries). */
   narrativeHistory?: CombatLog[];
   /** Persisted final chronicle. Created exactly once when the fight ends. */
@@ -316,6 +316,21 @@ function clearPhysicalStrokes(state:CombatState,side:Side){
 }
 function activeDroppedWeapon(state:CombatState,by:Side,slot?:"MAIN_HAND"|"OFF_HAND"){
  return state.droppedWeapons?.find(w=>w.owner===by&&(!slot||(w.slot??"MAIN_HAND")===slot));
+}
+/** New throws carry a real world point; legacy snapshots use longitudinal pickup. */
+function droppedWeaponDistance(fighter:CombatFighter,
+  dropped:NonNullable<CombatState["droppedWeapons"]>[number]):number {
+  const from=fieldPosition(fighter);
+  const to=dropped.fieldPosition??{x:dropped.positionMeters,y:from.y};
+  return Math.hypot(to.x-from.x,to.y-from.y);
+}
+function vectorTowardDroppedWeapon(fighter:CombatFighter,
+  dropped:NonNullable<CombatState["droppedWeapons"]>[number],maximumMeters:number):Point {
+  const from=fieldPosition(fighter);
+  const to=dropped.fieldPosition??{x:dropped.positionMeters,y:from.y};
+  const dx=to.x-from.x,dy=to.y-from.y,distance=Math.hypot(dx,dy);
+  const step=Math.min(Math.max(0,maximumMeters),distance);
+  return distance>0?{x:dx*step/distance,y:dy*step/distance}:{x:0,y:0};
 }
 function restoreWeapon(state:CombatState,dropped:NonNullable<CombatState["droppedWeapons"]>[number]):boolean {
  const fighter=state.actors[dropped.owner];
@@ -1089,13 +1104,18 @@ function resolveTargetedMirrorAttack(
     constructionId:mirror.id,damage:reflected,contact:true,
     summary:mirror.label+" reflejó "+reflected+" puntos de daño mágico hacia "+actor.name});
   }else{
-   // Directly aimed physical swings contact this tangible mirror. Reuse the
-   // existing solid-cover formula, charging only the integrity it absorbs.
-   // Ranged attacks, thrown weapons, unarmed strikes and magic do not wear
-   // an equipped melee weapon here.
-   const source=command.attackSource??defaultAttackSource(actor);
-   if(mirror.tangible&&!ranged&&(source==="MAIN_HAND"||source==="OFF_HAND")){
-    const weapon=source==="MAIN_HAND"?actor.equippedWeapon:actor.offhandWeapon;
+   // A physical hit wears the touching tool: either the equipped melee weapon
+   // or the thrown inventory copy already detached at launch. Bows do not
+   // contact their arrows' target.
+   const thrownCopy=command.throwWeapon
+     ?state.droppedWeapons?.findLast(d=>d.owner===by):undefined;
+   const source=command.throwWeapon
+     ?(thrownCopy?.slot??command.attackSource??"MAIN_HAND")
+     :(command.attackSource??defaultAttackSource(actor));
+   if(mirror.tangible&&!command.rangedPhysical&&
+     (source==="MAIN_HAND"||source==="OFF_HAND")){
+    const weapon=command.throwWeapon?thrownCopy?.weapon
+      :source==="MAIN_HAND"?actor.equippedWeapon:actor.offhandWeapon;
     if(weapon?.mode==="MELEE"&&combatWeaponOperational(weapon)){
      const previous=weapon.durability??(source==="MAIN_HAND"?actor.weaponIntegrity:100);
      const absorbed=Math.min(Math.max(0,mirror.durability??0),damage);
@@ -1107,12 +1127,14 @@ function resolveTargetedMirrorAttack(
       addLog(state,{kind:"WEAPON_WEAR",tick:state.tick,by,
        weaponName:weapon.name,weaponIntegrity:next,damage:previous-next,
        summary:weapon.name+" perdió "+(previous-next)+
-        " de durabilidad al golpear un espejo tangible."});
+        (command.throwWeapon?" de durabilidad al ser arrojada contra un espejo tangible.":
+         " de durabilidad al golpear un espejo tangible.")});
       if(previous>0&&next===0)
        addLog(state,{kind:"WEAPON_BREAK",tick:state.tick,by,
         weaponName:weapon.name,weaponIntegrity:0,
         summary:actor.name+" rompió "+weapon.name+
-         " al golpear un espejo. Debe repararla para volver a usarla."});
+         (command.throwWeapon?" al arrojarla contra un espejo.":" al golpear un espejo.")+
+         " Debe repararla para volver a usarla."});
      }
     }
    }
@@ -1542,12 +1564,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
       const from=fieldPosition(fighter);
       const vector=distortChaosMove(state,by,
-        {x:sign*(direction==="AWAY"?-0.5:step),y:0});
+        direction==="WEAPON"&&dropped
+          ?vectorTowardDroppedWeapon(fighter,dropped,0.5)
+          :{x:sign*(direction==="AWAY"?-0.5:step),y:0});
       assertMovementClear(state.constructions,from,
         {x:from.x+vector.x,y:from.y+vector.y});
       moveFighterOnField(fighter,vector);
       clearPhysicalStrokes(state,by);
-      if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2){
+      if(direction==="WEAPON"&&dropped&&droppedWeaponDistance(fighter,dropped)<0.2){
         restoreWeapon(state,dropped);
       }
     }
@@ -1700,7 +1724,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           if(projectilePath&&pending.thrownWeapon&&lastCover?.fieldPosition){
             const dropped=state.droppedWeapons?.findLast(d=>
               d.owner===pending.by&&d.slot===pending.attackSource);
-            if(dropped)dropped.positionMeters=lastCover.fieldPosition.x;
+            if(dropped){
+              dropped.positionMeters=lastCover.fieldPosition.x;
+              dropped.fieldPosition={...lastCover.fieldPosition};
+            }
           }
         }
       }
@@ -1923,14 +1950,19 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(direction==="WEAPON"&&!dropped)throw new Error("No hay un arma arrojada que recuperar.");
     const target=direction==="WEAPON"?dropped!.positionMeters:rival.positionMeters;
     const sign = Math.sign(target-fighter.positionMeters)||1;
-    const magnitude = direction==="AWAY" ? -command.meters : Math.min(command.meters,Math.abs(target-fighter.positionMeters));
+    const magnitude = direction==="AWAY" ? -command.meters :
+      direction==="WEAPON"&&dropped
+        ?Math.min(command.meters,droppedWeaponDistance(fighter,dropped))
+        :Math.min(command.meters,Math.abs(target-fighter.positionMeters));
     const start=fieldPosition(fighter);
-    const vector=distortChaosMove(state,by,{x:sign*magnitude,y:0});
+    const vector=distortChaosMove(state,by,direction==="WEAPON"&&dropped
+      ?vectorTowardDroppedWeapon(fighter,dropped,command.meters)
+      :{x:sign*magnitude,y:0});
     assertMovementClear(state.constructions,start,
       {x:start.x+vector.x,y:start.y+vector.y});
     moveFighterOnField(fighter,vector);
     let recoveredWeapon:string|undefined;
-    if(direction==="WEAPON"&&dropped&&Math.abs(fighter.positionMeters-dropped.positionMeters)<0.2&&restoreWeapon(state,dropped)){
+    if(direction==="WEAPON"&&dropped&&droppedWeaponDistance(fighter,dropped)<0.2&&restoreWeapon(state,dropped)){
       recoveredWeapon=dropped.weapon.name;
     }
     if(magnitude!==0)clearPhysicalStrokes(state,by);
@@ -2025,9 +2057,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Marca el centro del ataque de área en el lienzo.");
     if(isOrientedCombatArea(serverSkillArea))validateAreaDirection(command.areaAngleDegrees);
     else if(command.areaAngleDegrees!==undefined)throw new Error("Dirección angular no permitida para este ataque.");
-    const actualDistance=targetedSummon?
-      Math.hypot(fieldPosition(fighter).x-targetedSummon.fieldPosition.x,
-        fieldPosition(fighter).y-targetedSummon.fieldPosition.y):fieldDistance(fighter,rival);
+    // Targeted creatures and anchored mirrors occupy their own world point,
+    // not the opponent's location. Unanchored legacy mirrors retain fallback.
+    const actualTargetPoint=targetedSummon?.fieldPosition??targetedMirror?.fieldPosition;
+    const actualDistance=actualTargetPoint
+      ?Math.hypot(fieldPosition(fighter).x-actualTargetPoint.x,
+        fieldPosition(fighter).y-actualTargetPoint.y):fieldDistance(fighter,rival);
     if (actualDistance>(serverSkillRangeMeters??(magic?BASIC_MAGIC_RANGE_METERS:effectiveWeaponReachMeters(fighter,thrown,source))))
       throw new Error(magic?"El objetivo está fuera del alcance mágico de 4 m.":"El objetivo está fuera del alcance máximo del ataque.");
     const distanceAtLaunch=actualDistance;
@@ -2049,7 +2084,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(thrown&&selectedWeapon){
       const slot=source as "MAIN_HAND"|"OFF_HAND";
       state.droppedWeapons??=[];
-      state.droppedWeapons.push({owner:by,slot,weapon:{...selectedWeapon},positionMeters:rival.positionMeters});
+      const dropPoint=actualTargetPoint??fieldPosition(rival);
+      state.droppedWeapons.push({owner:by,slot,weapon:{...selectedWeapon},
+        positionMeters:dropPoint.x,fieldPosition:{...dropPoint}});
       if(slot==="MAIN_HAND")fighter.equippedWeapon=undefined;
       else fighter.offhandWeapon=undefined;
       if(state.physicalPathEnds?.[by])delete state.physicalPathEnds[by]![source];

@@ -46,7 +46,7 @@ export function combatWearableStatSnapshots(
    if(record.type!=="stat_bonus"||typeof record.stat!=="string")continue;
    // Apply exactly the configured derived aliases, not legacy/deactivated
    // stat keys. An unsupported target must remain completely untouched.
-   const key=derivedAliases[record.stat]??derivedAliases[record.stat.toUpperCase()];
+   const key=derivedAliases[record.stat];
    if(!key||!supported.has(key))continue;
    const value=record.value;
    if(typeof value!=="number"||!Number.isFinite(value))continue;

@@ -10,6 +10,13 @@ const resolverSource = fs.readFileSync(path.join(__dirname, "../lib/stats/effect
 const js = ts.transpileModule(resolverSource, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const wearableBonusSource=fs.readFileSync(path.join(__dirname,
+  "../lib/combat/wearable-stat-bonus.ts"),"utf8");
+const wearableBonusJs=ts.transpileModule(wearableBonusSource,{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
+}).outputText;
+const wearableBonusModule={};
+vm.runInNewContext(wearableBonusJs,{exports:wearableBonusModule,require:()=>({})});
 
 // Test fixture: these entries model an active catalog; production definitions remain in AppSetting.
 const ACTIVE_ATTACK_CATALOG = [
@@ -50,6 +57,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
     } },
     "@/lib/perks": { getPerkEffects: (entries) => entries.flatMap((entry) => entry.perk?.effects ?? []) },
     "@/lib/skills/interaction-engine": {parseEnvironment:(v)=>v??{}, activeStatMultipliers:()=>mechanicFactors},
+    "@/lib/combat/wearable-stat-bonus":wearableBonusModule,
   };
   const moduleExports = {};
   vm.runInNewContext(js, { exports: moduleExports, require: (id) => {

@@ -111,7 +111,7 @@ test("intact equipment starts with its existing bonuses without adding them agai
 });
 
 test("a confirmed lethal durability hit removes only worn armor's flat bonus",()=>{
- const s=state([armor(200,2,8)]);
+ const s=state([armor(200,1,8)]);
  const original=structuredClone(s);
  const launched=applyCombatCommand(s,"PLAYER",{
   kind:"ATTACK",attackType:"BLUNT",

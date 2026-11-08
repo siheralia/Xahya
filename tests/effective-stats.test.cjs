@@ -17,6 +17,16 @@ const wearableBonusJs=ts.transpileModule(wearableBonusSource,{
 }).outputText;
 const wearableBonusModule={};
 vm.runInNewContext(wearableBonusJs,{exports:wearableBonusModule,require:()=>({})});
+const equipmentReplaySource=fs.readFileSync(path.join(__dirname,
+  "../lib/combat/equipment-derived-replay.ts"),"utf8");
+const equipmentReplayJs=ts.transpileModule(equipmentReplaySource,{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
+}).outputText;
+const equipmentReplayModule={};
+vm.runInNewContext(equipmentReplayJs,{
+  exports:equipmentReplayModule,
+  require:(name)=>name==="./wearable-stat-bonus.ts"?wearableBonusModule:{},
+});
 
 // Test fixture: these entries model an active catalog; production definitions remain in AppSetting.
 const ACTIVE_ATTACK_CATALOG = [
@@ -58,6 +68,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
     "@/lib/perks": { getPerkEffects: (entries) => entries.flatMap((entry) => entry.perk?.effects ?? []) },
     "@/lib/skills/interaction-engine": {parseEnvironment:(v)=>v??{}, activeStatMultipliers:()=>mechanicFactors},
     "@/lib/combat/wearable-stat-bonus":wearableBonusModule,
+    "@/lib/combat/equipment-derived-replay":equipmentReplayModule,
   };
   const moduleExports = {};
   vm.runInNewContext(js, { exports: moduleExports, require: (id) => {

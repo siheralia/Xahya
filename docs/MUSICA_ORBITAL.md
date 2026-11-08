@@ -21,6 +21,25 @@ Ruta: `/musica-orbital` (requiere iniciar sesión).
 
 Formato `xahya-orbital-score` versión 1: `format`, `version`, `title`, `groups` (se mantienen como configuración de respaldo de archivos antiguos), `percussion: "battle" | "none"` y `rings` (cada anillo incluye `pitch`, `enabled`, `phase`, `delay`, `duration`, `direction`, `angles` y `slides`). Se identifican los anillos por `pitch`, para admitir archivos anteriores con menos anillos. Si un archivo antiguo no contiene `duration`/`direction` por anillo, se heredan del grupo; si no contiene `percussion`, se asume `"none"`.
 
+## Orquesta polifónica y MIDI (propuesta experimental)
+
+Esta evolución **no cambia** el tema de sistema `Ascenso de Xahya` por defecto. Conserva las 16 órbitas y las partituras JSON versión 1, pero añade dos mecanismos combinables:
+
+- **Duraciones reales por nota en cada círculo**: `ring.noteLengths: [{ angle, duration }]`, donde `duration` está entre 0,05 y 30 segundos. Las notas aparecen como **arcos** que muestran cuánto se mantienen. Una partitura antigua sin `noteLengths` conserva sus ataques cortos originales.
+- **Instrumento por círculo**: `ring.instrument` opcional, predeterminado `"synth"`. Desde **Ajustar** se pueden elegir violín, conjunto de cuerdas, trompa, violonchelo, contrabajo, guitarra, coro, trémolo, timbales, metales y batería.
+- **Pistas polifónicas independientes**: `tracks: [{ name, instrument, notes: [{ pitch, start, duration, velocity }] }]`. `pitch` es la altura MIDI (21–108), `start` y `duration` son segundos y `velocity` va de 1 a 127. Varias voces pueden comenzar a la vez, incluso con la misma altura; las pistas se ejecutan **simultáneamente con los círculos**.
+- **Importar MIDI estándar**: lector de archivos `.mid` con mapa de tempo, múltiples pistas, cambios de instrumento GM y voces superpuestas. Cada pista se puede editar desde el panel **Pistas orquestales** con paginación para no mostrar cientos de notas juntas.
+- **Preset Corona de Cenizas**: botón **Corona de Cenizas · orquesta (MIDI multipista)**, basado en la composición original ya aprobada en audio. Contiene 12 pistas y 587 notas, y dura aproximadamente 28 segundos. El MIDI está incluido como recurso estático comprimido `public/music/corona-de-cenizas.mid.gz.b64`; el navegador lo descomprime al cargar el preset. Si `DecompressionStream` no está disponible, se puede importar el archivo `.mid` manualmente.
+- **Guardado por usuario**: el PUT de `/api/music-theme` admite hasta 160 KB de JSON validado; la cuenta conserva el tema personal, mientras que el predeterminado del sistema continúa intacto.
+
+### Reproducción y licencias
+
+La orquesta carga, únicamente después de pulsar **Reproducir**, las muestras necesarias desde **FluidR3_GM (Frank Wen y colaboradores, CC BY 3.0)**, fuente: https://gleitz.github.io/midi-js-soundfonts/ ; licencia: https://creativecommons.org/licenses/by/3.0/ . Se usa el nombre de cada instrumento para obtener las muestras de la librería pública. No se incluyen archivos de SoundFont en el repositorio. La descarga puede tardar y necesita conexión a la red; si no se logra, el motor genera cada nota con un sintetizador local y mantiene la polifonía, aunque el timbre es menos realista. Un compresor dinámico limita la suma de muchas voces.
+
+La duración del MIDI se respeta al reproducir y al exportar JSON. Los deslizamientos orbitales anteriores continúan funcionando. El MIDI puede contener notas graves y agudas fuera de los 16 anillos visibles; estas notas pertenecen a las pistas orquestales y **no se reubican falsamente** en el gráfico. Los tiempos originales no dependen del giro de los círculos.
+
+Esta función no requiere migración SQL adicional ni modifica los datos de personaje o de combate. No fusionar/desplegar hasta revisar el sonido en el editor.
+
 ## Melodía proporcionada
 
 El botón **Cargar melodía proporcionada · 53 notas** distribuye las seis frases de notas suministradas por la usuaria en 65 posiciones temporales; 53 tienen notas, con dos posiciones vacías entre frases y una al principio y al final.

@@ -6,6 +6,7 @@ import { createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs"
 import { parseOrbitalScore } from "@/lib/orbital-score.mjs";
 import type { OrbitalScore } from "@/lib/orbital-score.mjs";
 import { orbitalEventsBetween, orbitalPercussionBetween, playOrbitalSound, playOrbitalPercussion } from "@/lib/orbital-playback.mjs";
+import { midiFromPitch, orchestralEventsBetween, playOrchestralNote, prepareOrchestralInstruments, stopOrchestralVoices } from "@/lib/orbital-orchestra.mjs";
 
 const EPIC_THEME = createBattleThemeScore();
 
@@ -14,6 +15,7 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
   const [personal, setPersonal] = useState<OrbitalScore | null>(null);
   const [selection, setSelection] = useState<"default" | "personal">("default");
   const [playing, setPlaying] = useState(false);
+  const [loadingSounds, setLoadingSounds] = useState(false);
   const [volume, setVolume] = useState(38);
   const [message, setMessage] = useState("");
   const clockRef = useRef(0);
@@ -46,7 +48,10 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
   }, [active]);
 
   useEffect(() => {
-    return () => { if (audioRef.current) void audioRef.current.close(); };
+    return () => {
+      stopOrchestralVoices(audioRef.current);
+      if (audioRef.current) void audioRef.current.close();
+    };
   }, []);
 
   useEffect(() => {
@@ -60,8 +65,18 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
       clockRef.current += delta;
       if (delta > 0 && audioRef.current) {
         for (const note of orbitalEventsBetween(score, start, clockRef.current)) {
-          playOrbitalSound(audioRef.current, pitchFrequency(note.pitch), volume,
-            note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration);
+          if (note.instrument === "synth") {
+            playOrbitalSound(audioRef.current, pitchFrequency(note.pitch), volume,
+              note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration, note.length);
+          } else {
+            playOrchestralNote(audioRef.current, note.instrument, midiFromPitch(note.pitch),
+              note.length ?? 0.5, 100, volume,
+              note.toPitch ? midiFromPitch(note.toPitch) : null, note.duration);
+          }
+        }
+        for (const note of orchestralEventsBetween(score, start, clockRef.current)) {
+          playOrchestralNote(audioRef.current, note.instrument,
+            note.pitch, note.duration, note.velocity, volume);
         }
         for (const beat of orbitalPercussionBetween(score, start, clockRef.current)) {
           playOrbitalPercussion(audioRef.current, beat.type, volume);
@@ -70,20 +85,29 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
       frame = window.requestAnimationFrame(step);
     };
     frame = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      stopOrchestralVoices(audioRef.current);
+    };
   }, [playing, active, score, volume]);
 
   async function toggle() {
     if (playing) { setPlaying(false); return; }
+    if (loadingSounds) return;
     try {
       if (!audioRef.current) {
         audioRef.current = new AudioContext();
       }
       await audioRef.current.resume();
-      setMessage("");
+      setLoadingSounds(true);
+      const loading = await prepareOrchestralInstruments(audioRef.current, score);
+      await audioRef.current.resume();
+      setMessage(loading.fallback ? "Algunos instrumentos usarán síntesis local." : "");
       setPlaying(true);
     } catch {
       setMessage("Toca de nuevo para activar el audio de este navegador.");
+    } finally {
+      setLoadingSounds(false);
     }
   }
 
@@ -102,11 +126,11 @@ export default function CombatMusicPlayer({ active }: { active: boolean }) {
         <option value="default">Ascenso de Xahya</option>
         {personal && <option value="personal">Mi tema: {personal.title}</option>}
       </select>
-      <button type="button" onClick={toggle} disabled={!active}
+      <button type="button" onClick={toggle} disabled={!active || loadingSounds}
         aria-label={playing ? "Pausar música" : "Reproducir música"}
         className="inline-flex min-h-9 items-center gap-1 rounded-md border border-violet-400/40 px-3 py-2 hover:bg-violet-500/15 disabled:opacity-40">
         {playing ? <Pause size={16}/> : <Play size={16}/>}
-        {playing ? "Pausar" : "Sonar"}
+        {loadingSounds ? "Cargando…" : playing ? "Pausar" : "Sonar"}
       </button>
       <label className="flex items-center gap-1">
         <Volume2 size={14} aria-hidden="true"/>

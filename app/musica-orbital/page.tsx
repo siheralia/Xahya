@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
 import { angleDistance, normalizeDegrees, orbitalPoint, orbitalTurnAt } from "@/lib/orbital-sequencer.mjs";
 import { BATTLE_TURN_SECONDS, createBattleThemeScore, pitchFrequency } from "@/lib/orbital-theme.mjs";
 import { elapsedSlideProgress, orbitalEventsBetween, orbitalPercussionBetween, playOrbitalSound, playOrbitalPercussion } from "@/lib/orbital-playback.mjs";
-import { createGoldenScore, parseOrbitalScore, SCORE_FORMAT } from "@/lib/orbital-score.mjs";
-import type { OrbitalScore, OrbitalSlide } from "@/lib/orbital-score.mjs";
+import { createGoldenScore, parseOrbitalScore, SCORE_FORMAT, RING_INSTRUMENTS } from "@/lib/orbital-score.mjs";
+import type { OrbitalScore, OrbitalSlide, OrbitalNoteLength, OrbitalInstrument, OrchestralTrack } from "@/lib/orbital-score.mjs";
+import { importOrbitalMidi } from "@/lib/orbital-midi.mjs";
+import { midiFromPitch, orchestralEventsBetween, playOrchestralNote, prepareOrchestralInstruments, stopOrchestralVoices } from "@/lib/orbital-orchestra.mjs";
+import OrchestralTracksEditor from "@/components/music/OrchestralTracksEditor";
 
 const CENTER = 450;
 const SCORE_STORAGE_KEY = "xahya.orbital-scores.v1";
@@ -33,6 +36,15 @@ const RINGS = [
 ] as const;
 
 const BATTLE_SCORE = createBattleThemeScore();
+const INSTRUMENT_LABELS: Record<OrbitalInstrument, string> = {
+  synth: "Sintetizador orbital",
+  violin: "Violín", string_ensemble_1: "Conjunto de cuerdas",
+  french_horn: "Trompa", cello: "Violonchelo",
+  acoustic_bass: "Contrabajo", distortion_guitar: "Guitarra eléctrica",
+  choir_aahs: "Coro", tremolo_strings: "Cuerdas trémolo",
+  timpani: "Timbales", brass_section: "Metales", drumkit: "Batería",
+};
+const ORCHESTRA_OPTIONS = RING_INSTRUMENTS.filter((name) => name !== "synth");
 
 function makeNotes() {
   return BATTLE_SCORE.rings.map((ring) => [...ring.angles]);
@@ -41,6 +53,10 @@ function makeNotes() {
 export default function OrbitalMusicPage() {
   const [notes, setNotes] = useState<number[][]>(makeNotes);
   const [slides, setSlides] = useState<OrbitalSlide[][]>(() => BATTLE_SCORE.rings.map((ring) => [...ring.slides]));
+  const [noteLengths, setNoteLengths] = useState<OrbitalNoteLength[][]>(() => BATTLE_SCORE.rings.map((ring) => [...ring.noteLengths]));
+  const [ringInstruments, setRingInstruments] = useState<OrbitalInstrument[]>(() => BATTLE_SCORE.rings.map((ring) => ring.instrument));
+  const [tracks, setTracks] = useState<OrchestralTrack[]>(() => BATTLE_SCORE.tracks);
+  const [loadingSounds, setLoadingSounds] = useState(false);
   const [phases, setPhases] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.phase));
   const [muted, setMuted] = useState<boolean[]>(() => BATTLE_SCORE.rings.map((ring) => !ring.enabled));
   const [groupDurations, setGroupDurations] = useState<[number, number]>([BATTLE_TURN_SECONDS, BATTLE_TURN_SECONDS]);
@@ -175,6 +191,7 @@ export default function OrbitalMusicPage() {
       version: 1,
       title: scoreName.trim() || "Mi partitura",
       percussion,
+      tracks,
       groups: groupDurations.map((duration, group) => ({
         duration, direction: groupDirections[group],
       })),
@@ -185,11 +202,25 @@ export default function OrbitalMusicPage() {
         delay: startDelays[index],
         duration: ringDurations[index],
         direction: ringDirections[index],
+        instrument: ringInstruments[index],
         angles: notes[index],
+        noteLengths: noteLengths[index],
         slides: slides[index],
       })),
     });
   }
+
+  // MIDI scores contain hundreds of notes. Validate/normalize only when the
+  // musical content changes, not during every animation frame.
+  const playbackScore = useMemo(() => {
+    // The user may temporarily clear a track name while editing. Report
+    // validation in the controls instead of crashing the whole editor.
+    try { return createCurrentScore(); } catch { return null; }
+  }, [
+    notes, slides, noteLengths, ringInstruments, tracks, phases, muted,
+    groupDurations, groupDirections, ringDurations, ringDirections, startDelays,
+    percussion, scoreName,
+  ]);
 
   function loadScore(score: OrbitalScore) {
     const safe = parseOrbitalScore(score);
@@ -198,6 +229,9 @@ export default function OrbitalMusicPage() {
     setElapsed(0);
     setNotes(safe.rings.map((ring) => [...ring.angles]));
     setSlides(safe.rings.map((ring) => [...ring.slides]));
+    setNoteLengths(safe.rings.map((ring) => [...ring.noteLengths]));
+    setRingInstruments(safe.rings.map((ring) => ring.instrument));
+    setTracks(safe.tracks);
     setPhases(safe.rings.map((ring) => ring.phase));
     setStartDelays(safe.rings.map((ring) => ring.delay));
     setMuted(safe.rings.map((ring) => !ring.enabled));
@@ -275,11 +309,48 @@ export default function OrbitalMusicPage() {
     }
   }
 
-  const stop = useCallback(() => setPlaying(false), []);
+  async function importMidi(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const score = importOrbitalMidi(await file.arrayBuffer(), file.name.replace(/\.mid(i)?$/i, "").slice(0, 120));
+      loadScore(score);
+      setScoreMessage("MIDI cargado con sus pistas, acordes y duraciones originales.");
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo importar el MIDI.");
+    }
+  }
+
+  async function loadCorona() {
+    try {
+      setThemeBusy(true);
+      const response = await fetch("/music/corona-de-cenizas.mid.gz.b64");
+      if (!response.ok) throw new Error("No se encontró la partitura orquestal.");
+      if (typeof DecompressionStream === "undefined") {
+        throw new Error("Este navegador no puede abrir la partitura comprimida. Puedes importar el MIDI manualmente.");
+      }
+      const encoded = (await response.text()).trim();
+      const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
+      const decoded = new Response(new Blob([bytes]).stream()
+        .pipeThrough(new DecompressionStream("gzip")));
+      loadScore(importOrbitalMidi(await decoded.arrayBuffer(), "Corona de Cenizas — orquestal"));
+      setScoreMessage("Corona de Cenizas cargada como pistas orquestales editables.");
+    } catch (cause) {
+      setScoreMessage(cause instanceof Error ? cause.message : "No se pudo cargar el tema.");
+    } finally {
+      setThemeBusy(false);
+    }
+  }
+
+  const stop = useCallback(() => {
+    setPlaying(false);
+    stopOrchestralVoices(contextRef.current);
+  }, []);
 
   const togglePlayback = async () => {
-    if (playing) {
-      stop();
+    if (playing || loadingSounds) {
+      if (playing) stop();
       return;
     }
     try {
@@ -293,21 +364,35 @@ export default function OrbitalMusicPage() {
         contextRef.current = new AudioContextConstructor();
       }
       await contextRef.current.resume();
+      if (!playbackScore) {
+        setError("Revisa los nombres, tiempos y duraciones de las pistas antes de reproducir.");
+        return;
+      }
+      setLoadingSounds(true);
+      const availability = await prepareOrchestralInstruments(contextRef.current, playbackScore);
+      await contextRef.current.resume();
+      setLoadingSounds(false);
+      if (availability.fallback) {
+        setScoreMessage("Algunos instrumentos no cargaron sus muestras; se usará síntesis local.");
+      }
       setError("");
       setPlaying(true);
     } catch {
       setError("No se pudo activar el audio. Revisa los permisos del navegador.");
+    } finally {
+      setLoadingSounds(false);
     }
   };
 
   useEffect(() => {
     return () => {
+      stopOrchestralVoices(contextRef.current);
       if (contextRef.current) void contextRef.current.close();
     };
   }, []);
 
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || !playbackScore) return;
     let animationFrame = 0;
     let previousTime: number | null = null;
     const frame = (time: number) => {
@@ -318,10 +403,20 @@ export default function OrbitalMusicPage() {
       const to = from + dt;
       elapsedRef.current = to;
       if (dt > 0 && contextRef.current) {
-        const score = createCurrentScore();
+        const score = playbackScore;
         for (const note of orbitalEventsBetween(score, from, to)) {
-          playOrbitalSound(contextRef.current, pitchFrequency(note.pitch), volume,
-            note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration);
+          if (note.instrument === "synth") {
+            playOrbitalSound(contextRef.current, pitchFrequency(note.pitch), volume,
+              note.toPitch ? pitchFrequency(note.toPitch) : null, note.duration, note.length);
+          } else {
+            playOrchestralNote(contextRef.current, note.instrument, midiFromPitch(note.pitch),
+              note.length ?? 0.5, 100, volume, note.toPitch ? midiFromPitch(note.toPitch) : null,
+              note.duration);
+          }
+        }
+        for (const note of orchestralEventsBetween(score, from, to)) {
+          playOrchestralNote(contextRef.current, note.instrument, note.pitch,
+            note.duration, note.velocity, volume);
         }
         for (const beat of orbitalPercussionBetween(score, from, to)) {
           playOrbitalPercussion(contextRef.current, beat.type, volume);
@@ -334,8 +429,11 @@ export default function OrbitalMusicPage() {
       animationFrame = requestAnimationFrame(frame);
     };
     animationFrame = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [playing, notes, slides, phases, muted, groupDurations, groupDirections, ringDurations, ringDirections, startDelays, percussion, volume, scoreName]);
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      stopOrchestralVoices(contextRef.current);
+    };
+  }, [playing, playbackScore, volume]);
 
   const resetPlayhead = () => {
     elapsedRef.current = 0;
@@ -360,17 +458,21 @@ export default function OrbitalMusicPage() {
       index === ringIndex ? ringNotes.filter((_, position) => position !== noteIndex) : ringNotes));
     setSlides((current) => current.map((ringSlides, index) =>
       index === ringIndex ? ringSlides.filter((slide) => slide.angle !== angle) : ringSlides));
+    setNoteLengths((current) => current.map((lengths, index) =>
+      index === ringIndex ? lengths.filter((note) => note.angle !== angle) : lengths));
   };
 
   const shuffleNotes = () => {
     setSlides(RINGS.map(() => []));
+    setNoteLengths(RINGS.map(() => []));
     setNotes((current) => current.map((ringNotes) =>
       Array.from({ length: ringNotes.length }, () => Math.floor(Math.random() * 72) * 5)
         .filter((angle, index, all) => all.findIndex((other) => angleDistance(other, angle) < 10) === index)
         .sort((a, b) => a - b)));
   };
 
-  const noteCount = notes.reduce((sum, ring) => sum + ring.length, 0);
+  const noteCount = notes.reduce((sum, ring) => sum + ring.length, 0) +
+    tracks.reduce((sum, track) => sum + track.notes.length, 0);
   const ringTurn = (ringIndex: number) => orbitalTurnAt(
     elapsed, startDelays[ringIndex], phases[ringIndex],
     ringDurations[ringIndex], ringDirections[ringIndex],
@@ -432,8 +534,19 @@ export default function OrbitalMusicPage() {
                     const turn = ringTurn(index);
                     const headAngle = normalizeDegrees((turn ?? phases[index] / 360) * 360);
                     const lit = turn !== null && angleDistance(headAngle, angle) < 2.5 && playing && !muted[index];
+                    const held = noteLengths[index]?.find((note) => note.angle === angle)?.duration;
+                    const sweep = held ? Math.min(359, 360 * held / ringDurations[index]) : 0;
+                    const end = orbitalPoint(ring.radius, angle + ringDirections[index] * sweep, CENTER);
+                    const arc = sweep > 0 ? "M " + point.x + " " + point.y +
+                      " A " + ring.radius + " " + ring.radius + " 0 " +
+                      (sweep > 180 ? 1 : 0) + " " + (ringDirections[index] === 1 ? 1 : 0) +
+                      " " + end.x + " " + end.y : null;
                     return (
                       <g key={index + "-" + angle}>
+                        {arc && (
+                          <path d={arc} fill="none" stroke={ring.color} strokeWidth="6"
+                            strokeLinecap="round" opacity=".76" pointerEvents="none" />
+                        )}
                         {lit && (
                           <circle cx={point.x} cy={point.y} r="17" fill={ring.color} opacity=".65"
                             filter={"url(#orbital-glow-" + index + ")"} />
@@ -516,9 +629,9 @@ export default function OrbitalMusicPage() {
             <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
               <h2 className="text-lg font-semibold">Reproducción</h2>
               <div className="mt-4 flex gap-2">
-                <button type="button" onClick={togglePlayback}
+                <button type="button" onClick={togglePlayback} disabled={loadingSounds}
                   className="flex-1 rounded-xl bg-emerald-300 px-4 py-3 font-semibold text-emerald-950 hover:bg-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200">
-                  {playing ? "⏸ Pausar" : "▶ Reproducir"}
+                  {loadingSounds ? "Cargando instrumentos…" : playing ? "⏸ Pausar" : "▶ Reproducir"}
                 </button>
                 <button type="button" onClick={resetPlayhead}
                   className="rounded-xl border border-emerald-200/25 px-4 py-3 text-sm hover:bg-emerald-100/10">
@@ -563,7 +676,8 @@ export default function OrbitalMusicPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
+            <OrchestralTracksEditor tracks={tracks} setTracks={setTracks} period={groupDurations[0]} />
+          <section className="rounded-2xl border border-emerald-200/15 bg-black/25 p-5">
               <h2 className="text-lg font-semibold">Partituras</h2>
               <p className="mt-1 text-xs leading-5 text-emerald-100/65">
                 Guarda composiciones aquí o compártelas como archivos JSON.
@@ -575,6 +689,10 @@ export default function OrbitalMusicPage() {
               }}
                 className="mt-4 w-full rounded-xl bg-amber-200 px-3 py-3 text-sm font-semibold text-emerald-950 hover:bg-amber-100">
                 ⚔️ Ascenso de Xahya · tema épico original
+              </button>
+              <button type="button" onClick={() => void loadCorona()} disabled={themeBusy}
+                className="mt-2 w-full rounded-xl border border-violet-300/50 bg-violet-950/25 px-3 py-3 text-sm font-semibold text-violet-100 hover:bg-violet-950/50 disabled:opacity-40">
+                🎻 Corona de Cenizas · orquesta (MIDI multipista)
               </button>
               <button type="button" onClick={() => {
                 loadScore(createGoldenScore());
@@ -633,6 +751,14 @@ export default function OrbitalMusicPage() {
                 <input type="file" accept=".json,application/json" onChange={importScore}
                   className="mt-2 block w-full cursor-pointer rounded-lg border border-emerald-200/25 bg-[#08251b] p-2 text-xs text-emerald-100 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-200 file:px-3 file:py-2 file:text-xs file:text-emerald-950" />
               </label>
+              <label className="mt-4 block text-xs text-emerald-100/75">
+                Importar MIDI multipista (.mid)
+                <input type="file" accept=".mid,.midi,audio/midi" onChange={(event) => void importMidi(event)}
+                  className="mt-2 block w-full cursor-pointer rounded-lg border border-violet-300/25 bg-[#08251b] p-2 text-xs text-emerald-100 file:mr-3 file:rounded-md file:border-0 file:bg-violet-200 file:px-3 file:py-2 file:text-xs file:text-violet-950" />
+              </label>
+              <p className="mt-2 text-xs text-emerald-100/55">
+                Las muestras FluidR3 se descargan solo al reproducir; sin conexión, Xahya usa un sintetizador local.
+              </p>
               <label className="mt-4 block text-xs text-emerald-100/75">
                 Partituras guardadas ({savedScores.length})
                 <select value={selectedScore} onChange={(event) => setSelectedScore(event.target.value)}
@@ -766,6 +892,48 @@ export default function OrbitalMusicPage() {
                     </div>
                     {expandedRing === index && (
                       <div className="mt-3 border-t border-emerald-100/10 pt-2">
+                        <label className="mb-3 flex items-center justify-between gap-2 text-xs text-emerald-100/65">
+                          Instrumento
+                          <select value={ringInstruments[index]} aria-label={"Instrumento de " + ring.note}
+                            onChange={(event) => setRingInstruments((current) => current.map((value, i) =>
+                              i === index ? event.target.value as OrbitalInstrument : value))}
+                            className="max-w-44 rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-2 text-emerald-50">
+                            {RING_INSTRUMENTS.map((instrument) =>
+                              <option key={instrument} value={instrument}>{INSTRUMENT_LABELS[instrument]}</option>)}
+                          </select>
+                        </label>
+                        {notes[index].length > 0 && (
+                          <details className="mb-3 rounded-lg border border-emerald-200/15 p-2">
+                            <summary className="cursor-pointer text-xs text-emerald-100/75">
+                              Duración individual de notas ({notes[index].length})
+                            </summary>
+                            <div className="mt-2 max-h-52 space-y-2 overflow-y-auto">
+                              {notes[index].map((angle) => {
+                                const length = noteLengths[index]?.find((item) => item.angle === angle)?.duration;
+                                return (
+                                  <label key={angle} className="flex items-center justify-between gap-2 text-xs text-emerald-100/70">
+                                    <span>{angle.toFixed(1)}°</span>
+                                    <input type="number" min=".05" max="30" step=".05"
+                                      value={length ?? ""} placeholder="Breve"
+                                      aria-label={"Duración de " + ring.note + " en " + angle + " grados"}
+                                      onChange={(event) => {
+                                        const next = Number(event.target.value);
+                                        const clear = event.target.value === "" || !Number.isFinite(next);
+                                        setNoteLengths((current) => current.map((entries, i) => {
+                                          if (i !== index) return entries;
+                                          const remaining = entries.filter((item) => item.angle !== angle);
+                                          return clear ? remaining
+                                            : [...remaining, { angle, duration: Math.max(.05, Math.min(30, next)) }];
+                                        }));
+                                      }}
+                                      className="w-24 rounded border border-emerald-300/25 bg-[#09271c] p-1.5 text-right text-emerald-50" />
+                                    <span>segundos</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </details>
+                        )}
                         <label className="block text-xs text-emerald-100/65">
                           <span className="flex justify-between"><span>Duración de una vuelta (velocidad)</span><span>{ringDurations[index]} s</span></span>
                           <input type="range" min="2" max="30" step="0.5" value={ringDurations[index]}

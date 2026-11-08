@@ -155,7 +155,9 @@ test("no wear on a clean hit without cover, or an obstruction outside the stroke
 });
 
 test("unarmed attack does not wear an imaginary weapon or legacy hand-integrity",()=>{
- const s=state({equippedWeapon:undefined});
+ // The opponent is 1.5 m away. Give the unarmed fighter an explicit
+ // 2 m reach so this tests wall contact, not the unrelated reach guard.
+ const s=state({equippedWeapon:undefined,unarmedReachMeters:2});
  s.constructions=[wall("solid",.2,90)];
  const done=resolve(swing(s,"FIST_RIGHT"));
  assert.equal(done.actors.PLAYER.equippedWeapon,undefined);

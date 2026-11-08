@@ -134,6 +134,10 @@ export default function CombatEncounter({id}:{id:string}) {
 
  const [areaCenter,setAreaCenter]=useState<Point|null>(null);
  const [areaAngleDegrees,setAreaAngleDegrees]=useState(0);
+ // Measured ballistic heights are explicit player choices, independent of
+ // the defender-facing canvas marker. No old ranged attack is backfilled.
+ const [projectileLaunchHeight,setProjectileLaunchHeight]=useState(1.5);
+ const [projectileImpactHeight,setProjectileImpactHeight]=useState(1.5);
  const [constructionCenter,setConstructionCenter]=useState<Point|null>(null);
  const [constructionFieldPoint,setConstructionFieldPoint]=useState<Point|null>(null);
  const [constructionHeightMeters,setConstructionHeightMeters]=useState(5);
@@ -499,10 +503,12 @@ export default function CombatEncounter({id}:{id:string}) {
    :attackMode==="THROW"
     ?{kind:"ATTACK",planarMove:move,movementOrder:order,throwWeapon:true,
       attackSource:activeAttackSource,attackType:displayedAttackType,
+      projectileHeights:{launchMeters:projectileLaunchHeight,impactMeters:projectileImpactHeight},
       areaCenter:areaCenter??undefined,targetConstructionId:selectedMirrorId,targetSummonId:selectedSummonId}
     :attackMode==="RANGED"
      ?{kind:"ATTACK",planarMove:move,movementOrder:order,rangedPhysical:true,
        attackSource:activeAttackSource,attackType:displayedAttackType,
+       projectileHeights:{launchMeters:projectileLaunchHeight,impactMeters:projectileImpactHeight},
        areaCenter:areaCenter??undefined,targetConstructionId:selectedMirrorId,targetSummonId:selectedSummonId}
      :{kind:"ATTACK",planarMove:move,movementOrder:order,attackSource:activeAttackSource,
        attackType:displayedAttackType,trajectory:normalizedPath,
@@ -1283,6 +1289,20 @@ export default function CombatEncounter({id}:{id:string}) {
         ? "Esta arma o mano continúa desde su último ataque (punto verde). Cambiar de arma o mano conserva su propia trayectoria."
         : "Arrastra el dedo o el cursor. La dirección final influye en la posibilidad de desviar el golpe."}</p>
       {attackMode!=="MAGIC_AREA"&&<p className="mb-2 text-xs text-rose-200">El objetivo está marcado en rojo. El corte debe cruzarlo; el golpe y la perforación deben terminar dentro de su zona. Fuera del alcance efectivo disminuye la precisión.</p>}
+      {(attackMode==="RANGED"||attackMode==="THROW")&&
+       <div className="mb-3 grid gap-3 rounded-lg border border-amber-800/50 bg-zinc-950/50 p-3 sm:grid-cols-2" aria-label="Alturas de la trayectoria del proyectil">
+        <label className="text-xs text-amber-100">Altura de salida: {projectileLaunchHeight.toFixed(2)} m
+         <input type="range" min={0} max={10} step={0.25} value={projectileLaunchHeight}
+          aria-label="Altura de salida del proyectil" onChange={e=>setProjectileLaunchHeight(Number(e.target.value))}
+          className="mt-2 w-full accent-amber-400"/>
+        </label>
+        <label className="text-xs text-amber-100">Altura de impacto: {projectileImpactHeight.toFixed(2)} m
+         <input type="range" min={0} max={10} step={0.25} value={projectileImpactHeight}
+          aria-label="Altura de impacto del proyectil" onChange={e=>setProjectileImpactHeight(Number(e.target.value))}
+          className="mt-2 w-full accent-amber-400"/>
+        </label>
+        <p className="text-[11px] text-zinc-400 sm:col-span-2">Estas alturas definen la línea física del proyectil entre las posiciones reales de los combatientes. Las barreras con volumen medido pueden detenerla o romperse. El punto rojo del lienzo sigue definiendo si apuntas al combatiente.</p>
+       </div>}
       
       {attackMode==="MAGIC_AREA"&&isOrientedCombatArea(preparedAreaSkill?.attackArea)&&
        <label className="mt-3 block max-w-md text-sm text-violet-200">

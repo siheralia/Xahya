@@ -86,6 +86,10 @@ export type PendingAttack = {
    * Undefined for instant/area/basic spells or historical pending attacks.
    */
   directedMagicRay?:{from:Point;to:Point};
+  /** Captured straight projectile route, with explicitly selected elevations.
+   * Never infer an old shot's 3D path from a 2D aiming sprite.
+   */
+  projectileFlight?:{from:Point;to:Point;launchHeightMeters:number;impactHeightMeters:number};
   /** Only user-specified vertical strokes can authorize 3D cover tests. */
   explicitTrajectory?:boolean;
 };
@@ -183,7 +187,10 @@ export type CombatCommand =
   | { kind: "COMMAND_SUMMON";requestId?:string;summonId:string;
        chosenStat?:string;chosenStatusId?:string;
        order:"ACT"|"MOVE"|"ATTACK"|"CHANGE_BEHAVIOR";planarMove?:Point;newBehavior?:"FOLLOW"|"ATTACK"|"PROTECT"|"HOLD"|"MANUAL" }
-  | { kind: "ATTACK"; requestId?:string; targetSummonId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point; areaAngleDegrees?:number; targetConstructionId?:string }
+  | { kind: "ATTACK"; requestId?:string; targetSummonId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point;
+    /** Real measured projectile elevations. Optional to preserve old encounter and bot commands. */
+    projectileHeights?:{launchMeters:number;impactMeters:number};
+    areaAngleDegrees?:number; targetConstructionId?:string }
   | { kind: "DEFEND"; requestId?:string; defense: DefenseChoice; planarMove?:Point; defenseAngle?: number; predictedCenter?: Point; constructionId?:string; dodgeDirection?:"AWAY"|"TOWARD"|"WEAPON"; weaponSlot?:"MAIN_HAND"|"OFF_HAND"; counterMagic?:boolean }
   | { kind: "CAST_SKILL";skillId:number;requestId:string;chargesToSpend?:number;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;targetSummonId?:string };
 
@@ -1545,19 +1552,29 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       noResistanceRaw*damageScale*(skill?.finalMultiplier??1)*racialFactor)):0;
     let mitigatedByResistance=contact?Math.max(0,noResistanceDamage-damage):0;
     let physicalCoverLabel:string|undefined;
-    // Horizontal positions come from the top-down plane; vertical heights
-    // come ONLY from a deliberately drawn physical stroke. Basic spells,
-    // area shapes, auto-generated strokes and unknown old BLOCK geometry
-    // must not gain invented line-of-sight occlusion.
-    if(contact&&!pending.usesMagic&&!pending.attackArea&&!pending.mirrorId&&
-      pending.explicitTrajectory&&pending.trajectory.length>=2){
+    // A deliberately traced melee stroke or explicit measured projectile
+    // elevations are authoritative 3D paths. Basic magic, magical areas,
+    // ranged shots without height metadata and old BLOCK sprites are not.
+    // Physical projectiles still strike real barriers after a successful
+    // dodge: the defender's movement cannot erase the projectile mid-flight.
+    const projectilePath=pending.rangedPhysical?pending.projectileFlight:undefined;
+    const physicalCoverPath=projectilePath
+      ?{from:projectilePath.from,to:projectilePath.to,
+        stroke:[{x:0.1,y:1-projectilePath.launchHeightMeters/10},
+                {x:0.9,y:1-projectilePath.impactHeightMeters/10}]}
+      :!pending.rangedPhysical&&pending.explicitTrajectory&&pending.trajectory.length>=2
+        ?{from:fieldPosition(attacker),to:fieldPosition(fighter),
+          stroke:pending.trajectory}:undefined;
+    if((contact||projectilePath)&&!pending.usesMagic&&!pending.attackArea&&!pending.mirrorId&&
+      physicalCoverPath){
       const covers=coversAlongStroke(state.constructions,
-        fieldPosition(attacker),fieldPosition(fighter),pending.trajectory,
+        physicalCoverPath.from,physicalCoverPath.to,physicalCoverPath.stroke,
         defense==="CONSTRUCTION"?command.constructionId:undefined);
       if(covers.length){
         const pressure=Math.max(1,Math.round(Math.max(0,power)*
           (skill?.damageMultiplier??1)*(skill?.finalMultiplier??1)));
         let remainingPressure=pressure;
+        let lastCover:typeof covers[number]["block"]|undefined;
         // Every measured cover consumes only what survived earlier covers.
         // If a fragile wall breaks, the residual can strike the next wall
         // before any damage reaches the character behind it.
@@ -1569,6 +1586,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           wall.durability=Math.max(0,durability-wear);
           wall.hitCount=(wall.hitCount??0)+1;
           physicalCoverLabel??=wall.label;
+          lastCover=wall;
           remainingPressure-=wear;
           if(wall.durability===0)
             state.constructions=state.constructions?.filter(c=>c.id!==wall.id);
@@ -1582,7 +1600,16 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         damage=Math.max(0,Math.round(damage*penetration));
         noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*penetration));
         mitigatedByResistance=Math.max(0,noResistanceDamage-damage);
-        if(remainingPressure===0){contact=false;critical=false;}
+        if(remainingPressure===0){
+          contact=false;critical=false;
+          // A thrown weapon physically stopped by cover lands at its measured
+          // depth, not magically behind the last intact wall.
+          if(projectilePath&&pending.thrownWeapon&&lastCover?.fieldPosition){
+            const dropped=state.droppedWeapons?.findLast(d=>
+              d.owner===pending.by&&d.slot===pending.attackSource);
+            if(dropped)dropped.positionMeters=lastCover.fieldPosition.x;
+          }
+        }
       }
     }
     const actualHpDamage=Math.min(fighter.hp,damage);
@@ -1869,6 +1896,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(thrown&&serverSkillRangeMeters!==undefined)throw new Error("Las habilidades no pueden arrojar armas automáticamente.");
     if(thrown&&(!selectedWeapon?.throwable||!selectedWeapon.throwRangeMeters))throw new Error("El arma equipada no puede arrojarse.");
     if(magic&&ranged)throw new Error("El ataque no puede ser mágico y proyectil físico a la vez.");
+    if(command.projectileHeights!==undefined){
+      const heights=command.projectileHeights;
+      if(!ranged||!heights||!finite(heights.launchMeters)||!finite(heights.impactMeters)||
+         heights.launchMeters<0||heights.launchMeters>10||
+         heights.impactMeters<0||heights.impactMeters>10)
+        throw new Error("Indica alturas de salida e impacto del proyectil entre 0 y 10 m.");
+    }
     if(!magic&&serverSkillRangeMeters===undefined){
       const weapon=selectedWeapon;
       if(["MAIN_HAND","OFF_HAND"].includes(source)&&!weapon)throw new Error("No tienes un arma equipada en la mano seleccionada.");
@@ -1942,6 +1976,16 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       trajectory:points,explicitTrajectory:Array.isArray(command.trajectory)&&command.trajectory.length>=2,
       directedMagicRay:magic&&mirrorSkill&&!serverSkillArea
         ?{from:fieldPosition(fighter),to:fieldPosition(rival)}:undefined,
+      // Only a shot aimed through the target's vertical hitbox defines a
+      // validated world line to that fighter. Otherwise the 2D miss has no
+      // authoritative direction and must not invent a wall collision.
+      projectileFlight:ranged&&command.projectileHeights&&validArenaPoint(command.areaCenter)&&
+        Math.hypot(command.areaCenter.x-targetHitboxCenter.x,
+          command.areaCenter.y-targetHitboxCenter.y)<=
+           (command.attackType==="BLUNT"?0.17:command.attackType==="CUT"?0.11:0.07)
+        ?{from:fieldPosition(fighter),to:fieldPosition(rival),
+          launchHeightMeters:command.projectileHeights.launchMeters,
+          impactHeightMeters:command.projectileHeights.impactMeters}:undefined,
       launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
       targetCenter:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?command.areaCenter:undefined,

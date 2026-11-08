@@ -58,7 +58,10 @@ export function combatClientView(state:CombatState):CombatState {
  delete clone.processedActionRequests;
  // Ray endpoints are frozen in authoritative world metres at launch.
  // They are server-only; do not leak the origin/target before resolution.
- if(clone.pending)delete clone.pending.directedMagicRay;
+ if(clone.pending){
+  delete clone.pending.directedMagicRay;
+  delete clone.pending.projectileFlight;
+ }
  // Keep every oriented area direction private until the defense is resolved.
  if(isOrientedCombatArea(clone.pending?.attackArea))delete clone.pending.areaAngleDegrees;
  // Pending attack material modifiers are resolved on the server.

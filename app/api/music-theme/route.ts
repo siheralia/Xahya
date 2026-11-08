@@ -25,7 +25,7 @@ export async function PUT(request: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const text = await request.text();
-  if (text.length > 36000) return NextResponse.json({ error: "Partitura demasiado grande" }, { status: 413 });
+  if (text.length > 160000) return NextResponse.json({ error: "Partitura demasiado grande" }, { status: 413 });
   let score;
   try {
     const body: unknown = JSON.parse(text);

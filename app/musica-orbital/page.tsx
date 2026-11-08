@@ -212,7 +212,11 @@ export default function OrbitalMusicPage() {
 
   // MIDI scores contain hundreds of notes. Validate/normalize only when the
   // musical content changes, not during every animation frame.
-  const playbackScore = useMemo(() => createCurrentScore(), [
+  const playbackScore = useMemo(() => {
+    // The user may temporarily clear a track name while editing. Report
+    // validation in the controls instead of crashing the whole editor.
+    try { return createCurrentScore(); } catch { return null; }
+  }, [
     notes, slides, noteLengths, ringInstruments, tracks, phases, muted,
     groupDurations, groupDirections, ringDurations, ringDirections, startDelays,
     percussion, scoreName,
@@ -360,6 +364,10 @@ export default function OrbitalMusicPage() {
         contextRef.current = new AudioContextConstructor();
       }
       await contextRef.current.resume();
+      if (!playbackScore) {
+        setError("Revisa los nombres, tiempos y duraciones de las pistas antes de reproducir.");
+        return;
+      }
       setLoadingSounds(true);
       const availability = await prepareOrchestralInstruments(contextRef.current, playbackScore);
       await contextRef.current.resume();
@@ -384,7 +392,7 @@ export default function OrbitalMusicPage() {
   }, []);
 
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || !playbackScore) return;
     let animationFrame = 0;
     let previousTime: number | null = null;
     const frame = (time: number) => {

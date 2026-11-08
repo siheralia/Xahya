@@ -47,7 +47,7 @@ export default function OrbitalMusicPage() {
   const [groupDirections, setGroupDirections] = useState<[1 | -1, 1 | -1]>([1, 1]);
   const [ringDurations, setRingDurations] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.duration));
   const [ringDirections, setRingDirections] = useState<Array<1 | -1>>(() => BATTLE_SCORE.rings.map((ring) => ring.direction));
-  const [ringInstruments, setRingInstruments] = useState<Array<"synth" | "strings">>(() => BATTLE_SCORE.rings.map((ring) => ring.instrument));
+  const [ringInstruments, setRingInstruments] = useState<Array<"synth" | "strings" | "bass">>(() => BATTLE_SCORE.rings.map((ring) => ring.instrument));
   const [percussion, setPercussion] = useState<"none" | "battle" | "orchestral">(BATTLE_SCORE.percussion);
   const [startDelays, setStartDelays] = useState<number[]>(() => BATTLE_SCORE.rings.map((ring) => ring.delay));
   const [volume, setVolume] = useState(55);
@@ -767,6 +767,9 @@ export default function OrbitalMusicPage() {
                         {ringInstruments[index] === "strings" && (
                           <span className="text-[11px] font-normal text-violet-200/80">Cuerdas</span>
                         )}
+                        {ringInstruments[index] === "bass" && (
+                          <span className="text-[11px] font-normal text-amber-200/80">Graves</span>
+                        )}
                       </label>
                       <button type="button" aria-expanded={expandedRing === index}
                         aria-label={"Configurar circunferencia " + ring.note}
@@ -781,11 +784,12 @@ export default function OrbitalMusicPage() {
                           <span>Instrumento</span>
                           <select value={ringInstruments[index]}
                             onChange={(event) => setRingInstruments((current) =>
-                              current.map((value, i) => i === index ? event.target.value as "synth" | "strings" : value))}
+                              current.map((value, i) => i === index ? event.target.value as "synth" | "strings" | "bass" : value))}
                             aria-label={"Instrumento del anillo " + ring.note}
                             className="rounded-lg border border-emerald-300/30 bg-[#09271c] px-2 py-2 text-emerald-50">
                             <option value="synth">Sintetizador</option>
                             <option value="strings">Cuerdas · violín</option>
+                            <option value="bass">Bajo profundo · octava grave</option>
                           </select>
                         </label>
                         <label className="block text-xs text-emerald-100/65">

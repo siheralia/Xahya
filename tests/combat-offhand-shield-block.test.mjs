@@ -119,7 +119,7 @@ test("an accessory or body armor cannot masquerade as an OFF_HAND shield",()=>{
  for(const bad of [{itemType:"ACCESSORY"},{slot:"BODY"}]){
   const s=state({equippedWearables:[shield(80,bad)]});
   const before=structuredClone(s);
-  assert.throws(()=>block(s,"OFF_HAND"),/No tienes un arma o escudo/);
+  assert.throws(()=>block(s,"OFF_HAND"),/No tienes un arma equipada/);
   assert.deepEqual(s,before);
  }
 });

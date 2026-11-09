@@ -201,7 +201,7 @@ test("server action route uses approved owned skill, cooldown and persisted idem
  assert.match(actions,/Skill\.where\(\{id:skillId,characterId,status:"APPROVED"\}\)/);
  assert.match(actions,/stolenIds\.has\(skillId\)/);
  assert.match(actions,/compileCombatSkill\(skill,mode\)/);
- assert.match(actions,/if\(plan\.approvedActivation\)/);
+ assert.match(actions,/if\(plan\.approvedActivation\|\|plan\.approvedHostileStatus\)/);
  assert.match(actions,/activation\?\.active===false/);
  assert.match(actions,/processedSkillRequests\?\.includes\(requestId\)/);
  assert.match(skillApi,/readModularCutover\(\)/);

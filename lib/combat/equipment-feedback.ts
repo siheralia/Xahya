@@ -9,7 +9,7 @@ import type {CombatWearable} from "../items/combat-wearables.ts";
 export const equipmentSlotName=(slot:string):string=>({
  HEAD:"Cabeza",BODY:"Torso",CHEST:"Pecho",ARMS:"Brazos",HANDS:"Manos",
  LEGS:"Piernas",FEET:"Pies",BACK:"Espalda",WAIST:"Cintura",
- NECK:"Cuello",OFF_HAND:"Mano secundaria (escudo)",
+ NECK:"Cuello",MAIN_HAND:"Mano principal",OFF_HAND:"Mano secundaria (escudo)",
  ACCESSORY_1:"Accesorio 1",ACCESSORY_2:"Accesorio 2",
  ACCESSORY_3:"Accesorio 3",
 } as Record<string,string>)[slot]??"Ranura: "+slot.replaceAll("_"," ");

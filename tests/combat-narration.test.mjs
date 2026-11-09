@@ -70,7 +70,10 @@ test("the active combat projection never exposes the unabridged private chronicl
 test("the interface stops polling after FINISHED and offers manual refresh and copy",()=>{
  const src=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
  assert.match(src,/if\(encounterFinished\)return/);
- assert.match(src,/\[load,encounterFinished\]/);
+ assert.match(src,/\[load,encounterFinished,dataSaver\]/);
+ assert.match(src,/dataSaver\?30000:3500/);
+ assert.match(src,/document\.visibilityState==="visible"/);
+ assert.match(src,/r\.status===304\)return/);
  assert.match(src,/window\.clearInterval\(handle\)/);
  assert.match(src,/Copiar narración/);
  assert.match(src,/navigator\.clipboard\.writeText\(chronicle\)/);

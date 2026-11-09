@@ -2557,6 +2557,7 @@ export function applyResolvedCombatSkill(
   const actor=next.actors[by];
   let healed=0;
   let bonuses=plan.bonuses;
+  let statuses:ReturnType<typeof resolveApprovedSupportActivation>["statuses"]=[];
   if(plan.approvedActivation){
    // This family is SELF only. A client attempting to mix target, canvas,
    // movement or charge inputs cannot receive a free second action.
@@ -2574,6 +2575,7 @@ export function applyResolvedCombatSkill(
    healed=resolved.healed;
    actor.hp=resolved.hp;
    bonuses=resolved.bonuses;
+   statuses=resolved.statuses;
   }else{
    const old=actor.hp;
    actor.hp=Math.min(actor.maxHp,Math.max(0,actor.hp+plan.healing));
@@ -2585,13 +2587,27 @@ export function applyResolvedCombatSkill(
    next.skillBonuses.push({...bonus,by,skillId:plan.id,skillName:plan.name,
       expiresAtRound:next.round+plan.durationTurns});
   }
+  // Reuse the authoritative status engine: stacking, snapshot persistence,
+  // expiration, and rendering remain identical to approved summon statuses.
+  // No second action, tick, or mana debit for these intents.
+  if((next.summonStatuses?.length??0)+statuses.length>100)
+   throw new Error("No hay capacidad para aplicar más estados temporales.");
+  for(const [index,status] of statuses.entries()){
+   applySummonStatus(next,{
+    id:"MODULAR:"+by+":"+plan.id+":"+aim.requestId+":"+index,
+    sourceSummonId:"SKILL:"+plan.id,by,target:by,
+    stat:status.stat,operation:status.operation,value:status.value,
+    durationTurns:status.durationTurns,
+   });
+  }
   spend(actor,turnTicks(actor));
   next.tick=Math.max(next.tick,(next.round-1)*LIMIT+actor.spentTicks);
   addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,manaCost:plan.cost,
    skillName:plan.name,healingPoints:healed||undefined,
    summary:actor.name+" usó "+plan.name+
     (healed?" y recuperó "+Number(healed.toFixed(2))+" HP":"")+
-    (bonuses.length?" y obtuvo "+bonuses.length+" bono(s) temporal(es)":"")});
+    (bonuses.length?" y obtuvo "+bonuses.length+" bono(s) temporal(es)":"")+
+    (statuses.length?" y aplicó "+statuses.length+" estado(s) propio(s)":"")});
   advanceRoundIfComplete(next);
  }
  // OFFENSE, CONSTRUCTION and SUPPORT prepaid. SUMMON, FUSION and

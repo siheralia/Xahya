@@ -89,7 +89,7 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
  if(row.category==="SUPPORT"&&effects.every(isComposedSkillEffect)&&
     effects.every(e=>e.module.trigger==="ACTIVATE")&&
     effects.some(e=>e.module.steps.some(step=>
-      step.kind==="HEAL"||step.kind==="BONUS"))){
+      step.kind==="HEAL"||step.kind==="BONUS"||step.kind==="APPLY_STATUS"))){
   const approvedActivation=compileApprovedSupportActivation(row,cutover);
   const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
   if(cooldown&&!["Sin cooldown","Una vez por combate","Igual a duración",

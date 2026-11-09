@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { randomInt } from "node:crypto";
+import { combatSnapshotEtag, combatEtagMatches } from "@/lib/combat/poll-cache";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import {
@@ -46,7 +47,7 @@ async function access(id:string) {
   if(!canPlayer&&!canOpponent)return null;
   return {user,session,gm,canPlayer,canOpponent,state,encounterId};
 }
-export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}) {
+export async function GET(req:Request,{params}:{params:Promise<{id:string}>}) {
   const a=await access((await params).id);
   if(!a)return NextResponse.json({error:"Combate no encontrado o sin permiso."},{status:403});
   const resource=(db.orm.public as any).CharacterResource;
@@ -64,9 +65,17 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}) {
     if(item.kind==="basic"&&item.active!==false)basic.set(item.key,{key:item.key,label:item.name||item.key});
     else if(item.kind==="basic"&&item.active===false)basic.delete(item.key);
   }
-  return NextResponse.json({state:combatClientView(a.state),karma,boostStats:[...basic.values()],
+  const payload={state:combatClientView(a.state),karma,boostStats:[...basic.values()],
     permissions:{PLAYER:a.canPlayer,NPC:a.canOpponent},
-    canMove:{PLAYER:canAct(a.state,"PLAYER"),NPC:canAct(a.state,"NPC")}});
+    canMove:{PLAYER:canAct(a.state,"PLAYER"),NPC:canAct(a.state,"NPC")}};
+  const serialized=JSON.stringify(payload);
+  const etag=combatSnapshotEtag(serialized);
+  const headers={"ETag":etag,"Cache-Control":"private, no-store","Vary":"Cookie"};
+  // 304 has no response body: the browser retains its already rendered snapshot.
+  if(combatEtagMatches(req.headers.get("if-none-match"),etag))
+    return new NextResponse(null,{status:304,headers});
+  return new NextResponse(serialized,{status:200,
+    headers:{...headers,"Content-Type":"application/json; charset=utf-8"}});
 }
 export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
   const a=await access((await params).id);

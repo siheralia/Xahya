@@ -16,7 +16,7 @@ import {combatResourceRequestKey} from "@/lib/combat/resource-request-key";
 import {summarizeIncomingDamage} from "@/lib/combat/incoming-damage";
 import {activeChaosField,chaosRotationDegrees} from "@/lib/combat/chaos-fusion";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
-import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Plus, MoveUpRight, Send, Undo2, Eye, ChevronDown, X, Info} from "lucide-react";
+import {Footprints, Shield, ShieldCheck, Hand, Swords, WandSparkles, Box, Ban, Sparkles, Activity, Target, RefreshCw, Gauge, Plus, MoveUpRight, Send, Undo2, Eye, ChevronDown, X, Info} from "lucide-react";
 import { narrateCombat } from "@/lib/combat/narration";
 import type {CombatSkillPreview} from "@/lib/combat/skill-preview";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_MANA_COST, BASIC_MAGIC_RANGE_METERS, magicHintCells } from "@/lib/combat/magic-area";
@@ -115,6 +115,18 @@ export default function CombatEncounter({id}:{id:string}) {
  const [characterDataError,setCharacterDataError]=useState("");
  const [advancingNpc,setAdvancingNpc]=useState(false);
  const lastNpcAdvance=useRef("");
+ const [dataSaver,setDataSaver]=useState(false);
+ const snapshotEtag=useRef<string|null>(null);
+ useEffect(()=>{
+  try{setDataSaver(window.localStorage.getItem("xahya:combat:data-saver")==="1");}
+  catch{/* Private browsing may disable storage; the toggle still works. */}
+ },[]);
+ function toggleDataSaver(){
+  const next=!dataSaver;
+  setDataSaver(next);
+  try{window.localStorage.setItem("xahya:combat:data-saver",next?"1":"0");}
+  catch{/* No persistence when storage is blocked. */}
+ }
  const openPanel=useCallback((next:CombatPanel,category:string|null=null)=>{
   setPanel(next);if(next==="skills")setSkillCategory(category);
   setHudOpen(false);
@@ -184,9 +196,14 @@ export default function CombatEncounter({id}:{id:string}) {
  const actionRequestRef=useRef<{key:string;id:string}|null>(null);
  const load=useCallback(async()=>{
   try {
-   const r=await fetch("/api/combat/"+id+"/actions",{cache:"no-store"});
+   const headers:Record<string,string>={};
+   if(snapshotEtag.current)headers["If-None-Match"]=snapshotEtag.current;
+   const r=await fetch("/api/combat/"+id+"/actions",{cache:"no-store",headers});
+   // An unchanged encounter is a header-only response, not an error or JSON.
+   if(r.status===304)return;
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"Error al consultar el combate.");
+   snapshotEtag.current=r.headers.get("etag");
    setView(previous=>previous?.state.status==="FINISHED"&&data.state.status!=="FINISHED"?previous:data);
    if(!data.permissions.PLAYER&&data.permissions.NPC)setSide("NPC");
    const events=(data.state as CombatState).log;
@@ -218,10 +235,16 @@ export default function CombatEncounter({id}:{id:string}) {
  const encounterFinished=view?.state.status==="FINISHED";
  useEffect(()=>{
   if(encounterFinished)return; // Once FINISHED, no more background requests.
-  void load();
-  const handle=window.setInterval(()=>{void load();},3500);
-  return ()=>window.clearInterval(handle);
- },[load,encounterFinished]);
+  // Background tabs do not need polling; refresh immediately when returning.
+  const refreshWhenVisible=()=>{if(document.visibilityState==="visible")void load();};
+  refreshWhenVisible();
+  const handle=window.setInterval(refreshWhenVisible,dataSaver?30000:3500);
+  document.addEventListener("visibilitychange",refreshWhenVisible);
+  return ()=>{
+   window.clearInterval(handle);
+   document.removeEventListener("visibilitychange",refreshWhenVisible);
+  };
+ },[load,encounterFinished,dataSaver]);
  async function submit(command:CombatCommand | {kind:"ADVANCE";requestId?:string}) {
   if(busy)return;
   // The request ID travels in the payload, never in an untrusted server-side
@@ -624,6 +647,17 @@ export default function CombatEncounter({id}:{id:string}) {
   <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
    <h1 className="text-2xl font-bold">⚔️ Encuentro #{id}</h1>
    <div className="flex flex-wrap items-center gap-3">
+    <button type="button" aria-pressed={dataSaver} onClick={toggleDataSaver}
+      className={"inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm "+(dataSaver
+        ?"border-emerald-600 bg-emerald-950/30 text-emerald-200"
+        :"border-zinc-600 text-zinc-300")}
+      title="Reduce la frecuencia de consultas; conserva las reacciones y acciones manuales">
+      <Gauge size={16} aria-hidden="true"/> Ahorro de datos: {dataSaver?"Sí":"No"}
+    </button>
+    <button type="button" onClick={()=>void load()}
+      className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-cyan-200">
+      <RefreshCw size={15} aria-hidden="true"/> Actualizar
+    </button>
     {isPvp&&<button type="button" onClick={()=>void shareEncounter()}
       className="rounded-lg border border-cyan-500/70 px-3 py-2 text-sm text-cyan-200">
       Compartir encuentro PvP
@@ -631,6 +665,7 @@ export default function CombatEncounter({id}:{id:string}) {
     <Link className="text-cyan-300" href="/combat">Nuevo encuentro</Link>
    </div>
   </div>
+  <p className="mb-3 text-xs text-zinc-400">Actualización: {dataSaver?"cada 30 s":"cada 3,5 s"} mientras la pestaña esté visible. Si no hay cambios, el servidor no envía de nuevo los datos del combate.</p>
   <CombatMusicPlayer
     active={state?.status === "ACTIVE"}
     criticalHealth={state?.status === "ACTIVE" && hasCriticalCombatHealth(

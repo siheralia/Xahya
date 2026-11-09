@@ -37,6 +37,7 @@ export type CombatSkillPreview = {
  skillKind?: "OFFENSE"|"SUPPORT"|"CONSTRUCTION"|"SUMMON"|"CHARGE_BUFF"|"FUSION"|null;
  chargeBuff?:ChargeBuffPlan|null;
  modularSupport?:boolean;
+ modularHostileStatus?:boolean;
  fusion?:FusionPlan|null;
  needsAim?: boolean;
  attackArea?:CombatAttackArea|null;
@@ -129,7 +130,7 @@ export function projectApprovedCombatSkills(
   );
   // Never advertise a cast that the server will reject. Keep the historic
   // behavior of non-modular skills and skills with no activation row.
-  if(preview?.modularSupport&&inactiveIds.has(preview.id))
+  if((preview?.modularSupport||preview?.modularHostileStatus)&&inactiveIds.has(preview.id))
    return {...preview,executable:false,
     disabledReason:"Esta habilidad modular está desactivada para el personaje."};
   return preview;

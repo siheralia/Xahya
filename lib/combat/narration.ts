@@ -1,8 +1,8 @@
 import type {CombatAttackType} from "./ticks.ts";
 import type {CombatFighter,CombatLog,Side} from "./turn-engine.ts";
 
-export const COMBAT_NARRATIVE_VERSION=3;
-type Fighters=Record<Side,Pick<CombatFighter,"name">&Partial<Pick<CombatFighter,"hp"|"maxHp">>>;
+export const COMBAT_NARRATIVE_VERSION=4;
+type Fighters=Record<Side,Pick<CombatFighter,"name">&Partial<Pick<CombatFighter,"hp"|"maxHp"|"characterId">>>;
 type Beat=
  | {kind:"ATTACK";launch?:CombatLog;result?:CombatLog}
  | {kind:"EVENT";event:CombatLog};
@@ -21,7 +21,33 @@ const noun=(type:CombatAttackType|undefined,magic=false,ranged=false,thrown=fals
 const roundName=(n:number)=>({2:"segundo",3:"tercer",4:"cuarto",5:"quinto",6:"sexto",
  7:"séptimo",8:"octavo",9:"noveno",10:"décimo"} as Record<number,string>)[n]??String(n)+".º";
 const other=(side:Side):Side=>side==="PLAYER"?"NPC":"PLAYER";
-const isTrainingOpponent=(name:string)=>/^oponente de entrenamiento$/i.test(name.trim());
+const isTrainingOpponent=(name:string)=>/^oponente de entrenamiento(?:\s*·\s*.+)?$/i.test(name.trim());
+const trainingRaceNoun=(race:string):string|undefined=>({
+ "gigantes":"gigante","elfos":"elfo","enanos":"enano","gatos":"gato",
+ "humanos":"humano","dragones":"dragón","arborios":"arborio",
+ "nómadas de viento":"nómada de viento","nómadas del viento":"nómada del viento",
+ "sombríos":"sombrío","orcos":"orco","demonios":"demonio",
+ "ángeles":"ángel","vampiros":"vampiro",
+} as Record<string,string>)[race.trim().toLocaleLowerCase("es")];
+/** The race suffix identifies training NPCs for the UI; it is not a spoken name. */
+function opponentReference(fighter:Fighters["NPC"]){
+ const full=fighter.name.trim();
+ const suffix=full.match(/^(.+?)\s*·\s*(.+)$/);
+ const training=fighter.characterId===null||isTrainingOpponent(full);
+ const name=training&&suffix?suffix[1].trim():full;
+ const race=training&&suffix?trainingRaceNoun(suffix[2]):undefined;
+ if(isTrainingOpponent(name)){
+  const noun=race??"rival";
+  return {
+   introduction:race?"un "+race+" de entrenamiento":"un oponente de entrenamiento",
+   subject:"El "+noun,object:"el "+noun,genitive:"del "+noun,
+  };
+ }
+ return {
+  introduction:race?name+", un "+race+" de entrenamiento":name,
+  subject:name,object:name,genitive:"de "+name,
+ };
+}
 const sentence=(value:string)=>value.trim().replace(/\.+$/,"")+".";
 const lowerArticle=(value:string)=>value.replace(/^(El|La|Un|Una)\b/,m=>m.toLowerCase());
 
@@ -69,102 +95,9 @@ function describeAttack(
  const launch=beat.launch,impact=beat.result;
  const side=launch?.by??impact?.by??"PLAYER";
  const victim=launch?.against??impact?.against??other(side);
+ const npc=opponentReference(fighters.NPC);
  const actor=side==="PLAYER"?fighters.PLAYER.name.split(/\s+/)[0]
-  :isTrainingOpponent(fighters.NPC.name)?"El rival":fighters.NPC.name;
- const target=victim==="PLAYER"?fighters.PLAYER.name.split(/\s+/)[0]
-  :isTrainingOpponent(fighters.NPC.name)?"el rival":fighters.NPC.name;
- const genitiveActor=actor==="El rival"?"del rival":"de "+actor;
- const genitiveTarget=target==="el rival"?"del rival":"de "+target;
- const magic=Boolean(launch?.usesMagic||launch?.summary?.includes("lanzó magia")||
-  launch?.summary?.includes("explosión mágica"));
- const thrown=Boolean(launch?.thrownWeapon||launch?.summary?.includes("lanzó el arma"));
- const ranged=Boolean(launch?.rangedPhysical||launch?.summary?.includes("proyectil"));
- const type=launch?.attackType??impact?.attackType;
- const technique=launch?.skillName;
- // Historic mirror logs (before mirrorShot existed) explicitly say the
- // construction launched a ray. Reconstruct their chronicles correctly too.
- const mirrorShot=Boolean(launch?.mirrorShot||impact?.mirrorShot||
-  /invocó .+ y lanzó un rayo mágico|proyectó un rayo mágico/i.test(launch?.summary??""));
- const descriptor=mirrorShot?"un rayo mágico perforante desde el espejo":
-  launch?.attackArea?.shape==="STRIP"?`una franja de ${launch.attackArea.lengthMeters} × ${launch.attackArea.widthMeters} m`:
-   launch?.attackArea?.shape==="CONE"?`un cono de ${launch.attackArea.radiusMeters} m con apertura de ${launch.attackArea.openingDegrees}°`:
-   launch?.attackArea?.shape==="SWEEP"?`un barrido en arco de ${launch.attackArea.innerRadiusMeters} a ${launch.attackArea.outerRadiusMeters} m con apertura de ${launch.attackArea.openingDegrees}°`:
-  launch?.attackArea?.shape==="SELF_FIELD"?`un barrido de ${launch.attackArea.radiusMeters} m alrededor del usuario`:
-  launch?.attackArea?`un ataque circular de ${launch.attackArea.radiusMeters} m de radio`:
-  noun(type,magic,ranged,thrown,launch?.weaponName);
- const withWeapon=!magic&&!ranged&&!thrown&&launch?.weaponName?descriptor+" con "+launch.weaponName:descriptor;
- const act=technique?"la técnica «"+technique+"» ("+withWeapon+")":withWeapon;
- const key=side+":"+(launch?.attackArea?"AREA":magic?"MAGIC":ranged?"RANGED":"PHYSICAL")+":"+(type??"OTHER");
- ctx.counts[key]=(ctx.counts[key]??0)+1;
- const repeat=ctx.counts[key];
- const first=ctx.attacks===0;
- const counter=ctx.lastAttacker!==undefined&&ctx.lastAttacker!==side;
- const followingMiss=ctx.lastAttacker===side&&ctx.lastMissed;
- const damage=typeof impact?.damage==="number"?Math.max(0,impact.damage):0;
- const landed=Boolean(impact?.contact&&damage>0);
- const avoided=Boolean(impact&&/evitó el ataque|escapó de la explosión|esquivó el rayo/i.test(impact.summary));
- const defended=impact?.defense;
- const reaction=defended==="DEFLECT"?"al intento de desvío":
-  defended==="BLOCK"?"al bloqueo":
-  defended==="ENDURE"?"a la resistencia":
-  defended==="REPEL"?"al intento de repelerlo":
-  defended==="DODGE"?"a la maniobra evasiva":
-  defended==="MAGIC_FIELD"?"al campo defensivo":undefined;
- const pushed=landed&&(impact?.knockbackMeters??0)>0;
- const damageBefore=ctx.damaged[victim]>0;
- const stem=thrown?actor+" arrojó "+(launch?.weaponName??"su arma"):
-  first?actor+" abrió el combate con "+act:
-  counter?actor+" respondió con "+act:
-  followingMiss?actor+" insistió con "+act:
-  actor+" atacó con "+act;
- let phrase="";
- if(!impact){
-  phrase=stem+", aunque no quedó registrada la resolución del ataque.";
- }else if(!landed){
-  if(avoided&&defended==="DEFLECT")phrase=stem+", pero "+target+" logró desviar el ataque.";
-  else if(avoided&&defended==="DODGE")phrase=stem+", pero "+target+" logró esquivar el ataque.";
-  else if(avoided)phrase=stem+", pero "+target+" evitó el impacto.";
-  else if(impact.contact&&damage===0)phrase=stem+", aunque "+target+" no sufrió daño.";
-  else phrase=stem+", pero el ataque no alcanzó a "+target+".";
- }else if(isFinalHit&&followingMiss){
-  phrase="Sin embargo, su siguiente ataque encontró una abertura: un impacto de "+
-   damagePhrase(damage)+" que terminó el combate.";
- }else if(magic&&defended==="MAGIC_FIELD"){
-  phrase=stem+". Ni siquiera el campo defensivo "+genitiveTarget+
-   " pudo impedir que recibiera "+damagePhrase(damage)+".";
- }else if(repeat>1&&type==="CUT"&&!magic&&!ranged){
-  phrase=(repeat===2?"Un segundo corte ":"Otro corte ")+genitiveActor+" volvió a alcanzar a "+target+
-   " y causó "+damagePhrase(damage)+".";
- }else if(first){
-  phrase=stem+" que "+(reaction?", pese "+reaction+", ":"")+
-   "causó "+damagePhrase(damage)+" a "+target+
-   (pushed?" y obligó a "+target+" a retroceder":"")+".";
- }else if(reaction){
-  phrase=stem+". Pese "+reaction+" "+genitiveTarget+", "+
-   (damageBefore?"recibió otros ":"recibió ")+damagePhrase(damage)+".";
- }else if(magic){
-  phrase=stem+" y alcanzó a "+target+", causándole "+
-   (damageBefore?"otros ":"")+damagePhrase(damage)+".";
- }else{
-  phrase=stem+" y alcanzó a "+target+", causándole "+damagePhrase(damage)+".";
- }
- if(landed&&impact?.critical)phrase+=" Fue un impacto crítico.";
- if(landed&&pushed&&!(first&&phrase.includes("retroceder")))
-  phrase+=" La fuerza del impacto obligó a "+target+" a retroceder.";
- if(isFinalHit&&landed&&!phrase.includes("terminó el combate"))
-  phrase+=" Ese golpe puso fin al enfrentamiento.";
- ctx.attacks++;
- ctx.lastAttacker=side;
- ctx.lastMissed=!landed;
- if(landed)ctx.damaged[victim]++;
- if(pushed)ctx.pushed=victim;
- return phrase;
-}
-
-function describeMove(event:CombatLog,ctx:Context,fighters:Fighters):string{
- const side=event.by;
- const actor=side==="PLAYER"?fighters.PLAYER.name.split(/\s+/)[0]
-  :isTrainingOpponent(fighters.NPC.name)?"El oponente":fighters.NPC.name;
+  :opponentReference(fighters.NPC).subject;
  if(event.summary.includes("recuperó")){
   ctx.pushed=undefined;
   return sentence(event.summary);
@@ -177,6 +110,7 @@ function describeMove(event:CombatLog,ctx:Context,fighters:Fighters):string{
  }
  if(direction==="AWAY"){ctx.pushed=undefined;return actor+" retrocedió para ganar espacio.";}
  if(direction==="WEAPON"){ctx.pushed=undefined;return actor+" se dirigió hacia su arma caída.";}
+ if(direction==="VECTOR"){ctx.pushed=undefined;return actor+" cambió de posición.";}
  // Old encounters did not record movement metadata; preserve known text.
  return sentence(event.summary.replace(/-?\d+\.\d{6,}/g,x=>Number(x).toFixed(2)));
 }
@@ -198,9 +132,8 @@ function ending(winner:Side,fighters:Fighters):string{
  * a log-entry-per-sentence dump. Stable output for replays and old encounters.
  */
 export function narrateCombat(log:ReadonlyArray<CombatLog>,fighters:Fighters):string{
- const opponent=fighters.NPC.name;
  const introduction=fighters.PLAYER.name+" se enfrentó a "+
-   (isTrainingOpponent(opponent)?"un oponente de entrenamiento":opponent)+".";
+   opponentReference(fighters.NPC).introduction+".";
  const paragraphs:string[]=[];
  const current:string[]=[introduction];
  const ctx:Context={attacks:0,lastMissed:false,damaged:{PLAYER:0,NPC:0},counts:{}};
@@ -231,9 +164,13 @@ export function narrateCombat(log:ReadonlyArray<CombatLog>,fighters:Fighters):st
    roundLead="Al comenzar el "+roundName(n)+" turno, ";
   }else if(event.kind==="MOVE"){
    add(describeMove(event,ctx,fighters));
-  }else if(event.kind==="SKILL"){
+  }else if(event.kind==="POSITION"){
+   // Movement metadata remains available in the original technical log.
+   const next=beats[i+1],prev=beats[i-1];
+   const attackSide=(candidate:Beat|undefined)=>candidate?.kind==="ATTACK"?
+    candidate.launch?.by??candidate.result?.by:undefined;
    const actor=event.by==="PLAYER"?fighters.PLAYER.name.split(/\s+/)[0]:
-     (isTrainingOpponent(fighters.NPC.name)?"El rival":fighters.NPC.name);
+     opponentReference(fighters.NPC).subject;
    const skill=event.skillName??event.summary.replace(/^.*?\busó\s+/i,"").replace(/\s+y recuperó.*$/,"");
    add(event.healingPoints&&event.healingPoints>0
     ?actor+" recurrió a "+skill+" para recuperar fuerzas."

@@ -267,6 +267,14 @@ export default function CombatEncounter({id}:{id:string}) {
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"Acción rechazada");
    setView(v=>v?{...v,state:data.state}:v);
+   // Basic actions also need immediate outcome feedback. Previously only
+   // skills, consumables and karma showed a response near the controls.
+   if(["MOVE","WAIT","ATTACK","DEFEND","COMMAND_SUMMON"].includes(command.kind)){
+    const before=snapshot?.log.at(-1);
+    const latest=(data.state as CombatState).log.at(-1);
+    if(latest&&(!before||before.tick!==latest.tick||before.summary!==latest.summary))
+     setActionFeedback("Resultado reciente: "+latest.summary);
+   }
    if(["MOVE","WAIT","ATTACK","DEFEND","COMMAND_SUMMON"].includes(command.kind)){
     actionRequestRef.current=null;
     try{window.sessionStorage.removeItem("xahya-pending-combat:"+id+":"+side);}

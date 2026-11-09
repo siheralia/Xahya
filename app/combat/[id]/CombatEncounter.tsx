@@ -616,7 +616,11 @@ export default function CombatEncounter({id}:{id:string}) {
   [id,side,incomingDamage.hitCount,incomingDamage.latest.tick,incomingDamage.latest.summary].join(":"):"";
  const counterRisk=!!state&&!pending&&!!basicCounterAttack(state,opposingSide);
  const equipmentCounts=state?combatEquipmentCounts(state,side):null;
- const lastEquipmentEvent=state?recentEquipmentEvents(state,side,1)[0]:null;
+ // A one-time event should not leave a permanent "recent change" banner
+ // after later rounds. A still-broken piece remains independently visible.
+ const candidateEquipmentEvent=state?recentEquipmentEvents(state,side,1)[0]:null;
+ const lastEquipmentEvent=candidateEquipmentEvent&&state&&
+  candidateEquipmentEvent.tick>=(state.round-1)*100?candidateEquipmentEvent:null;
  const combatStatRows:Array<[string,string|number|undefined]>=[
   ["HP",actor?actor.hp+"/"+actor.maxHp:"—"],
   ["Maná",state?.mana?.[side]?state.mana[side].current+"/"+state.mana[side].max:"—"],

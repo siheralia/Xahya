@@ -8,6 +8,7 @@ type Row = {
   pointsTotal:number; luck:number; hp:number; mana:number; casinoWon:number; casinoSpent:number;
   mazeMoney:number; mazeRooms:number; mazeDiscovered:number; mazeTreasures:number;
   combatWins:number; combatLosses:number; combatDraws:number; combatTotal:number; combatWinRate:number;
+  pvpWins:number; pvpLosses:number; pvpDraws:number; pvpTotal:number; pvpWinRate:number;
 };
 
 const rankings = [
@@ -15,6 +16,7 @@ const rankings = [
   ["Puntos totales", "pointsTotal", "✦"],
   ["Karma", "karma", "🪷"],
   ["Más victorias", "combatWins", "⚔️"],
+  ["Victorias PvP", "pvpWins", "🏆"],
   ["Win rate", "combatWinRate", "🎯"],
   ["Dinero ganado en casino", "casinoWon", "🎰"],
   ["Dinero gastado en casino", "casinoSpent", "💸"],
@@ -52,13 +54,15 @@ export default function RankingsPage() {
   const blocks = useMemo(() => rankings.map(([label,key,icon]) => ({
     label,key,icon,
     entries: rows
-      // Don't rank characters with no completed matches as if they had a win rate.
-      .filter(row => (key !== "combatWins" && key !== "combatWinRate") || row.combatTotal > 0)
+      // No combat ranking for characters without a match of the relevant type.
+      .filter(row => key === "pvpWins" ? row.pvpTotal > 0
+        : (key !== "combatWins" && key !== "combatWinRate") || row.combatTotal > 0)
       .sort((a,b) => {
         const difference = Number(b[key]) - Number(a[key]);
         if (difference !== 0) return difference;
         if (key === "combatWinRate") return b.combatTotal-a.combatTotal || b.combatWins-a.combatWins || a.name.localeCompare(b.name,"es");
         if (key === "combatWins") return b.combatWinRate-a.combatWinRate || b.combatTotal-a.combatTotal || a.name.localeCompare(b.name,"es");
+        if (key === "pvpWins") return b.pvpWinRate-a.pvpWinRate || b.pvpTotal-a.pvpTotal || a.name.localeCompare(b.name,"es");
         return a.name.localeCompare(b.name,"es");
       })
       .slice(0,5),
@@ -71,7 +75,7 @@ export default function RankingsPage() {
           <div>
             <h1 className="text-3xl font-bold sm:text-4xl">Rankings</h1>
             <p className="mt-1 text-sm text-zinc-500">Top 5 de cada categoría.</p>
-            <p className="mt-1 text-xs text-zinc-500">En combate cuentan los duelos PvP y de entrenamiento finalizados. Los empates cuentan en el total, no como victorias.</p>
+            <p className="mt-1 text-xs text-zinc-500">El combate general incluye entrenamiento y PvP finalizados. Victorias PvP solo cuenta duelos entre personajes de jugadores distintos; los empates no son victorias.</p>
           </div>
           <Link href="/management" className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">← Gestión</Link>
         </div>
@@ -87,13 +91,16 @@ export default function RankingsPage() {
                   <span>{block.icon}</span><span>{block.label}</span>
                 </h2>
                 <div className="mt-3 space-y-1.5">
-                  {block.entries.length === 0 ? <p className="text-xs text-zinc-600">Sin personajes</p> : block.entries.map((entry,index) => (
+                  {block.entries.length === 0 ? <p className="text-xs text-zinc-600">{block.key==="pvpWins"?"Sin duelos PvP":"Sin personajes"}</p> : block.entries.map((entry,index) => (
                     <div key={entry.id} className="flex min-w-0 items-center gap-1.5 rounded-lg bg-zinc-950/70 px-2 py-1.5">
                       <span className="w-4 shrink-0 text-[10px] font-bold text-zinc-500">#{index+1}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-xs text-zinc-200">{entry.name}</span>
                         {(block.key==="combatWins" || block.key==="combatWinRate") && (
                           <span className="block text-[10px] text-zinc-500">{entry.combatWins} V · {entry.combatLosses} D · {entry.combatDraws} E · {entry.combatTotal} combates</span>
+                        )}
+                        {block.key==="pvpWins" && (
+                          <span className="block text-[10px] text-zinc-500">{entry.pvpWins} V · {entry.pvpLosses} D · {entry.pvpDraws} E · {entry.pvpTotal} duelos PvP</span>
                         )}
                       </span>
                       <span className="shrink-0 text-xs font-semibold text-white">{block.key==="combatWinRate" ? percentage(entry.combatWinRate) : format(Number(entry[block.key]))}</span>

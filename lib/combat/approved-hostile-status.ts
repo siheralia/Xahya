@@ -1,8 +1,8 @@
 /**
  * D2.4 — first enemy status rider, never a free targeted spell.
- * An approved offensive skill must already deal physical damage through the
- * regular combat attack/reaction/collision engine. Its single COMPOSED status
- * is only applied after verified HP damage to that actual defender.
+ * An approved offensive skill must deal real physical or magical damage
+ * through the regular combat attack/reaction/collision engine. Its single
+ * COMPOSED status is only applied after verified HP loss by the defender.
  */
 import {emptyMicroState,executeMicroEvent,validateEffectContainers,
  type EffectContainer} from "../effects/micro-modules.ts";
@@ -26,12 +26,14 @@ export type ApprovedHostileStatus={
  operation:"BONUS"|"MULTIPLIER";
  value:number;
  durationTurns:number;
+ /** The authoritative damage channel selected by the reviewed legacy base. */
+ usesMagic:boolean;
 };
-export type ResolvedHostileStatus=Omit<ApprovedHostileStatus,"definition">;
+export type ResolvedHostileStatus=Omit<ApprovedHostileStatus,"definition"|"usesMagic">;
 
 /**
- * Price/policy gate: exactly one normal physical damage module plus one
- * reviewed COMPOSED selector/status pair. No other mixed or hidden steps.
+ * Price/policy gate: exactly one 100% physical or magical damage module
+ * plus one reviewed COMPOSED selector/status pair. No mixed/hidden steps.
  * The current skill editor/management approval still owns real PCH pricing.
  */
 export function compileApprovedHostileStatus(
@@ -57,7 +59,7 @@ export function compileApprovedHostileStatus(
  if(!Number.isSafeInteger(range.rangeMeters)||range.rangeMeters===null||
    range.rangeMeters<1||range.rangeMeters>5||
    !["SINGLE","CONTACT"].includes(parseSkillArea(row.areaOfEffect).kind))
-  return error("El estado hostil necesita objetivo único o contacto físico de hasta 5 m.");
+  return error("El estado hostil necesita objetivo único o contacto de hasta 5 m.");
  if(!["CUT","BLUNT","PIERCE"].includes(String(row.attackType)))
   return error("Selecciona corte, golpe contundente o perforación para el ataque.");
  const effects=row.effect;
@@ -70,9 +72,15 @@ export function compileApprovedHostileStatus(
  const damage=effects.find(effect=>!isComposedSkillEffect(effect));
  if(!object(damage)||!only(damage,["type","target","value"])||
    damage.type!=="DAMAGE_MULTIPLIER"||
-   !["PHYSICAL_ATTACK","PHYS_ATK"].includes(String(damage.target))||
+   !["PHYSICAL_ATTACK","PHYS_ATK","MAGIC_ATTACK","MAGIC_ATK"].includes(String(damage.target))||
    damage.value!==100)
-  return error("Solo se admite daño físico aprobado al 100 % como base del estado hostil.");
+  return error("Solo se admite daño físico o mágico aprobado al 100 % como base del estado hostil.");
+ const usesMagic=["MAGIC_ATTACK","MAGIC_ATK"].includes(String(damage.target));
+ // Magic must travel as a directed, single-target spell. The existing
+ // geometry, defender reaction and measured mirror-ray interception apply.
+ // Contact-area magic, broad areas and indirect debuffs are not implemented.
+ if(usesMagic&&parseSkillArea(row.areaOfEffect).kind!=="SINGLE")
+  return error("El debilitamiento mágico requiere un hechizo de objetivo único.");
  const module=structuredClone(composed[0].module);
  const invalid=validateEffectContainers([module]);
  if(invalid)return error(invalid);
@@ -103,7 +111,7 @@ export function compileApprovedHostileStatus(
    return error("El debilitamiento multiplicativo debe ser de ×0,80 hasta menos de ×1.");
  }else return error("El estado hostil necesita un debilitamiento, no una mejora.");
  return {definition:module,stat:apply.stat,operation:apply.operation,
-  value:apply.value,durationTurns};
+  value:apply.value,durationTurns,usesMagic};
 }
 
 /** Execute the approved interpreter only on trusted server-side inputs.

@@ -116,3 +116,18 @@ test("mobile equipment audit: show numeric condition before fold, collapse optio
  assert.doesNotMatch(equipment,/open=\{true\}/,
   "long explanations must be collapsed by default on narrow screens");
 });
+
+
+test("two combat planes keep their icon toolbars within narrow mobile columns",()=>{
+ assert.match(page,/grid grid-cols-3 gap-1" role="group" aria-label="Controles de reacción vertical"/);
+ assert.match(page,/grid grid-cols-4 gap-1" role="group" aria-label="Controles de ataque vertical"/);
+ assert.match(page,/h-9 w-full min-w-0 max-w-9 items-center justify-center justify-self-center/);
+ assert.doesNotMatch(page,/flex gap-1" role="group" aria-label="Controles de ataque vertical"/);
+ assert.doesNotMatch(page,/flex size-9 items-center justify-center rounded-md border/);
+ for(const label of ["Solo mover · 1 PA","Mover y atacar · 2 PA",
+  "Atacar y mover · 2 PA","Solo atacar · 1 PA"]){
+  assert.ok(page.includes('aria-label="'+label+'"'),label);
+ }
+ assert.match(page,/className="sm:hidden">Mover \u00b7 1 PA/);
+ assert.match(page,/className="hidden sm:inline">Solo mover \u00b7 1 PA/);
+});

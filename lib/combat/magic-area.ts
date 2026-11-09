@@ -51,6 +51,12 @@ export function combatClientView(state:CombatState):CombatState {
   clone.narrativeVersion=COMBAT_NARRATIVE_VERSION;
   clone.narrativePartial=!complete&&state.log.length>=100;
  }
+ // These detailed factor snapshots are required by the authoritative server
+ // on damage/repair. The client needs only actual displayed combat stats and
+ // per-copy durability; revealing the formula graph adds payload and exposes
+ // data unrelated to UI interaction.
+ delete clone.actors.PLAYER.equipmentDerivedReplay;
+ delete clone.actors.NPC.equipmentDerivedReplay;
  // The complete chronology belongs to the server until it is converted into
  // the final chronicle. Do not send an ever-growing private history on each poll.
  delete clone.narrativeHistory;

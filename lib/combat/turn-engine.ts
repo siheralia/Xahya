@@ -2,6 +2,7 @@ import { calculateActionTicks, COMBAT_TICKS_PER_TURN } from "./ticks.ts";
 import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
 import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
+import {resolveApprovedHostileStatus,type ResolvedHostileStatus} from "./approved-hostile-status.ts";
 import { geometricContact } from "./geometry.ts";
 import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
@@ -81,6 +82,8 @@ export type PendingAttack = {
   planarMove?:Point;
   movementOrder?:"BEFORE"|"AFTER";
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
+  /** D2.4: trusted evaluated intent, never the COMPOSED source graph. */
+  hostileStatus?:ResolvedHostileStatus & {id:string};
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
   mirrorId?:string; mirrorAuto?:boolean;
   /** Summoned strike uses entity stats, but owner PA/ticks. */
@@ -1890,6 +1893,23 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
             " con su ataque circular de "+pending.attackArea.radiusMeters+" m de radio ("+damage+" HP)"
           :attacker.name + (pending.usesMagic?" acertó con su explosión mágica a ":" impactó a ") + fighter.name + " (" + damage + " HP)"});
+    // This rider is resolved AFTER the ordinary attack result is logged, so
+    // the encounter chronicle narrates impact before its consequence.
+    // No actual lost HP means no debuff: blocked, dodged, or missed attacks.
+    if(pending.hostileStatus&&contact&&actualHpDamage>0){
+      const rider=pending.hostileStatus;
+      applySummonStatus(state,{
+        id:rider.id,sourceSummonId:"SKILL:"+pending.skill!.id,
+        by:pending.by,target:by,stat:rider.stat,
+        operation:rider.operation,value:rider.value,
+        durationTurns:rider.durationTurns,
+      });
+      addLog(state,{kind:"STATUS",tick:state.tick,by:pending.by,against:by,
+        skillId:pending.skill?.id,skillName:pending.skill?.name,
+        contact:true,summary:attacker.name+" debilitó a "+fighter.name+
+          " con "+(pending.skill?.name??"su habilidad")+
+          " después de causarle daño."});
+    }
     // A mirror reflects only when a REAL area touches it. In particular an
     // approved single-target skill or mirror ray must never inherit the basic
     // explosion's 1.4 m footprint. SELF_FIELD checks measured world distance,
@@ -2291,6 +2311,8 @@ export function applyResolvedCombatSkill(
   const selfField=plan.attackArea?.shape==="SELF_FIELD";
   if(selfField&&aim.targetConstructionId)
    throw new Error("El barrido alrededor del usuario no permite elegir un objeto como epicentro.");
+  if(plan.approvedHostileStatus&&(aim.targetConstructionId||aim.targetSummonId))
+   throw new Error("El estado hostil solo puede acompañar un ataque dirigido al rival.");
   next=applyCombatCommand(prepaid,by,{
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
    planarMove:aim.planarMove,movementOrder:aim.movementOrder,
@@ -2309,6 +2331,11 @@ export function applyResolvedCombatSkill(
    defenseFactor:plan.defenseFactor,finalMultiplier:plan.finalMultiplier,
    damageElement:plan.damageElement,
   };
+  if(next.pending&&plan.approvedHostileStatus){
+   const rider=resolveApprovedHostileStatus(plan.approvedHostileStatus,by);
+   next.pending.hostileStatus={...rider,
+     id:"MODULAR_CONTACT:"+by+":"+plan.id+":"+aim.requestId};
+  }
   const event=next.pending?next.log.at(-1):next.log.slice().reverse().find(x=>
     x.kind==="ATTACK"&&x.by===by&&x.skillId===plan.id);
   if(event){

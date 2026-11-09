@@ -67,6 +67,8 @@ export function combatClientView(state:CombatState):CombatState {
  if(clone.pending){
   delete clone.pending.directedMagicRay;
   delete clone.pending.projectileFlight;
+  // Pending status payload is authoritative and remains private before impact.
+  delete clone.pending.hostileStatus;
  }
  // Keep every oriented area direction private until the defense is resolved.
  if(isOrientedCombatArea(clone.pending?.attackArea))delete clone.pending.areaAngleDegrees;

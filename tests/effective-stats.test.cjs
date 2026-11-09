@@ -27,6 +27,15 @@ vm.runInNewContext(equipmentReplayJs,{
   exports:equipmentReplayModule,
   require:(name)=>name==="./wearable-stat-bonus.ts"?wearableBonusModule:{},
 });
+const resourceReplaySource=fs.readFileSync(path.join(__dirname,
+  "../lib/combat/equipment-resource-replay.ts"),"utf8");
+const resourceReplayJs=ts.transpileModule(resourceReplaySource,{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
+}).outputText;
+const resourceReplayModule={};
+vm.runInNewContext(resourceReplayJs,{
+  exports:resourceReplayModule,require:()=>({}),
+});
 
 // Test fixture: these entries model an active catalog; production definitions remain in AppSetting.
 const ACTIVE_ATTACK_CATALOG = [
@@ -69,6 +78,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
     "@/lib/skills/interaction-engine": {parseEnvironment:(v)=>v??{}, activeStatMultipliers:()=>mechanicFactors},
     "@/lib/combat/wearable-stat-bonus":wearableBonusModule,
     "@/lib/combat/equipment-derived-replay":equipmentReplayModule,
+    "@/lib/combat/equipment-resource-replay":resourceReplayModule,
     // The true DB-free basic replay is integration-tested directly in ESM.
     // Existing fixture stubs derived formulas rather than evaluating a real catalog.
     "@/lib/combat/equipment-basic-replay":{buildEquipmentBasicReplay:()=>null},

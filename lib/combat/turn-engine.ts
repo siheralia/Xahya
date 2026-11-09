@@ -2,6 +2,7 @@ import { calculateActionTicks, COMBAT_TICKS_PER_TURN } from "./ticks.ts";
 import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
 import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
+import {resolveDamageChannels} from "./damage-channels.ts";
 import {resolveApprovedHostileStatus,type ResolvedHostileStatus} from "./approved-hostile-status.ts";
 import { geometricContact } from "./geometry.ts";
 import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
@@ -1690,23 +1691,31 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // A free phase-1 magical *basic* strike is intentionally bounded.
     // Full skill damage, mana expenditure and elemental effects belong to phase 2.
     const skill=pending.skill;
-    const raw=skill
-      ?Math.max(1,Math.round(power*skill.damageMultiplier*(critical?1.5:1)*typeFactor
-        -protection*skill.defenseFactor*0.75))
-      :pending.usesMagic
-        ?Math.max(1,Math.round((3+5*power/(power+protection+20))*(critical?1.5:1)*typeFactor))
-        :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor-protection*0.75));
-    const racialFactor=racialDamageFactor(fighter.damageTakenFactors,pending.attackType,pending.usesMagic,skill?.damageElement);
-    let damage = contact ? Math.max(0, Math.round(raw * damageScale * (skill?.finalMultiplier??1) * racialFactor)) : 0;
-    // Only defense-stat mitigation counts; reaction-blocking/dodge and
-    // construction reductions cannot be added to the stored value.
-    const noResistanceRaw=skill
-      ?Math.max(1,Math.round(power*skill.damageMultiplier*(critical?1.5:1)*typeFactor))
-      :pending.usesMagic
+    const racialFactor=racialDamageFactor(
+      fighter.damageTakenFactors,pending.attackType,pending.usesMagic,skill?.damageElement);
+    // D3.1: every approved skill is calculated by the typed channel model.
+    // This is still ONE fully defended channel per attack. Two-channel skills
+    // remain disabled until a joint reaction and cover policy is implemented.
+    const approvedChannelDamage=skill?resolveDamageChannels([{
+      kind:pending.usesMagic?"MAGICAL":"PHYSICAL",
+      power,protection,damageMultiplier:skill.damageMultiplier,
+      defenseFactor:skill.defenseFactor,finalMultiplier:skill.finalMultiplier,
+      typeFactor,racialFactor,contact,critical,reactionScale:damageScale,
+    }]):null;
+    // Historical phase-1 basic attacks preserve their bounded old formulas.
+    const raw=approvedChannelDamage?.channels[0].raw??(pending.usesMagic
+      ?Math.max(1,Math.round((3+5*power/(power+protection+20))*(critical?1.5:1)*typeFactor))
+      :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor-protection*0.75)));
+    let damage=approvedChannelDamage?.damage??(contact
+      ?Math.max(0,Math.round(raw*damageScale*racialFactor)):0);
+    // Only resistance-stat mitigation counts. Defense reactions, cover and
+    // dodge never inflate the amount attributed to physical/magical defense.
+    const noResistanceRaw=approvedChannelDamage?.channels[0].rawWithoutResistance??
+      (pending.usesMagic
         ?Math.max(1,Math.round((3+5*power/(power+20))*(critical?1.5:1)*typeFactor))
-        :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor));
-    let noResistanceDamage=contact?Math.max(0,Math.round(
-      noResistanceRaw*damageScale*(skill?.finalMultiplier??1)*racialFactor)):0;
+        :Math.max(1,Math.round(power*(critical?1.5:1)*typeFactor)));
+    let noResistanceDamage=approvedChannelDamage?.unprotectedDamage??(contact
+      ?Math.max(0,Math.round(noResistanceRaw*damageScale*racialFactor)):0);
     let mitigatedByResistance=contact?Math.max(0,noResistanceDamage-damage):0;
     let physicalCoverLabel:string|undefined;
     // A deliberately traced melee stroke or explicit measured projectile

@@ -29,7 +29,8 @@ function chargeCondition(step:MicroStep,key:string,compare:"EQ"|"GTE",right:0|1)
  const conditions=step.when;
  return Array.isArray(conditions)&&conditions.length===1&&
   conditions[0].compare===compare&&
-  record(conditions[0].left)&&conditions[0].left.source==="CHARGES"&&
+  record(conditions[0].left)&&"source" in conditions[0].left&&
+  conditions[0].left.source==="CHARGES"&&
   conditions[0].left.key===key&&conditions[0].right===right;
 }
 function allowedPair(modules:readonly EffectContainer[]):{
@@ -43,7 +44,8 @@ function allowedPair(modules:readonly EffectContainer[]):{
  if(!store||store.steps[0].kind!=="STORE")return null;
  const s=store.steps[0];
  if(s.capacity<1||s.capacity>5||!record(s.value)||
-   s.value.source!=="EVENT"||s.value.key!=="MITIGATED_DAMAGE"||
+   !("source" in s.value)||s.value.source!=="EVENT"||
+   s.value.key!=="MITIGATED_DAMAGE"||
    s.when!==undefined)return null;
  const triggers=new Set(modules.map(m=>m.trigger));
  if(triggers.size!==modules.length ||
@@ -61,9 +63,10 @@ function allowedPair(modules:readonly EffectContainer[]):{
      !chargeCondition(step,s.accumulator,"EQ",0))return null;
   }else if(module.trigger==="TURN_START"){
    if(step.kind!=="HEAL"||!record(step.amount)||
-      step.amount.operator!=="PERCENT"||!Array.isArray(step.amount.args)||
-      step.amount.args.length!==2||
+      !("operator" in step.amount)||step.amount.operator!=="PERCENT"||
+      !Array.isArray(step.amount.args)||step.amount.args.length!==2||
       !record(step.amount.args[0])||
+      !("source" in step.amount.args[0])||
       step.amount.args[0].source!=="STAT"||
       step.amount.args[0].key!=="MAX_HP"||
       typeof step.amount.args[1]!=="number"||

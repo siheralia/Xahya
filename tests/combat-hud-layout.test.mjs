@@ -101,3 +101,33 @@ test("mobile combat actions remain attached to the right canvas, with aligned to
  assert.match(page,/opponentCardRef/);
  assert.match(page,/!opponentInView&&/);
 });
+
+
+test("mobile equipment audit: show numeric condition before fold, collapse optional explanation",()=>{
+ const equipment=readFileSync(new URL("../app/combat/[id]/CombatEquipmentStatus.tsx",import.meta.url),"utf8");
+ const summary=equipment.indexOf("{counts.total} piezas equipadas");
+ const details=equipment.indexOf("<details className=");
+ const cards=equipment.indexOf("{(fighter.equippedWearables??[]).map");
+ assert.ok(summary>=0&&details>summary&&cards>details,
+  "counts and current pools must appear before optional explanatory prose and item cards");
+ assert.match(equipment,/<summary className="cursor-pointer/);
+ assert.match(equipment,/¿Por qué cambia la durabilidad\?/);
+ assert.match(equipment,/Bloquear desgasta el arma o escudo utilizado/);
+ assert.doesNotMatch(equipment,/open=\{true\}/,
+  "long explanations must be collapsed by default on narrow screens");
+});
+
+
+test("two combat planes keep their icon toolbars within narrow mobile columns",()=>{
+ assert.match(page,/grid grid-cols-3 gap-1" role="group" aria-label="Controles de reacción vertical"/);
+ assert.match(page,/grid grid-cols-4 gap-1" role="group" aria-label="Controles de ataque vertical"/);
+ assert.match(page,/h-9 w-full min-w-0 max-w-9 items-center justify-center justify-self-center/);
+ assert.doesNotMatch(page,/flex gap-1" role="group" aria-label="Controles de ataque vertical"/);
+ assert.doesNotMatch(page,/flex size-9 items-center justify-center rounded-md border/);
+ for(const label of ["Solo mover · 1 PA","Mover y atacar · 2 PA",
+  "Atacar y mover · 2 PA","Solo atacar · 1 PA"]){
+  assert.ok(page.includes('aria-label="'+label+'"'),label);
+ }
+ assert.match(page,/className="sm:hidden">Mover \u00b7 1 PA/);
+ assert.match(page,/className="hidden sm:inline">Solo mover \u00b7 1 PA/);
+});

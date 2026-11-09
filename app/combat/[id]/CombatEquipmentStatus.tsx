@@ -18,18 +18,23 @@ export default function CombatEquipmentStatus({state,side}:{
   <div className="rounded-xl border border-cyan-800/60 bg-cyan-950/15 p-3 text-sm text-cyan-100">
    <h3 className="font-semibold">Equipo de este combate · estado actual</h3>
    <p className="mt-1 text-xs text-zinc-300">
-    Esta vista muestra la durabilidad del encuentro, no una copia antigua del inventario.
-    Las piezas equipadas al iniciar el combate siguen siendo las mismas aunque modifiques tu ficha fuera de él.
-   </p>
-   <p className="mt-2 text-xs text-zinc-300">
-    Bloquear desgasta el arma o escudo utilizado. Si aun así el golpe te quita HP,
-    también puede desgastar otras piezas que tengan activada una regla de desgaste.
-   </p>
-   <p className="mt-2 text-xs text-zinc-300">
-    Armaduras y accesorios: {counts.total} · Rotos: {counts.broken} · Muy desgastados (25/100 o menos): {counts.damaged}.
+    {counts.total} piezas equipadas · {counts.broken} rotas · {counts.damaged} muy desgastadas.
     {" "}HP {fighter.hp}/{fighter.maxHp} · Maná {state.mana?.[side]
      ?state.mana[side].current+"/"+state.mana[side].max:"—"}.
    </p>
+   <details className="mt-2 rounded-lg border border-cyan-800/40 px-2 py-1.5 text-xs">
+    <summary className="cursor-pointer font-medium text-cyan-200">
+     ¿Por qué cambia la durabilidad?
+    </summary>
+    <p className="mt-2 text-zinc-300">
+     Esta vista muestra la durabilidad del encuentro. Aunque cambies tu ficha,
+     el equipo del combate conserva su propia instantánea.
+    </p>
+    <p className="mt-2 text-zinc-300">
+     Bloquear desgasta el arma o escudo utilizado. Si todavía recibes daño al HP,
+     otras piezas con regla de desgaste también pueden dañarse.
+    </p>
+   </details>
   </div>
   {weapons.length>0&&<div className="space-y-2">
    <h3 className="flex items-center gap-2 text-sm font-semibold"><Shield size={16}/> Armas en las manos</h3>

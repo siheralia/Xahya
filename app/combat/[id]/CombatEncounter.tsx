@@ -864,19 +864,19 @@ export default function CombatEncounter({id}:{id:string}) {
       {panel==="construction"&&canCreateObjects
        ?<div className="flex h-9 items-center gap-1 text-[10px] text-cyan-200 sm:text-xs"
          aria-label="Modo de creación"><Box size={17}/> Crear objeto</div>
-       :defending?<div className="flex gap-1" role="group" aria-label="Controles de reacción vertical">
+       :defending?<div className="grid grid-cols-3 gap-1" role="group" aria-label="Controles de reacción vertical">
         {(["BLOCK","DEFLECT","DODGE"] as const).map(choice=>{
          const Icon=defenseIcons[choice];
          return <button key={choice} type="button" title={options.find(o=>o.value===choice)?.label}
           aria-label={options.find(o=>o.value===choice)?.label} aria-pressed={selectedDefense===choice}
           onClick={()=>setDefense(choice)}
           disabled={pending?.usesMagic&&choice!=="DODGE"||Boolean(pending?.attackArea)&&choice==="DEFLECT"}
-          className={"flex size-9 items-center justify-center rounded-md border disabled:opacity-30 "+
+          className={"flex h-9 w-full min-w-0 max-w-9 items-center justify-center justify-self-center rounded-md border disabled:opacity-30 "+
            (selectedDefense===choice?"border-amber-400 text-amber-200":"border-zinc-700")}>
           <Icon size={18}/></button>;
         })}
        </div>
-       :<div className="flex gap-1" role="group" aria-label="Controles de ataque vertical">
+       :<div className="grid grid-cols-4 gap-1" role="group" aria-label="Controles de ataque vertical">
         {([
          {label:"Arma",Icon:Swords,active:attackMode==="PHYSICAL"&&["MAIN_HAND","OFF_HAND"].includes(activeAttackSource),
           onClick:()=>chooseAttackMode("MAIN_HAND")},
@@ -888,7 +888,7 @@ export default function CombatEncounter({id}:{id:string}) {
           onClick:()=>chooseAttackMode("MAGIC_AREA")},
         ]).map(({label,Icon,active,onClick})=><button type="button" key={label}
          title={label} aria-label={label} aria-pressed={active} onClick={onClick}
-         className={"flex size-9 items-center justify-center rounded-md border "+
+         className={"flex h-9 w-full min-w-0 max-w-9 items-center justify-center justify-self-center rounded-md border "+
           (active?"border-rose-300 bg-rose-950/40 text-rose-100":"border-rose-500/50 text-rose-300")}>
          <Icon size={18}/></button>)}
        </div>}
@@ -979,23 +979,23 @@ export default function CombatEncounter({id}:{id:string}) {
          </span>
         </p>
         <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Ejecutar acciones del combate">
-         <button type="button" disabled={!ready||!proposedMovement}
+         <button type="button" aria-label="Solo mover · 1 PA" disabled={!ready||!proposedMovement}
           onClick={()=>{if(proposedMovement)void submit({kind:"MOVE",direction:"VECTOR",
            planarMove:proposedMovement,meters:Math.round(Math.hypot(proposedMovement.x,proposedMovement.y)*1000)/1000});}}
           className="min-h-10 rounded-lg border border-cyan-500/60 px-1 py-1.5 text-[11px] text-cyan-200 disabled:opacity-35">
-          Solo mover · 1 PA</button>
-         <button type="button" disabled={!canExecuteAttack("BEFORE")}
+          <span className="sm:hidden">Mover · 1 PA</span><span className="hidden sm:inline">Solo mover · 1 PA</span></button>
+         <button type="button" aria-label="Mover y atacar · 2 PA" disabled={!canExecuteAttack("BEFORE")}
           onClick={()=>launchAttack("BEFORE")}
           className="min-h-10 rounded-lg border border-rose-400/70 px-1 py-1.5 text-[11px] text-rose-200 disabled:opacity-35">
-          Mover y atacar · 2 PA</button>
-         <button type="button" disabled={!canExecuteAttack("AFTER")}
+          <span className="sm:hidden">Mover + ataque · 2 PA</span><span className="hidden sm:inline">Mover y atacar · 2 PA</span></button>
+         <button type="button" aria-label="Atacar y mover · 2 PA" disabled={!canExecuteAttack("AFTER")}
           onClick={()=>launchAttack("AFTER")}
           className="min-h-10 rounded-lg border border-rose-400/70 px-1 py-1.5 text-[11px] text-rose-200 disabled:opacity-35">
-          Atacar y mover · 2 PA</button>
-         <button type="button" disabled={!canExecuteAttack()}
+          <span className="sm:hidden">Ataque + mover · 2 PA</span><span className="hidden sm:inline">Atacar y mover · 2 PA</span></button>
+         <button type="button" aria-label="Solo atacar · 1 PA" disabled={!canExecuteAttack()}
           onClick={()=>launchAttack()}
           className="min-h-10 rounded-lg bg-rose-500/90 px-1 py-1.5 text-[11px] font-semibold text-zinc-950 disabled:opacity-35">
-          Solo atacar · 1 PA</button>
+          <span className="sm:hidden">Atacar · 1 PA</span><span className="hidden sm:inline">Solo atacar · 1 PA</span></button>
         </div>
         {!attackConfigurationReady&&<p role="status" className="text-[11px] text-amber-200">
          {attackMode==="MAGIC_AREA"&&!areaCenter?"Marca primero el impacto en el plano vertical.":

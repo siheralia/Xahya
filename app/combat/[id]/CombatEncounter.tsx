@@ -82,7 +82,6 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <span>{turnTicks(f)} ticks/acción</span>
    <span>STR: {f.strength}</span>
    <span>CON: {f.constitution}</span>
-   <span className="col-span-2 text-zinc-500">Integridad heredada (arma principal): {f.weaponIntegrity}/100. La durabilidad de cada pieza aparece debajo.</span>
    {(["MAIN_HAND","OFF_HAND"] as const).map(slot=>{
     const weapon=slot==="MAIN_HAND"?f.equippedWeapon:f.offhandWeapon;
     const shield=slot==="OFF_HAND"&&!weapon?offhandArmorShield(f.equippedWearables):undefined;

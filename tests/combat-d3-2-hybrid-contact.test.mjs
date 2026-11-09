@@ -72,7 +72,8 @@ test("D3.2 approved contact skill pays ONE action and deals two defended channel
  assert.equal(pending.actors.NPC.hp,160);
  const publicState=combatClientView(pending);
  assert.equal(publicState.pending.hybridContact,undefined);
- assert.deepEqual(cast(JSON.parse(JSON.stringify(pending)),plan),pending,
+ const replay=JSON.parse(JSON.stringify(pending));
+ assert.deepEqual(cast(replay,plan),replay,
   "idempotent retry must not spend twice or reset defense");
  const result=defend(pending);
  const hit=log(result);

@@ -24,7 +24,7 @@ export function nextAutoRepairRound(round:number,interval:number):number|null{
  return 2+Math.ceil(Math.max(0,round-1)/interval)*interval;
 }
 export function explainEquipmentRecovery(
- item:CombatWearable,round:number,manaAvailable:number|undefined
+ item:Pick<CombatWearable,"durability"|"autoRepair"|"autoRepairDisabled">,round:number,manaAvailable:number|undefined
 ):string{
  if(!item.autoRepair)return "Sin autorreparación: esta pieza no se recupera sola durante el combate.";
  if(item.autoRepairDisabled)return "Autorreparación desactivada: configuración incompatible.";

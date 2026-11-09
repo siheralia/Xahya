@@ -22,12 +22,17 @@ export async function snapshotApprovedEncounterPassives(
   const [rows,activations,stolen]=await Promise.all([
    Skill.where({characterId,status:"APPROVED"}).all(),
    State?State.where({characterId}).all():Promise.resolve([]),
-   db.runtime().query(db.raw.sql`
-     SELECT "sourceSkillId" AS id FROM public."skillTheft"
-     WHERE "victimCharacterId"=${characterId} AND status='ACTIVE'
-   `.returnsRow({id:"pg/int4@1"}).build()) as Promise<Array<{id:number}>>,
+   (async()=>{
+    // The ORM query returns an awaitable AsyncIterableResult, not Promise<T[]>.
+    const theft=db.raw.sql`
+      SELECT "sourceSkillId" AS id FROM public."skillTheft"
+      WHERE "victimCharacterId"=${characterId} AND status='ACTIVE'
+    `.returnsRow({id:"pg/int4@1"}).build();
+    const stolen=await db.runtime().query(theft) as Array<{id:number}>;
+    return new Set(stolen.map(x=>Number(x.id)));
+   })(),
   ]);
-  const stolenIds=new Set(stolen.map(x=>Number(x.id)));
+  const stolenIds=stolen;
   const selection=approvedPassiveMicroSnapshot(characterId,rows,activations,stolenIds);
   if(!selection.definitions.length)continue;
   // This helper may reject unsupported/invalid historical graphs; do not

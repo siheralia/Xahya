@@ -36,6 +36,7 @@ export type CombatSkillPreview = {
  executable: boolean;
  skillKind?: "OFFENSE"|"SUPPORT"|"CONSTRUCTION"|"SUMMON"|"CHARGE_BUFF"|"FUSION"|null;
  chargeBuff?:ChargeBuffPlan|null;
+ modularSupport?:boolean;
  fusion?:FusionPlan|null;
  needsAim?: boolean;
  attackArea?:CombatAttackArea|null;

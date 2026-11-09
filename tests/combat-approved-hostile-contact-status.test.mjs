@@ -129,7 +129,7 @@ test("unapproved, unpriced, hostile bypass and arbitrary graphs are rejected",()
   {maintenanceCost:4},{accumulationCost:2},{condition:"Solo en lluvia"},
   {areaOfEffect:"Área circular de 3 m | Alcance máximo: 5 m"},
   {areaOfEffect:"Objetivo único | Alcance máximo: 99 m"},
-  {effect:[{type:"DAMAGE_MULTIPLIER",target:"MAGIC_ATTACK",value:100},module()]},
+  {effect:[{type:"DAMAGE_MULTIPLIER",target:"MAGIC_ATTACK",value:150},module()]},
   {effect:[{type:"DAMAGE_MULTIPLIER",target:"PHYSICAL_ATTACK",value:200},module()]},
   {effect:[{type:"DAMAGE_MULTIPLIER",target:"PHYSICAL_ATTACK",value:100},module("USER")]},
   {effect:[{type:"DAMAGE_MULTIPLIER",target:"PHYSICAL_ATTACK",value:100},module("OPPONENT",1.2)]},

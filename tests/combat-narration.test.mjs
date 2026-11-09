@@ -55,7 +55,7 @@ test("newly completed encounters retain a full narration even after the 100-even
  assert.match(state.narrativeText,/Paso inicial memorable/);
  assert.match(state.narrativeText,/Elena obtuvo la victoria/);
  assert.equal(state.narrativeHistory.length,148,"the full history is kept server-side for future reinterpretations");
- assert.equal(state.narrativeVersion,4);
+ assert.equal(state.narrativeVersion,5);
  const publicState=combatClientView(state);
  assert.equal(publicState.narrativeText,state.narrativeText);
  assert.equal(publicState.narrativeHistory,undefined);
@@ -133,7 +133,7 @@ test("pre-versioned concluded fights are regenerated from surviving facts, not f
  ];
  state.narrativeText="Crónica del encuentro: Elena contra Sombra.\n\nElena lanzó una estocada.";
  const publicState=combatClientView(state);
- assert.equal(publicState.narrativeVersion,4);
+ assert.equal(publicState.narrativeVersion,5);
  assert.match(publicState.narrativeText,/Elena se enfrentó a Sombra/);
  assert.match(publicState.narrativeText,/63 puntos de daño/);
  assert.doesNotMatch(publicState.narrativeText,/Crónica del encuentro:/);
@@ -193,4 +193,61 @@ test("an NPC victory and legacy recovery summaries never leak technical race lab
  assert.match(story,/El gigante recuperó dos puntos/);
  assert.match(story,/El gigante obtuvo la victoria/);
  assert.doesNotMatch(story,/Oponente de entrenamiento · Gigantes/);
+});
+
+test("encounter 75: Bnuuy del Juicio attacks four times, Sarya never performs the blows",()=>{
+ const rabbitId="PLAYER:60:encounter75:0";
+ const actors={
+  PLAYER:{name:"Sarya Athos",hp:12,maxHp:12,characterId:20},
+  NPC:{name:"Oponente de entrenamiento · Elementales",hp:0,maxHp:32,characterId:null}
+ };
+ const events=[
+  {kind:"SKILL",tick:17,by:"PLAYER",summary:"Sarya Athos invocó Bnuuy del Juicio",skillId:60,skillName:"Bnuuy del Juicio"},
+  {kind:"MOVE",tick:17,by:"NPC",summary:"Oponente se desplazó 0.82 m",movementDirection:"TOWARD",moveMeters:0.82},
+  {kind:"ATTACK",tick:34,by:"PLAYER",against:"NPC",summary:"Bnuuy del Juicio atacó a Oponente de entrenamiento · Elementales; esperando reacción",summonId:rabbitId,attackType:"BLUNT"},
+  {kind:"RESOLVE",tick:34,by:"PLAYER",against:"NPC",summary:"Oponente de entrenamiento · Elementales evitó el ataque",summonId:rabbitId,damage:0,contact:false,defense:"DEFLECT"},
+  {kind:"ATTACK",tick:51,by:"NPC",against:"PLAYER",summary:"Oponente lanzó un puñetazo",attackType:"BLUNT"},
+  {kind:"POSITION",tick:51,by:"PLAYER",summary:"Sarya Athos se desplazó 0.53 m como parte de su acción",moveMeters:0.53},
+  {kind:"RESOLVE",tick:51,by:"NPC",against:"PLAYER",summary:"Sarya Athos evitó el ataque",damage:0,contact:false,defense:"DODGE"},
+  {kind:"ATTACK",tick:68,by:"PLAYER",against:"NPC",summary:"Bnuuy del Juicio atacó a Oponente de entrenamiento · Elementales; esperando reacción",summonId:rabbitId,attackType:"BLUNT"},
+  {kind:"STATUS",tick:68,by:"PLAYER",against:"NPC",summonId:rabbitId,summary:"Bnuuy del Juicio aplicó un debilitamiento a Oponente de entrenamiento · Elementales: precision (×0.8) durante 2 turnos."},
+  {kind:"RESOLVE",tick:68,by:"PLAYER",against:"NPC",summary:"Bnuuy del Juicio impactó a Oponente de entrenamiento · Elementales (6 HP)",summonId:rabbitId,damage:6,contact:true,defense:"ENDURE"},
+  {kind:"MOVE",tick:85,by:"NPC",summary:"El rival avanzó",movementDirection:"TOWARD",moveMeters:0.05},
+  {kind:"ATTACK",tick:85,by:"PLAYER",against:"NPC",summary:"Bnuuy del Juicio atacó a Oponente de entrenamiento · Elementales; esperando reacción",summonId:rabbitId,attackType:"BLUNT"},
+  {kind:"STATUS",tick:85,by:"PLAYER",against:"NPC",summonId:rabbitId,summary:"Bnuuy del Juicio aplicó un debilitamiento a Oponente de entrenamiento · Elementales: magicDefense (×0.8) durante 2 turnos."},
+  {kind:"RESOLVE",tick:100,by:"PLAYER",against:"NPC",summary:"Bnuuy del Juicio impactó a Oponente de entrenamiento · Elementales (13 HP)",summonId:rabbitId,damage:13,contact:true,defense:"ENDURE"},
+  {kind:"ATTACK",tick:100,by:"PLAYER",against:"NPC",summary:"Bnuuy del Juicio atacó a Oponente de entrenamiento · Elementales; esperando reacción",summonId:rabbitId,attackType:"BLUNT"},
+  {kind:"STATUS",tick:100,by:"PLAYER",against:"NPC",summonId:rabbitId,summary:"Bnuuy del Juicio aplicó un debilitamiento a Oponente de entrenamiento · Elementales: agility (×0.8) durante 2 turnos."},
+  {kind:"RESOLVE",tick:100,by:"PLAYER",against:"NPC",summary:"Bnuuy del Juicio impactó a Oponente de entrenamiento · Elementales (13 HP)",summonId:rabbitId,damage:13,contact:true,defense:"NONE"},
+  {kind:"END",tick:100,by:"PLAYER",summary:"Sarya Athos gana el combate"}
+ ];
+ const text=narrateCombat(events,actors);
+ assert.match(text,/Sarya Athos se enfrentó a un elemental de entrenamiento/);
+ assert.match(text,/Sarya activó Bnuuy del Juicio/);
+ assert.match(text,/Bnuuy del Juicio abrió el combate con un golpe contundente/);
+ assert.match(text,/Bnuuy del Juicio respondió con un golpe contundente/);
+ assert.match(text,/seis puntos de daño/);
+ assert.match(text,/trece puntos de daño/);
+ assert.match(text,/precisión \(×0\.8\)/);
+ assert.match(text,/defensa mágica \(×0\.8\)/);
+ assert.match(text,/agilidad \(×0\.8\)/);
+ assert.match(text,/Ese golpe puso fin al enfrentamiento/);
+ assert.match(text,/Sarya Athos obtuvo la victoria/);
+ assert.doesNotMatch(text,/Sarya (abrió el combate|respondió con un golpe|atacó con un golpe|insistió con un golpe)/);
+ assert.doesNotMatch(text,/Sarya cambió de posición tras atacar|Oponente de entrenamiento · Elementales|a el elemental|como parte de su acción/);
+ assert.equal((text.match(/Bnuuy del Juicio (?:abrió el combate|respondió|atacó|insistió)/g)||[]).length,4,text);
+});
+test("a summon and its owner use distinct narrative attack identities",()=>{
+ const target="Oponente de entrenamiento";
+ const logs=[
+  {kind:"ATTACK",by:"PLAYER",tick:1,against:"NPC",summonId:"rabbit:one",summary:"Bnuuy atacó a "+target,attackType:"BLUNT"},
+  {kind:"RESOLVE",by:"PLAYER",tick:2,against:"NPC",summonId:"rabbit:one",summary:"Bnuuy impactó",damage:4,contact:true,defense:"NONE"},
+  {kind:"ATTACK",by:"PLAYER",tick:3,against:"NPC",summary:"Sarya atacó",attackType:"CUT"},
+  {kind:"RESOLVE",by:"PLAYER",tick:4,against:"NPC",summary:"Sarya impactó",damage:5,contact:true,defense:"NONE"},
+  {kind:"END",by:"PLAYER",tick:5,summary:"Sarya gana"}
+ ];
+ const text=narrateCombat(logs,{PLAYER:{name:"Sarya Athos",hp:12,maxHp:12},NPC:{name:target,hp:0,maxHp:9}});
+ assert.match(text,/Bnuuy abrió el combate con un golpe contundente/);
+ assert.match(text,/Sarya respondió con un corte/);
+ assert.doesNotMatch(text,/Sarya abrió el combate/);
 });

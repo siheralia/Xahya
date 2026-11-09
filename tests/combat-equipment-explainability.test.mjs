@@ -164,7 +164,7 @@ test("equipment panel is the encounter snapshot, while historical sheet list is 
  assert.match(hud,/piezas rotas/);
  assert.match(panel,/fighter\.equippedWearables/);
  assert.match(panel,/explainEquipmentRecovery\(/);
- assert.match(panel,/La durabilidad ganada o perdida/);
+ assert.match(page,/La durabilidad ganada o perdida/);
  assert.match(api,/delete clone\.actors\.NPC\.equipmentDerivedReplay/);
  assert.match(api,/delete clone\.actors\.PLAYER\.equipmentDerivedReplay/);
 });
@@ -177,9 +177,9 @@ test("UI audit: disabled actions have explanations and no fabricated manual repa
  assert.match(page,/disabled=\{!canExecuteAttack\(\)\}/);
  assert.match(page,/El objetivo sigue fuera de alcance/);
  assert.match(page,/Necesitas 2 PA para combinar/);
- assert.match(page,/Maná insuficiente/);
+ assert.match(read("app/combat/[id]/CombatSkillLoadout.tsx"),/Maná insuficiente/);
  assert.match(page,/defending\?" Elige cómo responder/);
  assert.match(page,/panel==="skills"/);
  assert.match(panel,/No hay un botón de reparación manual/);
- assert.match(panel,/Los HP y el maná del encuentro/);
+ assert.match(panel,/Al restaurarse la capacidad máxima/);
 });

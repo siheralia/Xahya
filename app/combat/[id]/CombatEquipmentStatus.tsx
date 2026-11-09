@@ -22,6 +22,10 @@ export default function CombatEquipmentStatus({state,side}:{
     Las piezas equipadas al iniciar el combate siguen siendo las mismas aunque modifiques tu ficha fuera de él.
    </p>
    <p className="mt-2 text-xs text-zinc-300">
+    Bloquear desgasta el arma o escudo utilizado. Si aun así el golpe te quita HP,
+    también puede desgastar otras piezas que tengan activada una regla de desgaste.
+   </p>
+   <p className="mt-2 text-xs text-zinc-300">
     Armaduras y accesorios: {counts.total} · Rotos: {counts.broken} · Desgastados: {counts.damaged}.
     {" "}HP {fighter.hp}/{fighter.maxHp} · Maná {state.mana?.[side]
      ?state.mana[side].current+"/"+state.mana[side].max:"—"}.

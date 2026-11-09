@@ -184,7 +184,7 @@ test("LEGACY_ONLY rollback blocks both real activation and player-visible button
  const noState=projectApprovedCombatSkills([row],[],new Set(),()=>true,"MODULAR_FIRST");
  assert.equal(noState[0].executable,true,
   "historical characters without an activation row retain their approved skill");
- const legacy=approved(92,{effect:[{type:"HEAL",value:5}]});
+ const legacy=approved(92,{effect:[{type:"RESOURCE_BONUS",target:"HP",value:5}]});
  const legacyDisabled=projectApprovedCombatSkills([legacy],[{skillId:92,active:false}],
   new Set(),()=>true,"MODULAR_FIRST");
  assert.equal(legacyDisabled[0].executable,true,

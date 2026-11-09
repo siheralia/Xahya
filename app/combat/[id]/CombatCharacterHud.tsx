@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Activity, Badge, Backpack, ChevronDown, ChevronUp, Clock3, Diamond, Droplets, Hand, Heart, Plus, Scan, Shield, Spade, Sparkles, Swords, WandSparkles, ChartNoAxesColumn } from "lucide-react";
+import { Activity, Badge, Backpack, ChevronDown, ChevronUp, Clock3, Diamond, Droplets, Hand, Heart, Plus, Scan, Shield, ShieldAlert, Spade, Sparkles, Swords, WandSparkles, ChartNoAxesColumn } from "lucide-react";
 import type {CombatFighter,Side,PhysicalAttackSource} from "@/lib/combat/turn-engine";
 import {actionPoints,remainingAp,effectiveWeaponReachMeters} from "@/lib/combat/turn-engine";
 
@@ -26,6 +26,7 @@ export default function CombatCharacterHud({
  const usedTicks=Math.max(0,Math.min(100,fighter.spentTicks));
  const remainingTicks=100-usedTicks;
  const ticks=remainingTicks+"/100";
+ const brokenEquipment=fighter.equippedWearables?.filter(item=>item.durability===0).length??0;
  const distance=Math.abs(fighter.positionMeters-opponent.positionMeters);
  const selectedReach=attackMode==="MAGIC_AREA"?4:effectiveWeaponReachMeters(fighter,false,attackSource);
  const common="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border text-sm transition-colors";
@@ -53,6 +54,11 @@ export default function CombatCharacterHud({
      <span className="flex items-center gap-1" title={"Ticks disponibles: "+ticks} aria-label={"Ticks disponibles: "+ticks}>
       <Clock3 size={16} className={remainingTicks===0?"text-rose-400":"text-emerald-300"}/><b>{ticks}</b>
      </span>
+     {brokenEquipment>0&&<span className="inline-flex items-center gap-1 text-rose-300"
+       title={brokenEquipment+" piezas de equipo rotas"}
+       aria-label={brokenEquipment+" piezas de equipo rotas"}>
+       <ShieldAlert size={15}/><b>{brokenEquipment}</b>
+      </span>}
      <ChevronUp size={16} className="text-zinc-400"/>
     </>}
    </button>
@@ -81,6 +87,10 @@ export default function CombatCharacterHud({
      <div className="rounded-xl bg-zinc-950/85 px-1 py-3 text-center" aria-label={"Ticks disponibles: "+remainingTicks+" de 100"}><Clock3 size={17} className={"mx-auto "+(remainingTicks===0?"text-rose-400":"text-emerald-300")}/><p className="mt-1 text-[10px] text-zinc-500">Ticks</p><b className="text-xs sm:text-sm">{ticks}</b></div>
     </div>
     <p className="mt-2 text-xs text-zinc-400">Ticks gastados: <b>{usedTicks}/100</b>. Las acciones y defensas consumen ticks y PA; los ticks se reinician cada turno.</p>
+    {brokenEquipment>0&&<button type="button" onClick={()=>onPanel("inventory")}
+      className="mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-rose-500/60 bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-200">
+      <ShieldAlert size={16}/> {brokenEquipment} {brokenEquipment===1?"pieza rota":"piezas rotas"} · Ver equipo y reparación
+    </button>}
     <p className={"mt-2 text-xs "+(canActNow?"text-emerald-300":"text-amber-300")}>
      {status==="FINISHED"?"Encuentro finalizado":remainingTicks===0?"Sin ticks disponibles para atacar o defenderte activamente este turno.":canActNow?"Tu iniciativa: puedes actuar.":"Esperando la iniciativa o reacción del adversario."}
     </p>

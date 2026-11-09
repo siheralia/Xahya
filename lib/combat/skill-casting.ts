@@ -329,6 +329,7 @@ export function previewSkillExecution(row:Record<string,unknown>,cutover:Modular
   return {executable:true as const,skillKind:plan.category,
     chargeBuff:plan.chargeBuff??null,
     fusion:plan.fusion??null,
+    modularSupport:Boolean(plan.approvedActivation),
    needsAim:plan.category!=="SUPPORT"&&plan.category!=="SUMMON"&&plan.category!=="CHARGE_BUFF"&&plan.category!=="FUSION"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
    attackArea:plan.attackArea??null,
    constructionMaterial:plan.construction?.material??null,
@@ -337,6 +338,7 @@ export function previewSkillExecution(row:Record<string,unknown>,cutover:Modular
   return {executable:false as const,skillKind:null,
     chargeBuff:null,
     fusion:null,
+    modularSupport:false,
    needsAim:false,usesMagic:false,attackArea:null,
    disabledReason:e instanceof Error?e.message:"No disponible."};
  }

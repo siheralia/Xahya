@@ -6,6 +6,7 @@ import {activeStatMultipliers,parseEnvironment} from "@/lib/skills/interaction-e
 import {combatWearableStatSnapshots,WEARABLE_DIRECT_COMBAT_STATS} from "@/lib/combat/wearable-stat-bonus";
 import {buildEquipmentDerivedReplay} from "@/lib/combat/equipment-derived-replay";
 import {buildEquipmentBasicReplay,type BasicFormulaInput} from "@/lib/combat/equipment-basic-replay";
+import {buildEquipmentResourceReplay} from "@/lib/combat/equipment-resource-replay";
 
 const CORE_CODES: Record<string,string> = {strength:"STR",agility:"AGI",constitution:"CON",intelligence:"INT",wisdom:"WIS",charisma:"CHA",spirit:"SPI",luck:"LCK"};
 
@@ -168,11 +169,16 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
   for (const effect of validEffects) {
     addDerived(String(effect.type).toUpperCase(), String(effect.stat), Number(effect.value));
   }
+  const externalResourceBonuses={maxHp:0,maxMana:0};
   for (const effect of validPerks) {
     const type = String(effect.type), target = String(effect.target ?? ""), amount = Number(effect.value);
-    if (type === "RESOURCE_BONUS" && target === "HP" && Number.isFinite(amount)) derived.maxHp += amount;
-    else if (type === "RESOURCE_BONUS" && target === "MANA" && Number.isFinite(amount)) derived.maxMana += amount;
-    else addDerived(type, target, amount);
+    if (type === "RESOURCE_BONUS" && target === "HP" && Number.isFinite(amount)){
+      derived.maxHp+=amount;
+      externalResourceBonuses.maxHp+=amount;
+    }else if (type === "RESOURCE_BONUS" && target === "MANA" && Number.isFinite(amount)){
+      derived.maxMana+=amount;
+      externalResourceBonuses.maxMana+=amount;
+    }else addDerived(type, target, amount);
   }
   for (const effect of passiveEffects) addDerived(effect.type,effect.target,effect.value);
   const derivedStatMultipliers:Record<string,number>={};
@@ -239,6 +245,23 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
       })),
       activeDerivedAliases:aliases,copies:wearableCopies,
     }):null;
+  // HP and mana maxima use the same approved derived configuration, but they
+  // are not ordinary combat stats: their current pools must not increase when
+  // a repaired item increases the maximum.
+  const combatResourceCapacityReplay=options.combatPassives&&wearableCopies.length
+    ?buildEquipmentResourceReplay({
+      unmodifiedDerived,currentDerived:derived,
+      derivedModifiers:Object.fromEntries(derivedModifiers),
+      externalResourceBonuses,
+      mechanicByStat:Object.fromEntries(["maxHp","maxMana"].map(key=>{
+        const code=derivedCodes[key];
+        return [key,code===undefined?1:
+          mechanicFactors[code]??mechanicFactors[key.toUpperCase()]??1];
+      })),
+      activeDerivedAliases:aliases,copies:wearableCopies,
+    }):null;
+  if(combatEquipmentDerivedReplay&&combatResourceCapacityReplay)
+    combatEquipmentDerivedReplay.resourceReplay=combatResourceCapacityReplay;
   // Upgrade the derived replay only if the *same configured formula snapshot*
   // and per-copy basic math reproduce the live values exactly. Failed/legacy
   // formulas keep the previously validated derived-only behavior.

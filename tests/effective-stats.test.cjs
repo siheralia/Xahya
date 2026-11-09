@@ -27,6 +27,15 @@ vm.runInNewContext(equipmentReplayJs,{
   exports:equipmentReplayModule,
   require:(name)=>name==="./wearable-stat-bonus.ts"?wearableBonusModule:{},
 });
+const resourceReplaySource=fs.readFileSync(path.join(__dirname,
+  "../lib/combat/equipment-resource-replay.ts"),"utf8");
+const resourceReplayJs=ts.transpileModule(resourceReplaySource,{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
+}).outputText;
+const resourceReplayModule={};
+vm.runInNewContext(resourceReplayJs,{
+  exports:resourceReplayModule,require:()=>({}),
+});
 
 // Test fixture: these entries model an active catalog; production definitions remain in AppSetting.
 const ACTIVE_ATTACK_CATALOG = [
@@ -69,6 +78,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
     "@/lib/skills/interaction-engine": {parseEnvironment:(v)=>v??{}, activeStatMultipliers:()=>mechanicFactors},
     "@/lib/combat/wearable-stat-bonus":wearableBonusModule,
     "@/lib/combat/equipment-derived-replay":equipmentReplayModule,
+    "@/lib/combat/equipment-resource-replay":resourceReplayModule,
     // The true DB-free basic replay is integration-tested directly in ESM.
     // Existing fixture stubs derived formulas rather than evaluating a real catalog.
     "@/lib/combat/equipment-basic-replay":{buildEquipmentBasicReplay:()=>null},
@@ -335,5 +345,47 @@ test("regular sheets do not return a combat factor replay or change legacy calcu
   ]}],owned:[{id:100,characterId:1,itemId:1,quantity:1,equipped:true}],
  });
  assert.equal(result.derived.physicalAttack,200);
+ assert.equal(result.combatEquipmentDerivedReplay,null);
+});
+
+test("combat stat resolver tracks armor HP/mana maxima without losing perk resource bonuses",async()=>{
+ const catalog=[...ACTIVE_ATTACK_CATALOG,
+  {key:"maxHp",code:"HP",kind:"derived",active:true},
+  {key:"maxMana",code:"MANA",kind:"derived",active:true}];
+ const result=await resolver({combat:true,catalog,
+  items:[{id:20,itemType:"ARMOR",effects:[
+   {type:"stat_bonus",stat:"HP",value:20},
+   {type:"stat_multiplier",stat:"MANA",value:1.5},
+  ]}],
+  owned:[{id:120,characterId:1,itemId:20,quantity:1,equipped:true}],
+  perks:[{id:60,effects:[
+   {type:"RESOURCE_BONUS",target:"HP",value:30},
+   {type:"RESOURCE_BONUS",target:"MANA",value:5},
+  ]}],
+  assigned:[{characterId:1,perkId:60}],
+ });
+ assert.equal(result.derived.maxHp,150);
+ assert.equal(result.derived.maxMana,157.5);
+ const replay=result.combatEquipmentDerivedReplay?.resourceReplay;
+ assert.ok(replay,"the snapshot reproduces the live stat resolver");
+ assert.equal(replay.applied.maxHp,150);
+ assert.equal(replay.applied.maxMana,157.5);
+ assert.equal(replay.formulas.maxHp.external,30);
+ assert.equal(replay.formulas.maxMana.external,5);
+ const bare=resourceReplayModule.evaluateEquipmentResources(replay,new Set());
+ assert.equal(bare.maxHp,130,"the racial perk survives armor breakage");
+ assert.equal(bare.maxMana,105);
+});
+
+test("ordinary character sheets keep resource maxima but do not expose combat resource replay",async()=>{
+ const result=await resolver({
+  catalog:[...ACTIVE_ATTACK_CATALOG,
+   {key:"maxHp",code:"HP",kind:"derived",active:true}],
+  items:[{id:1,itemType:"ARMOR",effects:[
+   {type:"stat_bonus",stat:"HP",value:12},
+  ]}],
+  owned:[{id:120,characterId:1,itemId:1,quantity:1,equipped:true}],
+ });
+ assert.equal(result.derived.maxHp,112);
  assert.equal(result.combatEquipmentDerivedReplay,null);
 });

@@ -14,6 +14,8 @@ import type {CombatFighter} from "./turn-engine.ts";
 import type {CombatWearable} from "../items/combat-wearables.ts";
 import {evaluateEquipmentBasic,type EquipmentBasicReplay} from "./equipment-basic-replay.ts";
 import {calculateConfiguredDerivedSnapshot} from "../stats/configured-derived-pure.ts";
+import {evaluateEquipmentResources,changedResourceCapacities,type EquipmentResourceReplay}
+ from "./equipment-resource-replay.ts";
 
 type StatKey=WearableDirectCombatStat;
 export type DerivedCopyEffect={
@@ -29,6 +31,8 @@ type Contribution={characterItemId:number;itemId:number;
 export type EquipmentDerivedReplay={
  /** Optional exact basic-stat contribution model for new encounters. */
  basicReplay?:EquipmentBasicReplay;
+ /** Exact per-copy HP/mana maximum replay, never an instantaneous heal. */
+ resourceReplay?:EquipmentResourceReplay;
  formulas:Partial<Record<StatKey,Formula>>;
  otherAttackFactorSum:number;otherAttackFactorCount:number;
  copies:Contribution[];
@@ -162,7 +166,7 @@ export function evaluateEquipmentDerived(
  * Returns the actual deltas for narration, without double application.
  */
 export type EquipmentCombatChange=Partial<Record<
- StatKey|"strength"|"agility"|"constitution"|"luck"|"speedValue",number
+ StatKey|"strength"|"agility"|"constitution"|"luck"|"speedValue"|"maxHp"|"maxMana",number
 >>;
 
 export function reconcileEquipmentDerived(
@@ -191,6 +195,11 @@ export function reconcileEquipmentDerived(
  }
  const next=evaluateEquipmentDerived(model,active,newRaw);
  if(Object.keys(next).length!==Object.keys(model.applied).length)return {};
+ const resources=model.resourceReplay;
+ const nextResources=resources?evaluateEquipmentResources(resources,active,newRaw):undefined;
+ const resourceChanges=resources&&nextResources
+  ?changedResourceCapacities(resources,nextResources):{};
+ if(resources&&resourceChanges===null)return {};
  const changes:EquipmentCombatChange={};
  const basicChanges:Partial<Record<"strength"|"agility"|"constitution"|"luck",number>>={};
  for(const key of keys){
@@ -235,5 +244,12 @@ export function reconcileEquipmentDerived(
   fighter.speedValue=Math.max(1,(fighter.speedValue??fighter.agility)+changes.speedValue);
  model.applied=next;
  if(basic&&nextBasic)basic.applied=nextBasic;
+ if(resources&&nextResources&&resourceChanges){
+  // The owner state applies these integer deltas to capacity and caps the
+  // current pool without free HP/mana. Here we update only replay accounting.
+  if(typeof resourceChanges.maxHp==="number")changes.maxHp=resourceChanges.maxHp;
+  if(typeof resourceChanges.maxMana==="number")changes.maxMana=resourceChanges.maxMana;
+  resources.applied=nextResources;
+ }
  return changes;
 }

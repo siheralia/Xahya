@@ -18,6 +18,7 @@ import { getPerkEffects } from "@/lib/perks";
 import {characterCombatConsumables,npcStartingConsumables} from "@/lib/items/combat-consumables";
 import {compileWeaponAutoRepair} from "@/lib/items/auto-repair";
 import {snapshotEquippedWearables} from "@/lib/items/combat-wearables";
+import {snapshotApprovedEncounterPassives} from "@/lib/combat/server-approved-micro";
 
 async function snapshotEquippedWeapons(characterId:number):Promise<{
   main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
@@ -267,7 +268,7 @@ export async function POST(req:Request) {
   const starter=randomInt(2)===0?"PLAYER":"NPC";
   const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
     critical:randomInt(1_000_000)/1_000_000,defense:randomInt(1_000_000)/1_000_000});
-  const initial=newCombatState(player,opponent,starter);
+  let initial=newCombatState(player,opponent,starter);
   if(trainingIdentity)initial.trainingNpc={
     difficulty:trainingDifficulty,race:trainingIdentity.race,
     racialPerks:trainingIdentity.racialPerks.map(p=>({id:p.id,name:p.name,mechanical:p.mechanical})),
@@ -332,6 +333,10 @@ export async function POST(req:Request) {
       :npcStartingConsumables(catalog.filter((item:any)=>item.acquisitionType==="PURCHASABLE"),
         ()=>randomInt(1_000_000)/1_000_000),
   };
+  // Install paid and approved passive micro graphs from each owner's DB
+  // records before the first NPC action. Neither request bodies nor combat
+  // commands can inject definitions into this server-only snapshot.
+  initial=await snapshotApprovedEncounterPassives(initial);
   const state=progressTrainingNpc(initial,dice,
     ()=>randomInt(1_000_000)/1_000_000);
   const Session=(db.orm.public as any).CombatSession;

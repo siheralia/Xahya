@@ -144,7 +144,7 @@ export type CombatState = {
   /** Encounter-local mana snapshot: never debits the global character sheet. */
   mana?: Record<Side,{current:number;max:number}>;
   skillCooldowns?: Partial<Record<Side,Record<string,number>>>;
-  skillBonuses?: Array<{by:Side;skillId:number;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
+  skillBonuses?: Array<{by:Side;skillId:number;skillName?:string;stat:CombatBuffStat;value:number;expiresAtRound:number}>;
   processedSkillRequests?: string[];
   processedKarmaRequests?: string[];
   /** Request ledger for MOVE/ATTACK/DEFEND/WAIT/ADVANCE, preserved for the
@@ -2278,13 +2278,19 @@ export function applyResolvedCombatSkill(
  if(nextAllowed===-1 || nextAllowed>original.round)
   throw new Error(nextAllowed===-1?"Esta habilidad solo se usa una vez por combate.":
     "Habilidad en cooldown hasta el turno "+nextAllowed+".");
+ // Pay approved skill costs before ANY effect that could advance the round.
+ // Otherwise TURN_START equipment repair can spend the same mana first and
+ // cause negative balances. Every failure remains pure on the original state.
+ const prepaid=["OFFENSE","SUPPORT","CONSTRUCTION"].includes(plan.category)
+   ?structuredClone(original):original;
+ if(prepaid!==original)prepaid.mana![by].current-=plan.cost;
  let next:CombatState;
  if(plan.category==="OFFENSE") {
   if(!plan.attackType)throw new Error("La habilidad no tiene tipo de ataque.");
   const selfField=plan.attackArea?.shape==="SELF_FIELD";
   if(selfField&&aim.targetConstructionId)
    throw new Error("El barrido alrededor del usuario no permite elegir un objeto como epicentro.");
-  next=applyCombatCommand(original,by,{
+  next=applyCombatCommand(prepaid,by,{
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
    planarMove:aim.planarMove,movementOrder:aim.movementOrder,
    trajectory:selfField?undefined:aim.trajectory,
@@ -2451,7 +2457,7 @@ export function applyResolvedCombatSkill(
   const point=validateConstructionPlacement(aim.areaCenter);
   if(aim.planarMove!==undefined)
    throw new Error("Combinar movimiento y creación requiere una regla específica.");
-  next=structuredClone(original);
+  next=structuredClone(prepaid);
   const ownerPosition=next.actors[by];
   const fieldPoint=aim.constructionFieldPoint===undefined?undefined:
    pointFromFieldView(ownerPosition,aim.constructionFieldPoint);
@@ -2546,13 +2552,13 @@ export function applyResolvedCombatSkill(
   advanceRoundIfComplete(next);
   }
  }else{
-  next=structuredClone(original);
+  next=structuredClone(prepaid);
   const actor=next.actors[by];
   actor.hp=Math.min(actor.maxHp,Math.max(0,actor.hp+plan.healing));
   next.skillBonuses??=[];
   for(const bonus of plan.bonuses){
    actor[bonus.stat]+=bonus.value;
-   next.skillBonuses.push({...bonus,by,skillId:plan.id,
+   next.skillBonuses.push({...bonus,by,skillId:plan.id,skillName:plan.name,
       expiresAtRound:next.round+plan.durationTurns});
   }
   spend(actor,turnTicks(actor));
@@ -2562,7 +2568,8 @@ export function applyResolvedCombatSkill(
    summary:actor.name+" usó "+plan.name+(plan.healing?" y recuperó hasta "+plan.healing+" HP":"")});
   advanceRoundIfComplete(next);
  }
- if(plan.category!=="SUMMON"&&plan.category!=="CHARGE_BUFF"&&plan.category!=="FUSION")next.mana![by].current-=plan.cost;
+ // OFFENSE, CONSTRUCTION and SUPPORT prepaid. SUMMON, FUSION and
+ // CHARGE_BUFF charge inside their own branches before round advancement.
  next.skillCooldowns??={};
  next.skillCooldowns[by]??={};
  next.skillCooldowns[by]![key]=plan.oncePerCombat?-1:

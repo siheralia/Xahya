@@ -6,6 +6,7 @@ import CombatCharacterHud, {type CombatPanel} from "./CombatCharacterHud";
 import CombatDialog from "./CombatDialog";
 import CombatEquipmentStatus from "./CombatEquipmentStatus";
 import {combatEquipmentCounts,recentEquipmentEvents} from "@/lib/combat/equipment-feedback";
+import {activeCombatStatusViews} from "@/lib/combat/active-status-summary";
 import CombatMusicPlayer from "@/components/music/CombatMusicPlayer";
 import { hasCriticalCombatHealth } from "@/lib/combat/music-tempo.mjs";
 import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
@@ -644,6 +645,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const candidateEquipmentEvent=state?recentEquipmentEvents(state,side,1)[0]:null;
  const lastEquipmentEvent=candidateEquipmentEvent&&state&&
   candidateEquipmentEvent.tick>=(state.round-1)*100?candidateEquipmentEvent:null;
+ const activeStatusViews=state?activeCombatStatusViews(state,side):[];
  const combatStatRows:Array<[string,string|number|undefined]>=[
   ["HP",actor?actor.hp+"/"+actor.maxHp:"—"],
   ["Maná",state?.mana?.[side]?state.mana[side].current+"/"+state.mana[side].max:"—"],
@@ -773,7 +775,8 @@ export default function CombatEncounter({id}:{id:string}) {
     side={side} mana={state.mana?.[side]} flair={characterData?.flair??characterData?.character?.flair}
     open={hudOpen} onOpenChange={setHudOpen} onPanel={openPanel}
     canCreate={canCreateObjects} attackMode={attackMode} attackSource={activeAttackSource}
-    onChooseAttack={chooseAttackMode} canActNow={ready} status={state.status}/>
+    onChooseAttack={chooseAttackMode} canActNow={ready} status={state.status}
+    activeStatusCount={activeStatusViews.length}/>
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
     {view?.permissions.PLAYER&&view?.permissions.NPC&&<label className="mb-3 block text-xs text-zinc-400">Controlar personaje
      <select value={side} onChange={e=>setSide(e.target.value as Side)}
@@ -1465,7 +1468,27 @@ export default function CombatEncounter({id}:{id:string}) {
        onClick={boostKarma} className="mt-3 rounded-lg border border-amber-400 px-4 py-2 font-semibold text-amber-200 disabled:opacity-40">
        Activar boost ({karmaCost} 🪷, 1 PA)
       </button>
-      {Object.keys(state.karmaBoosts?.[side]??{}).length>0&&
+      <section className="mt-4 rounded-xl border border-zinc-700 p-3" aria-label="Efectos temporales activos">
+      <h3 className="text-sm font-semibold text-cyan-200">Efectos temporales activos · {activeStatusViews.length}</h3>
+      <p className="mt-1 text-xs text-zinc-400">
+       Estos estados pertenecen al encuentro. Caducan automáticamente al inicio de la ronda indicada;
+       no modifican tu ficha permanente.
+      </p>
+      {activeStatusViews.length===0?
+       <p className="mt-2 text-xs text-zinc-400">No hay aumentos ni reducciones temporales activos.</p>:
+       <ul className="mt-3 space-y-2">
+        {activeStatusViews.map(status=>
+         <li key={status.id} className={"rounded-lg border px-3 py-2 text-xs "+
+          (status.tone==="DEBUFF"?"border-rose-700/50 bg-rose-950/15":"border-emerald-700/50 bg-emerald-950/15")}>
+          <p className="font-semibold">{status.source} · {status.description}</p>
+          <p className="mt-1 text-zinc-400">
+           Caduca al comenzar la ronda {status.expiresAtRound}
+           {" "}({status.remainingRounds} {status.remainingRounds===1?"ronda":"rondas"} restante{status.remainingRounds===1?"":"s"}).
+          </p>
+         </li>)}
+       </ul>}
+     </section>
+     {Object.keys(state.karmaBoosts?.[side]??{}).length>0&&
        <p className="mt-2 text-xs text-amber-300">Bonos de este encuentro: {Object.entries(state.karmaBoosts?.[side]??{}).map(([stat,n])=>stat+" +"+n).join(", ")}</p>}
      </section>
 

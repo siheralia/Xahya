@@ -312,8 +312,12 @@ export async function POST(req:Request) {
     model:typeof first.combatEquipmentDerivedReplay)=>{
     const equipped=initial.actors[side].equippedWearables??[];
     if(model&&model.copies.every(copy=>equipped.some(item=>
-      item.characterItemId===copy.characterItemId&&item.itemId===copy.itemId)))
+      item.characterItemId===copy.characterItemId&&item.itemId===copy.itemId))){
+      // This is the same staff-configured speed selector already used when
+      // building the fighter; a repaired AGI bonus must affect ticks as well.
+      if(model.basicReplay)model.basicReplay.speedKey=String(mechanics.combatSpeed);
       initial.actors[side].equipmentDerivedReplay=model;
+    }
   };
   attachReplay("PLAYER",first.combatEquipmentDerivedReplay);
   if(opponent.characterId!==null)attachReplay("NPC",rivalDerivedReplay);

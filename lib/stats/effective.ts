@@ -5,6 +5,7 @@ import { getPerkEffects } from "@/lib/perks";
 import {activeStatMultipliers,parseEnvironment} from "@/lib/skills/interaction-engine";
 import {combatWearableStatSnapshots,WEARABLE_DIRECT_COMBAT_STATS} from "@/lib/combat/wearable-stat-bonus";
 import {buildEquipmentDerivedReplay} from "@/lib/combat/equipment-derived-replay";
+import {buildEquipmentBasicReplay,type BasicFormulaInput} from "@/lib/combat/equipment-basic-replay";
 
 const CORE_CODES: Record<string,string> = {strength:"STR",agility:"AGI",constitution:"CON",intelligence:"INT",wisdom:"WIS",charisma:"CHA",spirit:"SPI",luck:"LCK"};
 
@@ -122,6 +123,9 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     :[];
   const mechanicFactors=await readMechanicStatFactors(characterId,source);
   const base:Record<string,number> = {};
+  // Capture each input *while* the authoritative calculator has it. Combat
+  // must not reverse-engineer formulas from already-multiplied stats.
+  const basicFormulaInputs:Record<string,BasicFormulaInput>={};
   const breakdown:Record<string,{base:number;value:number;karmaBonus:number;objectFlatBonus:number;combinedMultiplier:number}> = {};
   for(const key of basicKeys) {
     const definition=basicDefinitions.find((entry)=>entry.key===key);
@@ -140,6 +144,9 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     const combinedMultiplier=(1+multiplier)*(factors.length ? factors.reduce((sum:number,factor:number)=>sum+factor,0) : 1);
     const mechanicMultiplier=mechanicFactors[codeByKey[key]]??mechanicFactors[key.toUpperCase()]??1;
     base[key]=(original*combinedMultiplier+flat+bonus+karma)*mechanicMultiplier;
+    if(options.combatPassives)basicFormulaInputs[key]={
+      original,modifier:1+multiplier,flat:flat+bonus+karma,factors,mechanic:mechanicMultiplier,
+    };
     breakdown[key]={base:original,value:base[key],karmaBonus:karma,objectFlatBonus:flat+bonus,combinedMultiplier:combinedMultiplier*mechanicMultiplier};
   }
   let derived=await calculateConfiguredDerivedStats(base as any,source);
@@ -232,6 +239,16 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
       })),
       activeDerivedAliases:aliases,copies:wearableCopies,
     }):null;
+  // Upgrade the derived replay only if the *same configured formula snapshot*
+  // and per-copy basic math reproduce the live values exactly. Failed/legacy
+  // formulas keep the previously validated derived-only behavior.
+  if(combatEquipmentDerivedReplay){
+    const basicReplay=buildEquipmentBasicReplay({
+      source:basicFormulaInputs,currentBasic:base,referenceDerived:unmodifiedDerived,
+      catalog,codeByKey,wearableCopies,
+    });
+    if(basicReplay)combatEquipmentDerivedReplay.basicReplay=basicReplay;
+  }
   return {effectiveStats:base,derived,statBreakdown:breakdown,derivedStatMultipliers,
     combatWearableStatBonuses,combatEquipmentDerivedReplay};
 }

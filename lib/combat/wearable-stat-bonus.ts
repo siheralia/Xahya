@@ -9,7 +9,7 @@ import type {CombatWearable} from "../items/combat-wearables.ts";
 
 export const WEARABLE_DIRECT_COMBAT_STATS=[
  "physicalAttack","magicAttack","physicalDefense","magicDefense",
- "precision","dodge","critical",
+ "precision","dodge","critical","race",
 ] as const;
 export type WearableDirectCombatStat=typeof WEARABLE_DIRECT_COMBAT_STATS[number];
 export type WearableStatSnapshot={

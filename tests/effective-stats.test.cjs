@@ -69,6 +69,9 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
     "@/lib/skills/interaction-engine": {parseEnvironment:(v)=>v??{}, activeStatMultipliers:()=>mechanicFactors},
     "@/lib/combat/wearable-stat-bonus":wearableBonusModule,
     "@/lib/combat/equipment-derived-replay":equipmentReplayModule,
+    // The true DB-free basic replay is integration-tested directly in ESM.
+    // Existing fixture stubs derived formulas rather than evaluating a real catalog.
+    "@/lib/combat/equipment-basic-replay":{buildEquipmentBasicReplay:()=>null},
   };
   const moduleExports = {};
   vm.runInNewContext(js, { exports: moduleExports, require: (id) => {

@@ -191,6 +191,8 @@ test("real duel creation only reads paid skills from server; action routes canno
  assert.match(duelRoute,/snapshotApprovedEncounterPassives\(initial\)/);
  assert.match(source,/Skill\.where\(\{characterId,status:"APPROVED"\}\)/);
  assert.match(source,/status='ACTIVE'/);
+ assert.match(source,/readModularCutover\(\)/);
+ assert.match(source,/mode==="LEGACY_ONLY"/);
  assert.match(source,/approvedPassiveMicroSnapshot\(characterId,rows,activations,stolenIds\)/);
  assert.match(source,/installEncounterMicroEffects\(state,side,selection\.definitions\)/);
  assert.doesNotMatch(actions,/installEncounterMicroEffects\(/);

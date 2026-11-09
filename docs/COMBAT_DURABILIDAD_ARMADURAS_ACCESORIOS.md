@@ -21,7 +21,11 @@ Este incremento parte del despliegue de PR #168 y de las invocaciones de #172 en
 ## Límites explícitos
 
 - El desgaste se integra en el resolutor de **impactos directos a personajes**. Los reflejos mágicos, colisiones de otros objetos y acciones ambientales tienen resolutores específicos; su integración como fuentes de desgaste queda para una siguiente fase.
-- Un objeto con durabilidad 0 no recupera capacidad automáticamente salvo por un efecto de reparación válido. **Esta fase no desactiva los bonos pasivos de armaduras o accesorios rotos**: eso requerirá una política de equipamiento y modificación de estadísticas durante el encuentro.
+- Un objeto con durabilidad 0 no recupera capacidad automáticamente salvo por un efecto de reparación válido. **Actualización (PR #207–#210):** al romperse, los bonos directos, multiplicadores derivados y atributos básicos compatibles con el modelo exacto del encuentro se retiran; al repararse regresan. Los máximos de HP/maná también se recalculan cuando el replay está validado, pero **la reparación nunca rellena gratis las reservas**. Los encuentros antiguos o fórmulas incompatibles conservan el fallback seguro de su versión anterior.
 - El estado de equipo se captura al crear el duelo. Cambios de equipamiento fuera de él no actualizan mágicamente ese snapshot, igual que ya ocurría con armas.
 - No se crean recetas, talleres, recuperación fuera de combate ni tablas/migraciones nuevas.
 - La autorreparación consume **maná del encuentro**, acorde con el comportamiento vigente de combates de Xahya. No modifica la reserva de maná de la ficha.
+
+## Interfaz de combate (auditoría posterior)
+
+La pantalla de combate muestra primero la **instantánea real de equipamiento**, con durabilidad individual, ranura, condición rota/desgastada, canal y porcentaje de desgaste opcional, autorreparación y su coste y próxima ronda válida. Los cambios registrados en la ficha se muestran aparte porque no modifican retroactivamente el equipo en un duelo ya iniciado. El HUD alerta al usuario sobre piezas rotas y el historial explica el antes/después de los recursos. Consulta `docs/COMBAT_FASE_C_AUDITORIA_INTERFAZ_2026-11-08.md` para matriz de acciones y cobertura de pruebas.

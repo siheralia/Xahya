@@ -16,7 +16,7 @@ const STATS=new Set(["PHYSICAL_ATTACK","MAGIC_ATTACK","PHYSICAL_DEFENSE",
  "MAGIC_DEFENSE","PRECISION","DODGE"]);
 const object=(v:unknown):v is Record<string,unknown>=>
  !!v&&typeof v==="object"&&!Array.isArray(v);
-const only=(v:Record<string,unknown>,keys:readonly string[])=>
+const only=(v:object,keys:readonly string[])=>
  Object.keys(v).every(k=>keys.includes(k));
 const error=(message:string):never=>{throw new Error(message);};
 

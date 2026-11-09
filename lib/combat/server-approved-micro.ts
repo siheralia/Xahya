@@ -1,6 +1,7 @@
 import {db} from "@/lib/db";
 import {installEncounterMicroEffects,type CombatState,type Side} from "./turn-engine.ts";
 import {approvedPassiveMicroSnapshot} from "./approved-passive-micro.ts";
+import {readModularCutover} from "../effects/modular-cutover-registry.ts";
 
 /**
  * Encounter-creation-only, authenticated server database lookup.
@@ -10,6 +11,9 @@ import {approvedPassiveMicroSnapshot} from "./approved-passive-micro.ts";
 export async function snapshotApprovedEncounterPassives(
  original:CombatState,
 ):Promise<CombatState>{
+ // The existing production/preview rollback must disable this new path too.
+ // Unpriced/unsupported old effects are not substituted silently.
+ if((await readModularCutover()).mode==="LEGACY_ONLY")return original;
  const Skill=(db.orm.public as any).Skill;
  const State=(db.orm.public as any).CharacterSkillState;
  if(!Skill)return original;

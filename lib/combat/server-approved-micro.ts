@@ -28,7 +28,7 @@ export async function snapshotApprovedEncounterPassives(
    `.returnsRow({id:"pg/int4@1"}).build()) as Promise<Array<{id:number}>>,
   ]);
   const stolenIds=new Set(stolen.map(x=>Number(x.id)));
-  const selection=approvedPassiveMicroSnapshot(rows,activations,stolenIds);
+  const selection=approvedPassiveMicroSnapshot(characterId,rows,activations,stolenIds);
   if(!selection.definitions.length)continue;
   // This helper may reject unsupported/invalid historical graphs; do not
   // freeze duels or execute an unvalidated fallback if that occurs.

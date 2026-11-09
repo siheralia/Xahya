@@ -9,6 +9,7 @@
  */
 import {calculateConfiguredDerivedSnapshot,type SnapshotStatDefinition} from "../stats/configured-derived-pure.ts";
 import type {DerivedWearableCopy} from "./equipment-derived-replay.ts";
+import {WEARABLE_DIRECT_COMBAT_STATS} from "./wearable-stat-bonus.ts";
 
 export type BasicFormulaInput={
  original:number;modifier:number;flat:number;factors:readonly number[];mechanic:number;
@@ -61,6 +62,7 @@ export function evaluateEquipmentBasic(
 export function buildEquipmentBasicReplay(input:{
  source:Readonly<Record<string,BasicFormulaInput>>;
  currentBasic:Readonly<Record<string,number>>;
+ referenceDerived:Readonly<Record<string,number>>;
  catalog:readonly SnapshotStatDefinition[];
  codeByKey:Readonly<Record<string,string>>;
  wearableCopies:readonly DerivedWearableCopy[];
@@ -124,6 +126,13 @@ export function buildEquipmentBasicReplay(input:{
  try{
   const derived=calculateConfiguredDerivedSnapshot(initial as any,replay.catalog);
   if(!Object.values(derived).every(n=>Number.isFinite(n)))return null;
+  // If the live stat resolver and the pure formula snapshot disagree, never
+  // use the replay on fighters. This also protects custom/legacy catalogs.
+  for(const key of WEARABLE_DIRECT_COMBAT_STATS){
+   const current=input.referenceDerived[key];
+   if(typeof current==="number"&&Number.isFinite(current)&&
+      !close(Number(derived[key]),current))return null;
+  }
  }catch{return null;}
  replay.applied=initial;
  return replay;

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {compileCombatSkill,previewSkillExecution} from "../lib/combat/skill-casting.ts";
+import {projectApprovedCombatSkills} from "../lib/combat/skill-preview.ts";
 import {newCombatState,applyResolvedCombatSkill,applyCombatCommand,canAct}
  from "../lib/combat/turn-engine.ts";
 import {activeCombatStatusViews} from "../lib/combat/active-status-summary.ts";
@@ -155,8 +156,7 @@ test("unapproved, unpriced, hostile bypass and arbitrary graphs are rejected",()
 
 test("modular hostile preview respects explicit deactivation, legacy skills remain unchanged",()=>{
  const row=offense();
- const {projectApprovedCombatSkills}=await import("../lib/combat/skill-preview.ts");
- const preview=projectApprovedCombatSkills([row],[],new Set(),()=>true);
+  const preview=projectApprovedCombatSkills([row],[],new Set(),()=>true);
  assert.equal(preview[0].executable,true);
  assert.equal(preview[0].modularHostileStatus,true);
  const disabled=projectApprovedCombatSkills([row],[{skillId:321,active:false}],

@@ -3,6 +3,7 @@ import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
 import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
 import {resolveDamageChannels} from "./damage-channels.ts";
+import type {ApprovedHybridContact} from "./approved-hybrid-contact.ts";
 import {resolveApprovedHostileStatus,type ResolvedHostileStatus} from "./approved-hostile-status.ts";
 import { geometricContact } from "./geometry.ts";
 import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
@@ -85,6 +86,8 @@ export type PendingAttack = {
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
   /** D2.4: trusted evaluated intent, never the COMPOSED source graph. */
   hostileStatus?:ResolvedHostileStatus & {id:string};
+  /** D3.2: server-authorized, shared-contact, dual-channel damage split. */
+  hybridContact?:ApprovedHybridContact;
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
   mirrorId?:string; mirrorAuto?:boolean;
   /** Summoned strike uses entity stats, but owner PA/ticks. */
@@ -110,6 +113,8 @@ export type CombatLog = {
   simultaneousCounter?:boolean;
   /** The amount prevented specifically by the physical/magical defense stat. */
   mitigatedByResistance?:number;
+  /** After all cover, a D3.2 melee attack shows actual channel contributions. */
+  damageChannels?:{physical:number;magical:number};
   materialAttackBonus?:number;
   knockbackMeters?: number; weaponIntegrity?: number; defense?: DefenseChoice;
   attackType?: CombatAttackType; rangedPhysical?: boolean; predictionMatched?: boolean;
@@ -2322,6 +2327,15 @@ export function applyResolvedCombatSkill(
    throw new Error("El barrido alrededor del usuario no permite elegir un objeto como epicentro.");
   if(plan.approvedHostileStatus&&(aim.targetConstructionId||aim.targetSummonId))
    throw new Error("El estado hostil solo puede acompañar un ataque dirigido al rival.");
+  if(plan.approvedHybridContact){
+   if(aim.targetConstructionId||aim.targetSummonId)
+    throw new Error("El golpe imbuido solo puede dirigirse al rival.");
+   if(aim.areaCenter!==undefined||aim.areaAngleDegrees!==undefined||
+      aim.constructionFieldPoint!==undefined)
+    throw new Error("El golpe imbuido utiliza una sola trayectoria física, sin área mágica.");
+   if(!Array.isArray(aim.trajectory)||aim.trajectory.length<2)
+    throw new Error("Dibuja la trayectoria física del golpe imbuido.");
+  }
   next=applyCombatCommand(prepaid,by,{
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
    planarMove:aim.planarMove,movementOrder:aim.movementOrder,
@@ -2340,6 +2354,8 @@ export function applyResolvedCombatSkill(
    defenseFactor:plan.defenseFactor,finalMultiplier:plan.finalMultiplier,
    damageElement:plan.damageElement,
   };
+  if(next.pending&&plan.approvedHybridContact)
+   next.pending.hybridContact={...plan.approvedHybridContact};
   if(next.pending&&plan.approvedHostileStatus){
    const rider=resolveApprovedHostileStatus(plan.approvedHostileStatus,by);
    next.pending.hostileStatus={...rider,
@@ -2349,7 +2365,9 @@ export function applyResolvedCombatSkill(
     x.kind==="ATTACK"&&x.by===by&&x.skillId===plan.id);
   if(event){
    event.skillId=plan.id;event.manaCost=plan.cost;event.skillName=plan.name;
-   if(next.pending)event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";
+   if(next.pending)event.summary=next.actors[by].name+" lanzó "+plan.name+
+    (plan.approvedHybridContact?" (golpe físico imbuido con magia)":"")+
+    "; esperando reacción";
    const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
    if(historical){historical.skillId=plan.id;historical.manaCost=plan.cost;
     historical.skillName=plan.name;historical.summary=event.summary;}

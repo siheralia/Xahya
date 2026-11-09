@@ -176,6 +176,19 @@ test("LEGACY_ONLY rollback blocks both real activation and player-visible button
  assert.equal(roster[0].executable,false);
  assert.match(roster[0].disabledReason,/desactivadas/);
  assert.equal(combatSkillPreview(row,false,true,"MODULAR_FIRST").modularSupport,true);
+ const disabled=projectApprovedCombatSkills([row],[{skillId:row.id,active:false}],
+  new Set(),()=>true,"MODULAR_FIRST");
+ assert.equal(disabled[0].executable,false,
+  "an explicitly disabled modular support must not offer a live cast button");
+ assert.match(disabled[0].disabledReason,/desactivada/);
+ const noState=projectApprovedCombatSkills([row],[],new Set(),()=>true,"MODULAR_FIRST");
+ assert.equal(noState[0].executable,true,
+  "historical characters without an activation row retain their approved skill");
+ const legacy=approved(92,{effect:[{type:"HEAL",value:5}]});
+ const legacyDisabled=projectApprovedCombatSkills([legacy],[{skillId:92,active:false}],
+  new Set(),()=>true,"MODULAR_FIRST");
+ assert.equal(legacyDisabled[0].executable,true,
+  "do not silently redefine historical non-modular skill activation");
 });
 
 test("server action route uses approved owned skill, cooldown and persisted idempotent command",()=>{
@@ -188,6 +201,8 @@ test("server action route uses approved owned skill, cooldown and persisted idem
  assert.match(actions,/Skill\.where\(\{id:skillId,characterId,status:"APPROVED"\}\)/);
  assert.match(actions,/stolenIds\.has\(skillId\)/);
  assert.match(actions,/compileCombatSkill\(skill,mode\)/);
+ assert.match(actions,/if\(plan\.approvedActivation\)/);
+ assert.match(actions,/activation\?\.active===false/);
  assert.match(actions,/processedSkillRequests\?\.includes\(requestId\)/);
  assert.match(skillApi,/readModularCutover\(\)/);
  assert.match(ui,/trajectory:skill\.skillKind==="OFFENSE"/);

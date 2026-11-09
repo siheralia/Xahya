@@ -1830,22 +1830,6 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     const actualHpDamage=Math.min(fighter.hp,damage);
     fighter.hp = Math.max(0, fighter.hp - damage);
-    // Only genuine contact with actual HP loss can apply a hostile rider.
-    // Barriers, dodges, misses and total mitigation cannot cause a debuff.
-    if(pending.hostileStatus&&contact&&actualHpDamage>0){
-      const rider=pending.hostileStatus;
-      applySummonStatus(state,{
-        id:rider.id,sourceSummonId:"SKILL:"+pending.skill!.id,
-        by:pending.by,target:by,stat:rider.stat,
-        operation:rider.operation,value:rider.value,
-        durationTurns:rider.durationTurns,
-      });
-      addLog(state,{kind:"STATUS",tick:state.tick,by:pending.by,against:by,
-        skillId:pending.skill?.id,skillName:pending.skill?.name,
-        contact:true,summary:attacker.name+" debilitó a "+fighter.name+
-          " con "+(pending.skill?.name??"su habilidad")+
-          " después de causarle daño."});
-    }
     if(contact&&actualHpDamage>0)
       applyWearableOnConfirmedHpHit(state,by,actualHpDamage,pending.usesMagic);
     // Status effects from a real summon hit run only after geometric contact,
@@ -1909,6 +1893,23 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
             " con su ataque circular de "+pending.attackArea.radiusMeters+" m de radio ("+damage+" HP)"
           :attacker.name + (pending.usesMagic?" acertó con su explosión mágica a ":" impactó a ") + fighter.name + " (" + damage + " HP)"});
+    // This rider is resolved AFTER the ordinary attack result is logged, so
+    // the encounter chronicle narrates impact before its consequence.
+    // No actual lost HP means no debuff: blocked, dodged, or missed attacks.
+    if(pending.hostileStatus&&contact&&actualHpDamage>0){
+      const rider=pending.hostileStatus;
+      applySummonStatus(state,{
+        id:rider.id,sourceSummonId:"SKILL:"+pending.skill!.id,
+        by:pending.by,target:by,stat:rider.stat,
+        operation:rider.operation,value:rider.value,
+        durationTurns:rider.durationTurns,
+      });
+      addLog(state,{kind:"STATUS",tick:state.tick,by:pending.by,against:by,
+        skillId:pending.skill?.id,skillName:pending.skill?.name,
+        contact:true,summary:attacker.name+" debilitó a "+fighter.name+
+          " con "+(pending.skill?.name??"su habilidad")+
+          " después de causarle daño."});
+    }
     // A mirror reflects only when a REAL area touches it. In particular an
     // approved single-target skill or mirror ray must never inherit the basic
     // explosion's 1.4 m footprint. SELF_FIELD checks measured world distance,

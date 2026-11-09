@@ -88,8 +88,10 @@ export default function CombatEquipmentStatus({state,side}:{
        style={{width:item.durability+"%"}}/>
      </div>
      {broken&&<p className="text-xs font-medium text-rose-200">
-      Rota: no puede usarse como escudo. Sus bonificaciones compatibles se recalculan
-      según las reglas de este encuentro.
+      {item.slot==="OFF_HAND"&&item.itemType==="ARMOR"
+       ?"Este escudo roto no permite bloquear con él. ":""}
+      La pieza está rota: sus bonificaciones compatibles se recalculan según
+      las reglas de este encuentro.
      </p>}
      {item.wearOnHit?<p className="text-xs text-zinc-300">
       <b>Desgaste por daño:</b> {item.wearOnHit.wearPercent}% del HP realmente perdido

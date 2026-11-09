@@ -101,3 +101,18 @@ test("mobile combat actions remain attached to the right canvas, with aligned to
  assert.match(page,/opponentCardRef/);
  assert.match(page,/!opponentInView&&/);
 });
+
+
+test("mobile equipment audit: show numeric condition before fold, collapse optional explanation",()=>{
+ const equipment=readFileSync(new URL("../app/combat/[id]/CombatEquipmentStatus.tsx",import.meta.url),"utf8");
+ const summary=equipment.indexOf("{counts.total} piezas equipadas");
+ const details=equipment.indexOf("<details className=");
+ const cards=equipment.indexOf("{(fighter.equippedWearables??[]).map");
+ assert.ok(summary>=0&&details>summary&&cards>details,
+  "counts and current pools must appear before optional explanatory prose and item cards");
+ assert.match(equipment,/<summary className="cursor-pointer/);
+ assert.match(equipment,/¿Por qué cambia la durabilidad\?/);
+ assert.match(equipment,/Bloquear desgasta el arma o escudo utilizado/);
+ assert.doesNotMatch(equipment,/open=\{true\}/,
+  "long explanations must be collapsed by default on narrow screens");
+});

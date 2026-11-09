@@ -14,7 +14,7 @@ import {meetsEffectRequirements,validEffectRequirements,
   type EffectRequirement,type SkillWithEffects} from "../skills/effect-requirements.ts";
 
 type SkillRow=Record<string,unknown>;
-type SkillActivation={skillId?:unknown;active?:unknown};
+type SkillActivation={characterId?:unknown;skillId?:unknown;active?:unknown};
 export type ApprovedMicroSnapshot={
  definitions:EffectContainer[];
  skillIds:number[];
@@ -24,8 +24,6 @@ export type ApprovedMicroSnapshot={
 const positiveId=(n:unknown):n is number=>Number.isSafeInteger(n)&&Number(n)>0;
 const record=(x:unknown):x is Record<string,unknown>=>
  !!x&&typeof x==="object"&&!Array.isArray(x);
-const hasOwn=(x:Record<string,unknown>,key:string)=>
- Object.prototype.hasOwnProperty.call(x,key);
 
 function chargeCondition(step:MicroStep,key:string,compare:"EQ"|"GTE",right:0|1):boolean{
  const conditions=step.when;
@@ -118,13 +116,15 @@ export function compileApprovedPassiveMicro(row:SkillRow):EffectContainer[]|null
  * never becomes an executable passive, even if it contains valid module JSON.
  */
 export function approvedPassiveMicroSnapshot(
- rows:readonly SkillRow[],states:readonly SkillActivation[],
+ characterId:number,rows:readonly SkillRow[],states:readonly SkillActivation[],
  stolenIds:ReadonlySet<number>,
 ):ApprovedMicroSnapshot {
+ if(!positiveId(characterId))return {definitions:[],skillIds:[],skipped:0};
  const valid=rows.filter(row=>row.status==="APPROVED"&&positiveId(row.id)&&
-  !stolenIds.has(Number(row.id)));
+  Number(row.characterId)===characterId&&!stolenIds.has(Number(row.id)));
  const ids=new Set(valid.map(r=>Number(r.id)));
- const activation=new Map(states.filter(s=>positiveId(s.skillId))
+ const activation=new Map(states.filter(s=>positiveId(s.skillId)&&
+   Number(s.characterId)===characterId)
    .map(s=>[Number(s.skillId),s.active===true]));
  const collected:EffectContainer[]=[];
  const skillIds:number[]=[];

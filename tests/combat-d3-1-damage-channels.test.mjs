@@ -145,7 +145,7 @@ test("explicit channel boundaries reject missing, unknown, duplicated or unsafe 
 test("actual approved single-channel physical damage keeps encounter accounting and log",()=>{
  const settled=resolve(encounter(),false,601);
  const event=settled.log.filter(e=>e.kind==="RESOLVE").at(-1);
- assert.equal(event?.usesMagic,false);
+ assert.equal(event?.skillId,601);
  assert.equal(event?.contact,true);
  assert.ok(event?.damage>0);
  assert.equal(settled.actors.NPC.hp,90-event.damage);
@@ -155,7 +155,7 @@ test("actual approved single-channel physical damage keeps encounter accounting 
 test("actual approved single-channel magical damage keeps encounter accounting and log",()=>{
  const settled=resolve(encounter(),true,602);
  const event=settled.log.filter(e=>e.kind==="RESOLVE").at(-1);
- assert.equal(event?.usesMagic,true);
+ assert.equal(event?.skillId,602);
  assert.equal(event?.contact,true);
  assert.ok(event?.damage>0);
  assert.equal(settled.actors.NPC.hp,90-event.damage);

@@ -600,8 +600,8 @@ export default function CombatEncounter({id}:{id:string}) {
   const measuredBlock=construction&&skill.constructionMaterial!=="LIGHT"&&
     skill.constructionMaterial!=="MIRROR"&&constructionForm==="BLOCK";
   const castPayload:Omit<Extract<CombatCommand,{kind:"CAST_SKILL"}>,"requestId">={kind:"CAST_SKILL",skillId:skill.id,
-   trajectory:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.skillKind==="FUSION"||skill.usesMagic||skill.attackArea?undefined:normalizedPath,
-   attackSource:construction||skill.skillKind==="SUMMON"||skill.skillKind==="CHARGE_BUFF"||skill.skillKind==="FUSION"||skill.usesMagic||skill.attackArea?undefined:activeAttackSource,
+   trajectory:skill.skillKind==="OFFENSE"&&!skill.usesMagic&&!skill.attackArea?normalizedPath:undefined,
+   attackSource:skill.skillKind==="OFFENSE"&&!skill.usesMagic&&!skill.attackArea?activeAttackSource:undefined,
    planarMove:!construction&&skill.skillKind==="OFFENSE"?skillMovement:undefined,
    movementOrder:!construction&&skill.skillKind==="OFFENSE"?skillMovementOrder:undefined,
    constructionFieldPoint:construction?constructionFieldPoint??undefined:undefined,
@@ -614,8 +614,8 @@ export default function CombatEncounter({id}:{id:string}) {
    areaAngleDegrees:isOrientedCombatArea(skill.attackArea)?areaAngleDegrees:undefined,
    constructionForm:construction?(skill.constructionMaterial==="LIGHT"?"DECOR":skill.constructionMaterial==="MIRROR"?"FIELD":constructionForm):undefined,
    constructionLabel:construction?constructionLabel.trim():undefined,
-   targetConstructionId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.skillKind!=="FUSION"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedMirrorId:undefined,
-   targetSummonId:!construction&&skill.skillKind!=="CHARGE_BUFF"&&skill.skillKind!=="FUSION"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedSummonId:undefined,
+   targetConstructionId:skill.skillKind==="OFFENSE"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedMirrorId:undefined,
+   targetSummonId:skill.skillKind==="OFFENSE"&&skill.attackArea?.shape!=="SELF_FIELD"?selectedSummonId:undefined,
    chargesToSpend:skill.skillKind==="CHARGE_BUFF"?chargesToSpend:undefined};
   const key=combatResourceRequestKey(id,side,state,castPayload);
   const previous=castRequestRef.current;

@@ -12,6 +12,8 @@ import {WEARABLE_DIRECT_COMBAT_STATS,type WearableDirectCombatStat}
  from "./wearable-stat-bonus.ts";
 import type {CombatFighter} from "./turn-engine.ts";
 import type {CombatWearable} from "../items/combat-wearables.ts";
+import {evaluateEquipmentBasic,type EquipmentBasicReplay} from "./equipment-basic-replay.ts";
+import {calculateConfiguredDerivedSnapshot} from "../stats/configured-derived-pure.ts";
 
 type StatKey=WearableDirectCombatStat;
 export type DerivedCopyEffect={
@@ -25,6 +27,8 @@ type Formula=Totals&{raw:number;mechanic:number};
 type Contribution={characterItemId:number;itemId:number;
  stats:Partial<Record<StatKey,Totals>>;attackTotalFactors:number[]};
 export type EquipmentDerivedReplay={
+ /** Optional exact basic-stat contribution model for new encounters. */
+ basicReplay?:EquipmentBasicReplay;
  formulas:Partial<Record<StatKey,Formula>>;
  otherAttackFactorSum:number;otherAttackFactorCount:number;
  copies:Contribution[];
@@ -122,7 +126,8 @@ export function buildEquipmentDerivedReplay(input:{
  * If no multiplier is present, default to ×1, not ×0.
  */
 export function evaluateEquipmentDerived(
- model:EquipmentDerivedReplay,active:ReadonlySet<number>
+ model:EquipmentDerivedReplay,active:ReadonlySet<number>,
+ rawOverrides?:Readonly<Record<string,number>>
 ):Partial<Record<StatKey,number>>{
  const values:Partial<Record<StatKey,number>>={};
  let attackSum=model.otherAttackFactorSum;
@@ -142,7 +147,9 @@ export function evaluateEquipmentDerived(
    const m=copy.stats[key];if(!m)continue;
    factorSum+=m.factorSum;factorCount+=m.factorCount;flat+=m.flat;
   }
-  const result=(formula.raw*(factorCount>0?factorSum:1)+flat)*
+  const raw=rawOverrides?.[key]??formula.raw;
+  if(!Number.isFinite(raw))return {};
+  const result=(raw*(factorCount>0?factorSum:1)+flat)*
    formula.mechanic*((key==="physicalAttack"||key==="magicAttack")?attackFactor:1);
   if(!Number.isFinite(result))return {};
   values[key]=result;
@@ -154,9 +161,13 @@ export function evaluateEquipmentDerived(
  * skill effects already applied to the current fighter unchanged.
  * Returns the actual deltas for narration, without double application.
  */
+export type EquipmentCombatChange=Partial<Record<
+ StatKey|"strength"|"agility"|"constitution"|"luck"|"speedValue",number
+>>;
+
 export function reconcileEquipmentDerived(
  fighter:CombatFighter,wearables:readonly CombatWearable[]
-):Partial<Record<StatKey,number>>{
+):EquipmentCombatChange{
  const model=fighter.equipmentDerivedReplay;
  if(!model)return {};
  const matched=new Map(wearables.map(w=>[w.characterItemId,w]));
@@ -165,18 +176,64 @@ export function reconcileEquipmentDerived(
   const item=matched.get(copy.characterItemId);
   if(item&&item.itemId===copy.itemId&&item.durability>0)active.add(copy.characterItemId);
  }
- const next=evaluateEquipmentDerived(model,active);
- const changes:Partial<Record<StatKey,number>>={};
+ const basic=model.basicReplay;
+ const nextBasic=basic?evaluateEquipmentBasic(basic,active):undefined;
+ if(basic&&(!nextBasic||Object.keys(nextBasic).length!==
+    Object.keys(basic.formulas).length))return {};
+
+ // Recalculate the same configured graph as the sheet, including nonlinear
+ // formula dependencies and custom basic keys; avoid inverting a final stat.
+ let newRaw:Record<string,number>|undefined;
+ if(basic&&nextBasic){
+  try{
+   newRaw=calculateConfiguredDerivedSnapshot(nextBasic as any,basic.catalog);
+  }catch{return {};}
+ }
+ const next=evaluateEquipmentDerived(model,active,newRaw);
+ if(Object.keys(next).length!==Object.keys(model.applied).length)return {};
+ const changes:EquipmentCombatChange={};
+ const basicChanges:Partial<Record<"strength"|"agility"|"constitution"|"luck",number>>={};
  for(const key of keys){
   if(!(key in model.applied))continue;
   const old=model.applied[key],newValue=next[key];
   if(typeof old!=="number"||typeof newValue!=="number"||
-   !Number.isFinite(newValue))continue;
+     !Number.isFinite(newValue))return {};
   const delta=newValue-old;
-  if(near(delta,0))continue;
-  fighter[key]=Math.max(0,fighter[key]+delta);
-  changes[key]=delta;
+  if(!near(delta,0))changes[key]=delta;
  }
+ if(basic&&nextBasic){
+  for(const key of ["strength","agility","constitution","luck"] as const){
+   if(!(key in basic.applied))continue;
+   const before=basic.applied[key],after=nextBasic[key];
+   if(!Number.isFinite(after)||!Number.isFinite(before))return {};
+   const delta=after-before;
+   if(!near(delta,0))basicChanges[key]=delta;
+  }
+  const speedKey=basic.speedKey;
+  if(speedKey){
+   const before=basic.applied[speedKey]??model.applied[speedKey as StatKey];
+   const after=nextBasic[speedKey]??next[speedKey as StatKey];
+   if(typeof before==="number"&&typeof after==="number"&&
+      Number.isFinite(before)&&Number.isFinite(after)&&!near(before,after))
+    changes.speedValue=after-before;
+  }
+ }
+ // Only commit after every formula, basic stat and derived result has passed.
+ // Add deltas to the *current* fighter so unrelated buffs/debuffs survive.
+ for(const key of keys){
+  const delta=changes[key];
+  if(typeof delta==="number")fighter[key]=Math.max(0,fighter[key]+delta);
+ }
+ for(const key of ["strength","agility","constitution","luck"] as const){
+  const delta=basicChanges[key];
+  if(typeof delta==="number"){
+   fighter[key]=Math.max(key==="agility"?1:0,fighter[key]+delta);
+   changes[key]=delta;
+  }
+ }
+ if(typeof changes.speedValue==="number")
+  fighter.speedValue=Math.max(1,(fighter.speedValue??fighter.agility)+changes.speedValue);
  model.applied=next;
+ if(basic&&nextBasic)basic.applied=nextBasic;
  return changes;
 }

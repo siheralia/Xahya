@@ -29,14 +29,23 @@ export async function GET() {
   const auditLogs = await db.orm.public.AuditLog.all();
   const CombatSession = (db.orm.public as any).CombatSession;
   const combatSessions = CombatSession ? await CombatSession.where({status:"FINISHED"}).all() : [];
-  const combatResults = summarizeFinishedCombats(combatSessions);
+  const ownerById = new Map(users.map((user) => [Number(user.id), user] as const));
+  // Only duels between characters owned by different real players count as PvP.
+  const pvpOwners = new Map<number, number>();
+  for (const character of characters) {
+    const owner = ownerById.get(Number(character.userId));
+    if (owner && String(owner.role) !== "SYSTEM") {
+      pvpOwners.set(Number(character.id), Number(owner.id));
+    }
+  }
+  const combatResults = summarizeFinishedCombats(combatSessions, pvpOwners);
   const catalog = await readStatisticsCatalog();
   const basicKeys = catalog.length ? catalog.filter((entry) => entry.kind === "basic" && entry.active !== false).map((entry) => entry.key) : [...CORE_BASIC_STAT_KEYS];
   const dynamicModel = (db.orm.public as any).CharacterStatValue;
   const dynamicRows: any[] = dynamicModel ? await dynamicModel.all() : [];
 
   const rows = characters.flatMap((character) => {
-    const owner = users.find((user) => Number(user.id) === Number(character.userId));
+    const owner = ownerById.get(Number(character.userId));
     if (String(owner?.role) === "SYSTEM") return [];
 
     const combat = combatResults.get(Number(character.id));
@@ -97,6 +106,11 @@ export async function GET() {
       combatDraws: combat?.combatDraws ?? 0,
       combatTotal: combat?.combatTotal ?? 0,
       combatWinRate: combat?.combatWinRate ?? 0,
+      pvpWins: combat?.pvpWins ?? 0,
+      pvpLosses: combat?.pvpLosses ?? 0,
+      pvpDraws: combat?.pvpDraws ?? 0,
+      pvpTotal: combat?.pvpTotal ?? 0,
+      pvpWinRate: combat?.pvpWinRate ?? 0,
     }];
   });
 

@@ -83,26 +83,6 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
  const effects=Array.isArray(row.effect)?row.effect:[];
  if(effects.length<1||effects.length>20)
   fail("La habilidad necesita efectos configurados válidos.");
- // Only a fully reviewed COMPOSED support skill can use the ACTIVATE
- // interpreter. Unsupported/mixed modules fail closed instead of falling
- // back to an unrelated free legacy effect.
- if(effects.some(isComposedSkillEffect)){
-  const approvedActivation=compileApprovedSupportActivation(row,cutover);
-  const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
-  if(cooldown&&!["Sin cooldown","Una vez por combate","Igual a duración",
-    "1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(cooldown))
-    fail("Cooldown modular no reconocido.");
-  const duration=String(row.duration??"");
-  return {
-   id,name:typeof row.name==="string"?row.name.slice(0,120):"Soporte modular",
-   cost,requiredParentSkillId,category:"SUPPORT",
-   rangeMeters:0,damageMultiplier:1,defenseFactor:1,finalMultiplier:1,
-   healing:0,bonuses:[],durationTurns:approvedActivation.durationTurns,
-   cooldownRounds:cooldownTurns(cooldown,duration),
-   oncePerCombat:cooldown==="Una vez por combate",
-   approvedActivation,executionEngine:"MODULAR",
-  };
- }
  const fusion=compileFusionPlan(effects,cost);
  if(fusion){
    if(Number(row.maintenanceCost??0)!==fusion.summon.maintenanceMana)
@@ -162,6 +142,26 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
      durationTurns,cooldownRounds:cooldownTurns(cooldown,String(row.duration??"")),
      oncePerCombat:cooldown==="Una vez por combate",usesMagic:false,
    };
+ }
+ // Only a fully reviewed COMPOSED support skill can use the ACTIVATE
+ // interpreter. Unsupported/mixed modules fail closed instead of falling
+ // back to an unrelated free legacy effect.
+ if(effects.some(isComposedSkillEffect)){
+  const approvedActivation=compileApprovedSupportActivation(row,cutover);
+  const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
+  if(cooldown&&!["Sin cooldown","Una vez por combate","Igual a duración",
+    "1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(cooldown))
+    fail("Cooldown modular no reconocido.");
+  const duration=String(row.duration??"");
+  return {
+   id,name:typeof row.name==="string"?row.name.slice(0,120):"Soporte modular",
+   cost,requiredParentSkillId,category:"SUPPORT",
+   rangeMeters:0,damageMultiplier:1,defenseFactor:1,finalMultiplier:1,
+   healing:0,bonuses:[],durationTurns:approvedActivation.durationTurns,
+   cooldownRounds:cooldownTurns(cooldown,duration),
+   oncePerCombat:cooldown==="Una vez por combate",
+   approvedActivation,executionEngine:"MODULAR",
+  };
  }
  const range=parseConfiguredSkillRange(row.areaOfEffect);
  const name=typeof row.name==="string"?row.name.slice(0,120):"Habilidad";

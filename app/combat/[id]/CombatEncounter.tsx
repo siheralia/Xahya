@@ -410,7 +410,8 @@ export default function CombatEncounter({id}:{id:string}) {
  const requestedDefense:DefenseChoice=!counterAllowed&&defense==="COUNTER"?"DODGE":defense;
  const selectedDefense:DefenseChoice=!hasReactionBudget?"NONE":(requestedDefense==="CONSTRUCTION"&&!hasAvailableBlock)?"DODGE":pending?.usesMagic
   ? (["BLOCK","REPEL","DEFLECT"].includes(requestedDefense)?"DODGE":requestedDefense)
-  : (requestedDefense==="MAGIC_FIELD"||(pending?.attackArea&&requestedDefense==="DEFLECT")?"DODGE":requestedDefense);
+  : ((requestedDefense==="MAGIC_FIELD"&&!pending?.hybridMagicalContact)||
+      (pending?.attackArea&&requestedDefense==="DEFLECT")?"DODGE":requestedDefense);
  const hasAccess=view?.permissions[side]??false;
  useEffect(()=>{
   const characterId=actor?.characterId;
@@ -790,7 +791,7 @@ export default function CombatEncounter({id}:{id:string}) {
        <b>Reacción pendiente:</b> {state.actors[pending.by].name} lanzó {pending.attackArea?.shape==="SELF_FIELD"?<>un barrido físico a su alrededor de <b>{pending.attackArea.radiusMeters} m</b></>:pending.attackArea?.shape==="STRIP"?<>una franja de <b>{pending.attackArea.lengthMeters} × {pending.attackArea.widthMeters} m</b></>
        :pending.attackArea?.shape==="CONE"?<>un cono de <b>{pending.attackArea.radiusMeters} m y apertura {pending.attackArea.openingDegrees}°</b></>
        :pending.attackArea?.shape==="SWEEP"?<>un barrido en arco de <b>{pending.attackArea.innerRadiusMeters} a {pending.attackArea.outerRadiusMeters} m y apertura {pending.attackArea.openingDegrees}°</b></>
-       :pending.attackArea?<>un ataque circular de <b>{pending.attackArea.radiusMeters} m de radio</b></>:pending.usesMagic?<>un ataque mágico de <b>{attackNames[pending.attackType]}</b></>:<>un ataque de <b>{attackNames[pending.attackType]}</b></>} contra {state.actors[pending.against].name}.
+       :pending.attackArea?<>un ataque circular de <b>{pending.attackArea.radiusMeters} m de radio</b></>:pending.usesMagic?<>un ataque mágico de <b>{attackNames[pending.attackType]}</b></>:pending.hybridMagicalContact?<>un golpe físico imbuido con magia de <b>{attackNames[pending.attackType]}</b></>:<>un ataque de <b>{attackNames[pending.attackType]}</b></>} contra {state.actors[pending.against].name}.
        {" "}{pending.usesMagic||(pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD")?<>Región aproximada: <b>{hint}</b> (cuatro casillas resaltadas). El centro exacto está oculto.</>:<>Trayectoria aparente: <b>{attackDirection(pending.trajectory)}</b>.</>}
        {defending?" Elige cómo responder.":" Esperando la decisión del defensor."}
       </p>:
@@ -1172,7 +1173,8 @@ export default function CombatEncounter({id}:{id:string}) {
       {options.filter(opt=>!hasReactionBudget?opt.value==="NONE":pending.usesMagic
         ? ["DODGE","MAGIC_FIELD","CONSTRUCTION","ENDURE","COUNTER","NONE"].includes(opt.value)&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)
-        : opt.value!=="MAGIC_FIELD"&&(!pending.attackArea||opt.value!=="DEFLECT")&&
+        : (opt.value!=="MAGIC_FIELD"||pending.hybridMagicalContact)&&
+          (!pending.attackArea||opt.value!=="DEFLECT")&&
           (opt.value!=="CONSTRUCTION"||defenderBlocks.length>0)).filter(opt=>counterAllowed||opt.value!=="COUNTER").map(opt=>{
        const DefenseIcon=defenseIcons[opt.value];
        const active=selectedDefense===opt.value;

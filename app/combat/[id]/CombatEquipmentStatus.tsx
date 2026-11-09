@@ -26,7 +26,7 @@ export default function CombatEquipmentStatus({state,side}:{
     también puede desgastar otras piezas que tengan activada una regla de desgaste.
    </p>
    <p className="mt-2 text-xs text-zinc-300">
-    Armaduras y accesorios: {counts.total} · Rotos: {counts.broken} · Desgastados: {counts.damaged}.
+    Armaduras y accesorios: {counts.total} · Rotos: {counts.broken} · Muy desgastados (25/100 o menos): {counts.damaged}.
     {" "}HP {fighter.hp}/{fighter.maxHp} · Maná {state.mana?.[side]
      ?state.mana[side].current+"/"+state.mana[side].max:"—"}.
    </p>

@@ -20,6 +20,11 @@ sin PCH revisado o con precio pendiente se ejecuta.** Un estado
 `CharacterSkillState.active === false` explícito desactiva la instalación;
 una pasiva aprobada sin fila de activación se considera pasiva por defecto.
 
+El interruptor de seguridad **`LEGACY_ONLY`** desactiva la instalación nueva
+sin despliegue adicional; `MODULAR_FIRST` permite únicamente esta familia
+que ya pasó los filtros de aprobación. Ambos valores mantienen
+configuraciones de producción y vistas previas separadas.
+
 Los encuentros anteriores mantienen sus reglas. El código de la creación es
 el único que llama al instalador; `POST /actions` no recibe definiciones,
 fórmulas ni acumuladores suministrados por el usuario. La definición completa,

@@ -50,6 +50,13 @@ function opponentReference(fighter:Fighters["NPC"]){
 }
 const sentence=(value:string)=>value.trim().replace(/\.+$/,"")+".";
 const lowerArticle=(value:string)=>value.replace(/^(El|La|Un|Una)\b/,m=>m.toLowerCase());
+/** Old event summaries may still contain the technical training label. */
+const narratedSummary=(summary:string,fighters:Fighters):string=>{
+ const npc=opponentReference(fighters.NPC);
+ const normalized=npc.object===fighters.NPC.name?summary:
+  summary.split(fighters.NPC.name).join(npc.object);
+ return sentence(normalized.replace(/^./,first=>first.toLocaleUpperCase("es")));
+};
 
 /** Group a launch and its resolution into one narrative event, not two
  * independent repetitions. Other movements retain their original sequence.
@@ -193,7 +200,7 @@ function describeMove(event:CombatLog,ctx:Context,fighters:Fighters):string{
   :opponentReference(fighters.NPC).subject;
  if(event.summary.includes("recuperó")){
   ctx.pushed=undefined;
-  return sentence(event.summary);
+  return narratedSummary(event.summary,fighters);
  }
  const direction=event.movementDirection;
  if(direction==="TOWARD"){
@@ -205,13 +212,13 @@ function describeMove(event:CombatLog,ctx:Context,fighters:Fighters):string{
  if(direction==="WEAPON"){ctx.pushed=undefined;return actor+" se dirigió hacia su arma caída.";}
  if(direction==="VECTOR"){ctx.pushed=undefined;return actor+" cambió de posición.";}
  // Old encounters did not record movement metadata; preserve known text.
- return sentence(event.summary.replace(/-?\d+\.\d{6,}/g,x=>Number(x).toFixed(2)));
+ return narratedSummary(event.summary.replace(/-?\d+\.\d{6,}/g,x=>Number(x).toFixed(2)),fighters);
 }
 
 function ending(winner:Side,fighters:Fighters):string{
  const actor=fighters[winner];
  const hp=actor.hp,max=actor.maxHp;
- const name=actor.name;
+ const name=winner==="NPC"?opponentReference(fighters.NPC).subject:actor.name;
  if(typeof hp!=="number"||typeof max!=="number"||!Number.isFinite(hp)||
    !Number.isFinite(max)||max<=0)return name+" se alzó con la victoria.";
  const safeHp=Math.max(0,Math.min(hp,max));
@@ -277,7 +284,7 @@ export function narrateCombat(log:ReadonlyArray<CombatLog>,fighters:Fighters):st
     ?actor+" recurrió a "+skill+" para recuperar fuerzas."
     :actor+" activó "+skill+".");
   }else if(event.kind==="RECOVER"){
-   add(sentence(event.summary));
+   add(narratedSummary(event.summary,fighters));
   }else if(event.kind==="WAIT"){
    // Ordinary turn passes add noise without changing the story.
   }else if(event.kind==="END"){
@@ -285,7 +292,7 @@ export function narrateCombat(log:ReadonlyArray<CombatLog>,fighters:Fighters):st
    paragraphs.push(ending(event.by,fighters));
    ended=true;
   }else if(event.summary){
-   add(sentence(event.summary));
+   add(narratedSummary(event.summary,fighters));
   }
  }
  if(!ended)flush();

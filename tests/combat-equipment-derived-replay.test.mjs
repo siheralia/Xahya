@@ -95,7 +95,7 @@ test("breaking ATTACK_TOTAL accessory updates BOTH attacks and remaining multipl
  const s=state();
  s.actors.NPC.equippedWearables[1].durability=0;
  reconcileEquipmentDerived(s.actors.NPC,s.actors.NPC.equippedWearables);
- assert.equal(stat(s,"physicalAttack"),1995); // (100*(1.5+2)+15)*2*1.5
+ assert.equal(stat(s,"physicalAttack"),1095); // (100*(1.5+2)+15)*2*1.5
  assert.equal(stat(s,"magicAttack"),90); // 60 * 1.5
  assert.equal(stat(s,"physicalDefense"),144); // 40*(1.5+2)+4
 });

@@ -38,7 +38,7 @@ Ningún test escribe en `Character`, `CharacterResource`, `CharacterItem` ni en 
 
 ## Escenarios de regresión
 
-- **Ataque físico + bloqueo real con escudo:** copia correcta rota y emite evento; otro objeto queda intacto; tras avanzar legalmente de ronda, autorreparación restaura exactamente la copia y descuenta maná una vez.
+- **Ataque físico + bloqueo real con escudo:** el escudo puede romperse por desgaste de bloqueo; si el bloqueo no absorbió todos los HP, **otra armadura con regla de desgaste físico pierde durabilidad por el daño residual**. Son dos causas distintas del mismo golpe, no un doble cargo arbitrario. Tras avanzar legalmente de ronda, la autorreparación restaura la copia autorizada y descuenta maná una vez.
 - **Impacto sobre HP + dos piezas:** desgaste independiente, eventos distintos, bono directo de defensa se desactiva y el registro lo relata en español.
 - **Barras/replays:** PR #210 comprueba máximos HP/maná, restricciones por cero, bonos externos, 288 transiciones de múltiples golpes, curación real por habilidad ficticia y rechazo por maná insuficiente.
 - **Serialización y privacidad:** el combate original conserva los replays autorizados; el JSON enviado al navegador no incluye el grafo ni sus fórmulas.

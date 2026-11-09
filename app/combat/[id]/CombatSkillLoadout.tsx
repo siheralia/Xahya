@@ -141,6 +141,16 @@ export default function CombatSkillLoadout({
          daño real a HP. Una esquiva, un espejo que intercepte el rayo
          o una barrera que absorba todo el daño impiden el debilitamiento.
         </p>}
+        {skill.hybridContact&&<p className="rounded-lg border border-violet-700/40 bg-violet-950/20 p-3 text-xs text-violet-200">
+         <b>Golpe imbuido con magia.</b> Dibuja un ataque físico de contacto.
+         La acción cuesta maná y PA una sola vez, pero el daño se reparte en
+         {Math.round(skill.hybridContact.physicalMultiplier*100)} % físico y
+         {Math.round(skill.hybridContact.magicalMultiplier*100)} % mágico.
+         Cada parte usa su resistencia. Bloquear reduce el golpe físico;
+         el campo mágico reduce la parte mágica. Una barrera en el camino
+         puede detener el golpe completo. La magia está unida al contacto:
+         no es un rayo reflejable.
+        </p>}
         {skill.modularSupport&&<p className="rounded-lg border border-cyan-700/40 bg-cyan-950/20 p-3 text-xs text-cyan-200">
          <b>Soporte modular aprobado.</b> Se aplica a tu personaje sin apuntar ni elegir enemigo.
          Al utilizarlo se cobran el maná, los PA y los ticks habituales; la curación y los bonos

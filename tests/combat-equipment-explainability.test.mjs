@@ -105,11 +105,14 @@ test("real shield BLOCK breaks the correct equipment copy; HUD summary changes",
  },dice);
  assert.equal(blocked.pending,null);
  assert.equal(blocked.actors.NPC.equippedWearables[0].durability,0);
- assert.equal(blocked.actors.NPC.equippedWearables[1].durability,77);
+ assert.equal(blocked.actors.NPC.equippedWearables[1].durability,76,
+  "a partial BLOCK leaves real HP damage, which also wears configured armor");
  assert.deepEqual(combatEquipmentCounts(blocked,"NPC"),{total:2,broken:1,damaged:0});
  const timeline=recentEquipmentEvents(blocked,"NPC");
  assert.ok(timeline.some(x=>x.type==="BREAK"&&/Escudo/.test(x.text)));
- assert.ok(timeline.every(x=>x.item==="Escudo de prueba"||x.item===null));
+ assert.ok(timeline.some(x=>x.item==="Escudo de prueba"&&x.type==="BREAK"));
+ assert.ok(timeline.some(x=>x.item==="Coraza de prueba"&&x.type==="WEAR"),
+  "the second item wears from residual HP damage, not from the shield block itself");
  assert.deepEqual(initial,source,"the engine must not mutate a user's previous view");
  const restored=advanceRound(blocked);
  assert.equal(restored.actors.NPC.equippedWearables[0].durability,5);

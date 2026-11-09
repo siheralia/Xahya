@@ -240,7 +240,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
           // D2.1 already respects explicit deactivation of modular passives.
           // D2.2 casts must honor the same character setting. A missing state
           // row means "not explicitly disabled" for historical characters.
-          if(plan.approvedActivation){
+          if(plan.approvedActivation||plan.approvedHostileStatus){
             const SkillState=(tx.orm.public as any).CharacterSkillState;
             const activation=SkillState
               ?await SkillState.where({characterId,skillId}).first():null;

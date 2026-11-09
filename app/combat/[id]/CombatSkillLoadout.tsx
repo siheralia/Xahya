@@ -138,7 +138,7 @@ export default function CombatSkillLoadout({
         {skill.modularSupport&&<p className="rounded-lg border border-cyan-700/40 bg-cyan-950/20 p-3 text-xs text-cyan-200">
          <b>Soporte modular aprobado.</b> Se aplica a tu personaje sin apuntar ni elegir enemigo.
          Al utilizarlo se cobran el maná, los PA y los ticks habituales; la curación y los bonos
-         temporales aparecen en el registro y en «Estado y estadísticas».
+         temporales y estados personales aparecen en el registro y en «Estado y estadísticas».
         </p>}
         {skill.fusion&&<div className="space-y-2 rounded-lg border border-fuchsia-700/40 bg-fuchsia-950/20 p-3 text-xs">
           <p className="font-semibold text-fuchsia-200">🌀 Fusión: {skill.fusion.summon.label}</p>

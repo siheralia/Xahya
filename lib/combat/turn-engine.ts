@@ -88,6 +88,8 @@ export type PendingAttack = {
   hostileStatus?:ResolvedHostileStatus & {id:string};
   /** D3.2: server-authorized, shared-contact, dual-channel damage split. */
   hybridContact?:ApprovedHybridContact;
+  /** Public warning without revealing either damage coefficient. */
+  hybridMagicalContact?:boolean;
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
   mirrorId?:string; mirrorAuto?:boolean;
   /** Summoned strike uses entity stats, but owner PA/ticks. */
@@ -1489,7 +1491,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Los ataques circulares, las franjas, los conos y los barridos de área no se pueden desviar con una guardia lineal.");
     if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(defense))
       throw new Error("Para la explosión mágica básica puedes esquivar, levantar un campo mágico, resistir o no reaccionar.");
-    if (!pending.usesMagic && defense === "MAGIC_FIELD")
+    if (!pending.usesMagic && !pending.hybridContact && defense === "MAGIC_FIELD")
       throw new Error("El campo defensivo mágico solo puede responder a ataques mágicos.");
     // Validate the player's requested defense, not the effective one: when all
     // action ticks are spent the requested dodge is correctly downgraded to
@@ -2419,8 +2421,10 @@ export function applyResolvedCombatSkill(
    defenseFactor:plan.defenseFactor,finalMultiplier:plan.finalMultiplier,
    damageElement:plan.damageElement,
   };
-  if(next.pending&&plan.approvedHybridContact)
+  if(next.pending&&plan.approvedHybridContact){
    next.pending.hybridContact={...plan.approvedHybridContact};
+   next.pending.hybridMagicalContact=true;
+  }
   if(next.pending&&plan.approvedHostileStatus){
    const rider=resolveApprovedHostileStatus(plan.approvedHostileStatus,by);
    next.pending.hostileStatus={...rider,

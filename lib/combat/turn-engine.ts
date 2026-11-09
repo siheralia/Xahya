@@ -1584,7 +1584,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     } else if (defense === "MAGIC_FIELD") {
       // Basic defensive field: active reaction, paid AP/ticks, no persistent
       // barrier or mana expenditure until the configurable-skills phase.
-      const effectiveField=Math.max(0,protection)/typeFactor;
+      const magicDefense=pending.hybridContact
+        ?fighter.magicDefense*microResistanceMultiplier(state,by):protection;
+      const magicTypeFactor=pending.hybridContact
+        ?matchupMultiplier(pending.attackType,fighter.magicFieldType??fighter.defenseType):typeFactor;
+      const effectiveField=Math.max(0,magicDefense)/magicTypeFactor;
       const held=rolls.defense < contestChance(effectiveField,attacker.magicAttack);
       damageScale=held ? 0.25 : 0.75;
     } else if(defense==="CONSTRUCTION") {
@@ -1698,15 +1702,43 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const skill=pending.skill;
     const racialFactor=racialDamageFactor(
       fighter.damageTakenFactors,pending.attackType,pending.usesMagic,skill?.damageElement);
-    // D3.1: every approved skill is calculated by the typed channel model.
-    // This is still ONE fully defended channel per attack. Two-channel skills
-    // remain disabled until a joint reaction and cover policy is implemented.
-    const approvedChannelDamage=skill?resolveDamageChannels([{
+    // D3.2: the first dual attack is a single, measured physical CONTACT.
+    // Both parts share contact/critical/one defender reaction, but each uses
+    // its own base attack, defense, type matchup and racial resistance.
+    // A BLOCK reaction mitigates the physical part; a MAGIC_FIELD mitigates
+    // the magical part. Dodge, deflect, endure, repulsion and solid cover
+    // act on the shared contact. This technique does not emit a magic ray.
+    const hybrid=pending.hybridContact;
+    const approvedChannelDamage=skill?resolveDamageChannels(hybrid?[{
+      kind:"PHYSICAL",
+      power,protection,
+      damageMultiplier:hybrid.physicalMultiplier,
+      defenseFactor:1,finalMultiplier:1,
+      typeFactor,racialFactor:racialDamageFactor(
+        fighter.damageTakenFactors,pending.attackType,false),
+      contact,critical,reactionScale:defense==="MAGIC_FIELD"?1:damageScale,
+    },{
+      kind:"MAGICAL",
+      power:attacker.magicAttack,
+      protection:fighter.magicDefense*microResistanceMultiplier(state,by),
+      damageMultiplier:hybrid.magicalMultiplier,
+      defenseFactor:1,finalMultiplier:1,
+      typeFactor:matchupMultiplier(
+        pending.attackType,fighter.magicFieldType??fighter.defenseType),
+      racialFactor:racialDamageFactor(fighter.damageTakenFactors,pending.attackType,true),
+      contact,critical,reactionScale:defense==="BLOCK"?1:damageScale,
+    }]:[{
       kind:pending.usesMagic?"MAGICAL":"PHYSICAL",
       power,protection,damageMultiplier:skill.damageMultiplier,
       defenseFactor:skill.defenseFactor,finalMultiplier:skill.finalMultiplier,
       typeFactor,racialFactor,contact,critical,reactionScale:damageScale,
     }]):null;
+    let hybridBreakdown=hybrid&&approvedChannelDamage?{
+      physical:approvedChannelDamage.channels[0].damage,
+      magical:approvedChannelDamage.channels[1].damage,
+      unprotectedPhysical:approvedChannelDamage.channels[0].unprotectedDamage,
+      unprotectedMagical:approvedChannelDamage.channels[1].unprotectedDamage,
+    }:undefined;
     // Historical phase-1 basic attacks preserve their bounded old formulas.
     const raw=approvedChannelDamage?.channels[0].raw??(pending.usesMagic
       ?Math.max(1,Math.round((3+5*power/(power+protection+20))*(critical?1.5:1)*typeFactor))
@@ -1739,8 +1771,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         :coversAlongStroke(state.constructions,
           fieldPosition(attacker),fieldPosition(fighter),pending.trajectory,exclude);
       if(covers.length){
-        const pressure=Math.max(1,Math.round(Math.max(0,power)*
-          (skill?.damageMultiplier??1)*(skill?.finalMultiplier??1)));
+        const contactPower=hybrid
+          ?Math.max(0,power)*hybrid.physicalMultiplier+
+           Math.max(0,attacker.magicAttack)*hybrid.magicalMultiplier
+          :Math.max(0,power)*(skill?.damageMultiplier??1)*(skill?.finalMultiplier??1);
+        const pressure=Math.max(1,Math.round(contactPower));
         let remainingPressure=pressure;
         let lastCover:typeof covers[number]["block"]|undefined;
         // Every measured cover consumes only what survived earlier covers.
@@ -1824,8 +1859,24 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           }
         }
         const penetration=remainingPressure/pressure;
-        damage=Math.max(0,Math.round(damage*penetration));
-        noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*penetration));
+        if(hybridBreakdown){
+          // The whole infused contact must pass the measured barrier. Do
+          // not let either channel bypass a wall that stopped the strike.
+          hybridBreakdown={
+            physical:Math.max(0,Math.round(hybridBreakdown.physical*penetration)),
+            magical:Math.max(0,Math.round(hybridBreakdown.magical*penetration)),
+            unprotectedPhysical:Math.max(0,Math.round(
+              hybridBreakdown.unprotectedPhysical*penetration)),
+            unprotectedMagical:Math.max(0,Math.round(
+              hybridBreakdown.unprotectedMagical*penetration)),
+          };
+          damage=hybridBreakdown.physical+hybridBreakdown.magical;
+          noResistanceDamage=hybridBreakdown.unprotectedPhysical+
+           hybridBreakdown.unprotectedMagical;
+        }else{
+          damage=Math.max(0,Math.round(damage*penetration));
+          noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*penetration));
+        }
         mitigatedByResistance=Math.max(0,noResistanceDamage-damage);
         if(remainingPressure===0){
           contact=false;critical=false;
@@ -1874,6 +1925,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       :null;
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
       mitigatedByResistance,contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense:exchange?"COUNTER":defense,
+      damageChannels:hybridBreakdown?{
+        physical:hybridBreakdown.physical,magical:hybridBreakdown.magical,
+      }:undefined,
       constructionId:pending.mirrorId,mirrorShot:Boolean(pending.mirrorId),
       summonId:pending.summonId,
       mirrorOrigin:pending.mirrorId&&validArenaPoint(pending.trajectory[0])?{...pending.trajectory[0]}:undefined,
@@ -1885,7 +1939,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       rangedPhysical:pending.rangedPhysical,
       predictedCenter:(pending.usesMagic&&defense==="DODGE"||pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"&&defense==="DODGE"||pending.rangedPhysical&&["DODGE","DEFLECT"].includes(defense))?command.predictedCenter:undefined,
       predictionMatched:validArenaPoint(pending.targetCenter)&&validArenaPoint(command.predictedCenter)?Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=(pending.rangedPhysical?0.09:0.19):undefined,
-      summary:physicalCoverLabel
+      summary:hybridBreakdown
+        ?(physicalCoverLabel?physicalCoverLabel+" interceptó el golpe imbuido; ":
+           avoided?fighter.name+" evitó el golpe imbuido; ":
+           attacker.name+" golpeó a "+fighter.name+" con magia imbuida; ")+
+          hybridBreakdown.physical+" físico + "+hybridBreakdown.magical+
+          " mágico = "+damage+" HP"
+        :physicalCoverLabel
         ?physicalCoverLabel+" interceptó la trayectoria; daño al combatiente: "+damage+" HP"
         :mirrorLabel
         ?(avoided?fighter.name+" esquivó el rayo de "+mirrorLabel

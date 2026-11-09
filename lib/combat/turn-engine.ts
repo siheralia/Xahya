@@ -23,6 +23,7 @@ import {evaluateEquippedItemAutoRepair,shouldAutoRepairAtRound,
 import {equipmentWearFromHit} from "../items/equipped-wear.ts";
 import {offhandArmorShield,type CombatWearable} from "../items/combat-wearables.ts";
 import {reconcileWearableStatBonuses} from "./wearable-stat-bonus.ts";
+import {equipmentStatLabel} from "./equipment-feedback.ts";
 import {reconcileEquipmentDerived,type EquipmentDerivedReplay} from "./equipment-derived-replay.ts";
 import {assertMovementClear,blockingMovement,coversAlongStroke,coversAlongProjectileFlight,validateProjectileHeights,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
@@ -453,15 +454,23 @@ function syncWearableBonuses(state:CombatState,side:Side,item:CombatWearable):vo
  if(!change)return;
  const capacity=change as {maxHp?:number;maxMana?:number};
  if(typeof capacity.maxHp==="number"||typeof capacity.maxMana==="number"){
+  const hpBefore=fighter.hp,maxHpBefore=fighter.maxHp;
+  const manaBefore=state.mana?.[side]?.current??0;
+  const maxManaBefore=state.mana?.[side]?.max??0;
   applyEquipmentResourceCapacities(state,side,capacity);
+  const manaAfter=state.mana?.[side];
   addLog(state,{kind:"EQUIPMENT_CAPACITY",tick:state.tick,by:side,
-   weaponName:item.name,summary:item.name+" cambió los límites de recursos: "+
-    "HP máximo "+fighter.maxHp+", maná máximo "+(state.mana?.[side]?.max??0)+
-    ". El HP y el maná actuales no aumentaron."});
+   weaponName:item.name,summary:item.name+" cambió los límites: "+
+    "HP máximo "+maxHpBefore+" → "+fighter.maxHp+
+    ", maná máximo "+maxManaBefore+" → "+(manaAfter?.max??0)+
+    ". Reservas actuales: HP "+hpBefore+" → "+fighter.hp+
+    ", maná "+manaBefore+" → "+(manaAfter?.current??0)+
+    ". Recuperar el máximo no cura ni restaura maná."});
  }
  const stats=Object.entries(change)
-   .filter(([,amount])=>typeof amount==="number"&&amount!==0)
-   .map(([stat,amount])=>stat+" "+((amount as number)>0?"+":"")+(amount as number));
+   .filter(([stat,amount])=>stat!=="maxHp"&&stat!=="maxMana"&&
+     typeof amount==="number"&&amount!==0)
+   .map(([stat,amount])=>equipmentStatLabel(stat)+" "+((amount as number)>0?"+":"")+(amount as number));
  if(stats.length)
   addLog(state,{kind:"EQUIPMENT_STATS",tick:state.tick,by:side,weaponName:item.name,
    summary:item.name+" cambió sus bonificaciones activas: "+stats.join(", ")+"."});

@@ -4,6 +4,8 @@ import Link from "next/link";
 import CombatSkillLoadout from "./CombatSkillLoadout";
 import CombatCharacterHud, {type CombatPanel} from "./CombatCharacterHud";
 import CombatDialog from "./CombatDialog";
+import CombatEquipmentStatus from "./CombatEquipmentStatus";
+import {combatEquipmentCounts,recentEquipmentEvents} from "@/lib/combat/equipment-feedback";
 import CombatMusicPlayer from "@/components/music/CombatMusicPlayer";
 import { hasCriticalCombatHealth } from "@/lib/combat/music-tempo.mjs";
 import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
@@ -80,7 +82,6 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <span>{turnTicks(f)} ticks/acción</span>
    <span>STR: {f.strength}</span>
    <span>CON: {f.constitution}</span>
-   <span className="col-span-2">Integridad (último bloqueo): {f.weaponIntegrity}/100</span>
    {(["MAIN_HAND","OFF_HAND"] as const).map(slot=>{
     const weapon=slot==="MAIN_HAND"?f.equippedWeapon:f.offhandWeapon;
     const shield=slot==="OFF_HAND"&&!weapon?offhandArmorShield(f.equippedWearables):undefined;
@@ -266,6 +267,14 @@ export default function CombatEncounter({id}:{id:string}) {
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"Acción rechazada");
    setView(v=>v?{...v,state:data.state}:v);
+   // Basic actions also need immediate outcome feedback. Previously only
+   // skills, consumables and karma showed a response near the controls.
+   if(["MOVE","WAIT","ATTACK","DEFEND","COMMAND_SUMMON"].includes(command.kind)){
+    const before=snapshot?.log.at(-1);
+    const latest=(data.state as CombatState).log.at(-1);
+    if(latest&&(!before||before.tick!==latest.tick||before.summary!==latest.summary))
+     setActionFeedback("Resultado reciente: "+latest.summary);
+   }
    if(["MOVE","WAIT","ATTACK","DEFEND","COMMAND_SUMMON"].includes(command.kind)){
     actionRequestRef.current=null;
     try{window.sessionStorage.removeItem("xahya-pending-combat:"+id+":"+side);}
@@ -606,6 +615,12 @@ export default function CombatEncounter({id}:{id:string}) {
  const incomingNoticeKey=incomingDamage?
   [id,side,incomingDamage.hitCount,incomingDamage.latest.tick,incomingDamage.latest.summary].join(":"):"";
  const counterRisk=!!state&&!pending&&!!basicCounterAttack(state,opposingSide);
+ const equipmentCounts=state?combatEquipmentCounts(state,side):null;
+ // A one-time event should not leave a permanent "recent change" banner
+ // after later rounds. A still-broken piece remains independently visible.
+ const candidateEquipmentEvent=state?recentEquipmentEvents(state,side,1)[0]:null;
+ const lastEquipmentEvent=candidateEquipmentEvent&&state&&
+  candidateEquipmentEvent.tick>=(state.round-1)*100?candidateEquipmentEvent:null;
  const combatStatRows:Array<[string,string|number|undefined]>=[
   ["HP",actor?actor.hp+"/"+actor.maxHp:"—"],
   ["Maná",state?.mana?.[side]?state.mana[side].current+"/"+state.mana[side].max:"—"],
@@ -644,6 +659,23 @@ export default function CombatEncounter({id}:{id:string}) {
     className="sticky top-1 z-[65] mb-3 rounded-lg border border-amber-300 bg-amber-950/95 p-3 text-sm font-semibold text-amber-100 shadow-xl">
      ¡Ataque entrante contra {state.actors[side].name}! Debes elegir una defensa en el panel de reacción.
     </div>}
+   {hasAccess&&equipmentCounts&&
+    (equipmentCounts.broken>0||lastEquipmentEvent)&&
+    <aside role="status" aria-label="Estado reciente del equipamiento"
+     className={"mb-3 rounded-lg border px-3 py-2 text-xs "+
+       (equipmentCounts.broken>0?"border-rose-500/50 bg-rose-950/25 text-rose-100":
+        "border-amber-700/40 bg-amber-950/20 text-amber-100")}>
+     <p className="font-semibold">
+      {equipmentCounts.broken>0
+       ?equipmentCounts.broken+" "+(equipmentCounts.broken===1?"pieza rota":"piezas rotas")+" en tu equipo"
+       :"Cambio reciente en tu equipo"}
+     </p>
+     {lastEquipmentEvent&&<p className="mt-1">{lastEquipmentEvent.text}</p>}
+     <button type="button" onClick={()=>openPanel("inventory")}
+      className="mt-2 inline-flex min-h-9 items-center rounded-md border border-zinc-500/50 px-3 py-1 font-semibold">
+      Ver durabilidad, efectos y reparación
+     </button>
+    </aside>}
    {incomingDamage&&incomingNoticeKey!==dismissedIncomingNotice&&
     <aside role="alert" aria-label="Daño recibido del oponente"
      className="sticky top-1 z-[60] mb-4 rounded-xl border border-rose-400 bg-rose-950/95 px-3 py-3 text-sm text-rose-100 shadow-xl backdrop-blur">
@@ -1480,25 +1512,40 @@ export default function CombatEncounter({id}:{id:string}) {
      <p className="mt-3 text-sm text-amber-200">Boosts de combate: {Object.entries(state.karmaBoosts?.[side]??{}).map(([stat,value])=>stat+" +"+value).join(", ")}</p>}
     {actor?.characterId&&<Link href={"/characters/"+actor.characterId} className="mt-4 inline-block text-sm text-cyan-300">Ver ficha completa de estadísticas</Link>}
    </CombatDialog>
-   <CombatDialog open={panel==="inventory"} title="Inventario del personaje" onClose={closePanel}>
-    {characterDataError&&<p role="status" className="mb-3 text-sm text-amber-300">{characterDataError}</p>}
-    <div className="grid gap-2 sm:grid-cols-2">
-     {(Array.isArray(characterData?.equipment)?characterData.equipment:[]).map((entry:any)=>
-      <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2">
-       <div className="flex items-center justify-between gap-2"><b className="text-sm">{entry.item?.name??entry.name??"Objeto"}</b>
-        <span className="text-xs text-zinc-400">×{entry.quantity??1}</span></div>
-       <p className="mt-1 text-xs text-zinc-500">{entry.item?.description??(entry.equipped?"Equipado":"Sin descripción")}</p>
-      </div>)}
-    </div>
-    {!characterData&&<p className="mt-2 text-sm text-zinc-400">Consultando inventario…</p>}
-    {characterData&&(!Array.isArray(characterData.equipment)||characterData.equipment.length===0)&&
-     <p className="mt-2 text-sm text-zinc-400">No hay objetos en el inventario.</p>}
-    <div className="mt-3 rounded-lg border border-zinc-800 p-3 text-sm text-zinc-400">
-     <p>Mano principal: {actor?.equippedWeapon?.name??"Libre"}</p>
-     <p>Mano secundaria: {actor?.offhandWeapon?.name??"Libre"}</p>
-    </div>
-    <p className="mt-2 text-xs text-zinc-500">Los HP y el maná mostrados en combate no se descuentan de la ficha.</p>
-    {actor?.characterId&&<Link href={"/characters/"+actor.characterId} className="mt-3 inline-block text-sm text-cyan-300">Abrir inventario completo en la ficha</Link>}
+   <CombatDialog open={panel==="inventory"} title="Equipo e inventario" onClose={closePanel}>
+    <CombatEquipmentStatus state={state} side={side}/>
+    <details className="mt-5 rounded-xl border border-zinc-700 p-3">
+     <summary className="cursor-pointer text-sm font-semibold text-zinc-200">
+      Inventario completo de la ficha (referencia)
+     </summary>
+     <p className="mt-2 text-xs text-amber-200">
+      La ficha puede mostrar cantidades o durabilidades distintas.
+      Para este encuentro manda la instantánea de combate de arriba.
+      La durabilidad ganada o perdida sí se guarda en el ejemplar real;
+      los HP y el maná del encuentro no se descuentan de la ficha.
+     </p>
+     {characterDataError&&<p role="status" className="mt-2 text-sm text-amber-300">{characterDataError}</p>}
+     <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      {(Array.isArray(characterData?.equipment)?characterData.equipment:[]).map((entry:any)=>
+       <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+         <b className="text-sm">{entry.item?.name??entry.name??"Objeto"}</b>
+         <span className="text-xs text-zinc-400">×{entry.quantity??1}</span>
+        </div>
+        <p className="mt-1 text-xs text-zinc-500">
+         {entry.item?.description??(entry.equipped?"Equipado":"Sin descripción")}
+        </p>
+       </div>)}
+     </div>
+     {!characterData&&!characterDataError&&
+      <p className="mt-2 text-xs text-zinc-400">Consultando datos de la ficha…</p>}
+     {characterData&&(!Array.isArray(characterData.equipment)||characterData.equipment.length===0)&&
+      <p className="mt-2 text-xs text-zinc-400">La ficha no contiene objetos.</p>}
+    </details>
+    {actor?.characterId&&<Link href={"/characters/"+actor.characterId}
+     className="mt-3 inline-block text-sm text-cyan-300">
+     Abrir inventario completo en la ficha
+    </Link>}
    </CombatDialog>
    {state.status==="FINISHED"&&<section className="mt-5 rounded-xl border border-amber-500/40 bg-zinc-950 p-4" aria-label="Crónica del encuentro">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

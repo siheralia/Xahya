@@ -38,6 +38,8 @@ export type CombatSkillPreview = {
  chargeBuff?:ChargeBuffPlan|null;
  modularSupport?:boolean;
  modularHostileStatus?:boolean;
+ /** D3.2: reviewed physical/magical contact split. */
+ hybridContact?:{physicalMultiplier:number;magicalMultiplier:number}|null;
  fusion?:FusionPlan|null;
  needsAim?: boolean;
  attackArea?:CombatAttackArea|null;

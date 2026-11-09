@@ -237,6 +237,16 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
             throw new Error("No se cumplen los requisitos por efecto de esta habilidad.");
           const {mode}=await readModularCutover();
           const plan=compileCombatSkill(skill,mode);
+          // D2.1 already respects explicit deactivation of modular passives.
+          // D2.2 casts must honor the same character setting. A missing state
+          // row means "not explicitly disabled" for historical characters.
+          if(plan.approvedActivation){
+            const SkillState=(tx.orm.public as any).CharacterSkillState;
+            const activation=SkillState
+              ?await SkillState.where({characterId,skillId}).first():null;
+            if(activation?.active===false)
+              throw new Error("Esta habilidad modular está desactivada para el personaje.");
+          }
           if(plan.requiredParentSkillId && !others.some((related:any)=>
             Number(related.id)===plan.requiredParentSkillId))
             throw new Error("No tienes disponible la habilidad vinculada necesaria para ejecutar esta técnica.");

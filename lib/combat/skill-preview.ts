@@ -7,6 +7,7 @@
  * authoritative encounter transaction (phase 2.2).
  */
 import {previewSkillExecution} from "./skill-casting.ts";
+import type {ModularCutoverMode} from "../effects/modular-cutover.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
 import type {CombatAttackArea} from "./skill-area.ts";
 import type {ChargeBuffPlan} from "./charge-buffs.ts";
@@ -58,6 +59,7 @@ const nonempty=(x:unknown,fallback=""):string=>
 
 export function combatSkillPreview(
  skill:SkillRecord,active=false,requirementsSatisfied=true,
+ cutover:ModularCutoverMode="MODULAR_FIRST",
 ):CombatSkillPreview|null {
  const id=Number(skill.id);
  if(String(skill.status)!=="APPROVED"||!Number.isSafeInteger(id)||id<=0)return null;
@@ -92,9 +94,9 @@ export function combatSkillPreview(
   cooldown:nonempty(skill.cooldown)||null,
   effectTypes,mechanicActions,
   active,requirementsSatisfied,
-  ...previewSkillExecution(skill),
-  executable:requirementsSatisfied&&previewSkillExecution(skill).executable,
-  disabledReason:requirementsSatisfied?previewSkillExecution(skill).disabledReason:
+  ...previewSkillExecution(skill,cutover),
+  executable:requirementsSatisfied&&previewSkillExecution(skill,cutover).executable,
+  disabledReason:requirementsSatisfied?previewSkillExecution(skill,cutover).disabledReason:
     "Faltan requisitos por efecto para lanzar esta habilidad.",
  };
 }
@@ -103,6 +105,7 @@ export function projectApprovedCombatSkills(
  rows:readonly SkillRecord[],states:readonly SkillStateRecord[],
  stolenIds:ReadonlySet<number>,
  meetsRequirements:(skill:SkillRecord,otherApproved:readonly SkillRecord[])=>boolean,
+ cutover:ModularCutoverMode="MODULAR_FIRST",
 ):CombatSkillPreview[] {
  const allowed=rows.filter(row=>String(row.status)==="APPROVED"
    && !stolenIds.has(Number(row.id)));
@@ -119,6 +122,7 @@ export function projectApprovedCombatSkills(
  return allowed.map(skill=>combatSkillPreview(
    skill,activeIds.has(Number(skill.id)),
    meetsRequirements(skill,allowed.filter(s=>Number(s.id)!==Number(skill.id)))&&linkedParentSatisfied(skill),
+   cutover,
  )).filter((s):s is CombatSkillPreview=>s!==null);
 }
 

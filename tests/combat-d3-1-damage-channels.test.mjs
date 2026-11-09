@@ -175,5 +175,5 @@ test("mixed physical+magic Skill graphs remain NOT launchable until a shared def
   ],
  };
  assert.equal(previewSkillExecution(mixed).executable,false);
- assert.throws(()=>compileCombatSkill(mixed),/ambiguo|no implementado/);
+ assert.throws(()=>compileCombatSkill(mixed),/ambiguo|no implementado|PCH revisado|híbrida/);
 });

@@ -422,6 +422,25 @@ function dispatchCombatMicroEvent(state:CombatState,side:Side,
   runtime.state=result.state;
 }
 
+/** Capacity changes never fill the bars. When max shrinks, clamp current;
+ * when max grows, preserve current so repair is not free healing or mana.
+ * Only encounter-local pools are touched, never CharacterResource.
+ */
+export function applyEquipmentResourceCapacities(
+ state:CombatState,side:Side,delta:{maxHp?:number;maxMana?:number}
+):void{
+ const fighter=state.actors[side];
+ if(Number.isSafeInteger(delta.maxHp)&&delta.maxHp!==0){
+  fighter.maxHp=Math.max(1,Math.floor(fighter.maxHp+delta.maxHp!));
+  fighter.hp=Math.max(0,Math.min(fighter.hp,fighter.maxHp));
+ }
+ const mana=state.mana?.[side];
+ if(mana&&Number.isSafeInteger(delta.maxMana)&&delta.maxMana!==0){
+  mana.max=Math.max(0,Math.floor(mana.max+delta.maxMana!));
+  mana.current=Math.max(0,Math.min(mana.current,mana.max));
+ }
+}
+
 /** Reconcile a single inventory copy's direct derived bonuses at the exact
  * zero/positive durability threshold; other buffs and perks stay untouched.
  */
@@ -432,6 +451,14 @@ function syncWearableBonuses(state:CombatState,side:Side,item:CombatWearable):vo
    ?reconcileEquipmentDerived(fighter,fighter.equippedWearables??[])
    :reconcileWearableStatBonuses(fighter,item)?.changes;
  if(!change)return;
+ const capacity=change as {maxHp?:number;maxMana?:number};
+ if(typeof capacity.maxHp==="number"||typeof capacity.maxMana==="number"){
+  applyEquipmentResourceCapacities(state,side,capacity);
+  addLog(state,{kind:"EQUIPMENT_CAPACITY",tick:state.tick,by:side,
+   weaponName:item.name,summary:item.name+" cambió los límites de recursos: "+
+    "HP máximo "+fighter.maxHp+", maná máximo "+(state.mana?.[side]?.max??0)+
+    ". El HP y el maná actuales no aumentaron."});
+ }
  const stats=Object.entries(change)
    .filter(([,amount])=>typeof amount==="number"&&amount!==0)
    .map(([stat,amount])=>stat+" "+((amount as number)>0?"+":"")+(amount as number));

@@ -1,4 +1,4 @@
-import {calculateDerivedStats,type BaseStats} from "./derived";
+import {calculateDerivedStats,type BaseStats} from "./derived.ts";
 
 /** Frozen catalog recipe used both by sheets and persisted combat sessions. */
 export type SnapshotStatDefinition = {

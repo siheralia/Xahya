@@ -137,8 +137,9 @@ export default function CombatSkillLoadout({
        return <div className="space-y-2">
         {skill.modularHostileStatus&&<p className="rounded-lg border border-amber-600/40 bg-amber-950/20 p-3 text-xs text-amber-200">
          <b>Debilitamiento modular por impacto.</b> Este estado solo afecta al rival si
-         el ataque físico supera su reacción y causa daño real a HP. Una esquiva
-         o una barrera que absorba todo el golpe impide el debilitamiento.
+         el ataque {skill.usesMagic?"mágico":"físico"} supera su reacción y causa
+         daño real a HP. Una esquiva, un espejo que intercepte el rayo
+         o una barrera que absorba todo el daño impiden el debilitamiento.
         </p>}
         {skill.modularSupport&&<p className="rounded-lg border border-cyan-700/40 bg-cyan-950/20 p-3 text-xs text-cyan-200">
          <b>Soporte modular aprobado.</b> Se aplica a tu personaje sin apuntar ni elegir enemigo.

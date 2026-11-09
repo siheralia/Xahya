@@ -86,9 +86,9 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
  const effects=Array.isArray(row.effect)?row.effect:[];
  if(effects.length<1||effects.length>20)
   fail("La habilidad necesita efectos configurados válidos.");
- // A composed hostile status is an ATTACK RIDER: no effect is applied at
- // cast time. The authoritative pending attack must first hit the opponent
- // and deal real HP damage after geometry, defense and physical cover.
+ // A composed hostile status is an ATTACK RIDER, never a free debuff.
+ // The authoritative physical/magical pending attack must first damage the
+ // opponent's HP after its normal geometry, reaction and interception.
  if(row.category==="OFFENSIVE"&&effects.some(isComposedSkillEffect)){
   const approvedHostileStatus=compileApprovedHostileStatus(row,cutover);
   const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
@@ -98,7 +98,8 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
   return {
    id,name:typeof row.name==="string"?row.name.slice(0,120):"Ataque con estado",
    cost,requiredParentSkillId,category:"OFFENSE",
-   attackType:row.attackType as CombatAttackType,usesMagic:false,
+   attackType:row.attackType as CombatAttackType,
+   usesMagic:approvedHostileStatus.usesMagic,
    rangeMeters:parseConfiguredSkillRange(row.areaOfEffect).rangeMeters!,
    damageMultiplier:1,defenseFactor:1,finalMultiplier:1,
    healing:0,bonuses:[],durationTurns:approvedHostileStatus.durationTurns,

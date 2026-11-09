@@ -7,6 +7,7 @@ import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
 import { racialDamageFactor, type DamageTakenFactors } from "./innate-traits.ts";
 import { executeMicroEvent, emptyMicroState, validateEffectContainers, type EffectContainer, type MicroState } from "../effects/micro-modules.ts";
 import {calculateModularVariableResistance} from "../effects/legacy-modular-shadow.ts";
+import {resolveApprovedSupportActivation} from "./approved-support-activation.ts";
 import {validateConstructionPlacement,resolveConstructionForm,constructionInAreaFootprint,firstMirrorAlongMagicRay,type CombatConstruction} from "./constructs.ts";
 import { BASIC_MAGIC_AREA_RADIUS, BASIC_MAGIC_RANGE_METERS, guessedMagicCenter, magicImpactZone, validArenaPoint } from "./magic-area.ts";
 import {attackAreaHits,validateAreaDirection,isOrientedCombatArea,AREA_CANVAS_METERS,type CombatAttackArea} from "./skill-area.ts";
@@ -2554,9 +2555,32 @@ export function applyResolvedCombatSkill(
  }else{
   next=structuredClone(prepaid);
   const actor=next.actors[by];
-  actor.hp=Math.min(actor.maxHp,Math.max(0,actor.hp+plan.healing));
+  let healed=0;
+  let bonuses=plan.bonuses;
+  if(plan.approvedActivation){
+   // This family is SELF only. A client attempting to mix target, canvas,
+   // movement or charge inputs cannot receive a free second action.
+   if(aim.planarMove!==undefined||aim.movementOrder!==undefined||
+      aim.trajectory!==undefined||aim.areaCenter!==undefined||
+      aim.areaAngleDegrees!==undefined||aim.attackSource!==undefined||
+      aim.constructionFieldPoint!==undefined||aim.constructionHeightMeters!==undefined||
+      aim.constructionForm!==undefined||aim.constructionLabel!==undefined||
+      aim.targetConstructionId!==undefined||aim.targetSummonId!==undefined||
+      aim.constructionFootprintRadiusMeters!==undefined||
+      aim.constructionSolidHeightMeters!==undefined||
+      aim.chargesToSpend!==undefined)
+    throw new Error("El soporte modular personal no permite desplazamiento, área ni objetivos externos.");
+   const resolved=resolveApprovedSupportActivation(plan.approvedActivation,actor,by);
+   healed=resolved.healed;
+   actor.hp=resolved.hp;
+   bonuses=resolved.bonuses;
+  }else{
+   const old=actor.hp;
+   actor.hp=Math.min(actor.maxHp,Math.max(0,actor.hp+plan.healing));
+   healed=actor.hp-old;
+  }
   next.skillBonuses??=[];
-  for(const bonus of plan.bonuses){
+  for(const bonus of bonuses){
    actor[bonus.stat]+=bonus.value;
    next.skillBonuses.push({...bonus,by,skillId:plan.id,skillName:plan.name,
       expiresAtRound:next.round+plan.durationTurns});
@@ -2564,8 +2588,10 @@ export function applyResolvedCombatSkill(
   spend(actor,turnTicks(actor));
   next.tick=Math.max(next.tick,(next.round-1)*LIMIT+actor.spentTicks);
   addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,manaCost:plan.cost,
-   skillName:plan.name,healingPoints:plan.healing??undefined,
-   summary:actor.name+" usó "+plan.name+(plan.healing?" y recuperó hasta "+plan.healing+" HP":"")});
+   skillName:plan.name,healingPoints:healed||undefined,
+   summary:actor.name+" usó "+plan.name+
+    (healed?" y recuperó "+Number(healed.toFixed(2))+" HP":"")+
+    (bonuses.length?" y obtuvo "+bonuses.length+" bono(s) temporal(es)":"")});
   advanceRoundIfComplete(next);
  }
  // OFFENSE, CONSTRUCTION and SUPPORT prepaid. SUMMON, FUSION and

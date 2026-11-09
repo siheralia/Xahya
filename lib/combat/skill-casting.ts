@@ -1,5 +1,7 @@
 import {cooldownTurns} from "../skills/cooldown.ts";
 import {legacyShadowCombatNumbers} from "../effects/legacy-modular-shadow.ts";
+import {isComposedSkillEffect} from "../skills/composed-effects.ts";
+import {compileApprovedSupportActivation,type ApprovedSupportActivation} from "./approved-support-activation.ts";
 import {decideModularExecution,type ModularCutoverMode} from "../effects/modular-cutover.ts";
 import {skillEffectMultiplier} from "../skills/pch.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
@@ -22,6 +24,8 @@ export type CombatSkillPlan = {
  summons?:SummonTemplate[];
   chargeBuff?:ChargeBuffPlan;
  fusion?:FusionPlan;
+ /** Runtime-validated, staff-reviewed self-only modular activation. */
+ approvedActivation?:ApprovedSupportActivation;
  creationPassive?:{sourceSkillId:number;resistance:VariableResistance};
  /** Executable persistent mirror with one automatic ray per owner's round. */
  mirror?:{rayMultiplier:number;reflectionMultiplier:number;durability:number};
@@ -79,6 +83,29 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
  const effects=Array.isArray(row.effect)?row.effect:[];
  if(effects.length<1||effects.length>20)
   fail("La habilidad necesita efectos configurados válidos.");
+ // Only a fully reviewed COMPOSED support skill can use the ACTIVATE
+ // interpreter. Unsupported/mixed modules fail closed instead of falling
+ // back to an unrelated free legacy effect.
+ if(row.category==="SUPPORT"&&effects.every(isComposedSkillEffect)&&
+    effects.every(e=>e.module.trigger==="ACTIVATE")&&
+    effects.some(e=>e.module.steps.some(step=>
+      step.kind==="HEAL"||step.kind==="BONUS"))){
+  const approvedActivation=compileApprovedSupportActivation(row,cutover);
+  const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
+  if(cooldown&&!["Sin cooldown","Una vez por combate","Igual a duración",
+    "1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(cooldown))
+    fail("Cooldown modular no reconocido.");
+  const duration=String(row.duration??"");
+  return {
+   id,name:typeof row.name==="string"?row.name.slice(0,120):"Soporte modular",
+   cost,requiredParentSkillId,category:"SUPPORT",
+   rangeMeters:0,damageMultiplier:1,defenseFactor:1,finalMultiplier:1,
+   healing:0,bonuses:[],durationTurns:approvedActivation.durationTurns,
+   cooldownRounds:cooldownTurns(cooldown,duration),
+   oncePerCombat:cooldown==="Una vez por combate",
+   approvedActivation,executionEngine:"MODULAR",
+  };
+ }
  const fusion=compileFusionPlan(effects,cost);
  if(fusion){
    if(Number(row.maintenanceCost??0)!==fusion.summon.maintenanceMana)
@@ -299,12 +326,13 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
 
 /** Expose eligibility and specific unsupported reason without claiming the
  * character may bypass requirements or pending approvals. */
-export function previewSkillExecution(row:Record<string,unknown>){
+export function previewSkillExecution(row:Record<string,unknown>,cutover:ModularCutoverMode="MODULAR_FIRST"){
  try {
-  const plan=compileCombatSkill(row);
+  const plan=compileCombatSkill(row,cutover);
   return {executable:true as const,skillKind:plan.category,
     chargeBuff:plan.chargeBuff??null,
     fusion:plan.fusion??null,
+    modularSupport:Boolean(plan.approvedActivation),
    needsAim:plan.category!=="SUPPORT"&&plan.category!=="SUMMON"&&plan.category!=="CHARGE_BUFF"&&plan.category!=="FUSION"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
    attackArea:plan.attackArea??null,
    constructionMaterial:plan.construction?.material??null,
@@ -313,6 +341,7 @@ export function previewSkillExecution(row:Record<string,unknown>){
   return {executable:false as const,skillKind:null,
     chargeBuff:null,
     fusion:null,
+    modularSupport:false,
    needsAim:false,usesMagic:false,attackArea:null,
    disabledReason:e instanceof Error?e.message:"No disponible."};
  }

@@ -135,6 +135,11 @@ export default function CombatSkillLoadout({
          : !canUseSkill?"La habilidad está lista, pero debes esperar tu iniciativa o resolver una reacción pendiente."
          : invalidAttackMovement?"Para combinar movimiento y ataque necesitas un trazo válido y 2 PA. Ajusta el movimiento antes de lanzar esta técnica.":null;
        return <div className="space-y-2">
+        {skill.modularSupport&&<p className="rounded-lg border border-cyan-700/40 bg-cyan-950/20 p-3 text-xs text-cyan-200">
+         <b>Soporte modular aprobado.</b> Se aplica a tu personaje sin apuntar ni elegir enemigo.
+         Al utilizarlo se cobran el maná, los PA y los ticks habituales; la curación y los bonos
+         temporales aparecen en el registro y en «Estado y estadísticas».
+        </p>}
         {skill.fusion&&<div className="space-y-2 rounded-lg border border-fuchsia-700/40 bg-fuchsia-950/20 p-3 text-xs">
           <p className="font-semibold text-fuchsia-200">🌀 Fusión: {skill.fusion.summon.label}</p>
           <p className="text-zinc-300">Requiere: {skill.fusion.sourceEntityKeys.map(name=>{

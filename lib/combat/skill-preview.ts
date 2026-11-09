@@ -111,6 +111,7 @@ export function projectApprovedCombatSkills(
  const allowed=rows.filter(row=>String(row.status)==="APPROVED"
    && !stolenIds.has(Number(row.id)));
  const activeIds=new Set(states.filter(s=>s.active===true).map(s=>Number(s.skillId)));
+ const inactiveIds=new Set(states.filter(s=>s.active===false).map(s=>Number(s.skillId)));
  const approvedIds=new Set(allowed.map(skill=>Number(skill.id)));
  // Parent links are explicit catalog dependencies; a stolen or missing parent
  // cannot authorize the linked technique even if its own row is approved.
@@ -120,11 +121,19 @@ export function projectApprovedCombatSkills(
   const parent=mechanics.parentSkillId;
   return parent===undefined||parent===null||(Number.isSafeInteger(parent)&&approvedIds.has(Number(parent)));
  };
- return allowed.map(skill=>combatSkillPreview(
+ return allowed.map(skill=>{
+  const preview=combatSkillPreview(
    skill,activeIds.has(Number(skill.id)),
    meetsRequirements(skill,allowed.filter(s=>Number(s.id)!==Number(skill.id)))&&linkedParentSatisfied(skill),
    cutover,
- )).filter((s):s is CombatSkillPreview=>s!==null);
+  );
+  // Never advertise a cast that the server will reject. Keep the historic
+  // behavior of non-modular skills and skills with no activation row.
+  if(preview?.modularSupport&&inactiveIds.has(preview.id))
+   return {...preview,executable:false,
+    disabledReason:"Esta habilidad modular está desactivada para el personaje."};
+  return preview;
+ }).filter((s):s is CombatSkillPreview=>s!==null);
 }
 
 /** Materials enabled for this combatant's construction placement UI.

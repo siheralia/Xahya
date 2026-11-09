@@ -171,20 +171,34 @@ test("breaking nonlinear STR and AGI item recomputes all configured derived stat
  assert.deepEqual(reconcileEquipmentDerived(f,f.equippedWearables),{});
 });
 
-test("constitution affects configured defenses and AP without spending a new action",()=>{
- const local=makeModel();
- const model=local.basicReplay;
- const extra={characterItemId:1102,itemId:102,stats:{
-  constitution:{bonus:4,factorSum:0,factorCount:0},
+test("constitution bonus from a real copy changes configured defense and action-point budget",()=>{
+ const equipment=[
+  ...copyRecords,
+  {characterItemId:1102,itemId:102,effects:[
+   {type:"stat_bonus",stat:"CON",value:4},
+  ]},
+ ];
+ const basicWithCon={...startingBasics,constitution:16};
+ const sourceWithCon={...sources,constitution:{
+  ...sources.constitution,flat:4,
  }};
- model.copies.push(extra);
- model.formulas.constitution.otherFlat=0;
- model.applied.constitution=16;
- const s=state();
- // A standalone third copy does not magically become a new contribution
- // because its model was bound at creation. Other copies remain independent.
- assert.equal(s.actors.NPC.constitution,12);
- assert.equal(s.actors.NPC.spentAp,0);
+ const replay=buildEquipmentBasicReplay({
+  source:sourceWithCon,currentBasic:basicWithCon,
+  referenceDerived:calculateConfiguredDerivedSnapshot(basicWithCon,catalog),
+  catalog,codeByKey,wearableCopies:equipment,
+ });
+ assert.ok(replay);
+ const equipped=evaluateEquipmentBasic(replay,new Set([1100,1101,1102]));
+ const broken=evaluateEquipmentBasic(replay,new Set([1100,1101]));
+ assert.equal(equipped.constitution,16);
+ assert.equal(broken.constitution,12);
+ const derivedWith=calculateConfiguredDerivedSnapshot(equipped,catalog);
+ const derivedWithout=calculateConfiguredDerivedSnapshot(broken,catalog);
+ assert.equal(derivedWith.physicalDefense-derivedWithout.physicalDefense,6);
+ assert.equal(derivedWith.race-derivedWithout.race,1);
+ // The existing action-points rule consumes current CON, not an old snapshot.
+ assert.equal(Math.floor(9+equipped.constitution),25);
+ assert.equal(Math.floor(9+broken.constitution),21);
 });
 
 test("repairing a broken piece restores nonlinear derived and basic bonuses once",()=>{

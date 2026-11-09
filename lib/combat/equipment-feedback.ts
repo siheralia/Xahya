@@ -14,6 +14,16 @@ export const equipmentSlotName=(slot:string):string=>({
  ACCESSORY_3:"Accesorio 3",
 } as Record<string,string>)[slot]??"Ranura: "+slot.replaceAll("_"," ");
 
+/** Combat logs use player-facing names, never internal engine property keys. */
+export const equipmentStatLabel=(key:string):string=>({
+ physicalAttack:"Ataque físico",magicAttack:"Ataque mágico",
+ physicalDefense:"Defensa física",magicDefense:"Defensa mágica",
+ precision:"Precisión",dodge:"Esquive",critical:"Crítico",
+ strength:"Fuerza",agility:"Agilidad",constitution:"Constitución",
+ luck:"Suerte",race:"Carrera",speedValue:"Velocidad de combate",
+ maxHp:"HP máximo",maxMana:"Maná máximo",
+} as Record<string,string>)[key]??key;
+
 export type EquipmentCondition="BROKEN"|"DAMAGED"|"INTACT";
 export function equipmentCondition(item:Pick<CombatWearable,"durability">):EquipmentCondition{
  return item.durability<=0?"BROKEN":item.durability<=25?"DAMAGED":"INTACT";

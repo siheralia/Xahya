@@ -179,3 +179,18 @@ test("custom training names are shortened but actual PvP character names are lef
  assert.equal(training,"Sarya Athos se enfrentó a Tarok, un gigante de entrenamiento.");
  assert.equal(pvp,"Sarya Athos se enfrentó a Tarok · Gigantes.");
 });
+
+test("an NPC victory and legacy recovery summaries never leak technical race labels",()=>{
+ const actors={
+  PLAYER:{name:"Sarya Athos",hp:0,maxHp:12},
+  NPC:{name:"Oponente de entrenamiento · Gigantes",characterId:null,hp:8,maxHp:10}
+ };
+ const events=[
+  {kind:"RECOVER",tick:5,by:"NPC",summary:"Oponente de entrenamiento · Gigantes recuperó dos puntos"},
+  {kind:"END",tick:9,by:"NPC",summary:"Oponente de entrenamiento · Gigantes ganó"}
+ ];
+ const story=narrateCombat(events,actors);
+ assert.match(story,/El gigante recuperó dos puntos/);
+ assert.match(story,/El gigante obtuvo la victoria/);
+ assert.doesNotMatch(story,/Oponente de entrenamiento · Gigantes/);
+});

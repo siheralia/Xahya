@@ -55,7 +55,7 @@ test("newly completed encounters retain a full narration even after the 100-even
  assert.match(state.narrativeText,/Paso inicial memorable/);
  assert.match(state.narrativeText,/Elena obtuvo la victoria/);
  assert.equal(state.narrativeHistory.length,148,"the full history is kept server-side for future reinterpretations");
- assert.equal(state.narrativeVersion,3);
+ assert.equal(state.narrativeVersion,4);
  const publicState=combatClientView(state);
  assert.equal(publicState.narrativeText,state.narrativeText);
  assert.equal(publicState.narrativeHistory,undefined);
@@ -108,7 +108,7 @@ test("Ariana battle tells a connected three-paragraph story, not a list of logs"
  assert.match(story,/Ariana Lailas se enfrentó a un oponente de entrenamiento/);
  assert.match(story,/El rival abrió el combate con un corte/);
  assert.match(story,/pese al intento de desvío/);
- assert.match(story,/obligó a Ariana a retroceder/);
+ assert.match(story,/provocó que retrocediera/);
  assert.match(story,/Ariana avanzó para recuperar terreno/);
  assert.match(story,/explosión mágica perforante/);
  assert.match(story,/Un segundo corte del rival/);
@@ -133,9 +133,49 @@ test("pre-versioned concluded fights are regenerated from surviving facts, not f
  ];
  state.narrativeText="Crónica del encuentro: Elena contra Sombra.\n\nElena lanzó una estocada.";
  const publicState=combatClientView(state);
- assert.equal(publicState.narrativeVersion,3);
+ assert.equal(publicState.narrativeVersion,4);
  assert.match(publicState.narrativeText,/Elena se enfrentó a Sombra/);
  assert.match(publicState.narrativeText,/63 puntos de daño/);
  assert.doesNotMatch(publicState.narrativeText,/Crónica del encuentro:/);
  assert.equal(state.narrativeText.startsWith("Crónica del encuentro:"),true,"server projection must not mutate persistence");
+});
+
+test("training encounters use narrative race names and natural composite movement",()=>{
+ const actors={
+  PLAYER:{name:"Sarya Athos",hp:12,maxHp:12,characterId:41},
+  NPC:{name:"Oponente de entrenamiento · Gigantes",hp:0,maxHp:50,characterId:null}
+ };
+ const events=[
+  {kind:"SKILL",tick:1,by:"PLAYER",summary:"Sarya usó Bnuuy de la Caminata",skillName:"Bnuuy de la Caminata"},
+  {kind:"MOVE",tick:2,by:"NPC",summary:"Oponente se desplazó",movementDirection:"TOWARD",moveMeters:0.5},
+  {kind:"ATTACK",tick:3,by:"PLAYER",against:"NPC",summary:"Sarya lanzó un corte",attackType:"CUT",weaponName:"Mandoble de Acero Negro"},
+  {kind:"RESOLVE",tick:4,by:"PLAYER",against:"NPC",summary:"Sarya golpeó al rival",damage:12,contact:true,defense:"BLOCK",knockbackMeters:0.7},
+  {kind:"POSITION",tick:5,by:"PLAYER",summary:"Sarya Athos se desplazó 0.69 m como parte de su acción",moveMeters:0.69},
+  {kind:"ATTACK",tick:6,by:"PLAYER",against:"NPC",summary:"Sarya lanzó un corte",attackType:"CUT",weaponName:"Mandoble de Acero Negro"},
+  {kind:"RESOLVE",tick:7,by:"PLAYER",against:"NPC",summary:"El rival evitó el ataque",damage:0,contact:false,defense:"DODGE"},
+  {kind:"POSITION",tick:8,by:"PLAYER",summary:"Sarya Athos se desplazó 0.92 m como parte de su acción",moveMeters:0.92},
+  {kind:"ATTACK",tick:9,by:"PLAYER",against:"NPC",summary:"Sarya lanzó un corte",attackType:"CUT",weaponName:"Mandoble de Acero Negro"},
+  {kind:"RESOLVE",tick:10,by:"PLAYER",against:"NPC",summary:"Sarya golpeó al rival",damage:30,contact:true,defense:"NONE",knockbackMeters:0.8},
+  {kind:"POSITION",tick:11,by:"PLAYER",summary:"Sarya Athos se desplazó 0.80 m como parte de su acción",moveMeters:0.8},
+  {kind:"END",tick:12,by:"PLAYER",summary:"Sarya ganó el combate"}
+ ];
+ const story=narrateCombat(events,actors);
+ assert.match(story,/Sarya Athos se enfrentó a un gigante de entrenamiento/);
+ assert.match(story,/El gigante avanzó para acortar la distancia/);
+ assert.match(story,/doce puntos de daño al gigante/);
+ assert.match(story,/que, pese al bloqueo, causó/);
+ assert.match(story,/ajustó su posición antes de atacar/);
+ assert.match(story,/cambió de posición tras atacar/);
+ assert.match(story,/el gigante logró esquivar el ataque/);
+ assert.match(story,/Sarya Athos obtuvo la victoria/);
+ assert.doesNotMatch(story,/Oponente de entrenamiento|· Gigantes|como parte de su acción|0\.69|0\.92|que\s+,/);
+ // The technical log is an independent source of exact movement distances.
+ assert.equal(events[4].moveMeters,0.69);
+});
+test("custom training names are shortened but actual PvP character names are left untouched",()=>{
+ const base={PLAYER:{name:"Sarya Athos",hp:12,maxHp:12}};
+ const training=narrateCombat([],{...base,NPC:{name:"Tarok · Gigantes",characterId:null}});
+ const pvp=narrateCombat([],{...base,NPC:{name:"Tarok · Gigantes",characterId:200}});
+ assert.equal(training,"Sarya Athos se enfrentó a Tarok, un gigante de entrenamiento.");
+ assert.equal(pvp,"Sarya Athos se enfrentó a Tarok · Gigantes.");
 });

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { projectApprovedCombatSkills, type CombatSkillPreview } from "@/lib/combat/skill-preview";
 import { meetsEffectRequirements } from "@/lib/skills/effect-requirements";
+import {readModularCutover} from "@/lib/effects/modular-cutover-registry";
 import type { CombatState } from "@/lib/combat/turn-engine";
 
 type Side="PLAYER"|"NPC";
@@ -36,6 +37,7 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}) {
   return NextResponse.json({error:"No tienes permiso para consultar este combate."},{status:403});
  const Skill=(db.orm.public as any).Skill;
  const State=(db.orm.public as any).CharacterSkillState;
+ const {mode}=await readModularCutover();
  async function roster(characterId:number):Promise<CombatSkillPreview[]> {
   if(!Skill)return [];
   const rows=await Skill.where({characterId}).all();
@@ -51,7 +53,7 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}) {
     meetsEffectRequirements(
       Array.isArray(skill.effectRequirements)?skill.effectRequirements as any:[],
       other as any[]
-    ));
+    ),mode);
  }
  const response:Payload={skills:{PLAYER:[],NPC:[]}};
  if(canPlayer)response.skills.PLAYER=await roster(firstId);

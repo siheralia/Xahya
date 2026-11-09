@@ -35,7 +35,7 @@ export default function CombatEquipmentStatus({state,side}:{
     return <div key={weapon.characterItemId??index} className={"rounded-xl border p-3 text-sm "+
      (isBroken?"border-rose-500/60 bg-rose-950/20":"border-zinc-700 bg-zinc-900/30")}>
      <div className="flex flex-wrap items-center justify-between gap-2">
-      <b>{index===0?"Arma equipada":"Arma secundaria"} · {weapon.name}</b>
+      <b>{fighter.equippedWeapon===weapon?"Mano principal":"Mano secundaria"} · {weapon.name}</b>
       <span className={isBroken?"text-rose-300":"text-emerald-300"}>
        {Math.floor(durability)}/100 {isBroken?"· Rota":""}
       </span>

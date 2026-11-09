@@ -1513,6 +1513,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       fighter.perkIds?.includes(pending.materialPerkBonus.perkId)
         ?pending.materialPerkBonus.attackBonus:0;
     const power = pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack+materialAttackBonus;
+    // A contact barrier receives both forces together. Neither channel may
+    // claim that it passed independently through an unbroken wall.
+    const impactPower=pending.hybridContact
+      ?Math.max(0,power)*pending.hybridContact.physicalMultiplier+
+        Math.max(0,attacker.magicAttack)*pending.hybridContact.magicalMultiplier
+      :power;
     const baseProtection = pending.usesMagic ? fighter.magicDefense : fighter.physicalDefense;
     const protection = baseProtection * microResistanceMultiplier(state,by);
     // The magical field uses its own basic RPS type from the character sheet;
@@ -1627,14 +1633,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           stats:attacker as unknown as Record<string,number>,
           inputs:{
             ATTACK_SPEED:effectiveCombatSpeed(attacker),
-            INCOMING_DAMAGE:power,
+            INCOMING_DAMAGE:impactPower,
             HP_PERCENT:100*attacker.hp/Math.max(1,attacker.maxHp),
           },
         },
       }).resistance:fighter.magicDefense;
       const previous=block.durability??0;
-      const pressure=Math.max(1,Math.round(power/typeFactor));
-      const held=blockDefense>=power && previous>=pressure;
+      const pressure=Math.max(1,Math.round(impactPower/typeFactor));
+      const held=blockDefense>=impactPower && previous>=pressure;
       block.hitCount=(block.hitCount??0)+1;
       block.durability=Math.max(0,previous-pressure);
       damageScale=held?0:0.5;
@@ -1772,8 +1778,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           fieldPosition(attacker),fieldPosition(fighter),pending.trajectory,exclude);
       if(covers.length){
         const contactPower=hybrid
-          ?Math.max(0,power)*hybrid.physicalMultiplier+
-           Math.max(0,attacker.magicAttack)*hybrid.magicalMultiplier
+          ?impactPower
           :Math.max(0,power)*(skill?.damageMultiplier??1)*(skill?.finalMultiplier??1);
         const pressure=Math.max(1,Math.round(contactPower));
         let remainingPressure=pressure;

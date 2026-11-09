@@ -17,6 +17,16 @@ const wearableBonusJs=ts.transpileModule(wearableBonusSource,{
 }).outputText;
 const wearableBonusModule={};
 vm.runInNewContext(wearableBonusJs,{exports:wearableBonusModule,require:()=>({})});
+const equipmentReplaySource=fs.readFileSync(path.join(__dirname,
+  "../lib/combat/equipment-derived-replay.ts"),"utf8");
+const equipmentReplayJs=ts.transpileModule(equipmentReplaySource,{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
+}).outputText;
+const equipmentReplayModule={};
+vm.runInNewContext(equipmentReplayJs,{
+  exports:equipmentReplayModule,
+  require:(name)=>name==="./wearable-stat-bonus.ts"?wearableBonusModule:{},
+});
 
 // Test fixture: these entries model an active catalog; production definitions remain in AppSetting.
 const ACTIVE_ATTACK_CATALOG = [
@@ -58,6 +68,7 @@ function resolver({ catalog = ACTIVE_ATTACK_CATALOG, legacy = { strength: 100, a
     "@/lib/perks": { getPerkEffects: (entries) => entries.flatMap((entry) => entry.perk?.effects ?? []) },
     "@/lib/skills/interaction-engine": {parseEnvironment:(v)=>v??{}, activeStatMultipliers:()=>mechanicFactors},
     "@/lib/combat/wearable-stat-bonus":wearableBonusModule,
+    "@/lib/combat/equipment-derived-replay":equipmentReplayModule,
   };
   const moduleExports = {};
   vm.runInNewContext(js, { exports: moduleExports, require: (id) => {
@@ -282,4 +293,44 @@ test("noncombat stats do not carry mutable combat equipment snapshots",async()=>
  ]}],owned:[{id:101,characterId:1,itemId:1,quantity:1,equipped:true}]});
  assert.equal(result.derived.physicalAttack,107);
  assert.equal(result.combatWearableStatBonuses.length,0);
+});
+
+test("combat derived model replays whole item and ATTACK_TOTAL factors, not an inverse ratio",async()=>{
+ const result=await resolver({combat:true,
+  items:[
+   {id:10,itemType:"ARMOR",effects:[
+    {type:"stat_multiplier",stat:"PHYS_ATK",value:2},
+    {type:"stat_bonus",stat:"PHYS_ATK",value:5}]},
+   {id:11,itemType:"ACCESSORY",effects:[
+    {type:"stat_multiplier",stat:"ATTACK_TOTAL",value:1.5}]},
+  ],
+  owned:[
+   {id:101,characterId:1,itemId:10,quantity:1,equipped:true},
+   {id:102,characterId:1,itemId:11,quantity:1,equipped:true},
+  ],
+ });
+ assert.equal(result.derived.physicalAttack,307.5);
+ assert.equal(result.derived.magicAttack,75);
+ const model=result.combatEquipmentDerivedReplay;
+ assert.ok(model,"the model must match the live configured stats exactly");
+ assert.equal(model.copies.length,2);
+ const all=equipmentReplayModule.evaluateEquipmentDerived(model,new Set([101,102]));
+ assert.equal(all.physicalAttack,307.5);
+ assert.equal(all.magicAttack,75);
+ const brokenArmor=equipmentReplayModule.evaluateEquipmentDerived(model,new Set([102]));
+ assert.equal(brokenArmor.physicalAttack,150);
+ assert.equal(brokenArmor.magicAttack,75);
+ const brokenAccessory=equipmentReplayModule.evaluateEquipmentDerived(model,new Set([101]));
+ assert.equal(brokenAccessory.physicalAttack,205);
+ assert.equal(brokenAccessory.magicAttack,50);
+});
+
+test("regular sheets do not return a combat factor replay or change legacy calculations",async()=>{
+ const result=await resolver({
+  items:[{id:1,itemType:"ARMOR",effects:[
+   {type:"stat_multiplier",stat:"PHYS_ATK",value:2},
+  ]}],owned:[{id:100,characterId:1,itemId:1,quantity:1,equipped:true}],
+ });
+ assert.equal(result.derived.physicalAttack,200);
+ assert.equal(result.combatEquipmentDerivedReplay,null);
 });

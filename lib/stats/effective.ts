@@ -4,6 +4,7 @@ import { calculateConfiguredDerivedStats } from "@/lib/stats/engine";
 import { getPerkEffects } from "@/lib/perks";
 import {activeStatMultipliers,parseEnvironment} from "@/lib/skills/interaction-engine";
 import {combatWearableStatSnapshots,WEARABLE_DIRECT_COMBAT_STATS} from "@/lib/combat/wearable-stat-bonus";
+import {buildEquipmentDerivedReplay} from "@/lib/combat/equipment-derived-replay";
 
 const CORE_CODES: Record<string,string> = {strength:"STR",agility:"AGI",constitution:"CON",intelligence:"INT",wisdom:"WIS",charisma:"CHA",spirit:"SPI",luck:"LCK"};
 
@@ -142,6 +143,9 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
     breakdown[key]={base:original,value:base[key],karmaBonus:karma,objectFlatBonus:flat+bonus,combinedMultiplier:combinedMultiplier*mechanicMultiplier};
   }
   let derived=await calculateConfiguredDerivedStats(base as any,source);
+  // A genuine configured-derived baseline, before item/perk/passive factors.
+  // Copy it for encounter-only factor replay, never invert later damage.
+  const unmodifiedDerived={...derived};
   // Resolve only active derived targets; do not fall back to legacy aliases for disabled stats.
   // Combine item and perk factors per derived stat before applying them.
   // Xahya rule: ×2 + ×3 = ×5, not ×6. Flat bonuses are added afterward.
@@ -197,8 +201,39 @@ export async function getEffectiveCharacterStats(characterId:number, source:any=
       return [key,mechanic*(key==="physicalAttack"||key==="magicAttack"?attackMultiplier:1)];
     })),
   ):[];
+  // The new replay preserves the *whole* direct-derived modifier formula
+  // (factors and flat bonuses together). Real armor/accessory copies can then
+  // be disabled without inverting multiplicative stats or erasing other buffs.
+  // Existing direct-flat snapshots remain as a safe legacy fallback when an
+  // older combat has no replay model.
+  const wearableCopies=options.combatPassives?owned.flatMap((entry:any)=>{
+    const definition=items.find((item:any)=>Number(item.id)===Number(entry.itemId));
+    const id=Number(entry.id),itemId=Number(entry.itemId);
+    if(entry.equipped!==true||Number(entry.quantity)!==1||
+       !Number.isSafeInteger(id)||id<1||
+       !Number.isSafeInteger(itemId)||itemId<1||
+       !["ARMOR","ACCESSORY"].includes(String(definition?.itemType)))return [];
+    return [{
+      characterItemId:id,itemId,
+      effects:(Array.isArray(definition.effects)?definition.effects:[]).map((effect:any)=>({
+        type:String(effect.type),stat:String(effect.stat??""),value:Number(effect.value),
+      })),
+    }];
+  }):[];
+  const combatEquipmentDerivedReplay=options.combatPassives&&wearableCopies.length
+    ?buildEquipmentDerivedReplay({
+      unmodifiedDerived,currentDerived:derived,
+      derivedModifiers:Object.fromEntries(derivedModifiers),
+      attackFactors,
+      mechanicByStat:Object.fromEntries(WEARABLE_DIRECT_COMBAT_STATS.map(key=>{
+        const code=derivedCodes[key];
+        return [key,code===undefined?1:
+          mechanicFactors[code]??mechanicFactors[key.toUpperCase()]??1];
+      })),
+      activeDerivedAliases:aliases,copies:wearableCopies,
+    }):null;
   return {effectiveStats:base,derived,statBreakdown:breakdown,derivedStatMultipliers,
-    combatWearableStatBonuses};
+    combatWearableStatBonuses,combatEquipmentDerivedReplay};
 }
 
 /** Opt in explicitly from new-combat snapshot and its karma delta calculation. */

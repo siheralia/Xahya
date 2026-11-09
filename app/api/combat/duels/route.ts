@@ -168,6 +168,7 @@ export async function POST(req:Request) {
   }
   let opponentManaMax=0;
   let rivalWearableStatBonuses:typeof first.combatWearableStatBonuses=[];
+  let rivalDerivedReplay:typeof first.combatEquipmentDerivedReplay=null;
   let trainingIdentity:ReturnType<typeof selectTrainingIdentity>|null=null;
   let npcPlans:ReturnType<typeof compileTrainingNpcSkills>=[];
   if(Number.isSafeInteger(opponentId) && opponentId>0) {
@@ -178,6 +179,7 @@ export async function POST(req:Request) {
     const stats=await getEffectiveCombatCharacterStats(opponentId);
     if(!rival||!stats)return NextResponse.json({error:"Oponente no encontrado."},{status:404});
     rivalWearableStatBonuses=stats.combatWearableStatBonuses;
+    rivalDerivedReplay=stats.combatEquipmentDerivedReplay;
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
       (rival as any).magicAttackType,(rival as any).blockDefenseType,
       (rival as any).fieldDefenseType,(rival as any).fieldDefenseDescription);
@@ -303,6 +305,18 @@ export async function POST(req:Request) {
   initial.actors.NPC.equippedWearables=opponent.characterId!==null
     ?snapshotEquippedWearables(catalog,rivalCopies,materials,
         rivalWearableStatBonuses):[];
+  // An encounter replay is authoritative only when its catalog effects all
+  // map to actual, independently equipped armor/accessory inventory copies.
+  // Otherwise retain the already-supported direct-flat fallback.
+  const attachReplay=(side:"PLAYER"|"NPC",
+    model:typeof first.combatEquipmentDerivedReplay)=>{
+    const equipped=initial.actors[side].equippedWearables??[];
+    if(model&&model.copies.every(copy=>equipped.some(item=>
+      item.characterItemId===copy.characterItemId&&item.itemId===copy.itemId)))
+      initial.actors[side].equipmentDerivedReplay=model;
+  };
+  attachReplay("PLAYER",first.combatEquipmentDerivedReplay);
+  if(opponent.characterId!==null)attachReplay("NPC",rivalDerivedReplay);
   // The effective stats resolver initially counted every equipped copy.
   // Explicitly drop bonuses from copies already broken before round one.
   reconcileWearableBonusesAtCombatStart(initial,"PLAYER");

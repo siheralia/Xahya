@@ -23,6 +23,7 @@ import {evaluateEquippedItemAutoRepair,shouldAutoRepairAtRound,
 import {equipmentWearFromHit} from "../items/equipped-wear.ts";
 import {offhandArmorShield,type CombatWearable} from "../items/combat-wearables.ts";
 import {reconcileWearableStatBonuses} from "./wearable-stat-bonus.ts";
+import {reconcileEquipmentDerived,type EquipmentDerivedReplay} from "./equipment-derived-replay.ts";
 import {assertMovementClear,blockingMovement,coversAlongStroke,coversAlongProjectileFlight,validateProjectileHeights,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
@@ -55,6 +56,8 @@ export type CombatFighter = {
   offhandWeapon?: CombatWeapon;
   /** Real equipped armor / accessory copies from the server-side duel snapshot. */
   equippedWearables?:CombatWearable[];
+  /** Deterministic, combat-only stat replay for approved equipment. */
+  equipmentDerivedReplay?:EquipmentDerivedReplay;
   defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
   magicFieldDescription?: string | null; damageTakenFactors?:DamageTakenFactors; perkIds?:number[]; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
@@ -423,21 +426,32 @@ function dispatchCombatMicroEvent(state:CombatState,side:Side,
  * zero/positive durability threshold; other buffs and perks stay untouched.
  */
 function syncWearableBonuses(state:CombatState,side:Side,item:CombatWearable):void{
- const change=reconcileWearableStatBonuses(state.actors[side],item);
+ const fighter=state.actors[side];
+ const newModel=fighter.equipmentDerivedReplay;
+ const change=newModel
+   ?reconcileEquipmentDerived(fighter,fighter.equippedWearables??[])
+   :reconcileWearableStatBonuses(fighter,item)?.changes;
  if(!change)return;
- const stats=Object.entries(change.changes)
+ const stats=Object.entries(change)
    .filter(([,amount])=>typeof amount==="number"&&amount!==0)
    .map(([stat,amount])=>stat+" "+((amount as number)>0?"+":"")+(amount as number));
  if(stats.length)
   addLog(state,{kind:"EQUIPMENT_STATS",tick:state.tick,by:side,weaponName:item.name,
-   summary:item.name+(change.active?" recuperó sus bonificaciones: ":" perdió sus bonificaciones: ")+
-     stats.join(", ")+"."});
+   summary:item.name+" cambió sus bonificaciones activas: "+stats.join(", ")+"."});
 }
 /** At duel creation, derived stats have already included broken equipped gear.
  * Remove only the explicitly captured safe bonuses before any action.
  */
 export function reconcileWearableBonusesAtCombatStart(state:CombatState,side:Side):void{
- for(const item of state.actors[side].equippedWearables??[])
+ const fighter=state.actors[side];
+ if(fighter.equipmentDerivedReplay){
+  // A single full replay accounts for all pieces (including the already
+  // broken ones) atomically. Replaying per item would be redundant.
+  const first=fighter.equippedWearables?.[0];
+  if(first)syncWearableBonuses(state,side,first);
+  return;
+ }
+ for(const item of fighter.equippedWearables??[])
   syncWearableBonuses(state,side,item);
 }
 

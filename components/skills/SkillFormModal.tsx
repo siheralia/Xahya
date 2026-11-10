@@ -68,11 +68,13 @@ export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
       <div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold">{title}</h2>{description&&<p className="mt-1 text-sm text-zinc-500">{description}</p>}</div><button type="button" onClick={onClose} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">Cerrar</button></div>
       {pch&&<div className="sticky top-0 z-20 -mx-2 mt-4 flex min-w-0 flex-col gap-2 border-b border-zinc-800 bg-zinc-950/95 px-2 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 space-y-1 text-xs text-zinc-300">
-          <p>{budget?.baseline!==null&&budget?.baseline!==undefined
-            ?"Una moneda de mejora aporta 5 PCH y habilita una solicitud de mejora; solo pagas el incremento."
-            :"Una moneda de creación aporta 10 PCH. Puedes acumular saldo para habilidades más caras."}</p>
+          <p>{pch.genericSpecialization
+            ?"La especialización cobra solo el PCH adicional sobre la habilidad base; no requiere moneda de mejora."
+            :budget?.baseline!==null&&budget?.baseline!==undefined
+              ?"Una moneda de mejora aporta 5 PCH y habilita una solicitud de mejora; solo pagas el incremento."
+              :"Una moneda de creación aporta 10 PCH. Puedes acumular saldo para habilidades más caras."}</p>
           {budget&&<p className="font-semibold text-cyan-200">
-            {budget.baseline!==null?"Incremento a pagar: ":"A reservar: "}{budget.payable} PCH
+            {pch.genericSpecialization?"Costo adicional: ":budget.baseline!==null?"Incremento a pagar: ":"A reservar: "}{budget.payable} PCH
             {budget.balance!==null?" · Saldo: "+budget.balance+" PCH":""}
             {budget.remaining!==null?" · Después: "+budget.remaining+" PCH":""}
           </p>}
@@ -113,7 +115,7 @@ export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
           Requisitos ({effectRequirementDiscountPercent(form.effectRequirements as EffectRequirement[])} %):
           {" "}-{afterCooldown-pch.total} PCH
         </p>}
-        <p className="font-semibold">Total de la habilidad: {pch.total} PCH</p>{budget&&<p>Una moneda aporta {budget.referenceCoinPch} PCH. {budget.payable<=budget.referenceCoinPch?"Esta operación cabe en el valor de una moneda.":"La operación necesita PCH acumulados de más de una moneda."}</p>}{pch.provisional&&<p className="text-amber-200">El total es una reserva provisional, no el precio de aprobación.</p>}
+        <p className="font-semibold">Total de la habilidad: {pch.total} PCH</p>{budget&&!pch.genericSpecialization&&<p>Una moneda aporta {budget.referenceCoinPch} PCH. {budget.payable<=budget.referenceCoinPch?"Esta operación cabe en el valor de una moneda.":"La operación necesita PCH acumulados de más de una moneda."}</p>}{pch.provisional&&<p className="text-amber-200">El total es una reserva provisional, no el precio de aprobación.</p>}
         {editDelta!==null&&<div className="space-y-1 rounded-lg border border-zinc-700 px-3 py-2">
           <p>Precio original al abrir: <strong>{pch.originalTotal} PCH</strong></p>
           <p className={editDelta>0?"font-semibold text-amber-300":editDelta<0?"font-semibold text-emerald-300":"font-semibold text-zinc-300"}>Diferencia: {editDifference(editDelta)} PCH{editDelta===0?" (sin cambios)":editDelta>0?" (aumenta)":" (disminuye)"}</p>

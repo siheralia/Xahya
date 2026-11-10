@@ -9,9 +9,12 @@
 import {parseSkillArea} from "../skills/area-of-effect.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
 import type {ModularCutoverMode} from "../effects/modular-cutover.ts";
+import {isComposedSkillEffect} from "../skills/composed-effects.ts";
 
 export type ApprovedHybridContact={
  physicalMultiplier:number;magicalMultiplier:number;
+ /** D3.4: reviewed hostile rider, activated only by this HP damage channel. */
+ statusChannel?:"PHYSICAL"|"MAGICAL";
 };
 const isObject=(v:unknown):v is Record<string,unknown> =>
  v!==null&&typeof v==="object"&&!Array.isArray(v);
@@ -46,14 +49,24 @@ export function compileApprovedHybridContact(
  if(area.kind!=="CONTACT"||range.rangeMeters===null||
     !Number.isSafeInteger(range.rangeMeters)||range.rangeMeters<1||range.rangeMeters>2)
   return error("La técnica híbrida requiere contacto explícito de 1 o 2 m.");
+ if(row.mechanics!==undefined&&row.mechanics!==null&&!isObject(row.mechanics))
+  return error("Las mecánicas híbridas deben ser un objeto revisado.");
  const mechanics=isObject(row.mechanics)?row.mechanics:{};
- if(Object.keys(mechanics).some(k=>k!=="parentSkillId"))
+ if(Object.keys(mechanics).some(k=>!["parentSkillId","hybridStatusChannel"].includes(k)))
   return error("La técnica híbrida no admite mecánicas adicionales.");
  const effects=row.effect;
- if(!Array.isArray(effects)||effects.length!==2||!effects.every(isObject))
-  return error("El golpe imbuido necesita exactamente dos módulos de daño.");
+ if(!Array.isArray(effects)||![2,3].includes(effects.length)||!effects.every(isObject))
+  return error("El golpe imbuido requiere dos canales y, opcionalmente, un estado aprobado.");
+ const composed=effects.filter(isComposedSkillEffect);
+ if(composed.length>1||effects.length!==2+composed.length)
+  return error("El golpe imbuido admite un único debilitamiento modular adicional.");
+ const statusChannel=mechanics.hybridStatusChannel;
+ if(composed.length===1&&!["PHYSICAL","MAGICAL"].includes(String(statusChannel)))
+  return error("Selecciona el canal físico o mágico que debe causar daño real para activar el estado.");
+ if(composed.length===0&&statusChannel!==undefined)
+  return error("Un canal de activación requiere un estado modular aprobado.");
  const channel=new Map<"PHYSICAL"|"MAGICAL",number>();
- for(const e of effects as Record<string,unknown>[]){
+ for(const e of effects.filter(e=>!isComposedSkillEffect(e)) as Record<string,unknown>[]){
   if(Object.keys(e).some(k=>!["type","target","value"].includes(k))||
      e.type!=="DAMAGE_MULTIPLIER")
    return error("El golpe imbuido solo admite dos módulos de daño independientes.");
@@ -67,7 +80,11 @@ export function compileApprovedHybridContact(
  const physical=channel.get("PHYSICAL"),magical=channel.get("MAGICAL");
  if(physical===undefined||magical===undefined||physical+magical!==100)
   return error("El golpe imbuido debe repartir exactamente el 100 % entre físico y mágico.");
- if(!["Instantánea","Instantanea","0 turnos","0 turno"].includes(String(row.duration??"").trim()))
-  return error("La técnica híbrida inicial debe ser instantánea.");
- return {physicalMultiplier:physical/100,magicalMultiplier:magical/100};
+ const duration=String(row.duration??"").trim();
+ if(composed.length===0&&!["Instantánea","Instantanea","0 turnos","0 turno"].includes(duration))
+  return error("Sin estado, el golpe híbrido debe ser instantáneo.");
+ if(composed.length===1&&!/^[1-5] turnos?$/.test(duration))
+  return error("Con debilitamiento, la duración del estado híbrido debe ser de 1 a 5 turnos.");
+ return {physicalMultiplier:physical/100,magicalMultiplier:magical/100,
+  ...(composed.length===1?{statusChannel:statusChannel as "PHYSICAL"|"MAGICAL"}:{})};
 }

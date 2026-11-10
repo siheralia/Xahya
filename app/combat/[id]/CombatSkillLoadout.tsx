@@ -106,7 +106,7 @@ export default function CombatSkillLoadout({
         attackMeters:distanceMeters??Number.NaN,
         currentOpponentMeters:constructionDistanceMeters??Number.NaN,
        });
-       const missingAim=skill.needsAim&&(skill.skillKind==="CONSTRUCTION"
+       const missingAim=Boolean(skill.needsAim)&&(skill.skillKind==="CONSTRUCTION"
          ?!constructionAimReady:skill.attackArea
           ?(preparedAreaSkillId!==skill.id||aimMode!=="MAGIC_AREA"||!magicAimReady)
           :skill.usesMagic&&(aimMode!=="MAGIC_AREA"||!magicAimReady));

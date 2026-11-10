@@ -45,6 +45,13 @@ test("D4.5: upgrade costs only the positive increment; coin grants five PCH",()=
  assert.equal(invalidUpgrade?.requiresIncreasedPrice,true);
 });
 
+test("D4.5: generic specialization does not consume a skill upgrade coin",()=>{
+ const template=quoteSkillPchBudget({total:13,baseline:9,genericSpecialization:true});
+ assert.equal(template?.payable,4);
+ assert.equal(template?.referenceCoinPch,10);
+ assert.equal(template?.requiresIncreasedPrice,false);
+});
+
 test("D4.5: never present invalid numeric amounts as valid balances",()=>{
  assert.equal(quoteSkillPchBudget({total:Number.NaN,balance:10}),null);
  assert.equal(quoteSkillPchBudget({total:-1,balance:10}),null);
@@ -61,6 +68,7 @@ test("D4.5: UI exposes affordability, provisional review and mobile-safe dialog"
  assert.match(modal,/quoteSkillPchBudget\(pch\)/);
  assert.match(modal,/Una moneda de creación aporta 10 PCH/);
  assert.match(modal,/Una moneda de mejora aporta 5 PCH/);
+ assert.match(modal,/La especialización cobra solo el PCH adicional/);
  assert.match(modal,/Faltan \{budget.shortfall\} PCH/);
  assert.match(modal,/Reserva provisional: administración confirmará/);
  assert.match(modal,/A pagar: \{budget.payable\} PCH/);

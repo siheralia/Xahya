@@ -29,7 +29,8 @@ const repair=load("lib/effects/repair-durability.ts");
 const micro=load("lib/effects/micro-modules.ts",{
  "../skills/variable-resistance.ts":resistance,"./repair-durability.ts":repair
 });
-const composed=load("lib/skills/composed-effects.ts",{"../effects/micro-modules.ts":micro});
+const restrictions=load("lib/skills/micro-restriction-pricing.ts");
+const composed=load("lib/skills/composed-effects.ts",{"../effects/micro-modules.ts":micro,"./micro-restriction-pricing.ts":restrictions});
 const configured = load("lib/skills/configured-effect-pricing.ts", {
   "../effects/duration-pricing.ts": duration,
   "./pch.ts": pch,

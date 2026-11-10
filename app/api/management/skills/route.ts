@@ -8,7 +8,7 @@ import {parseSkillArea} from "@/lib/skills/area-of-effect";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRolePermission } from "@/lib/role-permissions";
 import {validateTheftEffect} from "@/lib/skills/theft";
-import {validateComposedSkillList,isComposedSkillEffect} from "@/lib/skills/composed-effects";
+import {validateComposedSkillList,isComposedSkillEffect,stampReviewedRestrictionPricing} from "@/lib/skills/composed-effects";
 import {configuredSkillEffectPch} from "@/lib/skills/configured-effect-pricing";
 import {defaultEffectPricing} from "@/lib/skills/pch";
 import {readEffectPricing} from "@/lib/effects/pricing";
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   if (!Number.isSafeInteger(characterId) || characterId <= 0 || !validEffectRequirements(effectRequirements)) return NextResponse.json({error:"Personaje o requisitos inválidos."},{status:400});
   const pchCost = Number(body.pchCost ?? 0);
   if (!Number.isSafeInteger(pchCost) || pchCost < 0) return NextResponse.json({error:"Costo PCH inválido."},{status:400});
-  const effects=Array.isArray(body.effect)?body.effect:[];
+  let effects=Array.isArray(body.effect)?body.effect:[];
   const hasComposed=effects.some(isComposedSkillEffect);
   if(hasComposed) {
     // A management-created APPROVED skill needs the same reviewed modular
@@ -97,6 +97,7 @@ export async function POST(request: Request) {
     const reviewError=validateComposedSkillList(effects,body.approve===true?"REVIEW":"PLAYER");
     if(reviewError)return NextResponse.json({error:reviewError},{status:400});
     if(body.approve===true) {
+      effects=stampReviewedRestrictionPricing(effects);
       try {
         const pricing={...defaultEffectPricing(),...await readEffectPricing()};
         const cards=await readNarrativeEffectCards();

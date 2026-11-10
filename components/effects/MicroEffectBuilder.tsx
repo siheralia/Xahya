@@ -24,6 +24,8 @@ const stepKinds:MicroStep["kind"][]=["READ_STAT","READ_STORED","READ_ITEM","CALC
 const destinationStats:readonly string[]=["STR","AGI","CON","INT","WIS","CHA","SPI",
   "HP","MAX_HP","MANA","RESISTANCE","MAGIC_DEF","PHYS_DEF","MAGIC_ATTACK","PHYSICAL_ATTACK"];
 const defaultCondition=():MicroCondition=>({left:{source:"CHARGES",key:"DIVINE_GRACE"},compare:"GTE",right:1});
+const lowHpDiscountCondition=():MicroCondition=>({left:{source:"STAT",key:"HP"},compare:"LTE",
+  right:{operator:"PERCENT",args:[{source:"STAT",key:"MAX_HP"},20]}});
 const ref=():NumericExpr=>({source:"STAT",key:"MAX_HP"});
 const op=():NumericExpr=>({operator:"PERCENT",args:[ref(),10]});
 const defaultStep=(kind:MicroStep["kind"]):MicroStep=>{
@@ -672,6 +674,14 @@ export function MicroEffectBuilder({value,onChange}:{value:EffectContainer;onCha
         <option value="">Cualquier impacto</option><option value="CHARACTER">Personaje</option><option value="GROUND">Suelo</option></select></label>}
     </div>
     <ConditionsEditor title="Requisitos para ejecutar este efecto" value={value.requirements??[]} onChange={requirements=>update({requirements})}/>
+    <div className="flex flex-wrap items-center gap-2">
+      <button type="button" disabled={(value.requirements?.length??0)>=12}
+        className="rounded-lg border border-amber-600/60 bg-amber-950/20 px-3 py-2 text-xs text-amber-200 disabled:opacity-40"
+        onClick={()=>update({requirements:[...(value.requirements??[]),lowHpDiscountCondition()]})}>
+        + Activar solo con 20 % de vida o menos
+      </button>
+      <p className="text-xs text-zinc-400">Una restricción real puede reducir PCH. El contacto obligatorio debe preceder a la acción; condiciones que no limitan sus efectos no dan descuento.</p>
+    </div>
     <div className="flex items-center justify-end gap-2">
       <button type="button" className="rounded-lg border border-cyan-700 bg-cyan-950/30 px-3 py-2 text-xs text-cyan-200"
         aria-expanded={showFlow} onClick={()=>setShowFlow(v=>!v)}>

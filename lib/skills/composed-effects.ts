@@ -1,4 +1,5 @@
 import {validateEffectContainers,type EffectContainer} from "../effects/micro-modules.ts";
+import {pricedMicroStepCount,microRestrictionQuote} from "./micro-restriction-pricing.ts";
 
 /** Standalone modular effect attached directly to a skill, never an approved catalog entry. */
 export const COMPOSED_EFFECT_TYPE="COMPOSED";
@@ -7,7 +8,7 @@ export const MODULE_DEPOSIT_PER_STEP=5;
  * They do not increase the provisional reservation merely by making the
  * previously implicit arithmetic visible as nodes. */
 export function pricedModularStepCount(effect:EffectContainer):number{
-  return effect.steps.filter(step=>!["READ_STAT","READ_STORED","CALCULATE","READ_ITEM","SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","READ_STATUSES","REQUIRE_CONTACT"].includes(step.kind)).length;
+  return pricedMicroStepCount(effect);
 }
 /** Minimum reservation only. Real utility/PCH research and staff review decide the final price. */
 export type ComposedSkillEffect={
@@ -16,6 +17,8 @@ export type ComposedSkillEffect={
   pricingNotes?:string;
   /** Admin-assigned final base cost; only management approval can set this. */
   reviewedPch?:number;
+  /** Set ONLY by staff approval, v1 discount contract. Older approvals remain unchanged. */
+  restrictionPricing?: "V1";
 };
 export function isComposedSkillEffect(row:unknown):row is ComposedSkillEffect {
   return !!row&&typeof row==="object"&&!Array.isArray(row)
@@ -24,7 +27,7 @@ export function isComposedSkillEffect(row:unknown):row is ComposedSkillEffect {
 export function validateComposedSkillEffect(row:unknown,scope:"PLAYER"|"REVIEW"):string|null {
   if(!isComposedSkillEffect(row))return "Tipo de efecto modular inválido.";
   const r=row as unknown as Record<string,unknown>;
-  if(Object.keys(r).some(k=>!["type","module","pricingNotes","reviewedPch"].includes(k)))return "Campos modulares desconocidos.";
+  if(Object.keys(r).some(k=>!["type","module","pricingNotes","reviewedPch","restrictionPricing"].includes(k)))return "Campos modulares desconocidos.";
   const module=r.module;
   const err=validateEffectContainers([module as EffectContainer]);
   if(err)return err;
@@ -32,7 +35,10 @@ export function validateComposedSkillEffect(row:unknown,scope:"PLAYER"|"REVIEW")
     return "Un efecto modular necesita al menos una acción; las fuentes y cálculos por sí solos no conceden habilidades.";
   if(typeof r.pricingNotes!=="undefined"&&(typeof r.pricingNotes!=="string"||r.pricingNotes.length>1500))
     return "Justificación modular inválida.";
-  if(scope==="PLAYER"&&r.reviewedPch!==undefined)return "El PCH aprobado solo puede asignarlo administración.";
+  if(scope==="PLAYER"&&(r.reviewedPch!==undefined||r.restrictionPricing!==undefined))
+    return "El PCH aprobado y el descuento revisado solo puede asignarlos administración.";
+  if(r.restrictionPricing!==undefined&&r.restrictionPricing!=="V1")
+    return "Versión de descuento modular desconocida.";
   if(scope==="REVIEW" && (typeof r.reviewedPch!=="number" || !Number.isSafeInteger(r.reviewedPch)
     || r.reviewedPch<1 || r.reviewedPch>100000))return "Asigna un PCH revisado válido a cada efecto modular.";
   if(scope==="REVIEW" &&
@@ -59,29 +65,41 @@ export function validateComposedSkillList(rows:unknown,scope:"PLAYER"|"REVIEW"):
  * Return a display-only provisional quote and an explicit validation message.
  * Never use this preview for persisted/approved PCH or server authorization.
  */
-export function previewComposedEffectBasePch(row:ComposedSkillEffect):{amount:number;error:string|null}{
-  const module=row.module;
-  const error=validateEffectContainers([module]);
-  const count=module&&Array.isArray(module.steps)
-    ?module.steps.filter(step=>step&&typeof step==="object"&&!["READ_STAT","READ_STORED","CALCULATE","READ_ITEM","SELECT_TARGET","SELECT_STAT","READ_HP_DAMAGE","READ_STATUSES","REQUIRE_CONTACT"].includes(step.kind)).length
-    :0;
-  const candidate=row.reviewedPch??Math.max(1,count*MODULE_DEPOSIT_PER_STEP);
-  const amount=Number.isSafeInteger(candidate)&&candidate>0&&candidate<=100000?candidate:1;
-  return {amount,error:error??(!Number.isSafeInteger(candidate)||candidate<1||candidate>100000?"PCH modular inválido.":null)};
+/** Mark new approvals without repricing legacy APPROVED skill records on read. */
+export function stampReviewedRestrictionPricing(rows:unknown[]):unknown[]{
+ return rows.map(row=>isComposedSkillEffect(row)?
+  {...row,restrictionPricing:"V1"}:row);
+}
+
+/** The preview is tolerant of a half-edited graph; server pricing is not. */
+export function previewComposedEffectBasePch(
+ row:ComposedSkillEffect,options?:{forApproval?:boolean},
+):{amount:number;error:string|null}{
+ const module=row.module;
+ const error=validateEffectContainers([module]);
+ const gross=row.reviewedPch??Math.max(1,pricedModularStepCount(module)*MODULE_DEPOSIT_PER_STEP);
+ const validBase=Number.isSafeInteger(gross)&&gross>0&&gross<=100000;
+ const candidate=error||!validBase?gross:(
+   row.reviewedPch===undefined||row.restrictionPricing==="V1"||options?.forApproval
+   ?microRestrictionQuote(module,gross).finalPch:gross);
+ const amount=Number.isSafeInteger(candidate)&&candidate>0&&candidate<=100000?candidate:1;
+ return {amount,error:error??(!validBase||!Number.isSafeInteger(candidate)||candidate<1||candidate>100000?"PCH modular inválido.":null)};
 }
 export function composedEffectBasePch(row:ComposedSkillEffect):number {
-  const err=validateEffectContainers([row.module]);
-  if(err)throw new Error(err);
-  const value=row.reviewedPch??Math.max(1,pricedModularStepCount(row.module)*MODULE_DEPOSIT_PER_STEP);
-  if(!Number.isSafeInteger(value)||value<1||value>100000)throw new Error("PCH modular inválido.");
-  if(row.reviewedPch!==undefined &&
-    value<Math.max(1,pricedModularStepCount(row.module)*MODULE_DEPOSIT_PER_STEP))
-    throw new Error("El PCH revisado no puede ser inferior a la reserva modular.");
-  return value;
+ const err=validateEffectContainers([row.module]);
+ if(err)throw new Error(err);
+ const gross=row.reviewedPch??Math.max(1,pricedModularStepCount(row.module)*MODULE_DEPOSIT_PER_STEP);
+ if(!Number.isSafeInteger(gross)||gross<1||gross>100000)throw new Error("PCH modular inválido.");
+ if(row.reviewedPch!==undefined &&
+   gross<Math.max(1,pricedModularStepCount(row.module)*MODULE_DEPOSIT_PER_STEP))
+   throw new Error("El PCH revisado no puede ser inferior a la reserva modular.");
+ return row.reviewedPch===undefined||row.restrictionPricing==="V1"
+   ?microRestrictionQuote(row.module,gross).finalPch:gross;
 }
 export function composedDepositPch(row:ComposedSkillEffect):number {
-  if(row.reviewedPch!==undefined)throw new Error("El precio revisado no es válido al enviar una habilidad.");
-  return composedEffectBasePch(row);
+ if(row.reviewedPch!==undefined||row.restrictionPricing!==undefined)
+   throw new Error("El precio o descuento revisado no es válido al enviar una habilidad.");
+ return composedEffectBasePch(row);
 }
 /** Drop staff-only price fields before the player payload reaches persistence/pricing. */
 export function canonicalPlayerComposedEffects(rows:unknown[]):unknown[]{

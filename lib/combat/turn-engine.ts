@@ -3,6 +3,7 @@ import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
 import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
 import {resolveDamageChannels} from "./damage-channels.ts";
+import {attributeActualHpDamage,type DamageByChannel} from "./damage-attribution.ts";
 import type {ApprovedHybridContact} from "./approved-hybrid-contact.ts";
 import {resolveApprovedHostileStatus,type ResolvedHostileStatus} from "./approved-hostile-status.ts";
 import { geometricContact } from "./geometry.ts";
@@ -24,7 +25,7 @@ import {applySummonStatus,invertSummonStatus,expireSummonStatuses,
  isDebuffStatus,resolveStatusStat,type SummonStatus} from "./summon-status.ts";
 import {evaluateEquippedItemAutoRepair,shouldAutoRepairAtRound,
  type AutoRepairItemEffect} from "../items/auto-repair.ts";
-import {equipmentWearFromHit} from "../items/equipped-wear.ts";
+import {equipmentWearFromHit,equipmentWearFromAttributedHit} from "../items/equipped-wear.ts";
 import {offhandArmorShield,type CombatWearable} from "../items/combat-wearables.ts";
 import {reconcileWearableStatBonuses} from "./wearable-stat-bonus.ts";
 import {equipmentStatLabel} from "./equipment-feedback.ts";
@@ -117,6 +118,10 @@ export type CombatLog = {
   mitigatedByResistance?:number;
   /** After all cover, a D3.2 melee attack shows actual channel contributions. */
   damageChannels?:{physical:number;magical:number};
+  /** Actual HP depleted per channel, capped by HP available before the hit. */
+  hpDamageChannels?:{physical:number;magical:number};
+  /** Statistical mitigation for each component, already reduced for cover. */
+  mitigatedChannels?:{physical:number;magical:number};
   materialAttackBonus?:number;
   knockbackMeters?: number; weaponIntegrity?: number; defense?: DefenseChoice;
   attackType?: CombatAttackType; rangedPhysical?: boolean; predictionMatched?: boolean;
@@ -584,8 +589,13 @@ export function applyWeaponSelfRepairAtRoundStart(state:CombatState,side:Side):v
  * arbitrary inventory objects. Only equipped and configured pieces react.
  */
 export function applyWearableOnConfirmedHpHit(
- state:CombatState,defender:Side,appliedHpDamage:number,magic:boolean
+ state:CombatState,defender:Side,appliedHpDamage:number,magic:boolean,
+ channels?:DamageByChannel,
 ):void{
+ if(channels&&(channels.physical+channels.magical!==appliedHpDamage||
+    !Number.isSafeInteger(channels.physical)||!Number.isSafeInteger(channels.magical)||
+    channels.physical<0||channels.magical<0))
+  throw new Error("Desgaste híbrido sin atribución real de HP.");
  if(state.status!=="ACTIVE"||!Number.isSafeInteger(appliedHpDamage)||appliedHpDamage<=0)return;
  const fighter=state.actors[defender];
  const seen=new Set<number>();
@@ -593,7 +603,11 @@ export function applyWearableOnConfirmedHpHit(
   if(seen.has(item.characterItemId))continue;
   seen.add(item.characterItemId);
   if(!item.wearOnHit||item.durability<=0)continue;
-  const wear=equipmentWearFromHit(item.durability,appliedHpDamage,magic,item.wearOnHit);
+  // A physical-only piece uses only physical HP lost; a magic-only piece
+  // uses only magical HP lost. ALL is worn once against total actual HP.
+  const wear=channels
+   ?equipmentWearFromAttributedHit(item.durability,channels,item.wearOnHit)
+   :equipmentWearFromHit(item.durability,appliedHpDamage,magic,item.wearOnHit);
   if(!wear)continue;
   item.durability-=wear;
   syncWearableBonuses(state,defender,item);
@@ -1901,9 +1915,16 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       }
     }
     const actualHpDamage=Math.min(fighter.hp,damage);
+    // D3.3: overkill has no phantom HP with which to wear equipment.
+    // Allocate the real, finite HP pool proportionally after all barriers.
+    const hpDamageChannels=hybridBreakdown
+      ?attributeActualHpDamage(actualHpDamage,{
+        physical:hybridBreakdown.physical,magical:hybridBreakdown.magical,
+      }):undefined;
     fighter.hp = Math.max(0, fighter.hp - damage);
     if(contact&&actualHpDamage>0)
-      applyWearableOnConfirmedHpHit(state,by,actualHpDamage,pending.usesMagic);
+      applyWearableOnConfirmedHpHit(state,by,actualHpDamage,
+        pending.usesMagic,hpDamageChannels);
     // Status effects from a real summon hit run only after geometric contact,
     // defense and actual HP damage have been fully resolved.
     if(summonedAttacker&&contact)
@@ -1934,6 +1955,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       mitigatedByResistance,contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense:exchange?"COUNTER":defense,
       damageChannels:hybridBreakdown?{
         physical:hybridBreakdown.physical,magical:hybridBreakdown.magical,
+      }:undefined,
+      hpDamageChannels,
+      mitigatedChannels:hybridBreakdown?{
+        physical:Math.max(0,hybridBreakdown.unprotectedPhysical-hybridBreakdown.physical),
+        magical:Math.max(0,hybridBreakdown.unprotectedMagical-hybridBreakdown.magical),
       }:undefined,
       constructionId:pending.mirrorId,mirrorShot:Boolean(pending.mirrorId),
       summonId:pending.summonId,

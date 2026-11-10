@@ -2177,9 +2177,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // cannot fire a magical rider, nor can magical HP fire a physical rider.
     // Historical one-channel riders still use the original actual HP gate.
     const riderChannel=pending.hybridContact?.statusChannel;
+    const riderMinimum=pending.hybridContact?.statusMinimumHp??1;
+    // An approved threshold applies to the HP actually removed by the
+    // specific channel, after reactions, racial defenses, cover and overkill.
+    // No nominal/pre-mitigation damage may activate the status.
     const riderChannelHit=pending.hybridContact
-      ?riderChannel==="PHYSICAL"?(hpDamageChannels?.physical??0)>0
-       :riderChannel==="MAGICAL"?(hpDamageChannels?.magical??0)>0
+      ?riderChannel==="PHYSICAL"?(hpDamageChannels?.physical??0)>=riderMinimum
+       :riderChannel==="MAGICAL"?(hpDamageChannels?.magical??0)>=riderMinimum
        :false
       :true;
     // A CONTACT rider needs a real geometrical body touch and a living
@@ -2204,9 +2208,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           " con "+(pending.skill?.name??"su habilidad")+
           (contactOnlyRider
            ?" tras establecer contacto real con su cuerpo."
-           :" después de causarle daño"+
-            (riderChannel==="PHYSICAL"?" físico":
-             riderChannel==="MAGICAL"?" mágico":"")+".")});
+           :" después de causarle "+
+            (riderChannel==="PHYSICAL"?"daño físico":"daño mágico")+
+            (riderMinimum>1?" de al menos "+riderMinimum+" HP":"")+".")});
     }
     // A mirror reflects only when a REAL area touches it. In particular an
     // approved single-target skill or mirror ray must never inherit the basic

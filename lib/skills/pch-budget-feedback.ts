@@ -25,7 +25,7 @@ export function quoteSkillPchBudget({
   if(baseline!==undefined&&(!Number.isSafeInteger(baseline)||baseline<0))return null;
   if(balance!==undefined&&(!Number.isSafeInteger(balance)||balance<0))return null;
   const isUpgrade=baseline!==undefined;
-  const payable=isUpgrade?Math.max(0,total-baseline):total;
+  const payable=baseline!==undefined?Math.max(0,total-baseline):total;
   const referenceCoinPch=isUpgrade?PCH_PER_UPGRADE_COIN:PCH_PER_COIN;
   const remaining=balance===undefined?null:balance-payable;
   return {
@@ -35,7 +35,7 @@ export function quoteSkillPchBudget({
     balance:balance??null,remaining,
     shortfall:balance===undefined?null:Math.max(0,payable-balance),
     affordable:balance===undefined?null:balance>=payable,
-    requiresIncreasedPrice:isUpgrade&&total<=baseline,
+    requiresIncreasedPrice:baseline!==undefined&&total<=baseline,
     provisional,
   };
 }

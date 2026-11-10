@@ -176,7 +176,7 @@ export async function POST(request: Request) {
     }
     if (action === "reduceStock") {
       const productId=Number(body?.productId);
-      const newStock=Number(body?.stock);
+      const newStock=body?.stock;
       if(!Number.isSafeInteger(productId)||productId<=0||
          !Number.isSafeInteger(newStock)||newStock<0)
         return NextResponse.json({error:"La cantidad debe ser un número entero igual o mayor que cero."},{status:400});

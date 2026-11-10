@@ -28,12 +28,12 @@ function isLowHpGate(value:MicroCondition):boolean {
  if(!value || !["LT","LTE"].includes(value.compare))return false;
  const left=value.left;
  const right=value.right;
- if(typeof left!=="object"||!("source" in left)||
+ if(typeof left!=="object"||left===null||!("source" in left)||
     left.source!=="STAT"||left.key!=="HP")return false;
- if(typeof right!=="object"||!("operator" in right)||
-    right.operator!=="PERCENT"||right.args.length!==2)return false;
+ if(typeof right!=="object"||right===null||!("operator" in right)||
+    right.operator!=="PERCENT"||!Array.isArray(right.args)||right.args.length!==2)return false;
  const [maximum,percentage]=right.args;
- return typeof maximum==="object"&&"source" in maximum&&
+ return typeof maximum==="object"&&maximum!==null&&"source" in maximum&&
   maximum.source==="STAT"&&maximum.key==="MAX_HP"&&
   typeof percentage==="number"&&Number.isFinite(percentage)&&
   percentage>0&&percentage<=25;
@@ -77,9 +77,9 @@ export function microRestrictionQuote(effect:EffectContainer,grossPch:number):Mi
   if(step.kind==="SELECT_TARGET"&&step.selector==="OPPONENT"&&
     (!step.when||step.when.length===0))
     seenOpponentTarget.add(step.output);
-  if(step.kind==="REQUIRE_CONTACT"&&
+  if(step.kind==="REQUIRE_CONTACT"&&step.target&&
     (!step.when||step.when.length===0)&&
-    seenOpponentTarget.has(step.target?.key))
+    seenOpponentTarget.has(step.target.key))
     contactRequired=true;
   if(!DISCOUNTABLE_ACTIONS.has(step.kind))continue;
   const contact=contactRequired;

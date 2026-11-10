@@ -79,7 +79,7 @@ test("D4.4: restrictive gates are action-scoped and never grant free effects",()
  assert.equal(quote.pricedActions,2);
  assert.equal(quote.contactGatedActions,1);
  assert.equal(quote.finalPch,90,"earlier healing never receives the contact reduction");
- assert.equal(microRestrictionQuote(graph,5).finalPch,5,"rounding never invents savings");
+ assert.equal(microRestrictionQuote(graph,5).finalPch,4,"small PCH gains one point with a real restriction");
  assert.equal(microRestrictionQuote(effect([...contact(),{kind:"REQUIRE_CONTACT",target:out("chosen")},healing()]),100).finalPch,80,
   "adding extra contact nodes cannot stack a discount");
  assert.equal(microRestrictionQuote(effect([healing(),...contact()]),100).finalPch,100);
@@ -96,7 +96,7 @@ test("D4.4: low-HP and contact discounts cap at 30% on the SAME guarded action",
  assert.equal(quote.finalPch,70);
  assert.equal(microRestrictionQuote(graph,5).finalPch,4);
  const stepOnly=effect([{...healing(),when:[lowHealth(15)]},healing()]);
- assert.equal(microRestrictionQuote(stepOnly,100).finalPch,93,"only the conditional healing is discounted");
+ assert.equal(microRestrictionQuote(stepOnly,100).finalPch,92,"V2 rounds genuine fractional discounts upward");
  const doubleHp=effect([{...healing(),when:[lowHealth(10),lowHealth(20)]}],[lowHealth(20)]);
  assert.equal(microRestrictionQuote(doubleHp,100).finalPch,85);
 });
@@ -108,13 +108,53 @@ test("D4.4: versioned approval preserves old prices and cannot be forged by play
  assert.equal(previewComposedEffectBasePch(legacy).amount,100);
  assert.equal(previewComposedEffectBasePch(legacy,{forApproval:true}).amount,80);
  const [reviewed]=stampReviewedRestrictionPricing([legacy]);
- assert.equal(reviewed.restrictionPricing,"V1");
+ assert.equal(reviewed.restrictionPricing,"V2");
  assert.equal(composedEffectBasePch(reviewed),80);
  assert.match(validateComposedSkillList([reviewed],"PLAYER"),/solo puede/);
  assert.throws(()=>composedDepositPch(reviewed));
  assert.match(validateComposedSkillList([wrapped(graph,100,"V9")],"REVIEW"),/Versión/);
  const withoutReview=stampReviewedRestrictionPricing([wrapped(graph)])[0];
  assert.match(validateComposedSkillList([withoutReview],"REVIEW"),/PCH revisado/);
+});
+
+test("D4.5: 5–10 PCH budgets receive useful discounts without going below 1",()=>{
+ const hp=effect([healing()],[lowHealth(20)]);
+ const contactOnly=effect([...contact(),healing()]);
+ const both=effect([...contact(),healing()],[lowHealth(20)]);
+ // A creation coin is 10 PCH; a single modular action initially reserves 5.
+ for(const [gross,contactCost,hpCost,bothCost] of [
+  [1,1,1,1],
+  [5,4,4,4],
+  [10,8,8,7],
+ ]){
+  assert.equal(microRestrictionQuote(contactOnly,gross).finalPch,contactCost);
+  assert.equal(microRestrictionQuote(hp,gross).finalPch,hpCost);
+  assert.equal(microRestrictionQuote(both,gross).finalPch,bothCost);
+  for(const graph of [hp,contactOnly,both]){
+   const quote=microRestrictionQuote(graph,gross);
+   assert.ok(quote.finalPch>=1);
+   assert.ok(quote.discountPch<=Math.floor(gross*0.30));
+   assert.equal(quote.contactDiscountPch+quote.lowHealthDiscountPch,quote.discountPch);
+  }
+ }
+ assert.equal(composedDepositPch(wrapped(hp)),4,"the player reservation uses V2");
+ assert.equal(composedDepositPch(wrapped(both)),4,"the nominal cap survives integer rounding");
+});
+
+test("D4.5: previously approved V1 contracts keep their exact old rounding",()=>{
+ const low=effect([healing()],[lowHealth(20)]);
+ const both=effect([...contact(),healing()],[lowHealth(20)]);
+ assert.equal(microRestrictionQuote(low,5,"V1").finalPch,5);
+ assert.equal(microRestrictionQuote(low,5,"V2").finalPch,4);
+ assert.equal(microRestrictionQuote(both,5,"V1").finalPch,4);
+ assert.equal(composedEffectBasePch(wrapped(low,5,"V1")),5);
+ assert.equal(composedEffectBasePch(wrapped(low,5,"V2")),4);
+ const reviewed=stampReviewedRestrictionPricing([wrapped(low,5,"V1")])[0];
+ assert.equal(reviewed.restrictionPricing,"V2");
+ assert.equal(composedEffectBasePch(reviewed),4);
+ // Before a new approval, player notes and old reviewed prices cannot be restamped.
+ assert.equal(composedEffectBasePch(wrapped(low,5)),5);
+ assert.match(validateComposedSkillList([reviewed],"PLAYER"),/solo puede/);
 });
 
 test("D4.4: server approval stamps version and UI shows the same discount",()=>{

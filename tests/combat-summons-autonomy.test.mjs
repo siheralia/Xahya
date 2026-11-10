@@ -65,6 +65,19 @@ test("autonomous attack uses creature initiative and PA, not the summoner's",()=
  assert.ok(resolved.actors.NPC.hp<200);
 });
 
+test("manual attack uses the next creature slot instead of doubling the hit",()=>{
+ let s=cast();
+ const id=s.summons[0].id;
+ s=applyCombatCommand(s,"PLAYER",{kind:"COMMAND_SUMMON",
+   summonId:id,order:"ATTACK"},rolls);
+ assert.ok(s.pending);
+ const slot=s.summons[0].autoNextTick;
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},rolls);
+ assert.ok(slot>s.tick);
+ assert.equal(progressAutonomousSummons(s,rolls).pending,null,
+   "an automatic duplicate at the same tick is prohibited");
+});
+
 test("following the owner applies authorized support once while active",()=>{
  let s=cast("FOLLOW","USER",true);
  const next=applyCombatCommand(s,"PLAYER",{kind:"WAIT"},rolls);

@@ -24,11 +24,11 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
   const speeds:[string,string][]=[["DEFAULT",`Predeterminada (${defaultSpeedName})`],...speedSettings.stats.map(stat=>[stat.key,`${stat.name} (+5 PCH)`] as [string,string])];
   if(form.speed&&!speeds.some(([key])=>key===form.speed))speeds.push([form.speed,`${form.speed} (valor anterior)`]);
   const set = <K extends keyof SkillCore>(key:K,value:SkillCore[K]) => onChange({...form,[key]:value});
-  const cls = "mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white";
-  const wrap=(label:string,key:SkillHelpKey,control:ReactNode)=><label className="block text-sm text-zinc-400">{label}<SkillFieldHelp field={key}/>{control}</label>;
+  const cls = "mt-2 w-full min-w-0 max-w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white";
+  const wrap=(label:string,key:SkillHelpKey,control:ReactNode)=><label className="block min-w-0 text-sm text-zinc-400">{label}<SkillFieldHelp field={key}/>{control}</label>;
   const number=(key:"cost"|"maintenanceCost"|"accumulationPerTick"|"accumulationCost"|"maxRangeMeters",min=0,max?:number)=><input type="number" min={min} max={max} step="1" value={form[key]??5} onChange={e=>set(key,Number(e.target.value))} className={cls}/>;
   const select=(key:"category"|"duration"|"cooldown"|"speed"|"areaOfEffect",values:readonly (readonly [string,string])[])=><select value={form[key]} onChange={e=>set(key,e.target.value)} className={cls}>{values.map(([v,label])=><option key={v} value={v}>{label}</option>)}</select>;
-  return <div className="grid gap-4 sm:grid-cols-2">
+  return <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
     {wrap("Nombre","name",<input value={form.name} onChange={e=>set("name",e.target.value)} className={cls}/>)}
     {wrap("Descripción","description",<textarea rows={3} value={form.description} onChange={e=>set("description",e.target.value)} className={cls}/>)}
     {wrap("Categoría","category",select("category",categories))}
@@ -59,7 +59,7 @@ export function SkillCoreFields<T extends SkillCore>({form,onChange,effectEditor
         <button type="button" onClick={()=>set("condition","")} className="mt-2 text-xs text-zinc-400 underline hover:text-white">Eliminar condición narrativa anterior</button>
       </div>
     )}
-    {effectEditor && <div className="sm:col-span-2">{effectEditor}</div>}
+    {effectEditor && <div className="min-w-0 sm:col-span-2">{effectEditor}</div>}
     {wrap("Maná por uso","cost",number("cost"))}
     {wrap("Duración","duration",select("duration",durations.map(x=>[x,x] as const)))}
     {wrap("Tiempo de espera entre usos","cooldown",<><select value={form.cooldown} onChange={e=>set("cooldown",e.target.value)} className={cls}>{cooldowns.map(c=><option key={c} value={c}>{cooldownName(c)}{cooldownDiscountPercent(c,form.duration,form.category)>0?" (−"+cooldownDiscountPercent(c,form.duration,form.category)+"% PCH)":""}</option>)}</select>{form.cooldown==="Igual a duración" && cooldownDiscountPercent(form.cooldown,form.duration,form.category)===0 && <span className="mt-1 block text-xs text-amber-300">La duración no es finita en turnos, por lo que no aplica descuento.</span>}</>)}

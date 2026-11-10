@@ -5,7 +5,7 @@ import { combatSnapshotEtag, combatEtagMatches } from "@/lib/combat/poll-cache";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import {
-  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, applyResolvedKarmaBoost, canAct, type CombatCommand, type CombatState, type Side,
+  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, applyResolvedKarmaBoost, progressAutonomousSummons, canAct, type CombatCommand, type CombatState, type Side,
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
 import { isReplayableCombatKind,isCombatActionReplay,recordCombatAction,
@@ -261,6 +261,13 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
         // In particular, progress after PLAYER's DEFEND; previously this was
         // skipped and forced GM to control the training NPC manually.
         if(side==="PLAYER" && next.status==="ACTIVE")
+          next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);
+      }
+      // Only new, committed actions advance autonomous creatures. A request
+      // replay returns the original state without spawning extra attacks.
+      if(next!==state&&next.status==="ACTIVE"&&!next.pending){
+        next=progressAutonomousSummons(next,dice());
+        if(next.pending?.against==="NPC"&&next.actors.NPC.characterId===null)
           next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);
       }
       if(replayAction)

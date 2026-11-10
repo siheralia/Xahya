@@ -7,10 +7,11 @@ import { ElementSelect } from "@/components/effects/ElementSelect";
 import { SkillFieldHelp } from "./SkillFieldHelp";
 import { COPY_MODES } from "@/lib/skills/copy";
 import { MicroEffectBuilder,freshMicroEffect } from "@/components/effects/MicroEffectBuilder";
-import {isComposedSkillEffect,previewComposedEffectBasePch} from "@/lib/skills/composed-effects";
+import {isComposedSkillEffect,previewComposedEffectBasePch,pricedModularStepCount,MODULE_DEPOSIT_PER_STEP} from "@/lib/skills/composed-effects";
+import {microRestrictionQuote} from "@/lib/skills/micro-restriction-pricing";
 import type {EffectContainer} from "@/lib/effects/micro-modules";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
-export type EditableEffect = {type:string;module?:EffectContainer;pricingNotes?:string;reviewedPch?:number;capability?:string;element?:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT";copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean};
+export type EditableEffect = {type:string;module?:EffectContainer;pricingNotes?:string;reviewedPch?:number;restrictionPricing?:"V1";capability?:string;element?:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT";copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean};
 export type NarrativeCard = {id:string|number;name:string;description:string;category?:string;pch?:number};
 type Props<E extends EditableEffect>={effects:E[];onChange:(effects:E[])=>void;statistics?:{key:string;name:string;kind:"basic"|"derived";active?:boolean}[];narrativeCards?:NarrativeCard[];effectDefinitions?:{type:string;label:string;targets:{key:string;label:string}[]}[];priceEffect?:(effect:E)=>number;allowReviewModularPch?:boolean;enableModularEffects?:boolean};
 const cls="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm";
@@ -31,17 +32,33 @@ export function SkillEffectsEditor<E extends EditableEffect>({effects,onChange,s
   </div>}
   <p className="mt-3 text-xs text-zinc-400">¿No sabes cuál elegir? Empieza con «Buscar efecto» y añade solo uno. Los módulos personalizados son para configuraciones avanzadas.</p>
   <SharedEffectsEditor className="mt-4" effects={effects} onChange={onChange} onAdd={()=>({type:"STAT_BONUS",target:"STR",value:1} as E)} onTypeChange={(e,type)=>({...e,type,target:targetsFor(type)[0]?.key??""})} hideAdd renderTarget={()=>null} renderCard={(e,i,change,remove)=>{
-   if(isComposedSkillEffect(e)){const preview=previewComposedEffectBasePch(e);return <div className="space-y-3">
+   if(isComposedSkillEffect(e)){
+    const preview=previewComposedEffectBasePch(e,{forApproval:allowReviewModularPch});
+    const base=e.reviewedPch??Math.max(1,pricedModularStepCount(e.module)*MODULE_DEPOSIT_PER_STEP);
+    const discount=microRestrictionQuote(e.module,base);
+    return <div className="space-y-3">
      <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold text-violet-200">Efecto modular · pendiente de revisión</span><button type="button" onClick={remove} className="rounded border border-rose-700/60 px-2 py-1 text-xs text-rose-300">Quitar</button></div>
      <MicroEffectBuilder value={e.module} onChange={module=>change({module} as Partial<E>)}/>
      <label className="block text-xs text-zinc-400">Justificación para quien aprueba (opcional)
        <textarea rows={2} maxLength={1500} value={e.pricingNotes??""} onChange={event=>change({pricingNotes:event.target.value} as Partial<E>)} className={"mt-1 w-full "+cls}/>
      </label>
-     {allowReviewModularPch&&<label className="block text-xs text-zinc-300">PCH definitivo asignado al efecto por administración
+     {allowReviewModularPch&&<label className="block text-xs text-zinc-300">PCH base revisado del efecto (antes de descuentos verificados)
        <input aria-label="PCH definitivo del efecto modular" type="number" min={1} max={100000} step={1} value={e.reviewedPch??""}
          onChange={event=>change({reviewedPch:event.target.value?Number(event.target.value):undefined} as Partial<E>)} className={"mt-1 w-full "+cls}/>
      </label>}
-     <p className="text-xs text-amber-200">{e.reviewedPch===undefined?"Reserva inicial: "+preview.amount+" PCH · precio provisional, sujeto a revisión":"PCH de este efecto revisado: "+e.reviewedPch+" (antes de ajustes globales de la habilidad)"}</p>
+     <p className="text-xs text-amber-200">{e.reviewedPch===undefined
+       ?"Reserva inicial: "+preview.amount+" PCH · precio provisional, sujeto a revisión"
+       :"PCH base revisado: "+e.reviewedPch+" · total tras restricciones: "+preview.amount+" PCH (antes de ajustes globales)"}</p>
+     {!preview.error&&<p className="text-xs text-cyan-200">
+       Desglose: {discount.grossPch} PCH base
+       {discount.discountPch>0
+         ?" − "+discount.discountPch+" PCH por restricciones verificadas"
+           +" (contacto: −"+discount.contactDiscountPch
+           +", vida baja: −"+discount.lowHealthDiscountPch+")"
+         :" · sin descuento restrictivo aplicable"}.
+       {discount.discountPch>0?" Solo cuentan las acciones realmente limitadas por la condición.":""}
+     </p>}
+     {allowReviewModularPch&&<p className="text-xs text-zinc-400">El precio mostrado es la cotización para una nueva aprobación. Las habilidades antiguas conservan su coste hasta que se vuelvan a aprobar.</p>}
      {preview.error&&<p role="alert" className="text-xs text-amber-300">Configuración pendiente: {preview.error} Puedes seguir editando; el guardado comprobará todas las conexiones.</p>}
      <p className="text-xs text-zinc-500">Se presenta junto con la habilidad; no funciona en combate antes de contar con un resolutor y aprobación completos.</p>
    </div>;}

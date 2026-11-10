@@ -68,3 +68,21 @@ export function equipmentWearFromHit(
    (rule.channel==="MAGICAL"&&!magic)||(rule.channel==="PHYSICAL"&&magic))return 0;
  return Math.min(current,Math.max(1,Math.ceil(appliedHpDamage*rule.wearPercent/100)));
 }
+
+
+/** D3.3: a mixed impact wears a copy only for the channel configured by
+ * its approved item effect. ALL wears against the sum ONCE, never once for
+ * each channel (which would double-charge a single struck item).
+ */
+export function equipmentWearFromAttributedHit(
+ current:number,applied:{physical:number;magical:number},rule:EquipmentWearRule
+):number{
+ if(!Number.isSafeInteger(applied.physical)||applied.physical<0||
+    !Number.isSafeInteger(applied.magical)||applied.magical<0||
+    !Number.isSafeInteger(applied.physical+applied.magical))
+  throw new Error("Daño híbrido atribuido inválido.");
+ const hp=rule.channel==="PHYSICAL"?applied.physical:
+  rule.channel==="MAGICAL"?applied.magical:
+  applied.physical+applied.magical;
+ return equipmentWearFromHit(current,hp,rule.channel==="MAGICAL",rule);
+}

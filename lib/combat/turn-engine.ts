@@ -609,11 +609,21 @@ export function applyWearableOnConfirmedHpHit(
    ?equipmentWearFromAttributedHit(item.durability,channels,item.wearOnHit)
    :equipmentWearFromHit(item.durability,appliedHpDamage,magic,item.wearOnHit);
   if(!wear)continue;
+  const relevantHp=channels
+   ?item.wearOnHit.channel==="PHYSICAL"?channels.physical
+    :item.wearOnHit.channel==="MAGICAL"?channels.magical
+    :appliedHpDamage
+   :appliedHpDamage;
+  const channelLabel=channels
+   ?item.wearOnHit.channel==="PHYSICAL"?" físico"
+    :item.wearOnHit.channel==="MAGICAL"?" mágico":" combinado"
+   :"";
   item.durability-=wear;
   syncWearableBonuses(state,defender,item);
   addLog(state,{kind:"EQUIPMENT_WEAR",tick:state.tick,by:defender,
    weaponName:item.name,weaponIntegrity:item.durability,
-   summary:item.name+" perdió "+wear+" de durabilidad tras recibir "+appliedHpDamage+" HP de daño."});
+   summary:item.name+" perdió "+wear+" de durabilidad tras recibir "+
+     relevantHp+" HP de daño"+channelLabel+"."});
   if(item.durability===0)
    addLog(state,{kind:"EQUIPMENT_BREAK",tick:state.tick,by:defender,
     weaponName:item.name,weaponIntegrity:0,

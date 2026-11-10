@@ -124,7 +124,10 @@ export default function ItemsManagementPage() {
       const d=await r.json(); if(!r.ok) throw new Error(d.error);
       const savedId=Number(d?.item?.id ?? selected);
       // Remember the created item before uploading: retrying a failed image must not create duplicates.
-      if(wasCreating && savedId) setSelected(savedId);
+      if(wasCreating && savedId){
+        setSelected(savedId);
+        setItems(current=>current.some(item=>item.id===savedId)?current:[...current,d.item as Item]);
+      }
       if(imageFile && savedId && form.itemType==="PROPERTY"){
         const optimizedFile=await preparePropertyImage(imageFile);
         const fd=new FormData(); fd.set("itemId",String(savedId)); fd.set("file",optimizedFile);

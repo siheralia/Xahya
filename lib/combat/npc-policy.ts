@@ -1,5 +1,5 @@
 import {
-  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, basicCounterAttack, canAct, contestChance, defaultAttackSource, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
+  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, progressAutonomousSummons, basicCounterAttack, canAct, contestChance, defaultAttackSource, effectiveWeaponReachMeters, matchupMultiplier, physicalAttackStart, remainingAp, turnTicks, weaponForSource,
   type CombatCommand, type CombatState, type DefenseChoice, type Point,
 } from "./turn-engine.ts";
 import { BASIC_MAGIC_RANGE_METERS } from "./magic-area.ts";
@@ -156,6 +156,9 @@ export function progressTrainingNpc(
   let next=state;
   for(let i=0;i<100;i++) {
     if(next.status!=="ACTIVE")return next;
+    // Resolve independent creatures before checking the NPC's own initiative.
+    // A launched summon strike still uses the normal NPC reaction policy.
+    if(!next.pending)next=progressAutonomousSummons(next,makeDice());
     if(next.pending) {
       if(next.pending.against==="PLAYER")return next;
       const reaction=chooseNpcReaction(next,random);

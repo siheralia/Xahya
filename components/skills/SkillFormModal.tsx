@@ -9,6 +9,8 @@ import { SkillCoreFields, type SkillCore } from "./SkillCoreFields";
 import { SkillEffectsEditor, type EditableEffect, type NarrativeCard } from "./SkillEffectsEditor";
 import { SkillCreationGuide } from "./SkillCreationGuide";
 import {applyCooldownPch,cooldownDiscountPercent} from "@/lib/skills/cooldown";
+import {PCH_PER_COIN} from "@/lib/skills/pch";
+import {skillPchBudgetQuote} from "@/lib/skills/pch-budget";
 
 type Props<T extends SkillCore, E extends EditableEffect> = {
   open: boolean;
@@ -60,11 +62,29 @@ export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
   const cooldownSaved=pch?pch.beforeRequirements-afterCooldown:0;
   const cooldownPercent=cooldownDiscountPercent(form.cooldown,form.duration,form.category);
   const editDelta=pch && pch.originalTotal!==undefined ? pch.total-pch.originalTotal : null;
+  const budget=pch?.balance!==undefined?skillPchBudgetQuote(pch.total,pch.balance,pch.baseline):null;
   const editDifference=(value:number)=>value>0?"+"+value:value<0?"−"+Math.abs(value):"0";
-  return <div className="xahya-modal-overlay flex items-center justify-center bg-black/75 p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <div className="xahya-modal-panel max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-cyan-400/30 bg-zinc-950 p-5 shadow-2xl sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
+  return <div className="xahya-modal-overlay flex items-center justify-center bg-black/75 p-2 sm:p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div className="xahya-modal-panel min-w-0 max-h-[90dvh] w-full max-w-4xl overflow-x-hidden overflow-y-auto rounded-2xl border border-cyan-400/30 bg-zinc-950 p-3 shadow-2xl sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
       <div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold">{title}</h2>{description&&<p className="mt-1 text-sm text-zinc-500">{description}</p>}</div><button type="button" onClick={onClose} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm">Cerrar</button></div>
-      {pch&&<div className="sticky top-0 z-20 -mx-2 mt-4 flex justify-end bg-zinc-950/95 px-2 py-3 backdrop-blur"><button type="button" onClick={()=>setBreakdownOpen(true)} className="rounded-full border border-cyan-400 bg-cyan-950 px-4 py-2 text-sm font-bold text-cyan-100 shadow-lg shadow-black/50">{pch.baseline===undefined?"Costo: "+pch.total+" PCH":pch.genericSpecialization?"Costo total: "+pch.total+" · Especialización: "+Math.max(0,pch.total-pch.baseline)+" PCH":"Costo total: "+pch.total+" · Mejora: "+Math.max(0,pch.total-pch.baseline)+" PCH"}{editDelta!==null?" · Δ original: "+editDifference(editDelta)+" PCH":""} · Detalles</button></div>}
+      {pch&&<div className="sticky top-0 z-20 -mx-2 mt-4 flex min-w-0 flex-wrap items-center justify-between gap-2 bg-zinc-950/95 px-2 py-3 backdrop-blur">
+        {budget&&<div role="status" aria-live="polite" className="min-w-0 text-xs text-zinc-200">
+          <p className="font-semibold">Saldo disponible: {budget.balance} PCH</p>
+          <p className={budget.missing>0?"text-amber-300":"text-emerald-300"}>
+            {budget.due===0?"Añade un efecto para conocer el costo."
+             :budget.affordable?"Alcanza para esta "+(pch.baseline===undefined?"habilidad.":"solicitud.")
+             :"Faltan "+budget.missing+" PCH (equivalentes a "+budget.creationCoinsEquivalent+" moneda(s) de creación)."}
+          </p>
+        </div>}
+        <button type="button" onClick={()=>setBreakdownOpen(true)}
+          className="min-w-0 max-w-full whitespace-normal break-words rounded-xl border border-cyan-400 bg-cyan-950 px-3 py-2 text-left text-sm font-bold text-cyan-100 shadow-lg shadow-black/50">
+          {pch.baseline===undefined?"Costo: "+pch.total+" PCH":pch.genericSpecialization?"Costo total: "+pch.total+" · Especialización: "+Math.max(0,pch.total-pch.baseline)+" PCH":"Costo total: "+pch.total+" · Mejora: "+Math.max(0,pch.total-pch.baseline)+" PCH"}
+          {editDelta!==null?" · Δ original: "+editDifference(editDelta)+" PCH":""} · Detalles
+        </button>
+        {budget&&pch.baseline===undefined&&<p className="w-full text-xs text-zinc-400">
+          Cada moneda de creación aporta {PCH_PER_COIN} PCH al saldo; puedes acumularlos.
+        </p>}
+      </div>}
       <div className="mt-5 space-y-5"><SkillCreationGuide form={form}/>{characterSelector}<SkillCoreFields form={form} onChange={onChange} effectEditor={<SkillEffectsEditor effects={form.effect} onChange={effect=>onChange({...form,effect})} statistics={statistics} narrativeCards={narrativeCards} effectDefinitions={effectDefinitions} priceEffect={priceEffect} allowReviewModularPch={allowReviewModularPch} enableModularEffects={enableModularEffects} />}/>
       <section className="space-y-3 rounded-xl border border-zinc-800 p-3">
         <button type="button" aria-expanded={advancedOpen} onClick={()=>setAdvancedOpen(v=>!v)}
@@ -83,7 +103,7 @@ export function SkillFormModal<T extends SkillCore, E extends EditableEffect>({
         </div>}
       </section>
       {actions}</div>
-      {pch&&breakdownOpen&&<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setBreakdownOpen(false);}}><div role="dialog" aria-modal="true" aria-label="Desglose de PCH" className="w-full max-w-sm rounded-2xl border border-cyan-500/50 bg-zinc-950 p-5 text-sm text-zinc-200 shadow-2xl"><div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold text-cyan-200">Costo: {pch.total} PCH</h3><button type="button" onClick={()=>setBreakdownOpen(false)} className="rounded-lg border border-zinc-700 px-3 py-2">Cerrar</button></div><div className="mt-4 space-y-2"><p>Efectos: {pch.base} PCH</p><p>Tras ajuste por maná ({form.cost}): {pch.manaAdjusted} PCH</p><p>Velocidad: {speedCost} PCH</p><p>Tiempo de espera ({form.cooldown==="Sin cooldown"?"Sin tiempo de espera":form.cooldown||"Sin tiempo de espera"}): −{cooldownSaved} PCH ({cooldownPercent}%)</p><p>Distancia ({form.maxRangeMeters??5} m): {distance>0?"+":""}{distance} PCH (mínimo total 1)</p>{pch.balance!==undefined&&<p>Saldo: {pch.balance} PCH · Restante: {pch.balance-pch.total} PCH</p>}<p>Subtotal antes de requisitos: {pch.beforeRequirements} PCH</p>
+      {pch&&breakdownOpen&&<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setBreakdownOpen(false);}}><div role="dialog" aria-modal="true" aria-label="Desglose de PCH" className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-cyan-500/50 bg-zinc-950 p-4 text-sm text-zinc-200 shadow-2xl sm:p-5"><div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold text-cyan-200">Costo: {pch.total} PCH</h3><button type="button" onClick={()=>setBreakdownOpen(false)} className="rounded-lg border border-zinc-700 px-3 py-2">Cerrar</button></div><div className="mt-4 space-y-2"><p>Efectos: {pch.base} PCH</p><p>Tras ajuste por maná ({form.cost}): {pch.manaAdjusted} PCH</p><p>Velocidad: {speedCost} PCH</p><p>Tiempo de espera ({form.cooldown==="Sin cooldown"?"Sin tiempo de espera":form.cooldown||"Sin tiempo de espera"}): −{cooldownSaved} PCH ({cooldownPercent}%)</p><p>Distancia ({form.maxRangeMeters??5} m): {distance>0?"+":""}{distance} PCH (mínimo total 1)</p>{budget&&<p>Saldo: {budget.balance} PCH · Pago adicional: {budget.due} PCH · Restante tras pagar: {budget.balance-budget.due} PCH</p>}<p>Subtotal antes de requisitos: {pch.beforeRequirements} PCH</p>
         {"effectRequirements" in form && Array.isArray(form.effectRequirements) && <p className="font-semibold text-cyan-200">
           Requisitos ({effectRequirementDiscountPercent(form.effectRequirements as EffectRequirement[])} %):
           {" "}-{afterCooldown-pch.total} PCH

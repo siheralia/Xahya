@@ -55,7 +55,9 @@ export function SkillEffectsEditor<E extends EditableEffect>({effects,onChange,s
          ?" − "+discount.discountPch+" PCH por restricciones verificadas"
            +" (contacto: −"+discount.contactDiscountPch
            +", vida baja: −"+discount.lowHealthDiscountPch+")"
-         :" · sin descuento restrictivo aplicable"}.
+         :discount.contactGatedActions>0||discount.lowHpGatedActions>0
+           ?" · hay restricciones reconocidas, pero su descuento se redondea a 0 PCH por el costo reducido"
+           :" · sin descuento restrictivo aplicable"}.
        {discount.discountPch>0?" Solo cuentan las acciones realmente limitadas por la condición.":""}
      </p>}
      {allowReviewModularPch&&<p className="text-xs text-zinc-400">El precio mostrado es la cotización para una nueva aprobación. Las habilidades antiguas conservan su coste hasta que se vuelvan a aprobar.</p>}

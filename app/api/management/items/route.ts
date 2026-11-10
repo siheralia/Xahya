@@ -87,7 +87,12 @@ export async function GET() {
   const [canViewProperties, canViewSystem, canViewEvent, canViewQuest, canViewAbility] = await Promise.all(["view-properties","view-system","view-event","view-quest","view-ability"].map(action => hasRolePermission(admin, "management.items", action)));
   const actions = ["create","edit","delete","grant","create-event","edit-event","delete-event","grant-event","create-quest","edit-quest","delete-quest","grant-quest","create-ability","edit-ability","delete-ability","grant-ability"];
   const capabilities = Object.fromEntries(await Promise.all(actions.map(async action => [action, await hasRolePermission(admin, "management.items", action)])));
-  return NextResponse.json({ capabilities, items: items.filter((item: any) => (canViewProperties || item.itemType !== "PROPERTY") && (canViewSystem || item.acquisitionType !== "SYSTEM") && (canViewEvent || item.acquisitionType !== "EVENT") && (canViewQuest || item.acquisitionType !== "QUEST") && (canViewAbility || item.acquisitionType !== "ABILITY_GENERATED")) });
+  const visibleItems = items.filter((item: any) => (canViewProperties || item.itemType !== "PROPERTY") && (canViewSystem || item.acquisitionType !== "SYSTEM") && (canViewEvent || item.acquisitionType !== "EVENT") && (canViewQuest || item.acquisitionType !== "QUEST") && (canViewAbility || item.acquisitionType !== "ABILITY_GENERATED"));
+  const itemsWithImages = await Promise.all(visibleItems.map(async (item: any) => ({
+    ...item,
+    imageUrl: item.itemType === "PROPERTY" ? await getItemImageUrl(item.imagePath) : null,
+  })));
+  return NextResponse.json({ capabilities, items: itemsWithImages });
 }
 
 export async function POST(request: Request) {

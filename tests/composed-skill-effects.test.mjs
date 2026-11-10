@@ -66,7 +66,7 @@ test("approved skill review verifies final cost and sufficient PCH inside existi
  assert.match(approve,/validateComposedSkillList\(effect,/);
  assert.match(approve,/requeste[d]?PchCost!==exact/);
  assert.match(approve,/PCH_INSUFFICIENT/);
- assert.match(approve,/hasComposed \? 0/);
+ assert.match(approve,/modularPriceSensitive\|\|hasComposedEffects\(freshSkill\.effect\) \? 0/);
  assert.match(approve,/El PCH modular definitivo se liquida al aprobar/);
 });
 

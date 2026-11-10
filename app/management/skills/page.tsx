@@ -24,7 +24,7 @@ import { manaAdjustedPch } from "@/lib/skills/mana-pricing";
 import { applyCooldownPch } from "@/lib/skills/cooldown";
 import { applyRangePch } from "@/lib/skills/range-pricing";
 
-type Effect = { type: string; module?:EffectContainer;reviewedPch?:number;pricingNotes?:string; target?: string; value?: number; description?: string; element?: string; capability?: string; durationTurns?: number; durationMovements?: number;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean };
+type Effect = { type: string; module?:EffectContainer;reviewedPch?:number;restrictionPricing?:"V1";pricingNotes?:string; target?: string; value?: number; description?: string; element?: string; capability?: string; durationTurns?: number; durationMovements?: number;copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean };
 type Skill = {
   id:number; characterId:number; name:string; cost:number; pchCost:number; accumulationCost:number; accumulationPerTick:number; maintenanceCost:number; description:string|null; duration:string|null;
   category:string; basicType:string|null; attackType:string|null; defenseType:string|null; areaOfEffect:string|null; speed:string|null; cooldown:string|null; effect:Effect[];
@@ -85,7 +85,7 @@ export default function SkillsManagementPage(){
   }
   useEffect(()=>{void load();},[]);
 
-  const priceEffect = (effect:Effect) => previewConfiguredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
+  const priceEffect = (effect:Effect) => previewConfiguredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing,{forApproval:true});
   const pchBase = form.effect.reduce((sum,e) => sum + priceEffect(e), 0) + mechanicsPchCost(form.mechanics);
   const pchManaAdjusted = manaAdjustedPch(pchBase, form.cost);
   const pchSpeedAdjusted = pchManaAdjusted + (!form.speed || form.speed === "DEFAULT" ? 0 : 5);
@@ -124,7 +124,7 @@ export default function SkillsManagementPage(){
     setBusy(true);setError("");setSuccess("");
     try{
       const url=selected?"/api/management/skills/"+selected:"/api/management/skills";
-      const body={...form,pchCost:pchTotal,characterId:Number(form.characterId),approve,reject};
+      const body={...form,pchCost:approve||!selected?pchTotal:form.pchCost,characterId:Number(form.characterId),approve,reject};
       const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       const raw=await r.text();
       let d:any={};

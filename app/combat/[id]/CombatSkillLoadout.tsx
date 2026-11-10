@@ -140,7 +140,8 @@ export default function CombatSkillLoadout({
          {skill.hybridContact?.statusGate==="CONTACT"
           ?" el golpe imbuido toca realmente su cuerpo, aunque la defensa absorba todo el daño a HP."
           :skill.hybridContact?.statusChannel
-          ?" el componente "+(skill.hybridContact.statusChannel==="MAGICAL"?"mágico":"físico")+" del golpe imbuido le quita HP reales."
+          ?" el componente "+(skill.hybridContact.statusChannel==="MAGICAL"?"mágico":"físico")+" del golpe imbuido le quita "+
+           (skill.hybridContact.statusMinimumHp??1)+" HP reales como mínimo."
           :" el ataque "+(skill.usesMagic?"mágico":"físico")+" supera su reacción y le quita HP reales."}
          {" "}La esquiva y una barrera que detenga el impacto lo impiden;
          en los rayos mágicos también puede interceptar un espejo.
@@ -158,8 +159,10 @@ export default function CombatSkillLoadout({
           ?<> {" "}Este debilitamiento requiere contacto corporal real, no pérdida de HP;
              esquivar, desviar el golpe o detenerlo con una barrera lo impide.</>
           :skill.hybridContact.statusChannel&&<>
-          {" "}El debilitamiento solo se activa con daño real del componente
-          {skill.hybridContact.statusChannel==="MAGICAL"?" mágico":" físico"}.
+          {" "}El debilitamiento requiere que el componente
+          {skill.hybridContact.statusChannel==="MAGICAL"?" mágico":" físico"} cause
+          al menos {skill.hybridContact.statusMinimumHp??1} HP reales después
+          de las defensas y los obstáculos.
          </>}
         </p>}
         {skill.modularSupport&&<p className="rounded-lg border border-cyan-700/40 bg-cyan-950/20 p-3 text-xs text-cyan-200">

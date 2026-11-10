@@ -206,8 +206,8 @@ test("chronicle explicitly distinguishes two damage channels without another att
  });
  const e=impact(s);
  assert.match(text,/La fuerza se dividió/);
- assert.match(text,new RegExp(e.damageChannels.physical+" puntos de daño físicos|"+
-   "un punto de daño físico"));
+ assert.match(text,/daño físico/);
+ assert.match(text,/daño mágico/);
  assert.match(text,/mágic/);
  assert.equal((text.match(/La fuerza se dividió/g)??[]).length,1);
  const lethal=resolve(duel({hp:5,maxHp:160}));

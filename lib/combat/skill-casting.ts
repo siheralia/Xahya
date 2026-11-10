@@ -3,6 +3,8 @@ import {legacyShadowCombatNumbers} from "../effects/legacy-modular-shadow.ts";
 import {isComposedSkillEffect} from "../skills/composed-effects.ts";
 import {compileApprovedSupportActivation,type ApprovedSupportActivation} from "./approved-support-activation.ts";
 import {compileApprovedHostileStatus,type ApprovedHostileStatus} from "./approved-hostile-status.ts";
+import {hasHybridDamageChannels,compileApprovedHybridContact,
+ type ApprovedHybridContact} from "./approved-hybrid-contact.ts";
 import {decideModularExecution,type ModularCutoverMode} from "../effects/modular-cutover.ts";
 import {skillEffectMultiplier} from "../skills/pch.ts";
 import {parseConfiguredSkillRange} from "./skill-range.ts";
@@ -29,6 +31,8 @@ export type CombatSkillPlan = {
  approvedActivation?:ApprovedSupportActivation;
  /** D2.4: server-approved status rider, gated by official offensive contact. */
  approvedHostileStatus?:ApprovedHostileStatus;
+ /** D3.2: two separately defended components delivered by ONE melee touch. */
+ approvedHybridContact?:ApprovedHybridContact;
  creationPassive?:{sourceSkillId:number;resistance:VariableResistance};
  /** Executable persistent mirror with one automatic ray per owner's round. */
  mirror?:{rayMultiplier:number;reflectionMultiplier:number;durability:number};
@@ -86,6 +90,30 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
  const effects=Array.isArray(row.effect)?row.effect:[];
  if(effects.length<1||effects.length>20)
   fail("La habilidad necesita efectos configurados válidos.");
+ // D3.2: dual damage remains disabled except for the narrow, paid, reviewed
+ // CONTACT technique. It is delivered by physical melee geometry; magic
+ // shares the same impact but uses its own magical attack/defense and reactions.
+ if(row.category==="OFFENSIVE"&&hasHybridDamageChannels(effects)){
+  const approvedHybridContact=compileApprovedHybridContact(row,cutover);
+  const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
+  if(cooldown&&!["Sin cooldown","Una vez por combate","Igual a duración",
+    "1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(cooldown))
+   fail("Cooldown híbrido no reconocido.");
+  return {
+   id,name:typeof row.name==="string"?row.name.slice(0,120):"Golpe imbuido",
+   cost,requiredParentSkillId,category:"OFFENSE",
+   attackType:"BLUNT",usesMagic:false,approvedHybridContact,
+   rangeMeters:parseConfiguredSkillRange(row.areaOfEffect).rangeMeters!,
+   // Physical multiplier anchors historical cover pressure; the defender
+   // independently resolves both channels after a confirmed melee touch.
+   damageMultiplier:approvedHybridContact.physicalMultiplier,
+   defenseFactor:1,finalMultiplier:1,
+   healing:0,bonuses:[],durationTurns:0,
+   cooldownRounds:cooldownTurns(cooldown,String(row.duration??"")),
+   oncePerCombat:cooldown==="Una vez por combate",
+   executionEngine:"MODULAR",
+  };
+ }
  // A composed hostile status is an ATTACK RIDER, never a free debuff.
  // The authoritative physical/magical pending attack must first damage the
  // opponent's HP after its normal geometry, reaction and interception.
@@ -359,6 +387,7 @@ export function previewSkillExecution(row:Record<string,unknown>,cutover:Modular
     fusion:plan.fusion??null,
     modularSupport:Boolean(plan.approvedActivation),
     modularHostileStatus:Boolean(plan.approvedHostileStatus),
+    hybridContact:plan.approvedHybridContact??null,
    needsAim:plan.category!=="SUPPORT"&&plan.category!=="SUMMON"&&plan.category!=="CHARGE_BUFF"&&plan.category!=="FUSION"&&plan.attackArea?.shape!=="SELF_FIELD",usesMagic:plan.usesMagic===true,
    attackArea:plan.attackArea??null,
    constructionMaterial:plan.construction?.material??null,
@@ -369,6 +398,7 @@ export function previewSkillExecution(row:Record<string,unknown>,cutover:Modular
     fusion:null,
     modularSupport:false,
     modularHostileStatus:false,
+    hybridContact:null,
    needsAim:false,usesMagic:false,attackArea:null,
    disabledReason:e instanceof Error?e.message:"No disponible."};
  }

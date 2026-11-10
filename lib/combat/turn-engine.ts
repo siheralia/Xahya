@@ -3,6 +3,7 @@ import type { CombatAttackType } from "./ticks";
 import type { CombatDefenseType } from "./matchup-types.ts";
 import type { CombatSkillPlan,CombatBuffStat } from "./skill-casting.ts";
 import {resolveDamageChannels} from "./damage-channels.ts";
+import type {ApprovedHybridContact} from "./approved-hybrid-contact.ts";
 import {resolveApprovedHostileStatus,type ResolvedHostileStatus} from "./approved-hostile-status.ts";
 import { geometricContact } from "./geometry.ts";
 import { COMBAT_NARRATIVE_VERSION, narrateCombat } from "./narration.ts";
@@ -85,6 +86,10 @@ export type PendingAttack = {
   skill?: {id:number;name:string;damageMultiplier:number;defenseFactor:number;finalMultiplier:number;damageElement?:string};
   /** D2.4: trusted evaluated intent, never the COMPOSED source graph. */
   hostileStatus?:ResolvedHostileStatus & {id:string};
+  /** D3.2: server-authorized, shared-contact, dual-channel damage split. */
+  hybridContact?:ApprovedHybridContact;
+  /** Public warning without revealing either damage coefficient. */
+  hybridMagicalContact?:boolean;
   /** Autonomous attack from a placed mirror; does not charge an extra action. */
   mirrorId?:string; mirrorAuto?:boolean;
   /** Summoned strike uses entity stats, but owner PA/ticks. */
@@ -110,6 +115,8 @@ export type CombatLog = {
   simultaneousCounter?:boolean;
   /** The amount prevented specifically by the physical/magical defense stat. */
   mitigatedByResistance?:number;
+  /** After all cover, a D3.2 melee attack shows actual channel contributions. */
+  damageChannels?:{physical:number;magical:number};
   materialAttackBonus?:number;
   knockbackMeters?: number; weaponIntegrity?: number; defense?: DefenseChoice;
   attackType?: CombatAttackType; rangedPhysical?: boolean; predictionMatched?: boolean;
@@ -1484,7 +1491,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       throw new Error("Los ataques circulares, las franjas, los conos y los barridos de área no se pueden desviar con una guardia lineal.");
     if (pending.usesMagic && !["DODGE","ENDURE","MAGIC_FIELD","CONSTRUCTION","NONE"].includes(defense))
       throw new Error("Para la explosión mágica básica puedes esquivar, levantar un campo mágico, resistir o no reaccionar.");
-    if (!pending.usesMagic && defense === "MAGIC_FIELD")
+    if (!pending.usesMagic && !pending.hybridContact && defense === "MAGIC_FIELD")
       throw new Error("El campo defensivo mágico solo puede responder a ataques mágicos.");
     // Validate the player's requested defense, not the effective one: when all
     // action ticks are spent the requested dodge is correctly downgraded to
@@ -1508,6 +1515,12 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       fighter.perkIds?.includes(pending.materialPerkBonus.perkId)
         ?pending.materialPerkBonus.attackBonus:0;
     const power = pending.usesMagic ? attacker.magicAttack : attacker.physicalAttack+materialAttackBonus;
+    // A contact barrier receives both forces together. Neither channel may
+    // claim that it passed independently through an unbroken wall.
+    const impactPower=pending.hybridContact
+      ?Math.max(0,power)*pending.hybridContact.physicalMultiplier+
+        Math.max(0,attacker.magicAttack)*pending.hybridContact.magicalMultiplier
+      :power;
     const baseProtection = pending.usesMagic ? fighter.magicDefense : fighter.physicalDefense;
     const protection = baseProtection * microResistanceMultiplier(state,by);
     // The magical field uses its own basic RPS type from the character sheet;
@@ -1579,7 +1592,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     } else if (defense === "MAGIC_FIELD") {
       // Basic defensive field: active reaction, paid AP/ticks, no persistent
       // barrier or mana expenditure until the configurable-skills phase.
-      const effectiveField=Math.max(0,protection)/typeFactor;
+      const magicDefense=pending.hybridContact
+        ?fighter.magicDefense*microResistanceMultiplier(state,by):protection;
+      const magicTypeFactor=pending.hybridContact
+        ?matchupMultiplier(pending.attackType,fighter.magicFieldType??fighter.defenseType):typeFactor;
+      const effectiveField=Math.max(0,magicDefense)/magicTypeFactor;
       const held=rolls.defense < contestChance(effectiveField,attacker.magicAttack);
       damageScale=held ? 0.25 : 0.75;
     } else if(defense==="CONSTRUCTION") {
@@ -1618,14 +1635,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           stats:attacker as unknown as Record<string,number>,
           inputs:{
             ATTACK_SPEED:effectiveCombatSpeed(attacker),
-            INCOMING_DAMAGE:power,
+            INCOMING_DAMAGE:impactPower,
             HP_PERCENT:100*attacker.hp/Math.max(1,attacker.maxHp),
           },
         },
       }).resistance:fighter.magicDefense;
       const previous=block.durability??0;
-      const pressure=Math.max(1,Math.round(power/typeFactor));
-      const held=blockDefense>=power && previous>=pressure;
+      const pressure=Math.max(1,Math.round(impactPower/typeFactor));
+      const held=blockDefense>=impactPower && previous>=pressure;
       block.hitCount=(block.hitCount??0)+1;
       block.durability=Math.max(0,previous-pressure);
       damageScale=held?0:0.5;
@@ -1693,15 +1710,43 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const skill=pending.skill;
     const racialFactor=racialDamageFactor(
       fighter.damageTakenFactors,pending.attackType,pending.usesMagic,skill?.damageElement);
-    // D3.1: every approved skill is calculated by the typed channel model.
-    // This is still ONE fully defended channel per attack. Two-channel skills
-    // remain disabled until a joint reaction and cover policy is implemented.
-    const approvedChannelDamage=skill?resolveDamageChannels([{
+    // D3.2: the first dual attack is a single, measured physical CONTACT.
+    // Both parts share contact/critical/one defender reaction, but each uses
+    // its own base attack, defense, type matchup and racial resistance.
+    // A BLOCK reaction mitigates the physical part; a MAGIC_FIELD mitigates
+    // the magical part. Dodge, deflect, endure, repulsion and solid cover
+    // act on the shared contact. This technique does not emit a magic ray.
+    const hybrid=pending.hybridContact;
+    const approvedChannelDamage=skill?resolveDamageChannels(hybrid?[{
+      kind:"PHYSICAL",
+      power,protection,
+      damageMultiplier:hybrid.physicalMultiplier,
+      defenseFactor:1,finalMultiplier:1,
+      typeFactor,racialFactor:racialDamageFactor(
+        fighter.damageTakenFactors,pending.attackType,false),
+      contact,critical,reactionScale:defense==="MAGIC_FIELD"?1:damageScale,
+    },{
+      kind:"MAGICAL",
+      power:attacker.magicAttack,
+      protection:fighter.magicDefense*microResistanceMultiplier(state,by),
+      damageMultiplier:hybrid.magicalMultiplier,
+      defenseFactor:1,finalMultiplier:1,
+      typeFactor:matchupMultiplier(
+        pending.attackType,fighter.magicFieldType??fighter.defenseType),
+      racialFactor:racialDamageFactor(fighter.damageTakenFactors,pending.attackType,true),
+      contact,critical,reactionScale:defense==="BLOCK"?1:damageScale,
+    }]:[{
       kind:pending.usesMagic?"MAGICAL":"PHYSICAL",
       power,protection,damageMultiplier:skill.damageMultiplier,
       defenseFactor:skill.defenseFactor,finalMultiplier:skill.finalMultiplier,
       typeFactor,racialFactor,contact,critical,reactionScale:damageScale,
     }]):null;
+    let hybridBreakdown=hybrid&&approvedChannelDamage?{
+      physical:approvedChannelDamage.channels[0].damage,
+      magical:approvedChannelDamage.channels[1].damage,
+      unprotectedPhysical:approvedChannelDamage.channels[0].unprotectedDamage,
+      unprotectedMagical:approvedChannelDamage.channels[1].unprotectedDamage,
+    }:undefined;
     // Historical phase-1 basic attacks preserve their bounded old formulas.
     const raw=approvedChannelDamage?.channels[0].raw??(pending.usesMagic
       ?Math.max(1,Math.round((3+5*power/(power+protection+20))*(critical?1.5:1)*typeFactor))
@@ -1734,8 +1779,10 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         :coversAlongStroke(state.constructions,
           fieldPosition(attacker),fieldPosition(fighter),pending.trajectory,exclude);
       if(covers.length){
-        const pressure=Math.max(1,Math.round(Math.max(0,power)*
-          (skill?.damageMultiplier??1)*(skill?.finalMultiplier??1)));
+        const contactPower=hybrid
+          ?impactPower
+          :Math.max(0,power)*(skill?.damageMultiplier??1)*(skill?.finalMultiplier??1);
+        const pressure=Math.max(1,Math.round(contactPower));
         let remainingPressure=pressure;
         let lastCover:typeof covers[number]["block"]|undefined;
         // Every measured cover consumes only what survived earlier covers.
@@ -1819,8 +1866,24 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           }
         }
         const penetration=remainingPressure/pressure;
-        damage=Math.max(0,Math.round(damage*penetration));
-        noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*penetration));
+        if(hybridBreakdown){
+          // The whole infused contact must pass the measured barrier. Do
+          // not let either channel bypass a wall that stopped the strike.
+          hybridBreakdown={
+            physical:Math.max(0,Math.round(hybridBreakdown.physical*penetration)),
+            magical:Math.max(0,Math.round(hybridBreakdown.magical*penetration)),
+            unprotectedPhysical:Math.max(0,Math.round(
+              hybridBreakdown.unprotectedPhysical*penetration)),
+            unprotectedMagical:Math.max(0,Math.round(
+              hybridBreakdown.unprotectedMagical*penetration)),
+          };
+          damage=hybridBreakdown.physical+hybridBreakdown.magical;
+          noResistanceDamage=hybridBreakdown.unprotectedPhysical+
+           hybridBreakdown.unprotectedMagical;
+        }else{
+          damage=Math.max(0,Math.round(damage*penetration));
+          noResistanceDamage=Math.max(0,Math.round(noResistanceDamage*penetration));
+        }
         mitigatedByResistance=Math.max(0,noResistanceDamage-damage);
         if(remainingPressure===0){
           contact=false;critical=false;
@@ -1869,6 +1932,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       :null;
     addLog(state,{kind:"RESOLVE",tick:state.tick,by:pending.by,against:by,damage,critical,
       mitigatedByResistance,contact,knockbackMeters:Math.round(displaced*100)/100,weaponIntegrity:fighter.weaponIntegrity,defense:exchange?"COUNTER":defense,
+      damageChannels:hybridBreakdown?{
+        physical:hybridBreakdown.physical,magical:hybridBreakdown.magical,
+      }:undefined,
       constructionId:pending.mirrorId,mirrorShot:Boolean(pending.mirrorId),
       summonId:pending.summonId,
       mirrorOrigin:pending.mirrorId&&validArenaPoint(pending.trajectory[0])?{...pending.trajectory[0]}:undefined,
@@ -1880,7 +1946,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       rangedPhysical:pending.rangedPhysical,
       predictedCenter:(pending.usesMagic&&defense==="DODGE"||pending.attackArea&&pending.attackArea.shape!=="SELF_FIELD"&&defense==="DODGE"||pending.rangedPhysical&&["DODGE","DEFLECT"].includes(defense))?command.predictedCenter:undefined,
       predictionMatched:validArenaPoint(pending.targetCenter)&&validArenaPoint(command.predictedCenter)?Math.hypot(pending.targetCenter.x-command.predictedCenter.x,pending.targetCenter.y-command.predictedCenter.y)<=(pending.rangedPhysical?0.09:0.19):undefined,
-      summary:physicalCoverLabel
+      summary:hybridBreakdown
+        ?(physicalCoverLabel?physicalCoverLabel+" interceptó el golpe imbuido; ":
+           avoided?fighter.name+" evitó el golpe imbuido; ":
+           attacker.name+" golpeó a "+fighter.name+" con magia imbuida; ")+
+          hybridBreakdown.physical+" físico + "+hybridBreakdown.magical+
+          " mágico = "+damage+" HP"
+        :physicalCoverLabel
         ?physicalCoverLabel+" interceptó la trayectoria; daño al combatiente: "+damage+" HP"
         :mirrorLabel
         ?(avoided?fighter.name+" esquivó el rayo de "+mirrorLabel
@@ -2322,6 +2394,15 @@ export function applyResolvedCombatSkill(
    throw new Error("El barrido alrededor del usuario no permite elegir un objeto como epicentro.");
   if(plan.approvedHostileStatus&&(aim.targetConstructionId||aim.targetSummonId))
    throw new Error("El estado hostil solo puede acompañar un ataque dirigido al rival.");
+  if(plan.approvedHybridContact){
+   if(aim.targetConstructionId||aim.targetSummonId)
+    throw new Error("El golpe imbuido solo puede dirigirse al rival.");
+   if(aim.areaCenter!==undefined||aim.areaAngleDegrees!==undefined||
+      aim.constructionFieldPoint!==undefined)
+    throw new Error("El golpe imbuido utiliza una sola trayectoria física, sin área mágica.");
+   if(!Array.isArray(aim.trajectory)||aim.trajectory.length<2)
+    throw new Error("Dibuja la trayectoria física del golpe imbuido.");
+  }
   next=applyCombatCommand(prepaid,by,{
    kind:"ATTACK",attackType:plan.attackType,usesMagic:plan.usesMagic,
    planarMove:aim.planarMove,movementOrder:aim.movementOrder,
@@ -2340,6 +2421,10 @@ export function applyResolvedCombatSkill(
    defenseFactor:plan.defenseFactor,finalMultiplier:plan.finalMultiplier,
    damageElement:plan.damageElement,
   };
+  if(next.pending&&plan.approvedHybridContact){
+   next.pending.hybridContact={...plan.approvedHybridContact};
+   next.pending.hybridMagicalContact=true;
+  }
   if(next.pending&&plan.approvedHostileStatus){
    const rider=resolveApprovedHostileStatus(plan.approvedHostileStatus,by);
    next.pending.hostileStatus={...rider,
@@ -2349,7 +2434,9 @@ export function applyResolvedCombatSkill(
     x.kind==="ATTACK"&&x.by===by&&x.skillId===plan.id);
   if(event){
    event.skillId=plan.id;event.manaCost=plan.cost;event.skillName=plan.name;
-   if(next.pending)event.summary=next.actors[by].name+" lanzó "+plan.name+"; esperando reacción";
+   if(next.pending)event.summary=next.actors[by].name+" lanzó "+plan.name+
+    (plan.approvedHybridContact?" (golpe físico imbuido con magia)":"")+
+    "; esperando reacción";
    const historical=next.narrativeHistory?.filter(x=>x.kind==="ATTACK"&&x.by===by).at(-1);
    if(historical){historical.skillId=plan.id;historical.manaCost=plan.cost;
     historical.skillName=plan.name;historical.summary=event.summary;}

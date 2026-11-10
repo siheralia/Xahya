@@ -38,6 +38,8 @@ export type CombatSkillPreview = {
  chargeBuff?:ChargeBuffPlan|null;
  modularSupport?:boolean;
  modularHostileStatus?:boolean;
+ /** D3.2: reviewed physical/magical contact split. */
+ hybridContact?:{physicalMultiplier:number;magicalMultiplier:number}|null;
  fusion?:FusionPlan|null;
  needsAim?: boolean;
  attackArea?:CombatAttackArea|null;
@@ -130,7 +132,7 @@ export function projectApprovedCombatSkills(
   );
   // Never advertise a cast that the server will reject. Keep the historic
   // behavior of non-modular skills and skills with no activation row.
-  if((preview?.modularSupport||preview?.modularHostileStatus)&&inactiveIds.has(preview.id))
+  if((preview?.modularSupport||preview?.modularHostileStatus||preview?.hybridContact)&&inactiveIds.has(preview.id))
    return {...preview,executable:false,
     disabledReason:"Esta habilidad modular está desactivada para el personaje."};
   return preview;

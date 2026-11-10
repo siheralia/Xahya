@@ -109,7 +109,7 @@ export default function CombatSkillLoadout({
        const missingAim=Boolean(skill.needsAim)&&(skill.skillKind==="CONSTRUCTION"
          ?!constructionAimReady:skill.attackArea
           ?(preparedAreaSkillId!==skill.id||aimMode!=="MAGIC_AREA"||!magicAimReady)
-          :skill.usesMagic&&(aimMode!=="MAGIC_AREA"||!magicAimReady));
+          :Boolean(skill.usesMagic)&&(aimMode!=="MAGIC_AREA"||!magicAimReady));
        const availableCharges=skill.chargeBuff&&chargeState?
          combatChargeBalance(chargeState,side,skill.chargeBuff.accumulator):0;
        const selectedCharges=chargeChoices[skill.id]??skill.chargeBuff?.minCharges??1;

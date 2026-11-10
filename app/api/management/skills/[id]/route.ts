@@ -1,5 +1,6 @@
 import { validEffectRequirements, effectRequirementDiscount, meetsEffectRequirements } from "@/lib/skills/effect-requirements";
 import {validateComposedSkillList,isComposedSkillEffect} from "@/lib/skills/composed-effects";
+import {modularApprovedEditError,hasComposedEffects} from "@/lib/skills/modular-approval-lock";
 import {configuredSkillEffectPch} from "@/lib/skills/configured-effect-pricing";
 import {defaultEffectPricing} from "@/lib/skills/pch";
 import {readEffectPricing} from "@/lib/effects/pricing";
@@ -63,14 +64,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const nextCondition = typeof body.condition === "string" ? body.condition.trim() : (skill.condition ?? null);
   const effect = Array.isArray(body.effect) ? body.effect : (Array.isArray(skill.effect) ? skill.effect : []);
   const hasComposed=effect.some(isComposedSkillEffect);
+  const hadComposed=hasComposedEffects(skill.effect);
+  const modularPriceSensitive=hasComposed||hadComposed;
   if(hasComposed && body.reject!==true) {
     const anyReviewed=effect.some((row:unknown)=>isComposedSkillEffect(row)&&row.reviewedPch!==undefined);
     const problem=validateComposedSkillList(effect,body.approve===true||anyReviewed?"REVIEW":"PLAYER");
     if(problem)return NextResponse.json({error:problem},{status:400});
-    // Editing an approved skill may not silently activate new unreviewed modules.
-    if(body.approve!==true && skill.status==="APPROVED" &&
-      JSON.stringify(effect)!==JSON.stringify(skill.effect))
-      return NextResponse.json({error:"Para cambiar efectos modulares aprobados, vuelve a aprobar y revisar su costo."},{status:400});
   }
   if (!name || name.length > 120 || !description || !Number.isInteger(cost) || cost < 0 || !Number.isInteger(maintenanceCost) || maintenanceCost < 0 || !Number.isInteger(accumulationCost) || accumulationCost < 0 || !Number.isInteger(accumulationPerTick) || accumulationPerTick < 0) {
     return NextResponse.json({ error: "Datos de habilidad inválidos." }, { status: 400 });
@@ -84,14 +83,45 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if(mechanicError)return NextResponse.json({error:mechanicError},{status:400});
   const available = await Skill.where({characterId:Number(skill.characterId)}).all();
 
+  if(body.maxRangeMeters!==undefined&&
+    (!Number.isSafeInteger(body.maxRangeMeters)||body.maxRangeMeters<0||body.maxRangeMeters>100))
+    return NextResponse.json({error:"Distancia máxima inválida."},{status:400});
+  const nextDuration=typeof body.duration==="string"?body.duration.trim()||null:(skill.duration??null);
+  const nextCooldown=typeof body.cooldown==="string"?body.cooldown.trim()||null:(skill.cooldown??null);
+  const nextSpeed=typeof body.speed==="string"?body.speed.trim()||null:(skill.speed??null);
+  const nextAttackType=Object.prototype.hasOwnProperty.call(body,"attackType")
+    ?normalizeSkillCombatType(body.attackType):(skill.attackType??null);
+  const nextDefenseType=Object.prototype.hasOwnProperty.call(body,"defenseType")
+    ?normalizeSkillCombatType(body.defenseType):(skill.defenseType??null);
+  const nextAreaOfEffect=body.maxRangeMeters!==undefined||typeof body.areaOfEffect==="string"
+    ?serializeSkillRange(typeof body.areaOfEffect==="string"?body.areaOfEffect:skill.areaOfEffect,
+      body.maxRangeMeters??parseConfiguredSkillRange(skill.areaOfEffect).rangeMeters??5)
+    :(skill.areaOfEffect??null);
   const requestedPchCost = body.pchCost === undefined ? Number((skill as any).pchCost ?? 0) : Number(body.pchCost);
   if (!Number.isInteger(requestedPchCost) || requestedPchCost < 0) return NextResponse.json({ error: "Costo PCH inválido." }, { status: 400 });
+  const modularPriceAction=body.approve===true?"approve":body.reject===true?"reject":"edit";
+  const proposedModularSnapshot={
+    status:skill.status,effect,mechanics,effectRequirements,cost,
+    maintenanceCost,accumulationCost,accumulationPerTick,category,
+    duration:nextDuration,cooldown:nextCooldown,speed:nextSpeed,
+    areaOfEffect:nextAreaOfEffect,attackType:nextAttackType,
+    defenseType:nextDefenseType,condition:nextCondition||null,
+    pchCost:requestedPchCost,
+  };
+  const storedModularSnapshot={
+    ...skill,effect:skill.effect??[],mechanics:skill.mechanics??{},
+    effectRequirements:skill.effectRequirements??[],
+  };
+  const modularEditError=modularApprovedEditError(
+    storedModularSnapshot,proposedModularSnapshot,modularPriceAction);
+  if(modularEditError)
+    return NextResponse.json({error:modularEditError},{status:400});
   // A provisional quote is not a charge authorization. For modular skills,
   // only the approval action may reconcile a revised total with player PCH.
-  if(hasComposed && body.approve!==true && body.reject!==true &&
+  if(modularPriceSensitive && body.approve!==true && body.reject!==true &&
     requestedPchCost!==Number((skill as any).pchCost??0))
     return NextResponse.json({error:"El PCH modular definitivo se liquida al aprobar la habilidad; guarda el resto sin alterar el costo."},{status:400});
-  if(body.approve===true && hasComposed) {
+  if(body.approve===true && modularPriceSensitive) {
     // A player's provisional reservation NEVER counts as an admin-reviewed price.
     const pricing={...defaultEffectPricing(),...await readEffectPricing()};
     const cards=await readNarrativeEffectCards();
@@ -134,6 +164,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (locked !== 1) throw new Error("SKILL_NOT_FOUND");
       const freshSkill = await TxSkill.where({ id }).first();
       if (!freshSkill) throw new Error("SKILL_NOT_FOUND");
+      // If a concurrent approval installed COMPOSED after our initial read,
+      // the first pricing pass did not have that context: fail closed.
+      if(approve&&!modularPriceSensitive&&hasComposedEffects(freshSkill.effect))
+        throw new Error("MODULAR_PCH_REAPPROVAL");
+      // Recheck after row locking: another editor may have approved or
+      // modified the graph between the first read and this transaction.
+      if(modularApprovedEditError({
+        ...freshSkill,effect:freshSkill.effect??[],mechanics:freshSkill.mechanics??{},
+        effectRequirements:freshSkill.effectRequirements??[],
+      },proposedModularSnapshot,modularPriceAction))
+        throw new Error("MODULAR_PCH_REAPPROVAL");
 
       const oldPchCost = Number(freshSkill.pchCost ?? 0);
       const shouldRefund = reject && String(freshSkill.status) !== "REJECTED";
@@ -145,7 +186,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           UPDATE public."character"
           SET "pchBalance" = "pchBalance" + ${difference}
           WHERE id = ${Number(freshSkill.characterId)}
-            AND "pchBalance" + ${difference} BETWEEN ${hasComposed ? 0 : -2147483648} AND 2147483647
+            AND "pchBalance" + ${difference} BETWEEN ${modularPriceSensitive||hasComposedEffects(freshSkill.effect) ? 0 : -2147483648} AND 2147483647
         `.affectedCount().build();
         const { affectedRows } = await tx.execute(adjust);
         if (affectedRows !== 1) throw new Error(hasComposed ? "PCH_INSUFFICIENT" : "PCH_ADJUST_CONFLICT");
@@ -163,16 +204,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         accumulationCost,
       accumulationPerTick,
         description,
-        duration: typeof body.duration === "string" ? body.duration.trim() || null : (freshSkill.duration ?? null),
+        duration: nextDuration,
         category,
-        attackType: Object.prototype.hasOwnProperty.call(body,"attackType") ? normalizeSkillCombatType(body.attackType) : (freshSkill.attackType??null),
-        defenseType: Object.prototype.hasOwnProperty.call(body,"defenseType") ? normalizeSkillCombatType(body.defenseType) : (freshSkill.defenseType??null),
-        areaOfEffect: body.maxRangeMeters!==undefined||typeof body.areaOfEffect==="string"
-          ?serializeSkillRange(typeof body.areaOfEffect==="string"?body.areaOfEffect:freshSkill.areaOfEffect,
-             body.maxRangeMeters??parseConfiguredSkillRange(freshSkill.areaOfEffect).rangeMeters??5)
-          :(freshSkill.areaOfEffect??null),
-        speed: typeof body.speed === "string" ? body.speed.trim() || null : (freshSkill.speed ?? null),
-        cooldown: typeof body.cooldown === "string" ? body.cooldown.trim() || null : (freshSkill.cooldown ?? null),
+        attackType: nextAttackType,
+        defenseType: nextDefenseType,
+        areaOfEffect: nextAreaOfEffect,
+        speed: nextSpeed,
+        cooldown: nextCooldown,
         effect,
         condition: nextCondition || null,
         status: approve ? "APPROVED" : reject ? "REJECTED" : String(freshSkill.status),
@@ -194,6 +232,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updated = result;
   } catch (error) {
     console.error("[management/skills] PATCH failed", error);
+    if (error instanceof Error && error.message === "MODULAR_PCH_REAPPROVAL")
+      return NextResponse.json({error:"La habilidad modular fue modificada o aprobada durante la edición. Revisa su precio PCH y vuelve a aprobarla."},{status:400});
     if (error instanceof Error && error.message === "SKILL_NOT_FOUND") {
       return NextResponse.json({ error: "Habilidad no encontrada." }, { status: 404 });
     }

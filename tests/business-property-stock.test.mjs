@@ -7,7 +7,7 @@ const property=source("app/api/businesses/property/route.ts");
 const businesses=source("app/api/businesses/route.ts");
 const page=source("app/businesses/page.tsx");
 
-test("property buying uses the database default timestamp rather than an unsupported JS date",()=>{
+test("property buying uses the database default timestamp rather than an explicit JS Date",()=>{
   assert.match(property,/const property=await CP\.create\(\{characterId,itemId:Number\(item.id\),businessId:Number\(business.id\),purchasePrice:price\}\)/);
   assert.doesNotMatch(property,/createdAt:new Date\(\)/);
   assert.match(property,/Number\.isSafeInteger\(price\)/);

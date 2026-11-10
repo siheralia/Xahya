@@ -164,6 +164,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (locked !== 1) throw new Error("SKILL_NOT_FOUND");
       const freshSkill = await TxSkill.where({ id }).first();
       if (!freshSkill) throw new Error("SKILL_NOT_FOUND");
+      // If a concurrent approval installed COMPOSED after our initial read,
+      // the first pricing pass did not have that context: fail closed.
+      if(approve&&!modularPriceSensitive&&hasComposedEffects(freshSkill.effect))
+        throw new Error("MODULAR_PCH_REAPPROVAL");
       // Recheck after row locking: another editor may have approved or
       // modified the graph between the first read and this transaction.
       if(modularApprovedEditError({

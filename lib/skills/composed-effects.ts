@@ -78,11 +78,12 @@ export function previewComposedEffectBasePch(
  const module=row.module;
  const error=validateEffectContainers([module]);
  const gross=row.reviewedPch??Math.max(1,pricedModularStepCount(module)*MODULE_DEPOSIT_PER_STEP);
- const candidate=error?gross:(
+ const validBase=Number.isSafeInteger(gross)&&gross>0&&gross<=100000;
+ const candidate=error||!validBase?gross:(
    row.reviewedPch===undefined||row.restrictionPricing==="V1"||options?.forApproval
    ?microRestrictionQuote(module,gross).finalPch:gross);
  const amount=Number.isSafeInteger(candidate)&&candidate>0&&candidate<=100000?candidate:1;
- return {amount,error:error??(!Number.isSafeInteger(candidate)||candidate<1||candidate>100000?"PCH modular inválido.":null)};
+ return {amount,error:error??(!validBase||!Number.isSafeInteger(candidate)||candidate<1||candidate>100000?"PCH modular inválido.":null)};
 }
 export function composedEffectBasePch(row:ComposedSkillEffect):number {
  const err=validateEffectContainers([row.module]);

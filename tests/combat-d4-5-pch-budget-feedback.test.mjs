@@ -57,6 +57,7 @@ test("D4.5: UI exposes affordability, provisional review and mobile-safe dialog"
  const modal=readFileSync(new URL("../components/skills/SkillFormModal.tsx",import.meta.url),"utf8");
  const character=readFileSync(new URL("../app/characters/[id]/page.tsx",import.meta.url),"utf8");
  const management=readFileSync(new URL("../app/management/skills/page.tsx",import.meta.url),"utf8");
+ const effects=readFileSync(new URL("../components/skills/SkillEffectsEditor.tsx",import.meta.url),"utf8");
  assert.match(modal,/quoteSkillPchBudget\(pch\)/);
  assert.match(modal,/Una moneda de creación aporta 10 PCH/);
  assert.match(modal,/Una moneda de mejora aporta 5 PCH/);
@@ -68,6 +69,7 @@ test("D4.5: UI exposes affordability, provisional review and mobile-safe dialog"
  assert.match(modal,/overflow-x-hidden/);
  for(const code of [character,management])
   assert.match(code,/provisional:\w+\.effect\.some\(e=>e\.type==="COMPOSED"/);
+ assert.match(effects,/su descuento se redondea a 0 PCH/);
  assert.match(character,/balance:pchBalance/);
  assert.match(character,/pchBalance < \(upgradingSkill\?/);
 });

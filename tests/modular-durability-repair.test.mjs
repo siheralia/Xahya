@@ -150,8 +150,10 @@ test("React Flow, the builder, and Spanish help expose the item and amount socke
  assert.match(flow,/case "REPAIR_DURABILITY"/);
  assert.match(flow,/id:"target",label:"Objeto"/);
  assert.match(flow,/id:"amount",label:"Cantidad"/);
- assert.match(flow,/sourceType===targetType/);
- assert.match(flow,/REPAIR_DURABILITY"&&link.targetHandle==="target"\?"ITEM"/);
+ assert.match(flow,/describeConnection\(indexOfNode\(link\.source\)/);
+ assert.match(flow,/REPAIR_DURABILITY"&&port\.id==="target"\?"ITEM"/);
+ const feedback=src("lib/effects/micro-connection-feedback.ts");
+ assert.match(feedback,/choice\.sourceKind!==port\.kind/);
  assert.match(builder,/REPAIR_TARGET_SELECTORS/);
  assert.match(builder,/availableItemOutputs/);
  assert.match(builder,/Reparación con objetivo y cantidad conectados/);

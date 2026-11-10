@@ -2010,10 +2010,20 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           ?attacker.name+(contact?" alcanzó a ":" no alcanzó a ")+fighter.name+
             " con su ataque circular de "+pending.attackArea.radiusMeters+" m de radio ("+damage+" HP)"
           :attacker.name + (pending.usesMagic?" acertó con su explosión mágica a ":" impactó a ") + fighter.name + " (" + damage + " HP)"});
+    // D3.4: an imbued COMPOSED rider needs HP lost specifically from the
+    // channel selected when the SKILL was approved. Physical contact alone
+    // cannot fire a magical rider, nor can magical HP fire a physical rider.
+    // Historical one-channel riders still use the original actual HP gate.
+    const riderChannel=pending.hybridContact?.statusChannel;
+    const riderChannelHit=pending.hybridContact
+      ?riderChannel==="PHYSICAL"?(hpDamageChannels?.physical??0)>0
+       :riderChannel==="MAGICAL"?(hpDamageChannels?.magical??0)>0
+       :false
+      :true;
     // This rider is resolved AFTER the ordinary attack result is logged, so
     // the encounter chronicle narrates impact before its consequence.
     // No actual lost HP means no debuff: blocked, dodged, or missed attacks.
-    if(pending.hostileStatus&&contact&&actualHpDamage>0){
+    if(pending.hostileStatus&&contact&&actualHpDamage>0&&riderChannelHit){
       const rider=pending.hostileStatus;
       applySummonStatus(state,{
         id:rider.id,sourceSummonId:"SKILL:"+pending.skill!.id,
@@ -2025,7 +2035,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         skillId:pending.skill?.id,skillName:pending.skill?.name,
         contact:true,summary:attacker.name+" debilitó a "+fighter.name+
           " con "+(pending.skill?.name??"su habilidad")+
-          " después de causarle daño."});
+          " después de causarle daño"+
+          (riderChannel==="PHYSICAL"?" físico":
+           riderChannel==="MAGICAL"?" mágico":"")+"."});
     }
     // A mirror reflects only when a REAL area touches it. In particular an
     // approved single-target skill or mirror ray must never inherit the basic

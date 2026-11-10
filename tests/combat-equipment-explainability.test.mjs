@@ -180,7 +180,8 @@ test("UI audit: disabled actions have explanations and no fabricated manual repa
  assert.match(page,/disabled=\{!canExecuteAttack\(\)\}/);
  assert.match(page,/El objetivo sigue fuera de alcance/);
  assert.match(page,/Necesitas 2 PA para combinar/);
- assert.match(read("app/combat/[id]/CombatSkillLoadout.tsx"),/Maná insuficiente/);
+ assert.match(read("app/combat/[id]/CombatSkillLoadout.tsx"),/combatSkillBlockers\(skill/);
+ assert.match(read("lib/combat/skill-cast-feedback.ts"),/Maná insuficiente/);
  assert.match(page,/defending\?" Elige cómo responder/);
  assert.match(page,/panel==="skills"/);
  assert.match(panel,/No hay un botón de reparación manual/);

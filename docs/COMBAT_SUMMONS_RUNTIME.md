@@ -34,3 +34,37 @@ Siete módulos `SUMMON_ENTITY` de 30 maná, mantenimiento 20, duración 2 turnos
 
 ## Seguridad
 Las definiciones se recompilan desde el registro de habilidad aprobado dentro de la transacción bloqueada. El cliente solo aporta el ID de la habilidad, el ID de criatura existente y una orden. El servidor verifica propiedad de la criatura, coste, iniciativa, posición, geometría, tipo de ataque y disponibilidad del comportamiento.
+
+
+## Ampliación: autonomía, acompañamiento y elección individual de objetivos
+
+Las criaturas con modo `ATTACK`, `FOLLOW` o `PROTECT` tienen un reloj de acción
+independiente de los PA del invocador. El servidor resuelve como máximo una
+acción por criatura en cada actualización autorizada, una vez alcanzados
+sus ticks propios y respetando sus PA de ronda. No hay temporizadores del
+navegador ni efectos de ataques fuera de una transacción de combate.
+
+- `ATTACK`: se aproxima al enemigo asignado y golpea desde 1,5 m. Si el
+  objetivo es un combatiente, conserva la reacción habitual. Si es una
+  criatura enemiga, desgasta su integridad y sus impactos.
+- `FOLLOW`: acompaña al dueño a distancia de contacto y aplica únicamente
+  efectos aprobados con destino `USER` y disparador de contacto. Un estado
+  activo de la misma fuente/estadística no se vuelve a acumular.
+- `PROTECT`: por ahora sigue al propietario; la intercepción automática
+  requiere su propio micromódulo y **no** se concede implícitamente.
+- `HOLD` y `MANUAL`: no ejecutan acciones autónomas.
+- Cambiar modo, asignar un objetivo o dar una orden explícita continúa
+  costando 1 PA y los ticks del invocador. Las acciones espontáneas usan el
+  presupuesto propio de cada criatura.
+- Los objetivos se verifican en servidor: combatiente rival o una invocación
+  enemiga viva presente en el encuentro. Cada criatura tiene su objetivo
+  independiente. No se permite elegir a un aliado como blanco ofensivo.
+- Los encuentros antiguos sin reloj propio se incorporan a partir del
+  siguiente slot de tiempo; nunca reciben turnos retroactivos.
+- La cámara de vista superior incluye las criaturas activas al calcular
+  su encuadre automático.
+
+**Límite actual:** el motor mantiene dos combatientes principales (`PLAYER`
+y `NPC`). Esta ampliación no crea combates con varios personajes enemigos
+ni inventa blancos adicionales: para esa capacidad debe ampliarse el modelo
+de participantes y la resolución de reacciones.

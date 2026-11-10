@@ -1069,6 +1069,14 @@ function resolveSummonContact(state:CombatState,summon:CombatSummon,params:{
    }
  }
 }
+/** An explicit paid command also occupies the creature's own next slot:
+ * it cannot get a second, automatic hit at the same logical tick. */
+function recordManualSummonAction(state:CombatState,summon:CombatSummon):void {
+ if(summon.autoRound!==state.round){summon.autoRound=state.round;summon.autoSpentAp=0;}
+ summon.autoSpentAp=(summon.autoSpentAp??0)+1;
+ const pace=Math.max(1,turnTicks(summonAsFighter(summon,state.actors[summon.owner])));
+ summon.autoNextTick=Math.max(state.tick,summon.autoNextTick??state.tick)+pace;
+}
 function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{kind:"COMMAND_SUMMON"}>,rolls:{hit:number;critical:number;defense:number}):void {
   const summon=state.summons?.find(s=>s.id===command.summonId&&s.owner===by);
   if(!summon)throw new Error("No controlas esa invocación o ha desaparecido.");
@@ -1125,6 +1133,7 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
     }
     spend(owner,turnTicks(owner));
     state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    recordManualSummonAction(state,summon);
     addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
       summary:summon.label+(distance>0?" se movió "+distance.toFixed(2)+" m.":" alcanzó su posición de apoyo.")});
     advanceRoundIfComplete(state);return;
@@ -1149,6 +1158,7 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
     if(!hostile)validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
     spend(owner,turnTicks(owner));
     state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    recordManualSummonAction(state,summon);
     if(hostile){
       hitHostileSummon(state,summon,hostile,rolls);
       advanceRoundIfComplete(state);return;
@@ -1172,6 +1182,7 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
       validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
     spend(owner,turnTicks(owner));
     state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    recordManualSummonAction(state,summon);
     if(near)resolveSummonContact(state,summon,{
       target,contact:true,hpDamage:0,randomRoll:rolls.hit,
       chosenStat:command.chosenStat,chosenStatusId:command.chosenStatusId,

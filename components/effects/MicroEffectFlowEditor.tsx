@@ -7,6 +7,7 @@ import {
 } from "@xyflow/react";
 import type {EffectContainer,MicroStep,NumericExpr} from "@/lib/effects/micro-modules";
 import {friendlyMicroKey,MICRO_OPERATOR_LABELS} from "@/lib/effects/micro-labels";
+import {explainMicroConnection,type MicroPortKind} from "@/lib/effects/micro-connection-feedback";
 
 type Port={id:string;label:string;expr?:NumericExpr;kind?:"NUMBER"|"ITEM"|"TARGET"|"STAT"};
 type GraphNode=Node<{
@@ -60,6 +61,8 @@ const inputsOf=(step:MicroStep):Port[]=>{
   default:return [];
  }
 };
+const portKind=(step:MicroStep,port:Port):MicroPortKind=>
+ port.kind??(step.kind==="REPAIR_DURABILITY"&&port.id==="target"?"ITEM":"NUMBER");
 const exprLabel=(v:NumericExpr|undefined|null):string=>{
   if(v===undefined)return "Automático";
   if(v===null||(typeof v!=="number"&&typeof v!=="object"))return "Valor incompleto";
@@ -189,6 +192,10 @@ export function MicroEffectFlowEditor({
 }){
  const [positions,setPositions]=useState<Record<string,{x:number;y:number}>>({});
  const [mobile,setMobile]=useState(false);
+ const [connectionFrom,setConnectionFrom]=useState("");
+ const [connectionTo,setConnectionTo]=useState("");
+ const [connectionPort,setConnectionPort]=useState("");
+ const [connectionFeedback,setConnectionFeedback]=useState("");
  useEffect(()=>{
   const mq=window.matchMedia("(max-width: 640px)");
   const update=()=>setMobile(mq.matches);
@@ -242,14 +249,19 @@ export function MicroEffectFlowEditor({
    return next;
   });
  },[]);
- const validLink=useCallback((link:Connection | Edge)=>{
-  const from=indexOfNode(link.source),to=indexOfNode(link.target);
-  const sourceType=from>=0?outputKindOf(value.steps[from]):null;
-  const receiver=to>=0?inputsOf(value.steps[to]).find(p=>p.id===link.targetHandle):undefined;
-  const targetType=receiver?.kind??(to>=0&&value.steps[to]?.kind==="REPAIR_DURABILITY"&&link.targetHandle==="target"?"ITEM":"NUMBER");
-  return !readOnly&&from>=0&&to>from&&to<value.steps.length&&
-   Boolean(outputOf(value.steps[from]))&&Boolean(receiver)&&sourceType===targetType;
+ const describeConnection=useCallback((from:number,to:number,portId:string|null)=>{
+  const fromStep=value.steps[from],toStep=value.steps[to];
+  return explainMicroConnection({
+   readOnly,sourceIndex:from,sourceOutput:fromStep?outputOf(fromStep):null,
+   sourceKind:fromStep?outputKindOf(fromStep):null,targetIndex:to,
+   targetPorts:toStep?inputsOf(toStep).map(port=>({
+    id:port.id,label:port.label,kind:portKind(toStep,port),
+   })):[],portId,
+  });
  },[readOnly,value.steps]);
+ const validLink=useCallback((link:Connection | Edge)=>
+  describeConnection(indexOfNode(link.source),indexOfNode(link.target),link.targetHandle)===null,
+ [describeConnection]);
  const onConnect=useCallback((link:Connection)=>{
   if(!validLink(link))return;
   const from=indexOfNode(link.source),to=indexOfNode(link.target);
@@ -257,6 +269,7 @@ export function MicroEffectFlowEditor({
   if(!out)return;
   const steps=value.steps.map((step,i)=>i===to?wire(step,String(link.targetHandle),{source:"OUTPUT",key:out}):step);
   onChange({...value,steps});
+  setConnectionFeedback("Conexión añadida. Revisa el valor conectado antes de guardar.");
  },[value,onChange,validLink]);
  const onEdgesDelete=useCallback((deleted:Edge[])=>{
   if(readOnly)return;
@@ -267,6 +280,34 @@ export function MicroEffectFlowEditor({
   }
   onChange({...value,steps:next});
  },[readOnly,value,onChange]);
+ const outputChoices=value.steps.flatMap((step,index)=>outputOf(step)?[{index,label:display(step).title+" · "+friendlyMicroKey(outputOf(step)!)}]:[]);
+ const inputChoices=value.steps.flatMap((step,index)=>inputsOf(step).length?[{index,label:display(step).title}]:[]);
+ const selectedFrom=outputChoices.some(item=>String(item.index)===connectionFrom)
+  ?Number(connectionFrom):(outputChoices[0]?.index??-1);
+ const selectedTo=inputChoices.some(item=>String(item.index)===connectionTo)
+  ?Number(connectionTo):(inputChoices.find(item=>item.index>selectedFrom)?.index??inputChoices[0]?.index??-1);
+ const ports=selectedTo>=0?inputsOf(value.steps[selectedTo]):[];
+ const selectedPort=ports.some(port=>port.id===connectionPort)?connectionPort:(ports[0]?.id??"");
+ const connectionProblem=describeConnection(selectedFrom,selectedTo,selectedPort);
+ const addChosenConnection=()=>{
+  if(connectionProblem){setConnectionFeedback(connectionProblem);return;}
+  onConnect({source:nodeId(selectedFrom),sourceHandle:"value",
+   target:nodeId(selectedTo),targetHandle:selectedPort});
+ };
+ const onConnectEndMessage=(state:{isValid:boolean|null;fromHandle:{nodeId:string;id:string|null;type:string}|null;
+  toHandle:{nodeId:string;id:string|null;type:string}|null})=>{
+  if(state.isValid)return;
+  const source=state.fromHandle?.type==="source"?state.fromHandle:
+   state.toHandle?.type==="source"?state.toHandle:null;
+  const target=state.fromHandle?.type==="target"?state.fromHandle:
+   state.toHandle?.type==="target"?state.toHandle:null;
+  if(!source||!target){
+   setConnectionFeedback("No se completó la conexión. Suelta la línea en una entrada o utiliza el asistente inferior.");
+   return;
+  }
+  setConnectionFeedback(describeConnection(indexOfNode(source.nodeId),
+   indexOfNode(target.nodeId),target.id)??"No se pudo completar la conexión. Usa el asistente inferior.");
+ };
  return <section className="min-w-0 space-y-2">
    <div className="flex flex-wrap items-center justify-between gap-2">
     <div>
@@ -281,6 +322,7 @@ export function MicroEffectFlowEditor({
      <ReactFlow key={value.id+"-"+value.steps.length}
        nodes={graph.nodes} edges={graph.edges} nodeTypes={nodeTypes}
        onNodesChange={onNodesChange} onConnect={onConnect} onEdgesDelete={onEdgesDelete}
+       onConnectEnd={(_event,state)=>onConnectEndMessage(state)}
        onNodeClick={(_event,node)=>onEditStep?.(indexOfNode(node.id))}
        colorMode="dark" fitView fitViewOptions={{padding:0.16}}
        minZoom={0.22} maxZoom={1.8} nodesConnectable={!readOnly} edgesReconnectable={false}
@@ -290,6 +332,46 @@ export function MicroEffectFlowEditor({
        <Controls showInteractive={false}/>
      </ReactFlow>
    </div>
-   {!readOnly&&<p className="text-xs text-zinc-500">Solo se permiten salidas de módulos anteriores. Al eliminar una conexión, el valor se restablece y debe revisarse. El servidor valida todas las referencias.</p>}
+   {!readOnly&&<>
+    <details className="min-w-0 rounded-lg border border-zinc-700 bg-zinc-900/60 p-3">
+     <summary className="cursor-pointer text-sm font-semibold text-cyan-200">Conectar módulos sin arrastrar (móvil y teclado)</summary>
+     <p className="mt-2 text-xs text-zinc-300">Elige de dónde sale el resultado y dónde quieres usarlo. Solo se conectan entradas compatibles de módulos posteriores.</p>
+     <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-3">
+      <label className="min-w-0 text-xs text-zinc-300">1. Módulo de origen
+       <select className="mt-1 w-full min-w-0 rounded-lg border border-zinc-600 bg-zinc-950 p-2 text-sm text-zinc-100"
+        value={selectedFrom<0?"":String(selectedFrom)}
+        onChange={event=>{setConnectionFrom(event.target.value);setConnectionFeedback("");}}>
+        {outputChoices.length===0&&<option value="">Sin salidas disponibles</option>}
+        {outputChoices.map(item=><option key={item.index} value={item.index}>{item.index+1}. {item.label}</option>)}
+       </select>
+      </label>
+      <label className="min-w-0 text-xs text-zinc-300">2. Módulo de destino
+       <select className="mt-1 w-full min-w-0 rounded-lg border border-zinc-600 bg-zinc-950 p-2 text-sm text-zinc-100"
+        value={selectedTo<0?"":String(selectedTo)}
+        onChange={event=>{setConnectionTo(event.target.value);setConnectionPort("");setConnectionFeedback("");}}>
+        {inputChoices.length===0&&<option value="">Sin entradas disponibles</option>}
+        {inputChoices.map(item=><option key={item.index} value={item.index}>{item.index+1}. {item.label}</option>)}
+       </select>
+      </label>
+      <label className="min-w-0 text-xs text-zinc-300">3. Entrada que recibirá el dato
+       <select className="mt-1 w-full min-w-0 rounded-lg border border-zinc-600 bg-zinc-950 p-2 text-sm text-zinc-100"
+        value={selectedPort}
+        onChange={event=>{setConnectionPort(event.target.value);setConnectionFeedback("");}}>
+        {ports.length===0&&<option value="">Sin entradas disponibles</option>}
+        {ports.map(port=><option key={port.id} value={port.id}>{port.label} ({{
+         NUMBER:"valor",ITEM:"objeto",TARGET:"objetivo",STAT:"estadística"
+        }[portKind(value.steps[selectedTo],port)]})</option>)}
+       </select>
+      </label>
+     </div>
+     <p role="status" aria-live="polite" className={"mt-2 text-xs "+(connectionProblem?"text-amber-300":"text-emerald-300")}>
+      {connectionProblem??"Conexión compatible. Puedes añadirla; todavía se validará al guardar."}
+     </p>
+     <button type="button" onClick={addChosenConnection}
+      className="mt-3 rounded-lg border border-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-200">Conectar selección</button>
+    </details>
+    {connectionFeedback&&<p role="status" aria-live="polite" className="rounded-lg border border-amber-700/40 p-2 text-xs text-amber-200">{connectionFeedback}</p>}
+    <p className="text-xs text-zinc-500">Solo se permiten salidas de módulos anteriores. Al reemplazar o borrar una conexión, revisa su valor. El servidor valida todas las referencias y el PCH antes de aprobar.</p>
+   </>}
  </section>;
 }

@@ -60,9 +60,12 @@ export type MicroRestrictionQuote={
  * -> subsequent effectful actions. Conditional or decorative checks pay nothing.
  * The low HP condition is equally executable by the server. Discounts never
  * apply to previous actions, never stack by duplicating gates, and never make
- * a paid effect free. Rounding is toward zero.
+ * a paid effect free. V1 preserves old floor rounding; V2 grants a whole
+ * PCH for meaningful low-cost restrictions while respecting the 30% cap.
  */
-export function microRestrictionQuote(effect:EffectContainer,grossPch:number):MicroRestrictionQuote{
+export function microRestrictionQuote(
+ effect:EffectContainer,grossPch:number,version:"V1"|"V2"="V2",
+):MicroRestrictionQuote{
  const steps=Array.isArray(effect?.steps)?effect.steps:[];
  const paid=pricedMicroStepCount(effect);
  const seenOpponentTarget=new Set<string>();
@@ -95,13 +98,22 @@ export function microRestrictionQuote(effect:EffectContainer,grossPch:number):Mi
  }
  const validGross=Number.isSafeInteger(grossPch)&&grossPch>0?grossPch:1;
  const divisor=100*Math.max(1,paid);
- const contactDiscountPch=Math.floor(validGross*contactWeight/divisor);
- const lowHealthDiscountPch=Math.floor(validGross*(contactWeight+lowHpWeight)/divisor)-contactDiscountPch;
- const discountPch=Math.min(validGross-1,contactDiscountPch+lowHealthDiscountPch);
+ const rawContact=validGross*contactWeight/divisor;
+ const rawTotal=validGross*(contactWeight+lowHpWeight)/divisor;
+ // Old V1 approvals must retain their stored total; never silently reprice.
+ // New V2 reviews round a meaningful saving up, but never above 30% of base.
+ const roundedTotal=version==="V1"?Math.floor(rawTotal):Math.ceil(rawTotal);
+ const discountPch=Math.min(
+   validGross-1,
+   version==="V1"?validGross-1:Math.floor(validGross*PER_ACTION_DISCOUNT_CAP/100),
+   roundedTotal,
+ );
+ const contactDiscountPch=Math.min(discountPch,
+   version==="V1"?Math.floor(rawContact):Math.ceil(rawContact));
  const finalPch=validGross-discountPch;
  return {grossPch:validGross,
-  contactDiscountPch:Math.min(discountPch,contactDiscountPch),
-  lowHealthDiscountPch:discountPch-Math.min(discountPch,contactDiscountPch),
+  contactDiscountPch,
+  lowHealthDiscountPch:discountPch-contactDiscountPch,
   discountPch,finalPch,pricedActions:paid,
   contactGatedActions,lowHpGatedActions};
 }

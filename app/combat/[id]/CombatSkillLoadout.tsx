@@ -137,9 +137,11 @@ export default function CombatSkillLoadout({
        return <div className="space-y-2">
         {skill.modularHostileStatus&&<p className="rounded-lg border border-amber-600/40 bg-amber-950/20 p-3 text-xs text-amber-200">
          <b>Debilitamiento modular por impacto.</b> Este estado solo afecta al rival si
-         el ataque {skill.usesMagic?"mágico":"físico"} supera su reacción y causa
-         daño real a HP. Una esquiva, un espejo que intercepte el rayo
-         o una barrera que absorba todo el daño impiden el debilitamiento.
+         {skill.hybridContact?.statusChannel
+          ?" el componente "+(skill.hybridContact.statusChannel==="MAGICAL"?"mágico":"físico")+" del golpe imbuido le quita HP reales."
+          :" el ataque "+(skill.usesMagic?"mágico":"físico")+" supera su reacción y le quita HP reales."}
+         {" "}La esquiva y una barrera que detenga el impacto lo impiden;
+         en los rayos mágicos también puede interceptar un espejo.
         </p>}
         {skill.hybridContact&&<p className="rounded-lg border border-violet-700/40 bg-violet-950/20 p-3 text-xs text-violet-200">
          <b>Golpe imbuido con magia.</b> Dibuja un ataque físico de contacto.
@@ -150,6 +152,10 @@ export default function CombatSkillLoadout({
          el campo mágico reduce la parte mágica. Una barrera en el camino
          puede detener el golpe completo. La magia está unida al contacto:
          no es un rayo reflejable.
+         {skill.hybridContact.statusChannel&&<>
+          {" "}El debilitamiento solo se activa con daño real del componente
+          {skill.hybridContact.statusChannel==="MAGICAL"?" mágico":" físico"}.
+         </>}
         </p>}
         {skill.modularSupport&&<p className="rounded-lg border border-cyan-700/40 bg-cyan-950/20 p-3 text-xs text-cyan-200">
          <b>Soporte modular aprobado.</b> Se aplica a tu personaje sin apuntar ni elegir enemigo.

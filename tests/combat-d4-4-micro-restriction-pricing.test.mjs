@@ -80,7 +80,7 @@ test("D4.4: restrictive gates are action-scoped and never grant free effects",()
  assert.equal(quote.contactGatedActions,1);
  assert.equal(quote.finalPch,90,"earlier healing never receives the contact reduction");
  assert.equal(microRestrictionQuote(graph,5).finalPch,5,"rounding never invents savings");
- assert.equal(microRestrictionQuote(effect([...contact(),...contact("ALLY"),healing()]),100).finalPch,80,
+ assert.equal(microRestrictionQuote(effect([...contact(),{kind:"REQUIRE_CONTACT",target:out("chosen")},healing()]),100).finalPch,80,
   "adding extra contact nodes cannot stack a discount");
  assert.equal(microRestrictionQuote(effect([healing(),...contact()]),100).finalPch,100);
  assert.equal(microRestrictionQuote(effect([...contact("USER"),healing()]),100).finalPch,100);

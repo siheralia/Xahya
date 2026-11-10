@@ -18,6 +18,9 @@ export type ApprovedHybridContact={
  /** D3.5: a reviewed IMPACT/CHARACTER rider needs actual bodily CONTACT,
   * even when damage is completely mitigated. Defaults to HP_DAMAGE. */
  statusGate?:"CONTACT";
+ /** D3.6: minimum HP truly lost from the reviewed trigger channel.
+  * Omitted means 1 HP, preserving all previously approved skills. */
+ statusMinimumHp?:number;
 };
 const isObject=(v:unknown):v is Record<string,unknown> =>
  v!==null&&typeof v==="object"&&!Array.isArray(v);
@@ -59,7 +62,7 @@ export function compileApprovedHybridContact(
  // treat them as executable actions, but reject any nonempty advanced rule.
  if(Object.keys(mechanics).some(k=>![
    "parentSkillId","family","activationConditions","rules",
-   "variableResistance","hybridStatusChannel",
+   "variableResistance","hybridStatusChannel","hybridStatusMinimumHp",
  ].includes(k))||
     (mechanics.family!==undefined&&
       (typeof mechanics.family!=="string"||mechanics.family.length>80))||
@@ -76,6 +79,10 @@ export function compileApprovedHybridContact(
  if(composed.length>1||effects.length!==2+composed.length)
   return error("El golpe imbuido admite un único debilitamiento modular adicional.");
  const statusChannel=mechanics.hybridStatusChannel;
+ const minimum=mechanics.hybridStatusMinimumHp;
+ if(minimum!==undefined&&(!Number.isSafeInteger(minimum)||
+    Number(minimum)<1||Number(minimum)>20))
+  return error("El umbral del estado híbrido debe ser un entero de 1 a 20 HP.");
  const module=composed.length===1?composed[0].module:null;
  const contactRider=module?.trigger==="IMPACT";
  if(contactRider&&(module?.impactKind!=="CHARACTER"||
@@ -88,8 +95,10 @@ export function compileApprovedHybridContact(
   return error("Selecciona el canal físico o mágico que debe causar daño real para activar el estado.");
  if(contactRider&&statusChannel!==undefined)
   return error("Un efecto por contacto no puede fingir requerir daño de un canal.");
- if(composed.length===0&&statusChannel!==undefined)
-  return error("Un canal de activación requiere un estado modular aprobado.");
+ if(contactRider&&minimum!==undefined)
+  return error("Un efecto de contacto no puede exigir un mínimo de daño HP.");
+ if(composed.length===0&&(statusChannel!==undefined||minimum!==undefined))
+  return error("Un umbral o canal activador requiere un estado modular aprobado.");
  const channel=new Map<"PHYSICAL"|"MAGICAL",number>();
  for(const e of effects.filter(e=>!isComposedSkillEffect(e)) as Record<string,unknown>[]){
   if(Object.keys(e).some(k=>!["type","target","value"].includes(k))||
@@ -113,5 +122,6 @@ export function compileApprovedHybridContact(
  return {physicalMultiplier:physical/100,magicalMultiplier:magical/100,
   ...(contactRider?{statusGate:"CONTACT" as const}:{}),
   ...(composed.length===1&&!contactRider?
-   {statusChannel:statusChannel as "PHYSICAL"|"MAGICAL"}:{})};
+   {statusChannel:statusChannel as "PHYSICAL"|"MAGICAL",
+    ...(minimum!==undefined?{statusMinimumHp:Number(minimum)}:{})}:{})};
 }

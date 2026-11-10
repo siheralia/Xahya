@@ -72,7 +72,9 @@ test("bad reach and initiative must remain explained instead of silently doing n
  assert.match(page,/setConstructionCenter\(null\)/);
  const loadEffect=page.slice(page.indexOf("const load=useCallback"),page.indexOf("async function submit("));
  assert.doesNotMatch(loadEffect,/setError\(""\)/,"polling must not clear a rejected action");
- assert.match(loadout,/La habilidad está lista, pero debes esperar tu iniciativa/);
+ assert.match(loadout,/combatSkillBlockers\(skill/);
+ const reasons=readFileSync(new URL("../lib/combat/skill-cast-feedback.ts",import.meta.url),"utf8");
+ assert.match(reasons,/Espera tu iniciativa o termina primero la reacción pendiente/);
 });
 
 test("character flair stays on one line inside a wider emblem badge",()=>{

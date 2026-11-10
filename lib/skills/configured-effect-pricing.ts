@@ -42,7 +42,8 @@ export function previewConfiguredSkillEffectPch(
   narrativeCards:readonly PricedNarrativeCard[],
   effectPricing:EffectPricingMap,
   durationPricing:DurationPricing,
+  options?:{forApproval?:boolean},
 ):number {
-  if(isComposedSkillEffect(effect))return previewComposedEffectBasePch(effect).amount;
+  if(isComposedSkillEffect(effect))return previewComposedEffectBasePch(effect,options).amount;
   return configuredSkillEffectPch(effect,narrativeCards,effectPricing,durationPricing);
 }

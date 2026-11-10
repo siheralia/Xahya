@@ -6,6 +6,7 @@ import type {Side,CombatState} from "@/lib/combat/turn-engine";
 import {combatChargeBalance} from "@/lib/combat/charge-pools";
 import {combatSkillTargetOutOfRange} from "@/lib/combat/skill-target-range";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
+import {combatSkillBlockers} from "@/lib/combat/skill-cast-feedback";
 
 type RosterResponse={skills:Record<Side,CombatSkillPreview[]>};
 const categories:Record<string,string>={
@@ -73,6 +74,8 @@ export default function CombatSkillLoadout({
      {skill.name} <span className="text-xs font-normal text-zinc-400">· {categories[skill.category]??skill.category} · {skill.manaCost} maná configurado</span>
      {skill.active&&<span className="ml-2 text-xs text-cyan-300">Activa</span>}
      {!skill.requirementsSatisfied&&<span className="ml-2 text-xs text-amber-300">Requisitos no cumplidos</span>}
+     {!skill.executable&&<span className="ml-2 text-xs font-medium text-amber-300">No ejecutable</span>}
+     {skill.executable&&(cooldowns[String(skill.id)]===-1||(cooldowns[String(skill.id)]??0)>round)&&<span className="ml-2 text-xs text-amber-300">En recuperación</span>}
     </summary>
     <div className="mt-3 space-y-2 text-sm text-zinc-300">
      {skill.description&&<p className="whitespace-pre-line">{skill.description}</p>}
@@ -122,18 +125,11 @@ export default function CombatSkillLoadout({
        const invalidAttackMovement=skill.skillKind==="OFFENSE"&&!canUseAttackSkill;
        const blocked=!skill.requirementsSatisfied||!canUseSkill||invalidAttackMovement||busy||onCooldown||missingCharges||missingFusion||
          mana===null||mana<skill.manaCost||missingAim||outOfRange;
-       const reason=missingFusion
-         ?"Necesitas tener activas todas las criaturas que participarán en la fusión."
-         :missingCharges
-         ?"No tienes suficientes cargas para el número seleccionado." :outOfRange
-         ?"Objetivo fuera del alcance de la habilidad ("+skill.rangeMeters+" m). Muévete primero."
-         :onCooldown
-         ? nextRound===-1?"Ya utilizada una vez en este encuentro.":"Cooldown hasta el turno "+nextRound
-         : mana===null?"El encuentro no tiene maná de fase 2. Inicia uno nuevo."
-         : mana<skill.manaCost?"Maná insuficiente"
-         : missingAim?(skill.skillKind==="CONSTRUCTION"?"Marca la posición de la construcción en el terreno.":skill.attackArea?"Prepara esta área en el lienzo superior y marca el epicentro.":"Marca el centro en modalidad Explosión mágica del lienzo superior.")
-         : !canUseSkill?"La habilidad está lista, pero debes esperar tu iniciativa o resolver una reacción pendiente."
-         : invalidAttackMovement?"Para combinar movimiento y ataque necesitas un trazo válido y 2 PA. Ajusta el movimiento antes de lanzar esta técnica.":null;
+       const blockers=combatSkillBlockers(skill,{
+        busy,canUseSkill,invalidAttackMovement,round,nextRound,mana,
+        missingAim,outOfRange,missingCharges,missingFusion,
+       });
+       const blockersId=`combat-skill-blockers-${encounterId}-${side}-${skill.id}`;
        return <div className="space-y-2">
         {skill.modularHostileStatus&&<p className="rounded-lg border border-amber-600/40 bg-amber-950/20 p-3 text-xs text-amber-200">
          <b>Debilitamiento modular por impacto.</b> Este estado solo afecta al rival si
@@ -194,7 +190,12 @@ export default function CombatSkillLoadout({
           </label>
           <p className="text-xs text-zinc-300">Afecta a: {skill.chargeBuff.stats.map(friendlyMicroKey).join(", ")}.</p>
         </div>}
-        {reason&&<p className="text-xs text-amber-300">{reason}</p>}
+        {blockers.length>0&&<div id={blockersId} role="status" className="rounded-lg border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-200">
+         <p className="font-semibold">No puedes usar esta habilidad ahora:</p>
+         <ul className="mt-1 list-inside list-disc space-y-1">
+          {blockers.map((reason,index)=><li key={index}>{reason}</li>)}
+         </ul>
+        </div>}
         {skill.skillKind==="OFFENSE"&&skill.attackArea?.shape==="SELF_FIELD"&&
          <p className="text-xs text-cyan-300">La técnica barre alrededor de tu personaje. No necesitas marcar un epicentro ni dibujar una trayectoria; acércate hasta el alcance indicado.</p>}
         {skill.skillKind==="OFFENSE"&&!skill.usesMagic&&skill.attackType==="BLUNT"&&skill.attackArea?.shape!=="SELF_FIELD"&&
@@ -207,14 +208,14 @@ export default function CombatSkillLoadout({
             :skill.attackArea?.shape==="SWEEP"?`Preparar barrido en arco de ${skill.attackArea.innerRadiusMeters} a ${skill.attackArea.outerRadiusMeters} m`
             :skill.attackArea?.shape==="CIRCLE"?`Preparar área circular de ${skill.attackArea.radiusMeters} m de radio`:"Preparar área"}
          </button>}
-        <button type="button" disabled={blocked}
+        <button type="button" disabled={blocked} aria-describedby={blockers.length?blockersId:undefined}
          onClick={()=>onCast(skill,skill.chargeBuff?selectedCharges:undefined)}
          className="rounded-lg border border-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-40">
          {skill.skillKind==="OFFENSE"?(skill.attackArea?.shape==="SELF_FIELD"?"Ejecutar barrido":"Lanzar ataque de habilidad"):skill.skillKind==="CONSTRUCTION"?"Crear construcción":skill.skillKind==="SUMMON"?"Invocar criaturas":skill.skillKind==="CHARGE_BUFF"?"Activar potenciación":skill.skillKind==="FUSION"?"Fusionar criaturas":"Activar habilidad"}
         </button>
        </div>;
       })()}
-     </>:<p className="text-xs text-amber-300">No ejecutable todavía: {skill.disabledReason??"Efectos pendientes de implementación"}</p>}
+     </>:<p role="status" className="rounded-lg border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-200"><b>Esta habilidad no se puede lanzar:</b> {skill.disabledReason??"No existe todavía un resolutor aprobado para sus efectos."} La aprobación de la ficha no significa que todos sus módulos funcionen en combate.</p>}
      <p className="text-xs text-zinc-500">El coste PCH de construcción no se cobra en combate. El maná usado aquí queda dentro de este encuentro.</p>
     </div>
    </details>)}

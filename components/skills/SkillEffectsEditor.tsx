@@ -11,7 +11,7 @@ import {isComposedSkillEffect,previewComposedEffectBasePch,pricedModularStepCoun
 import {microRestrictionQuote} from "@/lib/skills/micro-restriction-pricing";
 import type {EffectContainer} from "@/lib/effects/micro-modules";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
-export type EditableEffect = {type:string;module?:EffectContainer;pricingNotes?:string;reviewedPch?:number;restrictionPricing?:"V1";capability?:string;element?:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT";copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean};
+export type EditableEffect = {type:string;module?:EffectContainer;pricingNotes?:string;reviewedPch?:number;restrictionPricing?:"V1"|"V2";capability?:string;element?:string;target?:string;value?:number;description?:string;durationTurns?:number;durationMovements?:number;targetKind?:"SELF"|"CHARACTER"|"OPPONENT"|"EXISTING_OBJECT";targetReference?:string;activationCondition?:"NONE"|"LOW_HEALTH"|"NIGHT_ONLY"|"ONCE_PER_COMBAT"|"THREE_PER_COMBAT";copyMode?:"PERMANENT"|"TEMPORARY"|"IMITATION"|"COLLECTION";copyDurationTurns?:number;copyCapacity?:number;copyFidelityPercent?:number;copyAllowSpecial?:boolean;copyAllowRacial?:boolean;stealDurationTurns?:number;stealCapacity?:number;stealFidelityPercent?:number;stealAllowSpecial?:boolean;stealAllowRacial?:boolean;stealBodyCoercion?:boolean};
 export type NarrativeCard = {id:string|number;name:string;description:string;category?:string;pch?:number};
 type Props<E extends EditableEffect>={effects:E[];onChange:(effects:E[])=>void;statistics?:{key:string;name:string;kind:"basic"|"derived";active?:boolean}[];narrativeCards?:NarrativeCard[];effectDefinitions?:{type:string;label:string;targets:{key:string;label:string}[]}[];priceEffect?:(effect:E)=>number;allowReviewModularPch?:boolean;enableModularEffects?:boolean};
 const cls="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm";
@@ -35,7 +35,8 @@ export function SkillEffectsEditor<E extends EditableEffect>({effects,onChange,s
    if(isComposedSkillEffect(e)){
     const preview=previewComposedEffectBasePch(e,{forApproval:allowReviewModularPch});
     const base=e.reviewedPch??Math.max(1,pricedModularStepCount(e.module)*MODULE_DEPOSIT_PER_STEP);
-    const discount=microRestrictionQuote(e.module,base);
+    const discount=microRestrictionQuote(e.module,base,
+      e.restrictionPricing==="V1"&&!allowReviewModularPch?"V1":"V2");
     return <div className="space-y-3">
      <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold text-violet-200">Efecto modular · pendiente de revisión</span><button type="button" onClick={remove} className="rounded border border-rose-700/60 px-2 py-1 text-xs text-rose-300">Quitar</button></div>
      <MicroEffectBuilder value={e.module} onChange={module=>change({module} as Partial<E>)}/>

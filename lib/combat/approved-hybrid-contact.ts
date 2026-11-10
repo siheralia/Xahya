@@ -52,7 +52,19 @@ export function compileApprovedHybridContact(
  if(row.mechanics!==undefined&&row.mechanics!==null&&!isObject(row.mechanics))
   return error("Las mecánicas híbridas deben ser un objeto revisado.");
  const mechanics=isObject(row.mechanics)?row.mechanics:{};
- if(Object.keys(mechanics).some(k=>!["parentSkillId","hybridStatusChannel"].includes(k)))
+ // Shared editors may persist inert metadata/empty rule arrays. Do not
+ // treat them as executable actions, but reject any nonempty advanced rule.
+ if(Object.keys(mechanics).some(k=>![
+   "parentSkillId","family","activationConditions","rules",
+   "variableResistance","hybridStatusChannel",
+ ].includes(k))||
+    (mechanics.family!==undefined&&
+      (typeof mechanics.family!=="string"||mechanics.family.length>80))||
+    (mechanics.activationConditions!==undefined&&
+      (!Array.isArray(mechanics.activationConditions)||mechanics.activationConditions.length>0))||
+    (mechanics.rules!==undefined&&
+      (!Array.isArray(mechanics.rules)||mechanics.rules.length>0))||
+    mechanics.variableResistance!=null)
   return error("La técnica híbrida no admite mecánicas adicionales.");
  const effects=row.effect;
  if(!Array.isArray(effects)||![2,3].includes(effects.length)||!effects.every(isObject))

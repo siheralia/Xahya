@@ -197,6 +197,20 @@ function describeAttack(
  }else{
   phrase=stem+" y alcanzó "+addressedTarget+", causándole "+damagePhrase(damage)+".";
  }
+ // D3.3: an infused contact is ONE attack. Describe its two actually
+ // resolved contributions without inventing a second spell or strike.
+ if(landed&&impact?.damageChannels){
+  const {physical,magical}=impact.damageChannels;
+  if(Number.isSafeInteger(physical)&&physical>=0&&
+     Number.isSafeInteger(magical)&&magical>=0&&physical+magical===damage){
+   phrase+=" La fuerza se dividió en "+damagePhrase(physical)+
+     " físicos y "+damagePhrase(magical)+" mágicos.";
+   const real=impact.hpDamageChannels;
+   if(real&&real.physical+real.magical<damage)
+    phrase+=" Del golpe, únicamente "+quantity(real.physical+real.magical)+
+      " HP pudieron descontarse antes de caer.";
+  }
+ }
  if(landed&&impact?.critical)phrase+=" Fue un impacto crítico.";
  if(landed&&pushed&&!(first&&phrase.includes("retrocediera")))
   phrase+=" El impacto hizo que retrocediera.";

@@ -208,7 +208,8 @@ export type CombatCommand =
   | { kind:"USE_ITEM";itemId:number;characterItemId?:number;requestId:string }
   | { kind: "COMMAND_SUMMON";requestId?:string;summonId:string;
        chosenStat?:string;chosenStatusId?:string;
-       order:"ACT"|"MOVE"|"ATTACK"|"CHANGE_BEHAVIOR";planarMove?:Point;newBehavior?:"FOLLOW"|"ATTACK"|"PROTECT"|"HOLD"|"MANUAL" }
+       order:"ACT"|"MOVE"|"ATTACK"|"CHANGE_BEHAVIOR"|"CHANGE_TARGET";
+       targetId?:string;planarMove?:Point;newBehavior?:"FOLLOW"|"ATTACK"|"PROTECT"|"HOLD"|"MANUAL" }
   | { kind: "ATTACK"; requestId?:string; targetSummonId?:string; attackType: CombatAttackType; planarMove?:Point; movementOrder?:"BEFORE"|"AFTER"; trajectory?: Point[]; usesMagic?: boolean; rangedPhysical?: boolean; throwWeapon?:boolean; attackSource?: PhysicalAttackSource; areaCenter?: Point;
     /** Real measured projectile elevations. Optional to preserve old encounter and bot commands. */
     projectileHeights?:{launchMeters:number;impactMeters:number;arcRiseMeters?:number};
@@ -952,8 +953,37 @@ function moveSummonOnField(state:CombatState,summon:CombatSummon,delta:Point):nu
   summon.fieldPosition=to;
   return length;
 }
+function selectedHostileSummon(state:CombatState,summon:CombatSummon):CombatSummon|undefined {
+ if(!summon.targetId?.startsWith("SUMMON:"))return undefined;
+ return state.summons?.find(s=>s.id===summon.targetId!.slice(7)&&s.owner!==summon.owner&&
+   s.integrity>0&&s.expiresAtRound>state.round);
+}
 function summonTargetPosition(state:CombatState,summon:CombatSummon):Point {
-  return fieldPosition(state.actors[summon.behavior.target==="OPPONENT"?other(summon.owner):summon.owner]);
+ if(summon.behavior.mode==="FOLLOW"||summon.behavior.mode==="PROTECT")
+   return fieldPosition(state.actors[summon.owner]);
+ const enemy=selectedHostileSummon(state,summon);
+ if(enemy)return enemy.fieldPosition;
+ return fieldPosition(state.actors[summon.behavior.target==="OPPONENT"?other(summon.owner):summon.owner]);
+}
+function hitHostileSummon(state:CombatState,attacker:CombatSummon,target:CombatSummon,
+ rolls:{hit:number;critical:number;defense:number}):void {
+ const owner=state.actors[attacker.owner],otherOwner=state.actors[target.owner];
+ const power=summonStat(attacker,owner,"PHYSICAL_ATTACK");
+ const critical=rolls.critical<clamp(0.05+summonStat(attacker,owner,"CRITICAL")/
+   (summonStat(attacker,owner,"CRITICAL")+100)*0.2,0.05,0.25);
+ const defense=summonStat(target,otherOwner,"PHYSICAL_DEFENSE");
+ const damage=Math.max(1,Math.round(power*(critical?1.5:1)*
+   matchupMultiplier("BLUNT","SOLID")-defense*0.75));
+ target.integrity=Math.max(0,target.integrity-damage);target.hitCount++;
+ addLog(state,{kind:"RESOLVE",tick:state.tick,by:attacker.owner,against:target.owner,
+   summonId:attacker.id,damage,contact:true,critical,attackType:"BLUNT",
+   summary:attacker.label+" golpeó a "+target.label+" ("+damage+" de integridad)."});
+ if(target.integrity<=0||target.hitCount>=target.hitLimit){
+   state.summons=state.summons?.filter(s=>s.id!==target.id);
+   addLog(state,{kind:"SUMMON",tick:state.tick,by:attacker.owner,against:target.owner,
+     summonId:target.id,summary:target.label+" desapareció tras recibir el impacto ("+
+       target.hitCount+"/"+target.hitLimit+" golpes)."});
+ }
 }
 function advanceSummonToward(state:CombatState,summon:CombatSummon,point:Point,stopAt:number):number {
   const from=summon.fieldPosition;
@@ -990,7 +1020,7 @@ function validateSummonContactSelection(state:CombatState,summon:CombatSummon,
 }
 function resolveSummonContact(state:CombatState,summon:CombatSummon,params:{
  target:Side;contact:boolean;hpDamage:number;randomRoll:number;
- chosenStat?:string;chosenStatusId?:string;
+ chosenStat?:string;chosenStatusId?:string;automatic?:boolean;
 }):void {
  if(!params.contact || !(summon.contactEffects?.length))return;
  if(summon.behavior.trigger==="HP_DAMAGE"&&params.hpDamage<=0)return;
@@ -1005,6 +1035,9 @@ function resolveSummonContact(state:CombatState,summon:CombatSummon,params:{
          Math.floor(params.randomRoll*effect.stat.allowed.length))];
      if(!stat||!resolveStatusStat(stat))
        throw new Error("La estadística seleccionada no es válida para este estado.");
+     if(params.automatic&&(state.summonStatuses??[]).some(s=>
+       s.sourceSummonId===summon.id&&s.target===target&&
+       s.stat===resolveStatusStat(stat)&&s.expiresAtRound>state.round))continue;
      const status=applySummonStatus(state,{
        id:summon.id+":"+state.round+":"+state.tick+":"+state.log.length+":"+index,
        sourceSummonId:summon.id,by:summon.owner,target,stat,
@@ -1036,6 +1069,14 @@ function resolveSummonContact(state:CombatState,summon:CombatSummon,params:{
    }
  }
 }
+/** An explicit paid command also occupies the creature's own next slot:
+ * it cannot get a second, automatic hit at the same logical tick. */
+function recordManualSummonAction(state:CombatState,summon:CombatSummon):void {
+ if(summon.autoRound!==state.round){summon.autoRound=state.round;summon.autoSpentAp=0;}
+ summon.autoSpentAp=(summon.autoSpentAp??0)+1;
+ const pace=Math.max(1,turnTicks(summonAsFighter(summon,state.actors[summon.owner])));
+ summon.autoNextTick=Math.max(state.tick,summon.autoNextTick??state.tick)+pace;
+}
 function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{kind:"COMMAND_SUMMON"}>,rolls:{hit:number;critical:number;defense:number}):void {
   const summon=state.summons?.find(s=>s.id===command.summonId&&s.owner===by);
   if(!summon)throw new Error("No controlas esa invocación o ha desaparecido.");
@@ -1043,8 +1084,25 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
   if(Math.hypot(summon.fieldPosition.x-fieldPosition(owner).x,
       summon.fieldPosition.y-fieldPosition(owner).y)>summon.controlRangeMeters+1e-8)
     throw new Error("La invocación quedó fuera del alcance de control.");
+  if(command.order==="CHANGE_TARGET"){
+    const hostile=typeof command.targetId==="string"&&command.targetId.startsWith("SUMMON:")
+      ?state.summons?.find(s=>s.id===command.targetId!.slice(7)&&s.owner!==by&&s.integrity>0)
+      :undefined;
+    if(summon.behavior.target!=="OPPONENT"||
+      command.targetId!=="FIGHTER:"+other(by)&&!hostile)
+      throw new Error("El objetivo elegido no es un rival activo autorizado.");
+    summon.targetId=command.targetId;
+    spend(owner,turnTicks(owner));
+    state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
+      summary:summon.label+" recibió la orden de enfocar a "+
+        (hostile?.label??state.actors[other(by)].name)+"."});
+    advanceRoundIfComplete(state);return;
+  }
   if(command.order==="CHANGE_BEHAVIOR"){
-    if(!command.newBehavior||!summon.behavior.allowedModes.includes(command.newBehavior))
+    // Following the caster is always safe: it cannot grant unapproved effects.
+    if(!command.newBehavior||
+      !(command.newBehavior==="FOLLOW"||summon.behavior.allowedModes.includes(command.newBehavior)))
       throw new Error("Ese comportamiento no está autorizado para la criatura.");
     summon.behavior.mode=command.newBehavior;
     spend(owner,turnTicks(owner));
@@ -1075,6 +1133,7 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
     }
     spend(owner,turnTicks(owner));
     state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    recordManualSummonAction(state,summon);
     addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
       summary:summon.label+(distance>0?" se movió "+distance.toFixed(2)+" m.":" alcanzó su posición de apoyo.")});
     advanceRoundIfComplete(state);return;
@@ -1084,7 +1143,8 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
       !(summon.behavior.mode==="ATTACK"||summon.behavior.allowedModes.includes("MANUAL")))
       throw new Error("La criatura no tiene autorización para atacar a ese objetivo.");
     if(command.planarMove)throw new Error("Mover y atacar con una criatura requiere dos acciones.");
-    const enemy=fieldPosition(state.actors[other(by)]);
+    const hostile=selectedHostileSummon(state,summon);
+    const enemy=hostile?.fieldPosition??fieldPosition(state.actors[other(by)]);
     if(Math.hypot(enemy.x-summon.fieldPosition.x,enemy.y-summon.fieldPosition.y)>1.5){
       if(command.order==="ATTACK")throw new Error("El enemigo está fuera del alcance del familiar (1.5 m).");
       const distance=advanceSummonToward(state,summon,enemy,1.35);
@@ -1095,9 +1155,14 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
       advanceRoundIfComplete(state);return;
     }
     assertMovementClear(state.constructions,summon.fieldPosition,enemy);
-    validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
+    if(!hostile)validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
     spend(owner,turnTicks(owner));
     state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    recordManualSummonAction(state,summon);
+    if(hostile){
+      hitHostileSummon(state,summon,hostile,rolls);
+      advanceRoundIfComplete(state);return;
+    }
     state.pending={by,against:other(by),attackType:"BLUNT",
       trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}],
       explicitTrajectory:false,launchedAtTick:(state.round-1)*LIMIT+owner.spentTicks,
@@ -1117,6 +1182,7 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
       validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
     spend(owner,turnTicks(owner));
     state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    recordManualSummonAction(state,summon);
     if(near)resolveSummonContact(state,summon,{
       target,contact:true,hpDamage:0,randomRoll:rolls.hit,
       chosenStat:command.chosenStat,chosenStatusId:command.chosenStatusId,
@@ -1127,6 +1193,102 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
     return;
   }
   throw new Error("Orden de criatura desconocida.");
+}
+/** A creature has its own PA and initiative slot; its actions do not debit
+ * the summoner. The logical clock advances only with authorized combat actions.
+ * At most one automatic action per creature occurs in a server update. */
+export function progressAutonomousSummons(original:CombatState,
+ rolls:{hit:number;critical:number;defense:number}={hit:0.5,critical:0.5,defense:0.5}):CombatState {
+ if(original.status!=="ACTIVE"||original.pending||!original.summons?.length)return original;
+ if(!original.summons.some(s=>!["HOLD","MANUAL"].includes(s.behavior.mode)))
+   return original;
+ const state=structuredClone(original);
+ for(const summon of [...(state.summons??[])]){
+   if(state.pending||state.status!=="ACTIVE")break;
+   if(!state.summons?.some(s=>s.id===summon.id)||summon.integrity<=0||
+     summon.expiresAtRound<=state.round)continue;
+   const mode=summon.behavior.mode;
+   if(mode==="HOLD"||mode==="MANUAL")continue;
+   const owner=state.actors[summon.owner];
+   if(owner.hp<=0)continue;
+   const own=fieldPosition(owner);
+   if(Math.hypot(own.x-summon.fieldPosition.x,own.y-summon.fieldPosition.y)>
+     summon.controlRangeMeters+1e-8)continue;
+   const creature=summonAsFighter(summon,owner),pace=Math.max(1,turnTicks(creature));
+   // Legacy summons never gain retroactive actions after an update.
+   summon.autoNextTick??=state.tick+pace;
+   if(state.tick<summon.autoNextTick)continue;
+   if(summon.autoRound!==state.round){
+     summon.autoRound=state.round;summon.autoSpentAp=0;
+   }
+   if((summon.autoSpentAp??0)>=actionPoints(creature.constitution))continue;
+   summon.autoSpentAp=(summon.autoSpentAp??0)+1;
+   summon.autoNextTick=Math.max(state.tick,summon.autoNextTick)+pace;
+   const target=(mode==="FOLLOW"||mode==="PROTECT")?own:
+     summonTargetPosition(state,summon);
+   const distance=Math.hypot(target.x-summon.fieldPosition.x,target.y-summon.fieldPosition.y);
+   if(distance>(mode==="ATTACK"?1.5:0.65)){
+     try{
+       const moved=advanceSummonToward(state,summon,target,mode==="ATTACK"?1.35:0.5);
+       addLog(state,{kind:"SUMMON",tick:state.tick,by:summon.owner,summonId:summon.id,
+         summary:summon.label+(mode==="ATTACK"?" persiguió a su objetivo ":" siguió al invocador ")+
+           moved.toFixed(2)+" m (autónomo)."});
+     }catch{
+       addLog(state,{kind:"SUMMON",tick:state.tick,by:summon.owner,summonId:summon.id,
+         summary:summon.label+" no pudo avanzar por un obstáculo o su radio de control."});
+     }
+     continue;
+   }
+   if(mode==="FOLLOW"||mode==="PROTECT"){
+     const effects=(summon.contactEffects??[]).filter(e=>e.target==="USER");
+     const needsMana=effects.some(e=>e.kind==="INVERT_STATUS"&&
+       (state.summonStatuses??[]).some(s=>s.target===summon.owner&&isDebuffStatus(s))&&
+       (state.mana?.[summon.owner]?.current??0)<e.manaCost);
+     // COMMAND-only and HP_DAMAGE-only effects never fire from passive proximity.
+     if(effects.length&&!needsMana&&summon.behavior.trigger==="CONTACT"){
+       const choice=effects.find(e=>e.kind==="APPLY_STATUS"&&
+         typeof e.stat!=="string"&&e.stat.mode==="COMBAT");
+       const chosenStat=choice&&choice.kind==="APPLY_STATUS"&&
+         typeof choice.stat!=="string"?choice.stat.allowed[0]:undefined;
+       const debuff=(state.summonStatuses??[]).findLast(s=>
+         s.target===summon.owner&&isDebuffStatus(s));
+       const count=state.log.length;
+       resolveSummonContact(state,summon,{target:summon.owner,contact:true,hpDamage:0,
+         randomRoll:rolls.hit,chosenStat,chosenStatusId:debuff?.id,automatic:true});
+       if(state.log.length>count)continue;
+     }
+     addLog(state,{kind:"SUMMON",tick:state.tick,by:summon.owner,summonId:summon.id,
+       summary:summon.label+" permaneció junto a "+owner.name+
+         (needsMana?" (sin maná para su efecto).":".")});
+     continue;
+   }
+   if(mode!=="ATTACK"||summon.behavior.target!=="OPPONENT")continue;
+   if(blockingMovement(state.constructions,summon.fieldPosition,target)){
+     addLog(state,{kind:"SUMMON",tick:state.tick,by:summon.owner,summonId:summon.id,
+       summary:summon.label+" no pudo atacar por un obstáculo."});
+     continue;
+   }
+   const hostile=selectedHostileSummon(state,summon);
+   if(hostile){
+     hitHostileSummon(state,summon,hostile,rolls);
+     continue;
+   }
+   const choice=(summon.contactEffects??[]).find(e=>e.kind==="APPLY_STATUS"&&
+     typeof e.stat!=="string"&&e.stat.mode==="COMBAT");
+   const chosenStat=choice&&choice.kind==="APPLY_STATUS"&&
+     typeof choice.stat!=="string"?choice.stat.allowed[0]:undefined;
+   const debuff=(state.summonStatuses??[]).findLast(s=>
+     s.target===other(summon.owner)&&isDebuffStatus(s));
+   state.pending={by:summon.owner,against:other(summon.owner),attackType:"BLUNT",
+     trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}],explicitTrajectory:false,
+     launchedAtTick:state.tick,usesMagic:false,summonId:summon.id,
+     chosenSummonStat:chosenStat,chosenSummonStatusId:debuff?.id};
+   addLog(state,{kind:"ATTACK",tick:state.tick,by:summon.owner,against:other(summon.owner),
+     summonId:summon.id,attackType:"BLUNT",
+     summary:summon.label+" atacó autónomamente a "+state.actors[other(summon.owner)].name+
+       "; esperando reacción"});
+ }
+ return state;
 }
 function upkeepSummons(state:CombatState):void {
   // Migrate charges before removing a legacy summon at the round boundary.
@@ -2606,6 +2768,10 @@ export function applyResolvedCombatSkill(
   next.summons=[...(next.summons??[]),...fresh];
   spend(owner,turnTicks(owner));
   next.tick=Math.max(next.tick,(next.round-1)*LIMIT+owner.spentTicks);
+  for(const summon of fresh){
+    summon.autoRound=next.round;summon.autoSpentAp=0;
+    summon.autoNextTick=next.tick+turnTicks(summonAsFighter(summon,owner));
+  }
   // Charge activation BEFORE possible round-start upkeep.
   next.mana![by].current-=plan.cost;
   addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,skillName:plan.name,

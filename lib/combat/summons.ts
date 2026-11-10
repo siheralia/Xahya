@@ -42,6 +42,12 @@ export type CombatSummon = {
   /** A fused creature may carry a configured directional field. */
   chaosField?:ChaosFieldConfig;
   fusedFrom?:string[];
+  /** Per-creature initiative, independent of the summoner's PA. Optional for old encounters. */
+  autoNextTick?:number;
+  autoSpentAp?:number;
+  autoRound?:number;
+  /** Independently chosen hostile target, validated by the server. */
+  targetId?:string;
 };
 const ALLOWED_SOURCE:Record<string,keyof CombatFighter>={
   PHYSICAL_ATTACK:"physicalAttack",PHYSICAL_DEFENSE:"physicalDefense",

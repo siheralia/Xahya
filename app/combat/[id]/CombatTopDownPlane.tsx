@@ -28,7 +28,7 @@ export default function CombatTopDownPlane({
  const [zoom,setZoom]=useState(1);
  const actor=state.actors[side];
  const enemy=state.actors[side==="PLAYER"?"NPC":"PLAYER"];
- const viewpoint=battleFieldViewport(actor,enemy,zoom);
+ const viewpoint=battleFieldViewport(actor,enemy,zoom,(state.summons??[]).map(s=>s.fieldPosition));
  const ownerPoint=fieldToViewport(viewpoint,fieldPosition(actor));
  const scale=100/viewpoint.spanMeters;
  const radius=scale; // 1 metre in SVG units

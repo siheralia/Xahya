@@ -67,14 +67,18 @@ export function battleFieldViewport(
  actor:Pick<CombatFighter,"positionMeters"|"fieldPosition">,
  rival:Pick<CombatFighter,"positionMeters"|"fieldPosition">,
  zoom=1,
+ extraPoints:readonly FieldPoint[]=[],
 ):FieldViewport{
  const a=fieldPosition(actor),b=fieldPosition(rival);
- const distance=Math.hypot(b.x-a.x,b.y-a.y);
- const fitSpan=Math.max(2.6,distance+2);
+ const points=[a,b,...extraPoints.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))];
+ const xMin=Math.min(...points.map(p=>p.x)),xMax=Math.max(...points.map(p=>p.x));
+ const yMin=Math.min(...points.map(p=>p.y)),yMax=Math.max(...points.map(p=>p.y));
+ const fitSpan=Math.max(2.6,Math.max(xMax-xMin,yMax-yMin)+2);
  const factor=Number.isFinite(zoom)?Math.max(0.35,Math.min(2,zoom)):1;
+ const midpoint={x:(xMin+xMax)/2,y:(yMin+yMax)/2};
  const center=factor<1
-  ?{x:a.x+(b.x-a.x)*factor/2,y:a.y+(b.y-a.y)*factor/2}
-  :{x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  ?{x:a.x+(midpoint.x-a.x)*factor,y:a.y+(midpoint.y-a.y)*factor}
+  :midpoint;
  return {center,spanMeters:Math.max(1.8,fitSpan*factor)};
 }
 export function fieldToViewport(viewport:FieldViewport,world:Point):Point{

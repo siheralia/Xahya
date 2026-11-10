@@ -17,16 +17,16 @@ export type SkillPchBudget={
 };
 
 export function quoteSkillPchBudget({
-  total,baseline,balance,provisional=false,
+  total,baseline,balance,provisional=false,genericSpecialization=false,
 }:{
-  total:number;baseline?:number;balance?:number;provisional?:boolean;
+  total:number;baseline?:number;balance?:number;provisional?:boolean;genericSpecialization?:boolean;
 }):SkillPchBudget|null{
   if(!Number.isSafeInteger(total)||total<0)return null;
   if(baseline!==undefined&&(!Number.isSafeInteger(baseline)||baseline<0))return null;
   if(balance!==undefined&&(!Number.isSafeInteger(balance)||balance<0))return null;
   const isUpgrade=baseline!==undefined;
   const payable=baseline!==undefined?Math.max(0,total-baseline):total;
-  const referenceCoinPch=isUpgrade?PCH_PER_UPGRADE_COIN:PCH_PER_COIN;
+  const referenceCoinPch=isUpgrade&&!genericSpecialization?PCH_PER_UPGRADE_COIN:PCH_PER_COIN;
   const remaining=balance===undefined?null:balance-payable;
   return {
     total,payable,baseline:baseline??null,referenceCoinPch,
@@ -35,7 +35,7 @@ export function quoteSkillPchBudget({
     balance:balance??null,remaining,
     shortfall:balance===undefined?null:Math.max(0,payable-balance),
     affordable:balance===undefined?null:balance>=payable,
-    requiresIncreasedPrice:baseline!==undefined&&total<=baseline,
+    requiresIncreasedPrice:baseline!==undefined&&!genericSpecialization&&total<=baseline,
     provisional,
   };
 }

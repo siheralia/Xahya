@@ -7,7 +7,7 @@ import {PCH_PER_COIN} from "./pch.ts";
 export function skillPchBudgetQuote(total: number, balance: number, baseline?: number){
  const safeTotal=Number.isSafeInteger(total)&&total>=0?total:0;
  const safeBalance=Number.isSafeInteger(balance)&&balance>=0?balance:0;
- const safeBase=Number.isSafeInteger(baseline)&&baseline>=0?baseline:0;
+ const safeBase=baseline!==undefined&&Number.isSafeInteger(baseline)&&baseline>=0?baseline:0;
  const due=Math.max(0,safeTotal-safeBase);
  const missing=Math.max(0,due-safeBalance);
  return {

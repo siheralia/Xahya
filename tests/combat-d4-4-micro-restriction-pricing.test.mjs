@@ -108,7 +108,8 @@ test("D4.4: versioned approval preserves old prices and cannot be forged by play
  assert.equal(previewComposedEffectBasePch(legacy).amount,100);
  assert.equal(previewComposedEffectBasePch(legacy,{forApproval:true}).amount,80);
  const [reviewed]=stampReviewedRestrictionPricing([legacy]);
- assert.equal(reviewed.restrictionPricing,"V1");
+ assert.equal(reviewed.restrictionPricing,"V2");
+ assert.equal(composedEffectBasePch({...reviewed,restrictionPricing:"V1"}),80);
  assert.equal(composedEffectBasePch(reviewed),80);
  assert.match(validateComposedSkillList([reviewed],"PLAYER"),/solo puede/);
  assert.throws(()=>composedDepositPch(reviewed));

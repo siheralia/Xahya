@@ -7,6 +7,7 @@ import {AUTO_REPAIR_ITEM_EFFECT,defaultWeaponAutoRepair,
 import {EQUIPPED_WEAR_EFFECT,defaultEquippedWear,type EquipmentWearRule} from "@/lib/items/equipped-wear";
 
 import { useEffect, useState } from "react";
+import { preparePropertyImage } from "@/lib/items/property-image-upload";
 import ManagementModal from "../_components/ManagementModal";
 import { EFFECT_CATALOG, resolveEffectTargets } from "@/lib/effects/catalog";
 
@@ -114,6 +115,7 @@ export default function ItemsManagementPage() {
     })}));
   }
   async function save(){
+    const wasCreating=selected===null;
     if(!canAction(selected?"edit":"create",form.acquisitionType) || (selected && !canAction("edit",items.find(item=>item.id===selected)?.acquisitionType??""))){setError("No tienes permiso para guardar objetos de este origen.");return;}
     setSaving(true);setError("");setSuccess("");
     try{
@@ -121,13 +123,18 @@ export default function ItemsManagementPage() {
       const r=await fetch(url,{method:selected?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,effects:[...form.effects,...(["WEAPON","ARMOR","ACCESSORY"].includes(form.itemType)&&autoRepair?[autoRepair]:[]),...(["ARMOR","ACCESSORY"].includes(form.itemType)&&wearRule?[wearRule]:[])],attackType:form.itemType==="WEAPON"?form.attackType:null,propertyBusinessId:form.propertyBusinessId?Number(form.propertyBusinessId):null})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error);
       const savedId=Number(d?.item?.id ?? selected);
+      // Remember the created item before uploading: retrying a failed image must not create duplicates.
+      if(wasCreating && savedId) setSelected(savedId);
       if(imageFile && savedId && form.itemType==="PROPERTY"){
-        const fd=new FormData(); fd.set("itemId",String(savedId)); fd.set("file",imageFile);
+        const optimizedFile=await preparePropertyImage(imageFile);
+        const fd=new FormData(); fd.set("itemId",String(savedId)); fd.set("file",optimizedFile);
         const imageResponse=await fetch("/api/management/items/image",{method:"POST",body:fd});
         const imageData=await imageResponse.json().catch(()=>null);
-        if(!imageResponse.ok) throw new Error(imageData?.error ?? "El objeto se guardó, pero no se pudo subir la imagen.");
+        if(!imageResponse.ok) throw new Error(imageData?.error ?? (imageResponse.status===413
+          ? "La imagen es demasiado grande para el servidor. Prueba con otra foto."
+          : "El objeto se guardó, pero no se pudo subir la imagen (HTTP "+imageResponse.status+")."));
       }
-      setSuccess(selected?"Objeto actualizado correctamente.":"Objeto creado correctamente.");
+      setSuccess(wasCreating?"Objeto creado correctamente.":"Objeto actualizado correctamente.");
       await load(); if(savedId) setSelected(savedId); setModalOpen(false); setImageFile(null);
     }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar el objeto.");}finally{setSaving(false);}
   }
@@ -178,7 +185,7 @@ export default function ItemsManagementPage() {
                 <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={e=>{const f=e.target.files?.[0] ?? null; setImageFile(f); if(f) setImagePreview(URL.createObjectURL(f)); e.currentTarget.value="";}} />
               </label>
             </div>
-            <p className="mt-2 text-xs text-zinc-600">Máximo 5 MB. Las propiedades pueden tener una imagen propia.</p>
+            <p className="mt-2 text-xs text-zinc-500">La imagen se optimiza automáticamente para ahorrar datos y permitir la subida. Solo para propiedades.</p>
           </div>}
           <div className="grid gap-4 sm:grid-cols-3">
             <label>Tipo de categoría<select value={form.itemType} onChange={e=>setForm({...form,itemType:e.target.value,acquisitionType:e.target.value==="PROPERTY"?"OTHER":form.acquisitionType})} className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">{itemTypes.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}</select></label>
@@ -262,6 +269,7 @@ export default function ItemsManagementPage() {
                 </label>
               </div>}
             </section>}
+          {error&&<p role="alert" className="rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2 text-sm text-red-300">{error}</p>}
           <div className="flex flex-wrap gap-3"><button onClick={save} disabled={saving} className="rounded-lg bg-white px-5 py-3 font-medium text-black">{saving?"Guardando...":selected?"Guardar cambios":"Fabricar objeto"}</button>{selected&&canAction("delete",items.find(item=>item.id===selected)?.acquisitionType??"")&&<button onClick={remove} className="rounded-lg border border-red-900/70 px-5 py-3 text-red-300">Eliminar</button>}</div>
         </div>
       </section>

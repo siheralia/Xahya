@@ -1,5 +1,5 @@
 import { validEffectRequirements, effectRequirementDiscount, meetsEffectRequirements } from "@/lib/skills/effect-requirements";
-import {validateComposedSkillList,isComposedSkillEffect} from "@/lib/skills/composed-effects";
+import {validateComposedSkillList,isComposedSkillEffect,stampReviewedRestrictionPricing} from "@/lib/skills/composed-effects";
 import {modularApprovedEditError,hasComposedEffects} from "@/lib/skills/modular-approval-lock";
 import {configuredSkillEffectPch} from "@/lib/skills/configured-effect-pricing";
 import {defaultEffectPricing} from "@/lib/skills/pch";
@@ -62,7 +62,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const accumulationPerTick = Number(body.accumulationPerTick ?? skill.accumulationPerTick ?? 0);
   const category = String(body.category ?? skill.category);
   const nextCondition = typeof body.condition === "string" ? body.condition.trim() : (skill.condition ?? null);
-  const effect = Array.isArray(body.effect) ? body.effect : (Array.isArray(skill.effect) ? skill.effect : []);
+  let effect = Array.isArray(body.effect) ? body.effect : (Array.isArray(skill.effect) ? skill.effect : []);
   const hasComposed=effect.some(isComposedSkillEffect);
   const hadComposed=hasComposedEffects(skill.effect);
   const modularPriceSensitive=hasComposed||hadComposed;
@@ -121,6 +121,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if(modularPriceSensitive && body.approve!==true && body.reject!==true &&
     requestedPchCost!==Number((skill as any).pchCost??0))
     return NextResponse.json({error:"El PCH modular definitivo se liquida al aprobar la habilidad; guarda el resto sin alterar el costo."},{status:400});
+  if(body.approve===true && hasComposed) effect=stampReviewedRestrictionPricing(effect);
   if(body.approve===true && modularPriceSensitive) {
     // A player's provisional reservation NEVER counts as an admin-reviewed price.
     const pricing={...defaultEffectPricing(),...await readEffectPricing()};

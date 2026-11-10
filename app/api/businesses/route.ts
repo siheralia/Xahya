@@ -184,7 +184,8 @@ export async function POST(request: Request) {
         const change=await db.transaction(async tx=>{
           const P=(tx.orm.public as any).BusinessProduct;
           // Serialize changes to this item. Other shops' inventory is untouched.
-          await tx.executeRaw`UPDATE public."businessProduct" SET id=id WHERE id=${productId} AND "businessId"=${businessId}`;
+          const lock=db.raw.sql`UPDATE public."businessProduct" SET id=id WHERE id=${productId} AND "businessId"=${businessId}`.affectedCount().build();
+          if((await tx.execute(lock)).affectedRows!==1)throw new Error("PRODUCT_NOT_FOUND");
           const product=await P.where({id:productId,businessId}).first();
           if(!product||!product.active)throw new Error("PRODUCT_NOT_FOUND");
           if(newStock>Number(product.stock))throw new Error("STOCK_INCREASE");

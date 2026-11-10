@@ -22,6 +22,9 @@ test("an owner may reduce only their own existing stock, never mint new inventor
   assert.match(businesses,/P\.where\(\{id:productId,businessId\}\)\.first\(\)/);
   assert.match(businesses,/newStock>Number\(product.stock\)/);
   assert.match(businesses,/P\.where\(\{id:productId,businessId\}\)\.update\(\{stock:newStock\}\)/);
+  assert.match(businesses,/db\.raw\.sql/);
+  assert.match(businesses,/tx\.execute\(lock\)/);
+  assert.doesNotMatch(businesses,/executeRaw/);
   assert.match(businesses,/UPDATE public\."businessProduct" SET id=id WHERE id=/);
 });
 

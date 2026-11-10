@@ -96,7 +96,8 @@ export function SkillMechanicsEditor({
    <p className="mt-2 text-zinc-500">
     Este mínimo se calcula después de resistencias, esquiva y cobertura,
     usando solamente el HP que realmente perdió el objetivo. No altera
-    cuánto daño causa el golpe ni cambia el precio ya aprobado.
+    el daño del golpe. Los cambios de la habilidad requieren la revisión
+    de aprobación y PCH correspondiente.
    </p>
   </details>
   <VariableResistanceEditor value={mechanics.variableResistance} statistics={statistics} onChange={variableResistance=>onChange({...mechanics,variableResistance})}/>

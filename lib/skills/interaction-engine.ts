@@ -31,7 +31,8 @@ export type MechanicRule = {
 };
 export type SkillMechanics = { family?: string; parentSkillId?: number; activationConditions?: MechanicCondition[]; rules?: MechanicRule[]; variableResistance?: VariableResistance;
  /** D3.4: only a reviewed hybrid contact with COMPOSED status may execute this. */
- hybridStatusChannel?:"PHYSICAL"|"MAGICAL"; };
+ hybridStatusChannel?:"PHYSICAL"|"MAGICAL";
+ hybridStatusMinimumHp?:number; };
 export type FieldRing = { radius: number; ppm: number };
 export type EnvironmentField = {
   id: string; sourceSkillId: number; ownerCharacterId: number; material: string;
@@ -91,6 +92,9 @@ export function validateSkillMechanics(value: unknown, ownSkillId?: number): str
       mechanics.hybridStatusChannel !== "PHYSICAL" &&
       mechanics.hybridStatusChannel !== "MAGICAL")
     return "Selecciona físico o mágico como canal del estado híbrido.";
+  if (mechanics.hybridStatusMinimumHp !== undefined &&
+      (!integer(mechanics.hybridStatusMinimumHp,1,20)))
+    return "El mínimo de HP del estado híbrido debe estar entre 1 y 20.";
   if (mechanics.parentSkillId !== undefined && (!integer(mechanics.parentSkillId, 1) || mechanics.parentSkillId === ownSkillId))
     return "Habilidad madre inválida.";
   if (mechanics.activationConditions !== undefined && (!Array.isArray(mechanics.activationConditions) || mechanics.activationConditions.length > 10))

@@ -75,12 +75,30 @@ export function SkillMechanicsEditor({
     <select className={input} value={mechanics.hybridStatusChannel??""}
      onChange={e=>onChange({...mechanics,
       hybridStatusChannel:e.target.value?
-       e.target.value as "PHYSICAL"|"MAGICAL":undefined})}>
+       e.target.value as "PHYSICAL"|"MAGICAL":undefined,
+      hybridStatusMinimumHp:e.target.value?mechanics.hybridStatusMinimumHp:undefined})}>
      <option value="">No configurar</option>
      <option value="PHYSICAL">Daño físico real</option>
      <option value="MAGICAL">Daño mágico real</option>
     </select>
    </label>
+   <label className={label+" mt-3"}>
+    Mínimo de HP reales perdidos por el canal seleccionado
+    <select className={input} disabled={!mechanics.hybridStatusChannel}
+     value={mechanics.hybridStatusMinimumHp??1}
+     onChange={e=>onChange({...mechanics,
+      hybridStatusMinimumHp:Number(e.target.value)===1?undefined:Number(e.target.value)})}>
+     {[1,2,3,5,10,20].map(n=><option key={n} value={n}>
+      {n} HP {n===1?"(predeterminado)":""}
+     </option>)}
+    </select>
+   </label>
+   <p className="mt-2 text-zinc-500">
+    Este mínimo se calcula después de resistencias, esquiva y cobertura,
+    usando solamente el HP que realmente perdió el objetivo. No altera
+    el daño del golpe. Los cambios de la habilidad requieren la revisión
+    de aprobación y PCH correspondiente.
+   </p>
   </details>
   <VariableResistanceEditor value={mechanics.variableResistance} statistics={statistics} onChange={variableResistance=>onChange({...mechanics,variableResistance})}/>
   <div><p className="mb-2 text-sm font-semibold">Condiciones para activar</p>{renderConditions(mechanics.activationConditions??[],setConditions)}</div>

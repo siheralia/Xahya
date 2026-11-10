@@ -260,7 +260,7 @@ export function MicroEffectFlowEditor({
   });
  },[readOnly,value.steps]);
  const validLink=useCallback((link:Connection | Edge)=>
-  describeConnection(indexOfNode(link.source),indexOfNode(link.target),link.targetHandle)===null,
+  describeConnection(indexOfNode(link.source),indexOfNode(link.target),link.targetHandle??null)===null,
  [describeConnection]);
  const onConnect=useCallback((link:Connection)=>{
   if(!validLink(link))return;
@@ -294,8 +294,8 @@ export function MicroEffectFlowEditor({
   onConnect({source:nodeId(selectedFrom),sourceHandle:"value",
    target:nodeId(selectedTo),targetHandle:selectedPort});
  };
- const onConnectEndMessage=(state:{isValid:boolean|null;fromHandle:{nodeId:string;id:string|null;type:string}|null;
-  toHandle:{nodeId:string;id:string|null;type:string}|null})=>{
+ const onConnectEndMessage=(state:{isValid:boolean|null;fromHandle:{nodeId:string;type:string;id?:string|null}|null;
+  toHandle:{nodeId:string;type:string;id?:string|null}|null})=>{
   if(state.isValid)return;
   const source=state.fromHandle?.type==="source"?state.fromHandle:
    state.toHandle?.type==="source"?state.toHandle:null;
@@ -306,7 +306,7 @@ export function MicroEffectFlowEditor({
    return;
   }
   setConnectionFeedback(describeConnection(indexOfNode(source.nodeId),
-   indexOfNode(target.nodeId),target.id)??"No se pudo completar la conexión. Usa el asistente inferior.");
+   indexOfNode(target.nodeId),target.id??null)??"No se pudo completar la conexión. Usa el asistente inferior.");
  };
  return <section className="min-w-0 space-y-2">
    <div className="flex flex-wrap items-center justify-between gap-2">

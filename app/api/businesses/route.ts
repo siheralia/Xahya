@@ -105,7 +105,7 @@ export async function POST(request: Request) {
   const Character = db.orm.public.Character;
   const Relationship = (db.orm.public as any).CharacterRelationship;
 
-  if (["oneTimeInvest","scheduleInvestment","cancelInvestment","invest","stockProperty","createPlan","updatePlan","deletePlan"].includes(action)) {
+  if (["oneTimeInvest","scheduleInvestment","cancelInvestment","invest","stockProperty","reduceStock","createPlan","updatePlan","deletePlan"].includes(action)) {
     const businessId = Number(body?.businessId);
     const owned = await getOwnedBusiness(user, businessId);
     if (owned.error) return owned.error;
@@ -173,6 +173,31 @@ export async function POST(request: Request) {
         });
       });
       return NextResponse.json({ success: true });
+    }
+    if (action === "reduceStock") {
+      const productId=Number(body?.productId);
+      const newStock=body?.stock;
+      if(!Number.isSafeInteger(productId)||productId<=0||
+         !Number.isSafeInteger(newStock)||newStock<0)
+        return NextResponse.json({error:"La cantidad debe ser un número entero igual o mayor que cero."},{status:400});
+      try{
+        const change=await db.transaction(async tx=>{
+          const P=(tx.orm.public as any).BusinessProduct;
+          // Serialize changes to this item. Other shops' inventory is untouched.
+          await tx.executeRaw`UPDATE public."businessProduct" SET id=id WHERE id=${productId} AND "businessId"=${businessId}`;
+          const product=await P.where({id:productId,businessId}).first();
+          if(!product||!product.active)throw new Error("PRODUCT_NOT_FOUND");
+          if(newStock>Number(product.stock))throw new Error("STOCK_INCREASE");
+          await P.where({id:productId,businessId}).update({stock:newStock});
+          return {before:Number(product.stock),after:newStock,itemId:Number(product.itemId)};
+        });
+        return NextResponse.json({success:true,stock:change.after});
+      }catch(e){
+        if(e instanceof Error&&e.message==="PRODUCT_NOT_FOUND")return NextResponse.json({error:"Producto no encontrado en tu negocio."},{status:404});
+        if(e instanceof Error&&e.message==="STOCK_INCREASE")return NextResponse.json({error:"Para aumentar las existencias, utiliza Comprar inventario."},{status:409});
+        console.error("BUSINESS_STOCK_REDUCTION_FAILED",{businessId,productId,error:e});
+        return NextResponse.json({error:"No se pudieron actualizar las existencias."},{status:500});
+      }
     }
     if (action === "stockProperty") {
       const itemId = Number(body?.itemId); const quantity = Math.trunc(Number(body?.quantity ?? 0)); const purchasePrice = Math.trunc(Number(body?.purchasePrice ?? 0)); const salePrice = Math.trunc(Number(body?.salePrice ?? 0));

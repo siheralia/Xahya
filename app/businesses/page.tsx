@@ -29,6 +29,7 @@ export default function BusinessesPage() {
   const [investmentForms, setInvestmentForms] = useState<Record<number,{type:string;sourceType:string;amount:number}>>({});
   const [recurringInvestmentForms, setRecurringInvestmentForms] = useState<Record<number,{type:string;amount:number}>>({});
   const [propertyForms, setPropertyForms] = useState<Record<number,{itemId:string;quantity:number;purchasePrice:number;salePrice:number}>>({});
+  const [stockEdits,setStockEdits]=useState<Record<number,string>>({});
   const [planForms, setPlanForms] = useState<Record<number,{name:string;description:string;price:number;intervalValue:number;intervalUnit:string}>>({});
   const [planEditing, setPlanEditing] = useState<Record<number,number|null>>({});
 
@@ -39,6 +40,7 @@ export default function BusinessesPage() {
       if (!response.ok) throw new Error(data?.error ?? "No se pudieron cargar tus negocios.");
       setBusinesses(data.businesses ?? []);
       setPropertyItems(data.propertyItems ?? []);
+      setStockEdits({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar tus negocios.");
     }
@@ -90,6 +92,14 @@ export default function BusinessesPage() {
   async function scheduleInvestment(businessId:number){const f=recurringInvForm(businessId);await submit("scheduleInvestment",{businessId,type:f.type,amount:Number(f.amount)});}
   async function cancelInvestment(businessId:number, investmentId:number){await submit("cancelInvestment",{businessId,investmentId});}
   async function stockProperty(businessId:number){const f=propForm(businessId);await submit("stockProperty",{businessId,itemId:Number(f.itemId),quantity:Number(f.quantity),purchasePrice:Number(f.purchasePrice),salePrice:Number(f.salePrice)});}
+  async function reduceStock(businessId:number,product:Product){
+    const stock=Number(stockEdits[product.id]??product.stock);
+    if(!Number.isSafeInteger(stock)||stock<0||stock>product.stock){
+      setError("Escribe una cantidad entre 0 y las unidades disponibles. Para sumar, usa Comprar inventario.");
+      return;
+    }
+    await submit("reduceStock",{businessId,productId:product.id,stock});
+  }
   async function savePlan(businessId:number, planId?:number){const f=planForm(businessId);await submit(planId?"updatePlan":"createPlan",{businessId,...f,...(planId?{planId}:{}),price:Number(f.price),intervalValue:Number(f.intervalValue)});setPlanEditing(v=>({...v,[businessId]:null}));}
   async function deletePlan(businessId:number, planId:number){if(!window.confirm("¿Eliminar este plan de suscripción? Dejará de aparecer en el catálogo."))return;await submit("deletePlan",{businessId,planId});}
 
@@ -147,6 +157,24 @@ export default function BusinessesPage() {
                     </div>
                   </div>
                   <div className="rounded-xl border border-zinc-800 p-4"><h3 className="font-semibold">Comprar inventario</h3><div className="mt-3 grid gap-2"><select value={propForm(business.id).itemId} onChange={e=>setPropertyForms(v=>({...v,[business.id]:{...propForm(business.id),itemId:e.target.value}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"><option value="">Selecciona un objeto</option>{business.propertyItems.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select><div className="grid grid-cols-3 gap-2"><input type="number" min={1} value={propForm(business.id).quantity} onChange={e=>setPropertyForms(v=>({...v,[business.id]:{...propForm(business.id),quantity:Number(e.target.value)||1}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm" placeholder="Cantidad"/><input type="number" min={0} value={propForm(business.id).purchasePrice} onChange={e=>setPropertyForms(v=>({...v,[business.id]:{...propForm(business.id),purchasePrice:Number(e.target.value)||0}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm" placeholder="Compra"/><input type="number" min={0} value={propForm(business.id).salePrice} onChange={e=>setPropertyForms(v=>({...v,[business.id]:{...propForm(business.id),salePrice:Number(e.target.value)||0}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm" placeholder="Venta"/></div><button onClick={()=>stockProperty(business.id)} disabled={saving||!propForm(business.id).itemId} className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black disabled:opacity-40">Comprar inventario</button></div></div>
+                  <div className="rounded-xl border border-zinc-800 p-4">
+                    <h3 className="font-semibold">Ajustar existencias</h3>
+                    <p className="mt-1 text-xs text-zinc-500">Puedes retirar unidades del catálogo hasta dejar 0. Esto no reembolsa dinero ni agrega unidades nuevas.</p>
+                    <div className="mt-3 space-y-3">
+                      {business.products.length?business.products.map(product=>{
+                        const input=stockEdits[product.id]??String(product.stock);
+                        const stock=Number(input);
+                        const valid=input.trim()!==""&&Number.isSafeInteger(stock)&&stock>=0&&stock<=product.stock;
+                        return <div key={product.id} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+                          <p className="text-sm font-semibold">{product.item?.name??"Objeto"} <span className="font-normal text-zinc-500">· {product.stock} disponibles</span></p>
+                          <div className="mt-2 flex items-center gap-2">
+                            <input aria-label={"Existencias de "+(product.item?.name??"Objeto")} type="number" min={0} max={product.stock} step={1} value={input} onChange={e=>setStockEdits(v=>({...v,[product.id]:e.target.value}))} className="min-w-0 w-24 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm"/>
+                            <button onClick={()=>reduceStock(business.id,product)} disabled={saving||!valid||stock===product.stock} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold disabled:opacity-40">Guardar cantidad</button>
+                          </div>
+                        </div>;
+                      }):<p className="text-sm text-zinc-600">Todavía no hay productos en el inventario.</p>}
+                    </div>
+                  </div>
                   <div className="rounded-xl border border-zinc-800 p-4"><h3 className="font-semibold">Nueva suscripción</h3><div className="mt-3 grid gap-2"><input value={planForm(business.id).name} onChange={e=>setPlanForms(v=>({...v,[business.id]:{...planForm(business.id),name:e.target.value}}))} placeholder={planEditing[business.id] ? "Nombre del plan (editar)" : "Nombre del plan"} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"/><div className="grid grid-cols-3 gap-2"><input type="number" min={0} value={planForm(business.id).price} onChange={e=>setPlanForms(v=>({...v,[business.id]:{...planForm(business.id),price:Number(e.target.value)||0}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm" placeholder="Precio"/><input type="number" min={1} value={planForm(business.id).intervalValue} onChange={e=>setPlanForms(v=>({...v,[business.id]:{...planForm(business.id),intervalValue:Number(e.target.value)||1}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm" placeholder="Cada"/><select title="Unidad del intervalo: día, semana o mes" aria-label="Unidad del intervalo" value={planForm(business.id).intervalUnit} onChange={e=>setPlanForms(v=>({...v,[business.id]:{...planForm(business.id),intervalUnit:e.target.value}}))} className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm"><option value="DAY">día</option><option value="WEEK">semana</option><option value="MONTH">mes</option></select></div><button onClick={()=>savePlan(business.id, planEditing[business.id] ?? undefined)} disabled={saving||!planForm(business.id).name.trim()} className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black disabled:opacity-40">{planEditing[business.id] ? "Guardar cambios" : "Crear plan"}</button></div></div>
                 </div>
                 <div className="mt-5 rounded-xl border border-zinc-800 p-4">

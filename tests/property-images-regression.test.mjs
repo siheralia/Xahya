@@ -14,8 +14,9 @@ test("property photos are compressed below Vercel's 1 MB body limit before uploa
 });
 
 test("failed uploads keep the newly-created item selected for retry", () => {
-  assert.match(management, /if\(wasCreating && savedId\) setSelected\(savedId\)/);
-  assert.ok(management.indexOf("setSelected(savedId);\n      if(imageFile") < management.indexOf("fetch(\"/api/management/items/image\""));
+  assert.match(management, /if\(wasCreating && savedId\)\{/);
+  assert.match(management, /setItems\(current=>current\.some\(item=>item\.id===savedId\)/);
+  assert.ok(management.indexOf("setSelected(savedId);") < management.indexOf("fetch(\"/api/management/items/image\""));
   assert.match(management, /role="alert"/);
 });
 

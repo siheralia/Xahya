@@ -137,7 +137,9 @@ export default function CombatSkillLoadout({
        return <div className="space-y-2">
         {skill.modularHostileStatus&&<p className="rounded-lg border border-amber-600/40 bg-amber-950/20 p-3 text-xs text-amber-200">
          <b>Debilitamiento modular por impacto.</b> Este estado solo afecta al rival si
-         {skill.hybridContact?.statusChannel
+         {skill.hybridContact?.statusGate==="CONTACT"
+          ?" el golpe imbuido toca realmente su cuerpo, aunque la defensa absorba todo el daño a HP."
+          :skill.hybridContact?.statusChannel
           ?" el componente "+(skill.hybridContact.statusChannel==="MAGICAL"?"mágico":"físico")+" del golpe imbuido le quita HP reales."
           :" el ataque "+(skill.usesMagic?"mágico":"físico")+" supera su reacción y le quita HP reales."}
          {" "}La esquiva y una barrera que detenga el impacto lo impiden;
@@ -152,7 +154,10 @@ export default function CombatSkillLoadout({
          el campo mágico reduce la parte mágica. Una barrera en el camino
          puede detener el golpe completo. La magia está unida al contacto:
          no es un rayo reflejable.
-         {skill.hybridContact.statusChannel&&<>
+         {skill.hybridContact.statusGate==="CONTACT"
+          ?<> {" "}Este debilitamiento requiere contacto corporal real, no pérdida de HP;
+             esquivar, desviar el golpe o detenerlo con una barrera lo impide.</>
+          :skill.hybridContact.statusChannel&&<>
           {" "}El debilitamiento solo se activa con daño real del componente
           {skill.hybridContact.statusChannel==="MAGICAL"?" mágico":" físico"}.
          </>}

@@ -99,8 +99,11 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
   // A hybrid may carry one extra, separately priced COMPOSED debuff. The
   // source channel is explicit in approved mechanics, never inferred from
   // the physical CONTACT flag or chosen by the browser at impact time.
-  const approvedHostileStatus=approvedHybridContact.statusChannel
-   ?compileApprovedHybridHostileStatus(row,cutover,approvedHybridContact.statusChannel)
+  const approvedHostileStatus=approvedHybridContact.statusChannel||
+    approvedHybridContact.statusGate==="CONTACT"
+   ?compileApprovedHybridHostileStatus(row,cutover,
+      approvedHybridContact.statusChannel??"PHYSICAL",
+      approvedHybridContact.statusGate==="CONTACT"?"CONTACT":"HP_DAMAGE")
    :undefined;
   const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
   if(cooldown&&!["Sin cooldown","Una vez por combate","Igual a duración",

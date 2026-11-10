@@ -40,7 +40,7 @@ export type CombatSkillPreview = {
  modularHostileStatus?:boolean;
  /** D3.2: reviewed physical/magical contact split. */
  hybridContact?:{physicalMultiplier:number;magicalMultiplier:number;
-  statusChannel?:"PHYSICAL"|"MAGICAL"}|null;
+  statusChannel?:"PHYSICAL"|"MAGICAL";statusGate?:"CONTACT"}|null;
  fusion?:FusionPlan|null;
  needsAim?: boolean;
  attackArea?:CombatAttackArea|null;

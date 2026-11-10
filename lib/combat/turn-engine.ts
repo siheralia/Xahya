@@ -2182,10 +2182,15 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
        :riderChannel==="MAGICAL"?(hpDamageChannels?.magical??0)>0
        :false
       :true;
-    // This rider is resolved AFTER the ordinary attack result is logged, so
-    // the encounter chronicle narrates impact before its consequence.
-    // No actual lost HP means no debuff: blocked, dodged, or missed attacks.
-    if(pending.hostileStatus&&contact&&actualHpDamage>0&&riderChannelHit){
+    // A CONTACT rider needs a real geometrical body touch and a living
+    // defender, but not HP loss. Walls and dodges set contact=false.
+    // A HP_DAMAGE rider retains the exact channel-specific HP gate.
+    // No status executes before RESOLVE or against an already defeated body.
+    const contactOnlyRider=pending.hybridContact?.statusGate==="CONTACT";
+    const riderApplies=contactOnlyRider
+      ?contact&&fighter.hp>0
+      :contact&&actualHpDamage>0&&riderChannelHit;
+    if(pending.hostileStatus&&riderApplies){
       const rider=pending.hostileStatus;
       applySummonStatus(state,{
         id:rider.id,sourceSummonId:"SKILL:"+pending.skill!.id,
@@ -2197,9 +2202,11 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         skillId:pending.skill?.id,skillName:pending.skill?.name,
         contact:true,summary:attacker.name+" debilitó a "+fighter.name+
           " con "+(pending.skill?.name??"su habilidad")+
-          " después de causarle daño"+
-          (riderChannel==="PHYSICAL"?" físico":
-           riderChannel==="MAGICAL"?" mágico":"")+"."});
+          (contactOnlyRider
+           ?" tras establecer contacto real con su cuerpo."
+           :" después de causarle daño"+
+            (riderChannel==="PHYSICAL"?" físico":
+             riderChannel==="MAGICAL"?" mágico":"")+".")});
     }
     // A mirror reflects only when a REAL area touches it. In particular an
     // approved single-target skill or mirror ray must never inherit the basic

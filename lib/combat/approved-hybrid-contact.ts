@@ -15,6 +15,9 @@ export type ApprovedHybridContact={
  physicalMultiplier:number;magicalMultiplier:number;
  /** D3.4: reviewed hostile rider, activated only by this HP damage channel. */
  statusChannel?:"PHYSICAL"|"MAGICAL";
+ /** D3.5: a reviewed IMPACT/CHARACTER rider needs actual bodily CONTACT,
+  * even when damage is completely mitigated. Defaults to HP_DAMAGE. */
+ statusGate?:"CONTACT";
 };
 const isObject=(v:unknown):v is Record<string,unknown> =>
  v!==null&&typeof v==="object"&&!Array.isArray(v);
@@ -73,8 +76,18 @@ export function compileApprovedHybridContact(
  if(composed.length>1||effects.length!==2+composed.length)
   return error("El golpe imbuido admite un único debilitamiento modular adicional.");
  const statusChannel=mechanics.hybridStatusChannel;
- if(composed.length===1&&!["PHYSICAL","MAGICAL"].includes(String(statusChannel)))
+ const module=composed.length===1?composed[0].module:null;
+ const contactRider=module?.trigger==="IMPACT";
+ if(contactRider&&(module?.impactKind!=="CHARACTER"||
+    module.requirements!==undefined))
+  return error("Un estado de contacto exige impacto contra personaje, sin condiciones adicionales.");
+ if(module&&module.trigger!=="ACTIVATE"&&!contactRider)
+  return error("El estado híbrido solo admite activación por daño o impacto real contra personaje.");
+ if(composed.length===1&&!contactRider&&
+    !["PHYSICAL","MAGICAL"].includes(String(statusChannel)))
   return error("Selecciona el canal físico o mágico que debe causar daño real para activar el estado.");
+ if(contactRider&&statusChannel!==undefined)
+  return error("Un efecto por contacto no puede fingir requerir daño de un canal.");
  if(composed.length===0&&statusChannel!==undefined)
   return error("Un canal de activación requiere un estado modular aprobado.");
  const channel=new Map<"PHYSICAL"|"MAGICAL",number>();
@@ -98,5 +111,7 @@ export function compileApprovedHybridContact(
  if(composed.length===1&&!/^[1-5] turnos?$/.test(duration))
   return error("Con debilitamiento, la duración del estado híbrido debe ser de 1 a 5 turnos.");
  return {physicalMultiplier:physical/100,magicalMultiplier:magical/100,
-  ...(composed.length===1?{statusChannel:statusChannel as "PHYSICAL"|"MAGICAL"}:{})};
+  ...(contactRider?{statusGate:"CONTACT" as const}:{}),
+  ...(composed.length===1&&!contactRider?
+   {statusChannel:statusChannel as "PHYSICAL"|"MAGICAL"}:{})};
 }

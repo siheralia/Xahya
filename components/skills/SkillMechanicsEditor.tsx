@@ -59,13 +59,17 @@ export function SkillMechanicsEditor({
   </div>
   <details className="rounded-lg border border-violet-800/50 p-3 text-xs text-zinc-300">
    <summary className="cursor-pointer font-medium text-violet-200">
-    Golpe imbuido: debilitamiento por daño de un canal
+    Golpe imbuido: marca por contacto o daño real
    </summary>
    <p className="mt-2 text-zinc-400">
     Solo para una técnica ofensiva de contacto aprobada que reparta el 100 %
     entre daño físico y mágico, y tenga un tercer efecto modular COMPOSED
-    con debilitamiento revisado. Elige qué parte debe quitar HP reales al
-    enemigo para aplicar ese estado. La defensa del otro tipo no basta.
+    con debilitamiento revisado. Para exigir daño real, configura el
+    micromódulo con disparador «Al activar» y elige un canal aquí.
+    Para una marca que requiere solo contacto, cambia el disparador del
+    micromódulo a «Impacto» y su tipo a «Personaje»; deja «No configurar»
+    en este selector. Las esquivas, los desvíos y las barreras que detienen
+    el golpe impiden la marca de contacto.
    </p>
    <label className={label+" mt-3"}>Canal de daño que activa el debilitamiento
     <select className={input} value={mechanics.hybridStatusChannel??""}

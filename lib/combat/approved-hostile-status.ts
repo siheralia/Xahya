@@ -123,10 +123,12 @@ export function compileApprovedHostileStatus(
  */
 export function compileApprovedHybridHostileStatus(
  row:Record<string,unknown>,cutover:ModularCutoverMode,
- channel:"PHYSICAL"|"MAGICAL",
+ channel:"PHYSICAL"|"MAGICAL",gate:"HP_DAMAGE"|"CONTACT"="HP_DAMAGE",
 ):ApprovedHostileStatus{
  if(channel!=="PHYSICAL"&&channel!=="MAGICAL")
   return error("Canal de efecto hostil híbrido desconocido.");
+ if(gate!=="HP_DAMAGE"&&gate!=="CONTACT")
+  return error("Disparador de estado híbrido desconocido.");
  const all=Array.isArray(row.effect)?row.effect:[];
  const composed=all.filter(isComposedSkillEffect);
  if(all.length!==3||composed.length!==1)
@@ -134,6 +136,21 @@ export function compileApprovedHybridHostileStatus(
  const range=parseConfiguredSkillRange(row.areaOfEffect);
  if(range.rangeMeters===null)
   return error("El debilitamiento híbrido necesita alcance de contacto válido.");
+ // IMPACT is an explicit authoring contract for a real body touch,
+ // not a free ACTIVATE spell. Normalize ONLY after verifying the trigger;
+ // the existing strict D2 status allowlist then validates the same steps.
+ const source=composed[0].module;
+ if(gate==="CONTACT"&&(
+   source.trigger!=="IMPACT"||source.impactKind!=="CHARACTER"||
+   source.requirements!==undefined))
+  return error("El estado de contacto necesita IMPACT contra personaje sin condiciones.");
+ if(gate==="HP_DAMAGE"&&source.trigger!=="ACTIVATE")
+  return error("El estado por daño requiere activación revisada de HP.");
+ const normalized=structuredClone(source);
+ if(gate==="CONTACT"){
+  normalized.trigger="ACTIVATE";
+  delete normalized.impactKind;
+ }
  const mechanics=object(row.mechanics)?row.mechanics:{};
  const validationRow:Record<string,unknown>={
   ...row,
@@ -148,7 +165,7 @@ export function compileApprovedHybridHostileStatus(
    type:"DAMAGE_MULTIPLIER",
    target:channel==="MAGICAL"?"MAGIC_ATTACK":"PHYSICAL_ATTACK",
    value:100,
-  },composed[0]],
+  },{...composed[0],module:normalized}],
  };
  const approved=compileApprovedHostileStatus(validationRow,cutover);
  if(approved.usesMagic!==(channel==="MAGICAL"))

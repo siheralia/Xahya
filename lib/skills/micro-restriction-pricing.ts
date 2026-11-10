@@ -19,7 +19,7 @@ const PER_ACTION_DISCOUNT_CAP=30;
 
 export function pricedMicroStepCount(effect:EffectContainer):number{
  return (Array.isArray(effect?.steps)?effect.steps:[]).filter(step=>
-  !!step&&typeof step==="object"&&!UNPRICED_MICRO_KINDS.includes(step.kind as typeof UNPRICED_MICRO_KIN[number])
+  !!step&&typeof step==="object"&&!UNPRICED_MICRO_KINDS.includes(step.kind as typeof UNPRICED_MICRO_KINDS[number])
  ).length;
 }
 

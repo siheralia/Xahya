@@ -1073,7 +1073,7 @@ export default function CombatEncounter({id}:{id:string}) {
      </p>}
     {(state.summons?.length??0)>0&&<section className="mt-4 space-y-2 rounded-xl border border-emerald-500/30 bg-zinc-950/70 p-3" aria-label="Criaturas invocadas">
      <h2 className="text-sm font-semibold text-emerald-200">🐇 Criaturas en el campo</h2>
-     <p className="text-xs text-zinc-400">Cada orden consume 1 PA y los ticks del invocador. El mantenimiento se descuenta al comenzar el siguiente turno: no hay ataques gratuitos.</p>
+     <p className="text-xs text-zinc-400">Atacar y acompañar funcionan automáticamente en las oportunidades de cada criatura, según su velocidad y PA propios. Cambiar sus órdenes cuesta 1 PA al invocador. Mantener posición y Manual no actúan solos. El mantenimiento se cobra al iniciar cada turno.</p>
      {(state.summonStatuses?.length??0)>0&&<div className="space-y-1 rounded-lg border border-zinc-800 p-2 text-xs">
        <strong className="text-cyan-200">Estados temporales activos</strong>
        {state.summonStatuses?.map(status=><p key={status.id} className="text-zinc-300">
@@ -1095,6 +1095,11 @@ export default function CombatEncounter({id}:{id:string}) {
          (status.operation==="MULTIPLIER"?status.value<1:status.value<0));
        const selectedStat=summonChosenStats[summon.id]??combatChoice?.allowed[0];
        const selectedStatusId=summonChosenStatuses[summon.id]??reversible[0]?.id;
+       const opponentSide=summon.owner==="PLAYER"?"NPC":"PLAYER";
+       const hostileSummons=(state.summons??[]).filter(s=>s.owner!==summon.owner);
+       const chosenTarget=summon.targetId?.startsWith("SUMMON:")&&
+         hostileSummons.some(s=>"SUMMON:"+s.id===summon.targetId)
+           ?summon.targetId:"FIGHTER:"+opponentSide;
        return <div key={summon.id}
        className={"space-y-2 rounded-lg border p-2 text-xs "+(summon.owner===side?"border-emerald-700/50":"border-rose-700/50")}>
        <div className="flex flex-wrap items-center justify-between gap-1">
@@ -1102,7 +1107,8 @@ export default function CombatEncounter({id}:{id:string}) {
         <span className="text-zinc-400">{summon.owner===side?"Aliada":"Rival"} · {Math.max(0,summon.expiresAtRound-state.round)} turnos</span>
        </div>
        <p className="text-zinc-300">Integridad {Math.ceil(summon.integrity)} · Golpes {summon.hitCount}/{summon.hitLimit} · Mantenimiento {summon.maintenanceMana} maná</p>
-       <p className="text-zinc-400">Comportamiento {summon.behavior.mode} · Objetivo {summon.behavior.target==="USER"?"invocador":"oponente"}</p>
+       <p className="text-zinc-400">Modo {summon.behavior.mode==="FOLLOW"?"Acompañar":summon.behavior.mode==="ATTACK"?"Atacar":summon.behavior.mode==="PROTECT"?"Proteger":summon.behavior.mode==="HOLD"?"Mantener posición":"Manual"} · Objetivo {summon.behavior.mode==="FOLLOW"||summon.behavior.mode==="PROTECT"||summon.behavior.target==="USER"
+         ?"invocador":hostileSummons.find(s=>"SUMMON:"+s.id===chosenTarget)?.label??state.actors[opponentSide].name} · Acciones propias: {summon.autoSpentAp??0}</p>
        {Object.keys(summon.charges??{}).filter(name=>!summon.chargesMigrated).map(name=>
          <p key={name} className="text-violet-300">🌙 {friendlyMicroKey(name)}: {combatChargeBalance(state,summon.owner,name)}/6 cargas del propietario</p>)}
        {summon.fusedFrom?.length?<p className="text-violet-200">
@@ -1132,20 +1138,32 @@ export default function CombatEncounter({id}:{id:string}) {
            </option>)}
           </select>
         </label>}
-        <label className="block text-xs">Cambiar comportamiento (cuesta 1 PA)
+        <label className="block text-xs">Comportamiento (cambiar cuesta 1 PA)
          <select value={summon.behavior.mode} disabled={!ready} className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 disabled:opacity-40"
           onChange={e=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"CHANGE_BEHAVIOR",
             newBehavior:e.target.value as typeof summon.behavior.mode})}>
-          {summon.behavior.allowedModes.map(mode=><option key={mode} value={mode}>
-           {mode==="FOLLOW"?"Seguir":mode==="ATTACK"?"Perseguir y atacar":mode==="PROTECT"?"Proteger":mode==="HOLD"?"Mantener posición":"Control manual"}
+          {[...new Set(["FOLLOW",...summon.behavior.allowedModes])].map(mode=><option key={mode} value={mode}>
+           {mode==="FOLLOW"?"Acompañar al invocador":mode==="ATTACK"?"Atacar automáticamente":mode==="PROTECT"?"Proteger (seguir de cerca)":mode==="HOLD"?"Mantener posición":"Control manual"}
           </option>)}
          </select>
         </label>
+        {summon.behavior.target==="OPPONENT"&&<label className="block text-xs">
+         Objetivo de esta criatura (cambiar cuesta 1 PA)
+         <select value={chosenTarget} disabled={!ready}
+          onChange={e=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,
+            order:"CHANGE_TARGET",targetId:e.target.value})}
+          className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 disabled:opacity-40">
+          <option value={"FIGHTER:"+opponentSide}>{state.actors[opponentSide].name}</option>
+          {hostileSummons.map(target=><option key={target.id} value={"SUMMON:"+target.id}>
+           🐇 {target.label} (integridad {Math.ceil(target.integrity)})
+          </option>)}
+         </select>
+        </label>}
         <div className="flex flex-wrap gap-2">
          <button type="button" disabled={!ready} onClick={()=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"ACT",
             chosenStat:selectedStat,chosenStatusId:selectedStatusId})}
           className="rounded border border-emerald-500/60 px-3 py-2 text-emerald-200 disabled:opacity-40">
-          Actuar según comportamiento
+          Ordenar acción inmediata (1 PA)
          </button>
          {summon.behavior.allowedModes.includes("MANUAL")&&<button type="button"
           disabled={!ready||!drawnMovement}
@@ -1157,7 +1175,7 @@ export default function CombatEncounter({id}:{id:string}) {
            onClick={()=>void submit({kind:"COMMAND_SUMMON",summonId:summon.id,order:"ATTACK",
              chosenStat:selectedStat,chosenStatusId:selectedStatusId})}
            className="rounded border border-rose-600/50 px-3 py-2 text-rose-200 disabled:opacity-40">
-           Ordenar ataque
+           Ordenar ataque (1 PA)
           </button>}
         </div>
        </div>}

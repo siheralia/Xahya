@@ -2,7 +2,8 @@ import {cooldownTurns} from "../skills/cooldown.ts";
 import {legacyShadowCombatNumbers} from "../effects/legacy-modular-shadow.ts";
 import {isComposedSkillEffect} from "../skills/composed-effects.ts";
 import {compileApprovedSupportActivation,type ApprovedSupportActivation} from "./approved-support-activation.ts";
-import {compileApprovedHostileStatus,type ApprovedHostileStatus} from "./approved-hostile-status.ts";
+import {compileApprovedHostileStatus,compileApprovedHybridHostileStatus,
+ type ApprovedHostileStatus} from "./approved-hostile-status.ts";
 import {hasHybridDamageChannels,compileApprovedHybridContact,
  type ApprovedHybridContact} from "./approved-hybrid-contact.ts";
 import {decideModularExecution,type ModularCutoverMode} from "../effects/modular-cutover.ts";
@@ -95,6 +96,12 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
  // shares the same impact but uses its own magical attack/defense and reactions.
  if(row.category==="OFFENSIVE"&&hasHybridDamageChannels(effects)){
   const approvedHybridContact=compileApprovedHybridContact(row,cutover);
+  // A hybrid may carry one extra, separately priced COMPOSED debuff. The
+  // source channel is explicit in approved mechanics, never inferred from
+  // the physical CONTACT flag or chosen by the browser at impact time.
+  const approvedHostileStatus=approvedHybridContact.statusChannel
+   ?compileApprovedHybridHostileStatus(row,cutover,approvedHybridContact.statusChannel)
+   :undefined;
   const cooldown=typeof row.cooldown==="string"?row.cooldown:null;
   if(cooldown&&!["Sin cooldown","Una vez por combate","Igual a duración",
     "1 turno","2 turnos","3 turnos","5 turnos","10 turnos"].includes(cooldown))
@@ -103,12 +110,13 @@ export function compileCombatSkill(row:Record<string,unknown>,cutover:ModularCut
    id,name:typeof row.name==="string"?row.name.slice(0,120):"Golpe imbuido",
    cost,requiredParentSkillId,category:"OFFENSE",
    attackType:"BLUNT",usesMagic:false,approvedHybridContact,
+   approvedHostileStatus,
    rangeMeters:parseConfiguredSkillRange(row.areaOfEffect).rangeMeters!,
    // Physical multiplier anchors historical cover pressure; the defender
    // independently resolves both channels after a confirmed melee touch.
    damageMultiplier:approvedHybridContact.physicalMultiplier,
    defenseFactor:1,finalMultiplier:1,
-   healing:0,bonuses:[],durationTurns:0,
+   healing:0,bonuses:[],durationTurns:approvedHostileStatus?.durationTurns??0,
    cooldownRounds:cooldownTurns(cooldown,String(row.duration??"")),
    oncePerCombat:cooldown==="Una vez por combate",
    executionEngine:"MODULAR",

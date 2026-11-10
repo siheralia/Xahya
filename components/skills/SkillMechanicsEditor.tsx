@@ -57,6 +57,27 @@ export function SkillMechanicsEditor({
    <label className={label}>Familia de habilidades<input className={input} maxLength={80} placeholder="Ej. Control elemental" value={mechanics.family??""} onChange={e=>onChange({...mechanics,family:e.target.value})}/></label>
    <label className={label}>Habilidad madre<select className={input} value={mechanics.parentSkillId??""} onChange={e=>onChange({...mechanics,parentSkillId:e.target.value?Number(e.target.value):undefined})}><option value="">Ninguna</option>{skills.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
   </div>
+  <details className="rounded-lg border border-violet-800/50 p-3 text-xs text-zinc-300">
+   <summary className="cursor-pointer font-medium text-violet-200">
+    Golpe imbuido: debilitamiento por daño de un canal
+   </summary>
+   <p className="mt-2 text-zinc-400">
+    Solo para una técnica ofensiva de contacto aprobada que reparta el 100 %
+    entre daño físico y mágico, y tenga un tercer efecto modular COMPOSED
+    con debilitamiento revisado. Elige qué parte debe quitar HP reales al
+    enemigo para aplicar ese estado. La defensa del otro tipo no basta.
+   </p>
+   <label className={label+" mt-3"}>Canal de daño que activa el debilitamiento
+    <select className={input} value={mechanics.hybridStatusChannel??""}
+     onChange={e=>onChange({...mechanics,
+      hybridStatusChannel:e.target.value?
+       e.target.value as "PHYSICAL"|"MAGICAL":undefined})}>
+     <option value="">No configurar</option>
+     <option value="PHYSICAL">Daño físico real</option>
+     <option value="MAGICAL">Daño mágico real</option>
+    </select>
+   </label>
+  </details>
   <VariableResistanceEditor value={mechanics.variableResistance} statistics={statistics} onChange={variableResistance=>onChange({...mechanics,variableResistance})}/>
   <div><p className="mb-2 text-sm font-semibold">Condiciones para activar</p>{renderConditions(mechanics.activationConditions??[],setConditions)}</div>
   <div className="space-y-3">

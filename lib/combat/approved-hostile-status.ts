@@ -114,6 +114,48 @@ export function compileApprovedHostileStatus(
   value:apply.value,durationTurns,usesMagic};
 }
 
+/**
+ * D3.4: reuse the exact strict, staff-reviewed status interpreter for a
+ * hybrid CONTACT. The virtual base exists ONLY for validating the one COMPOSED
+ * status graph; it never creates an attack and cannot authorize magic-ray
+ * geometry. Actual attack geometry and BOTH paid damage channels were already
+ * verified by compileApprovedHybridContact on the original row.
+ */
+export function compileApprovedHybridHostileStatus(
+ row:Record<string,unknown>,cutover:ModularCutoverMode,
+ channel:"PHYSICAL"|"MAGICAL",
+):ApprovedHostileStatus{
+ if(channel!=="PHYSICAL"&&channel!=="MAGICAL")
+  return error("Canal de efecto hostil híbrido desconocido.");
+ const all=Array.isArray(row.effect)?row.effect:[];
+ const composed=all.filter(isComposedSkillEffect);
+ if(all.length!==3||composed.length!==1)
+  return error("Solo un estado revisado puede acompañar los dos canales del golpe.");
+ const range=parseConfiguredSkillRange(row.areaOfEffect);
+ if(range.rangeMeters===null)
+  return error("El debilitamiento híbrido necesita alcance de contacto válido.");
+ const mechanics=object(row.mechanics)?row.mechanics:{};
+ const validationRow:Record<string,unknown>={
+  ...row,
+  // The virtual SINGLE contract verifies the magical COMPOSED intent, not
+  // the physics of the original melee strike. No ray is ever launched.
+  areaOfEffect:channel==="MAGICAL"
+   ?"Objetivo único | Alcance máximo: "+range.rangeMeters+" m"
+   :row.areaOfEffect,
+  mechanics:mechanics.parentSkillId!==undefined
+   ?{parentSkillId:mechanics.parentSkillId}:{},
+  effect:[{
+   type:"DAMAGE_MULTIPLIER",
+   target:channel==="MAGICAL"?"MAGIC_ATTACK":"PHYSICAL_ATTACK",
+   value:100,
+  },composed[0]],
+ };
+ const approved=compileApprovedHostileStatus(validationRow,cutover);
+ if(approved.usesMagic!==(channel==="MAGICAL"))
+  return error("El estado no coincide con el canal de daño autorizado.");
+ return approved;
+}
+
 /** Execute the approved interpreter only on trusted server-side inputs.
  * The output is frozen in a pending attack, but NOT applied before contact.
  */

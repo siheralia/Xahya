@@ -13,19 +13,19 @@ Los campos de module son la representación validada por validateEffectContainer
 La interfaz permite editar el cuerpo modular completo de cada efecto, incluidas condiciones y referencias, sin abandonar el formulario de habilidad. El autor puede adjuntar justificación para el revisor.
 
 ## PCH: reserva provisional ≠ precio definitivo
-La investigación de la fórmula de PCH por micromódulo no ha concluido. **No se modifica la fórmula de PCH vigente**, ni se declara un precio definitivo de capacidad.
+La investigación de la fórmula completa de potencia/sinergias sigue abierta. Desde D4.4 hay **descuentos conservadores por restricciones verificables**, sin cambiar la tarifa base ni fijar aún un precio definitivo universal.
 
-Para permitir el envío condicionado a saldo sin que un jugador pueda autovalorarse en 1 PCH, se reserva provisionalmente **5 PCH por micromódulo**. Esta es una cuota cautelar de presentación, no una fórmula de balance. Los efectos tradicionales mantienen sus precios normales.
+Para permitir el envío condicionado a saldo sin que un jugador pueda autovalorarse en 1 PCH, se calcula una reserva provisional de **5 PCH por paso que produzca un efecto** (lectores, cálculos y comprobaciones no agregan precio), menos descuentos por **contacto real obligatorio** y **vida propia baja** solo donde realmente limitan una acción. El mínimo es 1 PCH por contenedor. Esta es una cuota cautelar de presentación, no una fórmula definitiva de balance. Los efectos tradicionales mantienen sus precios normales. Véase `docs/COMBAT_D4_4_DESCUENTOS_RESTRICCIONES_PCH.md`.
 
 La suma de reservas por efectos modulares entra en el mismo proceso de maná, velocidad, rango, cooldown y requisitos que el resto de los costos de la habilidad. El número de PCH inicial de la solicitud se calcula por el servidor, no por el JSON proporcionado por el cliente, y se cobra solo si el saldo lo cubre.
 
-Al revisar, el administrador escribe el **PCH final base** de cada efecto modular. El sistema comprueba que cada efecto tenga un valor entero positivo, recalcula en el servidor el PCH completo de la habilidad y exige coincidencia exacta con el PCH mostrado por el formulario de Gestión de habilidades.
+Al revisar, administración escribe el **PCH base antes de restricciones** de cada efecto modular. El servidor comprueba que sea entero positivo, añade el descuento verificado solo para **aprobaciones nuevas o renovadas**, calcula el PCH total de la habilidad con sus ajustes globales y exige coincidencia exacta con Gestión. Las habilidades antiguas conservan el precio anterior hasta su siguiente aprobación.
 
 La aprobación realiza la liquidación de la diferencia contra la reserva dentro de la misma transacción de ajuste de pchBalance. Para las habilidades modulares, la operación **nunca puede dejar el saldo PCH negativo**. Si el personaje no tiene el PCH que falta, se devuelve un error y la habilidad queda pendiente; no se activa ni se rechaza automáticamente. Si el precio definitivo es inferior, el excedente se devuelve.
 
 ## Flujo de aprobación y ejecución
 - El jugador crea la habilidad con efectos compuestos y suficientes PCH: **una solicitud pendiente** y una reserva.
-- Gestión de habilidades muestra el constructor del efecto con un campo adicional «PCH definitivo asignado».
+- Gestión de habilidades muestra el constructor del efecto con «PCH base revisado», el desglose de descuento por contacto/vida baja y el total al aprobar.
 - La administración revisa toda la habilidad, añade el precio por efecto y aprueba: liquidación de diferencia o rechazo por saldo insuficiente.
 - **Aprobación ≠ garantía de ejecución de un módulo sin adaptador**. El motor real sigue requiriendo un adaptador habilitado por servidor que pase por las reglas de ataque, defensa y recurso. Esto protege el combate de ejecución de lógica todavía no integrada.
 - El cambio no modifica ni activa automáticamente los ejemplos de Gloria, habilidades existentes ni plantillas editoriales.

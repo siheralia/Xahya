@@ -12,6 +12,8 @@ const numbers=["cero","uno","dos","tres","cuatro","cinco","seis","siete","ocho",
  "diecinueve","veinte"];
 const quantity=(value:number)=>Number.isInteger(value)&&value>=0&&value<=20?numbers[value]:String(value);
 const damagePhrase=(n:number)=>n===1?"un punto de daño":quantity(n)+" puntos de daño";
+const typedDamagePhrase=(n:number,type:"físico"|"mágico")=>
+ n===1?"un punto de daño "+type:quantity(n)+" puntos de daño "+type;
 const noun=(type:CombatAttackType|undefined,magic=false,ranged=false,thrown=false,weapon?:string)=>{
  if(thrown)return "el lanzamiento de "+(weapon||"su arma");
  if(ranged)return type==="PIERCE"?"un proyectil perforante":type==="BLUNT"?"un proyectil contundente":"un proyectil cortante";
@@ -196,6 +198,20 @@ function describeAttack(
    (damageBefore?"otros ":"")+damagePhrase(damage)+".";
  }else{
   phrase=stem+" y alcanzó "+addressedTarget+", causándole "+damagePhrase(damage)+".";
+ }
+ // D3.3: an infused contact is ONE attack. Describe its two actually
+ // resolved contributions without inventing a second spell or strike.
+ if(landed&&impact?.damageChannels){
+  const {physical,magical}=impact.damageChannels;
+  if(Number.isSafeInteger(physical)&&physical>=0&&
+     Number.isSafeInteger(magical)&&magical>=0&&physical+magical===damage){
+   phrase+=" La fuerza se dividió en "+typedDamagePhrase(physical,"físico")+
+     " y "+typedDamagePhrase(magical,"mágico")+".";
+   const real=impact.hpDamageChannels;
+   if(real&&real.physical+real.magical<damage)
+    phrase+=" Del golpe, únicamente "+quantity(real.physical+real.magical)+
+      " HP pudieron descontarse antes de caer.";
+  }
  }
  if(landed&&impact?.critical)phrase+=" Fue un impacto crítico.";
  if(landed&&pushed&&!(first&&phrase.includes("retrocediera")))

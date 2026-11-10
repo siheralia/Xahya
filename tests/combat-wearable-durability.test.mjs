@@ -198,7 +198,7 @@ test("staff management, UI and transaction code integrate the same two declarati
  assert.match(api,/compileEquippedItemAutoRepair\(effects,itemType\)/);
  assert.match(duel,/snapshotEquippedWearables\(catalog,ownerCopies,materials,/);
  assert.match(duel,/snapshotEquippedWearables\(catalog,rivalCopies,materials,/);
- assert.match(fighter,/applyWearableOnConfirmedHpHit\(state,by,actualHpDamage,pending.usesMagic\)/);
+ assert.match(fighter,/applyWearableOnConfirmedHpHit\(state,by,actualHpDamage,\s*pending.usesMagic,hpDamageChannels\)/);
  assert.match(fighter,/applyWeaponSelfRepairAtRoundStart\(state,side\)/);
  assert.match(route,/\.\.\.\(fighter.equippedWearables\?\?\[\]\)/);
  assert.match(route,/\.\.\.\(previous.equippedWearables\?\?\[\]\)/);

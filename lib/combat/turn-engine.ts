@@ -1233,7 +1233,8 @@ export function progressAutonomousSummons(original:CombatState,
      const needsMana=effects.some(e=>e.kind==="INVERT_STATUS"&&
        (state.summonStatuses??[]).some(s=>s.target===summon.owner&&isDebuffStatus(s))&&
        (state.mana?.[summon.owner]?.current??0)<e.manaCost);
-     if(effects.length&&!needsMana&&summon.behavior.trigger!=="HP_DAMAGE"){
+     // COMMAND-only and HP_DAMAGE-only effects never fire from passive proximity.
+     if(effects.length&&!needsMana&&summon.behavior.trigger==="CONTACT"){
        const choice=effects.find(e=>e.kind==="APPLY_STATUS"&&
          typeof e.stat!=="string"&&e.stat.mode==="COMBAT");
        const chosenStat=choice&&choice.kind==="APPLY_STATUS"&&

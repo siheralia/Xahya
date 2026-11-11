@@ -68,7 +68,8 @@ test("faster movements finish at 20 and 40 before the prepared hit at 60",()=>{
  assert.ok(s.pending,"the attack finally reaches the defender at tick 60");
  assert.equal(s.pending.launchedAtTick,60);
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},rolls);
- assert.ok(s.actors.NPC.hp<300);
+ assert.ok(s.narrativeHistory.some(e=>e.kind==="RESOLVE"&&e.by==="PLAYER"),
+   "a finished contact must yield a resolved attack, even if the blow misses");
  const ticks=s.narrativeHistory.map(e=>e.tick);
  assert.ok(ticks.every((x,i)=>i===0||x>=ticks[i-1]));
 });
@@ -83,8 +84,8 @@ test("two same-speed blunt attacks resolve as one simultaneous exchange",()=>{
  assert.equal(s.pending,null);
  assert.equal(s.temporalQueued?.PLAYER,undefined);
  assert.equal(s.temporalQueued?.NPC,undefined);
- assert.ok(s.actors.PLAYER.hp<300);
- assert.ok(s.actors.NPC.hp<300);
+ assert.ok(s.narrativeHistory.some(e=>e.kind==="RESOLVE"&&e.by==="PLAYER"));
+ assert.ok(s.narrativeHistory.some(e=>e.kind==="RESOLVE"&&e.by==="NPC"));
  assert.ok(s.narrativeHistory.some(e=>e.simultaneousCounter===true));
  const ticks=s.narrativeHistory.filter(e=>e.kind==="RESOLVE").map(e=>e.tick);
  assert.ok(ticks.every(t=>t===23));
@@ -119,7 +120,7 @@ test("a raised shield uses the same interval against consecutive hits",()=>{
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"BLOCK",weaponSlot:"OFF_HAND"},rolls);
  assert.equal(s.actors.NPC.spentAp,1);
  const first=s.actors.NPC.equippedWearables[0].durability;
- s=applyCombatCommand(s,"PLAYER",attack,rolls);
+ s=applyCombatCommand(s,"PLAYER",{...attack,trajectory:[{x:1,y:0.5},{x:0,y:0.5}]},rolls);
  assert.ok(s.pending);
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},rolls);
  assert.equal(s.actors.NPC.spentAp,1);

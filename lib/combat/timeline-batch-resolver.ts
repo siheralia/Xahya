@@ -14,6 +14,8 @@ import {timelineRoundOf} from "./action-timeline.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "./narration.ts";
 import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat} from "./summon-status.ts";
 import type {CombatBuffStat} from "./skill-casting.ts";
+import type {CombatConstruction} from "./constructs.ts";
+import {measuredBlock} from "./physical-obstacles.ts";
 import type {CombatSummon} from "./summons.ts";
 import {upkeepTimelineSummonsAtRound} from "./timeline-summon-world.ts";
 import type {StatusStat} from "./summon-status.ts";
@@ -27,6 +29,10 @@ export type AuthorizedTimelineEffect={
   /** Heal values are resolved at the same instant as damage. */
   hpHealing?:Partial<Record<Side,number>>;
   equipmentWear?:CopyWear[];
+  /** Physical structures take atomic per-hit wear with shared snapshot rules. */
+  constructionWear?:Array<{id:string;amount:number;hitCountDelta:number}>;
+  /** Only server-reviewed CONSTRUCTION casts can create an object. */
+  constructionsCreated?:CombatConstruction[];
   summonsCreated?:CombatSummon[];
   summonUpdates?:Array<{id:string;owner:Side;
     fieldPosition?:Point;behaviorMode?:CombatSummon["behavior"]["mode"];
@@ -135,6 +141,8 @@ export function commitAuthorizedTimelineBatch(
  const damages:Record<Side,number>={PLAYER:0,NPC:0};
  const healing:Record<Side,number>={PLAYER:0,NPC:0};
  const wear=new Map<string,{owner:Side;characterItemId:number;amount:number}>();
+ const constructionWear=new Map<string,{id:string;amount:number;hitCountDelta:number}>();
+ const constructionsCreated:CombatConstruction[]=[];
  const consumableUses:NonNullable<AuthorizedTimelineEffect["consumableUses"]>=[];
  const moved:Record<Side,Point>={PLAYER:{x:0,y:0},NPC:{x:0,y:0}};
  const clears=new Set<Side>();
@@ -266,6 +274,35 @@ export function commitAuthorizedTimelineBatch(
        throw new Error("La habilidad fue ejecutada dos veces en el mismo lote.");
      skillCooldowns.push(cooldown);
    }
+   for(const structure of effect.constructionsCreated??[]){
+     if(!structure||!validSide(structure.owner)||
+       !Number.isSafeInteger(structure.sourceSkillId)||structure.sourceSkillId<1||
+       typeof structure.id!=="string"||!structure.id||structure.id.length>160||
+       typeof structure.label!=="string"||structure.label.length>120||
+       !validStroke(structure.center)||
+       structure.fieldPosition!==undefined&&!validPosition(structure.fieldPosition)||
+       !["FIELD","BLOCK","DECOR","MIRROR"].includes(structure.form)||
+       structure.form==="MIRROR"&&(!structure.mirror||structure.material!=="MIRROR")||
+       structure.form==="BLOCK"&&structure.tangible!==true||
+       structure.form==="DECOR"&&structure.tangible!==false||
+       constructionsCreated.some(c=>c.id===structure.id))
+       throw new Error("Creación de objeto temporal inválida.");
+     constructionsCreated.push(structuredClone(structure));
+   }
+   for(const change of effect.constructionWear??[]){
+     if(!change||typeof change.id!=="string"||!change.id||
+       !Number.isSafeInteger(change.amount)||change.amount<0||
+       change.amount>1_000_000||
+       !Number.isSafeInteger(change.hitCountDelta)||
+       change.hitCountDelta<0||change.hitCountDelta>10)
+       throw new Error("Desgaste de objeto temporal inválido.");
+     const prior=constructionWear.get(change.id);
+     const amount=(prior?.amount??0)+change.amount;
+     const hitCountDelta=(prior?.hitCountDelta??0)+change.hitCountDelta;
+     if(!Number.isSafeInteger(amount)||!Number.isSafeInteger(hitCountDelta))
+       throw new Error("Desgaste de objeto acumulado fuera de rango.");
+     constructionWear.set(change.id,{id:change.id,amount,hitCountDelta});
+   }
    for(const item of effect.equipmentWear??[]){
      if(!SIDES.includes(item.owner)||!Number.isSafeInteger(item.characterItemId)||
        item.characterItemId<1||!finiteNonnegative(item.amount)||
@@ -321,6 +358,38 @@ export function commitAuthorizedTimelineBatch(
        throw new Error("Maná insuficiente para resolver el lote temporal.");
      account.current=Math.min(account.max,account.current-manaSpent[side]+manaRestored[side]);
    }
+ }
+ // Approved constructions share the real terrain. Only a fully measured
+ // solid cylinder may obstruct movement, not an illustrative 2D sprite.
+ next.constructions??=[];
+ for(const structure of constructionsCreated){
+   if(next.constructions.length>=120||
+     next.constructions.some(other=>other.id===structure.id))
+     throw new Error("Construcción duplicada o sin espacio.");
+   if(measuredBlock(structure)){
+     const center=structure.fieldPosition!;
+     const radius=structure.footprintRadiusMeters!;
+     if(SIDES.some(side=>
+       Math.hypot(fieldPosition(next.actors[side]).x-center.x,
+         fieldPosition(next.actors[side]).y-center.y)<radius))
+       throw new Error("No puedes crear un bloque sólido dentro de un combatiente.");
+     if(next.constructions.some(existing=>measuredBlock(existing)&&
+       Math.hypot(existing.fieldPosition!.x-center.x,
+         existing.fieldPosition!.y-center.y)<
+       (existing.footprintRadiusMeters??0)+radius-1e-8))
+       throw new Error("Dos construcciones sólidas se solapan al mismo tick.");
+   }
+   next.constructions.push(structure);
+ }
+ for(const change of constructionWear.values()){
+   const structure=next.constructions.find(c=>c.id===change.id);
+   if(!structure||!structure.tangible||
+     !Number.isFinite(structure.durability)||structure.durability!<0)
+     throw new Error("El impacto no corresponde a una construcción tangible.");
+   structure.durability=Math.max(0,structure.durability!-change.amount);
+   structure.hitCount=(structure.hitCount??0)+change.hitCountDelta;
+   if(structure.durability===0)
+     next.constructions=next.constructions.filter(c=>c.id!==structure.id);
  }
  // Inventory debits occur in the SAME atomic state as healing and mana.
  // If stock disappears while another event is evaluated, reject the whole

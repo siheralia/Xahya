@@ -257,13 +257,33 @@ const normalize = (n: number) => Math.max(0, finite(n) ? n : 0);
  */
 export function applyResolvedKarmaBoost(
  original:CombatState,by:Side,requestId:string,allocation:Record<string,number>,
- cost:number,deltas:Record<string,number>,
+ cost:number,deltas:Record<string,number>,scheduled=false,
 ):CombatState {
- if(original.processedKarmaRequests?.includes(requestId))return original;
+ if(!scheduled&&(original.processedKarmaRequests?.includes(requestId)||
+   original.temporalQueued?.[by]?.boost?.requestId===requestId))return original;
  if(original.status!=="ACTIVE"||!canAct(original,by))throw new Error("No tienes la iniciativa para aumentar estadísticas.");
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(requestId))throw new Error("Identificador de boost inválido.");
  const points=Object.values(allocation).reduce((sum,n)=>sum+n,0);
  if(!Number.isSafeInteger(points)||points<=0||cost!==points*2)throw new Error("Coste de karma inválido.");
+ if(original.timelineMode==="CONTINUOUS"&&!scheduled&&!original.temporalExecuting){
+   const fighter=original.actors[by],rival=original.actors[other(by)];
+   const duration=turnTicks(fighter),deadline=(original.round-1)*LIMIT+fighter.spentTicks+duration;
+   const rivalSoon=(original.round-1)*LIMIT+rival.spentTicks+
+     Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
+   if(original.temporalQueued?.[other(by)]||
+      (hasInitiativeBudget(rival)&&deadline>rivalSoon)){
+     const reserved=structuredClone(original);
+     reserved.temporalQueued??={};reserved.temporalReserved??={};
+     reserved.temporalQueued[by]={boost:{requestId,allocation:{...allocation},cost,
+       deltas:{...deltas}},endsAtTick:deadline,durationTicks:duration};
+     reserved.temporalReserved[by]={endsAtTick:deadline,kind:"BOOST_KARMA"};
+     reserved.processedKarmaRequests=[...(reserved.processedKarmaRequests??[]),requestId];
+     if(reserved.activeBlocks)delete reserved.activeBlocks[by];
+     addLog(reserved,{kind:"PREPARE",tick:reserved.tick,by,
+       summary:fighter.name+" comenzó una mejora de karma; concluirá en el tick "+deadline+"."});
+     return reserved;
+   }
+ }
  const state=structuredClone(original),actor=state.actors[by];
  for(const [key,value] of Object.entries(deltas)) {
   if(!Number.isFinite(value))throw new Error("Delta estadístico inválido.");
@@ -279,7 +299,7 @@ export function applyResolvedKarmaBoost(
  for(const [key,value] of Object.entries(allocation))state.karmaBoosts[by]![key]=(state.karmaBoosts[by]![key]??0)+value;
  state.karmaBoostDeltas??={};state.karmaBoostDeltas[by]??={};
  for(const [key,value] of Object.entries(deltas))state.karmaBoostDeltas[by]![key]=(state.karmaBoostDeltas[by]![key]??0)+value;
- state.processedKarmaRequests??=[];state.processedKarmaRequests.push(requestId);
+ if(!scheduled){state.processedKarmaRequests??=[];state.processedKarmaRequests.push(requestId);}
  if(state.activeBlocks)delete state.activeBlocks[by];
  spend(actor,turnTicks(actor)); // exactly one PA, independently of allocated points
  state.tick=Math.max(state.tick,(state.round-1)*LIMIT+actor.spentTicks);

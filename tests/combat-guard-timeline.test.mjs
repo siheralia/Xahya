@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {applyCombatCommand,hasActiveBlockGuard,newCombatState}
+import {applyCombatCommand,canAct,hasActiveBlockGuard,newCombatState}
   from "../lib/combat/turn-engine.ts";
 
 const sword={name:"Espada de entrenamiento",attackType:"CUT",mode:"MELEE",
@@ -80,4 +80,26 @@ test("committed timeline never moves backwards when a slower action is logged",(
    assert.ok(events[i].tick>=events[i-1].tick,
      "event "+i+" was incorrectly backdated");
  assert.equal(s.tick,events.at(-1).tick);
+});
+
+test("next shared event has priority: no NPC tick 66 before player's tick 51",()=>{
+ let s=newCombatState(fighter("Sarya",62),fighter("Robin",31));
+ assert.equal(canAct(s,"PLAYER"),true);
+ assert.equal(canAct(s,"NPC"),false);
+ s=applyCombatCommand(s,"PLAYER",{kind:"MOVE",meters:0});
+ assert.equal(s.tick,17);
+ s=applyCombatCommand(s,"NPC",{kind:"MOVE",meters:0});
+ assert.equal(s.tick,33);
+ assert.equal(canAct(s,"NPC"),false);
+ assert.throws(()=>applyCombatCommand(s,"NPC",{kind:"MOVE",meters:0}),/Espera/);
+ s=applyCombatCommand(s,"PLAYER",{kind:"MOVE",meters:0});
+ assert.equal(s.tick,34);
+ assert.equal(canAct(s,"PLAYER"),true);
+ s=applyCombatCommand(s,"PLAYER",{kind:"MOVE",meters:0});
+ assert.equal(s.tick,51);
+ assert.equal(canAct(s,"NPC"),true);
+ s=applyCombatCommand(s,"NPC",{kind:"MOVE",meters:0});
+ assert.equal(s.tick,66);
+ assert.deepEqual(s.narrativeHistory.filter(e=>e.kind==="MOVE").map(e=>e.tick),
+   [17,33,34,51,66]);
 });

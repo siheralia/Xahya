@@ -67,6 +67,8 @@ export type CombatFighter = {
   defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
   magicFieldDescription?: string | null; damageTakenFactors?:DamageTakenFactors; perkIds?:number[]; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
+  /** Preserve the full action duration across 100-tick boundaries. */
+  continuousTicks?:boolean;
 };
 export type PendingAttack = {
   by: Side; against: Side; attackType: CombatAttackType;
@@ -153,7 +155,7 @@ export type CombatState = {
     perks?:Array<{id:number;name:string}>;skills:CombatSkillPlan[]};
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
   /** Only new encounters opt into strict chronological initiative; old snapshots stay readable. */
-  timelineMode?:"SHARED";
+  timelineMode?:"SHARED"|"CONTINUOUS";
   winner: Side | null; actors: Record<Side, CombatFighter>;
   /** Randomly resolved initial initiative tie; absent in older persisted fights. */
   tieOpener?: Side;
@@ -673,12 +675,14 @@ function validateFighter(f: CombatFighter) {
     || !finite(f.massKg) || f.massKg <= 0 || !finite(f.positionMeters) || !finite(f.weaponIntegrity) || f.weaponIntegrity < 0 || f.weaponIntegrity > 100)
     throw new Error("Combatiente inválido.");
 }
-export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpener: Side="PLAYER",sharedTimeline=false): CombatState {
+export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpener: Side="PLAYER",sharedTimeline=false,continuousClock=false): CombatState {
   validateFighter(player); validateFighter(npc);
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
-     ...(sharedTimeline?{timelineMode:"SHARED" as const}:{}),
-    actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
+     ...(continuousClock?{timelineMode:"CONTINUOUS" as const}:
+       sharedTimeline?{timelineMode:"SHARED" as const}:{}),
+    actors:{PLAYER:{...player,spentTicks:0,spentAp:0,...(continuousClock?{continuousTicks:true}:{})},
+      NPC:{...npc,spentTicks:0,spentAp:0,...(continuousClock?{continuousTicks:true}:{})}},
     physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],summonStatuses:[],combatCharges:{PLAYER:{},NPC:{}},mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
     processedKarmaRequests:[],perHandWeaponDurability:true,narrativeHistory:[],pending:null,log:[]};
 }
@@ -906,15 +910,19 @@ function finishEncounter(state:CombatState,winner:Side) {
  state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
 }
 function advanceRoundIfComplete(state: CombatState) {
+  const continuous=state.timelineMode==="CONTINUOUS";
   const finished = (side: Side) => {
     const f = state.actors[side];
     return f.spentTicks >= LIMIT || remainingAp(f) === 0;
   };
   if (state.status === "ACTIVE" && !state.pending && SIDES.every(finished)) {
+    // Carry the occupied part of long actions into the next round.
+    if(continuous)state.tick=Math.max(state.tick,state.round*LIMIT);
     state.round++;
     for (const side of SIDES) {
-      state.actors[side].spentTicks = 0;
-      state.actors[side].spentAp = 0;
+      const actor=state.actors[side];
+      actor.spentTicks=continuous?Math.max(0,actor.spentTicks-LIMIT):0;
+      actor.spentAp=0;
     }
     // Buffs use the same persisted round clock as normal initiatives.
     const active=state.skillBonuses??[];
@@ -940,7 +948,8 @@ function advanceRoundIfComplete(state: CombatState) {
 }
 function spend(f: CombatFighter, ticks: number) {
   f.spentAp++;
-  f.spentTicks = Math.min(LIMIT, f.spentTicks + ticks);
+  // Actions in a continuous fight do not lose their unelapsed ticks.
+  f.spentTicks = f.continuousTicks?f.spentTicks+ticks:Math.min(LIMIT,f.spentTicks+ticks);
 }
 /** Summons are encounter actors, but all orders spend their owner's PA/ticks.
  * No automatic free actions are created by merely owning seven creatures.
@@ -1821,7 +1830,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         const start=Math.max(state.tick,pending.launchedAtTick);
         state.activeBlocks??={};
         state.activeBlocks[by]={startedAtTick:start,
-          endsAtTick:start+Math.min(LIMIT,Math.max(10,turnTicks(fighter))),weaponSlot:slot,
+          endsAtTick:start+(fighter.continuousTicks?Math.max(10,turnTicks(fighter)):
+          Math.min(LIMIT,Math.max(10,turnTicks(fighter)))),weaponSlot:slot,
           characterItemId:blockWeapon.characterItemId};
       }
     } else if (defense === "MAGIC_FIELD") {
@@ -2437,7 +2447,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     addLog(state,{kind:"MOVE",tick:state.tick,by,movementDirection:direction,moveMeters:command.meters,
       summary:recoveredWeapon?fighter.name+" recuperó "+recoveredWeapon+" tras desplazarse":fighter.name+" se desplazó "+command.meters+" m ("+direction+")"});
   } else if (command.kind === "WAIT") {
-    fighter.spentTicks = LIMIT;
+    fighter.spentTicks = fighter.continuousTicks?Math.max(LIMIT,fighter.spentTicks):LIMIT;
     fighter.spentAp = actionPoints(fighter.constitution);
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     addLog(state,{kind:"WAIT",tick:state.tick,by,summary:fighter.name+" finaliza su participación en el turno"});

@@ -1090,13 +1090,6 @@ export default function CombatEncounter({id}:{id:string}) {
     {(state.summons?.length??0)>0&&<section className="mt-4 space-y-2 rounded-xl border border-emerald-500/30 bg-zinc-950/70 p-3" aria-label="Criaturas invocadas">
      <h2 className="text-sm font-semibold text-emerald-200">🐇 Criaturas en el campo</h2>
      <p className="text-xs text-zinc-400">Atacar y acompañar funcionan automáticamente en las oportunidades de cada criatura, según su velocidad y PA propios. Cambiar sus órdenes cuesta 1 PA al invocador. Mantener posición y Manual no actúan solos. El mantenimiento se cobra al iniciar cada turno.</p>
-     {(state.summonStatuses?.length??0)>0&&<div className="space-y-1 rounded-lg border border-zinc-800 p-2 text-xs">
-       <strong className="text-cyan-200">Estados temporales activos</strong>
-       {state.summonStatuses?.map(status=><p key={status.id} className="text-zinc-300">
-         {state.actors[status.target].name}: {friendlyMicroKey(status.stat)} {status.operation==="MULTIPLIER"?"×"+status.value:
-           (status.value>=0?"+":"")+status.value} · {Math.max(0,status.expiresAtRound-state.round)} turnos
-       </p>)}
-     </div>}
      <div className="grid gap-2 sm:grid-cols-2">
       {state.summons?.map(summon=>{
        const combatChoice=summon.contactEffects?.flatMap(effect=>

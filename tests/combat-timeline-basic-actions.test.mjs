@@ -115,10 +115,11 @@ test("guard requires its approved equipment copy and matches reserved time",()=>
    batch.events[0],{kind:"GUARD",weaponSlot:"OFF_HAND"}),/equipo/);
 });
 
-test("rejects shadow movement if temporal buffs or summoning require upkeep",async()=>{
+test("rejects shadow movement if an unsupported status still needs a dedicated timeline",async()=>{
  const before=combat();
- before.skillBonuses=[{by:"PLAYER",skillId:99,stat:"agility",
-   value:10,expiresAtRound:2}];
+ before.summonStatuses=[{id:"LEGACY_HOSTILE_STATUS",sourceSummonId:"legacy",
+   by:"NPC",target:"PLAYER",stat:"agility",operation:"BONUS",
+   value:-4,expiresAtRound:2,appliedDelta:-4}];
  let session=newTimelineDeclarationSession(before);
  session=declareTimelineCommand(session,before,"PLAYER",move(0.5),"move-a");
  session=declareTimelineCommand(session,before,"NPC",{kind:"WAIT"},"wait-b");

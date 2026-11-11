@@ -36,7 +36,8 @@ export function assertBasicTimelineEligible(combat:CombatState):void{
  if(combat.status!=="ACTIVE"||combat.pending||
    (combat.constructions?.length??0)>0||(combat.summons?.length??0)>0||
    (combat.summonStatuses??[]).some(status=>
-     !status.id.startsWith("V2_SUPPORT:")||status.by!==status.target)||
+     !(status.id.startsWith("V2_SUPPORT:")&&status.by===status.target)&&
+     !(status.id.startsWith("V2_HOSTILE:")&&status.by!==status.target))||
    (combat.droppedWeapons?.length??0)>0||
    Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length)||
    Object.values(combat.karmaBoosts??{}).some(x=>Object.keys(x??{}).length>0)||

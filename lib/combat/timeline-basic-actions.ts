@@ -19,6 +19,10 @@ import {type AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
 import {simulateBasicPhysicalTimelineHit} from "./timeline-basic-strike.ts";
 import {simulateBasicMagicTimelineHit} from "./timeline-basic-magic.ts";
 import {simulateApprovedTimelineSupport} from "./timeline-basic-support.ts";
+import {simulateApprovedTimelineOffense} from "./timeline-offensive-skill.ts";
+import {
+ preparedTimelineReactionAt,timelineDefenseForImpact,
+} from "./timeline-defense.ts";
 import {resolveDeclaredTimelineBatch,
   type TimelineDeclarationSession} from "./timeline-declarations.ts";
 import type {TimelineCombatCommand} from "./combat-timeline-adapter.ts";
@@ -110,6 +114,26 @@ export function simulateBasicTimelinePassiveAction(
  validateSimpleEvent(clock,event);
  assertBasicTimelineEligible(combat);
  const fighter=combat.actors[event.owner];
+ if(command.kind==="PREPARE_REACTION"&&event.kind==="REACT"){
+   if(event.paidAp!==1||
+     event.durationTicks!==turnTicks(fighter))
+     throw new Error("La reacción no coincide con la duración temporal aprobada.");
+   const defense=command.defense;
+   if(!["DODGE","ENDURE","REPEL","DEFLECT","MAGIC_FIELD"].includes(defense))
+     throw new Error("Reacción temporal no permitida.");
+   if(defense==="MAGIC_FIELD"&&(combat.mana?.[event.owner]?.current??0)<1)
+     throw new Error("No hay maná para mantener el campo mágico.");
+   return {
+     eventId:event.id,
+     ...(defense==="MAGIC_FIELD"?{manaSpent:{[event.owner]:1}}:{}),
+     logs:[{kind:"REACT",tick:event.endsAtTick,by:event.owner,
+       manaCost:defense==="MAGIC_FIELD"?1:undefined,
+       summary:fighter.name+" mantuvo una reacción de "+
+         ({DODGE:"esquiva",ENDURE:"resistencia",REPEL:"repulsión",
+           DEFLECT:"desvío",MAGIC_FIELD:"campo mágico"} as const)[defense]+
+         " hasta el tick "+event.endsAtTick}],
+   };
+ }
  if(command.kind==="WAIT"&&event.kind==="WAIT"){
    if(event.paidAp!==0||
      event.durationTicks!==100-event.startsAtTick%100)
@@ -148,17 +172,40 @@ export async function resolveBasicTimelineWindow(
  return resolveDeclaredTimelineBatch(combat,session,(snapshot,declaration,event,batch)=>{
    const state=snapshot as CombatState;
    const command=declaration.command;
+   const defend=(incoming:{usesMagic:boolean;isArea:boolean;hybrid?:boolean})=>{
+     const rival=other(event.owner);
+     const reaction=preparedTimelineReactionAt(batch.state,rival,
+       event.endsAtTick,(id,owner)=>{
+         const saved=session.declarations[id];
+         return saved?.owner===owner?saved.command:undefined;
+       });
+     return timelineDefenseForImpact(reaction,incoming);
+   };
    if(event.kind==="ATTACK"&&command.kind==="ATTACK"){
      const strike=makeDice(),defense=makeDice();
+     const posture=defend({usesMagic:command.usesMagic===true,
+       isArea:command.usesMagic===true});
      return command.usesMagic
-       ?simulateBasicMagicTimelineHit(state,batch.state,event,command,strike,defense)
-       :simulateBasicPhysicalTimelineHit(state,batch.state,event,command,strike,defense);
+       ?simulateBasicMagicTimelineHit(state,batch.state,event,command,
+           strike,defense,posture)
+       :simulateBasicPhysicalTimelineHit(state,batch.state,event,command,
+           strike,defense,posture);
    }
    if(event.kind==="SKILL"&&command.kind==="CAST_SKILL"){
-     if(!declaration.approvedSkill)
-       throw new Error("La habilidad no tiene un plan revisado en su declaración.");
+     const plan=declaration.approvedSkill;
+     if(!plan)throw new Error("La habilidad no tiene un plan revisado en su declaración.");
+     if(plan.category==="OFFENSE"){
+       const strike=makeDice(),defense=makeDice();
+       const posture=defend({
+         usesMagic:plan.usesMagic===true,
+         hybrid:Boolean(plan.approvedHybridContact),
+         isArea:Boolean(plan.attackArea),
+       });
+       return simulateApprovedTimelineOffense(state,batch.state,event,command,
+         plan,strike,defense,posture);
+     }
      return simulateApprovedTimelineSupport(state,batch.state,event,
-       command,declaration.approvedSkill);
+       command,plan);
    }
    if(event.kind==="MOVE"&&command.kind==="MOVE")
      return simulateBasicTimelineMove(state,batch.state,event,command);

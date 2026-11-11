@@ -129,6 +129,26 @@ test("one hybrid physical+magic contact retains separate channels and rider gate
  assert.equal(result.combat.mana.PLAYER.current,90);
 });
 
+test("a timed shield blocks the physical part of an imbued two-channel strike",async()=>{
+ const c=combat(1.5,50);
+ c.actors.NPC.offhandWeapon={
+   name:"Escudo de acero",characterItemId:911,itemId:7,
+   attackType:"BLUNT",mode:"MELEE",
+   effectiveRangeMeters:1.5,maximumRangeMeters:1.5,durability:100,
+ };
+ const p=hybrid(904);
+ let s=declareTimelineCommand(newTimelineDeclarationSession(c),c,"NPC",
+   {kind:"GUARD",weaponSlot:"OFF_HAND"},"guard-hybrid");
+ s=cast(s,c,p);
+ const result=await resolveBasicTimelineWindow(c,s,dice);
+ const hit=result.combat.log.find(e=>e.kind==="RESOLVE");
+ assert.equal(hit.defense,"BLOCK");
+ assert.ok(hit.damageChannels.physical>=0);
+ assert.ok(hit.damageChannels.magical>=0);
+ assert.ok(result.combat.actors.NPC.offhandWeapon.durability<100);
+ assert.equal(result.timeline.clock.actors.NPC.spentApByRound["1"],1);
+});
+
 test("prepared physical dodge blocks an approved contact rider on a successful dodge",async()=>{
  const c=combat(),p=physical();
  let s=react(newTimelineDeclarationSession(c),c,"NPC","DODGE",

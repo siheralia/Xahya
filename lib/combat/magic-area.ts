@@ -62,6 +62,8 @@ export function combatClientView(state:CombatState):CombatState {
  delete clone.narrativeHistory;
  // The server-only idempotency ledger is not required in client snapshots.
  delete clone.processedActionRequests;
+ // Never expose a rival's trajectory or spell aim while awaiting impact.
+ delete clone.temporalQueued;
  // Ray endpoints are frozen in authoritative world metres at launch.
  // They are server-only; do not leak the origin/target before resolution.
  if(clone.pending){

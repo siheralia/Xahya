@@ -151,6 +151,21 @@ export function activeTimelineBlockAt(
    impactTick<=event.endsAtTick)??null;
 }
 
+/** Reaction coverage is an absolute interval. A previously-declared
+ * dodge / deflect / magic field may protect multiple strikes that finish
+ * within this window. Its PA was charged once at declaration.
+ */
+export function activeTimelineReactionAt(
+ state:ContinuousCombatTimeline,owner:TimelineSide,impactTick:number,
+):TimelineEvent|null{
+ checkTimeline(state);
+ if(!SIDES.includes(owner)||!validTick(impactTick))
+   throw new Error("Consulta de reacción temporal inválida.");
+ return state.events.find(event=>event.owner===owner&&event.kind==="REACT"&&
+   event.status!=="INTERRUPTED"&&event.startsAtTick<=impactTick&&
+   impactTick<=event.endsAtTick)??null;
+}
+
 export type TimelineBatch={
   state:ContinuousCombatTimeline;
   atTick:number;

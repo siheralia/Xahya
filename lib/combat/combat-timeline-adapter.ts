@@ -15,8 +15,19 @@ import {
   type ContinuousCombatTimeline,type TimelineIntent,
 } from "./action-timeline.ts";
 
+/** V2 defensive posture declared BEFORE the impact. Costs one AP and
+ * occupies an interval, never one reaction fee per incoming strike. */
+export type TimelinePreparedReaction={
+ kind:"PREPARE_REACTION";
+ defense:"DODGE"|"ENDURE"|"REPEL"|"DEFLECT"|"MAGIC_FIELD";
+ requestId?:string;
+ /** A guess for AoE/ranged magic; only used for DODGE. */
+ predictedCenter?:{x:number;y:number};
+ /** Physical deflection in degrees; only used for DEFLECT. */
+ defenseAngle?:number;
+};
 /** Proactive raised guard for continuous combat. V1 DEFEND is reactive. */
-export type TimelineCombatCommand=CombatCommand|{
+export type TimelineCombatCommand=CombatCommand|TimelinePreparedReaction|{
   kind:"GUARD";weaponSlot:"MAIN_HAND"|"OFF_HAND";requestId?:string;
 };
 
@@ -99,6 +110,30 @@ export function compileCombatTimelineIntent(
  if(snapshot.pending)
    throw new Error("Resuelve el ataque pendiente antes de iniciar otra acción.");
  switch(command.kind){
+  case "PREPARE_REACTION": {
+    const reaction=command;
+    const keys=Object.keys(reaction);
+    if(keys.some(key=>!["kind","defense","requestId","predictedCenter",
+      "defenseAngle"].includes(key)))
+      throw new Error("La reacción anticipada incluye parámetros desconocidos.");
+    if(reaction.defense==="DEFLECT"){
+      if(!Number.isFinite(reaction.defenseAngle)||reaction.defenseAngle!<0||
+         reaction.defenseAngle!>=360||reaction.predictedCenter!==undefined)
+        throw new Error("El desvío necesita un ángulo válido, sin adivinación de área.");
+    }else if(reaction.defense==="DODGE"){
+      const center=reaction.predictedCenter;
+      if(!center||!Number.isFinite(center.x)||!Number.isFinite(center.y)||
+        center.x<0||center.x>1||center.y<0||center.y>1||
+        reaction.defenseAngle!==undefined)
+        throw new Error("Para esquivar debes marcar una predicción válida.");
+    }else if(reaction.defenseAngle!==undefined||reaction.predictedCenter!==undefined){
+      throw new Error("Esta reacción no admite trazo ni predicción.");
+    }
+    if(reaction.defense==="MAGIC_FIELD"&&
+      (snapshot.mana?.[by]?.current??0)<1)
+      throw new Error("Necesitas al menos un maná para preparar un campo mágico.");
+    return {...base,kind:"REACT",durationTicks:normal(actor),paCost:1};
+  }
   case "GUARD": {
     const equipped=blockingEquipment(actor,command.weaponSlot);
     if(!equipped)

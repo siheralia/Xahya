@@ -14,6 +14,7 @@ import {timelineRoundOf} from "./action-timeline.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "./narration.ts";
 import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat} from "./summon-status.ts";
 import type {CombatBuffStat} from "./skill-casting.ts";
+import type {StatusStat} from "./summon-status.ts";
 import type {TimelineBatch,TimelineEvent} from "./action-timeline.ts";
 
 type CopyWear={owner:Side;characterItemId:number;amount:number};
@@ -33,6 +34,11 @@ export type AuthorizedTimelineEffect={
   /** Approved personal status with the same stacking semantics as V1. */
   selfStatuses?:Array<{owner:Side;id:string;skillId:number;stat:CombatBuffStat;
     operation:"BONUS"|"MULTIPLIER";value:number;durationTurns:number}>;
+  /** Staff-approved enemy CONTACT / HP_DAMAGE rider, verified in a V1
+   * shadow after the real hit. No client may supply one to the session API.
+   */
+  hostileStatuses?:Array<{owner:Side;target:Side;id:string;skillId:number;
+    stat:StatusStat;operation:"BONUS"|"MULTIPLIER";value:number;durationTurns:number}>;
   /** -1 = once per combat; 0 = available; others are next allowed round. */
   skillCooldowns?:Array<{owner:Side;skillId:number;nextAvailableRound:number}>;
   /** Approved relative world displacement, e.g. a MOVE or measured knockback.
@@ -125,6 +131,7 @@ export function commitAuthorizedTimelineBatch(
  const manaRestored:Record<Side,number>={PLAYER:0,NPC:0};
  const statBonuses:NonNullable<AuthorizedTimelineEffect["statBonuses"]>=[];
  const selfStatuses:NonNullable<AuthorizedTimelineEffect["selfStatuses"]>=[];
+ const hostileStatuses:NonNullable<AuthorizedTimelineEffect["hostileStatuses"]>=[];
  const skillCooldowns:NonNullable<AuthorizedTimelineEffect["skillCooldowns"]>=[];
  for(const effect of effects){
    if(!ids.has(effect.eventId)||found.has(effect.eventId))
@@ -168,6 +175,22 @@ export function commitAuthorizedTimelineBatch(
      if(selfStatuses.some(existing=>existing.id===status.id))
        throw new Error("Estado de soporte duplicado.");
      selfStatuses.push(status);
+   }
+   for(const hostile of effect.hostileStatuses??[]){
+     if(!validSide(hostile.owner)||!validSide(hostile.target)||
+       hostile.owner===hostile.target||
+       !Number.isSafeInteger(hostile.skillId)||hostile.skillId<1||
+       !hostile.id.startsWith("V2_HOSTILE:")||hostile.id.length>160||
+       !validDuration(hostile.durationTurns)||
+       !["physicalAttack","magicAttack","physicalDefense",
+         "magicDefense","precision","dodge"].includes(hostile.stat)||
+       !Number.isFinite(hostile.value)||
+       hostile.operation==="BONUS"&&(hostile.value< -20||hostile.value> -1)||
+       hostile.operation==="MULTIPLIER"&&(hostile.value<0.8||hostile.value>=1)||
+       !["BONUS","MULTIPLIER"].includes(hostile.operation)||
+       hostileStatuses.some(previous=>previous.id===hostile.id))
+       throw new Error("Estado hostil modular temporal inválido.");
+     hostileStatuses.push(hostile);
    }
    for(const cooldown of effect.skillCooldowns??[]){
      if(!validSide(cooldown.owner)||!Number.isSafeInteger(cooldown.skillId)||
@@ -293,7 +316,7 @@ export function commitAuthorizedTimelineBatch(
  next.tick=batch.atTick;
  next.round=timelineRoundOf(batch.atTick);
  if((next.skillBonuses?.length??0)+statBonuses.length>100||
-   (next.summonStatuses?.length??0)+selfStatuses.length>100)
+   (next.summonStatuses?.length??0)+selfStatuses.length+hostileStatuses.length>100)
    throw new Error("Demasiados bonos o estados temporales en combate.");
  for(const buff of statBonuses){
    const fighter=next.actors[buff.owner];
@@ -309,6 +332,14 @@ export function commitAuthorizedTimelineBatch(
    applySummonStatus(next,{
      id:status.id,sourceSummonId:"SKILL:"+status.skillId,
      by:status.owner,target:status.owner,stat:status.stat,
+     operation:status.operation,value:status.value,
+     durationTurns:status.durationTurns,
+   });
+ }
+ for(const status of hostileStatuses){
+   applySummonStatus(next,{
+     id:status.id,sourceSummonId:"SKILL:"+status.skillId,
+     by:status.owner,target:status.target,stat:status.stat,
      operation:status.operation,value:status.value,
      durationTurns:status.durationTurns,
    });

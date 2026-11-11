@@ -35,6 +35,7 @@ const stats=[
 export function simulateBasicMagicTimelineHit(
  combat:CombatState,clock:ContinuousCombatTimeline,event:TimelineEvent,
  attack:BasicMagic,attackDice:Dice,defenseDice:Dice,
+ preparedDefense:Extract<CombatCommand,{kind:"DEFEND"}>={kind:"DEFEND",defense:"NONE"},
 ):AuthorizedTimelineEffect{
  if(combat.status!=="ACTIVE"||combat.pending||
    clock.version!==2||event.status!=="RESOLVED"||event.kind!=="ATTACK"||
@@ -47,7 +48,9 @@ export function simulateBasicMagicTimelineHit(
    attack.areaAngleDegrees!==undefined||attack.projectileHeights!==undefined)
    throw new Error("El ataque necesita el resolutor de magia avanzada.");
  if((combat.summons?.length??0)>0||(combat.constructions?.length??0)>0||
-   (combat.summonStatuses??[]).some(s=>!s.id.startsWith("V2_SUPPORT:"))||
+   (combat.summonStatuses??[]).some(s=>
+     !(s.id.startsWith("V2_SUPPORT:")&&s.by===s.target)&&
+     !(s.id.startsWith("V2_HOSTILE:")&&s.by!==s.target))||
    Object.values(combat.microEffects?.definitions??{}).some(list=>list?.length))
    throw new Error("Existen efectos que requieren el resolutor temporal avanzado.");
  const owner=event.owner,target=other(owner);
@@ -69,9 +72,7 @@ export function simulateBasicMagicTimelineHit(
    throw new Error("El lanzamiento básico no debitó exactamente un maná.");
  // A physical shield is not a free magic-field reaction. Both defenders
  // retain their own action while the attack is being scheduled.
- const resolved=applyCombatCommand(launched,target,{
-   kind:"DEFEND",defense:"NONE",
- },defenseDice);
+ const resolved=applyCombatCommand(launched,target,preparedDefense,defenseDice);
  if(resolved.pending||resolved.status!=="ACTIVE"&&resolved.status!=="FINISHED")
    throw new Error("La magia no se pudo resolver.");
  const hpDamage:Partial<Record<Side,number>>={};
@@ -98,7 +99,11 @@ export function simulateBasicMagicTimelineHit(
    if(stats.some(key=>combat.actors[side][key]!==resolved.actors[side][key]))
      throw new Error("Este golpe mágico requiere recalcular estadísticas de equipo.");
  }
- if((resolved.mana?.[target]?.current??NaN)!==(combat.mana?.[target]?.current??NaN))
+ // A prepared magic field reserves one mana for its entire time interval.
+ // V1 shadows charge once per strike; do NOT copy that per-hit charge.
+ const defenderManaDelta=(combat.mana?.[target]?.current??NaN)-
+   (resolved.mana?.[target]?.current??NaN);
+ if(defenderManaDelta!==(preparedDefense.defense==="MAGIC_FIELD"?1:0))
    throw new Error("El hechizo alteró recursos del objetivo sin autorización.");
  const logs=resolved.log.filter(x=>x.kind!=="ROUND"&&x.kind!=="END")
    .map(entry=>({...entry,tick:event.endsAtTick,

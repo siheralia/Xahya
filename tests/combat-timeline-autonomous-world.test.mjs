@@ -86,8 +86,8 @@ test("autonomous Bnuuy attacks at tick 10 without completing either WAIT",async(
 
 test("player attack and Bnuuy impact ending together both use one snapshot",async()=>{
  const c=state();
- c.actors.NPC.positionMeters=.9;
- c.actors.NPC.fieldPosition={x:.9,y:0};
+ c.actors.NPC.positionMeters=.4;
+ c.actors.NPC.fieldPosition={x:.4,y:0};
  c.summons=[familiar()];
  const before=structuredClone(c);
  let s=newTimelineDeclarationSession(c);

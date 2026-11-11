@@ -2790,6 +2790,31 @@ export function settleTemporalQueuedActions(
     }
     continue;
   }
+  if(first.entry.boost||first.entry.item){
+    try{
+      base.temporalExecuting=true;
+      if(first.entry.boost){
+        const b=first.entry.boost;
+        next=applyResolvedKarmaBoost(base,first.side,b.requestId,
+          b.allocation,b.cost,b.deltas,true);
+      }else{
+        const item=first.entry.item!;
+        next=applyResolvedCombatConsumable(base,first.side,
+          item.stock,item.requestId,true);
+      }
+      delete next.temporalExecuting;
+    }catch{
+      const actor=base.actors[first.side];
+      spend(actor,first.entry.durationTicks);
+      base.tick=Math.max(base.tick,first.entry.endsAtTick);
+      delete base.temporalExecuting;
+      addLog(base,{kind:"FIZZLE",tick:base.tick,by:first.side,
+        summary:actor.name+" completó una acción de recurso sin efecto: las condiciones cambiaron."});
+      advanceRoundIfComplete(base);
+      next=base;
+    }
+    continue;
+  }
   if(second&&second.entry.endsAtTick===first.entry.endsAtTick&&
      firstCommand?.kind==="ATTACK"&&secondCommand?.kind==="ATTACK"){
     // Simultaneous basic attacks run from the pre-impact snapshot; the

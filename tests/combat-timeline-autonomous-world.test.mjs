@@ -100,7 +100,7 @@ test("player attack and Bnuuy impact ending together both use one snapshot",asyn
  assert.ok(next.combat.actors.PLAYER.hp<200);
  assert.ok(next.combat.actors.NPC.hp<200);
  assert.equal(next.combat.log.filter(e=>e.kind==="RESOLVE").length,2);
- assert.deepEqual(c,before.summons.length?c:c);
+ assert.deepEqual(c.summons,before.summons);
  assert.equal(c.actors.PLAYER.hp,200);
  assert.equal(c.actors.NPC.hp,200);
 });

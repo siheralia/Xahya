@@ -184,6 +184,10 @@ export async function resolveBasicTimelineWindow(
  if(prepared){
    const autonomous=scheduleAutonomousSummonTicks(combat,session.clock.nowTick,
      prepared.batch.atTick);
+   const mirrorRays=scheduleMirrorRayTicks(combat,session.clock.nowTick,
+     prepared.batch.atTick);
+   if(mirrorRays.length)
+     throw new Error("Un espejo debe emitir su rayo autónomo antes de avanzar el siguiente lote.");
    for(const due of autonomous){
      const replaces=prepared.batch.events.some(event=>{
        if(event.endsAtTick!==due.tick||event.owner!==due.owner)return false;

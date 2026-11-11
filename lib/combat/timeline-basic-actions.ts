@@ -28,7 +28,7 @@ import {
 import {
  preparedTimelineReactionAt,timelineDefenseForImpact,
 } from "./timeline-defense.ts";
-import {resolveDeclaredTimelineBatch,
+import {resolveDeclaredTimelineBatch,prepareTimelineCommit,
   type TimelineDeclarationSession} from "./timeline-declarations.ts";
 import type {TimelineCombatCommand} from "./combat-timeline-adapter.ts";
 
@@ -174,6 +174,24 @@ export async function resolveBasicTimelineWindow(
  combat:CombatState,session:TimelineDeclarationSession,makeDice:()=>TimelineDice,
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession}|null>{
  assertBasicTimelineEligible(combat);
+ // A creature's own turn must NOT be silently skipped when a fast fighter
+ // has already queued a later action. Until auxiliary actions are part of
+ // the atomic batch, reject that incomplete scenario rather than teleport
+ // the clock over the creature's strike or protective contact.
+ const prepared=prepareTimelineCommit(session);
+ if(prepared){
+   const autonomous=scheduleAutonomousSummonTicks(combat,session.clock.nowTick,
+     prepared.batch.atTick);
+   for(const due of autonomous){
+     const replaces=prepared.batch.events.some(event=>{
+       if(event.endsAtTick!==due.tick||event.owner!==due.owner)return false;
+       const cmd=session.declarations[event.id]?.command;
+       return cmd?.kind==="COMMAND_SUMMON"&&cmd.summonId===due.summonId;
+     });
+     if(!replaces)
+       throw new Error("La criatura tiene una acción autónoma antes de este impacto; falta fusionar su lote temporal.");
+   }
+ }
  const charged=new Set(session.chargedReactionIds??[]);
  const finish=await resolveDeclaredTimelineBatch(combat,session,
    (snapshot,declaration,event,batch)=>{

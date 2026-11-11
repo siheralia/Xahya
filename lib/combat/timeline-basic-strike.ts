@@ -38,7 +38,7 @@ export function weaponCopies(state:CombatState,side:Side):Map<number,number>{
  return found;
 }
 
-function activeBlockSlot(
+export function activeBlockSlot(
  state:CombatState,clock:ContinuousCombatTimeline,defender:Side,tick:number,
 ):"MAIN_HAND"|"OFF_HAND"|null{
  const block=activeTimelineBlockAt(clock,defender,tick);
@@ -72,6 +72,7 @@ export function isolatePhysicalShadow(original:CombatState,attacker:Side):Combat
 export function simulateBasicPhysicalTimelineHit(
  combat:CombatState,clock:ContinuousCombatTimeline,
  event:TimelineEvent,attack:BasicStrike,attackDice:Dice,defenseDice:Dice,
+ preparedDefense:Extract<CombatCommand,{kind:"DEFEND"}>={kind:"DEFEND",defense:"NONE"},
 ):AuthorizedTimelineEffect {
  if(combat.status!=="ACTIVE"||combat.pending||clock.version!==2||
    event.kind!=="ATTACK"||event.status!=="RESOLVED"||
@@ -106,9 +107,8 @@ export function simulateBasicPhysicalTimelineHit(
  const launched=applyCombatCommand(shadow,attacker,attack,attackDice);
  if(!launched.pending||launched.pending.against!==target)
    throw new Error("El golpe no produjo un impacto básico al rival.");
- const resolved=applyCombatCommand(launched,target,{
-   kind:"DEFEND",defense:slot?"BLOCK":"NONE",...(slot?{weaponSlot:slot}:{}),
- },defenseDice);
+ const resolved=applyCombatCommand(launched,target,
+   slot?{kind:"DEFEND",defense:"BLOCK",weaponSlot:slot}:preparedDefense,defenseDice);
  if(resolved.pending)
    throw new Error("El golpe dejó otro ataque sin resolver.");
  const hpDamage:Partial<Record<Side,number>>={};

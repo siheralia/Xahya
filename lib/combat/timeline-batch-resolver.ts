@@ -12,7 +12,7 @@ import type {CombatState,CombatLog,Side,Point,PhysicalAttackSource} from "./turn
 import {fieldPosition} from "./field-plane.ts";
 import {timelineRoundOf} from "./action-timeline.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "./narration.ts";
-import {applySummonStatus,expireSummonStatuses} from "./summon-status.ts";
+import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat} from "./summon-status.ts";
 import type {CombatBuffStat} from "./skill-casting.ts";
 import type {TimelineBatch,TimelineEvent} from "./action-timeline.ts";
 
@@ -88,6 +88,8 @@ export function prepareTimelineImpactSnapshot(
    }
    state.skillBonuses=(state.skillBonuses??[]).filter(x=>x.expiresAtRound>state.round);
    expireSummonStatuses(state);
+   for(const bonus of expiring)
+     reconcileSummonStatusStat(state,bonus.by,bonus.stat);
  }
  return state;
 }

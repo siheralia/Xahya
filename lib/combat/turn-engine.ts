@@ -1751,6 +1751,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // both results together so an otherwise lethal strike cannot cancel it.
     let exchange: {
      damageToAttacker:number;damageToDefender:number;spentAp:number;spentTicks:number;
+     absoluteTick?:number;apCycle?:number;
      manaRemaining?:number;physicalPathEnd?:CombatState["physicalPathEnd"];
      physicalPathEnds?:CombatState["physicalPathEnds"];events:CombatLog[];
      /** Counter resolves on a shadow to preserve simultaneous lethal damage.
@@ -1781,6 +1782,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
        // resolving the strike. Preserve the actual cost at launch instead;
        // the real state advances its round only after BOTH attacks land.
        spentAp:launched.actors[by].spentAp,spentTicks:launched.actors[by].spentTicks,
+       absoluteTick:launched.actors[by].absoluteTick,apCycle:launched.actors[by].apCycle,
        manaRemaining:launched.mana?.[by]?.current,
        physicalPathEnd:launched.physicalPathEnd,
        physicalPathEnds:launched.physicalPathEnds,
@@ -1801,6 +1803,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       };
       defense="NONE";
       fighter.spentAp=exchange.spentAp;fighter.spentTicks=exchange.spentTicks;
+      if(fighter.continuousTicks){fighter.absoluteTick=exchange.absoluteTick;fighter.apCycle=exchange.apCycle;}
       if(state.mana?.[by]&&exchange.manaRemaining!==undefined)
        state.mana[by].current=exchange.manaRemaining;
       if(exchange.physicalPathEnd)state.physicalPathEnd=exchange.physicalPathEnd;
@@ -2568,8 +2571,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     addLog(state,{kind:"MOVE",tick:state.tick,by,movementDirection:direction,moveMeters:command.meters,
       summary:recoveredWeapon?fighter.name+" recuperó "+recoveredWeapon+" tras desplazarse":fighter.name+" se desplazó "+command.meters+" m ("+direction+")"});
   } else if (command.kind === "WAIT") {
-    fighter.spentTicks = fighter.continuousTicks?Math.max(LIMIT,fighter.spentTicks):LIMIT;
-    fighter.spentAp = actionPoints(fighter.constitution);
+    if(fighter.continuousTicks){
+      const at=fighter.absoluteTick??((state.round-1)*LIMIT+fighter.spentTicks);
+      const end=(Math.floor(at/LIMIT)+1)*LIMIT;
+      fighter.spentTicks+=end-at;
+      fighter.absoluteTick=end;
+      fighter.apCycle=Math.floor(at/LIMIT);
+    }else fighter.spentTicks=LIMIT;
+    fighter.spentAp=actionPoints(fighter.constitution);
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     addLog(state,{kind:"WAIT",tick:state.tick,by,summary:fighter.name+" finaliza su participación en el turno"});
   } else if (command.kind === "COMMAND_SUMMON") {

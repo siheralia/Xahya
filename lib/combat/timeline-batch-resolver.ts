@@ -506,12 +506,13 @@ export function commitAuthorizedTimelineBatch(
  // Both creatures hitting the same familiar at one tick consume its
  // integrity together. The target can act at that very tick before dying.
  for(const impact of summonImpacts.values()){
-   const creature=next.summons.find(s=>s.id===impact.id&&s.owner===impact.owner);
+   const creature:CombatSummon|undefined=next.summons.find(
+     (s:CombatSummon)=>s.id===impact.id&&s.owner===impact.owner);
    if(!creature)throw new Error("No existe la criatura afectada por el impacto.");
    creature.integrity=Math.max(0,creature.integrity-impact.damage);
    creature.hitCount+=impact.hitCountDelta;
    if(creature.integrity<=0||creature.hitCount>=creature.hitLimit)
-     next.summons=next.summons.filter(s=>s.id!==creature.id);
+     next.summons=next.summons.filter((s:CombatSummon)=>s.id!==creature.id);
  }
  // Damage is not canceled by a heal or by a simultaneous lethal attack.
  for(const side of SIDES){

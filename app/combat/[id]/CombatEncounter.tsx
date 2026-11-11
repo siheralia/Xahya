@@ -777,7 +777,8 @@ export default function CombatEncounter({id}:{id:string}) {
     open={hudOpen} onOpenChange={setHudOpen} onPanel={openPanel}
     canCreate={canCreateObjects} attackMode={attackMode} attackSource={activeAttackSource}
     onChooseAttack={chooseAttackMode} canActNow={ready} status={state.status}
-    activeStatusCount={activeStatusViews.length}/>
+    activeStatusCount={activeStatusViews.length}
+     guardEndsAtTick={state.activeBlocks?.[side]?.endsAtTick} combatTick={state.tick}/>
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
     {view?.permissions.PLAYER&&view?.permissions.NPC&&<label className="mb-3 block text-xs text-zinc-400">Controlar personaje
      <select value={side} onChange={e=>setSide(e.target.value as Side)}

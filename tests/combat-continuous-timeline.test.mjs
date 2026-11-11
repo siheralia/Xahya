@@ -24,7 +24,8 @@ test("a raised shield covers two impacts while paying only one reaction",()=>{
  assert.deepEqual(batch.events.map(e=>e.id),["sword-two"]);
  assert.equal(activeTimelineBlockAt(batch.state,"NPC",20)?.id,"shield-raise");
  assert.equal(batch.state.actors.NPC.spentApByRound["1"],1);
- assert.equal(activeTimelineBlockAt(batch.state,"NPC",30),null);
+ assert.equal(activeTimelineBlockAt(batch.state,"NPC",30)?.id,"shield-raise");
+ assert.equal(activeTimelineBlockAt(batch.state,"NPC",31),null);
 });
 
 test("a command may finish beyond tick 100 without losing a single tick",()=>{
@@ -48,7 +49,8 @@ test("a command may finish beyond tick 100 without losing a single tick",()=>{
  batch=completeNextTimelineBatch(timeline);
  assert.equal(batch.atTick,165);
  assert.equal(batch.events[0].id,"second-strike");
- assert.equal(activeTimelineBlockAt(batch.state,"NPC",175),null);
+ assert.equal(activeTimelineBlockAt(batch.state,"NPC",175)?.id,"lasting-shield");
+ assert.equal(activeTimelineBlockAt(batch.state,"NPC",176),null);
 });
 
 test("simultaneous attacks resolve in one batch before either winner is chosen",()=>{
@@ -122,9 +124,53 @@ test("absolute ticks never rewind and interval membership is start-inclusive/end
  assert.equal(batch.atTick,33);
  assert.equal(activeTimelineBlockAt(batch.state,"NPC",0)?.id,"block");
  assert.equal(activeTimelineBlockAt(batch.state,"NPC",64)?.id,"block");
- assert.equal(activeTimelineBlockAt(batch.state,"NPC",65),null);
+ assert.equal(activeTimelineBlockAt(batch.state,"NPC",65)?.id,"block");
+ assert.equal(activeTimelineBlockAt(batch.state,"NPC",66),null);
  timeline=reserve(batch.state,"PLAYER","strike","ATTACK",20);
  batch=completeNextTimelineBatch(timeline);
  assert.equal(batch.atTick,53);
  assert.equal(batch.state.nowTick,53);
+});
+
+
+test("crossing 100-tick boundaries emits each scheduled round start once",()=>{
+ let timeline=newContinuousCombatTimeline(10,10);
+ timeline=reserve(timeline,"PLAYER","very-long","SKILL",305);
+ timeline=reserve(timeline,"NPC","shield","BLOCK",400,1,19);
+ let batch=completeNextTimelineBatch(timeline);
+ assert.equal(batch.atTick,305);
+ assert.deepEqual(batch.crossedRoundBoundaries,[100,200,300]);
+ assert.equal(batch.events[0].endsAtTick,305);
+ timeline=reserve(batch.state,"PLAYER","follow-up","ATTACK",55);
+ batch=completeNextTimelineBatch(timeline);
+ assert.deepEqual(batch.crossedRoundBoundaries,[]);
+ assert.equal(batch.atTick,360);
+ timeline=reserve(batch.state,"PLAYER","another","MOVE",40);
+ batch=completeNextTimelineBatch(timeline);
+ assert.deepEqual(batch.crossedRoundBoundaries,[400]);
+ assert.equal(batch.atTick,400);
+ assert.equal(batch.simultaneous,true);
+});
+
+test("equal-tick block covers the impact even when its action expires",()=>{
+ let timeline=newContinuousCombatTimeline(10,10);
+ timeline=reserve(timeline,"PLAYER","hit","ATTACK",10);
+ timeline=reserve(timeline,"NPC","parry","BLOCK",10,1,42);
+ const batch=completeNextTimelineBatch(timeline);
+ assert.equal(batch.simultaneous,true);
+ assert.equal(activeTimelineBlockAt(batch.state,"NPC",10)?.blockToolCopyId,42);
+ assert.equal(activeTimelineBlockAt(batch.state,"NPC",11),null);
+});
+
+test("events retain the blocking hand for the server durability resolver",()=>{
+ let timeline=newContinuousCombatTimeline(10,10);
+ timeline=queueTimelineAction(timeline,"PLAYER",{
+  id:"shield-hand",kind:"BLOCK",durationTicks:20,paCost:1,
+  blockToolSlot:"OFF_HAND",blockToolCopyId:77,
+ });
+ assert.equal(timeline.events[0].blockToolSlot,"OFF_HAND");
+ assert.throws(()=>queueTimelineAction(timeline,"NPC",{
+   id:"fake-hand",kind:"ATTACK",durationTicks:10,paCost:1,
+   blockToolSlot:"OFF_HAND",
+ }),/Solo BLOQUEAR/);
 });

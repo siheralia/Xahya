@@ -23,9 +23,23 @@ Los **ticks son tiempo compartido**, no una moneda de gasto. Un ataque, movimien
 
 **Este núcleo todavía no cambia la resolución de daño del combate real.** El actual `combatV1` y el despliegue de la PR #240 continúan en funcionamiento. No añadir a la API pública entradas arbitrarias a este planificador; el servidor deberá compilar y validar las intenciones, bloquear transaccionalmente la sesión y generar las tiradas aleatorias.
 
-## Próxima integración (fase V2.2)
+## Integración V2.2: compilador de intenciones y cruces de ronda
 
-- Crear un adaptador `CombatCommand → TimelineIntent` para MOVE/ATTACK/DEFEND y habilidades aprobadas, con los tiempos reales del equipo y la acción compuesta.
+- `lib/combat/combat-timeline-adapter.ts` convierte las órdenes ya existentes (MOVE, ATTACK, DEFEND, CAST_SKILL, COMMAND_SUMMON, USE_ITEM, BOOST_KARMA y WAIT) a reservas con inicio/final y coste de PA. No acepta duración ni PA indicados por el cliente: usa la velocidad y el equipo del combatiente, y exige un plan de habilidad aprobado para CAST_SKILL.
+- Los movimientos compuestos reservan una única ventana de tiempo —la mayor duración entre desplazamiento y ataque— pagando 2 PA.
+- Un golpe físico con arma usa velocidad de tipo de ataque; patadas y magia conservan la velocidad neutral. La reserva no descuenta maná ni realiza cambios de HP, inventario o durabilidad.
+- WAIT desde el tick 95 reserva **5 ticks** hasta la siguiente frontera, no 100 adicionales.
+- `completeNextTimelineBatch` devuelve los cruces de tick 100, 200, 300, etc. incluso cuando una acción atraviesa varias rondas; no aplica regeneraciones prematuras ni repite turnos.
+- Un escudo activo protege el impacto exacto del último tick de su guardia (simultaneidad de golpe y fin de bloqueo); a partir del tick siguiente expira. El intervalo de ocupación sigue siendo [inicio, fin).
+- Cada orden sigue siendo una intención en el núcleo V2: su ejecución efectiva se realizará solo después de agregar/validar intenciones de todos los actores necesarios y resolver el lote simultáneamente.
+
+### Qué NO se activa todavía
+
+La API existente continúa resolviendo en `combatV1` con el cambio incremental de PR #240. Este adaptador no se conecta a los endpoints de partida para evitar resoluciones adelantadas o dobles descuentos en combates reales. La interfaz y la persistencia de encuentros V2 aún requieren resolver simultáneamente el lote y almacenar intenciones pendientes de ambos jugadores. **No presentar las reservas del adaptador como acciones que ya golpearon.**
+
+## Próxima integración (fase V2.3)
+
+- **Completado V2.2:** crear adaptador de comandos y costes temporales sin efectos secundarios.
 - Mantener las declaraciones de ambos jugadores en el snapshot del encuentro. Una única petición no debe ejecutar una acción larga en el futuro.
 - Al cerrar el siguiente lote, resolver en una transacción simultánea las colisiones, defensas activas, disparos, invocaciones, maná y desgaste. Requerir que el proyectil tenga tiempo de vuelo explícito cuando sea pertinente.
 - Actualizar el HUD: reloj absoluto, secuencia de acciones anunciadas, intervalos de guardia, acciones en curso y estado «Esperando la intención del rival».

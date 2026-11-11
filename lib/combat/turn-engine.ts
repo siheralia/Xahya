@@ -2774,7 +2774,8 @@ export function applyResolvedCombatSkill(
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))
   throw new Error("Identificador de acción inválido.");
- if(original.processedSkillRequests?.includes(aim.requestId))
+ if(original.processedSkillRequests?.includes(aim.requestId)||
+    original.temporalQueued?.[by]?.skill?.aim.requestId===aim.requestId)
   return original;
  if(!canAct(original,by))throw new Error("No puedes lanzar una habilidad fuera de tu iniciativa.");
  const available=original.mana?.[by];
@@ -2787,6 +2788,37 @@ export function applyResolvedCombatSkill(
  if(nextAllowed===-1 || nextAllowed>original.round)
   throw new Error(nextAllowed===-1?"Esta habilidad solo se usa una vez por combate.":
     "Habilidad en cooldown hasta el turno "+nextAllowed+".");
+ // New combats reserve slower approved spells just like physical attacks:
+ // no healing, damage, mana cost or summoned body may appear before its end.
+ if(original.timelineMode==="CONTINUOUS"&&!original.temporalExecuting){
+   const fighter=original.actors[by],rival=original.actors[other(by)];
+   const source=aim.attackSource??defaultAttackSource(fighter);
+   const weapon=weaponForSource(fighter,source);
+   const weaponStrike=plan.category==="OFFENSE"&&!plan.usesMagic&&!!weapon&&
+     (aim.attackSource==="MAIN_HAND"||aim.attackSource==="OFF_HAND");
+   const strikeDuration=plan.category==="OFFENSE"&&plan.attackType
+     ?turnTicks(fighter,weaponStrike?plan.attackType:undefined):turnTicks(fighter);
+   const duration=Math.max(aim.planarMove?turnTicks(fighter):0,strikeDuration);
+   const deadline=(original.round-1)*LIMIT+fighter.spentTicks+duration;
+   const rivalSoon=(original.round-1)*LIMIT+rival.spentTicks+
+     Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
+   if(original.temporalQueued?.[other(by)]||
+      (hasInitiativeBudget(rival)&&deadline>rivalSoon)){
+     // Validate the approved plan on a throwaway shadow; no early effects.
+     const shadow=structuredClone(original);
+     shadow.temporalExecuting=true;
+     applyResolvedCombatSkill(shadow,by,plan,aim,rolls);
+     const reserved=structuredClone(original);
+     reserved.temporalQueued??={};reserved.temporalReserved??={};
+     reserved.temporalQueued[by]={skill:{plan:structuredClone(plan),
+       aim:structuredClone(aim)},endsAtTick:deadline,durationTicks:duration};
+     reserved.temporalReserved[by]={kind:"CAST_SKILL",endsAtTick:deadline};
+     addLog(reserved,{kind:"PREPARE",tick:reserved.tick,by,
+       summary:fighter.name+" empezó a preparar una habilidad de "+
+         duration+" ticks hasta el tick "+deadline+"."});
+     return reserved;
+   }
+ }
  // Pay approved skill costs before ANY effect that could advance the round.
  // Otherwise TURN_START equipment repair can spend the same mana first and
  // cause negative balances. Every failure remains pure on the original state.

@@ -15,6 +15,7 @@ import {
 } from "./turn-engine.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
 import {fieldPosition} from "./field-plane.ts";
+import {diffConstructionWorld} from "./timeline-construction-world.ts";
 import {activeTimelineBlockAt,
   type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import type {AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
@@ -88,7 +89,7 @@ export function simulateBasicPhysicalTimelineHit(
  // The current event patch only supports HP and equipment wear. A future
  // resolver must commit construction damage, summon effects, statuses,
  // buff expiration and micro state in the same transaction.
- if((combat.constructions?.length??0)>0||(combat.summonStatuses??[]).some(status=>
+ if( (combat.summonStatuses??[]).some(status=>
      !(status.id.startsWith("V2_SUPPORT:")&&status.by===status.target)&&
      !(status.id.startsWith("V2_HOSTILE:")&&status.by!==status.target))||
    Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length))
@@ -155,5 +156,9 @@ export function simulateBasicPhysicalTimelineHit(
  const logs=resolved.log.filter(x=>x.kind!=="ROUND"&&x.kind!=="END")
    .map(entry=>({...entry,tick:event.endsAtTick,
      summary:entry.summary.replace(/; esperando reacción$/,"")}));
- return {eventId:event.id,hpDamage,equipmentWear,positionDelta,physicalStrokes,logs};
+ const structures=diffConstructionWorld(combat.constructions,resolved.constructions);
+ if(structures.created.length)
+   throw new Error("El golpe físico generó una construcción inesperada.");
+ return {eventId:event.id,hpDamage,equipmentWear,positionDelta,physicalStrokes,
+   constructionWear:structures.wear,logs};
 }

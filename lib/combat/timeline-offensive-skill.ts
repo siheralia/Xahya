@@ -18,6 +18,7 @@ import {
 import {timelineRoundOf,
  type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import {fieldPosition} from "./field-plane.ts";
+import {diffConstructionWorld} from "./timeline-construction-world.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
 import type {StatusStat} from "./summon-status.ts";
 import {
@@ -61,7 +62,7 @@ export function simulateApprovedTimelineOffense(
    command.movementOrder!==undefined||
    plan.construction||plan.summons?.length||plan.fusion||plan.chargeBuff)
    throw new Error("La habilidad requiere un resolutor ofensivo avanzado.");
- if((combat.constructions?.length??0)>0||(combat.summons?.length??0)>0||
+ if( (combat.summons?.length??0)>0||
    (combat.droppedWeapons?.length??0)>0||
    Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length))
    throw new Error("Existen entidades o módulos que requieren otro resolutor V2.");
@@ -164,8 +165,10 @@ export function simulateApprovedTimelineOffense(
        throw new Error("El ataque cambió estadísticas sin un estado modular autorizado.");
    }
  }
- if(JSON.stringify(combat.constructions??[])!==JSON.stringify(resolved.constructions??[])||
-   JSON.stringify(combat.summons??[])!==JSON.stringify(resolved.summons??[])||
+ const structures=diffConstructionWorld(combat.constructions,resolved.constructions);
+ if(structures.created.length)
+   throw new Error("Una habilidad ofensiva creó un objeto no autorizado.");
+ if(JSON.stringify(combat.summons??[])!==JSON.stringify(resolved.summons??[])||
    JSON.stringify(combat.droppedWeapons??[])!==JSON.stringify(resolved.droppedWeapons??[])||
    JSON.stringify(combat.combatCharges??{})!==JSON.stringify(resolved.combatCharges??{}))
    throw new Error("El ataque produjo efectos de mundo aún no soportados en V2.");
@@ -176,7 +179,7 @@ export function simulateApprovedTimelineOffense(
      summary:entry.summary.replace(/; esperando reacción$/,"")}));
  return {
    eventId:event.id,hpDamage,equipmentWear,positionDelta,
-   physicalStrokes,logs,
+   constructionWear:structures.wear,physicalStrokes,logs,
    manaSpent:{[owner]:actualCost},hostileStatuses,
    skillCooldowns:[{owner,skillId:plan.id,nextAvailableRound:nextCooldown}],
  };

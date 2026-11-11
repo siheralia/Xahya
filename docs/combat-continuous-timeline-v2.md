@@ -133,3 +133,14 @@ El mantenimiento de cada invocación se resuelve únicamente cuando el reloj atr
 `scheduleAutonomousSummonTicks` calcula la agenda propia de una criatura siguiendo su velocidad y PA reales. Es una **agenda**, no impactos automáticos aún; el siguiente paso debe integrar cada uno en el resolutor de eventos simultáneos para evitar daños gratuitos, pérdida de reacciones y saltos de ticks. Las reglas con inversión de estados/cargas y campos de distorsión seguirán necesitando eventos específicos.
 
 Esta implementación continúa aislada de la API de combates reales; los encuentros anteriores permanecen intactos.
+
+
+## V2.11a — construcciones, barreras físicas y primer rayo de espejo
+
+El commit V2 acepta construcciones de habilidades `CONSTRUCTION` revisadas, que aparecen al finalizar la acción, con posición de mapa y centro de puntería separados. La creación reutiliza la validación oficial de alcances, materiales, alturas y cilindros sólidos; dos bloques medidos no pueden crearse dentro de un combatiente ni solaparse simultáneamente. Los objetos solo ilustrativos siguen **sin bloquear movimientos ni proyectiles**.
+
+Los golpes físicos, magia y habilidades ofensivas trascienden el obstáculo usando su geometría real: se proyecta a V2 el desgaste y el número de impactos de cada construcción. Dos ataques que terminan en el mismo tick acumulan desgaste sobre la **misma durabilidad anterior**, sin que el orden de evaluación altere el resultado. Si la durabilidad llega a cero, la barrera desaparece de ese lote. Los espejos existentes conservan la intercepción del **primer espejo real sobre la trayectoria** del rayo, no del icono de puntería.
+
+Una creación de espejo genera su **primer rayo** mediante las reglas actuales y el coste de una habilidad aprobada. `scheduleMirrorRayTicks` planifica sus disparos autónomos de rondas posteriores en ticks absolutos 100/200/...; mientras el despachador autónomo no esté conectado al lote, el motor impide **saltarse** esos rayos al resolver una acción posterior.
+
+**Queda para V2.11b / V2.10b:** despachar disparos recurrentes y acciones autónomas de familiares junto a los impactos y defensas simultáneas; aplicar efectos de área persistentes y destrucción de espejos por golpes directos a objetos. No habilitar todavía la ruta real de sesiones V2.

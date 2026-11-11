@@ -14,6 +14,7 @@ import {
   type CombatCommand,type CombatState,type Side,
 } from "./turn-engine.ts";
 import {fieldPosition} from "./field-plane.ts";
+import {diffConstructionWorld} from "./timeline-construction-world.ts";
 import {
   isolatePhysicalShadow,weaponCopies,
 } from "./timeline-basic-strike.ts";
@@ -47,7 +48,7 @@ export function simulateBasicMagicTimelineHit(
    attack.targetSummonId||attack.targetConstructionId||
    attack.areaAngleDegrees!==undefined||attack.projectileHeights!==undefined)
    throw new Error("El ataque necesita el resolutor de magia avanzada.");
- if((combat.constructions?.length??0)>0||
+ if( 
    (combat.summonStatuses??[]).some(s=>
      !(s.id.startsWith("V2_SUPPORT:")&&s.by===s.target)&&
      !(s.id.startsWith("V2_HOSTILE:")&&s.by!==s.target))||
@@ -108,6 +109,9 @@ export function simulateBasicMagicTimelineHit(
  const logs=resolved.log.filter(x=>x.kind!=="ROUND"&&x.kind!=="END")
    .map(entry=>({...entry,tick:event.endsAtTick,
      summary:entry.summary.replace(/; esperando reacción$/,"")}));
+ const structures=diffConstructionWorld(combat.constructions,resolved.constructions);
+ if(structures.created.length)
+   throw new Error("La magia creó un objeto sin autorización de invocación.");
  return {eventId:event.id,hpDamage,equipmentWear,positionDelta,
-   manaSpent:{[owner]:actualSpent},logs};
+   constructionWear:structures.wear,manaSpent:{[owner]:actualSpent},logs};
 }

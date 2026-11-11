@@ -136,3 +136,20 @@ test("skill plans require server-approved context before escrow",()=>{
  },"skill-1"),/aprobación/);
  assert.deepEqual(Object.keys(initial.receipts),[]);
 });
+
+test("knockout interrupts other queued actions without refunding their AP",async()=>{
+ const c=combat(100);
+ c.actors.NPC.agility=50;
+ let session=newTimelineDeclarationSession(c);
+ session=declareTimelineCommand(session,c,"PLAYER",strike(),"knockout");
+ session=declareTimelineCommand(session,c,"NPC",block,"guard-queued");
+ const result=await resolveDeclaredTimelineBatch(c,session,(_snap,decl)=>({
+   eventId:decl.id,hpDamage:{NPC:30},
+ }));
+ assert.equal(result.combat.status,"FINISHED");
+ assert.equal(result.combat.winner,"PLAYER");
+ assert.equal(result.timeline.clock.events.find(e=>e.id==="guard-queued").status,"INTERRUPTED");
+ assert.equal(result.timeline.clock.actors.NPC.spentApByRound["1"],1);
+ assert.equal(result.timeline.declarations["guard-queued"],undefined);
+ assert.equal(result.timeline.receipts["guard-queued"].owner,"NPC");
+});

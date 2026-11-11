@@ -239,3 +239,21 @@ test("exhausted fast actor waits to the next boundary during a slow wind-up",()=
  assert.equal(s.actors.PLAYER.spentAp,1);
  assert.equal(s.actors.NPC.hp,300);
 });
+
+test("equal-duration piercing attacks cannot bypass simultaneous resolution",()=>{
+ let s=timeline(50,50);
+ for(const side of ["PLAYER","NPC"]){
+   s.actors[side].equippedWeapon.attackType="PIERCE";
+ }
+ const pierce={kind:"ATTACK",attackType:"PIERCE",trajectory:attack.trajectory};
+ s=applyCombatCommand(s,"PLAYER",pierce,rolls);
+ assert.equal(s.temporalReserved?.PLAYER?.endsAtTick,17);
+ assert.equal(s.pending,null,"the first declared attack cannot settle before the other declaration");
+ s=applyCombatCommand(s,"NPC",pierce,rolls);
+ assert.equal(s.temporalReserved?.NPC?.endsAtTick,17);
+ s=settle(s);
+ assert.equal(s.pending,null);
+ assert.equal(s.temporalQueued?.PLAYER,undefined);
+ assert.equal(s.temporalQueued?.NPC,undefined);
+ assert.ok(s.narrativeHistory.some(e=>e.simultaneousCounter===true));
+});

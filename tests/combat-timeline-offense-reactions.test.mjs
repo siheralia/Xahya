@@ -114,7 +114,8 @@ test("reviewed magical skill uses official basic hit and pays only its plan cost
  assert.equal(result.combat.mana.PLAYER.current,88);
  assert.ok(result.combat.actors.NPC.hp<180);
  assert.equal(result.combat.actors.NPC.magicDefense,8);
- assert.ok(result.combat.log.find(e=>e.kind==="RESOLVE"&&e.usesMagic));
+ assert.ok(result.combat.log.find(e=>e.kind==="ATTACK"&&e.usesMagic));
+ assert.ok(result.combat.log.find(e=>e.kind==="RESOLVE"));
  assert.equal(result.combat.skillCooldowns.PLAYER["501"],3);
 });
 

@@ -143,7 +143,11 @@ test("approved modular support heals, buffs, spends mana and locks cooldown",asy
  assert.equal(result.combat.skillBonuses[0].expiresAtRound,3);
  assert.equal(result.combat.skillCooldowns.PLAYER["82"],3);
  assert.ok(result.combat.log.some(x=>x.kind==="SKILL"&&x.manaCost===8));
- assert.throws(()=>declareCast(result.timeline,result.combat,approved),/enfriamiento/);
+ assert.equal(declareCast(result.timeline,result.combat,approved),result.timeline,
+   "repeating the same request returns the original receipt");
+ assert.throws(()=>declareTimelineCommand(result.timeline,result.combat,"PLAYER",
+   {...cast(approved.id),requestId:"v2-modular-approved-new-cast"},
+   "approved-skill-82-recast",{approvedSkill:approved}),/enfriamiento/);
  // One round later, still buffed.
  session=declareTimelineCommand(result.timeline,result.combat,"PLAYER",
    {kind:"WAIT"},"player-wait-1");

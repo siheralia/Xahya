@@ -71,8 +71,8 @@ test("breaking the shield cancels the stance before any next impact",()=>{
 
 test("committed timeline never moves backwards when a slower action is logged",()=>{
  let s=newCombatState(fighter("A",50),fighter("B",100));
- s=applyCombatCommand(s,"PLAYER",{kind:"MOVE",meters:1});
  s=applyCombatCommand(s,"NPC",{kind:"MOVE",meters:1});
+ s=applyCombatCommand(s,"PLAYER",{kind:"MOVE",meters:1});
  s=applyCombatCommand(s,"NPC",{kind:"MOVE",meters:1});
  const events=s.narrativeHistory;
  assert.ok(events.length>=3);

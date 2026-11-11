@@ -1193,7 +1193,7 @@ export default function CombatEncounter({id}:{id:string}) {
     {defending&&hasAccess&&<div ref={reactionSectionRef} className="mt-4 scroll-mt-24 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
      {!hasReactionBudget&&<p role="status" className="rounded-lg border border-amber-400/50 bg-amber-400/10 p-3 text-sm text-amber-200">
-      No puedes esquivar ni defenderte activamente: {actor&&remainingAp(actor)<=0?"agotaste tus puntos de acción":"agotaste los 100 ticks de este turno"}. Puedes recibir el impacto sin gastar otra acción.
+      No puedes esquivar ni defenderte activamente: {actor&&remainingAp(actor)<=0?"agotaste tus puntos de acción":actor?.continuousTicks?"no hay reacción disponible en este instante":"agotaste los 100 ticks de este turno"}. Puedes recibir el impacto sin gastar otra acción.
      </p>}
      <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Opciones de defensa">
       {options.filter(opt=>!hasReactionBudget?opt.value==="NONE":pending.usesMagic

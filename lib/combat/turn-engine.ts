@@ -69,6 +69,8 @@ export type CombatFighter = {
   spentTicks: number; spentAp: number;
   /** Preserve the full action duration across 100-tick boundaries. */
   continuousTicks?:boolean;
+  /** Absolute finish tick and the PA window charged for the last action. */
+  absoluteTick?:number;apCycle?:number;
 };
 export type PendingAttack = {
   by: Side; against: Side; attackType: CombatAttackType;
@@ -747,8 +749,8 @@ export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpe
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
      ...(continuousClock?{timelineMode:"CONTINUOUS" as const}:
        sharedTimeline?{timelineMode:"SHARED" as const}:{}),
-    actors:{PLAYER:{...player,spentTicks:0,spentAp:0,...(continuousClock?{continuousTicks:true}:{})},
-      NPC:{...npc,spentTicks:0,spentAp:0,...(continuousClock?{continuousTicks:true}:{})}},
+    actors:{PLAYER:{...player,spentTicks:0,spentAp:0,...(continuousClock?{continuousTicks:true,absoluteTick:0,apCycle:0}:{})},
+      NPC:{...npc,spentTicks:0,spentAp:0,...(continuousClock?{continuousTicks:true,absoluteTick:0,apCycle:0}:{})}},
     physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],summonStatuses:[],combatCharges:{PLAYER:{},NPC:{}},mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
     processedKarmaRequests:[],perHandWeaponDurability:true,narrativeHistory:[],pending:null,log:[]};
 }
@@ -785,6 +787,10 @@ export function hasActiveBlockGuard(state:CombatState,by:Side):boolean {
 }
 
 export function remainingAp(f: CombatFighter) {
+  if(f.continuousTicks){
+    const nextCycle=Math.floor((f.absoluteTick??f.spentTicks)/LIMIT);
+    if(nextCycle!==(f.apCycle??0))return actionPoints(f.constitution);
+  }
   return Math.max(0, actionPoints(f.constitution) - f.spentAp);
 }
 /** An action may begin while any tick remains. Exactly like individual
@@ -793,10 +799,10 @@ export function remainingAp(f: CombatFighter) {
  * It consumes 2 PA, but only the slower component's temporal window.
  */
 export function canStartComposite(f: CombatFighter): boolean {
-  return remainingAp(f)>=2 && f.spentTicks<LIMIT;
+  return remainingAp(f)>=2 && (f.continuousTicks||f.spentTicks<LIMIT);
 }
 const hasInitiativeBudget = (f: CombatFighter) =>
-  remainingAp(f) >= 1 && f.spentTicks < LIMIT;
+  remainingAp(f) >= 1 && (f.continuousTicks||f.spentTicks<LIMIT);
 
 /**
  * Only proactive actions (ATTACK, MOVE, WAIT) take an initiative slot.
@@ -813,7 +819,7 @@ const hasInitiativeBudget = (f: CombatFighter) =>
 function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEFORE"|"AFTER"="BEFORE",actionTicks?:number){
  const fighter=state.actors[by],vector=validatePlanarMove(requested);
  if(remainingAp(fighter)<2)throw new Error("Moverse y actuar a la vez requiere 2 PA.");
- if(fighter.spentTicks>=LIMIT)
+ if(!fighter.continuousTicks&&fighter.spentTicks>=LIMIT)
   throw new Error("Ya agotaste los 100 ticks de este turno.");
  // The second spend() below charges the attack's incremental ticks over
  // the movement, never a second complete temporal window.
@@ -994,7 +1000,7 @@ function advanceRoundIfComplete(state: CombatState) {
     for (const side of SIDES) {
       const actor=state.actors[side];
       actor.spentTicks=continuous?Math.max(0,actor.spentTicks-LIMIT):0;
-      actor.spentAp=0;
+      if(!continuous)actor.spentAp=0;
     }
     // Buffs use the same persisted round clock as normal initiatives.
     const active=state.skillBonuses??[];
@@ -1019,9 +1025,17 @@ function advanceRoundIfComplete(state: CombatState) {
   }
 }
 function spend(f: CombatFighter, ticks: number) {
-  f.spentAp++;
-  // Actions in a continuous fight do not lose their unelapsed ticks.
-  f.spentTicks = f.continuousTicks?f.spentTicks+ticks:Math.min(LIMIT,f.spentTicks+ticks);
+  if(f.continuousTicks){
+    const at=f.absoluteTick??f.spentTicks;
+    const cycle=Math.floor(at/LIMIT);
+    if((f.apCycle??0)!==cycle){f.apCycle=cycle;f.spentAp=0;}
+    f.spentAp++;
+    f.absoluteTick=at+ticks;
+    f.spentTicks+=ticks;
+  }else{
+    f.spentAp++;
+    f.spentTicks=Math.min(LIMIT,f.spentTicks+ticks);
+  }
 }
 /** Summons are encounter actors, but all orders spend their owner's PA/ticks.
  * No automatic free actions are created by merely owning seven creatures.
@@ -1728,7 +1742,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // Downgrade BEFORE validating/launching COUNTER or other paid defenses:
     // otherwise a stale client selection can strand the pending attack.
     const heldBlock=hasActiveBlockGuard(state,by);
-    const exhaustedReaction=remainingAp(fighter)<=0||fighter.spentTicks>=LIMIT;
+    const exhaustedReaction=remainingAp(fighter)<=0||(!fighter.continuousTicks&&fighter.spentTicks>=LIMIT);
     let defense:DefenseChoice=heldBlock?"BLOCK":exhaustedReaction?"NONE":command.defense;
     if(heldBlock&&command.planarMove!==undefined)
       throw new Error("Mantener un bloqueo activo no concede desplazamiento gratuito.");

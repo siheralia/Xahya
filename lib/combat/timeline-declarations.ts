@@ -98,6 +98,17 @@ export function declareTimelineCommand(
    if(availableAt===-1||availableAt>currentRound)
      throw new Error("Esta habilidad continúa en enfriamiento.");
  }
+ if(command.kind==="COMMAND_SUMMON"){
+   if(Object.keys(command).some(key=>
+     !["kind","requestId","summonId","order","targetId",
+       "newBehavior","planarMove"].includes(key)))
+     throw new Error("La orden de invocación incluye parámetros no autorizados.");
+   const creature=(snapshot.summons??[]).find(s=>
+     s.id===command.summonId&&s.owner===owner&&s.integrity>0);
+   if(!creature)throw new Error("No controlas esa invocación.");
+   if(!["MOVE","CHANGE_BEHAVIOR","CHANGE_TARGET"].includes(command.order))
+     throw new Error("La orden requiere un resolutor de contacto o ataque autónomo.");
+ }
  if(command.kind==="USE_ITEM"){
    if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(command.requestId)||
      Object.keys(command).some(key=>

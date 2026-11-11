@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {applyCombatCommand,canAct,newCombatState,settleTemporalQueuedActions,turnTicks}
+import {applyCombatCommand,applyResolvedCombatSkill,canAct,newCombatState,settleTemporalQueuedActions,turnTicks}
  from "../lib/combat/turn-engine.ts";
 import {combatClientView} from "../lib/combat/magic-area.ts";
 
@@ -125,4 +125,39 @@ test("a raised shield uses the same interval against consecutive hits",()=>{
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},rolls);
  assert.equal(s.actors.NPC.spentAp,1);
  assert.ok(s.actors.NPC.equippedWearables[0].durability<first);
+});
+
+
+test("approved healing skill is paid and applied at its ending tick, never at declaration",()=>{
+ let s=timeline(19.2,50);
+ s.actors.PLAYER.hp=120;
+ s.mana={PLAYER:{current:40,max:40},NPC:{current:40,max:40}};
+ const plan={id:71,name:"Curación temporal",category:"SUPPORT",
+  cost:5,healing:20,bonuses:[],durationTurns:1,cooldownRounds:0,oncePerCombat:false};
+ const aim={requestId:"skill-tempo-0001"};
+ s=applyResolvedCombatSkill(s,"PLAYER",plan,aim,rolls);
+ assert.equal(s.actors.PLAYER.hp,120);
+ assert.equal(s.mana.PLAYER.current,40);
+ assert.equal(s.actors.PLAYER.spentAp,0);
+ assert.equal(s.temporalReserved?.PLAYER?.endsAtTick,53);
+ assert.equal(combatClientView(s).temporalQueued,undefined);
+ assert.equal(applyResolvedCombatSkill(s,"PLAYER",plan,aim,rolls),s,
+   "retry of a queued skill must not create a new reservation");
+ for(let i=0;i<2;i++){
+   s=applyCombatCommand(s,"NPC",move,rolls);
+   s=settle(s);
+ }
+ assert.equal(s.actors.PLAYER.hp,120);
+ assert.equal(s.temporalReserved?.PLAYER?.endsAtTick,53);
+ s=settle(s);
+ assert.equal(s.actors.PLAYER.hp,120,
+   "the rival still has an action ending at tick 60, after the skill deadline");
+ s=applyCombatCommand(s,"NPC",move,rolls);
+ s=settle(s);
+ assert.equal(s.actors.PLAYER.hp,140);
+ assert.equal(s.mana.PLAYER.current,35);
+ assert.equal(s.actors.PLAYER.spentAp,1);
+ assert.equal(s.temporalQueued?.PLAYER,undefined);
+ assert.ok(s.narrativeHistory.some(e=>e.kind==="SKILL"));
+ assert.ok(s.processedSkillRequests.includes(aim.requestId));
 });

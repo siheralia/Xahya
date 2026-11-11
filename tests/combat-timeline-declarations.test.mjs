@@ -39,6 +39,7 @@ test("one declaration never deals damage or advances the shared clock",()=>{
 
 test("a shield declared first stays active for multiple impacts and is paid once",()=>{
  const c=combat(100);
+ c.actors.NPC.agility=50; // shield duration 20 ticks, first strike 10 ticks
  let session=newTimelineDeclarationSession(c);
  session=declareTimelineCommand(session,c,"NPC",block,"guard-1");
  session=declareTimelineCommand(session,c,"PLAYER",strike(),"attack-1");

@@ -9,6 +9,7 @@
  * mana, inventory and geometry validation.
  */
 import type {CombatState,Side} from "./turn-engine.ts";
+import type {CombatSkillPlan} from "./skill-casting.ts";
 import {
   compileCombatTimelineIntent,newTimelineForCombat,
   type CompilationContext,type TimelineCombatCommand,
@@ -24,6 +25,8 @@ import {
 
 export type TimelineDeclaration={
   id:string;owner:Side;command:TimelineCombatCommand;
+  /** Frozen, server-compiled catalog plan at the time of declaration. */
+  approvedSkill?:CombatSkillPlan;
   /** Stored on the server only: never reveal enemy positions or hidden aim. */
   signature:string;
 };
@@ -83,7 +86,11 @@ export function declareTimelineCommand(
  const clock=queueTimelineAction(original.clock,owner,intent);
  const next=structuredClone(original);
  next.clock=clock;
- next.declarations[eventId]={id:eventId,owner,command:structuredClone(command),signature};
+ next.declarations[eventId]={
+   id:eventId,owner,command:structuredClone(command),signature,
+   ...(command.kind==="CAST_SKILL"&&context.approvedSkill
+     ?{approvedSkill:structuredClone(context.approvedSkill)}:{}),
+ };
  next.receipts[eventId]={owner,signature};
  return next;
 }

@@ -268,7 +268,7 @@ export async function POST(req:Request) {
   const starter=randomInt(2)===0?"PLAYER":"NPC";
   const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
     critical:randomInt(1_000_000)/1_000_000,defense:randomInt(1_000_000)/1_000_000});
-  let initial=newCombatState(player,opponent,starter,true);
+  let initial=newCombatState(player,opponent,starter,true,true);
   if(trainingIdentity)initial.trainingNpc={
     difficulty:trainingDifficulty,race:trainingIdentity.race,
     racialPerks:trainingIdentity.racialPerks.map(p=>({id:p.id,name:p.name,mechanical:p.mechanical})),

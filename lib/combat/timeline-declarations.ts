@@ -14,7 +14,7 @@ import {
   type CompilationContext,type TimelineCombatCommand,
 } from "./combat-timeline-adapter.ts";
 import {
-  completeNextTimelineBatch,pendingTimelineSides,queueTimelineAction,
+  completeNextTimelineBatch,interruptTimelineAction,pendingTimelineSides,queueTimelineAction,
   timelineRoundOf,type ContinuousCombatTimeline,type TimelineBatch,type TimelineEvent,
 } from "./action-timeline.ts";
 import {
@@ -67,7 +67,8 @@ export function declareTimelineCommand(
    throw new Error("El encuentro temporal no admite esa declaración.");
  const signature=stableJson({owner,command});
  if(signature.length>30_000)throw new Error("Orden temporal demasiado grande.");
- const previous=original.receipts[eventId];
+ const previous=Object.hasOwn(original.receipts,eventId)
+   ?original.receipts[eventId]:undefined;
  if(previous){
    if(previous.owner!==owner||previous.signature!==signature)
      throw new Error("Se reutilizó un identificador con una acción diferente.");
@@ -163,6 +164,7 @@ export async function resolveDeclaredTimelineBatch(
  combat:CombatState,session:TimelineDeclarationSession,
  trustedResolve:TrustedDeclaredTimelineResolver,
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession}|null>{
+ if(combat.status!=="ACTIVE")throw new Error("Este combate ya ha terminado.");
  const prepared=prepareTimelineCommit(session);
  if(!prepared)return null;
  const byId=new Map(prepared.declarations.map(entry=>[entry.id,entry]));
@@ -173,5 +175,16 @@ export async function resolveDeclaredTimelineBatch(
      return trustedResolve(snapshot,declaration,event,batch);
    });
  const timeline=finalizeTimelineCommit(session,prepared);
+ if(updated.status==="FINISHED"){
+   // Cancel other reserved actions on knockout, preserving their paid PA.
+   // Receipts remain for idempotent lost-response retries.
+   for(const owner of ["PLAYER","NPC"] as const){
+     const running=timeline.clock.events.find(e=>e.owner===owner&&e.status==="QUEUED");
+     if(running){
+       timeline.clock=interruptTimelineAction(timeline.clock,owner);
+       delete timeline.declarations[running.id];
+     }
+   }
+ }
  return {combat:updated,timeline};
 }

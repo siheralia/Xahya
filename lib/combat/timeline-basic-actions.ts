@@ -21,6 +21,8 @@ import {simulateBasicMagicTimelineHit} from "./timeline-basic-magic.ts";
 import {simulateApprovedTimelineSupport} from "./timeline-basic-support.ts";
 import {simulateApprovedTimelineOffense} from "./timeline-offensive-skill.ts";
 import {simulateBasicTimelineConsumable} from "./timeline-consumables.ts";
+import {simulateApprovedTimelineConstruction,scheduleMirrorRayTicks}
+ from "./timeline-construction-world.ts";
 import {
  simulateApprovedTimelineSummon,simulateTimelineSummonOrder,
  scheduleAutonomousSummonTicks,
@@ -43,7 +45,7 @@ const other=(side:Side):Side=>side==="PLAYER"?"NPC":"PLAYER";
  */
 export function assertBasicTimelineEligible(combat:CombatState):void{
  if(combat.status!=="ACTIVE"||combat.pending||
-   (combat.constructions?.length??0)>0||
+   
    (combat.summonStatuses??[]).some(status=>
      !(status.id.startsWith("V2_SUPPORT:")&&status.by===status.target)&&
      !(status.id.startsWith("V2_HOSTILE:")&&status.by!==status.target))||
@@ -233,6 +235,13 @@ export async function resolveBasicTimelineWindow(
      if(event.kind==="SKILL"&&command.kind==="CAST_SKILL"){
        const plan=declaration.approvedSkill;
        if(!plan)throw new Error("La habilidad no tiene un plan revisado en su declaración.");
+       if(plan.category==="CONSTRUCTION"){
+         const strike=makeDice(),defense=makeDice();
+         const reaction=defend({usesMagic:Boolean(plan.mirror),isArea:false});
+         const effect=simulateApprovedTimelineConstruction(state,batch.state,event,
+           command,plan,strike,defense,reaction.posture);
+         return collect(effect,reaction);
+       }
        if(plan.category==="OFFENSE"){
          const strike=makeDice(),defense=makeDice();
          const reaction=defend({

@@ -113,3 +113,12 @@ Las bonificaciones y estados expiran durante los cruces del reloj compartido (ti
 El campo mágico reserva su intervalo y paga **un maná en total**, en el primer impacto que cubre o al acabar la postura si no hubo ataques; el recibo de pago persiste entre lotes. Un KO no devuelve el PA reservado y no puede evitar el maná ya gastado al cubrir un hechizo. Los dos impactos que terminan en un mismo tick se resuelven contra el mismo estado inicial de ese tick.
 
 **Restricciones expresas:** continúan pendientes movimiento compuesto + técnica, contraataque simultáneo, esquiva con desplazamiento, construcciones y espejos, invocaciones autónomas, consumibles y otras mutaciones de inventario, mantenimiento y autorreparación, cambios de estadísticas derivados de roturas y reglas de colisión entre acciones que modifican el mapa. No activar V2 en la API ni en la interfaz hasta tener estos casos resueltos y una transacción íntegra. Los combates pasados permanecen sin modificar.
+
+
+## V2.9 — consumibles oficiales y recursos en el lote temporal
+
+`lib/combat/timeline-consumables.ts` reutiliza la acción oficial de consumibles del motor V1 en una copia de cálculo y solo traslada a V2 el resultado de una acción completada: **una unidad** de inventario de encuentro, curación HP o restauración de maná y log narrativo en el tick absoluto. El coste de 1 PA ya quedó reservado en el planificador y no vuelve a cobrarse. El monto no viene del cliente sino de la receta compilada y autorizada por el servidor; solo se admite `HEAL_HP` o `RESTORE_MANA` con una receta única y un stock positivo.
+
+La declaración valida identificador real de la copia del jugador, disponibilidad y recursos incompletos, **sin gastar la unidad**. Dos consumos simultáneos de los participantes se confirman en el mismo lote. Un recurso restaurado en el mismo tick no puede pagar retroactivamente una habilidad para la que faltaba maná. El resolutor rechaza copias inexistentes, débito doble y peticiones con cantidades manipuladas.
+
+**Pendiente de producción:** la transacción del endpoint debe descontar también `characterItem.quantity` real al confirmar V2 y ofrecer el HUD de consumo temporal; no activar solo el estado JSON del encuentro. Otras acciones avanzadas de invocaciones, construcciones, autorreparación y contraataque permanecen para fases posteriores.

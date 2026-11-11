@@ -25,6 +25,10 @@ export type AuthorizedTimelineEffect={
   /** Heal values are resolved at the same instant as damage. */
   hpHealing?:Partial<Record<Side,number>>;
   equipmentWear?:CopyWear[];
+  /** Consume exactly one official encounter-stock unit from a server-compiled
+   * catalog copy. Never trust amounts or quantities sent by the player.
+   */
+  consumableUses?:Array<{owner:Side;itemId:number;characterItemId?:number}>;
   /** Only trusted, authorized resolution may spend encounter-local mana. */
   manaSpent?:Partial<Record<Side,number>>;
   manaRestored?:Partial<Record<Side,number>>;
@@ -123,6 +127,7 @@ export function commitAuthorizedTimelineBatch(
  const damages:Record<Side,number>={PLAYER:0,NPC:0};
  const healing:Record<Side,number>={PLAYER:0,NPC:0};
  const wear=new Map<string,{owner:Side;characterItemId:number;amount:number}>();
+ const consumableUses:NonNullable<AuthorizedTimelineEffect["consumableUses"]>=[];
  const moved:Record<Side,Point>={PLAYER:{x:0,y:0},NPC:{x:0,y:0}};
  const clears=new Set<Side>();
  const strokes:Array<{owner:Side;source:PhysicalAttackSource;end:Point}>=[];
@@ -153,6 +158,18 @@ export function commitAuthorizedTimelineBatch(
        throw new Error("Maná acumulado fuera de rango.");
      if(!Number.isFinite(damages[side])||!Number.isFinite(healing[side]))
        throw new Error("Acumulación de daño fuera de rango.");
+   }
+   for(const use of effect.consumableUses??[]){
+     if(!validSide(use.owner)||!Number.isSafeInteger(use.itemId)||use.itemId<1||
+       use.characterItemId!==undefined&&
+         (!Number.isSafeInteger(use.characterItemId)||use.characterItemId<1))
+       throw new Error("Identificador de consumible temporal inválido.");
+     if(use.owner==="PLAYER"&&use.characterItemId===undefined)
+       throw new Error("El jugador necesita una copia real de consumible.");
+     if(consumableUses.some(x=>x.owner===use.owner&&x.itemId===use.itemId&&
+       x.characterItemId===use.characterItemId))
+       throw new Error("Un consumible se usó dos veces en el mismo lote.");
+     consumableUses.push(use);
    }
    for(const buff of effect.statBonuses??[]){
      if(!validSide(buff.owner)||!Number.isSafeInteger(buff.skillId)||buff.skillId<1||
@@ -257,6 +274,17 @@ export function commitAuthorizedTimelineBatch(
        throw new Error("Maná insuficiente para resolver el lote temporal.");
      account.current=Math.min(account.max,account.current-manaSpent[side]+manaRestored[side]);
    }
+ }
+ // Inventory debits occur in the SAME atomic state as healing and mana.
+ // If stock disappears while another event is evaluated, reject the whole
+ // batch; the API must later debit the corresponding real copy in its DB tx.
+ for(const use of consumableUses){
+   const matches=(next.consumables?.[use.owner]??[]).filter(item=>
+     item.itemId===use.itemId&&item.characterItemId===use.characterItemId);
+   if(matches.length!==1||!Number.isSafeInteger(matches[0].quantity)||
+     matches[0].quantity<1)
+     throw new Error("El consumible temporal no tiene existencias autorizadas.");
+   matches[0].quantity-=1;
  }
  // Damage is not canceled by a heal or by a simultaneous lethal attack.
  for(const side of SIDES){

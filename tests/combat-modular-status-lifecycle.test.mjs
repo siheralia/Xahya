@@ -136,7 +136,7 @@ test("UI gives players access to current statuses without pretending narrative e
  const compiler=read("lib/combat/skill-casting.ts");
  const engine=read("lib/combat/turn-engine.ts");
  assert.match(page,/activeCombatStatusViews\(state,side\)/);
- assert.match(page,/Efectos temporales activos/);
+ assert.match(detail,/Efectos temporales activos/);
  assert.match(detail,/Caduca al comenzar la ronda/);
  assert.match(page,/CombatActiveStatusPanel/);
  assert.match(page,/openPanel\("stats"\)/);

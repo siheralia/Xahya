@@ -72,9 +72,9 @@ test("invalid or duplicated results abort the whole batch",()=>{
 test("all event resolvers observe the same pre-impact snapshot",async()=>{
  const before=state(),b=batch();
  const seen=[];
- const next=await resolveAuthorizedTimelineBatch(before,b,async snapshot=>{
+ const next=await resolveAuthorizedTimelineBatch(before,b,async (snapshot,event)=>{
    seen.push(snapshot.actors.PLAYER.hp);
-   return {eventId:seen.length===1?"a":"b",hpDamage:{PLAYER:10}};
+   return {eventId:event.id,hpDamage:{PLAYER:10}};
  });
  assert.deepEqual(seen,[20,20]);
  assert.equal(next.actors.PLAYER.hp,0);

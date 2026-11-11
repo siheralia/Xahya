@@ -9,7 +9,7 @@
  */
 export const TIMELINE_TICKS_PER_ROUND = 100;
 export type TimelineSide = "PLAYER" | "NPC";
-export type TimelineActionKind = "ATTACK" | "MOVE" | "BLOCK" | "SKILL" | "SUMMON" | "WAIT";
+export type TimelineActionKind = "ATTACK" | "MOVE" | "BLOCK" | "REACT" | "SKILL" | "SUMMON" | "ITEM" | "KARMA" | "WAIT";
 export type TimelineEventStatus = "QUEUED" | "RESOLVED" | "INTERRUPTED";
 
 export interface TimelineEvent {
@@ -23,6 +23,7 @@ export interface TimelineEvent {
   paidAp: number;
   /** The exact item copy being held, not an item catalog definition. */
   blockToolCopyId?: number;
+  blockToolSlot?: "MAIN_HAND" | "OFF_HAND";
   status: TimelineEventStatus;
   /** Stable insertion sequence for resolving simultaneous events. */
   sequence: number;
@@ -50,6 +51,7 @@ export type TimelineIntent = {
   durationTicks: number;
   paCost: number;
   blockToolCopyId?: number;
+  blockToolSlot?: "MAIN_HAND" | "OFF_HAND";
 };
 
 const SIDES: readonly TimelineSide[] = ["PLAYER", "NPC"];
@@ -87,13 +89,16 @@ export function queueTimelineAction(
   checkTimeline(original);
   if(!SIDES.includes(owner))throw new Error("Combatiente temporal inválido.");
   if(!intent||!validId(intent.id)||!validDuration(intent.durationTicks)||
-    !validPa(intent.paCost)||!["ATTACK","MOVE","BLOCK","SKILL","SUMMON","WAIT"].includes(intent.kind))
+    !validPa(intent.paCost)||!["ATTACK","MOVE","BLOCK","REACT","SKILL","SUMMON","ITEM","KARMA","WAIT"].includes(intent.kind))
     throw new Error("Acción temporal inválida.");
   if(intent.kind!=="WAIT"&&intent.paCost===0)
     throw new Error("Las acciones activas requieren PA; solo ESPERAR puede ser gratuito.");
   if(intent.kind==="BLOCK"&&intent.blockToolCopyId!==undefined&&
     (!Number.isSafeInteger(intent.blockToolCopyId)||intent.blockToolCopyId<=0))
     throw new Error("El bloqueo requiere una copia equipada válida.");
+  if(intent.blockToolSlot!==undefined&&
+    (intent.kind!=="BLOCK"||!["MAIN_HAND","OFF_HAND"].includes(intent.blockToolSlot)))
+    throw new Error("Solo BLOQUEAR puede reservar una mano equipada.");
   if(intent.kind!=="BLOCK"&&intent.blockToolCopyId!==undefined)
     throw new Error("Solo BLOQUEAR puede reservar una copia de equipo.");
   if(original.seenActionIds.includes(intent.id)||original.events.some(x=>x.id===intent.id))
@@ -118,6 +123,8 @@ export function queueTimelineAction(
     endsAtTick:finish,durationTicks:intent.durationTicks,paidAp:intent.paCost,
     ...(intent.kind==="BLOCK"&&intent.blockToolCopyId!==undefined
       ?{blockToolCopyId:intent.blockToolCopyId}:{}),
+    ...(intent.kind==="BLOCK"&&intent.blockToolSlot!==undefined
+      ?{blockToolSlot:intent.blockToolSlot}:{}),
     status:"QUEUED",sequence:next.nextSequence++});
   return next;
 }
@@ -134,11 +141,11 @@ export function activeTimelineBlockAt(
  checkTimeline(state);
  if(!SIDES.includes(owner)||!validTick(impactTick))
    throw new Error("Consulta de guardia temporal inválida.");
- // [start,end): the guard blocks many separate strikes during its interval,
- // but not at the exact tick in which it finishes. It is not spent per hit.
+ // Occupation is [start,end); guard coverage includes a strike completing
+ // exactly at end (simultaneous shield raise/impact). It is not spent per hit.
  return state.events.find(event=>event.owner===owner&&event.kind==="BLOCK"&&
    event.status!=="INTERRUPTED"&&event.startsAtTick<=impactTick&&
-   impactTick<event.endsAtTick)??null;
+   impactTick<=event.endsAtTick)??null;
 }
 
 export type TimelineBatch={
@@ -146,6 +153,11 @@ export type TimelineBatch={
   atTick:number;
   events:TimelineEvent[];
   simultaneous:boolean;
+  /** Absolute 100-tick boundaries encountered during this advance.
+   * Each boundary is emitted exactly once, even if a long action spans
+   * multiple rounds. The resolver decides damage/upkeep ordering at ties.
+   */
+  crossedRoundBoundaries:number[];
 };
 
 /** Move the clock to exactly the next completed action, never to a response
@@ -164,6 +176,9 @@ export function completeNextTimelineBatch(
  if(!queued.length)throw new Error("No quedan acontecimientos temporales pendientes.");
  const tick=Math.min(...queued.map(event=>event.endsAtTick));
  if(tick<original.nowTick)throw new Error("La cola de eventos retrocedería en el tiempo.");
+ const crossedRoundBoundaries:number[]=[];
+ for(let crossing=(Math.floor(original.nowTick/TIMELINE_TICKS_PER_ROUND)+1)*TIMELINE_TICKS_PER_ROUND;
+   crossing<=tick;crossing+=TIMELINE_TICKS_PER_ROUND)crossedRoundBoundaries.push(crossing);
  const next=structuredClone(original);
  next.nowTick=tick;
  const batch=next.events.filter(e=>e.status==="QUEUED"&&e.endsAtTick===tick)
@@ -175,7 +190,7 @@ export function completeNextTimelineBatch(
    const keepIds=new Set(resolved.slice(-256).map(e=>e.id));
    next.events=next.events.filter(e=>e.status==="QUEUED"||keepIds.has(e.id));
  }
- return {state:next,atTick:tick,events:batch,simultaneous:batch.length>1};
+ return {state:next,atTick:tick,events:batch,simultaneous:batch.length>1,crossedRoundBoundaries};
 }
 
 /** An interrupted guard stops at the current tick, not at the original

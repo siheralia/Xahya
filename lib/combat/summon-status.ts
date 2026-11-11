@@ -58,6 +58,16 @@ function rebuild(state:CombatState,target:Side,stat:StatusStat):void{
  }
  actor[stat]=value;
 }
+/** Recalculate active status deltas when an independent flat bonus expires.
+ * V2 timeline crosses arbitrary round boundaries before resolving impacts.
+ * Without this, a multiplicative status keeps the delta of an expired buff.
+ */
+export function reconcileSummonStatusStat(
+ state:CombatState,target:Side,stat:StatusStat,
+):void{
+ if((state.summonStatuses??[]).some(s=>s.target===target&&s.stat===stat))
+   rebuild(state,target,stat);
+}
 /** Rebuild before removing, then rebuild after removing. */
 export function expireSummonStatuses(state:CombatState):void{
  const expiring=(state.summonStatuses??[]).filter(s=>s.expiresAtRound<=state.round);

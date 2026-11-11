@@ -179,7 +179,7 @@ export function progressTrainingNpc(
     const availablePotions=(next.consumables?.NPC??[]).filter(p=>p.quantity>0&&
       (p.action==="HEAL_HP"?npc.maxHp>npc.hp:npc.magicAttack>0&&
        (next.mana?.NPC?.current??0)<(next.mana?.NPC?.max??0)));
-    if(availablePotions.length&&random()<0.32){
+    if(!next.temporalQueued?.PLAYER&&availablePotions.length&&random()<0.32){
       const chosen=availablePotions[Math.min(availablePotions.length-1,
        Math.floor(cap(random(),0,0.999999)*availablePotions.length))];
       next=applyResolvedCombatConsumable(next,"NPC",chosen,
@@ -197,7 +197,7 @@ export function progressTrainingNpc(
         ||(plan.bonuses.length>0&&!next.skillBonuses?.some(b=>b.by==="NPC"&&b.skillId===plan.id));
       return plan.category==="OFFENSE"&&plan.rangeMeters>0&&distance<=plan.rangeMeters;
     });
-    if(options.length&&random()<skillChance) {
+    if(!next.temporalQueued?.PLAYER&&options.length&&random()<skillChance) {
       // Aggressive opponents favor offensive actions; wounded opponents can still heal.
       const offensive=options.filter(p=>p.category==="OFFENSE");
       const selected=profile==="AGGRESSIVE"&&offensive.length?offensive:options;

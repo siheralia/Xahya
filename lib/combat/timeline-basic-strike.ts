@@ -13,6 +13,7 @@ import {
   applyCombatCommand,turnTicks,weaponForSource,defaultAttackSource,
   type CombatCommand,type CombatState,type Side,
 } from "./turn-engine.ts";
+import {offhandArmorShield} from "../items/combat-wearables.ts";
 import {activeTimelineBlockAt,
   type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import type {AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
@@ -43,8 +44,7 @@ function activeBlockSlot(
  if(!block?.blockToolSlot)return null;
  const actor=state.actors[defender];
  const item=block.blockToolSlot==="MAIN_HAND"?actor.equippedWeapon:
-   actor.offhandWeapon??actor.equippedWearables?.find(item=>
-     item.slot==="OFF_HAND"&&item.itemType==="ARMOR");
+   actor.offhandWeapon??offhandArmorShield(actor.equippedWearables);
  if(!item || (item.durability??100)<=0)return null;
  if(block.blockToolCopyId!==undefined&&block.blockToolCopyId!==item.characterItemId)
    return null;

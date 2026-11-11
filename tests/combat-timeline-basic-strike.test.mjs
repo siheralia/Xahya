@@ -68,7 +68,7 @@ test("two simultaneous physical hits are evaluated from one snapshot",()=>{
      attack("bb"),rolls,rolls),
  ];
  const next=commitAuthorizedTimelineBatch(c,batch,hits);
- assert.ok(next.actors.PLAYER.hp<original);
+ assert.ok(next.actors.PLAYER.hp<original,JSON.stringify({nextHp:next.actors.PLAYER.hp,hits}));
  assert.ok(next.actors.NPC.hp<original);
  assert.equal(c.actors.PLAYER.hp,original);
  assert.equal(next.tick,10);

@@ -2450,6 +2450,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       state.temporalQueued[by]={command:structuredClone(command),
         endsAtTick:targetDeadline,durationTicks:duration};
       state.temporalReserved[by]={endsAtTick:targetDeadline,kind:command.kind};
+      // A new wind-up gives up the old fixed defensive stance immediately.
+      if(state.activeBlocks)delete state.activeBlocks[by];
       addLog(state,{kind:"PREPARE",tick:state.tick,by,
         summary:fighter.name+" comenzó una acción de "+duration+
           " ticks que concluirá en el tick "+targetDeadline+"."});
@@ -2833,6 +2835,7 @@ export function applyResolvedCombatSkill(
      reserved.temporalQueued[by]={skill:{plan:structuredClone(plan),
        aim:structuredClone(aim)},endsAtTick:deadline,durationTicks:duration};
      reserved.temporalReserved[by]={kind:"CAST_SKILL",endsAtTick:deadline};
+     if(reserved.activeBlocks)delete reserved.activeBlocks[by];
      addLog(reserved,{kind:"PREPARE",tick:reserved.tick,by,
        summary:fighter.name+" empezó a preparar una habilidad de "+
          duration+" ticks hasta el tick "+deadline+"."});

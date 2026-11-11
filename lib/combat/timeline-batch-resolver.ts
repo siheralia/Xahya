@@ -229,8 +229,7 @@ export function commitAuthorizedTimelineBatch(
        update.autoRound!==undefined&&
          (!Number.isSafeInteger(update.autoRound)||update.autoRound<1)||
        update.autoSpentAp!==undefined&&
-         (!Number.isSafeInteger(update.autoSpentAp)||update.autoSpentAp<0)||
-       update.owner==="")
+         (!Number.isSafeInteger(update.autoSpentAp)||update.autoSpentAp<0))
        throw new Error("Cambio de criatura temporal inválido.");
      // A manual CHANGE_BEHAVIOR / CHANGE_TARGET and the creature's own
      // initiative may end at the SAME tick. They edit different fields and

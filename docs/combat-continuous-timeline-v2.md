@@ -49,3 +49,10 @@ La API existente continúa resolviendo en `combatV1` con el cambio incremental d
 ### Criterio para activar V2 en producción
 
 No activar el nuevo resolutor hasta que pase la suite actual de combates, las pruebas de carrera sobre PostgreSQL y las simulaciones temporales; el núcleo V2 por sí solo no hace que el combate real sea totalmente simultáneo.
+
+
+## V2.3 — núcleo de aplicación simultánea (sin conexión a partidas aún)
+
+`lib/combat/timeline-batch-resolver.ts` aplica, sobre una sola instantánea previa, resultados de daño, curación y desgaste autorizados para todos los eventos que terminan en el mismo tick. Exige exactamente un resultado por evento, rechaza copias de inventario inexistentes y evita que el primer golpe letal cancele otro golpe simultáneo. Si ambos caen, el resultado es empate. Los resultados se calculan sin mutar el estado original y el commit se devuelve como una única nueva instantánea.
+
+**Límite de seguridad:** todavía NO está conectado a `app/api/combat/[id]/actions/route.ts`. No calcula ataques ni defensas: el ejecutor debe aplicar las reglas existentes, sus tiradas y las verificaciones de habilidades, además de producir parches transaccionales para movimientos, efectos, invocaciones, construcciones, mana y narración. No se debe publicar como combate V2 activo hasta que todas esas piezas tengan cobertura de pruebas e integración con el cliente.

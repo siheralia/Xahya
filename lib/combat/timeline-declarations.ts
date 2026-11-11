@@ -79,6 +79,23 @@ export function declareTimelineCommand(
  }
  if(Object.keys(original.receipts).length>=20_000)
    throw new Error("El encuentro alcanzó el límite de órdenes temporales.");
+ // The server must refuse an unaffordable or cooling-down action AT
+ // declaration, not accept it as a pending move that inevitably fails later.
+ // This is a validation only: no mana is spent before its completion tick.
+ if(command.kind==="ATTACK"&&command.usesMagic){
+   if((snapshot.mana?.[owner]?.current??0)<1)
+     throw new Error("Necesitas maná para declarar magia básica.");
+ }
+ if(command.kind==="CAST_SKILL"&&context.approvedSkill){
+   const plan=context.approvedSkill;
+   if((snapshot.mana?.[owner]?.current??0)<plan.cost)
+     throw new Error("Maná insuficiente para declarar esa habilidad.");
+   const start=Math.max(original.clock.nowTick,original.clock.actors[owner].availableAtTick);
+   const currentRound=timelineRoundOf(start);
+   const availableAt=snapshot.skillCooldowns?.[owner]?.[String(plan.id)]??0;
+   if(availableAt===-1||availableAt>currentRound)
+     throw new Error("Esta habilidad continúa en enfriamiento.");
+ }
  // Only a fully approved intent is allowed into the clock. This compile
  // also rejects forged PA/tick durations and unauthorized skill plans.
  const intent=compileCombatTimelineIntent(snapshot,original.clock,owner,

@@ -15,7 +15,12 @@ import {
   type ContinuousCombatTimeline,type TimelineIntent,
 } from "./action-timeline.ts";
 
-type CompilationContext={
+/** Proactive raised guard for continuous combat. V1 DEFEND is reactive. */
+export type TimelineCombatCommand=CombatCommand|{
+  kind:"GUARD";weaponSlot:"MAIN_HAND"|"OFF_HAND";requestId?:string;
+};
+
+export type CompilationContext={
   /** Resolved only through the approved skills catalog on the server. */
   approvedSkill?:CombatSkillPlan;
   /** The source of a skill strike is not always a physical equipped weapon. */
@@ -70,7 +75,7 @@ function blockingEquipment(
  */
 export function compileCombatTimelineIntent(
  snapshot:CombatState,timeline:ContinuousCombatTimeline,by:Side,
- command:CombatCommand,serverEventId:string,context:CompilationContext={},
+ command:TimelineCombatCommand,serverEventId:string,context:CompilationContext={},
 ):TimelineIntent {
  if(snapshot.status!=="ACTIVE"||timeline.version!==2)
    throw new Error("El combate temporal no está activo.");
@@ -94,6 +99,13 @@ export function compileCombatTimelineIntent(
  if(snapshot.pending)
    throw new Error("Resuelve el ataque pendiente antes de iniciar otra acción.");
  switch(command.kind){
+  case "GUARD": {
+    const equipped=blockingEquipment(actor,command.weaponSlot);
+    if(!equipped)
+      throw new Error("La guardia continua necesita un arma o escudo equipado.");
+    return {...base,kind:"BLOCK",durationTicks:Math.max(10,normal(actor)),
+      paCost:1,...equipped};
+  }
   case "MOVE":
     return {...base,kind:"MOVE",durationTicks:normal(actor),paCost:1};
   case "WAIT":{
@@ -150,7 +162,7 @@ export function newTimelineForCombat(snapshot:CombatState):ContinuousCombatTimel
  */
 export function reserveCombatTimelineCommand(
  timeline:ContinuousCombatTimeline,snapshot:CombatState,by:Side,
- command:CombatCommand,serverEventId:string,context:CompilationContext={},
+ command:TimelineCombatCommand,serverEventId:string,context:CompilationContext={},
 ):ContinuousCombatTimeline {
  const intent=compileCombatTimelineIntent(snapshot,timeline,by,command,serverEventId,context);
  return queueTimelineAction(timeline,by,intent);

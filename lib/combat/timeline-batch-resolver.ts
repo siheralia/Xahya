@@ -37,6 +37,12 @@ export type AuthorizedTimelineEffect={
   summonUpdates?:Array<{id:string;owner:Side;
     fieldPosition?:Point;behaviorMode?:CombatSummon["behavior"]["mode"];
     targetId?:string;autoNextTick?:number;autoRound?:number;autoSpentAp?:number}>;
+  /** Multiple concurrent creature hits add to target integrity/hit count. */
+  summonImpacts?:Array<{id:string;owner:Side;damage:number;hitCountDelta:number}>;
+  /** Statuses produced by the official approved creature-contact resolver. */
+  summonContactStatuses?:Array<{id:string;sourceSummonId:string;by:Side;
+    target:Side;stat:StatusStat;operation:"BONUS"|"MULTIPLIER";
+    value:number;durationTurns:number}>;
 
   /** Consume exactly one official encounter-stock unit from a server-compiled
    * catalog copy. Never trust amounts or quantities sent by the player.
@@ -154,6 +160,8 @@ export function commitAuthorizedTimelineBatch(
  const selfStatuses:NonNullable<AuthorizedTimelineEffect["selfStatuses"]>=[];
  const summonsCreated:CombatSummon[]=[];
  const summonUpdates:NonNullable<AuthorizedTimelineEffect["summonUpdates"]>=[];
+ const summonImpacts=new Map<string,{id:string;owner:Side;damage:number;hitCountDelta:number}>();
+ const summonContactStatuses:NonNullable<AuthorizedTimelineEffect["summonContactStatuses"]>=[];
  const hostileStatuses:NonNullable<AuthorizedTimelineEffect["hostileStatuses"]>=[];
  const skillCooldowns:NonNullable<AuthorizedTimelineEffect["skillCooldowns"]>=[];
  for(const effect of effects){
@@ -225,6 +233,39 @@ export function commitAuthorizedTimelineBatch(
        summonUpdates.some(other=>other.id===update.id))
        throw new Error("Cambio de criatura temporal inválido.");
      summonUpdates.push(structuredClone(update));
+   }
+   for(const impact of effect.summonImpacts??[]){
+     if(!impact||typeof impact.id!=="string"||impact.id.length>160||
+       !validSide(impact.owner)||
+       !Number.isFinite(impact.damage)||impact.damage<0||impact.damage>1_000_000||
+       !Number.isSafeInteger(impact.hitCountDelta)||
+       impact.hitCountDelta<1||impact.hitCountDelta>10)
+       throw new Error("Daño temporal de criatura inválido.");
+     const previous=summonImpacts.get(impact.id);
+     if(previous&&previous.owner!==impact.owner)
+       throw new Error("El daño apunta a una criatura de otro dueño.");
+     summonImpacts.set(impact.id,{
+       id:impact.id,owner:impact.owner,
+       damage:(previous?.damage??0)+impact.damage,
+       hitCountDelta:(previous?.hitCountDelta??0)+impact.hitCountDelta,
+     });
+   }
+   for(const status of effect.summonContactStatuses??[]){
+     if(!status||!validSide(status.by)||!validSide(status.target)||
+       typeof status.sourceSummonId!=="string"||
+       typeof status.id!=="string"||status.id.length>160||
+       !status.id.startsWith("V2_SUMMON:")||
+       !["strength","agility","speedValue","constitution",
+         "precision","dodge","physicalAttack","physicalDefense",
+         "magicAttack","magicDefense","critical","luck","race"].includes(status.stat)||
+       !["BONUS","MULTIPLIER"].includes(status.operation)||
+       !Number.isFinite(status.value)||
+       status.operation==="BONUS"&&Math.abs(status.value)>100000||
+       status.operation==="MULTIPLIER"&&(status.value<0||status.value>3)||
+       !validDuration(status.durationTurns)||
+       summonContactStatuses.some(previous=>previous.id===status.id))
+       throw new Error("Contacto modular de criatura inválido.");
+     summonContactStatuses.push(status);
    }
    for(const buff of effect.statBonuses??[]){
      if(!validSide(buff.owner)||!Number.isSafeInteger(buff.skillId)||buff.skillId<1||
@@ -445,6 +486,16 @@ export function commitAuthorizedTimelineBatch(
    if(update.autoRound!==undefined)creature.autoRound=update.autoRound;
    if(update.autoSpentAp!==undefined)creature.autoSpentAp=update.autoSpentAp;
  }
+ // Both creatures hitting the same familiar at one tick consume its
+ // integrity together. The target can act at that very tick before dying.
+ for(const impact of summonImpacts.values()){
+   const creature=next.summons.find(s=>s.id===impact.id&&s.owner===impact.owner);
+   if(!creature)throw new Error("No existe la criatura afectada por el impacto.");
+   creature.integrity=Math.max(0,creature.integrity-impact.damage);
+   creature.hitCount+=impact.hitCountDelta;
+   if(creature.integrity<=0||creature.hitCount>=creature.hitLimit)
+     next.summons=next.summons.filter(s=>s.id!==creature.id);
+ }
  // Damage is not canceled by a heal or by a simultaneous lethal attack.
  for(const side of SIDES){
    const actor=next.actors[side];
@@ -503,7 +554,8 @@ export function commitAuthorizedTimelineBatch(
  next.tick=batch.atTick;
  next.round=timelineRoundOf(batch.atTick);
  if((next.skillBonuses?.length??0)+statBonuses.length>100||
-   (next.summonStatuses?.length??0)+selfStatuses.length+hostileStatuses.length>100)
+   (next.summonStatuses?.length??0)+selfStatuses.length+hostileStatuses.length+
+     summonContactStatuses.length>100)
    throw new Error("Demasiados bonos o estados temporales en combate.");
  for(const buff of statBonuses){
    const fighter=next.actors[buff.owner];
@@ -527,6 +579,14 @@ export function commitAuthorizedTimelineBatch(
    applySummonStatus(next,{
      id:status.id,sourceSummonId:"SKILL:"+status.skillId,
      by:status.owner,target:status.target,stat:status.stat,
+     operation:status.operation,value:status.value,
+     durationTurns:status.durationTurns,
+   });
+ }
+ for(const status of summonContactStatuses){
+   applySummonStatus(next,{
+     id:status.id,sourceSummonId:status.sourceSummonId,
+     by:status.by,target:status.target,stat:status.stat,
      operation:status.operation,value:status.value,
      durationTurns:status.durationTurns,
    });

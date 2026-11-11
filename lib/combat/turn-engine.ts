@@ -313,17 +313,18 @@ export function applyResolvedKarmaBoost(
  * characterItem stack in the same DB transaction as the encounter.
  */
 export function applyResolvedCombatConsumable(
- original:CombatState,by:Side,item:CombatConsumable,requestId:string,
+ original:CombatState,by:Side,item:CombatConsumable,requestId:string,scheduled=false,
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(requestId))
   throw new Error("Identificador de consumo inválido.");
- if(original.processedItemRequests?.includes(requestId))return original;
+ if(!scheduled&&(original.processedItemRequests?.includes(requestId)||
+    original.temporalQueued?.[by]?.item?.requestId===requestId))return original;
  if(original.status!=="ACTIVE"||!canAct(original,by))
   throw new Error("Espera tu iniciativa para utilizar consumibles.");
  const state=structuredClone(original);
  const items=state.consumables?.[by]??[];
  const selected=items.find(x=>x.itemId===item.itemId&&
-  x.characterItemId===item.characterItemId&&x.quantity>0);
+  x.characterItemId===item.characterItemId&&(scheduled||x.quantity>0));
  if(!selected||selected.action!==item.action||selected.amount!==item.amount)
   throw new Error("No tienes disponible ese consumible en este encuentro.");
  const fighter=state.actors[by],mana=state.mana?.[by];
@@ -332,17 +333,40 @@ export function applyResolvedCombatConsumable(
  }else if(selected.action==="RESTORE_MANA"){
   if(!mana||mana.current>=mana.max)throw new Error("Ya tienes todo tu maná.");
  }else throw new Error("Este consumible no se puede usar en combate.");
+ if(state.timelineMode==="CONTINUOUS"&&!scheduled&&!state.temporalExecuting){
+   const rival=state.actors[other(by)],duration=turnTicks(fighter);
+   const deadline=(state.round-1)*LIMIT+fighter.spentTicks+duration;
+   const rivalSoon=(state.round-1)*LIMIT+rival.spentTicks+
+     Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
+   if(state.temporalQueued?.[other(by)]||
+     (hasInitiativeBudget(rival)&&deadline>rivalSoon)){
+     // Inventory is claimed on declaration inside the existing transaction,
+     // while the healing/mana effect waits for the actual completed action.
+     selected.quantity--;
+     state.temporalQueued??={};state.temporalReserved??={};
+     state.temporalQueued[by]={item:{requestId,stock:{...item}},
+       endsAtTick:deadline,durationTicks:duration};
+     state.temporalReserved[by]={kind:"USE_ITEM",endsAtTick:deadline};
+     state.processedItemRequests=[...(state.processedItemRequests??[]),requestId].slice(-100);
+     if(state.activeBlocks)delete state.activeBlocks[by];
+     addLog(state,{kind:"PREPARE",tick:state.tick,by,
+       summary:fighter.name+" comenzó a utilizar "+selected.name+
+         "; terminará en el tick "+deadline+"."});
+     return state;
+   }
+ }
  const before=selected.action==="HEAL_HP"?fighter.hp:mana!.current;
  const after=selected.action==="HEAL_HP"?Math.min(fighter.maxHp,before+selected.amount):
   Math.min(mana!.max,before+selected.amount);
  const restored=after-before;
  if(selected.action==="HEAL_HP")fighter.hp=after;
  else mana!.current=after;
- selected.quantity--;
+ if(!scheduled)selected.quantity--;
  if(state.activeBlocks)delete state.activeBlocks[by];
  spend(fighter,turnTicks(fighter)); // paid, neutral action: no weapon speed modifier
  state.tick=Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
- state.processedItemRequests=[...(state.processedItemRequests??[]),requestId].slice(-100);
+ if(!scheduled)
+   state.processedItemRequests=[...(state.processedItemRequests??[]),requestId].slice(-100);
  addLog(state,{kind:"ITEM",tick:state.tick,by,
   summary:fighter.name+" utilizó "+selected.name+" y recuperó "+restored+
    (selected.action==="HEAL_HP"?" HP":" de maná")});

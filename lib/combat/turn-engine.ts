@@ -156,6 +156,10 @@ export type CombatState = {
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
   /** Only new encounters opt into strict chronological initiative; old snapshots stay readable. */
   timelineMode?:"SHARED"|"CONTINUOUS";
+  /** Queued proactive actions remain server-only until their completion tick. */
+  temporalQueued?:Partial<Record<Side,{command:Extract<CombatCommand,{kind:"MOVE"|"ATTACK"}>;endsAtTick:number;durationTicks:number}>>;
+  /** Public, target-free reservation metadata for the client initiative HUD. */
+  temporalReserved?:Partial<Record<Side,{endsAtTick:number;kind:"MOVE"|"ATTACK"}>>;
   winner: Side | null; actors: Record<Side, CombatFighter>;
   /** Randomly resolved initial initiative tie; absent in older persisted fights. */
   tieOpener?: Side;
@@ -792,6 +796,12 @@ export function canAct(state: CombatState, side: Side): boolean {
   if (state.status !== "ACTIVE" || state.pending) return false;
   const f = state.actors[side], rival = state.actors[other(side)];
   if (!hasInitiativeBudget(f)) return false;
+  if(state.timelineMode==="CONTINUOUS"){
+    // Either participant may DECLARE a proactive action. The resolver holds
+    // a slow action until all earlier completions have been handled.
+    // An already reserved participant cannot submit twice.
+    return !state.temporalReserved?.[side];
+  }
   if (effectiveCombatSpeed(f) === effectiveCombatSpeed(rival)) {
     // Equal speed: strict alternating initiative. Reactions consume ticks/AP
     // but never allow an actor to take two consecutive proactive actions if
@@ -2397,6 +2407,36 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   }
   if (command.kind === "DEFEND") throw new Error("No existe un ataque pendiente.");
   if (!exchangedAttack&&!canAct(state,by)) throw new Error("Espera el movimiento del otro participante o el siguiente turno.");
+  // V2: a slow strike or movement is an intention, not an immediate hit.
+  // Validate against a throwaway simulation, then leave HP, PA and position
+  // unchanged until the true end of its interval. All times are server-derived.
+  if(!exchangedAttack&&state.timelineMode==="CONTINUOUS"&&
+    (command.kind==="ATTACK"||command.kind==="MOVE")){
+    const source=command.kind==="ATTACK"
+      ?command.attackSource??defaultAttackSource(fighter):undefined;
+    const tool=source?weaponForSource(fighter,source):undefined;
+    const magic=command.kind==="ATTACK"&&command.usesMagic===true;
+    const duration=command.kind==="MOVE"?turnTicks(fighter):
+      Math.max(command.planarMove?turnTicks(fighter):0,
+        turnTicks(fighter,tool&&!magic?command.attackType:undefined));
+    const targetDeadline=(state.round-1)*LIMIT+fighter.spentTicks+duration;
+    const prior=state.temporalQueued?.[other(by)];
+    const otherSoon=(state.round-1)*LIMIT+rival.spentTicks+
+      Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
+    if(prior || (hasInitiativeBudget(rival)&&targetDeadline>otherSoon)){
+      // A shadow launch performs all normal validation; it is discarded.
+      applyCombatCommand(state,by,command,rolls,serverSkillRangeMeters,
+        mirrorSkill,serverSkillArea,true,counterRolls);
+      state.temporalQueued??={};state.temporalReserved??={};
+      state.temporalQueued[by]={command:structuredClone(command),
+        endsAtTick:targetDeadline,durationTicks:duration};
+      state.temporalReserved[by]={endsAtTick:targetDeadline,kind:command.kind};
+      addLog(state,{kind:"PREPARE",tick:state.tick,by,
+        summary:fighter.name+" comenzó una acción de "+duration+
+          " ticks que concluirá en el tick "+targetDeadline+"."});
+      return state;
+    }
+  }
    // A deliberate new action relinquishes the guard; overlapping strikes do not.
    if(state.activeBlocks)delete state.activeBlocks[by];
   if(command.kind==="BOOST_KARMA")throw new Error("El boost de karma debe ser aprobado por el servidor.");

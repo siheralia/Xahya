@@ -2675,6 +2675,75 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   return state;
 }
 
+
+/** Execute declarations only after faster possible completions have passed.
+ * All geometry, damage, status and inventory changes use the existing engine.
+ * Run inside the encounter's serializable DB transaction.
+ */
+export function settleTemporalQueuedActions(
+ initial:CombatState, makeDice:()=>{hit:number;critical:number;defense:number},
+):CombatState {
+ if(initial.timelineMode!=="CONTINUOUS"||initial.status!=="ACTIVE"||initial.pending)
+   return initial;
+ let next=initial;
+ for(let attempt=0;attempt<16;attempt++){
+  if(next.status!=="ACTIVE"||next.pending)return next;
+  const queue=next.temporalQueued;
+  const scheduled=SIDES.flatMap(side=>queue?.[side]?[{
+    side,entry:queue[side]!,
+  }]:[]).sort((a,b)=>a.entry.endsAtTick-b.entry.endsAtTick||
+    Number(a.entry.command.kind!=="MOVE")-Number(b.entry.command.kind!=="MOVE")||
+    Number(a.side==="NPC")-Number(b.side==="NPC"));
+  if(!scheduled.length)return next;
+  const first=scheduled[0],second=scheduled[1];
+  if(!second){
+   const rival=next.actors[other(first.side)];
+   const rivalDeadline=(next.round-1)*LIMIT+rival.spentTicks+
+     Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
+   if(hasInitiativeBudget(rival)&&rivalDeadline<=first.entry.endsAtTick)
+     return next;
+  }
+  const base=structuredClone(next);
+  if(base.temporalQueued)delete base.temporalQueued[first.side];
+  if(base.temporalReserved)delete base.temporalReserved[first.side];
+  if(second&&second.entry.endsAtTick===first.entry.endsAtTick&&
+     first.entry.command.kind==="ATTACK"&&second.entry.command.kind==="ATTACK"){
+    // Simultaneous basic attacks run from the pre-impact snapshot; the
+    // existing COUNTER shadow applies both lethal hits together.
+    delete base.temporalQueued?.[second.side];
+    delete base.temporalReserved?.[second.side];
+    const launched=applyCombatCommand(base,first.side,first.entry.command,
+      makeDice(),undefined,undefined,undefined,true);
+    if(launched.pending?.against===second.side &&
+       !launched.pending.summonId&&!launched.pending.mirrorAuto&&!launched.pending.mirrorId){
+      next=applyCombatCommand(launched,second.side,{
+        kind:"DEFEND",defense:"COUNTER",counterMagic:second.entry.command.usesMagic===true,
+      },makeDice(),undefined,undefined,undefined,false,makeDice(),second.entry.command);
+      continue;
+    }
+    if(launched.pending)return launched;
+    next=applyCombatCommand(launched,second.side,second.entry.command,
+      makeDice(),undefined,undefined,undefined,true);
+    continue;
+  }
+  try{
+    next=applyCombatCommand(base,first.side,first.entry.command,
+      makeDice(),undefined,undefined,undefined,true);
+  }catch{
+    // The declaration was valid earlier. A target might have moved behind
+    // a wall before impact; a failed contact still consumes time and PA.
+    const actor=base.actors[first.side];
+    spend(actor,first.entry.durationTicks);
+    base.tick=Math.max(base.tick,first.entry.endsAtTick);
+    addLog(base,{kind:"FIZZLE",tick:base.tick,by:first.side,
+      summary:actor.name+" terminó una acción sin éxito: el objetivo o la trayectoria cambiaron."});
+    advanceRoundIfComplete(base);
+    next=base;
+  }
+ }
+ return next;
+}
+
 /**
  * Executes an ALREADY VALIDATED server-side plan. Never trust client-supplied
  * effects, damage, price, cooldown or targets. All changes are pure; the

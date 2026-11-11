@@ -52,7 +52,7 @@ export function simulateApprovedTimelineOffense(
    !validDice(attackDice)||!validDice(defenseDice))
    throw new Error("La habilidad ofensiva no ha llegado a su impacto temporal.");
  if(command.kind!=="CAST_SKILL"||!plan||command.skillId!==plan.id||
-   plan.category!=="OFFENSE"||!plan.attackType||
+   plan.category!=="OFFENSE"||!plan.attackType||event.paidAp!==1||
    !Number.isSafeInteger(plan.cost)||plan.cost<0||
    !/^[a-zA-Z0-9:_-]{12,100}$/.test(command.requestId)||
    Object.keys(command).some(key=>!allowedKeys.has(key))||

@@ -42,7 +42,7 @@ export type PreparedTimelineCommit={
 };
 
 const stableJson=(value:unknown):string=>{
-  if(value===null||typeof value!=="object")return JSON.stringify(value);
+  if(value===null||typeof value!=="object")return JSON.stringify(value)??"null";
   if(Array.isArray(value))return "["+value.map(stableJson).join(",")+"]";
   return "{"+Object.entries(value).filter(([,v])=>v!==undefined)
     .sort(([a],[b])=>a.localeCompare(b))

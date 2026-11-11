@@ -131,12 +131,15 @@ test("historical skills without optional name continue to render and filter expi
 test("UI gives players access to current statuses without pretending narrative effects run",()=>{
  const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
  const page=read("app/combat/[id]/CombatEncounter.tsx");
+ const detail=read("app/combat/[id]/CombatActiveStatusPanel.tsx");
  const hud=read("app/combat/[id]/CombatCharacterHud.tsx");
  const compiler=read("lib/combat/skill-casting.ts");
  const engine=read("lib/combat/turn-engine.ts");
  assert.match(page,/activeCombatStatusViews\(state,side\)/);
  assert.match(page,/Efectos temporales activos/);
- assert.match(page,/Caduca al comenzar la ronda/);
+ assert.match(detail,/Caduca al comenzar la ronda/);
+ assert.match(page,/CombatActiveStatusPanel/);
+ assert.match(page,/openPanel\("stats"\)/);
  assert.match(hud,/activeStatusCount>0&&<button/);
  assert.match(hud,/estados temporales activos/);
  assert.match(compiler,/Solo puedes utilizar habilidades aprobadas/);

@@ -83,7 +83,7 @@ test("committed timeline never moves backwards when a slower action is logged",(
 });
 
 test("next shared event has priority: no NPC tick 66 before player's tick 51",()=>{
- let s=newCombatState(fighter("Sarya",62),fighter("Robin",31));
+ let s=newCombatState(fighter("Sarya",62),fighter("Robin",31),"PLAYER",true);
  assert.equal(canAct(s,"PLAYER"),true);
  assert.equal(canAct(s,"NPC"),false);
  s=applyCombatCommand(s,"PLAYER",{kind:"MOVE",meters:0});

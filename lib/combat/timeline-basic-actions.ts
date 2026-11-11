@@ -14,7 +14,7 @@ import {applyCombatCommand,turnTicks,type CombatCommand,type CombatState,
   type Side} from "./turn-engine.ts";
 import {fieldPosition} from "./field-plane.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
-import {type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
+import {activeTimelineReactionAt,type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import {type AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
 import {simulateBasicPhysicalTimelineHit} from "./timeline-basic-strike.ts";
 import {simulateBasicMagicTimelineHit} from "./timeline-basic-magic.ts";
@@ -169,46 +169,73 @@ export async function resolveBasicTimelineWindow(
  combat:CombatState,session:TimelineDeclarationSession,makeDice:()=>TimelineDice,
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession}|null>{
  assertBasicTimelineEligible(combat);
- return resolveDeclaredTimelineBatch(combat,session,(snapshot,declaration,event,batch)=>{
-   const state=snapshot as CombatState;
-   const command=declaration.command;
-   const defend=(incoming:{usesMagic:boolean;isArea:boolean;hybrid?:boolean})=>{
-     const rival=other(event.owner);
-     const reaction=preparedTimelineReactionAt(batch.state,rival,
-       event.endsAtTick,(id,owner)=>{
-         const saved=session.declarations[id];
-         return saved?.owner===owner?saved.command:undefined;
-       });
-     return timelineDefenseForImpact(reaction,incoming);
-   };
-   if(event.kind==="ATTACK"&&command.kind==="ATTACK"){
-     const strike=makeDice(),defense=makeDice();
-     const posture=defend({usesMagic:command.usesMagic===true,
-       isArea:command.usesMagic===true});
-     return command.usesMagic
-       ?simulateBasicMagicTimelineHit(state,batch.state,event,command,
-           strike,defense,posture)
-       :simulateBasicPhysicalTimelineHit(state,batch.state,event,command,
-           strike,defense,posture);
-   }
-   if(event.kind==="SKILL"&&command.kind==="CAST_SKILL"){
-     const plan=declaration.approvedSkill;
-     if(!plan)throw new Error("La habilidad no tiene un plan revisado en su declaración.");
-     if(plan.category==="OFFENSE"){
+ const charged=new Set(session.chargedReactionIds??[]);
+ const finish=await resolveDeclaredTimelineBatch(combat,session,
+   (snapshot,declaration,event,batch)=>{
+     const state=snapshot as CombatState;
+     const command=declaration.command;
+     const defend=(incoming:{usesMagic:boolean;isArea:boolean;hybrid?:boolean})=>{
+       const rival=other(event.owner);
+       const reaction=preparedTimelineReactionAt(batch.state,rival,
+         event.endsAtTick,(id,owner)=>{
+           const saved=session.declarations[id];
+           return saved?.owner===owner?saved.command:undefined;
+         });
+       const posture=timelineDefenseForImpact(reaction,incoming);
+       const actualEvent=activeTimelineReactionAt(batch.state,rival,event.endsAtTick);
+       return {posture,rival,fieldId:posture.defense==="MAGIC_FIELD"?
+         actualEvent?.id:undefined};
+     };
+     const collect=(effect:AuthorizedTimelineEffect,
+       defense:{rival:Side;fieldId:string|undefined}):AuthorizedTimelineEffect=>{
+       if(defense.fieldId&&!charged.has(defense.fieldId)){
+         const fee=(effect.manaSpent?.[defense.rival]??0)+1;
+         charged.add(defense.fieldId);
+         return {...effect,manaSpent:{...effect.manaSpent,
+           [defense.rival]:fee}};
+       }
+       return effect;
+     };
+     if(event.kind==="ATTACK"&&command.kind==="ATTACK"){
        const strike=makeDice(),defense=makeDice();
-       const posture=defend({
-         usesMagic:plan.usesMagic===true,
-         hybrid:Boolean(plan.approvedHybridContact),
-         isArea:Boolean(plan.attackArea),
-       });
-       return simulateApprovedTimelineOffense(state,batch.state,event,command,
-         plan,strike,defense,posture);
+       const reaction=defend({usesMagic:command.usesMagic===true,
+         isArea:command.usesMagic===true});
+       const effect=command.usesMagic
+         ?simulateBasicMagicTimelineHit(state,batch.state,event,command,
+             strike,defense,reaction.posture)
+         :simulateBasicPhysicalTimelineHit(state,batch.state,event,command,
+             strike,defense,reaction.posture);
+       return collect(effect,reaction);
      }
-     return simulateApprovedTimelineSupport(state,batch.state,event,
-       command,plan);
-   }
-   if(event.kind==="MOVE"&&command.kind==="MOVE")
-     return simulateBasicTimelineMove(state,batch.state,event,command);
-   return simulateBasicTimelinePassiveAction(state,batch.state,event,command);
- });
+     if(event.kind==="SKILL"&&command.kind==="CAST_SKILL"){
+       const plan=declaration.approvedSkill;
+       if(!plan)throw new Error("La habilidad no tiene un plan revisado en su declaración.");
+       if(plan.category==="OFFENSE"){
+         const strike=makeDice(),defense=makeDice();
+         const reaction=defend({
+           usesMagic:plan.usesMagic===true,
+           hybrid:Boolean(plan.approvedHybridContact),
+           isArea:Boolean(plan.attackArea),
+         });
+         const effect=simulateApprovedTimelineOffense(state,batch.state,event,
+           command,plan,strike,defense,reaction.posture);
+         return collect(effect,reaction);
+       }
+       return simulateApprovedTimelineSupport(state,batch.state,event,
+         command,plan);
+     }
+     if(event.kind==="MOVE"&&command.kind==="MOVE")
+       return simulateBasicTimelineMove(state,batch.state,event,command);
+     const passive=simulateBasicTimelinePassiveAction(state,batch.state,event,command);
+     if(event.kind==="REACT"&&command.kind==="PREPARE_REACTION"&&
+       command.defense==="MAGIC_FIELD"){
+       if(charged.has(event.id)){
+         return {...passive,manaSpent:undefined};
+       }
+       charged.add(event.id);
+     }
+     return passive;
+   });
+ if(finish)finish.timeline.chargedReactionIds=[...charged];
+ return finish;
 }

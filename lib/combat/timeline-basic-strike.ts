@@ -25,7 +25,7 @@ const other=(side:Side):Side=>side==="PLAYER"?"NPC":"PLAYER";
 const validDice=(dice:Dice)=>dice!=null&&
   [dice.hit,dice.critical,dice.defense].every(n=>Number.isFinite(n)&&n>=0&&n<=1);
 
-function weaponCopies(state:CombatState,side:Side):Map<number,number>{
+export function weaponCopies(state:CombatState,side:Side):Map<number,number>{
  const actor=state.actors[side];
  const parts=[actor.equippedWeapon,actor.offhandWeapon,...(actor.equippedWearables??[]),
    ...(state.droppedWeapons??[]).filter(d=>d.owner===side).map(d=>d.weapon)];
@@ -52,7 +52,7 @@ function activeBlockSlot(
  return block.blockToolSlot;
 }
 
-function isolatePhysicalShadow(original:CombatState,attacker:Side):CombatState{
+export function isolatePhysicalShadow(original:CombatState,attacker:Side):CombatState{
  const shadow=structuredClone(original);
  shadow.round=1;shadow.tick=0;
  shadow.pending=null;shadow.timelineMode=undefined;shadow.tieOpener=attacker;
@@ -88,7 +88,7 @@ export function simulateBasicPhysicalTimelineHit(
  // resolver must commit construction damage, summon effects, statuses,
  // buff expiration and micro state in the same transaction.
  if((combat.constructions?.length??0)>0||(combat.summons?.length??0)>0||
-   (combat.summonStatuses?.length??0)>0||
+   (combat.summonStatuses??[]).some(status=>!status.id.startsWith("V2_SUPPORT:"))||
    Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length))
    throw new Error("El combate contiene efectos que requieren resolución temporal avanzada.");
  const attacker=event.owner,target=other(attacker);

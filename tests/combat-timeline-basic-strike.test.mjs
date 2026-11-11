@@ -21,7 +21,7 @@ const fighter=(name,position=0,withShield=false)=>({
 });
 const combat=()=>newCombatState(fighter("A"),fighter("B",0.5,true),"PLAYER",true);
 const attack=(requestId="a")=>({kind:"ATTACK",requestId,attackType:"BLUNT",
- attackSource:"FIST_RIGHT",trajectory:[{x:0.1,y:0.5},{x:0.9,y:0.5}]});
+ attackSource:"FIST_RIGHT",trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}]});
 const rolls={hit:0.01,critical:0.99,defense:0.01};
 const reserve=(clock,owner,id,kind,durationTicks,more={})=>
  queueTimelineAction(clock,owner,{id,kind,durationTicks,paCost:kind==="WAIT"?0:1,...more});
@@ -68,7 +68,7 @@ test("two simultaneous physical hits are evaluated from one snapshot",()=>{
      attack("bb"),rolls,rolls),
  ];
  const next=commitAuthorizedTimelineBatch(c,batch,hits);
- assert.ok(next.actors.PLAYER.hp<original,JSON.stringify({nextHp:next.actors.PLAYER.hp,hits}));
+ assert.ok(next.actors.PLAYER.hp<original);
  assert.ok(next.actors.NPC.hp<original);
  assert.equal(c.actors.PLAYER.hp,original);
  assert.equal(next.tick,10);

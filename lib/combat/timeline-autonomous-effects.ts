@@ -166,9 +166,15 @@ export function simulateAutonomousTimelineSummon(
  const hostile=creature.targetId?.startsWith("SUMMON:")
    ?combat.summons?.find(s=>s.id===creature.targetId!.slice(7)&&
      s.owner!==event.owner&&s.integrity>0):undefined;
- initial.summons=(hostile?[creature,{
-   ...hostile,behavior:{...hostile.behavior,mode:"HOLD"},
- }]:[creature]).map(s=>structuredClone(s));
+ // Each extra creature is a bystander in this V1 shadow. The hostile
+ // target must remain present but must not receive a free second action.
+ const selected:CombatSummon[]=[structuredClone(creature)];
+ if(hostile){
+   const passiveTarget:CombatSummon=structuredClone(hostile);
+   passiveTarget.behavior.mode="HOLD";
+   selected.push(passiveTarget);
+ }
+ initial.summons=selected;
  const advanced=progressAutonomousSummons(initial,hitDice);
  let settled=advanced;
  if(advanced.pending){

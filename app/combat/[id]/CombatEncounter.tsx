@@ -7,6 +7,7 @@ import CombatDialog from "./CombatDialog";
 import CombatEquipmentStatus from "./CombatEquipmentStatus";
 import {combatEquipmentCounts,recentEquipmentEvents} from "@/lib/combat/equipment-feedback";
 import {activeCombatStatusViews} from "@/lib/combat/active-status-summary";
+import CombatActiveStatusPanel from "./CombatActiveStatusPanel";
 import CombatMusicPlayer from "@/components/music/CombatMusicPlayer";
 import { hasCriticalCombatHealth } from "@/lib/combat/music-tempo.mjs";
 import CombatTopDownPlane,{type FieldMode} from "./CombatTopDownPlane";
@@ -647,6 +648,9 @@ export default function CombatEncounter({id}:{id:string}) {
  const lastEquipmentEvent=candidateEquipmentEvent&&state&&
   candidateEquipmentEvent.tick>=(state.round-1)*100?candidateEquipmentEvent:null;
  const activeStatusViews=state?activeCombatStatusViews(state,side):[];
+ const opposingStatusViews=state?activeCombatStatusViews(state,opposingSide):[];
+ const ownDebuffCount=activeStatusViews.filter(status=>status.tone==="DEBUFF").length;
+ const opponentBuffCount=opposingStatusViews.filter(status=>status.tone==="BUFF").length;
  const combatStatRows:Array<[string,string|number|undefined]>=[
   ["HP",actor?actor.hp+"/"+actor.maxHp:"—"],
   ["Maná",state?.mana?.[side]?state.mana[side].current+"/"+state.mana[side].max:"—"],
@@ -778,6 +782,18 @@ export default function CombatEncounter({id}:{id:string}) {
     canCreate={canCreateObjects} attackMode={attackMode} attackSource={activeAttackSource}
     onChooseAttack={chooseAttackMode} canActNow={ready} status={state.status}
     activeStatusCount={activeStatusViews.length}/>
+   {(activeStatusViews.length>0||opposingStatusViews.length>0)&&
+    <button type="button" onClick={()=>openPanel("stats")}
+     aria-label={"Ver estados temporales activos: "+activeStatusViews.length+" propios y "+opposingStatusViews.length+" del adversario"}
+     className="mt-3 flex min-h-11 w-full min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-600/50 bg-cyan-950/20 px-3 py-2 text-left text-xs text-cyan-100 hover:border-cyan-400 sm:text-sm">
+     <span className="font-semibold">Estados activos · Ver detalles</span>
+     <span className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
+      <span>Propios: {activeStatusViews.length}</span>
+      <span>Adversario: {opposingStatusViews.length}</span>
+      {ownDebuffCount>0&&<span className="font-semibold text-rose-300">Perjuicios propios: {ownDebuffCount}</span>}
+      {opponentBuffCount>0&&<span className="font-semibold text-amber-200">Ventajas rivales: {opponentBuffCount}</span>}
+     </span>
+    </button>}
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
     {view?.permissions.PLAYER&&view?.permissions.NPC&&<label className="mb-3 block text-xs text-zinc-400">Controlar personaje
      <select value={side} onChange={e=>setSide(e.target.value as Side)}
@@ -1074,13 +1090,6 @@ export default function CombatEncounter({id}:{id:string}) {
     {(state.summons?.length??0)>0&&<section className="mt-4 space-y-2 rounded-xl border border-emerald-500/30 bg-zinc-950/70 p-3" aria-label="Criaturas invocadas">
      <h2 className="text-sm font-semibold text-emerald-200">🐇 Criaturas en el campo</h2>
      <p className="text-xs text-zinc-400">Atacar y acompañar funcionan automáticamente en las oportunidades de cada criatura, según su velocidad y PA propios. Cambiar sus órdenes cuesta 1 PA al invocador. Mantener posición y Manual no actúan solos. El mantenimiento se cobra al iniciar cada turno.</p>
-     {(state.summonStatuses?.length??0)>0&&<div className="space-y-1 rounded-lg border border-zinc-800 p-2 text-xs">
-       <strong className="text-cyan-200">Estados temporales activos</strong>
-       {state.summonStatuses?.map(status=><p key={status.id} className="text-zinc-300">
-         {state.actors[status.target].name}: {friendlyMicroKey(status.stat)} {status.operation==="MULTIPLIER"?"×"+status.value:
-           (status.value>=0?"+":"")+status.value} · {Math.max(0,status.expiresAtRound-state.round)} turnos
-       </p>)}
-     </div>}
      <div className="grid gap-2 sm:grid-cols-2">
       {state.summons?.map(summon=>{
        const combatChoice=summon.contactEffects?.flatMap(effect=>
@@ -1488,26 +1497,6 @@ export default function CombatEncounter({id}:{id:string}) {
        onClick={boostKarma} className="mt-3 rounded-lg border border-amber-400 px-4 py-2 font-semibold text-amber-200 disabled:opacity-40">
        Activar boost ({karmaCost} 🪷, 1 PA)
       </button>
-      <section className="mt-4 rounded-xl border border-zinc-700 p-3" aria-label="Efectos temporales activos">
-      <h3 className="text-sm font-semibold text-cyan-200">Efectos temporales activos · {activeStatusViews.length}</h3>
-      <p className="mt-1 text-xs text-zinc-400">
-       Estos estados pertenecen al encuentro. Caducan automáticamente al inicio de la ronda indicada;
-       no modifican tu ficha permanente.
-      </p>
-      {activeStatusViews.length===0?
-       <p className="mt-2 text-xs text-zinc-400">No hay aumentos ni reducciones temporales activos.</p>:
-       <ul className="mt-3 space-y-2">
-        {activeStatusViews.map(status=>
-         <li key={status.id} className={"rounded-lg border px-3 py-2 text-xs "+
-          (status.tone==="DEBUFF"?"border-rose-700/50 bg-rose-950/15":"border-emerald-700/50 bg-emerald-950/15")}>
-          <p className="font-semibold">{status.source} · {status.description}</p>
-          <p className="mt-1 text-zinc-400">
-           Caduca al comenzar la ronda {status.expiresAtRound}
-           {" "}({status.remainingRounds} {status.remainingRounds===1?"ronda":"rondas"} restante{status.remainingRounds===1?"":"s"}).
-          </p>
-         </li>)}
-       </ul>}
-     </section>
      {Object.keys(state.karmaBoosts?.[side]??{}).length>0&&
        <p className="mt-2 text-xs text-amber-300">Bonos de este encuentro: {Object.entries(state.karmaBoosts?.[side]??{}).map(([stat,n])=>stat+" +"+n).join(", ")}</p>}
      </section>
@@ -1588,6 +1577,8 @@ export default function CombatEncounter({id}:{id:string}) {
     </div>
     {Object.keys(state.karmaBoosts?.[side]??{}).length>0&&
      <p className="mt-3 text-sm text-amber-200">Boosts de combate: {Object.entries(state.karmaBoosts?.[side]??{}).map(([stat,value])=>stat+" +"+value).join(", ")}</p>}
+    <CombatActiveStatusPanel own={activeStatusViews} opponent={opposingStatusViews}
+     ownName={state.actors[side].name} opponentName={state.actors[opposingSide].name}/>
     {actor?.characterId&&<Link href={"/characters/"+actor.characterId} className="mt-4 inline-block text-sm text-cyan-300">Ver ficha completa de estadísticas</Link>}
    </CombatDialog>
    <CombatDialog open={panel==="inventory"} title="Equipo e inventario" onClose={closePanel}>

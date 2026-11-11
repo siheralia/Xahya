@@ -5,7 +5,7 @@ import { combatSnapshotEtag, combatEtagMatches } from "@/lib/combat/poll-cache";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import {
-  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, applyResolvedKarmaBoost, progressAutonomousSummons, canAct, type CombatCommand, type CombatState, type Side,
+  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, applyResolvedKarmaBoost, progressAutonomousSummons, hasActiveBlockGuard, canAct, type CombatCommand, type CombatState, type Side,
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
 import { isReplayableCombatKind,isCombatActionReplay,recordCombatAction,
@@ -27,6 +27,20 @@ import {weaponWearSinceSnapshot} from "@/lib/combat/weapon-persistence";
 
 const dice=()=>({hit:randomInt(1_000_000)/1_000_000,
   critical:randomInt(1_000_000)/1_000_000,defense:randomInt(1_000_000)/1_000_000});
+/** A still-raised shield handles overlapping blows in the same locked combat
+ * transaction, without a second request, AP or reaction ticks. Every impact
+ * still gets independent server dice and item wear.
+ */
+function settleRaisedBlocks(seed:CombatState):CombatState {
+ let state=seed;
+ for(let i=0;i<12&&state.pending&&hasActiveBlockGuard(state,state.pending.against);i++){
+   const defender=state.pending.against;
+   state=applyCombatCommand(state,defender,{kind:"DEFEND",defense:"BLOCK"},dice());
+   if(state.status==="ACTIVE"&&defender==="PLAYER"&&state.actors.NPC.characterId===null)
+     state=progressTrainingNpc(state,dice,()=>randomInt(1_000_000)/1_000_000);
+ }
+ return state;
+}
 async function access(id:string) {
   const {userId}=await auth();
   if(!userId)return null;
@@ -265,11 +279,15 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
       }
       // Only new, committed actions advance autonomous creatures. A request
       // replay returns the original state without spawning extra attacks.
+      if(next!==state&&next.status==="ACTIVE")
+        next=settleRaisedBlocks(next);
       if(next!==state&&next.status==="ACTIVE"&&!next.pending){
         next=progressAutonomousSummons(next,dice());
         if(next.pending?.against==="NPC"&&next.actors.NPC.characterId===null)
           next=progressTrainingNpc(next,dice,()=>randomInt(1_000_000)/1_000_000);
       }
+      if(next!==state&&next.status==="ACTIVE")
+        next=settleRaisedBlocks(next);
       if(replayAction)
         next=recordCombatAction(state,next,side,replayAction);
       let mechanics=fresh.mechanicsState;

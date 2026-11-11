@@ -69,3 +69,12 @@ No activar el nuevo resolutor hasta que pase la suite actual de combates, las pr
 - `publicTimelineSessionStatus` publica solo tick, ronda, tiempos y tipos de acciones, sin revelar trayectorias ocultas, selección exacta de objetivos o órdenes internas.
 
 **Pendiente de activación:** conectar el coordinador a la ruta de sesiones reales, resolver movimientos, habilidades autorizadas, invocaciones, consumo de recursos y reacciones con reglas completas, y adaptar los controles del cliente. No alterar ni reinterpretar combates finalizados. La semántica V2 aún no debe activarse para partidas reales hasta pasar pruebas transaccionales y de paridad de resolución.
+
+
+## V2.5 — adaptador de contacto físico con fórmulas oficiales
+
+`lib/combat/timeline-basic-strike.ts` permite simular un golpe físico básico ya autorizado y finalizado bajo reloj V2 reutilizando **las mismas fórmulas de contacto, resistencia, bloqueo y desgaste** del motor existente. La simulación se ejecuta en una copia temporal, descarta los PA/ticks del motor antiguo y devuelve solamente un resultado de daño y desgaste para aplicar en el lote del reloj nuevo. Las guardias anticipadas se consultan por intervalo, mano y copia de equipo.
+
+Dos ataques simultáneos reciben exactamente la misma instantánea previa; ningún atacante cancela el ataque del otro por morir durante ese mismo lote. Las pruebas comprueban escudos, desgaste de la copia correcta, PA no duplicados, daño simultáneo y ausencia de mutaciones prematuras.
+
+**Alcance estricto:** solo golpes físicos básicos sin movimiento compuesto ni efectos que necesiten parches adicionales. Ataques mágicos, habilidades, construcciones, invocaciones, estados y consumibles se rechazan explícitamente; no se omiten silenciosamente. Falta implementar los cambios de posición, buffs, recursos, roturas con modificación estadística y narración de cada evento para poder activar V2 en todos los combates nuevos.

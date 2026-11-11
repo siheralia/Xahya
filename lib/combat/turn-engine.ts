@@ -847,7 +847,7 @@ function mirrorRayTrajectory(mirror:CombatConstruction):Point[] {
  * They are emitted only at a new round (never during the casting round) and
  * cost neither the summoner additional mana nor an additional PA.
  */
-function beginNextMirrorRay(state:CombatState) {
+export function beginNextMirrorRay(state:CombatState) {
  if(state.status!=="ACTIVE"||state.pending)return;
  while((state.mirrorRayQueue?.length??0)>0) {
   const id=state.mirrorRayQueue!.shift()!;

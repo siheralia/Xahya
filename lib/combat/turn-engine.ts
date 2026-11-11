@@ -1590,7 +1590,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   /** Internal: an exchanged attack pays resources but not an extra initiative. */
   exchangedAttack=false,
   /** An independent server dice roll for the exchanged strike. */
-  counterRolls=rolls): CombatState {
+  counterRolls=rolls,
+  /** Server-planned parallel strike; never accepted directly from the client. */
+  timedCounterCommand?:Extract<CombatCommand,{kind:"ATTACK"}>): CombatState {
   const state = structuredClone(original);
   if (state.version !== 1 || state.status !== "ACTIVE") throw new Error("El combate no está activo.");
   if (!SIDES.includes(by)) throw new Error("Combatiente no válido.");
@@ -1689,7 +1691,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(defense==="COUNTER"){
       if(pending.mirrorAuto||pending.mirrorId||pending.summonId)
         throw new Error("El ataque de un espejo o una invocación exige una defensa normal, no un contraataque simultáneo.");
-      const plan=basicCounterAttack(state,by,command.counterMagic===true);
+      const plan=timedCounterCommand??basicCounterAttack(state,by,command.counterMagic===true);
       if(!plan)throw new Error("No tienes PA, ticks o un ataque básico al alcance para contraatacar.");
       const shadow=structuredClone(state);
       shadow.pending=null;

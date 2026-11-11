@@ -798,9 +798,13 @@ export function canAct(state: CombatState, side: Side): boolean {
     }
     return last !== side || !hasInitiativeBudget(rival);
   }
-  // Unequal speed: at most one opponent-sized action of temporal lead.
-  // At twice the other's speed, two short movements fit before one of theirs.
-  return f.spentTicks < rival.spentTicks + turnTicks(rival);
+  // Both combatants share one event timeline. Compare the END of the next
+  // neutral action, not how far either actor has spent its personal budget.
+  // Otherwise a slow participant can commit tick 66 while the opponent still
+  // has a tick 51 action available (encounter 81).
+  // Equal event deadlines are simultaneous slots: either may declare first.
+  if(!hasInitiativeBudget(rival))return true;
+  return f.spentTicks+turnTicks(f) <= rival.spentTicks+turnTicks(rival);
 }
 /** Combat equipment is a snapshot: the persistent character inventory is never
  * debited by a throw. Recover any still-dropped weapon at encounter completion

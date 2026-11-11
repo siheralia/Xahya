@@ -47,7 +47,7 @@ export function simulateBasicMagicTimelineHit(
    attack.targetSummonId||attack.targetConstructionId||
    attack.areaAngleDegrees!==undefined||attack.projectileHeights!==undefined)
    throw new Error("El ataque necesita el resolutor de magia avanzada.");
- if((combat.summons?.length??0)>0||(combat.constructions?.length??0)>0||
+ if((combat.constructions?.length??0)>0||
    (combat.summonStatuses??[]).some(s=>
      !(s.id.startsWith("V2_SUPPORT:")&&s.by===s.target)&&
      !(s.id.startsWith("V2_HOSTILE:")&&s.by!==s.target))||

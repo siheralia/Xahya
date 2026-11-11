@@ -14,6 +14,7 @@ import {
   type CombatCommand,type CombatState,type Side,
 } from "./turn-engine.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
+import {fieldPosition} from "./field-plane.ts";
 import {activeTimelineBlockAt,
   type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import type {AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
@@ -128,5 +129,30 @@ export function simulateBasicPhysicalTimelineHit(
      });
    }
  }
- return {eventId:event.id,hpDamage,equipmentWear};
+
+ // The old resolver can push fighters on contact. Such forced movement is
+ // part of the hit and must not disappear when we discard V1's clock.
+ const positionDelta:Partial<Record<Side,{x:number;y:number}>>={};
+ for(const side of ["PLAYER","NPC"] as const){
+   const from=fieldPosition(combat.actors[side]);
+   const to=fieldPosition(resolved.actors[side]);
+   if(to.x!==from.x||to.y!==from.y)
+     positionDelta[side]={x:to.x-from.x,y:to.y-from.y};
+ }
+ // Breaking a wearable can remove stats from its owner. Until the V2 patch
+ // format can replay those derived stat changes, never pretend only the HP
+ // and item durability changed.
+ const statKeys=["strength","agility","constitution","precision","dodge",
+   "physicalAttack","physicalDefense","magicAttack","magicDefense",
+   "critical","luck","race","maxHp","speedValue"] as const;
+ for(const side of ["PLAYER","NPC"] as const){
+   if(statKeys.some(key=>combat.actors[side][key]!==resolved.actors[side][key]))
+     throw new Error("La rotura de equipo requiere actualización temporal de estadísticas.");
+ }
+ const ending=resolved.physicalPathEnds?.[attacker]?.[source];
+ const physicalStrokes=ending?[{owner:attacker,source,end:{...ending}}]:[];
+ const logs=resolved.log.filter(x=>x.kind!=="ROUND"&&x.kind!=="END")
+   .map(entry=>({...entry,tick:event.endsAtTick,
+     summary:entry.summary.replace(/; esperando reacción$/,"")}));
+ return {eventId:event.id,hpDamage,equipmentWear,positionDelta,physicalStrokes,logs};
 }

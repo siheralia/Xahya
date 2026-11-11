@@ -197,7 +197,7 @@ export function progressTrainingNpc(
         ||(plan.bonuses.length>0&&!next.skillBonuses?.some(b=>b.by==="NPC"&&b.skillId===plan.id));
       return plan.category==="OFFENSE"&&plan.rangeMeters>0&&distance<=plan.rangeMeters;
     });
-    if(!next.temporalQueued?.PLAYER&&options.length&&random()<skillChance) {
+    if(options.length&&random()<skillChance) {
       // Aggressive opponents favor offensive actions; wounded opponents can still heal.
       const offensive=options.filter(p=>p.category==="OFFENSE");
       const selected=profile==="AGGRESSIVE"&&offensive.length?offensive:options;

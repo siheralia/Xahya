@@ -56,3 +56,16 @@ No activar el nuevo resolutor hasta que pase la suite actual de combates, las pr
 `lib/combat/timeline-batch-resolver.ts` aplica, sobre una sola instantánea previa, resultados de daño, curación y desgaste autorizados para todos los eventos que terminan en el mismo tick. Exige exactamente un resultado por evento, rechaza copias de inventario inexistentes y evita que el primer golpe letal cancele otro golpe simultáneo. Si ambos caen, el resultado es empate. Los resultados se calculan sin mutar el estado original y el commit se devuelve como una única nueva instantánea.
 
 **Límite de seguridad:** todavía NO está conectado a `app/api/combat/[id]/actions/route.ts`. No calcula ataques ni defensas: el ejecutor debe aplicar las reglas existentes, sus tiradas y las verificaciones de habilidades, además de producir parches transaccionales para movimientos, efectos, invocaciones, construcciones, mana y narración. No se debe publicar como combate V2 activo hasta que todas esas piezas tengan cobertura de pruebas e integración con el cliente.
+
+
+## V2.4 — declaraciones en custodia y confirmación de lotes
+
+`lib/combat/timeline-declarations.ts` agrega un coordinador puro para **guardar las órdenes de ambos participantes** hasta que el planificador determine qué acontecimiento concluye primero. Cada declaración reserva PA y ticks según las estadísticas del servidor, pero **no afecta HP, maná, inventario ni posición** al recibir la petición.
+
+- Si un jugador declara antes que el rival, el reloj permanece donde estaba y la intención sigue en custodia. Una acción larga no adelanta su impacto cuando otro combatiente puede declarar.
+- Identificadores repetidos con la misma orden devuelven el estado sin cobrar otra vez; identificadores repetidos con otra orden son rechazados incluso después de finalizar el evento.
+- Cuando todos los actores necesarios tienen acción, se prepara un lote y se conserva la identidad de las declaraciones asociadas. El resolutor autorizado puede evaluar impactos sobre el mismo estado previo y confirmar **juntos** el nuevo estado de combate y el reloj en una transacción de base de datos.
+- Las guardias pueden declararse como **GUARD** (con arma o escudo realmente equipado), antes de recibir el golpe; por eso pueden permanecer levantadas para varios impactos. Un KO interrumpe reservas sin reembolsar sus PA.
+- `publicTimelineSessionStatus` publica solo tick, ronda, tiempos y tipos de acciones, sin revelar trayectorias ocultas, selección exacta de objetivos o órdenes internas.
+
+**Pendiente de activación:** conectar el coordinador a la ruta de sesiones reales, resolver movimientos, habilidades autorizadas, invocaciones, consumo de recursos y reacciones con reglas completas, y adaptar los controles del cliente. No alterar ni reinterpretar combates finalizados. La semántica V2 aún no debe activarse para partidas reales hasta pasar pruebas transaccionales y de paridad de resolución.

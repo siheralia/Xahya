@@ -411,7 +411,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const hasAvailableBlock=state?.constructions?.some(c=>c.owner===side&&c.form==="BLOCK"&&(c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35);
  // A fully spent 100-tick turn (or exhausted PA) cannot pay a defense.
  // Reflect the authoritative server fallback before the user draws an aim point.
- const hasReactionBudget=!!actor&&remainingAp(actor)>0&&actor.spentTicks<100;
+ const hasReactionBudget=!!actor&&remainingAp(actor)>0&&(actor.continuousTicks||actor.spentTicks<100);
  const counterPlan=state?basicCounterAttack(state,side,counterMagic):null;
  const counterAllowed=!(pending?.summonId||pending?.mirrorAuto||pending?.mirrorId);
  const requestedDefense:DefenseChoice=!counterAllowed&&defense==="COUNTER"?"DODGE":defense;

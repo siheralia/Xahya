@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {applyCombatCommand,applyResolvedCombatSkill,applyResolvedCombatConsumable,applyResolvedKarmaBoost,canAct,newCombatState,settleTemporalQueuedActions,turnTicks}
+import {applyCombatCommand,applyResolvedCombatSkill,applyResolvedCombatConsumable,applyResolvedKarmaBoost,canAct,remainingAp,newCombatState,settleTemporalQueuedActions,turnTicks}
  from "../lib/combat/turn-engine.ts";
 import {combatClientView} from "../lib/combat/magic-area.ts";
 
@@ -93,8 +93,8 @@ test("two same-speed blunt attacks resolve as one simultaneous exchange",()=>{
 
 test("a long strike from 95 finishes at 155 and keeps 55 ticks next round",()=>{
  let s=timeline(19.2,19.2);
- s.actors.PLAYER.spentTicks=95;
- s.actors.NPC.spentTicks=95;
+ s.actors.PLAYER.spentTicks=95;s.actors.PLAYER.absoluteTick=95;
+ s.actors.NPC.spentTicks=95;s.actors.NPC.absoluteTick=95;
  s.tick=95;
  s=applyCombatCommand(s,"PLAYER",attack,rolls);
  assert.equal(s.temporalQueued?.PLAYER?.endsAtTick,155);
@@ -200,4 +200,42 @@ test("a karma purchase debits its ledger once but changes stats at its completio
  assert.equal(s.actors.PLAYER.strength,before+3);
  assert.equal(s.actors.PLAYER.spentAp,1);
  assert.equal(s.narrativeHistory.filter(e=>e.kind==="KARMA").length,1);
+});
+
+
+test("long attack from tick 95 does not erase the PA of the new 100-tick window",()=>{
+ let s=timeline(19.2,19.2);
+ s.actors.PLAYER.spentTicks=95;s.actors.PLAYER.absoluteTick=95;
+ s.actors.NPC.spentTicks=95;s.actors.NPC.absoluteTick=95;
+ s.tick=95;
+ s=applyCombatCommand(s,"PLAYER",attack,rolls);
+ s=applyCombatCommand(s,"NPC",move,rolls);
+ s=settle(s);
+ assert.equal(s.pending?.launchedAtTick,155);
+ s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},rolls);
+ assert.equal(s.round,2);
+ assert.equal(s.actors.PLAYER.absoluteTick,155);
+ assert.equal(remainingAp(s.actors.PLAYER),13);
+ s=applyCombatCommand(s,"PLAYER",move,rolls);
+ assert.ok(s.temporalQueued?.PLAYER||s.actors.PLAYER.absoluteTick>155);
+});
+
+test("exhausted fast actor waits to the next boundary during a slow wind-up",()=>{
+ let s=timeline(200,1);
+ s=applyCombatCommand(s,"NPC",attack,rolls);
+ assert.equal(s.temporalReserved?.NPC?.endsAtTick,1150);
+ for(let i=0;i<13;i++){
+   s=applyCombatCommand(s,"PLAYER",move,rolls);
+   s=settle(s);
+ }
+ assert.equal(s.actors.PLAYER.absoluteTick,100);
+ assert.equal(s.tick,100);
+ assert.equal(remainingAp(s.actors.PLAYER),13);
+ assert.equal(s.temporalReserved?.NPC?.endsAtTick,1150);
+ s=applyCombatCommand(s,"PLAYER",move,rolls);
+ s=settle(s);
+ assert.equal(s.actors.PLAYER.absoluteTick,105);
+ assert.equal(s.actors.PLAYER.apCycle,1);
+ assert.equal(s.actors.PLAYER.spentAp,1);
+ assert.equal(s.actors.NPC.hp,300);
 });

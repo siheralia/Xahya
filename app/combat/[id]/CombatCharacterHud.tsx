@@ -9,7 +9,7 @@ export type HudAttackMode="PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW";
 
 export default function CombatCharacterHud({
  fighter,opponent,side,mana,flair,open,onOpenChange,onPanel,canCreate,attackMode,attackSource,
- onChooseAttack,canActNow,status,activeStatusCount=0,
+ onChooseAttack,canActNow,status,activeStatusCount=0,guardEndsAtTick,combatTick=0,
 }:{
  fighter:CombatFighter;opponent:CombatFighter;side:Side;
  mana?:{current:number;max:number};flair?:string|null;
@@ -18,6 +18,7 @@ export default function CombatCharacterHud({
  canCreate:boolean;attackMode:HudAttackMode;attackSource:PhysicalAttackSource;
  onChooseAttack:(mode:"MAGIC_AREA"|"MAIN_HAND"|"OFF_HAND")=>void;
  canActNow:boolean;status:"ACTIVE"|"FINISHED";activeStatusCount?:number;
+ guardEndsAtTick?:number;combatTick?:number;
 }){
  const hp=fighter.hp+"/"+fighter.maxHp;
  const mp=mana?mana.current+"/"+mana.max:"—";
@@ -27,6 +28,7 @@ export default function CombatCharacterHud({
  const remainingTicks=100-usedTicks;
  const ticks=remainingTicks+"/100";
  const brokenEquipment=fighter.equippedWearables?.filter(item=>item.durability===0).length??0;
+ const guardRemaining=Math.max(0,(guardEndsAtTick??0)-combatTick);
  const distance=Math.abs(fighter.positionMeters-opponent.positionMeters);
  const selectedReach=attackMode==="MAGIC_AREA"?4:effectiveWeaponReachMeters(fighter,false,attackSource);
  const common="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border text-sm transition-colors";
@@ -54,6 +56,11 @@ export default function CombatCharacterHud({
      <span className="flex items-center gap-1" title={"Ticks disponibles: "+ticks} aria-label={"Ticks disponibles: "+ticks}>
       <Clock3 size={16} className={remainingTicks===0?"text-rose-400":"text-emerald-300"}/><b>{ticks}</b>
      </span>
+     {guardRemaining>0&&<span className="inline-flex items-center gap-1 text-emerald-300"
+       title={"Guardia activa: "+guardRemaining+" ticks restantes"}
+       aria-label={"Guardia activa: "+guardRemaining+" ticks restantes"}>
+       <Shield size={15}/><b>{guardRemaining}t</b>
+      </span>}
      {brokenEquipment>0&&<span className="inline-flex items-center gap-1 text-rose-300"
        title={brokenEquipment+" piezas de equipo rotas"}
        aria-label={brokenEquipment+" piezas de equipo rotas"}>
@@ -73,6 +80,7 @@ export default function CombatCharacterHud({
       <h2 className="truncate text-lg font-semibold">{fighter.name}</h2>
       <p className="text-xs text-zinc-400">Distancia al oponente: <b>{distance.toFixed(2)} m</b></p>
       <p className="text-xs text-zinc-500">Alcance seleccionado: {selectedReach.toFixed(2)} m</p>
+      {guardRemaining>0&&<p className="text-xs text-emerald-300"><Shield size={13} className="mr-1 inline"/>Guardia levantada · {guardRemaining} ticks restantes</p>}
      </div>
      <button type="button" title="Mini boost de karma" aria-label="Abrir mini boost de karma"
       disabled={status!=="ACTIVE"} onClick={()=>onPanel("karma")}

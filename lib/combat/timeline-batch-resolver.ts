@@ -382,14 +382,15 @@ export function commitAuthorizedTimelineBatch(
    next.constructions.push(structure);
  }
  for(const change of constructionWear.values()){
-   const structure=next.constructions.find(c=>c.id===change.id);
+   const structure:CombatConstruction|undefined=next.constructions.find(
+     (c:CombatConstruction)=>c.id===change.id);
    if(!structure||!structure.tangible||
      !Number.isFinite(structure.durability)||structure.durability!<0)
      throw new Error("El impacto no corresponde a una construcción tangible.");
    structure.durability=Math.max(0,structure.durability!-change.amount);
    structure.hitCount=(structure.hitCount??0)+change.hitCountDelta;
    if(structure.durability===0)
-     next.constructions=next.constructions.filter(c=>c.id!==structure.id);
+     next.constructions=next.constructions.filter((c:CombatConstruction)=>c.id!==structure.id);
  }
  // Inventory debits occur in the SAME atomic state as healing and mana.
  // If stock disappears while another event is evaluated, reject the whole

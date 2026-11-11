@@ -185,7 +185,10 @@ test("autonomous attack has its own due ticks, not owner PA or user input",async
 
 test("faked commands / unsupported contact attacks fail instead of silently moving",()=>{
  const c=state(),s=newTimelineDeclarationSession(c),p=skill();
- assert.throws(()=>cast(s,c,{...p,id:999}),/aprobación/);
+ assert.throws(()=>declareTimelineCommand(s,c,"PLAYER",{
+   kind:"CAST_SKILL",skillId:p.id,
+   requestId:"unsigned-summon-command-1",
+ },"unsigned"),/aprobación/);
  assert.throws(()=>declareTimelineCommand(s,c,"PLAYER",{
    kind:"COMMAND_SUMMON",summonId:"fake",order:"ATTACK",
  },"forged"),/No controlas/);

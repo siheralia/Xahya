@@ -70,7 +70,9 @@ test("approved skills have real durations; the browser cannot supply its own pla
 });
 
 test("a 60-tick physical blow from 95 resolves at 155, with a real raised shield",()=>{
- const s=encounter(19.2),initial=newTimelineForCombat(s);
+ const s=encounter(19.2);
+ s.actors.NPC.agility=15; // shield lasts 67 ticks, longer than the 60-tick blunt blow
+ const initial=newTimelineForCombat(s);
  let clock=queueTimelineAction(initial,"PLAYER",{
    id:"approach-p",kind:"MOVE",durationTicks:95,paCost:1,
  });

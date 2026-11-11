@@ -1821,7 +1821,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         const start=Math.max(state.tick,pending.launchedAtTick);
         state.activeBlocks??={};
         state.activeBlocks[by]={startedAtTick:start,
-          endsAtTick:start+turnTicks(fighter),weaponSlot:slot,
+          endsAtTick:start+Math.min(LIMIT,Math.max(10,turnTicks(fighter))),weaponSlot:slot,
           characterItemId:blockWeapon.characterItemId};
       }
     } else if (defense === "MAGIC_FIELD") {

@@ -145,6 +145,16 @@ export type CombatLog = {
   movementDirection?:"TOWARD"|"AWAY"|"WEAPON"|"VECTOR"; moveMeters?:number;
   fieldPosition?:Point;
 };
+export type CombatSkillAim={
+ requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";
+ constructionFieldPoint?:Point;constructionHeightMeters?:number;
+ trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;
+ attackSource?:PhysicalAttackSource;
+ constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;
+ targetConstructionId?:string;targetSummonId?:string;
+ constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;
+ chargesToSpend?:number;
+};
 export type CombatState = {
   /** NPC-only randomized loadout: persistent per encounter, never written to a character. */
   trainingNpc?: {difficulty:"BASIC"|"INTERMEDIATE"|"ADVANCED"|"ENDURANCE"|"AGGRESSIVE";
@@ -157,9 +167,15 @@ export type CombatState = {
   /** Only new encounters opt into strict chronological initiative; old snapshots stay readable. */
   timelineMode?:"SHARED"|"CONTINUOUS";
   /** Queued proactive actions remain server-only until their completion tick. */
-  temporalQueued?:Partial<Record<Side,{command:Extract<CombatCommand,{kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"}>;endsAtTick:number;durationTicks:number}>>;
+  temporalQueued?:Partial<Record<Side,{
+    command?:Extract<CombatCommand,{kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"}>;
+    skill?:{plan:CombatSkillPlan;aim:CombatSkillAim};
+    endsAtTick:number;durationTicks:number;
+  }>>;
   /** Public, target-free reservation metadata for the client initiative HUD. */
-  temporalReserved?:Partial<Record<Side,{endsAtTick:number;kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"}>>;
+  temporalReserved?:Partial<Record<Side,{endsAtTick:number;kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"|"CAST_SKILL"}>>;
+  /** Internal only during server-side scheduled execution. */
+  temporalExecuting?:boolean;
   winner: Side | null; actors: Record<Side, CombatFighter>;
   /** Randomly resolved initial initiative tie; absent in older persisted fights. */
   tieOpener?: Side;
@@ -2412,7 +2428,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   // V2: a slow strike or movement is an intention, not an immediate hit.
   // Validate against a throwaway simulation, then leave HP, PA and position
   // unchanged until the true end of its interval. All times are server-derived.
-  if(!exchangedAttack&&state.timelineMode==="CONTINUOUS"&&
+  if(!exchangedAttack&&!state.temporalExecuting&&state.timelineMode==="CONTINUOUS"&&
     (command.kind==="ATTACK"||command.kind==="MOVE"||command.kind==="COMMAND_SUMMON")&&
     serverSkillRangeMeters===undefined){
     const source=command.kind==="ATTACK"
@@ -2753,10 +2769,7 @@ export function settleTemporalQueuedActions(
  */
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
- aim:{requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
-  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;targetSummonId?:string;
-  constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;
-  chargesToSpend?:number},
+ aim:CombatSkillAim,
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))

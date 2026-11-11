@@ -197,6 +197,10 @@ export function scheduleAutonomousSummonTicks(
    if(typeof dueAt!=="number"||!Number.isSafeInteger(dueAt)||dueAt<0)
      throw new Error("El familiar no tiene próximo tick propio.");
    const owner=combat.actors[summon.owner];
+   const home=fieldPosition(owner);
+   if(owner.hp<=0||
+     Math.hypot(home.x-summon.fieldPosition.x,home.y-summon.fieldPosition.y)>
+       summon.controlRangeMeters+1e-8)continue;
    const creature={...owner,agility:summonStat(summon,owner,"AGI"),
      speedValue:summonStat(summon,owner,"MOVE_SPEED")};
    const pace=Math.max(1,turnTicks(creature));

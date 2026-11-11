@@ -48,7 +48,9 @@ export function simulateBasicMagicTimelineHit(
    attack.areaAngleDegrees!==undefined||attack.projectileHeights!==undefined)
    throw new Error("El ataque necesita el resolutor de magia avanzada.");
  if((combat.summons?.length??0)>0||(combat.constructions?.length??0)>0||
-   (combat.summonStatuses??[]).some(s=>!s.id.startsWith("V2_SUPPORT:"))||
+   (combat.summonStatuses??[]).some(s=>
+     !(s.id.startsWith("V2_SUPPORT:")&&s.by===s.target)&&
+     !(s.id.startsWith("V2_HOSTILE:")&&s.by!==s.target))||
    Object.values(combat.microEffects?.definitions??{}).some(list=>list?.length))
    throw new Error("Existen efectos que requieren el resolutor temporal avanzado.");
  const owner=event.owner,target=other(owner);

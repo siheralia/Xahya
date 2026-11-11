@@ -16,6 +16,9 @@ const DISCOUNTABLE_ACTIONS=new Set<MicroStep["kind"]>([
 const CONTACT_PERCENT=20;
 const LOW_HP_PERCENT=15;
 const PER_ACTION_DISCOUNT_CAP=30;
+export type MicroRestrictionPricingVersion="V1"|"V2";
+/** Only new approvals receive this price version. Existing V1 approvals are immutable. */
+export const NEW_MODULAR_DISCOUNT_VERSION="V2" as const;
 
 export function pricedMicroStepCount(effect:EffectContainer):number{
  return (Array.isArray(effect?.steps)?effect.steps:[]).filter(step=>
@@ -60,9 +63,13 @@ export type MicroRestrictionQuote={
  * -> subsequent effectful actions. Conditional or decorative checks pay nothing.
  * The low HP condition is equally executable by the server. Discounts never
  * apply to previous actions, never stack by duplicating gates, and never make
- * a paid effect free. Rounding is toward zero.
+ * a paid effect free. V1 rounds down (legacy approvals). V2 rounds to the
+ * nearest whole PCH within the original 30% cap, so restrictions on a 5-PCH
+ * action can visibly save 1 PCH without ever exceeding the allowed cap.
  */
-export function microRestrictionQuote(effect:EffectContainer,grossPch:number):MicroRestrictionQuote{
+export function microRestrictionQuote(
+ effect:EffectContainer,grossPch:number,version:MicroRestrictionPricingVersion="V1",
+):MicroRestrictionQuote{
  const steps=Array.isArray(effect?.steps)?effect.steps:[];
  const paid=pricedMicroStepCount(effect);
  const seenOpponentTarget=new Set<string>();
@@ -95,13 +102,20 @@ export function microRestrictionQuote(effect:EffectContainer,grossPch:number):Mi
  }
  const validGross=Number.isSafeInteger(grossPch)&&grossPch>0?grossPch:1;
  const divisor=100*Math.max(1,paid);
- const contactDiscountPch=Math.floor(validGross*contactWeight/divisor);
- const lowHealthDiscountPch=Math.floor(validGross*(contactWeight+lowHpWeight)/divisor)-contactDiscountPch;
- const discountPch=Math.min(validGross-1,contactDiscountPch+lowHealthDiscountPch);
- const finalPch=validGross-discountPch;
+ // V1 is preserved byte-for-byte for the prices of earlier approvals.
+ const legacyContact=Math.floor(validGross*contactWeight/divisor);
+ const legacyHealth=Math.floor(validGross*(contactWeight+lowHpWeight)/divisor)-legacyContact;
+ const maximumValidDiscount=Math.min(validGross-1,
+   Math.floor(validGross*PER_ACTION_DISCOUNT_CAP/100));
+ const discountPch=version==="V2"
+   ?Math.min(maximumValidDiscount,Math.round(validGross*(contactWeight+lowHpWeight)/divisor))
+   :Math.min(validGross-1,legacyContact+legacyHealth);
+ const contactDiscountPch=version==="V2"
+   ?Math.min(discountPch,Math.round(validGross*contactWeight/divisor))
+   :Math.min(discountPch,legacyContact);
+ const lowHealthDiscountPch=discountPch-contactDiscountPch;
  return {grossPch:validGross,
-  contactDiscountPch:Math.min(discountPch,contactDiscountPch),
-  lowHealthDiscountPch:discountPch-Math.min(discountPch,contactDiscountPch),
-  discountPch,finalPch,pricedActions:paid,
+  contactDiscountPch,lowHealthDiscountPch,
+  discountPch,finalPch:validGross-discountPch,pricedActions:paid,
   contactGatedActions,lowHpGatedActions};
 }

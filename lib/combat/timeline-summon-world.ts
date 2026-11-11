@@ -70,7 +70,7 @@ export function simulateApprovedTimelineSummon(
    (cast.mana?.[event.owner]?.current??0);
  if(spent!==plan.cost)throw new Error("Coste de invocación no coincide con el catálogo.");
  const nextCooldown=cast.skillCooldowns?.[event.owner]?.[String(plan.id)];
- if(!Number.isSafeInteger(nextCooldown))
+ if(typeof nextCooldown!=="number"||!Number.isSafeInteger(nextCooldown))
    throw new Error("Enfriamiento de invocación inválido.");
  const summonsCreated=fresh.map(creature=>{
    const gap=(creature.autoNextTick??NaN)-cast.tick;
@@ -194,14 +194,15 @@ export function scheduleAutonomousSummonTicks(
      continue;
    if(!summon.chargesMigrated||summon.chaosField)
      throw new Error("El familiar requiere ejecución temporal avanzada.");
-   if(!Number.isSafeInteger(summon.autoNextTick)||summon.autoNextTick<0)
+   const dueAt=summon.autoNextTick;
+   if(typeof dueAt!=="number"||!Number.isSafeInteger(dueAt)||dueAt<0)
      throw new Error("El familiar no tiene próximo tick propio.");
    const owner=combat.actors[summon.owner];
    const creature={...owner,agility:summonStat(summon,owner,"AGI"),
      speedValue:summonStat(summon,owner,"MOVE_SPEED")};
    const pace=Math.max(1,turnTicks(creature));
    const apLimit=actionPoints(summonStat(summon,owner,"CON"));
-   for(let tick=summon.autoNextTick;tick<=toTick;tick+=pace){
+   for(let tick=dueAt;tick<=toTick;tick+=pace){
      if(tick<=fromTick)continue;
      if(timelineRoundOf(tick)>=summon.expiresAtRound)continue;
      const used=summon.autoRound===timelineRoundOf(tick)?

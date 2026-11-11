@@ -201,9 +201,11 @@ test("a real autonomous tick must never be skipped by the next fighter action",a
  s=wait(s,c,"NPC","wait-initial");
  const first=await resolveBasicTimelineWindow(c,s,dice);
  s=wait(first.timeline,first.combat,"PLAYER","wait-beyond-auto");
- await assert.rejects(
-   ()=>resolveBasicTimelineWindow(first.combat,s,dice),
-   /acción autónoma antes de este impacto/);
+ const due=await resolveBasicTimelineWindow(first.combat,s,dice);
+ assert.equal(due.combat.tick,first.combat.summons[0].autoNextTick,
+   "el reloj se detiene en el siguiente turno autónomo");
+ assert.equal(due.combat.summons[0].autoSpentAp,1);
+ assert.equal(due.timeline.clock.events.filter(e=>e.status==="QUEUED").length,2,
+   "las esperas de ambos jugadores siguen activas");
  assert.equal(first.combat.tick,10);
- assert.ok(first.combat.summons[0].autoNextTick<100);
 });

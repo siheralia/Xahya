@@ -115,8 +115,11 @@ test("approved mirror launches its first ray at creation; later rays are schedul
  assert.deepEqual(scheduleMirrorRayTicks(out.combat,10,100),
    [{tick:100,constructionId:mirror.id,owner:"PLAYER"}]);
  s=wait(out.timeline,out.combat,"PLAYER","wait-to-next-round");
- await assert.rejects(()=>resolveBasicTimelineWindow(out.combat,s,rolls),
-   /espejo debe emitir su rayo autónomo/);
+ const recurring=await resolveBasicTimelineWindow(out.combat,s,rolls);
+ assert.equal(recurring.combat.tick,100);
+ assert.ok(recurring.combat.log.filter(e=>e.kind==="ATTACK"&&e.mirrorShot).length>=2);
+ assert.equal(recurring.combat.mana.PLAYER.current,45,
+   "el rayo recurrente no consume otro maná");
 });
 
 test("magic directed ray reflects from first enemy mirror on measured world path",async()=>{

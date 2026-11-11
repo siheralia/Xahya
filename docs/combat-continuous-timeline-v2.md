@@ -144,3 +144,14 @@ Los golpes físicos, magia y habilidades ofensivas trascienden el obstáculo usa
 Una creación de espejo genera su **primer rayo** mediante las reglas actuales y el coste de una habilidad aprobada. `scheduleMirrorRayTicks` planifica sus disparos autónomos de rondas posteriores en ticks absolutos 100/200/...; mientras el despachador autónomo no esté conectado al lote, el motor impide **saltarse** esos rayos al resolver una acción posterior.
 
 **Queda para V2.11b / V2.10b:** despachar disparos recurrentes y acciones autónomas de familiares junto a los impactos y defensas simultáneas; aplicar efectos de área persistentes y destrucción de espejos por golpes directos a objetos. No habilitar todavía la ruta real de sesiones V2.
+
+
+## V2.10b + V2.11b — eventos autónomos en el mismo lote
+
+`timeline-world-batch.ts` mezcla los turnos propios de invocaciones y los rayos automáticos de espejos con las declaraciones de los dos combatientes. Cuando una criatura debe actuar **antes** de terminar una acción larga, el reloj se detiene solo en ese tick: la acción humana sigue reservada, su PA no se vuelve a cobrar y el mundo autónomo se resuelve sin pedir una nueva declaración. Si varios impactos coinciden, se calcula cada uno contra el **mismo estado previo, tras mantenimiento**, y todos sus daños se confirman juntos; un KO no cancela retrospectivamente un ataque que también llegó al tick.
+
+`timeline-autonomous-effects.ts` reutiliza las fórmulas oficiales de V1 en estados de cálculo desechables. Las criaturas pueden perseguir al oponente, golpearlo, combatir invocaciones enemigas y aplicar estados de contacto aprobados mientras siguen al invocador. Su `autoNextTick`, `autoRound` y `autoSpentAp` son propiedades de la criatura, no del propietario. Los contactos repetidos no se apilan si el estado anterior todavía está activo. Los escudos y reacciones preparadas en intervalos V2 cubren ataques de criaturas, respetando desgaste por cada contacto.
+
+Los espejos emiten sus rayos periódicos desde el punto real de construcción, respetan alcance, colisión y reflexión del motor oficial, y no gastan otro PA ni otro maná. El campo mágico anticipado solo cobra el maná de su intervalo cuando corresponde. No se inventa un origen para espejos históricos ni se transforma la posición del sprite en un punto de mundo.
+
+**Límites de esta entrega:** se rechazan los contactos con inversión de estados o acumuladores no portados y construcciones avanzadas que modifiquen otras entidades sin un parche V2 seguro. No está conectada la ruta de combates reales ni el HUD; los encuentros históricos permanecen en V1. El reloj no depende de temporizadores ni de peticiones periódicas del cliente: progresa únicamente al confirmar declaraciones y acontecimientos autorizados del servidor.

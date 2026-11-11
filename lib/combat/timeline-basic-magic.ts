@@ -51,7 +51,8 @@ export function simulateBasicMagicTimelineHit(
  if( 
    (combat.summonStatuses??[]).some(s=>
      !(s.id.startsWith("V2_SUPPORT:")&&s.by===s.target)&&
-     !(s.id.startsWith("V2_HOSTILE:")&&s.by!==s.target))||
+     !(s.id.startsWith("V2_HOSTILE:")&&s.by!==s.target)&&
+     !s.id.startsWith("V2_SUMMON:"))||
    Object.values(combat.microEffects?.definitions??{}).some(list=>list?.length))
    throw new Error("Existen efectos que requieren el resolutor temporal avanzado.");
  const owner=event.owner,target=other(owner);

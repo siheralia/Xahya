@@ -62,8 +62,7 @@ export function simulateApprovedTimelineOffense(
    command.movementOrder!==undefined||
    plan.construction||plan.summons?.length||plan.fusion||plan.chargeBuff)
    throw new Error("La habilidad requiere un resolutor ofensivo avanzado.");
- if( (combat.summons?.length??0)>0||
-   (combat.droppedWeapons?.length??0)>0||
+ if( (combat.droppedWeapons?.length??0)>0||
    Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length))
    throw new Error("Existen entidades o módulos que requieren otro resolutor V2.");
  const owner=event.owner,target=other(owner);

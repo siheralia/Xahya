@@ -48,7 +48,7 @@ export function simulateApprovedTimelineOffense(
 ):AuthorizedTimelineEffect{
  if(combat.status!=="ACTIVE"||combat.pending||clock.version!==2||
    event.status!=="RESOLVED"||event.kind!=="SKILL"||
-   event.endsAtTick!==clock.nowTick||event.paidAp!==1||
+   event.endsAtTick!==clock.nowTick||
    !validDice(attackDice)||!validDice(defenseDice))
    throw new Error("La habilidad ofensiva no ha llegado a su impacto temporal.");
  if(command.kind!=="CAST_SKILL"||!plan||command.skillId!==plan.id||

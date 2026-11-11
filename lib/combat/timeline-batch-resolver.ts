@@ -230,9 +230,27 @@ export function commitAuthorizedTimelineBatch(
          (!Number.isSafeInteger(update.autoRound)||update.autoRound<1)||
        update.autoSpentAp!==undefined&&
          (!Number.isSafeInteger(update.autoSpentAp)||update.autoSpentAp<0)||
-       summonUpdates.some(other=>other.id===update.id))
+       update.owner==="")
        throw new Error("Cambio de criatura temporal inválido.");
-     summonUpdates.push(structuredClone(update));
+     // A manual CHANGE_BEHAVIOR / CHANGE_TARGET and the creature's own
+     // initiative may end at the SAME tick. They edit different fields and
+     // must both succeed; only overlapping contradictory writes are unsafe.
+     const previous=summonUpdates.find(other=>other.id===update.id);
+     if(previous){
+       if(previous.owner!==update.owner)
+         throw new Error("Dos dueños intentaron actualizar la misma criatura.");
+       for(const field of ["fieldPosition","behaviorMode","targetId",
+         "autoNextTick","autoRound","autoSpentAp"] as const){
+         const actual=update[field];
+         if(actual===undefined)continue;
+         const prior=previous[field];
+         if(prior!==undefined&&JSON.stringify(prior)!==JSON.stringify(actual))
+           throw new Error("Dos acciones alteraron el mismo estado de criatura.");
+         // Narrowing via Object.assign avoids widening the discriminated
+         // union of independent field values in a dynamic assignment.
+         Object.assign(previous,{[field]:actual});
+       }
+     }else summonUpdates.push(structuredClone(update));
    }
    for(const impact of effect.summonImpacts??[]){
      if(!impact||typeof impact.id!=="string"||impact.id.length>160||

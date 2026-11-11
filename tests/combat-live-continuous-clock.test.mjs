@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {applyCombatCommand,applyResolvedCombatSkill,canAct,newCombatState,settleTemporalQueuedActions,turnTicks}
+import {applyCombatCommand,applyResolvedCombatSkill,applyResolvedCombatConsumable,applyResolvedKarmaBoost,canAct,newCombatState,settleTemporalQueuedActions,turnTicks}
  from "../lib/combat/turn-engine.ts";
 import {combatClientView} from "../lib/combat/magic-area.ts";
 
@@ -156,4 +156,48 @@ test("approved healing skill is paid and applied at its ending tick, never at de
  assert.equal(s.temporalQueued?.PLAYER,undefined);
  assert.ok(s.narrativeHistory.some(e=>e.kind==="SKILL"));
  assert.ok(s.processedSkillRequests.includes(aim.requestId));
+});
+
+
+test("a healing potion is claimed once but heals only when its action completes",()=>{
+ let s=timeline(19.2,50);
+ s.actors.PLAYER.hp=100;
+ const potion={itemId:21,characterItemId:42,name:"Poción",
+  action:"HEAL_HP",amount:25,quantity:1};
+ s.consumables={PLAYER:[potion],NPC:[]};
+ const request="item-timeline-0001";
+ s=applyResolvedCombatConsumable(s,"PLAYER",potion,request);
+ assert.equal(s.actors.PLAYER.hp,100);
+ assert.equal(s.consumables.PLAYER[0].quantity,0);
+ assert.equal(s.temporalReserved.PLAYER.endsAtTick,53);
+ assert.ok(s.processedItemRequests.includes(request));
+ assert.equal(applyResolvedCombatConsumable(s,"PLAYER",potion,request),s);
+ s=applyCombatCommand(s,"NPC",move,rolls);
+ s=settle(s);
+ assert.equal(s.actors.PLAYER.hp,100);
+ s=applyCombatCommand(s,"NPC",move,rolls);
+ s=settle(s);
+ assert.equal(s.actors.PLAYER.hp,125);
+ assert.equal(s.consumables.PLAYER[0].quantity,0);
+ assert.equal(s.actors.PLAYER.spentAp,1);
+ assert.equal(s.narrativeHistory.filter(e=>e.kind==="ITEM").length,1);
+});
+
+test("a karma purchase debits its ledger once but changes stats at its completion",()=>{
+ let s=timeline(19.2,50);
+ const before=s.actors.PLAYER.strength;
+ const request="karma-timeline-0001";
+ s=applyResolvedKarmaBoost(s,"PLAYER",request,{strength:1},2,{strength:3});
+ assert.equal(s.actors.PLAYER.strength,before);
+ assert.equal(s.actors.PLAYER.spentAp,0);
+ assert.ok(s.processedKarmaRequests.includes(request));
+ assert.equal(applyResolvedKarmaBoost(s,"PLAYER",request,{strength:1},2,{strength:3}),s);
+ s=applyCombatCommand(s,"NPC",move,rolls);
+ s=settle(s);
+ assert.equal(s.actors.PLAYER.strength,before);
+ s=applyCombatCommand(s,"NPC",move,rolls);
+ s=settle(s);
+ assert.equal(s.actors.PLAYER.strength,before+3);
+ assert.equal(s.actors.PLAYER.spentAp,1);
+ assert.equal(s.narrativeHistory.filter(e=>e.kind==="KARMA").length,1);
 });

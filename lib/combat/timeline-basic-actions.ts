@@ -22,9 +22,13 @@ import {simulateApprovedTimelineSupport} from "./timeline-basic-support.ts";
 import {simulateApprovedTimelineOffense} from "./timeline-offensive-skill.ts";
 import {simulateBasicTimelineConsumable} from "./timeline-consumables.ts";
 import {
+ simulateApprovedTimelineSummon,simulateTimelineSummonOrder,
+ scheduleAutonomousSummonTicks,
+} from "./timeline-summon-world.ts";
+import {
  preparedTimelineReactionAt,timelineDefenseForImpact,
 } from "./timeline-defense.ts";
-import {resolveDeclaredTimelineBatch,
+import {resolveDeclaredTimelineBatch,prepareTimelineCommit,
   type TimelineDeclarationSession} from "./timeline-declarations.ts";
 import type {TimelineCombatCommand} from "./combat-timeline-adapter.ts";
 
@@ -39,7 +43,7 @@ const other=(side:Side):Side=>side==="PLAYER"?"NPC":"PLAYER";
  */
 export function assertBasicTimelineEligible(combat:CombatState):void{
  if(combat.status!=="ACTIVE"||combat.pending||
-   (combat.constructions?.length??0)>0||(combat.summons?.length??0)>0||
+   (combat.constructions?.length??0)>0||
    (combat.summonStatuses??[]).some(status=>
      !(status.id.startsWith("V2_SUPPORT:")&&status.by===status.target)&&
      !(status.id.startsWith("V2_HOSTILE:")&&status.by!==status.target))||
@@ -170,6 +174,24 @@ export async function resolveBasicTimelineWindow(
  combat:CombatState,session:TimelineDeclarationSession,makeDice:()=>TimelineDice,
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession}|null>{
  assertBasicTimelineEligible(combat);
+ // A creature's own turn must NOT be silently skipped when a fast fighter
+ // has already queued a later action. Until auxiliary actions are part of
+ // the atomic batch, reject that incomplete scenario rather than teleport
+ // the clock over the creature's strike or protective contact.
+ const prepared=prepareTimelineCommit(session);
+ if(prepared){
+   const autonomous=scheduleAutonomousSummonTicks(combat,session.clock.nowTick,
+     prepared.batch.atTick);
+   for(const due of autonomous){
+     const replaces=prepared.batch.events.some(event=>{
+       if(event.endsAtTick!==due.tick||event.owner!==due.owner)return false;
+       const cmd=session.declarations[event.id]?.command;
+       return cmd?.kind==="COMMAND_SUMMON"&&cmd.summonId===due.summonId;
+     });
+     if(!replaces)
+       throw new Error("La criatura tiene una acción autónoma antes de este impacto; falta fusionar su lote temporal.");
+   }
+ }
  const charged=new Set(session.chargedReactionIds??[]);
  const finish=await resolveDeclaredTimelineBatch(combat,session,
    (snapshot,declaration,event,batch)=>{
@@ -225,6 +247,14 @@ export async function resolveBasicTimelineWindow(
        return simulateApprovedTimelineSupport(state,batch.state,event,
          command,plan);
      }
+     if(event.kind==="SUMMON"&&command.kind==="CAST_SKILL"){
+       if(!declaration.approvedSkill)
+         throw new Error("Invocación sin plan aprobado.");
+       return simulateApprovedTimelineSummon(state,batch.state,event,command,
+         declaration.approvedSkill);
+     }
+     if(event.kind==="SUMMON"&&command.kind==="COMMAND_SUMMON")
+       return simulateTimelineSummonOrder(state,batch.state,event,command);
      if(event.kind==="MOVE"&&command.kind==="MOVE")
        return simulateBasicTimelineMove(state,batch.state,event,command);
      if(event.kind==="ITEM"&&command.kind==="USE_ITEM")

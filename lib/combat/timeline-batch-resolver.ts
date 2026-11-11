@@ -14,6 +14,8 @@ import {timelineRoundOf} from "./action-timeline.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "./narration.ts";
 import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat} from "./summon-status.ts";
 import type {CombatBuffStat} from "./skill-casting.ts";
+import type {CombatSummon} from "./summons.ts";
+import {upkeepTimelineSummonsAtRound} from "./timeline-summon-world.ts";
 import type {StatusStat} from "./summon-status.ts";
 import type {TimelineBatch,TimelineEvent} from "./action-timeline.ts";
 
@@ -25,6 +27,11 @@ export type AuthorizedTimelineEffect={
   /** Heal values are resolved at the same instant as damage. */
   hpHealing?:Partial<Record<Side,number>>;
   equipmentWear?:CopyWear[];
+  summonsCreated?:CombatSummon[];
+  summonUpdates?:Array<{id:string;owner:Side;
+    fieldPosition?:Point;behaviorMode?:CombatSummon["behavior"]["mode"];
+    targetId?:string;autoNextTick?:number;autoRound?:number;autoSpentAp?:number}>;
+
   /** Consume exactly one official encounter-stock unit from a server-compiled
    * catalog copy. Never trust amounts or quantities sent by the player.
    */
@@ -100,6 +107,7 @@ export function prepareTimelineImpactSnapshot(
    expireSummonStatuses(state);
    for(const bonus of expiring)
      reconcileSummonStatusStat(state,bonus.by,bonus.stat);
+   upkeepTimelineSummonsAtRound(state,crossing);
  }
  return state;
 }
@@ -136,6 +144,8 @@ export function commitAuthorizedTimelineBatch(
  const manaRestored:Record<Side,number>={PLAYER:0,NPC:0};
  const statBonuses:NonNullable<AuthorizedTimelineEffect["statBonuses"]>=[];
  const selfStatuses:NonNullable<AuthorizedTimelineEffect["selfStatuses"]>=[];
+ const summonsCreated:CombatSummon[]=[];
+ const summonUpdates:NonNullable<AuthorizedTimelineEffect["summonUpdates"]>=[];
  const hostileStatuses:NonNullable<AuthorizedTimelineEffect["hostileStatuses"]>=[];
  const skillCooldowns:NonNullable<AuthorizedTimelineEffect["skillCooldowns"]>=[];
  for(const effect of effects){
@@ -170,6 +180,43 @@ export function commitAuthorizedTimelineBatch(
        x.characterItemId===use.characterItemId))
        throw new Error("Un consumible se usó dos veces en el mismo lote.");
      consumableUses.push(use);
+   }
+   for(const summon of effect.summonsCreated??[]){
+     if(!summon||!validSide(summon.owner)||
+       !Number.isSafeInteger(summon.sourceSkillId)||summon.sourceSkillId<1||
+       typeof summon.id!=="string"||summon.id.length>160||
+       typeof summon.entityKey!=="string"||!summon.entityKey||
+       !validPosition(summon.fieldPosition)||
+       !Number.isFinite(summon.integrity)||summon.integrity<=0||
+       !Number.isSafeInteger(summon.expiresAtRound)||
+       summon.expiresAtRound<=timelineRoundOf(batch.atTick)||
+       typeof summon.autoNextTick!=="number"||
+       !Number.isSafeInteger(summon.autoNextTick)||
+       summon.autoNextTick<=batch.atTick||
+       summon.chargesMigrated!==true||summon.chaosField!==undefined||
+       summonsCreated.some(previous=>previous.id===summon.id||
+         previous.owner===summon.owner&&previous.entityKey===summon.entityKey))
+       throw new Error("Invocación temporal inválida o duplicada.");
+     summonsCreated.push(structuredClone(summon));
+   }
+   for(const update of effect.summonUpdates??[]){
+     if(!update||!validSide(update.owner)||
+       typeof update.id!=="string"||update.id.length>160||
+       update.fieldPosition!==undefined&&!validPosition(update.fieldPosition)||
+       update.behaviorMode!==undefined&&
+         !["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"].includes(update.behaviorMode)||
+       update.targetId!==undefined&&
+         (typeof update.targetId!=="string"||update.targetId.length>160)||
+       update.autoNextTick!==undefined&&
+         (!Number.isSafeInteger(update.autoNextTick)||
+           update.autoNextTick<=batch.atTick)||
+       update.autoRound!==undefined&&
+         (!Number.isSafeInteger(update.autoRound)||update.autoRound<1)||
+       update.autoSpentAp!==undefined&&
+         (!Number.isSafeInteger(update.autoSpentAp)||update.autoSpentAp<0)||
+       summonUpdates.some(other=>other.id===update.id))
+       throw new Error("Cambio de criatura temporal inválido.");
+     summonUpdates.push(structuredClone(update));
    }
    for(const buff of effect.statBonuses??[]){
      if(!validSide(buff.owner)||!Number.isSafeInteger(buff.skillId)||buff.skillId<1||
@@ -285,6 +332,48 @@ export function commitAuthorizedTimelineBatch(
      matches[0].quantity<1)
      throw new Error("El consumible temporal no tiene existencias autorizadas.");
    matches[0].quantity-=1;
+ }
+ next.summons??=[];
+ for(const summon of summonsCreated){
+   if(next.summons.length>=30||
+     next.summons.some(existing=>existing.id===summon.id||
+       existing.owner===summon.owner&&existing.entityKey===summon.entityKey))
+     throw new Error("Criatura repetida o sin espacio en el encuentro.");
+   const origin=fieldPosition(next.actors[summon.owner]);
+   if(Math.hypot(origin.x-summon.fieldPosition.x,origin.y-summon.fieldPosition.y)>
+       summon.controlRangeMeters+1e-8)
+     throw new Error("Invocación fuera del radio de control.");
+   next.summons.push(summon);
+ }
+ for(const update of summonUpdates){
+   const creature=next.summons.find(s=>s.id===update.id&&s.owner===update.owner);
+   if(!creature)throw new Error("La criatura seleccionada dejó de estar disponible.");
+   if(update.fieldPosition){
+     const own=fieldPosition(next.actors[update.owner]);
+     if(Math.hypot(update.fieldPosition.x-own.x,update.fieldPosition.y-own.y)>
+       creature.controlRangeMeters+1e-8)
+       throw new Error("La criatura salió de su radio de control.");
+     creature.fieldPosition={...update.fieldPosition};
+   }
+   if(update.behaviorMode!==undefined){
+     if(update.behaviorMode!=="FOLLOW"&&
+       !creature.behavior.allowedModes.includes(update.behaviorMode))
+       throw new Error("Comportamiento de criatura no aprobado.");
+     creature.behavior.mode=update.behaviorMode;
+   }
+   if(update.targetId!==undefined){
+     const targetId=update.targetId;
+     if(creature.behavior.target!=="OPPONENT"||
+       targetId!=="FIGHTER:"+(update.owner==="PLAYER"?"NPC":"PLAYER")&&
+       !next.summons.some(target=>targetId.startsWith("SUMMON:")&&
+         target.id===targetId.slice(7)&&
+         target.owner!==update.owner&&target.integrity>0))
+       throw new Error("Objetivo de invocación ajeno o inválido.");
+     creature.targetId=targetId;
+   }
+   if(update.autoNextTick!==undefined)creature.autoNextTick=update.autoNextTick;
+   if(update.autoRound!==undefined)creature.autoRound=update.autoRound;
+   if(update.autoSpentAp!==undefined)creature.autoSpentAp=update.autoSpentAp;
  }
  // Damage is not canceled by a heal or by a simultaneous lethal attack.
  for(const side of SIDES){

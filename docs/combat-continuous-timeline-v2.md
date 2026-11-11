@@ -122,3 +122,14 @@ El campo mágico reserva su intervalo y paga **un maná en total**, en el primer
 La declaración valida identificador real de la copia del jugador, disponibilidad y recursos incompletos, **sin gastar la unidad**. Dos consumos simultáneos de los participantes se confirman en el mismo lote. Un recurso restaurado en el mismo tick no puede pagar retroactivamente una habilidad para la que faltaba maná. El resolutor rechaza copias inexistentes, débito doble y peticiones con cantidades manipuladas.
 
 **Pendiente de producción:** la transacción del endpoint debe descontar también `characterItem.quantity` real al confirmar V2 y ofrecer el HUD de consumo temporal; no activar solo el estado JSON del encuentro. Otras acciones avanzadas de invocaciones, construcciones, autorreparación y contraataque permanecen para fases posteriores.
+
+
+## V2.10 — invocaciones: materialización, órdenes seguras, mantenimiento y agenda propia
+
+Las invocaciones de una habilidad `SUMMON` aprobada aparecen al **terminar** la acción en el reloj continuo. El simulador usa la formación en espiral, cálculos de enlaces de estadísticas, coste de maná y límite de 30 criaturas del motor original. El parche autorizado añade cada criatura solo una vez, con su propia `autoNextTick`, y no traslada PA/ticks del cálculo V1 al invocador.
+
+El mantenimiento de cada invocación se resuelve únicamente cuando el reloj atraviesa una frontera absoluta de 100 ticks. Se conserva el orden de criatura para cobrar maná, caducidad, KO del dueño, insuficiencia de maná y radio de control, antes de los impactos que terminan en esa frontera. Cambiar el comportamiento, escoger objetivo o dar una orden de movimiento son acciones de un PA que finalizan en su tick. Las acciones `ATTACK` y `ACT`, que requieren contacto, se rechazan por ahora en este adaptador.
+
+`scheduleAutonomousSummonTicks` calcula la agenda propia de una criatura siguiendo su velocidad y PA reales. Es una **agenda**, no impactos automáticos aún; el siguiente paso debe integrar cada uno en el resolutor de eventos simultáneos para evitar daños gratuitos, pérdida de reacciones y saltos de ticks. Las reglas con inversión de estados/cargas y campos de distorsión seguirán necesitando eventos específicos.
+
+Esta implementación continúa aislada de la API de combates reales; los encuentros anteriores permanecen intactos.

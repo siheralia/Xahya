@@ -64,6 +64,7 @@ export function combatClientView(state:CombatState):CombatState {
  delete clone.processedActionRequests;
  // Never expose a rival's trajectory or spell aim while awaiting impact.
  delete clone.temporalQueued;
+ delete clone.temporalExecuting;
  // Ray endpoints are frozen in authoritative world metres at launch.
  // They are server-only; do not leak the origin/target before resolution.
  if(clone.pending){

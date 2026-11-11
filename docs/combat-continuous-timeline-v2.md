@@ -78,3 +78,14 @@ No activar el nuevo resolutor hasta que pase la suite actual de combates, las pr
 Dos ataques simultáneos reciben exactamente la misma instantánea previa; ningún atacante cancela el ataque del otro por morir durante ese mismo lote. Las pruebas comprueban escudos, desgaste de la copia correcta, PA no duplicados, daño simultáneo y ausencia de mutaciones prematuras.
 
 **Alcance estricto:** solo golpes físicos básicos sin movimiento compuesto ni efectos que necesiten parches adicionales. Ataques mágicos, habilidades, construcciones, invocaciones, estados y consumibles se rechazan explícitamente; no se omiten silenciosamente. Falta implementar los cambios de posición, buffs, recursos, roturas con modificación estadística y narración de cada evento para poder activar V2 en todos los combates nuevos.
+
+
+## V2.6 — movimiento físico y crónica en lotes (integración pura)
+
+- Un lote confirmado puede contener **desplazamientos horizontales**, pérdida de HP, desgaste, retroceso por impacto, continuidad de trayectoria del arma/puño y registros narrativos. Los resultados simultáneos se calculan desde la misma posición y los mismos HP previos, no desde mutaciones parciales.
+- `lib/combat/timeline-basic-actions.ts` implementa la primera ejecución coordinada de **MOVE**, **WAIT**, **GUARD** y golpes físicos básicos. Los movimientos usan la geometría y las reglas de alcance del motor original en una copia temporal; sus resultados se trasladan al reloj absoluto al concluir el evento. Las guardias ocupan un intervalo y no se ejecuta una reacción extra por cada golpe.
+- Un golpe que empuja a otro combatiente conserva también el cambio de posición; un movimiento o retroceso rompe la continuidad de trayectoria física. Una nueva acometida sin desplazarse comienza donde acabó el golpe anterior. No se trasladan los contadores de PA/ticks de la simulación V1.
+- El historial de combate asienta los movimientos y resultados en el **tick absoluto de finalización**, conserva el historial narrativo y marca los cruces de fronteras de 100 ticks. Un doble KO conserva su empate y genera una narración final.
+- La ejecución simple **rechaza expresamente** construcciones, invocaciones, estados, bonificaciones temporales, micromódulos, armas arrojadas y equipo derivado que necesita reajuste. Los cambios de estadísticas tras romper una pieza también se rechazan hasta contar con parches de estado completos. Eso evita presentar un daño parcialmente simulado como si fuera definitivo.
+
+**Importante:** esta fase todavía es una biblioteca pura para pruebas y para una futura transacción de sesión, no una nueva ruta de combate activa. La siguiente fase debe ejecutar sin omisiones habilidades, recursos, estados, proyectiles, equipamiento y eventos periódicos, e integrar una actualización de API/HUD para nuevos encuentros. Los anteriores no requieren reescritura.

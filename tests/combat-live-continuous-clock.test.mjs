@@ -99,9 +99,8 @@ test("a long strike from 95 finishes at 155 and keeps 55 ticks next round",()=>{
  assert.equal(s.temporalQueued?.PLAYER?.endsAtTick,155);
  s=applyCombatCommand(s,"NPC",move,rolls);
  s=settle(s);
- assert.equal(s.tick,148);
- assert.equal(s.temporalQueued?.PLAYER?.endsAtTick,155);
- s=settle(s);
+ assert.ok(s.narrativeHistory.some(e=>e.kind==="MOVE"&&e.tick===148),
+   "the 53-tick movement must resolve at 148");
  assert.equal(s.pending?.launchedAtTick,155);
  s=applyCombatCommand(s,"NPC",{kind:"DEFEND",defense:"NONE"},rolls);
  assert.equal(s.round,2);

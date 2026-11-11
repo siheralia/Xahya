@@ -46,8 +46,7 @@ export function simulateApprovedTimelineSummon(
    !safeId(command.requestId)||plan.category!=="SUMMON"||
    !plan.summons?.length)
    throw new Error("La criatura requiere una invocación temporal aprobada.");
- if((combat.constructions?.length??0)>0||
-    (combat.summons??[]).some(s=>s.chaosField||!s.chargesMigrated))
+ if((combat.summons??[]).some(s=>s.chaosField||!s.chargesMigrated))
    throw new Error("La creación requiere un resolutor de obstáculos o cargas avanzado.");
  const mana=combat.mana?.[event.owner]?.current??0;
  if(!Number.isFinite(mana)||mana<plan.cost)

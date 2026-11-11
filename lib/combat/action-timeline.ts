@@ -40,6 +40,8 @@ export interface ContinuousCombatTimeline {
   nextSequence: number;
   actors: Record<TimelineSide, TimelineActor>;
   events: TimelineEvent[];
+  /** Durable request ledger; pruning old event bodies must never enable replay. */
+  seenActionIds: string[];
 }
 
 export type TimelineIntent = {
@@ -70,7 +72,7 @@ export function newContinuousCombatTimeline(playerAp:number,npcAp:number):Contin
       PLAYER:{availableAtTick:0,apLimitPerRound:playerAp,spentApByRound:{}},
       NPC:{availableAtTick:0,apLimitPerRound:npcAp,spentApByRound:{}},
     },
-    events:[],
+    events:[],seenActionIds:[],
   };
 }
 
@@ -87,12 +89,14 @@ export function queueTimelineAction(
   if(!intent||!validId(intent.id)||!validDuration(intent.durationTicks)||
     !validPa(intent.paCost)||!["ATTACK","MOVE","BLOCK","SKILL","SUMMON","WAIT"].includes(intent.kind))
     throw new Error("Acción temporal inválida.");
+  if(intent.kind!=="WAIT"&&intent.paCost===0)
+    throw new Error("Las acciones activas requieren PA; solo ESPERAR puede ser gratuito.");
   if(intent.kind==="BLOCK"&&intent.blockToolCopyId!==undefined&&
     (!Number.isSafeInteger(intent.blockToolCopyId)||intent.blockToolCopyId<=0))
     throw new Error("El bloqueo requiere una copia equipada válida.");
   if(intent.kind!=="BLOCK"&&intent.blockToolCopyId!==undefined)
     throw new Error("Solo BLOQUEAR puede reservar una copia de equipo.");
-  if(original.events.some(x=>x.id===intent.id))
+  if(original.seenActionIds.includes(intent.id)||original.events.some(x=>x.id===intent.id))
     throw new Error("Identificador de acción temporal duplicado.");
   // Waiting for a fighter to select a new intent is deliberate: the other
   // fighter's long action must never jump to its end without this chance.
@@ -105,7 +109,9 @@ export function queueTimelineAction(
   const round=String(timelineRoundOf(start));
   if((actor.spentApByRound[round]??0)+intent.paCost>actor.apLimitPerRound)
     throw new Error("No quedan PA para iniciar esa acción en esta ronda.");
+  if(original.seenActionIds.length>=20_000)throw new Error("Límite de acciones del encuentro superado.");
   const next=structuredClone(original),updated=next.actors[owner];
+  next.seenActionIds.push(intent.id);
   updated.spentApByRound[round]=(updated.spentApByRound[round]??0)+intent.paCost;
   updated.availableAtTick=finish;
   next.events.push({id:intent.id,owner,kind:intent.kind,startsAtTick:start,

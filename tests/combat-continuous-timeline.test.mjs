@@ -174,3 +174,21 @@ test("events retain the blocking hand for the server durability resolver",()=>{
    blockToolSlot:"OFF_HAND",
  }),/Solo BLOQUEAR/);
 });
+
+test("high Constitution AP budgets above 100 are valid and remain round-scoped",()=>{
+ let clock=newContinuousCombatTimeline(109,12);
+ assert.equal(clock.actors.PLAYER.apLimitPerRound,109);
+ for(let i=0;i<101;i++){
+   // Isolate reservation accounting by emulating a completed action each time.
+   // No individual action may exceed 100 PA, regardless of the overall budget.
+   const queued=queueTimelineAction(clock,"PLAYER",{
+     id:"con-"+i,kind:"ATTACK",durationTicks:1,paCost:1,
+   });
+   clock={...queued,nowTick:queued.actors.PLAYER.availableAtTick,
+     events:queued.events.filter(e=>e.id!=="con-"+i)};
+ }
+ assert.equal(clock.actors.PLAYER.spentApByRound["1"],100);
+ assert.equal(clock.actors.PLAYER.spentApByRound["2"],1);
+ assert.throws(()=>newContinuousCombatTimeline(0,1),/inválidos/);
+ assert.throws(()=>newContinuousCombatTimeline(1,1_000_001),/inválidos/);
+});

@@ -234,3 +234,38 @@ test("crossed round boundaries expire bonuses before simultaneous effects read s
  assert.equal(committed.log.find(x=>x.kind==="ROUND").tick,100);
  assert.equal(c.actors.PLAYER.magicAttack,75);
 });
+
+test("expiring flat bonus rebuilds a still-active multiplicative status",()=>{
+ const c=state();
+ let clock=newContinuousCombatTimeline(20,20);
+ clock=queueTimelineAction(clock,"PLAYER",{id:"bonus",kind:"WAIT",durationTicks:10,paCost:0});
+ clock=queueTimelineAction(clock,"NPC",{id:"pass",kind:"WAIT",durationTicks:10,paCost:0});
+ const first=completeNextTimelineBatch(clock);
+ const buffed=commitAuthorizedTimelineBatch(c,first,[
+   {eventId:"bonus",statBonuses:[{
+     owner:"PLAYER",skillId:86,skillName:"Bono breve",
+     stat:"magicDefense",value:4,durationTurns:1,
+   }],selfStatuses:[{
+     owner:"PLAYER",id:"V2_SUPPORT:PLAYER:87:status",skillId:87,
+     stat:"magicDefense",operation:"MULTIPLIER",
+     value:1.2,durationTurns:2,
+   }]},
+   {eventId:"pass"},
+ ]);
+ assert.ok(Math.abs(buffed.actors.PLAYER.magicDefense-14.4)<1e-9);
+ let nextClock=queueTimelineAction(first.state,"PLAYER",{
+   id:"round-p",kind:"WAIT",durationTicks:90,paCost:0,
+ });
+ nextClock=queueTimelineAction(nextClock,"NPC",{
+   id:"round-n",kind:"WAIT",durationTicks:90,paCost:0,
+ });
+ const second=completeNextTimelineBatch(nextClock);
+ const secondState=commitAuthorizedTimelineBatch(buffed,second,[
+   {eventId:"round-p"},{eventId:"round-n"},
+ ]);
+ assert.equal(secondState.round,2);
+ assert.equal(secondState.skillBonuses.length,0);
+ assert.equal(secondState.summonStatuses.length,1);
+ assert.ok(Math.abs(secondState.actors.PLAYER.magicDefense-9.6)<1e-9,
+   "the 1.2 multiplier must be recalculated against 8, not 12");
+});

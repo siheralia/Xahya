@@ -157,9 +157,9 @@ export type CombatState = {
   /** Only new encounters opt into strict chronological initiative; old snapshots stay readable. */
   timelineMode?:"SHARED"|"CONTINUOUS";
   /** Queued proactive actions remain server-only until their completion tick. */
-  temporalQueued?:Partial<Record<Side,{command:Extract<CombatCommand,{kind:"MOVE"|"ATTACK"}>;endsAtTick:number;durationTicks:number}>>;
+  temporalQueued?:Partial<Record<Side,{command:Extract<CombatCommand,{kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"}>;endsAtTick:number;durationTicks:number}>>;
   /** Public, target-free reservation metadata for the client initiative HUD. */
-  temporalReserved?:Partial<Record<Side,{endsAtTick:number;kind:"MOVE"|"ATTACK"}>>;
+  temporalReserved?:Partial<Record<Side,{endsAtTick:number;kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"}>>;
   winner: Side | null; actors: Record<Side, CombatFighter>;
   /** Randomly resolved initial initiative tie; absent in older persisted fights. */
   tieOpener?: Side;
@@ -2413,12 +2413,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   // Validate against a throwaway simulation, then leave HP, PA and position
   // unchanged until the true end of its interval. All times are server-derived.
   if(!exchangedAttack&&state.timelineMode==="CONTINUOUS"&&
-    (command.kind==="ATTACK"||command.kind==="MOVE")){
+    (command.kind==="ATTACK"||command.kind==="MOVE"||command.kind==="COMMAND_SUMMON")&&
+    serverSkillRangeMeters===undefined){
     const source=command.kind==="ATTACK"
       ?command.attackSource??defaultAttackSource(fighter):undefined;
     const tool=source?weaponForSource(fighter,source):undefined;
     const magic=command.kind==="ATTACK"&&command.usesMagic===true;
-    const duration=command.kind==="MOVE"?turnTicks(fighter):
+    const duration=command.kind!=="ATTACK"?turnTicks(fighter):
       Math.max(command.planarMove?turnTicks(fighter):0,
         turnTicks(fighter,tool&&!magic?command.attackType:undefined));
     const targetDeadline=(state.round-1)*LIMIT+fighter.spentTicks+duration;

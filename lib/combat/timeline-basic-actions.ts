@@ -180,35 +180,38 @@ export async function resolveBasicTimelineWindow(
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession}|null>{
  assertBasicTimelineEligible(combat);
  const charged=new Set(session.chargedReactionIds??[]);
- const finish=await resolveDeclaredTimelineBatch(combat,session,
+ const defend=(
+   event:TimelineEvent,batchState:ContinuousCombatTimeline,
+   incoming:{usesMagic:boolean;isArea:boolean;hybrid?:boolean},
+ )=>{
+   const rival=other(event.owner);
+   const reaction=preparedTimelineReactionAt(batchState,rival,
+     event.endsAtTick,(id,owner)=>{
+       const saved=session.declarations[id];
+       return saved?.owner===owner?saved.command:undefined;
+     });
+   const posture=timelineDefenseForImpact(reaction,incoming);
+   const actualEvent=activeTimelineReactionAt(batchState,rival,event.endsAtTick);
+   return {posture,rival,fieldId:posture.defense==="MAGIC_FIELD"?
+     actualEvent?.id:undefined};
+ };
+ const collect=(effect:AuthorizedTimelineEffect,
+   defense:{rival:Side;fieldId:string|undefined}):AuthorizedTimelineEffect=>{
+   if(defense.fieldId&&!charged.has(defense.fieldId)){
+     const fee=(effect.manaSpent?.[defense.rival]??0)+1;
+     charged.add(defense.fieldId);
+     return {...effect,manaSpent:{...effect.manaSpent,
+       [defense.rival]:fee}};
+   }
+   return effect;
+ };
+ const finish=await resolveWorldTimelineBatch(combat,session,
    (snapshot,declaration,event,batch)=>{
      const state=snapshot as CombatState;
      const command=declaration.command;
-     const defend=(incoming:{usesMagic:boolean;isArea:boolean;hybrid?:boolean})=>{
-       const rival=other(event.owner);
-       const reaction=preparedTimelineReactionAt(batch.state,rival,
-         event.endsAtTick,(id,owner)=>{
-           const saved=session.declarations[id];
-           return saved?.owner===owner?saved.command:undefined;
-         });
-       const posture=timelineDefenseForImpact(reaction,incoming);
-       const actualEvent=activeTimelineReactionAt(batch.state,rival,event.endsAtTick);
-       return {posture,rival,fieldId:posture.defense==="MAGIC_FIELD"?
-         actualEvent?.id:undefined};
-     };
-     const collect=(effect:AuthorizedTimelineEffect,
-       defense:{rival:Side;fieldId:string|undefined}):AuthorizedTimelineEffect=>{
-       if(defense.fieldId&&!charged.has(defense.fieldId)){
-         const fee=(effect.manaSpent?.[defense.rival]??0)+1;
-         charged.add(defense.fieldId);
-         return {...effect,manaSpent:{...effect.manaSpent,
-           [defense.rival]:fee}};
-       }
-       return effect;
-     };
      if(event.kind==="ATTACK"&&command.kind==="ATTACK"){
        const strike=makeDice(),defense=makeDice();
-       const reaction=defend({usesMagic:command.usesMagic===true,
+       const reaction=defend(event,batch.state,{usesMagic:command.usesMagic===true,
          isArea:command.usesMagic===true});
        const effect=command.usesMagic
          ?simulateBasicMagicTimelineHit(state,batch.state,event,command,
@@ -222,14 +225,14 @@ export async function resolveBasicTimelineWindow(
        if(!plan)throw new Error("La habilidad no tiene un plan revisado en su declaración.");
        if(plan.category==="CONSTRUCTION"){
          const strike=makeDice(),defense=makeDice();
-         const reaction=defend({usesMagic:Boolean(plan.mirror),isArea:false});
+         const reaction=defend(event,batch.state,{usesMagic:Boolean(plan.mirror),isArea:false});
          const effect=simulateApprovedTimelineConstruction(state,batch.state,event,
            command,plan,strike,defense,reaction.posture);
          return collect(effect,reaction);
        }
        if(plan.category==="OFFENSE"){
          const strike=makeDice(),defense=makeDice();
-         const reaction=defend({
+         const reaction=defend(event,batch.state,{
            usesMagic:plan.usesMagic===true,
            hybrid:Boolean(plan.approvedHybridContact),
            isArea:Boolean(plan.attackArea),
@@ -262,6 +265,28 @@ export async function resolveBasicTimelineWindow(
        charged.add(event.id);
      }
      return passive;
+   },(snapshot,event,batch)=>{
+     const state=snapshot as CombatState;
+     const dice=makeDice(),defenseDice=makeDice();
+     if(event.kind==="AUTO_SUMMON"){
+       const reaction=defend(event,batch.state,{usesMagic:false,isArea:false});
+       const slot=activeBlockSlot(state,batch.state,other(event.owner),
+         event.endsAtTick);
+       const posture=slot?{kind:"DEFEND" as const,defense:"BLOCK" as const,
+         weaponSlot:slot}:reaction.posture;
+       const effect=simulateAutonomousTimelineSummon(state,batch.state,
+         event,dice,defenseDice,posture);
+       return collect(effect,reaction);
+     }
+     if(event.kind==="AUTO_MIRROR"){
+       const reaction=defend(event,batch.state,{usesMagic:true,isArea:false});
+       const effect=simulateAutonomousTimelineMirror(state,batch.state,event,
+         dice,defenseDice,reaction.posture);
+       // A magic field charges only if the mirror actually emitted a ray.
+       const launched=effect.logs?.some(x=>x.kind==="ATTACK"&&x.mirrorShot);
+       return collect(effect,launched?reaction:{...reaction,fieldId:undefined});
+     }
+     throw new Error("Acontecimiento autónomo desconocido.");
    });
  if(finish)finish.timeline.chargedReactionIds=[...charged];
  return finish;

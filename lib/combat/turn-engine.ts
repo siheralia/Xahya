@@ -254,6 +254,7 @@ export function applyResolvedKarmaBoost(
  state.karmaBoostDeltas??={};state.karmaBoostDeltas[by]??={};
  for(const [key,value] of Object.entries(deltas))state.karmaBoostDeltas[by]![key]=(state.karmaBoostDeltas[by]![key]??0)+value;
  state.processedKarmaRequests??=[];state.processedKarmaRequests.push(requestId);
+ if(state.activeBlocks)delete state.activeBlocks[by];
  spend(actor,turnTicks(actor)); // exactly one PA, independently of allocated points
  state.tick=Math.max(state.tick,(state.round-1)*LIMIT+actor.spentTicks);
  addLog(state,{kind:"KARMA",tick:state.tick,by,karmaSpent:cost,karmaAllocation:{...allocation},
@@ -292,6 +293,7 @@ export function applyResolvedCombatConsumable(
  if(selected.action==="HEAL_HP")fighter.hp=after;
  else mana!.current=after;
  selected.quantity--;
+ if(state.activeBlocks)delete state.activeBlocks[by];
  spend(fighter,turnTicks(fighter)); // paid, neutral action: no weapon speed modifier
  state.tick=Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
  state.processedItemRequests=[...(state.processedItemRequests??[]),requestId].slice(-100);
@@ -874,7 +876,7 @@ function beginNextMirrorRay(state:CombatState) {
 function finishMutualEncounter(state:CombatState) {
  if(state.status==="FINISHED")return;
  state.status="FINISHED";state.winner=null;
- state.pending=null;state.mirrorRayQueue=[];
+ state.pending=null;state.mirrorRayQueue=[];state.activeBlocks={};
  addLog(state,{kind:"END",tick:state.tick,by:"PLAYER",against:"NPC",
   summary:"Ambos combatientes cayeron durante el intercambio simultáneo: empate"});
  settleDroppedWeapons(state);
@@ -886,7 +888,7 @@ function finishEncounter(state:CombatState,winner:Side) {
  if(state.status==="FINISHED")return;
  const defeated=other(winner);
  state.status="FINISHED";state.winner=winner;
- state.pending=null;state.mirrorRayQueue=[];
+ state.pending=null;state.mirrorRayQueue=[];state.activeBlocks={};
  addLog(state,{kind:"END",tick:state.tick,by:winner,against:defeated,
    summary:state.actors[winner].name+" gana el combate"});
  settleDroppedWeapons(state);
@@ -3005,5 +3007,7 @@ export function applyResolvedCombatSkill(
  next.skillCooldowns[by]![key]=plan.oncePerCombat?-1:
    (plan.cooldownRounds>0?original.round+plan.cooldownRounds+1:0);
  next.processedSkillRequests=[...(next.processedSkillRequests??[]),aim.requestId].slice(-100);
+ // A new deliberate skill replaces the raised blocking posture.
+ if(next.activeBlocks)delete next.activeBlocks[by];
  return next;
 }

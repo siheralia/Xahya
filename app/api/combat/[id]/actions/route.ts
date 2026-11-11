@@ -5,7 +5,7 @@ import { combatSnapshotEtag, combatEtagMatches } from "@/lib/combat/poll-cache";
 import { Temporal } from "@js-temporal/polyfill";
 import { db } from "@/lib/db";
 import {
-  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, applyResolvedKarmaBoost, progressAutonomousSummons, hasActiveBlockGuard, canAct, type CombatCommand, type CombatState, type Side,
+  applyCombatCommand, applyResolvedCombatSkill, applyResolvedCombatConsumable, applyResolvedKarmaBoost, progressAutonomousSummons, hasActiveBlockGuard, settleTemporalQueuedActions, canAct, type CombatCommand, type CombatState, type Side,
 } from "@/lib/combat/turn-engine";
 import { advanceCombatMechanics } from "@/lib/skills/mechanics-runtime";
 import { isReplayableCombatKind,isCombatActionReplay,recordCombatAction,
@@ -38,6 +38,25 @@ function settleRaisedBlocks(seed:CombatState):CombatState {
    state=applyCombatCommand(state,defender,{kind:"DEFEND",defense:"BLOCK"},dice());
    if(state.status==="ACTIVE"&&defender==="PLAYER"&&state.actors.NPC.characterId===null)
      state=progressTrainingNpc(state,dice,()=>randomInt(1_000_000)/1_000_000);
+ }
+ return state;
+}
+/** Resolve server-planned attacks by deadline while an NPC may take shorter
+ * actions during the human's wind-up. All calls share the locked DB row.
+ */
+function settleCombatTimeline(seed:CombatState):CombatState {
+ if(seed.timelineMode!=="CONTINUOUS")return seed;
+ let state=seed;
+ for(let i=0;i<24;i++){
+   const resolved=settleTemporalQueuedActions(state,dice);
+   if(resolved!==state){state=resolved;continue;}
+   if(state.pending||state.status!=="ACTIVE")break;
+   if(state.temporalQueued?.PLAYER&&state.actors.NPC.characterId===null &&
+       !state.temporalQueued.NPC&&canAct(state,"NPC")){
+     const moved=progressTrainingNpc(state,dice,()=>randomInt(1_000_000)/1_000_000);
+     if(moved!==state){state=moved;continue;}
+   }
+   break;
  }
  return state;
 }
@@ -288,6 +307,10 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
       }
       if(next!==state&&next.status==="ACTIVE")
         next=settleRaisedBlocks(next);
+      if(next!==state&&next.status==="ACTIVE"){
+        next=settleCombatTimeline(next);
+        if(next.status==="ACTIVE")next=settleRaisedBlocks(next);
+      }
       if(replayAction)
         next=recordCombatAction(state,next,side,replayAction);
       let mechanics=fresh.mechanicsState;

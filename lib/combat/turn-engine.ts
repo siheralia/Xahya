@@ -152,6 +152,8 @@ export type CombatState = {
     /** Compatibility with early PR #125 preview encounters. */
     perks?:Array<{id:number;name:string}>;skills:CombatSkillPlan[]};
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
+  /** Only new encounters opt into strict chronological initiative; old snapshots stay readable. */
+  timelineMode?:"SHARED";
   winner: Side | null; actors: Record<Side, CombatFighter>;
   /** Randomly resolved initial initiative tie; absent in older persisted fights. */
   tieOpener?: Side;
@@ -671,10 +673,11 @@ function validateFighter(f: CombatFighter) {
     || !finite(f.massKg) || f.massKg <= 0 || !finite(f.positionMeters) || !finite(f.weaponIntegrity) || f.weaponIntegrity < 0 || f.weaponIntegrity > 100)
     throw new Error("Combatiente inválido.");
 }
-export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpener: Side="PLAYER"): CombatState {
+export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpener: Side="PLAYER",sharedTimeline=false): CombatState {
   validateFighter(player); validateFighter(npc);
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
+     ...(sharedTimeline?{timelineMode:"SHARED" as const}:{}),
     actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
     physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],summonStatuses:[],combatCharges:{PLAYER:{},NPC:{}},mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
     processedKarmaRequests:[],perHandWeaponDurability:true,narrativeHistory:[],pending:null,log:[]};
@@ -803,6 +806,8 @@ export function canAct(state: CombatState, side: Side): boolean {
   // Otherwise a slow participant can commit tick 66 while the opponent still
   // has a tick 51 action available (encounter 81).
   // Equal event deadlines are simultaneous slots: either may declare first.
+  if(state.timelineMode!=="SHARED")
+    return f.spentTicks < rival.spentTicks + turnTicks(rival);
   if(!hasInitiativeBudget(rival))return true;
   return f.spentTicks+turnTicks(f) <= rival.spentTicks+turnTicks(rival);
 }

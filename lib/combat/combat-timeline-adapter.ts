@@ -6,7 +6,7 @@
  */
 import {
   actionPoints,defaultAttackSource,turnTicks,weaponForSource,
-  type CombatCommand,type CombatFighter,type CombatState,type Side,
+  type CombatCommand,type CombatFighter,type CombatState,type PhysicalAttackSource,type Side,
 } from "./turn-engine.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
@@ -15,19 +15,13 @@ import {
   type ContinuousCombatTimeline,type TimelineIntent,
 } from "./action-timeline.ts";
 
-const opposer=(by:Side):Side=>by==="PLAYER"?"NPC":"PLAYER";
 type CompilationContext={
   /** Resolved only through the approved skills catalog on the server. */
   approvedSkill?:CombatSkillPlan;
   /** The source of a skill strike is not always a physical equipped weapon. */
-  skillRangeMeters?:number;
 };
 
 function normal(f:CombatFighter):number{return turnTicks(f);}
-
-function actualSource(f:CombatFighter,source?:CombatCommand extends never?never:any){
-  return source??defaultAttackSource(f);
-}
 
 function strikeDuration(
  fighter:CombatFighter,params:{
@@ -35,7 +29,7 @@ function strikeDuration(
    attackSource?: "MAIN_HAND"|"OFF_HAND"|"FIST_RIGHT"|"FIST_LEFT"|"KICK";
    planSkillRange?:number;
  }):number {
- const source=actualSource(fighter,params.attackSource);
+ const source:PhysicalAttackSource=params.attackSource??defaultAttackSource(fighter);
  const weapon=weaponForSource(fighter,source);
  const weaponStrike=params.usesMagic!==true&&!!weapon&&
   (params.planSkillRange===undefined||

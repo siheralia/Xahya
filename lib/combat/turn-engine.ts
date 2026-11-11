@@ -994,8 +994,18 @@ function advanceRoundIfComplete(state: CombatState) {
     return f.spentTicks >= LIMIT || remainingAp(f) === 0;
   };
   if (state.status === "ACTIVE" && !state.pending && SIDES.every(finished)) {
-    // Carry the occupied part of long actions into the next round.
-    if(continuous)state.tick=Math.max(state.tick,state.round*LIMIT);
+    // An actor exhausting its PA early waits until the next real round edge.
+    if(continuous){
+      const edge=state.round*LIMIT;
+      for(const side of SIDES){
+        const actor=state.actors[side],at=actor.absoluteTick??((state.round-1)*LIMIT+actor.spentTicks);
+        if(remainingAp(actor)===0&&at<edge){
+          actor.absoluteTick=edge;
+          actor.spentTicks+=edge-at;
+        }
+      }
+      state.tick=Math.max(state.tick,edge);
+    }
     state.round++;
     for (const side of SIDES) {
       const actor=state.actors[side];
@@ -2786,7 +2796,24 @@ export function settleTemporalQueuedActions(
   const first=scheduled[0],second=scheduled[1];
   const firstCommand=first.entry.command,secondCommand=second?.entry.command;
   if(!second){
-   const rival=next.actors[other(first.side)];
+   const rivalSide=other(first.side),rival=next.actors[rivalSide];
+   // The quicker actor may exhaust its PA before the slower wind-up ends.
+   // Automatically wait only to the next absolute 100-tick boundary, then
+   // let the actor choose its next action; never jump to the enemy impact.
+   if(rival.continuousTicks&&remainingAp(rival)===0){
+     const at=rival.absoluteTick??((next.round-1)*LIMIT+rival.spentTicks);
+     const edge=(Math.floor(at/LIMIT)+1)*LIMIT;
+     if(edge<first.entry.endsAtTick){
+       const waiting=structuredClone(next),actor=waiting.actors[rivalSide];
+       actor.absoluteTick=edge;
+       actor.spentTicks+=edge-at;
+       waiting.tick=Math.max(waiting.tick,edge);
+       addLog(waiting,{kind:"WAIT",tick:waiting.tick,by:rivalSide,
+         summary:actor.name+" agotó sus PA y esperó hasta el tick "+edge+"."});
+       next=waiting;
+       continue;
+     }
+   }
    const rivalDeadline=(next.round-1)*LIMIT+rival.spentTicks+
      Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
    if(hasInitiativeBudget(rival)&&rivalDeadline<=first.entry.endsAtTick)

@@ -98,6 +98,26 @@ export function declareTimelineCommand(
    if(availableAt===-1||availableAt>currentRound)
      throw new Error("Esta habilidad continúa en enfriamiento.");
  }
+ if(command.kind==="USE_ITEM"){
+   if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(command.requestId)||
+     Object.keys(command).some(key=>
+       !["kind","itemId","characterItemId","requestId"].includes(key)))
+     throw new Error("La orden de consumible incluye datos no permitidos.");
+   if(owner==="PLAYER"&&command.characterItemId===undefined)
+     throw new Error("Se requiere una copia de inventario auténtica.");
+   const matches=(snapshot.consumables?.[owner]??[]).filter(item=>
+     item.itemId===command.itemId&&
+     item.characterItemId===command.characterItemId);
+   if(matches.length!==1||matches[0].quantity<1)
+     throw new Error("No tienes ese consumible disponible en el encuentro.");
+   const item=matches[0];
+   if(item.action==="HEAL_HP"&&snapshot.actors[owner].hp>=snapshot.actors[owner].maxHp)
+     throw new Error("Ya tienes todos tus HP.");
+   if(item.action==="RESTORE_MANA"&&
+     (!snapshot.mana?.[owner]||
+       snapshot.mana[owner].current>=snapshot.mana[owner].max))
+     throw new Error("Ya tienes todo tu maná.");
+ }
  // Only a fully approved intent is allowed into the clock. This compile
  // also rejects forged PA/tick durations and unauthorized skill plans.
  const intent=compileCombatTimelineIntent(snapshot,original.clock,owner,

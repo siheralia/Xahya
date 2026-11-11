@@ -20,6 +20,7 @@ import {simulateBasicPhysicalTimelineHit} from "./timeline-basic-strike.ts";
 import {simulateBasicMagicTimelineHit} from "./timeline-basic-magic.ts";
 import {simulateApprovedTimelineSupport} from "./timeline-basic-support.ts";
 import {simulateApprovedTimelineOffense} from "./timeline-offensive-skill.ts";
+import {simulateBasicTimelineConsumable} from "./timeline-consumables.ts";
 import {
  preparedTimelineReactionAt,timelineDefenseForImpact,
 } from "./timeline-defense.ts";
@@ -226,6 +227,8 @@ export async function resolveBasicTimelineWindow(
      }
      if(event.kind==="MOVE"&&command.kind==="MOVE")
        return simulateBasicTimelineMove(state,batch.state,event,command);
+     if(event.kind==="ITEM"&&command.kind==="USE_ITEM")
+       return simulateBasicTimelineConsumable(state,batch.state,event,command);
      const passive=simulateBasicTimelinePassiveAction(state,batch.state,event,command);
      if(event.kind==="REACT"&&command.kind==="PREPARE_REACTION"&&
        command.defense==="MAGIC_FIELD"){

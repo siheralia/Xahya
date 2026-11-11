@@ -58,6 +58,9 @@ const SIDES: readonly TimelineSide[] = ["PLAYER", "NPC"];
 const validTick=(n:number)=>Number.isSafeInteger(n)&&n>=0;
 const validDuration=(n:number)=>Number.isSafeInteger(n)&&n>0&&n<=1_000_000;
 const validPa=(n:number)=>Number.isSafeInteger(n)&&n>=0&&n<=100;
+// Constitution can legitimately grant more than 100 AP. This is a per-round
+// limit, not the cost of one individual action.
+const validApBudget=(n:number)=>Number.isSafeInteger(n)&&n>=1&&n<=1_000_000;
 const validId=(id:string)=>/^[a-zA-Z0-9_:-]{1,100}$/.test(id);
 
 export function timelineRoundOf(tick:number):number {
@@ -66,7 +69,7 @@ export function timelineRoundOf(tick:number):number {
 }
 
 export function newContinuousCombatTimeline(playerAp:number,npcAp:number):ContinuousCombatTimeline {
-  if(!validPa(playerAp)||playerAp<1||!validPa(npcAp)||npcAp<1)
+  if(!validApBudget(playerAp)||!validApBudget(npcAp))
     throw new Error("Puntos de acción inválidos para el planificador.");
   return {
     version:2,nowTick:0,nextSequence:0,

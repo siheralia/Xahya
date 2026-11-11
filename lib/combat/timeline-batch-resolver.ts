@@ -37,11 +37,12 @@ export function commitAuthorizedTimelineBatch(
  original:CombatState,batch:TimelineBatch,
  effects:readonly AuthorizedTimelineEffect[],
 ):CombatState {
- if(original.status!=="ACTIVE"||!Number.isSafeInteger(batch.atTick)||
+ if(original.status!=="ACTIVE"||batch.state.nowTick!==batch.atTick||!Number.isSafeInteger(batch.atTick)||
    batch.atTick<original.tick)
    throw new Error("El lote temporal no pertenece a un combate activo.");
  const ids=new Set(batch.events.map(e=>e.id));
- if(ids.size!==batch.events.length||effects.length!==batch.events.length)
+ if(ids.size!==batch.events.length||effects.length!==batch.events.length||
+   batch.events.some(e=>e.endsAtTick!==batch.atTick||e.status!=="RESOLVED"))
    throw new Error("Cada evento temporal debe tener exactamente un resultado autorizado.");
  const found=new Set<string>();
  const damages:Record<Side,number>={PLAYER:0,NPC:0};
@@ -57,7 +58,7 @@ export function commitAuthorizedTimelineBatch(
      if(!finiteNonnegative(damage)||!finiteNonnegative(heal))
        throw new Error("Daño o curación temporal inválida.");
      damages[side]+=damage;healing[side]+=heal;
-     if(!Number.isSafeInteger(damages[side])||!Number.isSafeInteger(healing[side]))
+     if(!Number.isFinite(damages[side])||!Number.isFinite(healing[side]))
        throw new Error("Acumulación de daño fuera de rango.");
    }
    for(const item of effect.equipmentWear??[]){
@@ -67,7 +68,9 @@ export function commitAuthorizedTimelineBatch(
        throw new Error("Desgaste de equipamiento inválido.");
      const key=copyKey(item.owner,item.characterItemId);
      const previous=wear.get(key);
-     wear.set(key,{...item,amount:(previous?.amount??0)+item.amount});
+     const sum=(previous?.amount??0)+item.amount;
+     if(!Number.isSafeInteger(sum))throw new Error("Desgaste acumulado fuera de rango.");
+     wear.set(key,{...item,amount:sum});
    }
  }
  const next=structuredClone(original);
@@ -86,9 +89,12 @@ export function commitAuthorizedTimelineBatch(
    copy.durability=Math.max(0,(copy.durability??100)-item.amount);
  }
  next.tick=batch.atTick;
- // The existing engine's FINISHED / winner / on-kill cleanup must be applied
- // by the integration layer. This module intentionally does not invent a
- // winner when simultaneous lethal strikes occur.
+ // A double KO is a draw. Never cancel the second simultaneous strike merely
+ // because the first fighter reached zero HP while computing the batch.
+ if(next.actors.PLAYER.hp<=0||next.actors.NPC.hp<=0){
+   next.status="FINISHED";
+   next.winner=next.actors.PLAYER.hp>0?"PLAYER":next.actors.NPC.hp>0?"NPC":null;
+ }
  return next;
 }
 

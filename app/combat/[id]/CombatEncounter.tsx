@@ -77,7 +77,9 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <div className="h-full bg-rose-400 transition-all" style={{width:(100*f.hp/f.maxHp)+"%"}}/>
   </div>
   <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-zinc-300">
-   <span>Ticks: {f.spentTicks}/100</span>
+   <span>{state.timelineMode==="CONTINUOUS"
+    ?"Disponible en tick "+((state.round-1)*100+f.spentTicks)
+    :"Ticks: "+f.spentTicks+"/100"}</span>
    <span>PA: {remainingAp(f)}/{actionPoints(f.constitution)}</span>
    <span>AGI: {f.agility}</span>
    <span>{turnTicks(f)} ticks/acción</span>
@@ -101,6 +103,11 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <span>Masa: {f.massKg} kg</span>
    {state.mana?.[side]&&<span className="font-semibold text-violet-300">Maná combate: {state.mana[side].current}/{state.mana[side].max}</span>}
   </div>
+  {state.timelineMode==="CONTINUOUS"&&state.temporalReserved?.[side]&&
+    <p className="mt-3 rounded-lg border border-amber-700/60 bg-amber-900/20 p-2 text-xs text-amber-200">
+      Acción en curso · termina en el tick {state.temporalReserved[side]?.endsAtTick}.
+      El resultado y los PA se aplican al finalizar.
+    </p>}
  </div>;
 }
 export default function CombatEncounter({id}:{id:string}) {

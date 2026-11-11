@@ -143,18 +143,14 @@ test("approved healing skill is paid and applied at its ending tick, never at de
  assert.equal(combatClientView(s).temporalQueued,undefined);
  assert.equal(applyResolvedCombatSkill(s,"PLAYER",plan,aim,rolls),s,
    "retry of a queued skill must not create a new reservation");
- for(let i=0;i<2;i++){
-   s=applyCombatCommand(s,"NPC",move,rolls);
-   s=settle(s);
- }
+ s=applyCombatCommand(s,"NPC",move,rolls);
+ s=settle(s);
  assert.equal(s.actors.PLAYER.hp,120);
  assert.equal(s.temporalReserved?.PLAYER?.endsAtTick,53);
- s=settle(s);
- assert.equal(s.actors.PLAYER.hp,120,
-   "the rival still has an action ending at tick 60, after the skill deadline");
  s=applyCombatCommand(s,"NPC",move,rolls);
  s=settle(s);
  assert.equal(s.actors.PLAYER.hp,140);
+ assert.equal(s.tick,53);
  assert.equal(s.mana.PLAYER.current,35);
  assert.equal(s.actors.PLAYER.spentAp,1);
  assert.equal(s.temporalQueued?.PLAYER,undefined);

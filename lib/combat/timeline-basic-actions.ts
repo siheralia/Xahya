@@ -16,22 +16,25 @@ import {fieldPosition} from "./field-plane.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
 import {activeTimelineReactionAt,type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import {type AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
-import {simulateBasicPhysicalTimelineHit} from "./timeline-basic-strike.ts";
+import {simulateBasicPhysicalTimelineHit,activeBlockSlot}
+ from "./timeline-basic-strike.ts";
 import {simulateBasicMagicTimelineHit} from "./timeline-basic-magic.ts";
 import {simulateApprovedTimelineSupport} from "./timeline-basic-support.ts";
 import {simulateApprovedTimelineOffense} from "./timeline-offensive-skill.ts";
 import {simulateBasicTimelineConsumable} from "./timeline-consumables.ts";
-import {simulateApprovedTimelineConstruction,scheduleMirrorRayTicks}
+import {simulateApprovedTimelineConstruction}
  from "./timeline-construction-world.ts";
 import {
  simulateApprovedTimelineSummon,simulateTimelineSummonOrder,
- scheduleAutonomousSummonTicks,
 } from "./timeline-summon-world.ts";
 import {
  preparedTimelineReactionAt,timelineDefenseForImpact,
 } from "./timeline-defense.ts";
-import {resolveDeclaredTimelineBatch,prepareTimelineCommit,
-  type TimelineDeclarationSession} from "./timeline-declarations.ts";
+import {type TimelineDeclarationSession} from "./timeline-declarations.ts";
+import {resolveWorldTimelineBatch} from "./timeline-world-batch.ts";
+import {
+ simulateAutonomousTimelineSummon,simulateAutonomousTimelineMirror,
+} from "./timeline-autonomous-effects.ts";
 import type {TimelineCombatCommand} from "./combat-timeline-adapter.ts";
 
 type Move=Extract<CombatCommand,{kind:"MOVE"}>;
@@ -176,28 +179,6 @@ export async function resolveBasicTimelineWindow(
  combat:CombatState,session:TimelineDeclarationSession,makeDice:()=>TimelineDice,
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession}|null>{
  assertBasicTimelineEligible(combat);
- // A creature's own turn must NOT be silently skipped when a fast fighter
- // has already queued a later action. Until auxiliary actions are part of
- // the atomic batch, reject that incomplete scenario rather than teleport
- // the clock over the creature's strike or protective contact.
- const prepared=prepareTimelineCommit(session);
- if(prepared){
-   const autonomous=scheduleAutonomousSummonTicks(combat,session.clock.nowTick,
-     prepared.batch.atTick);
-   const mirrorRays=scheduleMirrorRayTicks(combat,session.clock.nowTick,
-     prepared.batch.atTick);
-   if(mirrorRays.length)
-     throw new Error("Un espejo debe emitir su rayo autónomo antes de avanzar el siguiente lote.");
-   for(const due of autonomous){
-     const replaces=prepared.batch.events.some(event=>{
-       if(event.endsAtTick!==due.tick||event.owner!==due.owner)return false;
-       const cmd=session.declarations[event.id]?.command;
-       return cmd?.kind==="COMMAND_SUMMON"&&cmd.summonId===due.summonId;
-     });
-     if(!replaces)
-       throw new Error("La criatura tiene una acción autónoma antes de este impacto; falta fusionar su lote temporal.");
-   }
- }
  const charged=new Set(session.chargedReactionIds??[]);
  const finish=await resolveDeclaredTimelineBatch(combat,session,
    (snapshot,declaration,event,batch)=>{

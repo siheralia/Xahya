@@ -273,7 +273,7 @@ export function applyResolvedKarmaBoost(
    const rivalSoon=(original.round-1)*LIMIT+rival.spentTicks+
      Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
    if(original.temporalQueued?.[other(by)]||
-      (hasInitiativeBudget(rival)&&deadline>rivalSoon)){
+      (hasInitiativeBudget(rival)&&deadline>=rivalSoon)){
      const reserved=structuredClone(original);
      reserved.temporalQueued??={};reserved.temporalReserved??={};
      reserved.temporalQueued[by]={boost:{requestId,allocation:{...allocation},cost,
@@ -341,7 +341,7 @@ export function applyResolvedCombatConsumable(
    const rivalSoon=(state.round-1)*LIMIT+rival.spentTicks+
      Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
    if(state.temporalQueued?.[other(by)]||
-     (hasInitiativeBudget(rival)&&deadline>rivalSoon)){
+     (hasInitiativeBudget(rival)&&deadline>=rivalSoon)){
      // Inventory is claimed on declaration inside the existing transaction,
      // while the healing/mana effect waits for the actual completed action.
      selected.quantity--;
@@ -2515,7 +2515,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const prior=state.temporalQueued?.[other(by)];
     const otherSoon=(state.round-1)*LIMIT+rival.spentTicks+
       Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
-    if(prior || (hasInitiativeBudget(rival)&&targetDeadline>otherSoon)){
+    if(prior || (hasInitiativeBudget(rival)&&targetDeadline>=otherSoon)){
       // A shadow launch performs all normal validation; it is discarded.
       applyCombatCommand(state,by,command,rolls,serverSkillRangeMeters,
         mirrorSkill,serverSkillArea,true,counterRolls);
@@ -2946,7 +2946,7 @@ export function applyResolvedCombatSkill(
    const rivalSoon=(original.round-1)*LIMIT+rival.spentTicks+
      Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
    if(original.temporalQueued?.[other(by)]||
-      (hasInitiativeBudget(rival)&&deadline>rivalSoon)){
+      (hasInitiativeBudget(rival)&&deadline>=rivalSoon)){
      // Validate the approved plan on a throwaway shadow; no early effects.
      const shadow=structuredClone(original);
      shadow.temporalExecuting=true;

@@ -194,3 +194,16 @@ test("faked commands / unsupported contact attacks fail instead of silently movi
  },"forged"),/No controlas/);
  assert.equal(s.clock.events.length,0);
 });
+
+test("a real autonomous tick must never be skipped by the next fighter action",async()=>{
+ const c=state(),p=skill("ATTACK");
+ let s=cast(newTimelineDeclarationSession(c),c,p);
+ s=wait(s,c,"NPC","wait-initial");
+ const first=await resolveBasicTimelineWindow(c,s,dice);
+ s=wait(first.timeline,first.combat,"PLAYER","wait-beyond-auto");
+ await assert.rejects(
+   ()=>resolveBasicTimelineWindow(first.combat,s,dice),
+   /acción autónoma antes de este impacto/);
+ assert.equal(first.combat.tick,10);
+ assert.ok(first.combat.summons[0].autoNextTick<100);
+});

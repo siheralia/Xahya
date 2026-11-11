@@ -91,7 +91,10 @@ export function simulateApprovedTimelineOffense(
    defaultAttackSource(combat.actors[owner]);
  const isMagic=launched.pending.usesMagic;
  const isArea=Boolean(launched.pending.attackArea);
- const chosenBlock=!isMagic&&!launched.pending.hybridContact
+ // A shield can stop the physical channel of a hybrid CONTACT strike.
+ // The V1 damage-channel resolver will still defend the magical rider using
+ // its own rules, not treat the entire attack as physical.
+ const chosenBlock=!isMagic
    ?activeBlockSlot(combat,clock,target,event.endsAtTick):null;
  const chosenDefense:Defend=chosenBlock
    ?{kind:"DEFEND",defense:"BLOCK",weaponSlot:chosenBlock}:preparedDefense;

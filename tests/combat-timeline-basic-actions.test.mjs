@@ -63,6 +63,9 @@ test("simultaneous moves resolve from the same pre-movement world snapshot",asyn
 test("guard shields several strikes without an extra block action or premature damage",async()=>{
  const before=combat();
  before.actors.NPC.agility=50;
+ // This test isolates repeated shield contact, not forced displacement.
+ before.actors.PLAYER.strength=0;
+ before.actors.NPC.constitution=100;
  let session=newTimelineDeclarationSession(before);
  session=declareTimelineCommand(session,before,"NPC",
    {kind:"GUARD",weaponSlot:"OFF_HAND"},"guard");
@@ -73,16 +76,19 @@ test("guard shields several strikes without an extra block action or premature d
  assert.equal(first.combat.actors.NPC.spentAp,0);
  assert.ok(first.combat.actors.NPC.offhandWeapon.durability<100);
  const wearAfterFirst=first.combat.actors.NPC.offhandWeapon.durability;
- session=declareTimelineCommand(first.timeline,first.combat,"PLAYER",attack(),"hit-2");
+ const wrong=declareTimelineCommand(first.timeline,first.combat,"PLAYER",attack(),"bad-stroke");
  // Each new attack must continue at its previous endpoint.
- await assert.rejects(()=>resolveBasicTimelineWindow(first.combat,session,rolls),
+ await assert.rejects(()=>resolveBasicTimelineWindow(first.combat,wrong,rolls),
    /comenzar donde terminó/);
  // The next attack starts from the exact endpoint stored on first contact.
  const anchored={...attack(),trajectory:[{x:0.5,y:0.5},{x:0.5,y:0.5}]};
- let corrected=first.timeline;
- corrected=declareTimelineCommand(corrected,first.combat,"PLAYER",anchored,"hit-2-correct");
- assert.ok(corrected);
- assert.ok(wearAfterFirst<100);
+ const corrected=declareTimelineCommand(first.timeline,first.combat,"PLAYER",anchored,"hit-2");
+ const second=await resolveBasicTimelineWindow(first.combat,corrected,rolls);
+ assert.equal(second.combat.tick,20);
+ assert.equal(second.timeline.clock.actors.NPC.spentApByRound["1"],1);
+ assert.ok(second.combat.actors.NPC.offhandWeapon.durability<wearAfterFirst);
+ assert.ok(second.combat.log.some(entry=>entry.kind==="BLOCK"&&entry.tick===20));
+ assert.ok(second.combat.log.filter(entry=>entry.kind==="RESOLVE").length>=2);
 });
 
 test("WAIT crosses absolute tick 100 without charging free PA as a second action",async()=>{

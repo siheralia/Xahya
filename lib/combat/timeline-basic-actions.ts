@@ -17,6 +17,8 @@ import {offhandArmorShield} from "../items/combat-wearables.ts";
 import {type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import {type AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
 import {simulateBasicPhysicalTimelineHit} from "./timeline-basic-strike.ts";
+import {simulateBasicMagicTimelineHit} from "./timeline-basic-magic.ts";
+import {simulateApprovedTimelineSupport} from "./timeline-basic-support.ts";
 import {resolveDeclaredTimelineBatch,
   type TimelineDeclarationSession} from "./timeline-declarations.ts";
 import type {TimelineCombatCommand} from "./combat-timeline-adapter.ts";
@@ -33,12 +35,18 @@ const other=(side:Side):Side=>side==="PLAYER"?"NPC":"PLAYER";
 export function assertBasicTimelineEligible(combat:CombatState):void{
  if(combat.status!=="ACTIVE"||combat.pending||
    (combat.constructions?.length??0)>0||(combat.summons?.length??0)>0||
-   (combat.summonStatuses?.length??0)>0||(combat.skillBonuses?.length??0)>0||
+   (combat.summonStatuses??[]).some(status=>
+     !status.id.startsWith("V2_SUPPORT:")||status.by!==status.target)||
    (combat.droppedWeapons?.length??0)>0||
    Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length)||
    Object.values(combat.karmaBoosts??{}).some(x=>Object.keys(x??{}).length>0)||
    combat.actors.PLAYER.equipmentDerivedReplay||
-   combat.actors.NPC.equipmentDerivedReplay)
+   combat.actors.NPC.equipmentDerivedReplay||
+   (["PLAYER","NPC"] as const).some(side=>{
+     const fighter=combat.actors[side];
+     return [fighter.equippedWeapon,fighter.offhandWeapon,
+       ...(fighter.equippedWearables??[])].some(item=>item?.autoRepair);
+   }))
    throw new Error("El encuentro requiere el resolutor temporal completo de efectos.");
 }
 
@@ -139,9 +147,18 @@ export async function resolveBasicTimelineWindow(
  return resolveDeclaredTimelineBatch(combat,session,(snapshot,declaration,event,batch)=>{
    const state=snapshot as CombatState;
    const command=declaration.command;
-   if(event.kind==="ATTACK"&&command.kind==="ATTACK")
-     return simulateBasicPhysicalTimelineHit(state,batch.state,event,
-       command,makeDice(),makeDice());
+   if(event.kind==="ATTACK"&&command.kind==="ATTACK"){
+     const strike=makeDice(),defense=makeDice();
+     return command.usesMagic
+       ?simulateBasicMagicTimelineHit(state,batch.state,event,command,strike,defense)
+       :simulateBasicPhysicalTimelineHit(state,batch.state,event,command,strike,defense);
+   }
+   if(event.kind==="SKILL"&&command.kind==="CAST_SKILL"){
+     if(!declaration.approvedSkill)
+       throw new Error("La habilidad no tiene un plan revisado en su declaración.");
+     return simulateApprovedTimelineSupport(state,batch.state,event,
+       command,declaration.approvedSkill);
+   }
    if(event.kind==="MOVE"&&command.kind==="MOVE")
      return simulateBasicTimelineMove(state,batch.state,event,command);
    return simulateBasicTimelinePassiveAction(state,batch.state,event,command);

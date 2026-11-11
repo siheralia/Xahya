@@ -89,3 +89,16 @@ Dos ataques simultáneos reciben exactamente la misma instantánea previa; ning�
 - La ejecución simple **rechaza expresamente** construcciones, invocaciones, estados, bonificaciones temporales, micromódulos, armas arrojadas y equipo derivado que necesita reajuste. Los cambios de estadísticas tras romper una pieza también se rechazan hasta contar con parches de estado completos. Eso evita presentar un daño parcialmente simulado como si fuera definitivo.
 
 **Importante:** esta fase todavía es una biblioteca pura para pruebas y para una futura transacción de sesión, no una nueva ruta de combate activa. La siguiente fase debe ejecutar sin omisiones habilidades, recursos, estados, proyectiles, equipamiento y eventos periódicos, e integrar una actualización de API/HUD para nuevos encuentros. Los anteriores no requieren reescritura.
+
+
+## V2.7 — magia básica, maná y soporte modular personal
+
+La resolución V2 ya puede aplicar daño **mágico básico** (1 maná por ataque), con las mismas fórmulas existentes de tipo mágico, defensa, contacto y desgaste, y sin trasladar PA/ticks de la simulación del motor anterior. Dos lanzamientos que concluyen en el mismo tick consumen el maná de cada atacante y se evalúan contra la **misma** instantánea previa. Un escudo físico anticipado no se transforma en un campo mágico gratuito.
+
+El commit atómico de un lote autoriza también gasto y restauración de maná, curación, bonificaciones temporales, estados propios y cooldowns; todos se validan antes de modificar el resultado. El maná restaurado **no puede pagar retroactivamente** un lanzamiento simultáneo que no tenía recursos suficientes. La declaración comprueba recursos y cooldowns sin descontar nada antes de que finalice la acción.
+
+Se añade ejecución estricta de habilidades **COMPOSED SUPPORT personales, aprobadas y valoradas en PCH**. La declaración conserva la compilación **autorizada en el servidor**, no un gráfico proporcionado por el cliente. El resolutor ejecuta exclusivamente el grafo personal aprobado mediante `resolveApprovedSupportActivation` y aplica en un único lote sus curaciones, bonos y estados; rechaza objetivos externos, movimientos y mecánicas adicionales. No ejecuta, ni simula, habilidades ofensivas, invocaciones, construcciones, fusiones, cargas o consumibles como si fueran soportes.
+
+Las bonificaciones y estados expiran durante los cruces del reloj compartido (tick 100, 200, …), **antes** de calcular cualquier impacto que termine en el tick de vencimiento. Este estado previo corregido se comparte entre todos los cálculos simultáneos. Se comprueban mediante pruebas de daño simultáneo, gasto de maná, cooldown, soporte modular y caducidad.
+
+**Sigue pendiente el despliegue funcional de V2:** esta fase conserva la integración como biblioteca pura (no cambia la ruta de sesiones ni la UI). Hace falta resolver en V2 los efectos de área persistentes, invocaciones autónomas, reparaciones, armaduras derivadas, reacciones avanzadas, skills ofensivas, objetos y demás recursos, y adaptar API/HUD para partidas nuevas. No se modifican combates históricos.

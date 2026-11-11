@@ -12,6 +12,8 @@ import type {CombatState,CombatLog,Side,Point,PhysicalAttackSource} from "./turn
 import {fieldPosition} from "./field-plane.ts";
 import {timelineRoundOf} from "./action-timeline.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "./narration.ts";
+import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat} from "./summon-status.ts";
+import type {CombatBuffStat} from "./skill-casting.ts";
 import type {TimelineBatch,TimelineEvent} from "./action-timeline.ts";
 
 type CopyWear={owner:Side;characterItemId:number;amount:number};
@@ -22,6 +24,17 @@ export type AuthorizedTimelineEffect={
   /** Heal values are resolved at the same instant as damage. */
   hpHealing?:Partial<Record<Side,number>>;
   equipmentWear?:CopyWear[];
+  /** Only trusted, authorized resolution may spend encounter-local mana. */
+  manaSpent?:Partial<Record<Side,number>>;
+  manaRestored?:Partial<Record<Side,number>>;
+  /** Reviewed stat bonuses from an approved self-only SUPPORT plan. */
+  statBonuses?:Array<{owner:Side;skillId:number;skillName:string;
+    stat:CombatBuffStat;value:number;durationTurns:number}>;
+  /** Approved personal status with the same stacking semantics as V1. */
+  selfStatuses?:Array<{owner:Side;id:string;skillId:number;stat:CombatBuffStat;
+    operation:"BONUS"|"MULTIPLIER";value:number;durationTurns:number}>;
+  /** -1 = once per combat; 0 = available; others are next allowed round. */
+  skillCooldowns?:Array<{owner:Side;skillId:number;nextAvailableRound:number}>;
   /** Approved relative world displacement, e.g. a MOVE or measured knockback.
    * Concurrent displacement vectors add against the pre-impact coordinates. */
   positionDelta?:Partial<Record<Side,Point>>;
@@ -40,6 +53,46 @@ const SIDES_SET=new Set<string>(SIDES);
 const validPosition=(p:Point)=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&
   Math.abs(p.x)<=1_000_000&&Math.abs(p.y)<=1_000_000;
 const validStroke=(p:Point)=>validPosition(p)&&p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1;
+const buffStats=new Set<string>([
+ "physicalAttack","magicAttack","physicalDefense","magicDefense","precision","dodge"
+]);
+const validSide=(side:Side)=>SIDES_SET.has(side);
+const validDuration=(duration:number)=>Number.isSafeInteger(duration)&&
+ duration>=1&&duration<=20;
+
+/** Expire short-lived support effects at EACH real 100-tick boundary, before
+ * any action finishing at that boundary or later can read its combat stats.
+ * Both concurrent event evaluators must see the SAME post-expiration snapshot.
+ * No periodic summon/repair effects are executed here: those require the
+ * full, separate V2 temporal-events migration.
+ */
+export function prepareTimelineImpactSnapshot(
+ original:CombatState,batch:TimelineBatch,
+):CombatState {
+ if(original.status!=="ACTIVE"||batch.state.nowTick!==batch.atTick||
+   !Number.isSafeInteger(batch.atTick)||batch.atTick<original.tick)
+   throw new Error("El lote temporal no pertenece a un combate activo.");
+ const expected:number[]=[];
+ for(let boundary=(Math.floor(original.tick/100)+1)*100;boundary<=batch.atTick;boundary+=100)
+   expected.push(boundary);
+ if(expected.length!==batch.crossedRoundBoundaries.length||
+   expected.some((v,i)=>v!==batch.crossedRoundBoundaries[i]))
+   throw new Error("Las fronteras del tiempo compartido no corresponden al lote.");
+ const state=structuredClone(original);
+ for(const crossing of expected){
+   state.round=timelineRoundOf(crossing);
+   const expiring=(state.skillBonuses??[]).filter(x=>x.expiresAtRound<=state.round);
+   for(const bonus of expiring){
+     const fighter=state.actors[bonus.by];
+     fighter[bonus.stat]=Math.max(0,fighter[bonus.stat]-bonus.value);
+   }
+   state.skillBonuses=(state.skillBonuses??[]).filter(x=>x.expiresAtRound>state.round);
+   expireSummonStatuses(state);
+   for(const bonus of expiring)
+     reconcileSummonStatusStat(state,bonus.by,bonus.stat);
+ }
+ return state;
+}
 
 /** Simultaneous damage and healing: a lethal blow does not cancel a second
  * attack that also finished on this tick. Both can fall to zero HP.
@@ -68,6 +121,11 @@ export function commitAuthorizedTimelineBatch(
  const clears=new Set<Side>();
  const strokes:Array<{owner:Side;source:PhysicalAttackSource;end:Point}>=[];
  const logs:CombatLog[]=[];
+ const manaSpent:Record<Side,number>={PLAYER:0,NPC:0};
+ const manaRestored:Record<Side,number>={PLAYER:0,NPC:0};
+ const statBonuses:NonNullable<AuthorizedTimelineEffect["statBonuses"]>=[];
+ const selfStatuses:NonNullable<AuthorizedTimelineEffect["selfStatuses"]>=[];
+ const skillCooldowns:NonNullable<AuthorizedTimelineEffect["skillCooldowns"]>=[];
  for(const effect of effects){
    if(!ids.has(effect.eventId)||found.has(effect.eventId))
      throw new Error("Resultado temporal duplicado o ajeno al lote.");
@@ -78,8 +136,48 @@ export function commitAuthorizedTimelineBatch(
      if(!finiteNonnegative(damage)||!finiteNonnegative(heal))
        throw new Error("Daño o curación temporal inválida.");
      damages[side]+=damage;healing[side]+=heal;
+     const spent=effect.manaSpent?.[side]??0;
+     const restored=effect.manaRestored?.[side]??0;
+     if(!Number.isSafeInteger(spent)||spent<0||spent>1_000_000||
+       !Number.isSafeInteger(restored)||restored<0||restored>1_000_000)
+       throw new Error("Coste o restauración de maná inválidos.");
+     manaSpent[side]+=spent;manaRestored[side]+=restored;
+     if(!Number.isSafeInteger(manaSpent[side])||!Number.isSafeInteger(manaRestored[side]))
+       throw new Error("Maná acumulado fuera de rango.");
      if(!Number.isFinite(damages[side])||!Number.isFinite(healing[side]))
        throw new Error("Acumulación de daño fuera de rango.");
+   }
+   for(const buff of effect.statBonuses??[]){
+     if(!validSide(buff.owner)||!Number.isSafeInteger(buff.skillId)||buff.skillId<1||
+       !buffStats.has(buff.stat)||typeof buff.skillName!=="string"||
+       buff.skillName.length>120||!Number.isFinite(buff.value)||buff.value<=0||
+       buff.value>100||!validDuration(buff.durationTurns))
+       throw new Error("Bono modular temporal inválido.");
+     statBonuses.push(buff);
+   }
+   for(const status of effect.selfStatuses??[]){
+     if(!validSide(status.owner)||!Number.isSafeInteger(status.skillId)||
+       status.skillId<1||!buffStats.has(status.stat)||
+       !status.id.startsWith("V2_SUPPORT:")||status.id.length>160||
+       !validDuration(status.durationTurns)||
+       !Number.isFinite(status.value)||
+       status.operation==="BONUS"&&(status.value<=0||status.value>100)||
+       status.operation==="MULTIPLIER"&&(status.value<=1||status.value>1.3)||
+       !["BONUS","MULTIPLIER"].includes(status.operation))
+       throw new Error("Estado de soporte modular inválido.");
+     if(selfStatuses.some(existing=>existing.id===status.id))
+       throw new Error("Estado de soporte duplicado.");
+     selfStatuses.push(status);
+   }
+   for(const cooldown of effect.skillCooldowns??[]){
+     if(!validSide(cooldown.owner)||!Number.isSafeInteger(cooldown.skillId)||
+       cooldown.skillId<1||!Number.isSafeInteger(cooldown.nextAvailableRound)||
+       cooldown.nextAvailableRound < -1)
+       throw new Error("Enfriamiento temporal inválido.");
+     if(skillCooldowns.some(previous=>
+       previous.owner===cooldown.owner&&previous.skillId===cooldown.skillId))
+       throw new Error("La habilidad fue ejecutada dos veces en el mismo lote.");
+     skillCooldowns.push(cooldown);
    }
    for(const item of effect.equipmentWear??[]){
      if(!SIDES.includes(item.owner)||!Number.isSafeInteger(item.characterItemId)||
@@ -124,7 +222,19 @@ export function commitAuthorizedTimelineBatch(
      logs.push({...entry,tick:batch.atTick});
    }
  }
- const next=structuredClone(original);
+ const next=prepareTimelineImpactSnapshot(original,batch);
+ // All cost checks precede any durable write; healing never refunds a missing
+ // mana point needed by a different simultaneous action.
+ for(const side of SIDES){
+   const account=next.mana?.[side];
+   if(manaSpent[side]||manaRestored[side]){
+     if(!account||!Number.isFinite(account.current)||!Number.isFinite(account.max)||
+       account.current<0||account.max<account.current||
+       manaSpent[side]>account.current)
+       throw new Error("Maná insuficiente para resolver el lote temporal.");
+     account.current=Math.min(account.max,account.current-manaSpent[side]+manaRestored[side]);
+   }
+ }
  // Damage is not canceled by a heal or by a simultaneous lethal attack.
  for(const side of SIDES){
    const actor=next.actors[side];
@@ -182,6 +292,35 @@ export function commitAuthorizedTimelineBatch(
  next.log=next.log.slice(-100);
  next.tick=batch.atTick;
  next.round=timelineRoundOf(batch.atTick);
+ if((next.skillBonuses?.length??0)+statBonuses.length>100||
+   (next.summonStatuses?.length??0)+selfStatuses.length>100)
+   throw new Error("Demasiados bonos o estados temporales en combate.");
+ for(const buff of statBonuses){
+   const fighter=next.actors[buff.owner];
+   fighter[buff.stat]+=buff.value;
+   next.skillBonuses??=[];
+   next.skillBonuses.push({
+     by:buff.owner,stat:buff.stat,value:buff.value,
+     skillId:buff.skillId,skillName:buff.skillName,
+     expiresAtRound:next.round+buff.durationTurns,
+   });
+ }
+ for(const status of selfStatuses){
+   applySummonStatus(next,{
+     id:status.id,sourceSummonId:"SKILL:"+status.skillId,
+     by:status.owner,target:status.owner,stat:status.stat,
+     operation:status.operation,value:status.value,
+     durationTurns:status.durationTurns,
+   });
+ }
+ for(const skill of skillCooldowns){
+   next.skillCooldowns??={};
+   next.skillCooldowns[skill.owner]??={};
+   const previous=next.skillCooldowns[skill.owner]![String(skill.skillId)]??0;
+   if(previous===-1||previous>next.round)
+     throw new Error("La habilidad aún se encuentra en enfriamiento.");
+   next.skillCooldowns[skill.owner]![String(skill.skillId)]=skill.nextAvailableRound;
+ }
  // A double KO is a draw. Never cancel the second simultaneous strike merely
  // because the first fighter reached zero HP while computing the batch.
  if(next.actors.PLAYER.hp<=0||next.actors.NPC.hp<=0){
@@ -214,7 +353,8 @@ export async function resolveAuthorizedTimelineBatch(
  original:CombatState,batch:TimelineBatch,
  resolve:TimelineAuthorizedResolver,
 ):Promise<CombatState> {
+ const preImpact=prepareTimelineImpactSnapshot(original,batch);
  const effects=await Promise.all(batch.events.map(event=>resolve(
-   structuredClone(original),structuredClone(event),batch)));
+   structuredClone(preImpact),structuredClone(event),batch)));
  return commitAuthorizedTimelineBatch(original,batch,effects);
 }

@@ -273,3 +273,17 @@ test("expiring flat bonus rebuilds a still-active multiplicative status",()=>{
  assert.ok(Math.abs(secondState.actors.PLAYER.magicDefense-9.6)<1e-9,
    "the 1.2 multiplier must be recalculated against 8, not 12");
 });
+
+test("unsupported automatic equipment repair cannot be skipped at round crossings",async()=>{
+ const c=state();
+ c.actors.NPC.equippedWearables=[{
+   itemType:"ARMOR",slot:"HEAD",characterItemId:606,itemId:7,
+   name:"Coraza regenerante",durability:65,
+   autoRepair:{trigger:"TURN_START",amount:5},
+ }];
+ let session=newTimelineDeclarationSession(c);
+ session=declareTimelineCommand(session,c,"PLAYER",{kind:"WAIT"},"repair-wait-a");
+ session=declareTimelineCommand(session,c,"NPC",{kind:"WAIT"},"repair-wait-b");
+ await assert.rejects(()=>resolveBasicTimelineWindow(c,session,dice),/resolutor temporal completo/);
+ assert.equal(c.actors.NPC.equippedWearables[0].durability,65);
+});

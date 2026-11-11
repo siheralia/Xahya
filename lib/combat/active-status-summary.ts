@@ -43,7 +43,8 @@ export function activeCombatStatusViews(state:CombatState,side:Side):ActiveComba
  }
  for(const status of state.summonStatuses??[]){
   if(status.target!==side||status.expiresAtRound<=state.round||
-    !known(status.value))continue;
+    !known(status.value)||status.operation==="MULTIPLIER"&&status.value===1||
+    status.operation==="BONUS"&&status.value===0)continue;
   const multiplier=status.operation==="MULTIPLIER";
   output.push({
    id:"CONTACT:"+status.id,

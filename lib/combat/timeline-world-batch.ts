@@ -60,7 +60,8 @@ function occupiesCreatureSlot(
  return batch.events.some(event=>{
    if(event.owner!==owner||event.endsAtTick!==tick)return false;
    const cmd=session.declarations[event.id]?.command;
-   return cmd?.kind==="COMMAND_SUMMON"&&cmd.summonId===summonId;
+   return cmd?.kind==="COMMAND_SUMMON"&&cmd.summonId===summonId&&
+     cmd.order==="MOVE";
  });
 }
 

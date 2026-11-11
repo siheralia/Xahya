@@ -170,10 +170,12 @@ export type CombatState = {
   temporalQueued?:Partial<Record<Side,{
     command?:Extract<CombatCommand,{kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"}>;
     skill?:{plan:CombatSkillPlan;aim:CombatSkillAim};
+    boost?:{requestId:string;allocation:Record<string,number>;cost:number;deltas:Record<string,number>};
+    item?:{requestId:string;stock:CombatConsumable};
     endsAtTick:number;durationTicks:number;
   }>>;
   /** Public, target-free reservation metadata for the client initiative HUD. */
-  temporalReserved?:Partial<Record<Side,{endsAtTick:number;kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"|"CAST_SKILL"}>>;
+  temporalReserved?:Partial<Record<Side,{endsAtTick:number;kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"|"CAST_SKILL"|"BOOST_KARMA"|"USE_ITEM"}>>;
   /** Internal only during server-side scheduled execution. */
   temporalExecuting?:boolean;
   winner: Side | null; actors: Record<Side, CombatFighter>;

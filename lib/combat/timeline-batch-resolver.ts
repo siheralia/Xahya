@@ -190,6 +190,7 @@ export function commitAuthorizedTimelineBatch(
        !Number.isFinite(summon.integrity)||summon.integrity<=0||
        !Number.isSafeInteger(summon.expiresAtRound)||
        summon.expiresAtRound<=timelineRoundOf(batch.atTick)||
+       typeof summon.autoNextTick!=="number"||
        !Number.isSafeInteger(summon.autoNextTick)||
        summon.autoNextTick<=batch.atTick||
        summon.chargesMigrated!==true||summon.chaosField!==undefined||
@@ -361,13 +362,14 @@ export function commitAuthorizedTimelineBatch(
      creature.behavior.mode=update.behaviorMode;
    }
    if(update.targetId!==undefined){
+     const targetId=update.targetId;
      if(creature.behavior.target!=="OPPONENT"||
-       update.targetId!=="FIGHTER:"+(update.owner==="PLAYER"?"NPC":"PLAYER")&&
-       !next.summons.some(target=>update.targetId.startsWith("SUMMON:")&&
-         target.id===update.targetId.slice(7)&&
+       targetId!=="FIGHTER:"+(update.owner==="PLAYER"?"NPC":"PLAYER")&&
+       !next.summons.some(target=>targetId.startsWith("SUMMON:")&&
+         target.id===targetId.slice(7)&&
          target.owner!==update.owner&&target.integrity>0))
        throw new Error("Objetivo de invocación ajeno o inválido.");
-     creature.targetId=update.targetId;
+     creature.targetId=targetId;
    }
    if(update.autoNextTick!==undefined)creature.autoNextTick=update.autoNextTick;
    if(update.autoRound!==undefined)creature.autoRound=update.autoRound;

@@ -5,7 +5,7 @@
  * their own event batch, never passive "free" hits while the clock is idle.
  */
 import {
- applyResolvedCombatSkill,applyCombatCommand,turnTicks,
+ applyResolvedCombatSkill,applyCombatCommand,turnTicks,actionPoints,
  type CombatCommand,type CombatState,type Side,
 } from "./turn-engine.ts";
 import {timelineRoundOf,type ContinuousCombatTimeline,type TimelineEvent}
@@ -200,7 +200,7 @@ export function scheduleAutonomousSummonTicks(
    const creature={...owner,agility:summonStat(summon,owner,"AGI"),
      speedValue:summonStat(summon,owner,"MOVE_SPEED")};
    const pace=Math.max(1,turnTicks(creature));
-   const apLimit=Math.max(1,Math.floor(summonStat(summon,owner,"CON")/5)+1);
+   const apLimit=actionPoints(summonStat(summon,owner,"CON"));
    for(let tick=summon.autoNextTick;tick<=toTick;tick+=pace){
      if(tick<=fromTick)continue;
      if(timelineRoundOf(tick)>=summon.expiresAtRound)continue;

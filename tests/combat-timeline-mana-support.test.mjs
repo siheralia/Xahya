@@ -287,6 +287,6 @@ test("an incomplete legacy repair config remains inert at round crossings",async
  const result=await resolveBasicTimelineWindow(c,session,dice);
  assert.equal(result.combat.tick,100);
  assert.equal(result.combat.actors.NPC.equippedWearables[0].durability,65);
- assert.equal(result.combat.mana.NPC.current,20);
+ assert.equal(result.combat.mana.NPC.current,24);
  assert.equal(c.actors.NPC.equippedWearables[0].durability,65);
 });

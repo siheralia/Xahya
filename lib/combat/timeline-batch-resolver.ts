@@ -110,6 +110,9 @@ export function prepareTimelineImpactSnapshot(
    expected.some((v,i)=>v!==batch.crossedRoundBoundaries[i]))
    throw new Error("Las fronteras del tiempo compartido no corresponden al lote.");
  const state=structuredClone(original);
+ // Repair receipts belong to THIS committed batch only. Preserve all
+ // intermediate round boundaries, but never charge a previous batch again.
+ state.itemRepairsThisRound=[];
  for(const crossing of expected){
    state.round=timelineRoundOf(crossing);
    state.tick=crossing;
@@ -130,7 +133,6 @@ export function prepareTimelineImpactSnapshot(
    state.log.push(roundEntry);
    // The canonical V1 round contract: upkeep first, then passive item
    // repair. Failed formula configs disable ONLY that item, not the fight.
-   state.itemRepairsThisRound=[];
    for(const side of SIDES)
      applyWeaponSelfRepairAtRoundStart(state,side);
  }

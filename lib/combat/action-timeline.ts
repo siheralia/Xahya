@@ -9,7 +9,7 @@
  */
 export const TIMELINE_TICKS_PER_ROUND = 100;
 export type TimelineSide = "PLAYER" | "NPC";
-export type TimelineActionKind = "ATTACK" | "MOVE" | "BLOCK" | "REACT" | "SKILL" | "SUMMON" | "ITEM" | "KARMA" | "WAIT" | "AUTO_SUMMON" | "AUTO_MIRROR";
+export type TimelineActionKind = "ATTACK" | "MOVE" | "BLOCK" | "REACT" | "SKILL" | "SUMMON" | "ITEM" | "KARMA" | "WAIT" | "AUTO_SUMMON" | "AUTO_MIRROR" | "AUTO_PROJECTILE";
 export type TimelineEventStatus = "QUEUED" | "RESOLVED" | "INTERRUPTED";
 
 export interface TimelineEvent {

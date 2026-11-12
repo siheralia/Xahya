@@ -200,10 +200,11 @@ export async function resolveBasicTimelineWindow(
        posture.counterMagic===true);
      if(!actualEvent||countered.has(actualEvent.id)||
         event.kind==="AUTO_SUMMON"||event.kind==="AUTO_MIRROR"||
-        !basic||basic.attackSource&&
-          ["MAIN_HAND","OFF_HAND"].includes(basic.attackSource)&&
-          (snapshot.actors[rival].equippedWeapon?.durability===0||
-           snapshot.actors[rival].offhandWeapon?.durability===0))
+        !basic||
+        basic.attackSource==="MAIN_HAND"&&
+          snapshot.actors[rival].equippedWeapon?.durability===0||
+        basic.attackSource==="OFF_HAND"&&
+          snapshot.actors[rival].offhandWeapon?.durability===0)
        posture={kind:"DEFEND",defense:"NONE"};
      else countered.add(actualEvent.id);
    }

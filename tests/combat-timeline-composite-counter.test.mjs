@@ -163,7 +163,7 @@ test("a paid movement dodge moves at most once in its prepared time interval",as
  const firstPosition=fieldPosition(first.combat.actors.NPC).x;
  assert.ok(firstPosition>.5);
  assert.deepEqual(first.timeline.usedDodgeMovementIds,["dodge-away"]);
- s=attack(first.timeline,first.combat,"PLAYER","attack-two",physical());
+ s=attack(first.timeline,first.combat,"PLAYER","attack-two",magic());
  const next=await resolveBasicTimelineWindow(first.combat,s,dodgeDice);
  assert.equal(next.combat.tick,20);
  assert.equal(fieldPosition(next.combat.actors.NPC).x,firstPosition);
@@ -173,7 +173,7 @@ test("a paid movement dodge moves at most once in its prepared time interval",as
 test("invalid, unsupported or forged movement parameters do not reserve PA",()=>{
  const c=state(),t=newTimelineDeclarationSession(c);
  for(const [action,id] of [
-   [physical(undefined,"BEFORE"),"missing-vector"],
+   [{...physical(),movementOrder:"BEFORE"},"missing-vector"],
    [physical({x:4,y:0},"BEFORE"),"oversized-move"],
    [physical({x:0,y:0},"BEFORE"),"zero-move"],
    [physical({x:.2,y:0},"FORGED"),"bad-order"],

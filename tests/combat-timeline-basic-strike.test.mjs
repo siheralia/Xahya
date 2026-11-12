@@ -74,7 +74,7 @@ test("two simultaneous physical hits are evaluated from one snapshot",()=>{
  assert.equal(next.tick,10);
 });
 
-test("physical shadow rejects uncommitted magic, constructs, status and composite moves",()=>{
+test("physical shadow rejects magic, status, and composite inputs with wrong PA",()=>{
  const c=combat();
  let clock=newContinuousCombatTimeline(39,39);
  clock=reserve(clock,"PLAYER","hit-a","ATTACK",10);
@@ -83,7 +83,7 @@ test("physical shadow rejects uncommitted magic, constructs, status and composit
  assert.throws(()=>simulateBasicPhysicalTimelineHit(c,batch.state,event,
    {...attack(),usesMagic:true},rolls,rolls),/avanzado/);
  assert.throws(()=>simulateBasicPhysicalTimelineHit(c,batch.state,event,
-   {...attack(),planarMove:{x:0.1,y:0}},rolls,rolls),/avanzado/);
+   {...attack(),planarMove:{x:0.1,y:0}},rolls,rolls),/reserva|PA|coste/);
  const affected={...c,summonStatuses:[{id:"outstanding"}]};
  assert.throws(()=>simulateBasicPhysicalTimelineHit(affected,batch.state,event,
    attack(),rolls,rolls),/avanzada/);

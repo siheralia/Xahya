@@ -4,13 +4,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type CharacterOption={id:number;name:string;mine:boolean};
-type LaunchOptions={characters:CharacterOption[];canApprovePvP:boolean};
+type LaunchOptions={characters:CharacterOption[];canApprovePvP:boolean;
+ canUseTimelineV2?:boolean};
 export default function DuelLauncher({initialCharacterId}:{initialCharacterId:string}) {
  const router=useRouter();
  const [options,setOptions]=useState<LaunchOptions|null>(null);
  const [characterId,setCharacterId]=useState(initialCharacterId);
  const [opponentCharacterId,setOpponentCharacterId]=useState("");
  const [npcDifficulty,setNpcDifficulty]=useState("INTERMEDIATE");
+ const [useTimelineV2,setUseTimelineV2]=useState(false);
  const [busy,setBusy]=useState(false);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
@@ -42,11 +44,12 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({characterId:Number(characterId),
       opponentCharacterId:options.canApprovePvP&&opponentCharacterId?Number(opponentCharacterId):undefined,
-      npcDifficulty:options.canApprovePvP&&opponentCharacterId?undefined:npcDifficulty})
+      npcDifficulty:options.canApprovePvP&&opponentCharacterId?undefined:npcDifficulty,
+      combatTimelineVersion:options.canUseTimelineV2&&opponentCharacterId&&useTimelineV2?2:1})
    });
    const data=await resp.json();
    if(!resp.ok)throw new Error(data.error??"No fue posible iniciar el combate");
-   router.push("/combat/"+data.id);
+   router.push("/combat/"+data.id+(data.timelineV2?"/timeline":""));
   }catch(e){setError(e instanceof Error?e.message:"Error inesperado");}
   finally{setBusy(false);}
  }
@@ -71,6 +74,13 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
       {availableOpponents.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
     </select>
     <span className="mt-1 block text-xs text-zinc-400">Este selector solo aparece para quienes pueden aprobar combates PvP.</span>
+   </label>}
+   {options?.canUseTimelineV2&&!!opponentCharacterId&&<label className="flex items-start gap-3 rounded-xl border border-cyan-700/40 bg-cyan-950/20 p-3 text-sm">
+    <input type="checkbox" checked={useTimelineV2} disabled={busy}
+      onChange={e=>setUseTimelineV2(e.target.checked)} className="mt-1" />
+    <span><strong>Probar combate continuo V2 (experimental, solo GM)</strong>
+     <span className="mt-1 block text-xs text-zinc-400">Solo para esta partida nueva PvP. Su reloj, invocaciones y reacciones utilizan ticks absolutos. Algunas categorías avanzadas siguen bloqueadas; no modifica los combates anteriores.</span>
+    </span>
    </label>}
    {!(options?.canApprovePvP&&opponentCharacterId)&&<label className="block text-sm">Dificultad del NPC
     <select value={npcDifficulty} disabled={busy||loading} onChange={e=>setNpcDifficulty(e.target.value)}

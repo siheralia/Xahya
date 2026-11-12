@@ -10,6 +10,7 @@ import {
 } from "./turn-engine.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
+import {validatePlanarMove} from "./field-plane.ts";
 import {
   newContinuousCombatTimeline,queueTimelineAction,
   type ContinuousCombatTimeline,type TimelineIntent,
@@ -94,6 +95,14 @@ export function compileCombatTimelineIntent(
    throw new Error("El combate temporal no está activo.");
  if(by!=="PLAYER"&&by!=="NPC")throw new Error("Combatiente inválido.");
  const actor=snapshot.actors[by];
+ if(command.kind==="ATTACK"||command.kind==="CAST_SKILL"){
+   if(command.movementOrder!==undefined&&command.planarMove===undefined)
+     throw new Error("Debes trazar un desplazamiento para combinarlo con ataque.");
+   if(command.movementOrder!==undefined&&
+     !["BEFORE","AFTER"].includes(command.movementOrder))
+     throw new Error("Orden de movimiento compuesto inválido.");
+   if(command.planarMove!==undefined)validatePlanarMove(command.planarMove);
+ }
  const nextAt=Math.max(timeline.nowTick,timeline.actors[by].availableAtTick);
  const base={id:serverEventId};
  if(command.kind==="DEFEND"){

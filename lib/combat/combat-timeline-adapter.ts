@@ -11,6 +11,7 @@ import {
 import type {CombatSkillPlan} from "./skill-casting.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
 import {validatePlanarMove} from "./field-plane.ts";
+import {physicalProjectileFlightTicks} from "./timeline-projectile-flight.ts";
 import {
   newContinuousCombatTimeline,queueTimelineAction,
   type ContinuousCombatTimeline,type TimelineIntent,
@@ -175,6 +176,13 @@ export function compileCombatTimelineIntent(
     const actionTicks=strikeDuration(actor,{
       attackType:command.attackType,usesMagic:command.usesMagic,
       attackSource:command.attackSource});
+    if(command.rangedPhysical===true||command.throwWeapon===true){
+      const {flightTicks}=physicalProjectileFlightTicks(snapshot,by,command);
+      return {...base,kind:"ATTACK",durationTicks:actionTicks+flightTicks,
+        projectileFlightTicks:flightTicks,paCost:1};
+    }
+    if(command.projectileHeights!==undefined)
+      throw new Error("Las alturas de proyectil solo corresponden a un ataque a distancia.");
     return {...base,kind:"ATTACK",
       ...actionWithOptionalMovement(actor,command.planarMove!==undefined,actionTicks)};
   }

@@ -17,6 +17,7 @@ import {offhandArmorShield} from "../items/combat-wearables.ts";
 import {fieldPosition} from "./field-plane.ts";
 import {diffConstructionWorld} from "./timeline-construction-world.ts";
 import {assertEquipmentOnlyShadowStats} from "./timeline-equipment-replay.ts";
+import {validateProjectileHeights} from "./physical-obstacles.ts";
 import {activeTimelineBlockAt,
   type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import type {AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
@@ -81,11 +82,12 @@ export function simulateBasicPhysicalTimelineHit(
    event.endsAtTick!==clock.nowTick||
    !validDice(attackDice)||!validDice(defenseDice))
    throw new Error("El impacto V2 no está autorizado para resolverse.");
- if(attack.kind!=="ATTACK"||attack.usesMagic||attack.rangedPhysical||
-   attack.throwWeapon||
+ const projectile=attack.rangedPhysical===true||attack.throwWeapon===true;
+ if(attack.kind!=="ATTACK"||attack.usesMagic||
    attack.targetSummonId||attack.targetConstructionId||
-   attack.areaCenter||attack.areaAngleDegrees!==undefined||
-   attack.projectileHeights)
+   (!projectile&&attack.areaCenter!==undefined)||
+   attack.areaAngleDegrees!==undefined||
+   (!projectile&&attack.projectileHeights!==undefined))
    throw new Error("Este tipo de ataque necesita el resolutor temporal avanzado.");
  // The current event patch only supports HP and equipment wear. A future
  // resolver must commit construction damage, summon effects, statuses,
@@ -101,12 +103,36 @@ export function simulateBasicPhysicalTimelineHit(
  const selected=weaponForSource(combat.actors[attacker],source);
  const attackTicks=turnTicks(combat.actors[attacker],selected?attack.attackType:undefined);
  const composite=attack.planarMove!==undefined;
- const expected=composite?Math.max(turnTicks(combat.actors[attacker]),attackTicks):attackTicks;
- if(attack.movementOrder!==undefined&&!composite)
-   throw new Error("El desplazamiento necesita un vector aprobado.");
- // One movement+strike spends two AP but a SINGLE temporal interval.
- if(event.durationTicks!==expected||event.paidAp!==(composite?2:1))
-   throw new Error("La reserva de ataque no coincide con el coste físico aprobado.");
+ if(projectile){
+   const center=attack.areaCenter,heights=attack.projectileHeights;
+   if(composite||attack.movementOrder!==undefined||
+     source!=="MAIN_HAND"&&source!=="OFF_HAND"||
+     !selected||(selected.durability??100)<=0||
+     selected.attackType!==attack.attackType||
+     (attack.throwWeapon===true
+       ?!selected.throwable||!selected.throwRangeMeters||
+         !Number.isSafeInteger(selected.characterItemId)
+       :selected.mode!=="RANGED"))
+     throw new Error("El ataque a distancia perdió su arma o autorización.");
+   if(!center||!Number.isFinite(center.x)||!Number.isFinite(center.y)||
+     center.x<0||center.x>1||center.y<0||center.y>1||!heights||
+     attack.trajectory?.length)
+     throw new Error("El disparo necesita puntería y alturas válidas.");
+   validateProjectileHeights(heights.launchMeters,heights.impactMeters,
+     heights.arcRiseMeters);
+   if(!Number.isSafeInteger(event.projectileFlightTicks)||
+     event.projectileFlightTicks!<1||
+     event.durationTicks!==attackTicks+event.projectileFlightTicks!||
+     event.paidAp!==1)
+     throw new Error("La reserva del vuelo no corresponde al ataque físico.");
+ }else{
+   const expected=composite?Math.max(turnTicks(combat.actors[attacker]),attackTicks):attackTicks;
+   if(attack.movementOrder!==undefined&&!composite)
+     throw new Error("El desplazamiento necesita un vector aprobado.");
+   if(event.projectileFlightTicks!==undefined||
+     event.durationTicks!==expected||event.paidAp!==(composite?2:1))
+     throw new Error("La reserva de ataque no coincide con el coste físico aprobado.");
+ }
  const before={
    PLAYER:weaponCopies(combat,"PLAYER"),NPC:weaponCopies(combat,"NPC"),
  };
@@ -126,6 +152,29 @@ export function simulateBasicPhysicalTimelineHit(
    if(damage>0)hpDamage[side]=damage;
  }
  const equipmentWear:Array<{owner:Side;characterItemId:number;amount:number}>=[];
+ const previousDrops=combat.droppedWeapons??[];
+ const nextDrops=resolved.droppedWeapons??[];
+ const addedDrops=nextDrops.filter(item=>!previousDrops.some(before=>
+   before.owner===item.owner&&
+   before.weapon.characterItemId===item.weapon.characterItemId));
+ if(previousDrops.some(item=>!nextDrops.some(after=>
+   after.owner===item.owner&&
+   after.weapon.characterItemId===item.weapon.characterItemId)))
+   throw new Error("El disparo retiró un arma caída no autorizada.");
+ const weaponThrows:NonNullable<AuthorizedTimelineEffect["weaponThrows"]>=[];
+ if(attack.throwWeapon===true){
+   const dropped=addedDrops[0],slot=source;
+   const copy=selected?.characterItemId;
+   const key=slot==="MAIN_HAND"?"equippedWeapon":"offhandWeapon";
+   if(addedDrops.length!==1||!dropped||copy===undefined||
+     dropped.owner!==attacker||dropped.weapon.characterItemId!==copy||
+     (dropped.slot??"MAIN_HAND")!==slot||
+     !dropped.fieldPosition||resolved.actors[attacker][key]!==undefined)
+     throw new Error("El lanzamiento creó una copia de arma inesperada.");
+   weaponThrows.push({owner:attacker,characterItemId:copy,
+     slot,landing:{...dropped.fieldPosition}});
+ }else if(addedDrops.length)
+   throw new Error("Un disparo que no arroja arma alteró el suelo.");
  for(const side of ["PLAYER","NPC"] as const){
    const after=weaponCopies(resolved,side);
    for(const [characterItemId,oldIntegrity] of before[side]){
@@ -173,7 +222,8 @@ export function simulateBasicPhysicalTimelineHit(
  const structures=diffConstructionWorld(combat.constructions,resolved.constructions);
  if(structures.created.length)
    throw new Error("El golpe físico generó una construcción inesperada.");
- return {eventId:event.id,hpDamage,equipmentWear,positionDelta,physicalStrokes,
-   constructionWear:structures.wear,
+ return {eventId:event.id,hpDamage,equipmentWear,weaponThrows,
+   ...(attack.throwWeapon===true?{resetPhysicalStrokes:[attacker]}:{}),
+   positionDelta,physicalStrokes,constructionWear:structures.wear,
    ...(defenderMana?{manaSpent:{[target]:defenderMana}}:{}),logs};
 }

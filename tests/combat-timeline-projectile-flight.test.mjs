@@ -61,7 +61,9 @@ test("server reserves windup + real flight; no damage or loss at declaration",as
 });
 
 test("an approved throw lands one equipped copy only at impact",async()=>{
- const c=fight(true,1),original=structuredClone(c);
+ const c=fight(true,1);
+ c.physicalPathEnds={PLAYER:{MAIN_HAND:{x:.5,y:.5}}};
+ const original=structuredClone(c);
  const session=prepare(c,attack(true));
  assert.equal(c.actors.PLAYER.equippedWeapon.characterItemId,51);
  const done=await resolveBasicTimelineWindow(c,session,dice);
@@ -71,6 +73,8 @@ test("an approved throw lands one equipped copy only at impact",async()=>{
  assert.equal(done.combat.droppedWeapons[0].weapon.characterItemId,51);
  assert.equal(done.combat.droppedWeapons[0].slot,"MAIN_HAND");
  assert.equal(done.combat.droppedWeapons[0].fieldPosition.x,1);
+ assert.equal(done.combat.physicalPathEnds?.PLAYER?.MAIN_HAND,undefined,
+   "the discarded weapon cannot retain a physical stroke");
  assert.equal(done.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
  assert.deepEqual(c,original);
 });
@@ -131,4 +135,23 @@ test("flight is a tick interval, not extra PA or a new actor request",async()=>{
  assert.equal(done.combat.tick,impactTick);
  assert.equal(done.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
  assert.ok(done.combat.log.some(e=>e.kind==="RESOLVE"&&e.tick===impactTick));
+});
+
+test("a raised shield lasts through projectile flight, not only its declaration",async()=>{
+ const c=fight(false,1);
+ c.actors.NPC.agility=40;
+ c.actors.NPC.offhandWeapon={name:"Escudo",itemId:78,characterItemId:78,
+   mode:"MELEE",attackType:"BLUNT",effectiveRangeMeters:1.5,
+   maximumRangeMeters:1.5,durability:100};
+ let s=newTimelineDeclarationSession(c);
+ s=declareTimelineCommand(s,c,"PLAYER",attack(false),"shot-shield");
+ s=declareTimelineCommand(s,c,"NPC",
+   {kind:"GUARD",weaponSlot:"OFF_HAND"},"guard-shield");
+ const impact=s.clock.events.find(e=>e.id==="shot-shield").endsAtTick;
+ const guard=s.clock.events.find(e=>e.id==="guard-shield").endsAtTick;
+ assert.ok(impact<guard,"the shield must overlap the delayed impact");
+ const next=await resolveBasicTimelineWindow(c,s,dice);
+ assert.equal(next.combat.tick,impact);
+ assert.ok(next.combat.actors.NPC.offhandWeapon.durability<100);
+ assert.equal(next.timeline.clock.actors.NPC.spentApByRound["1"],1);
 });

@@ -55,14 +55,7 @@ export function assertBasicTimelineEligible(combat:CombatState):void{
      !status.id.startsWith("V2_SUMMON:"))||
    (combat.droppedWeapons?.length??0)>0||
    Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length)||
-   Object.values(combat.karmaBoosts??{}).some(x=>Object.keys(x??{}).length>0)||
-   combat.actors.PLAYER.equipmentDerivedReplay||
-   combat.actors.NPC.equipmentDerivedReplay||
-   (["PLAYER","NPC"] as const).some(side=>{
-     const fighter=combat.actors[side];
-     return [fighter.equippedWeapon,fighter.offhandWeapon,
-       ...(fighter.equippedWearables??[])].some(item=>item?.autoRepair);
-   }))
+   Object.values(combat.karmaBoosts??{}).some(x=>Object.keys(x??{}).length>0))
    throw new Error("El encuentro requiere el resolutor temporal completo de efectos.");
 }
 

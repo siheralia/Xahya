@@ -18,6 +18,7 @@ import {fieldPosition} from "./field-plane.ts";
 import {weaponCopies,isolatePhysicalShadow}
  from "./timeline-basic-strike.ts";
 import {diffConstructionWorld} from "./timeline-construction-world.ts";
+import {assertEquipmentOnlyShadowStats} from "./timeline-equipment-replay.ts";
 import type {CombatSummon} from "./summons.ts";
 import type {StatusStat,SummonStatus} from "./summon-status.ts";
 
@@ -91,19 +92,10 @@ function coreEffect(
      if(actual<integrity)equipmentWear.push({
        owner:side,characterItemId,amount:integrity-actual});
    }
-   for(const stat of stats){
-     const previous=before.actors[side][stat];
-     const result=after.actors[side][stat];
-     const prior=oldStatuses.filter(s=>s.target===side&&s.stat===stat)
-       .reduce((n,s)=>n+s.appliedDelta,0);
-     const next=newStatuses.filter(s=>s.target===side&&s.stat===stat)
-       .reduce((n,s)=>n+s.appliedDelta,0);
-     if(previous===result&&prior===next)continue;
-     if(typeof previous!=="number"||typeof result!=="number"||
-       Math.abs(result-(previous+next-prior))>1e-7)
-       throw new Error("El contacto cambió estadísticas sin un estado aprobado.");
-   }
+   // Validate equipment and approved contact-state deltas together
+   // after collecting all actual inventory wear.
  }
+ assertEquipmentOnlyShadowStats(before,after,equipmentWear);
  const structures=diffConstructionWorld(before.constructions,after.constructions);
  if(structures.created.length)
    throw new Error("La acción autónoma creó una construcción imprevista.");

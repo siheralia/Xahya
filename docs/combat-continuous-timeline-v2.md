@@ -175,3 +175,28 @@ Se añade `PREPARE_REACTION COUNTER`, que paga 1 PA por el intervalo y puede eje
 `PREPARE_REACTION DODGE` admite `dodgeDirection:AWAY|TOWARD` como **una sola** tentativa de desplazamiento de hasta medio metro durante una esquiva acertada. Esta combinación reserva 2 PA y una duración, sin teletransportar al jugador antes de resolver el golpe. Los recibos del contraataque y del paso de esquiva persisten en la sesión para evitar duplicaciones entre lotes y reintentos HTTP.
 
 Esta etapa sigue siendo un resolutor puro de V2. Los ataques contra objetos externos, proyectiles arrojados, cargas especiales y acciones de karma continúan cerrados hasta que sus efectos estén portados; ninguna sesión histórica se migra.
+
+
+## V2.14a — recuperación segura de armas caídas (integración pura)
+
+Un encuentro que contiene armas arrojadas en el suelo ya no bloquea
+automáticamente todas las acciones temporales. `MOVE` con dirección
+`WEAPON` reutiliza la búsqueda, distancia, terreno, velocidad y
+restauración de la copia exacta del motor V1 en un cálculo aislado. El
+resolutor V2 comprueba que solamente desapareció **una** copia del
+suelo y que su equipamiento no fue falsificado. Si la acción llega a
+menos de 0,2 m, confirma la recuperación al terminar su intervalo,
+sin PA extra ni teletransporte. Si todavía queda lejos, solo mueve.
+
+`weaponRecoveries` valida dueño, ranura libre, copia real y proximidad
+al punto de llegada del movimiento **de ese evento**. Al confirmar
+un lote simultáneo, se aplica primero el desgaste acumulado y luego
+se recupera la copia resultante del suelo. La simulación no muta el
+estado original y una recuperación inválida rechaza el lote completo.
+El movimiento normal y las habilidades ofensivas no se bloquean
+simplemente por la existencia de armas caídas.
+
+**Límites:** no se habilitan aquí nuevos lanzamientos físicos,
+proyectiles con tiempo de vuelo, ataques dirigidos a objetos externos
+ni reparaciones de inventario persistente. La API y el HUD reales
+siguen en V1; esta entrega es una biblioteca aislada de V2.

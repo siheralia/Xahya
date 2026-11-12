@@ -53,7 +53,6 @@ export function assertBasicTimelineEligible(combat:CombatState):void{
      !(status.id.startsWith("V2_SUPPORT:")&&status.by===status.target)&&
      !(status.id.startsWith("V2_HOSTILE:")&&status.by!==status.target)&&
      !status.id.startsWith("V2_SUMMON:"))||
-   (combat.droppedWeapons?.length??0)>0||
    Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length)||
    Object.values(combat.karmaBoosts??{}).some(x=>Object.keys(x??{}).length>0))
    throw new Error("El encuentro requiere el resolutor temporal completo de efectos.");
@@ -88,20 +87,47 @@ export function simulateBasicTimelineMove(
  if(event.kind!=="MOVE"||command.kind!=="MOVE"||
    event.durationTicks!==turnTicks(combat.actors[event.owner])||event.paidAp!==1)
    throw new Error("El movimiento no coincide con su reserva temporal.");
- if((command.direction??"TOWARD")==="WEAPON")
-   throw new Error("Recuperar armas arrojadas requiere el resolutor temporal de inventario.");
  const from=fieldPosition(combat.actors[event.owner]);
  const moved=applyCombatCommand(shadowForBasicMove(combat,event.owner),
    event.owner,structuredClone(command));
  const to=fieldPosition(moved.actors[event.owner]);
+ // A WEAPON move may restore exactly one original ground copy. Other world
+ // mutations are forbidden; the authoritative batch will repeat the pickup
+ // after applying simultaneous wear, never copy a V1 shadow inventory.
+ const previous=combat.droppedWeapons??[],after=moved.droppedWeapons??[];
+ const recovered=previous.filter(entry=>!after.some(candidate=>
+   candidate.owner===entry.owner&&
+   candidate.weapon.characterItemId===entry.weapon.characterItemId));
+ const pickup=recovered.length===1?recovered[0]:undefined;
+ if(recovered.length>1||JSON.stringify(after)!==
+      JSON.stringify(previous.filter(entry=>entry!==pickup))||
+   pickup&&(command.direction!=="WEAPON"||pickup.owner!==event.owner))
+   throw new Error("El movimiento alteró armas del suelo sin autorización.");
+ const recoveredSlot=pickup?(pickup.slot??"MAIN_HAND"):undefined;
+ if(pickup&&(!Number.isSafeInteger(pickup.weapon.characterItemId)||
+   pickup.weapon.characterItemId<1||
+   combat.actors[event.owner][recoveredSlot==="MAIN_HAND"?
+     "equippedWeapon":"offhandWeapon"]))
+   throw new Error("La recuperación no corresponde a una copia equipada válida.");
+ for(const side of ["PLAYER","NPC"] as const){
+   for(const slot of ["MAIN_HAND","OFF_HAND"] as const){
+     const key=slot==="MAIN_HAND"?"equippedWeapon":"offhandWeapon";
+     const expected=pickup&&side===event.owner&&slot===recoveredSlot
+       ?pickup.weapon:combat.actors[side][key];
+     if(JSON.stringify(moved.actors[side][key])!==JSON.stringify(expected))
+       throw new Error("El movimiento alteró equipamiento sin autorización.");
+   }
+ }
  if(moved.actors[event.owner].hp!==combat.actors[event.owner].hp||
-   moved.actors[other(event.owner)].hp!==combat.actors[other(event.owner)].hp||
-   JSON.stringify(moved.droppedWeapons??[])!==JSON.stringify(combat.droppedWeapons??[]))
+   moved.actors[other(event.owner)].hp!==combat.actors[other(event.owner)].hp)
    throw new Error("El movimiento contiene efectos secundarios no permitidos.");
  const delta={x:to.x-from.x,y:to.y-from.y};
  return {
    eventId:event.id,
    positionDelta:{[event.owner]:delta},
+   ...(pickup?{weaponRecoveries:[{owner:event.owner,
+     characterItemId:pickup.weapon.characterItemId,
+     slot:recoveredSlot!}]}:{}),
    ...(delta.x!==0||delta.y!==0?{resetPhysicalStrokes:[event.owner]}:{}),
    logs:moved.log.filter(entry=>entry.kind==="MOVE")
      .map(entry=>({...entry,tick:event.endsAtTick})),

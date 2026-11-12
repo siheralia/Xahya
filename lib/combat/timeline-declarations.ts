@@ -39,6 +39,8 @@ export type TimelineDeclarationSession={
   receipts:Record<string,{owner:Side;signature:string}>;
   /** Once-per-posture spell-field mana receipts; persists between batches. */
   chargedReactionIds?:string[];
+  usedCounterReactionIds?:string[];
+  usedDodgeMovementIds?:string[];
 };
 
 export type PreparedTimelineCommit={
@@ -56,7 +58,8 @@ const stableJson=(value:unknown):string=>{
 const validSide=(side:Side)=>side==="PLAYER"||side==="NPC";
 
 export function newTimelineDeclarationSession(snapshot:CombatState):TimelineDeclarationSession{
- return {version:2,clock:newTimelineForCombat(snapshot),declarations:{},receipts:{},chargedReactionIds:[]};
+ return {version:2,clock:newTimelineForCombat(snapshot),declarations:{},receipts:{},
+   chargedReactionIds:[],usedCounterReactionIds:[],usedDodgeMovementIds:[]};
 }
 
 /** A locked server route must supply a unique event ID (normally derived

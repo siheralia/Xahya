@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -24,7 +24,10 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const email = typeof body?.email === "string" ? body.email.trim() : "";
+  const client = await clerkClient();
+  const clerkUser = await client.users.getUser(clerkId);
+  const primaryEmail = clerkUser.emailAddresses.find((entry) => entry.id === clerkUser.primaryEmailAddressId);
+  const email = primaryEmail?.emailAddress.trim() ?? "";
   const name = typeof body?.name === "string" ? body.name.trim() : null;
 
   if (!email) {
@@ -44,6 +47,14 @@ export async function POST(request: Request) {
 
   if (existing) {
     return NextResponse.json(existing);
+  }
+
+  const conflictingEmail = allUsers.find(
+    (user) => String(user.email).trim().toLowerCase() === normalizedEmail && user.clerkId !== clerkId,
+  );
+  if (conflictingEmail) {
+    console.error("USER REGISTRATION: email identity conflict", { clerkId, existingUserId: conflictingEmail.id });
+    return NextResponse.json({ error: "Este correo ya está asociado a otra cuenta. Contacta a soporte." }, { status: 409 });
   }
 
   const user = await db.orm.public.User.create({

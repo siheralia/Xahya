@@ -48,6 +48,14 @@ export async function POST(request: NextRequest) {
       return new Response("Blocked email", { status: 200 });
     }
 
+    const conflictingEmail = users.find(
+      (user) => String(user.email).trim().toLowerCase() === normalizedEmail && user.clerkId !== clerkUser.id,
+    );
+    if (conflictingEmail) {
+      console.error("CLERK WEBHOOK: email identity conflict", { clerkUserId: clerkUser.id, existingUserId: conflictingEmail.id });
+      return new Response("Email already associated with another identity", { status: 409 });
+    }
+
     await db.orm.public.User.create({
       clerkId: clerkUser.id,
       email: primaryEmail.email_address,

@@ -223,6 +223,7 @@ export function simulateBasicPhysicalTimelineHit(
  if(structures.created.length)
    throw new Error("El golpe físico generó una construcción inesperada.");
  return {eventId:event.id,hpDamage,equipmentWear,weaponThrows,
+   ...(attack.throwWeapon===true?{resetPhysicalStrokes:[attacker]}:{}),
    positionDelta,physicalStrokes,constructionWear:structures.wear,
    ...(defenderMana?{manaSpent:{[target]:defenderMana}}:{}),logs};
 }

@@ -80,6 +80,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
     }
     const updatedResources = await tx.orm.public.CharacterResource.where({ id: resources.id }).update({ levelUpPoints: availablePoints - spent });
+    await recordAuditEvent({
+      actorUserId: context.user.id,
+      action: "LEVEL_UP",
+      entityType: "CHARACTER",
+      entityId: context.characterId,
+      characterId: context.characterId,
+      details: { spent, before: currentValues, after: nextValues, customBefore: currentCustom.values, customAfter: nextCustom },
+    }, tx);
     return { updatedStats, updatedResources, spent, currentValues, nextValues, currentCustom: currentCustom.values, nextCustom };
   }).catch((error) => {
     if (error instanceof Error) {
@@ -91,15 +99,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   });
 
   if ("error" in result) return NextResponse.json(result, { status: 400 });
-
-  await recordAuditEvent({
-    actorUserId: context.user.id,
-    action: "LEVEL_UP",
-    entityType: "CHARACTER",
-    entityId: context.characterId,
-    characterId: context.characterId,
-    details: { spent: result.spent, before: result.currentValues, after: result.nextValues, customBefore: result.currentCustom, customAfter: result.nextCustom },
-  });
 
   return NextResponse.json(result);
 }

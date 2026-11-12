@@ -112,6 +112,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
       const Session=(tx.orm.public as any).CombatSession;
       const fresh=await Session.where({id:a.encounterId}).first();
       const state=(fresh?.lastAction as any)?.combatV1 as CombatState|undefined;
+      if((fresh?.lastAction as any)?.combatTimelineV2?.version===2)
+        throw new Error("Este encuentro utiliza el reloj V2. Usa la interfaz temporal.");
       if(!state||state.version!==1)
         throw new Error("Este encuentro no admite estas acciones.");
       // Inside the session row lock: distinguish retries from new actions

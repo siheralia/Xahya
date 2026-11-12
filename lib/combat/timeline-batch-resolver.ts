@@ -400,7 +400,7 @@ export function commitAuthorizedTimelineBatch(
      const from=fieldPosition(fighter);
      const to={x:from.x+move.x,y:from.y+move.y};
      const target=candidates[0]?.fieldPosition??
-       {x:candidates[0]?.positionMeters,y:from.y};
+       {x:candidates[0]?.positionMeters??NaN,y:from.y};
      if(fighter[key]||candidates.length!==1||
        !validPosition(move)||!validPosition(target)||
        !validPosition(to)||Math.hypot(target.x-to.x,target.y-to.y)>=0.2)

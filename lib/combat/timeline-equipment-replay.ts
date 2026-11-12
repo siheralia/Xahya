@@ -40,7 +40,7 @@ export function applyTimelineEquipmentWear(
      ...(state.droppedWeapons??[]).filter(x=>x.owner===entry.owner)
        .map(x=>x.weapon)];
    const item=parts.find(x=>x?.characterItemId===entry.characterItemId);
-   if(!item)throw new Error("El desgaste apunta a un objeto ajeno al equipamiento.");
+   if(!item)throw new Error("El desgaste apunta a una copia ajena al equipamiento.");
    const previous=item.durability??100;
    item.durability=Math.max(0,previous-entry.amount);
    if(item===fighter.equippedWeapon)fighter.weaponIntegrity=item.durability;
@@ -69,9 +69,11 @@ export function assertEquipmentOnlyShadowStats(
    const next=(stat:string)=>current.filter(s=>s.target===side&&s.stat===stat)
      .reduce((n,s)=>n+s.appliedDelta,0);
    for(const key of TIMELINE_EQUIPMENT_STATS){
-     const expected=predicted.actors[side][key]+next(key)-old(key);
-     const actual=after.actors[side][key];
-     if(!Number.isFinite(actual)||Math.abs(expected-actual)>1e-7)
+     const raw=predicted.actors[side][key],actual=after.actors[side][key];
+     if(raw===undefined&&actual===undefined)continue;
+     if(typeof raw!=="number"||typeof actual!=="number"||
+       !Number.isFinite(raw)||!Number.isFinite(actual)||
+       Math.abs(raw+next(key)-old(key)-actual)>1e-7)
        throw new Error("El golpe alteró atributos fuera de su equipo y estados autorizados.");
    }
    if(predicted.mana?.[side]?.max!==after.mana?.[side]?.max)

@@ -19,6 +19,9 @@ import {characterCombatConsumables,npcStartingConsumables} from "@/lib/items/com
 import {compileWeaponAutoRepair} from "@/lib/items/auto-repair";
 import {snapshotEquippedWearables} from "@/lib/items/combat-wearables";
 import {snapshotApprovedEncounterPassives} from "@/lib/combat/server-approved-micro";
+import {newTimelineDeclarationSession} from "@/lib/combat/timeline-declarations";
+import {assertTimelinePilotCompatible,timelinePilotEnabled}
+ from "@/lib/combat/timeline-pilot-persistence";
 
 async function snapshotEquippedWeapons(characterId:number):Promise<{
   main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
@@ -108,7 +111,8 @@ export async function GET() {
  const own=all.filter(c=>Number(c.userId)===Number(user.id));
  const chars=canApprovePvP?all:own;
  const characters=chars.map(c=>({id:Number(c.id),name:String(c.name),mine:Number(c.userId)===Number(user.id)}));
- return NextResponse.json({characters,canApprovePvP});
+ return NextResponse.json({characters,canApprovePvP,
+   canUseTimelineV2:canApprovePvP&&timelinePilotEnabled()});
 }
 function buildFighter(name:string, characterId:number|null, base:Record<string,number>,
  derived:Record<string,number>, weaponType:unknown="CUT", defenseType:unknown="SOLID",
@@ -161,6 +165,12 @@ export async function POST(req:Request) {
   player.heightMeters=Math.max(0.3,numeric((character as any).height,170)/100);
   player.unarmedReachMeters=Math.round(player.heightMeters*0.45*100)/100;
   const opponentId=Number(body?.opponentCharacterId??0);
+  const useTimelineV2=body?.combatTimelineVersion===2;
+  if(useTimelineV2&&(!gm||!timelinePilotEnabled()||
+    !Number.isSafeInteger(opponentId)||opponentId<1))
+    return NextResponse.json({error:
+      "La prueba del reloj V2 requiere habilitación y dos personajes autorizados."},
+      {status:403});
   let opponent:CombatFighter;
   let trainingDifficulty:ReturnType<typeof parseTrainingDifficulty>="INTERMEDIATE";
   if(!(Number.isSafeInteger(opponentId)&&opponentId>0)) {
@@ -337,7 +347,12 @@ export async function POST(req:Request) {
   // records before the first NPC action. Neither request bodies nor combat
   // commands can inject definitions into this server-only snapshot.
   initial=await snapshotApprovedEncounterPassives(initial);
-  const state=progressTrainingNpc(initial,dice,
+  if(useTimelineV2){
+    try{assertTimelinePilotCompatible(initial);}
+    catch(e){return NextResponse.json({error:e instanceof Error?e.message:
+      "El encuentro no es compatible con la prueba temporal."},{status:400});}
+  }
+  const state=useTimelineV2?initial:progressTrainingNpc(initial,dice,
     ()=>randomInt(1_000_000)/1_000_000);
   const Session=(db.orm.public as any).CombatSession;
   const session=await Session.create({
@@ -350,9 +365,11 @@ export async function POST(req:Request) {
     }: {})},
     currentTick:state.tick,turn:state.round,
     activeActor:state.pending?.against??(canAct(state,"PLAYER")?"PLAYER":"NPC"),
-    status:state.status,lastAction:{combatV1:state},
+    status:state.status,lastAction:{combatV1:state,
+      ...(useTimelineV2?{combatTimelineV2:newTimelineDeclarationSession(state)}:{})},
     playerNextActionTick:state.actors.PLAYER.spentTicks,
     npcNextActionTick:state.actors.NPC.spentTicks,
   });
-  return NextResponse.json({id:Number(session.id),state:combatClientView(state)},{status:201});
+  return NextResponse.json({id:Number(session.id),state:combatClientView(state),
+    timelineV2:useTimelineV2},{status:201});
 }

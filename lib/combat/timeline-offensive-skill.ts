@@ -41,7 +41,7 @@ const numericStats=[
  "critical","luck","race","maxHp",
 ] as const;
 const allowedKeys=new Set(["kind","skillId","requestId","trajectory",
- "areaCenter","areaAngleDegrees","attackSource"]);
+ "areaCenter","areaAngleDegrees","attackSource","planarMove","movementOrder"]);
 
 export function simulateApprovedTimelineOffense(
  combat:CombatState,clock:ContinuousCombatTimeline,event:TimelineEvent,
@@ -54,13 +54,14 @@ export function simulateApprovedTimelineOffense(
    !validDice(attackDice)||!validDice(defenseDice))
    throw new Error("La habilidad ofensiva no ha llegado a su impacto temporal.");
  if(command.kind!=="CAST_SKILL"||!plan||command.skillId!==plan.id||
-   plan.category!=="OFFENSE"||!plan.attackType||event.paidAp!==1||
+   plan.category!=="OFFENSE"||!plan.attackType||
+   event.paidAp!==(command.planarMove!==undefined?2:1)||
    !Number.isSafeInteger(plan.cost)||plan.cost<0||
    !/^[a-zA-Z0-9:_-]{12,100}$/.test(command.requestId)||
    Object.keys(command).some(key=>!allowedKeys.has(key))||
-   command.planarMove!==undefined||command.targetSummonId!==undefined||
+   command.targetSummonId!==undefined||
    command.targetConstructionId!==undefined||
-   command.movementOrder!==undefined||
+   command.movementOrder!==undefined&&command.planarMove===undefined||
    plan.construction||plan.summons?.length||plan.fusion||plan.chargeBuff)
    throw new Error("La habilidad requiere un resolutor ofensivo avanzado.");
  if( (combat.droppedWeapons?.length??0)>0||
@@ -85,6 +86,8 @@ export function simulateApprovedTimelineOffense(
    trajectory:command.trajectory,areaCenter:command.areaCenter,
    areaAngleDegrees:command.areaAngleDegrees,
    attackSource:command.attackSource,
+   planarMove:command.planarMove,
+   movementOrder:command.movementOrder,
  },attackDice);
  if(!launched.pending||launched.pending.against!==target)
    throw new Error("No se pudo iniciar el impacto ofensivo aprobado.");
@@ -109,7 +112,10 @@ export function simulateApprovedTimelineOffense(
    throw new Error("El coste de la habilidad no coincide con el plan aprobado.");
  const defenderCost=(combat.mana?.[target]?.current??NaN)-
    (resolved.mana?.[target]?.current??NaN);
- if(defenderCost!==(chosenDefense.defense==="MAGIC_FIELD"?1:0))
+ if(chosenDefense.defense==="COUNTER"){
+   if(!Number.isSafeInteger(defenderCost)||defenderCost<0||defenderCost>1)
+     throw new Error("El contraataque gastó recursos inesperados.");
+ }else if(defenderCost!==(chosenDefense.defense==="MAGIC_FIELD"?1:0))
    throw new Error("El impacto modificó recursos del rival sin autorización.");
  const nextCooldown=resolved.skillCooldowns?.[owner]?.[String(plan.id)];
  if(nextCooldown===undefined||!Number.isSafeInteger(nextCooldown))
@@ -171,7 +177,8 @@ export function simulateApprovedTimelineOffense(
  return {
    eventId:event.id,hpDamage,equipmentWear,positionDelta,
    constructionWear:structures.wear,physicalStrokes,logs,
-   manaSpent:{[owner]:actualCost},hostileStatuses,
+   manaSpent:{[owner]:actualCost,...(chosenDefense.defense==="COUNTER"&&defenderCost?
+     {[target]:defenderCost}:{})},hostileStatuses,
    skillCooldowns:[{owner,skillId:plan.id,nextAvailableRound:nextCooldown}],
  };
 }

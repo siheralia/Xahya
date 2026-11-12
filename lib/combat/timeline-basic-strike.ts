@@ -82,7 +82,7 @@ export function simulateBasicPhysicalTimelineHit(
    !validDice(attackDice)||!validDice(defenseDice))
    throw new Error("El impacto V2 no está autorizado para resolverse.");
  if(attack.kind!=="ATTACK"||attack.usesMagic||attack.rangedPhysical||
-   attack.throwWeapon||attack.planarMove||attack.movementOrder||
+   attack.throwWeapon||
    attack.targetSummonId||attack.targetConstructionId||
    attack.areaCenter||attack.areaAngleDegrees!==undefined||
    attack.projectileHeights)
@@ -100,8 +100,12 @@ export function simulateBasicPhysicalTimelineHit(
  const source=attack.attackSource??defaultAttackSource(combat.actors[attacker]);
  const selected=weaponForSource(combat.actors[attacker],source);
  const attackTicks=turnTicks(combat.actors[attacker],selected?attack.attackType:undefined);
- // The approved scheduler, not the browser, defines duration and PA.
- if(event.durationTicks!==attackTicks||event.paidAp!==1)
+ const composite=attack.planarMove!==undefined;
+ const expected=composite?Math.max(turnTicks(combat.actors[attacker]),attackTicks):attackTicks;
+ if(attack.movementOrder!==undefined&&!composite)
+   throw new Error("El desplazamiento necesita un vector aprobado.");
+ // One movement+strike spends two AP but a SINGLE temporal interval.
+ if(event.durationTicks!==expected||event.paidAp!==(composite?2:1))
    throw new Error("La reserva de ataque no coincide con el coste físico aprobado.");
  const before={
    PLAYER:weaponCopies(combat,"PLAYER"),NPC:weaponCopies(combat,"NPC"),
@@ -147,13 +151,29 @@ export function simulateBasicPhysicalTimelineHit(
  // atomic commit replay them ONCE after all concurrent strikes.
  assertEquipmentOnlyShadowStats(combat,resolved,equipmentWear);
  const ending=resolved.physicalPathEnds?.[attacker]?.[source];
- const physicalStrokes=ending?[{owner:attacker,source,end:{...ending}}]:[];
+ const physicalStrokes:NonNullable<AuthorizedTimelineEffect["physicalStrokes"]>=
+   ending?[{owner:attacker,source,end:{...ending}}]:[];
+ if(preparedDefense.defense==="COUNTER"){
+   for(const [sourceName,endpoint] of Object.entries(
+     resolved.physicalPathEnds?.[target]??{})){
+     if(!endpoint)continue;
+     if(["MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT","KICK"].includes(sourceName))
+       physicalStrokes.push({owner:target,
+         source:sourceName as typeof source,end:{...endpoint}});
+   }
+ }
  const logs=resolved.log.filter(x=>x.kind!=="ROUND"&&x.kind!=="END")
    .map(entry=>({...entry,tick:event.endsAtTick,
      summary:entry.summary.replace(/; esperando reacción$/,"")}));
+ const defenderMana=(combat.mana?.[target]?.current??0)-
+   (resolved.mana?.[target]?.current??0);
+ if(!Number.isSafeInteger(defenderMana)||defenderMana<0||
+   defenderMana>(preparedDefense.defense==="COUNTER"?1:0))
+   throw new Error("El contraataque gastó maná no autorizado.");
  const structures=diffConstructionWorld(combat.constructions,resolved.constructions);
  if(structures.created.length)
    throw new Error("El golpe físico generó una construcción inesperada.");
  return {eventId:event.id,hpDamage,equipmentWear,positionDelta,physicalStrokes,
-   constructionWear:structures.wear,logs};
+   constructionWear:structures.wear,
+   ...(defenderMana?{manaSpent:{[target]:defenderMana}}:{}),logs};
 }

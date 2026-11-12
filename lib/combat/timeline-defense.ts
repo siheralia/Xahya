@@ -40,11 +40,15 @@ export function timelineDefenseForImpact(
  if((incoming.usesMagic||incoming.hybrid)&&
    !["DODGE","ENDURE","MAGIC_FIELD"].includes(defense))return none;
  if(!incoming.usesMagic&&!incoming.hybrid&&defense==="MAGIC_FIELD")return none;
- if(incoming.isArea&&defense==="DEFLECT")return none;
+ if(incoming.isArea&&["DEFLECT","COUNTER"].includes(defense))return none;
  if(defense==="DODGE")
    return {kind:"DEFEND",defense:"DODGE",
-     ...(reaction.predictedCenter?{predictedCenter:{...reaction.predictedCenter}}:{})};
+     ...(reaction.predictedCenter?{predictedCenter:{...reaction.predictedCenter}}:{}),
+     ...(reaction.dodgeDirection?{dodgeDirection:reaction.dodgeDirection}:{})};
  if(defense==="DEFLECT")
    return {kind:"DEFEND",defense:"DEFLECT",defenseAngle:reaction.defenseAngle};
+ if(defense==="COUNTER")
+   return {kind:"DEFEND",defense:"COUNTER",
+     counterMagic:reaction.counterMagic===true};
  return {kind:"DEFEND",defense};
 }

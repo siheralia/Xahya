@@ -10,7 +10,7 @@
  * It is a PURE integration test target; the live API must still authorize
  * every action, lock the session and persist both objects together.
  */
-import {applyCombatCommand,turnTicks,type CombatCommand,type CombatState,
+import {applyCombatCommand,basicCounterAttack,turnTicks,type CombatCommand,type CombatState,
   type Side} from "./turn-engine.ts";
 import {fieldPosition} from "./field-plane.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
@@ -119,11 +119,13 @@ export function simulateBasicTimelinePassiveAction(
  assertBasicTimelineEligible(combat);
  const fighter=combat.actors[event.owner];
  if(command.kind==="PREPARE_REACTION"&&event.kind==="REACT"){
-   if(event.paidAp!==1||
+   const requiresTwoPa=command.defense==="DODGE"&&
+     command.dodgeDirection!==undefined;
+   if(event.paidAp!==(requiresTwoPa?2:1)||
      event.durationTicks!==turnTicks(fighter))
      throw new Error("La reacción no coincide con la duración temporal aprobada.");
    const defense=command.defense;
-   if(!["DODGE","ENDURE","REPEL","DEFLECT","MAGIC_FIELD"].includes(defense))
+   if(!["DODGE","ENDURE","REPEL","DEFLECT","MAGIC_FIELD","COUNTER"].includes(defense))
      throw new Error("Reacción temporal no permitida.");
    if(defense==="MAGIC_FIELD"&&(combat.mana?.[event.owner]?.current??0)<1)
      throw new Error("No hay maná para mantener el campo mágico.");
@@ -134,7 +136,8 @@ export function simulateBasicTimelinePassiveAction(
        manaCost:defense==="MAGIC_FIELD"?1:undefined,
        summary:fighter.name+" mantuvo una reacción de "+
          ({DODGE:"esquiva",ENDURE:"resistencia",REPEL:"repulsión",
-           DEFLECT:"desvío",MAGIC_FIELD:"campo mágico"} as const)[defense]+
+           DEFLECT:"desvío",MAGIC_FIELD:"campo mágico",
+           COUNTER:"contraataque preparado"} as const)[defense]+
          " hasta el tick "+event.endsAtTick}],
    };
  }
@@ -174,9 +177,12 @@ export async function resolveBasicTimelineWindow(
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession}|null>{
  assertBasicTimelineEligible(combat);
  const charged=new Set(session.chargedReactionIds??[]);
+ const countered=new Set(session.usedCounterReactionIds??[]);
+ const dodgedMovement=new Set(session.usedDodgeMovementIds??[]);
  const defend=(
    event:TimelineEvent,batchState:ContinuousCombatTimeline,
    incoming:{usesMagic:boolean;isArea:boolean;hybrid?:boolean},
+   snapshot:CombatState,
  )=>{
    const rival=other(event.owner);
    const reaction=preparedTimelineReactionAt(batchState,rival,
@@ -184,8 +190,29 @@ export async function resolveBasicTimelineWindow(
        const saved=session.declarations[id];
        return saved?.owner===owner?saved.command:undefined;
      });
-   const posture=timelineDefenseForImpact(reaction,incoming);
+   let posture=timelineDefenseForImpact(reaction,incoming);
    const actualEvent=activeTimelineReactionAt(batchState,rival,event.endsAtTick);
+   if(posture.defense==="COUNTER"){
+     // An autonomous creature/mirror is not a legal V1 counter target.
+     // One paid posture grants at most one retaliation, even against two
+     // strikes arriving at the same tick or in separate world batches.
+     const basic=basicCounterAttack(snapshot,rival,
+       posture.counterMagic===true);
+     if(!actualEvent||countered.has(actualEvent.id)||
+        event.kind==="AUTO_SUMMON"||event.kind==="AUTO_MIRROR"||
+        !basic||
+        basic.attackSource==="MAIN_HAND"&&
+          snapshot.actors[rival].equippedWeapon?.durability===0||
+        basic.attackSource==="OFF_HAND"&&
+          snapshot.actors[rival].offhandWeapon?.durability===0)
+       posture={kind:"DEFEND",defense:"NONE"};
+     else countered.add(actualEvent.id);
+   }
+   if(posture.defense==="DODGE"&&posture.dodgeDirection&&actualEvent){
+     if(dodgedMovement.has(actualEvent.id)){
+       posture={...posture,dodgeDirection:undefined};
+     }else dodgedMovement.add(actualEvent.id);
+   }
    return {posture,rival,fieldId:posture.defense==="MAGIC_FIELD"?
      actualEvent?.id:undefined};
  };
@@ -206,7 +233,7 @@ export async function resolveBasicTimelineWindow(
      if(event.kind==="ATTACK"&&command.kind==="ATTACK"){
        const strike=makeDice(),defense=makeDice();
        const reaction=defend(event,batch.state,{usesMagic:command.usesMagic===true,
-         isArea:command.usesMagic===true});
+         isArea:command.usesMagic===true},state);
        const effect=command.usesMagic
          ?simulateBasicMagicTimelineHit(state,batch.state,event,command,
              strike,defense,reaction.posture)
@@ -219,7 +246,7 @@ export async function resolveBasicTimelineWindow(
        if(!plan)throw new Error("La habilidad no tiene un plan revisado en su declaración.");
        if(plan.category==="CONSTRUCTION"){
          const strike=makeDice(),defense=makeDice();
-         const reaction=defend(event,batch.state,{usesMagic:Boolean(plan.mirror),isArea:false});
+         const reaction=defend(event,batch.state,{usesMagic:Boolean(plan.mirror),isArea:false},state);
          const effect=simulateApprovedTimelineConstruction(state,batch.state,event,
            command,plan,strike,defense,reaction.posture);
          return collect(effect,reaction);
@@ -230,7 +257,7 @@ export async function resolveBasicTimelineWindow(
            usesMagic:plan.usesMagic===true,
            hybrid:Boolean(plan.approvedHybridContact),
            isArea:Boolean(plan.attackArea),
-         });
+         },state);
          const effect=simulateApprovedTimelineOffense(state,batch.state,event,
            command,plan,strike,defense,reaction.posture);
          return collect(effect,reaction);
@@ -263,7 +290,7 @@ export async function resolveBasicTimelineWindow(
      const state=snapshot as CombatState;
      const dice=makeDice(),defenseDice=makeDice();
      if(event.kind==="AUTO_SUMMON"){
-       const reaction=defend(event,batch.state,{usesMagic:false,isArea:false});
+       const reaction=defend(event,batch.state,{usesMagic:false,isArea:false},state);
        const slot=activeBlockSlot(state,batch.state,other(event.owner),
          event.endsAtTick);
        const posture=slot?{kind:"DEFEND" as const,defense:"BLOCK" as const,
@@ -273,7 +300,7 @@ export async function resolveBasicTimelineWindow(
        return collect(effect,reaction);
      }
      if(event.kind==="AUTO_MIRROR"){
-       const reaction=defend(event,batch.state,{usesMagic:true,isArea:false});
+       const reaction=defend(event,batch.state,{usesMagic:true,isArea:false},state);
        const effect=simulateAutonomousTimelineMirror(state,batch.state,event,
          dice,defenseDice,reaction.posture);
        // A magic field charges only if the mirror actually emitted a ray.
@@ -282,6 +309,10 @@ export async function resolveBasicTimelineWindow(
      }
      throw new Error("Acontecimiento autónomo desconocido.");
    });
- if(finish)finish.timeline.chargedReactionIds=[...charged];
+ if(finish){
+   finish.timeline.chargedReactionIds=[...charged];
+   finish.timeline.usedCounterReactionIds=[...countered];
+   finish.timeline.usedDodgeMovementIds=[...dodgedMovement];
+ }
  return finish;
 }

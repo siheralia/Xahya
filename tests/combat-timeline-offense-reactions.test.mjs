@@ -236,17 +236,18 @@ test("invalid reaction angles, forged predictions and nonmagical fields fail clo
  assert.equal(s.clock.events.length,0);
 });
 
-test("unsupported external target or composite movement is not smuggled via skill",async()=>{
+test("unsupported external targets or forged composite movement are rejected",async()=>{
  const c=combat(),p=physical(),original=structuredClone(c);
  for(const extra of [
-   {planarMove:{x:1,y:0}},
+   {planarMove:{x:4,y:0}},
    {targetSummonId:"forged-creature"},
    {targetConstructionId:"forged-mirror"},
  ]){
-   let s=cast(newTimelineDeclarationSession(c),c,p,"PLAYER",extra);
-   s=wait(s,c,"NPC");
-   await assert.rejects(()=>resolveBasicTimelineWindow(c,s,dice),
-     /resolutor ofensivo avanzado/);
+   await assert.rejects(async()=>{
+     let s=cast(newTimelineDeclarationSession(c),c,p,"PLAYER",extra);
+     s=wait(s,c,"NPC");
+     await resolveBasicTimelineWindow(c,s,dice);
+   },/desplazamiento|resolutor ofensivo avanzado/);
    assert.deepEqual(c,original);
  }
 });

@@ -164,3 +164,14 @@ El desgaste de equipamiento de golpes simultáneos se suma sobre la misma integr
 Al cruzar ticks 100, 200 y siguientes, `prepareTimelineImpactSnapshot` ejecuta los mismos contratos oficiales de mantenimiento, vencimiento de bonos, orden de ronda y autorreparación de objetos del motor V1. Las fórmulas modulares de reparación leyeron solo el objeto equipado y las estadísticas autorizadas; el maná se paga solo una vez por activación y se registra la copia exacta en `itemRepairsThisRound`. Una fórmula incompatible desactiva exclusivamente la autorreparación de esa copia. Todos los impactos que terminan en ese mismo tick ven **el estado ya reparado**; la resolución descartada o fallida nunca debita existencias ni maná del encuentro persistente.
 
 Esta subfase es de librería y de pruebas. Los combates históricos, API e inventario persistente aún funcionan con V1; no se ha activado V2 en producción.
+
+
+## V2.13a — movimientos combinados y reacciones ofensivas preparadas
+
+Los ataques básicos físicos, mágicos y técnicas ofensivas aprobadas pueden reservar `planarMove` y `movementOrder` (`BEFORE`/`AFTER`). El servidor valida el vector de hasta 1 m y el orden antes de cobrar **2 PA**, pero reserva **una sola duración de reloj** calculada como el máximo entre los ticks de movimiento y golpe. La copia temporal del motor V1 determina las colisiones, el alcance y la posición antes o después del ataque; solo su delta final entra en el lote V2. Un golpe simultáneo sigue aplicándose contra el mismo estado previo de los dos combatientes.
+
+Se añade `PREPARE_REACTION COUNTER`, que paga 1 PA por el intervalo y puede ejecutar **un solo contraataque** contra un ataque físico compatible y alcanzable. El servidor calcula ese ataque básico, su maná (si se optó por magia, o fue necesario un contrahechizo) y la durabilidad real, sin otra declaración ni un segundo cobro de PA. Un segundo golpe dentro de la misma postura ya no permite volver a contraatacar. Los ataques de invocación y espejos no habilitan contraataques sin permiso; las áreas mágicas tampoco.
+
+`PREPARE_REACTION DODGE` admite `dodgeDirection:AWAY|TOWARD` como **una sola** tentativa de desplazamiento de hasta medio metro durante una esquiva acertada. Esta combinación reserva 2 PA y una duración, sin teletransportar al jugador antes de resolver el golpe. Los recibos del contraataque y del paso de esquiva persisten en la sesión para evitar duplicaciones entre lotes y reintentos HTTP.
+
+Esta etapa sigue siendo un resolutor puro de V2. Los ataques contra objetos externos, proyectiles arrojados, cargas especiales y acciones de karma continúan cerrados hasta que sus efectos estén portados; ninguna sesión histórica se migra.

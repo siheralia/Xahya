@@ -185,7 +185,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
      return {combat,timeline:declared};
    }
    let mechanics=fresh.mechanicsState;
-   let skillCatalog:unknown[]|undefined,activeSkills:number[]|undefined;
+   let skillCatalog:any[]|undefined,activeSkills:number[]|undefined;
    const advanced=await runTimelinePilotWindow(combat,declared,roll,
      async(before,after)=>{
        const delta=timelinePersistenceDelta(before,after);

@@ -22,6 +22,9 @@ import {applyWeaponSelfRepairAtRoundStart} from "./turn-engine.ts";
 import {applyTimelineEquipmentWear} from "./timeline-equipment-replay.ts";
 import type {StatusStat} from "./summon-status.ts";
 import type {TimelineBatch,TimelineEvent} from "./action-timeline.ts";
+import {physicalProjectileFlightTicks,type TimelineFlyingProjectile}
+ from "./timeline-projectile-flight.ts";
+import {turnTicks,weaponForSource} from "./turn-engine.ts";
 
 type CopyWear={owner:Side;characterItemId:number;amount:number};
 export type AuthorizedTimelineEffect={
@@ -31,6 +34,10 @@ export type AuthorizedTimelineEffect={
   /** Heal values are resolved at the same instant as damage. */
   hpHealing?:Partial<Record<Side,number>>;
   equipmentWear?:CopyWear[];
+  /** Launch stores an independent frozen projectile, no immediate damage. */
+  projectilesLaunched?:TimelineFlyingProjectile[];
+  /** Impact consumes one launched projectile, with optional wear on its copy. */
+  projectilesImpacted?:Array<{id:string;owner:Side;weaponWear:number}>;
   /** A thrown equipped copy lands at impact, preserving approved wear. */
   weaponThrows?:Array<{owner:Side;characterItemId:number;
     slot:"MAIN_HAND"|"OFF_HAND";landing:Point}>;
@@ -164,9 +171,12 @@ export function commitAuthorizedTimelineBatch(
    batch.events.some(e=>e.endsAtTick!==batch.atTick||e.status!=="RESOLVED"))
    throw new Error("Cada evento temporal debe tener exactamente un resultado autorizado.");
  const found=new Set<string>();
+ const snapshot=prepareTimelineImpactSnapshot(original,batch);
  const damages:Record<Side,number>={PLAYER:0,NPC:0};
  const healing:Record<Side,number>={PLAYER:0,NPC:0};
  const wear=new Map<string,{owner:Side;characterItemId:number;amount:number}>();
+ const launches:TimelineFlyingProjectile[]=[];
+ const impacts:NonNullable<AuthorizedTimelineEffect["projectilesImpacted"]>=[];
  const throws:NonNullable<AuthorizedTimelineEffect["weaponThrows"]>=[];
  const recoveries:NonNullable<AuthorizedTimelineEffect["weaponRecoveries"]>=[];
  const constructionWear=new Map<string,{id:string;amount:number;hitCountDelta:number}>();
@@ -411,6 +421,56 @@ export function commitAuthorizedTimelineBatch(
        throw new Error("El arma no está disponible en el punto de recuperación.");
      recoveries.push(recovery);
    }
+   for(const launch of effect.projectilesLaunched??[]){
+     const event=batch.events.find(e=>e.id===effect.eventId);
+     if(!launch||event?.kind!=="ATTACK"||
+       event.id!==launch.id||event.owner!==launch.owner||
+       !validSide(launch.owner)||event.paidAp!==1||
+       !Number.isSafeInteger(launch.launchTick)||
+       launch.launchTick!==batch.atTick||
+       !Number.isSafeInteger(launch.impactTick)||
+       launch.impactTick<=batch.atTick||
+       launch.impactTick!==batch.atTick+event.projectileFlightTicks!||
+       launch.flightTicks!==event.projectileFlightTicks||
+       JSON.stringify(launch.origin)!==JSON.stringify(event.projectileOrigin)||
+       JSON.stringify(launch.target)!==JSON.stringify(event.projectileTarget)||
+       !launch.command||launch.command.kind!=="ATTACK"||
+       launch.command.usesMagic===true||
+       !launch.shooter||launches.some(p=>p.id===launch.id)||
+       (snapshot.timelineProjectiles??[]).some(p=>p.id===launch.id))
+       throw new Error("Salida temporal de proyectil inválida o duplicada.");
+     const start=structuredClone(snapshot);
+     start.actors[launch.owner].fieldPosition={...launch.origin};
+     start.actors[launch.owner].positionMeters=launch.origin.x;
+     const other=launch.owner==="PLAYER"?"NPC":"PLAYER";
+     start.actors[other].fieldPosition={...launch.target};
+     start.actors[other].positionMeters=launch.target.x;
+     const approved=physicalProjectileFlightTicks(start,launch.owner,
+       launch.command);
+     const selected=weaponForSource(snapshot.actors[launch.owner],approved.source);
+     if(approved.flightTicks!==launch.flightTicks||
+       event.durationTicks!==turnTicks(snapshot.actors[launch.owner],
+         selected?launch.command.attackType:undefined)||
+       JSON.stringify(launch.shooter)!==JSON.stringify(snapshot.actors[launch.owner]))
+       throw new Error("El disparo no corresponde a su origen o arma auténtica.");
+     if((snapshot.timelineProjectiles??[]).length+launches.length>=50)
+       throw new Error("Hay demasiados proyectiles en el aire.");
+     launches.push(structuredClone(launch));
+   }
+   for(const impact of effect.projectilesImpacted??[]){
+     const event=batch.events.find(e=>e.id===effect.eventId);
+     const projectile=(snapshot.timelineProjectiles??[]).find(p=>p.id===impact?.id);
+     if(!impact||event?.kind!=="AUTO_PROJECTILE"||
+       event.id!=="WORLD:AUTO_PROJECTILE:"+batch.atTick+":"+
+         encodeURIComponent(impact.id)||
+       !projectile||projectile.owner!==impact.owner||
+       projectile.impactTick!==batch.atTick||
+       !Number.isSafeInteger(impact.weaponWear)||impact.weaponWear<0||
+       impact.weaponWear>100000||
+       impacts.some(x=>x.id===impact.id))
+       throw new Error("Impacto temporal de proyectil duplicado o adulterado.");
+     impacts.push(impact);
+   }
    for(const thrown of effect.weaponThrows??[]){
      const event=batch.events.find(e=>e.id===effect.eventId);
      if(!thrown||event?.kind!=="ATTACK"||event.owner!==thrown.owner||
@@ -480,7 +540,7 @@ export function commitAuthorizedTimelineBatch(
      logs.push({...entry,tick:batch.atTick});
    }
  }
- const next=prepareTimelineImpactSnapshot(original,batch);
+ const next=snapshot;
  // All cost checks precede any durable write; healing never refunds a missing
  // mana point needed by a different simultaneous action.
  for(const side of SIDES){
@@ -599,6 +659,43 @@ export function commitAuthorizedTimelineBatch(
  // Both concurrent strikes use the SAME previous armor durability. Wear
  // is accumulated before a single exact replay of the surviving equipment.
  applyTimelineEquipmentWear(next,[...wear.values()]);
+ next.timelineProjectiles??=[];
+ for(const launch of launches){
+   if(launch.command.throwWeapon===true){
+     const slot=launch.command.attackSource;
+     if(slot!=="MAIN_HAND"&&slot!=="OFF_HAND")
+       throw new Error("El lanzamiento perdió su ranura oficial.");
+     const key=slot==="MAIN_HAND"?"equippedWeapon":"offhandWeapon";
+     const item=next.actors[launch.owner][key];
+     const saved=launch.shooter[key];
+     if(!item||!saved||item.characterItemId!==saved.characterItemId)
+       throw new Error("El arma arrojada cambió antes de salir.");
+     launch.shooter[key]={...item};
+     next.actors[launch.owner][key]=undefined;
+   }
+   next.timelineProjectiles.push(launch);
+ }
+ for(const impact of impacts){
+   const index=next.timelineProjectiles.findIndex(p=>p.id===impact.id);
+   if(index<0)throw new Error("El proyectil ya fue resuelto.");
+   const [projectile]=next.timelineProjectiles.splice(index,1);
+   if(projectile.command.throwWeapon===true){
+     const slot=projectile.command.attackSource;
+     if(slot!=="MAIN_HAND"&&slot!=="OFF_HAND")
+       throw new Error("El arma arrojada perdió su ranura.");
+     const copy=projectile.shooter[slot==="MAIN_HAND"?"equippedWeapon":"offhandWeapon"];
+     if(!copy||!Number.isSafeInteger(copy.characterItemId)||
+       next.droppedWeapons?.some(x=>x.owner===impact.owner&&
+         x.weapon.characterItemId===copy.characterItemId))
+       throw new Error("La copia arrojada ya existe en el suelo.");
+     const durability=Math.max(0,(copy.durability??100)-impact.weaponWear);
+     next.droppedWeapons??=[];
+     next.droppedWeapons.push({owner:impact.owner,slot,
+       weapon:{...copy,durability},
+       fieldPosition:{...projectile.target},positionMeters:projectile.target.x});
+   }else if(impact.weaponWear!==0)
+     throw new Error("Un disparo normal no puede dejar arma en el suelo.");
+ }
  for(const thrown of throws){
    const actor=next.actors[thrown.owner];
    const key=thrown.slot==="MAIN_HAND"?"equippedWeapon":"offhandWeapon";
@@ -707,7 +804,8 @@ export function commitAuthorizedTimelineBatch(
  }
  // A double KO is a draw. Never cancel the second simultaneous strike merely
  // because the first fighter reached zero HP while computing the batch.
- if(next.actors.PLAYER.hp<=0||next.actors.NPC.hp<=0){
+ if((next.actors.PLAYER.hp<=0||next.actors.NPC.hp<=0)&&
+   (next.timelineProjectiles?.length??0)===0){
    next.status="FINISHED";
    next.winner=next.actors.PLAYER.hp>0?"PLAYER":next.actors.NPC.hp>0?"NPC":null;
    const summary=next.winner

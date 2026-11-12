@@ -24,134 +24,152 @@ const fighter=(name,x)=>({
  race:20,massKg:70,positionMeters:x,attackType:"PIERCE",
  defenseType:"SOLID",weaponIntegrity:85,spentTicks:0,spentAp:0,
 });
-const fight=(thrown=false,dist=2)=>{
- const c=newCombatState(
+const fight=(thrown=false,dist=2)=>
+ newCombatState(
    {...fighter("Tirador",0),equippedWeapon:weapon(thrown?"MELEE":"RANGED",thrown)},
    {...fighter("Blanco",dist)},"PLAYER",true);
- return c;
-};
 const attack=(thrown=false,changes={})=>({
  kind:"ATTACK",attackType:"PIERCE",attackSource:"MAIN_HAND",
  areaCenter:{x:.5,y:.5},projectileHeights:{launchMeters:1,impactMeters:1},
  ...(thrown?{throwWeapon:true}:{rangedPhysical:true}),...changes,
 });
 const dice=()=>({hit:.01,critical:.99,defense:.99});
+const wait=(s,c,owner,id)=>declareTimelineCommand(s,c,owner,{kind:"WAIT"},id);
 const prepare=(c,command)=>{
  let session=newTimelineDeclarationSession(c);
  session=declareTimelineCommand(session,c,"PLAYER",command,"shot-one");
- session=declareTimelineCommand(session,c,"NPC",{kind:"WAIT"},"wait-one");
+ session=wait(session,c,"NPC","wait-one");
  return session;
 };
+const advance=async(c,s,command={kind:"WAIT"},id="next-a")=>
+ resolveBasicTimelineWindow(c,
+   declareTimelineCommand(s,c,"PLAYER",command,id),dice);
 
-test("server reserves windup + real flight; no damage or loss at declaration",async()=>{
- const c=fight(false,2),original=structuredClone(c);
- const session=prepare(c,attack());
- const fired=session.clock.events.find(e=>e.id==="shot-one");
+test("preparation ends without damage; independent impact consumes world ticks",async()=>{
+ const c=fight(false,2),original=structuredClone(c),s=prepare(c,attack());
+ const fired=s.clock.events.find(e=>e.id==="shot-one");
  assert.equal(PROJECTILE_METERS_PER_TICK,.25);
  assert.equal(fired.projectileFlightTicks,8);
- assert.equal(fired.durationTicks,turnTicks(c.actors.PLAYER,"PIERCE")+8);
- assert.equal(session.clock.actors.PLAYER.spentApByRound["1"],1);
+ assert.equal(fired.durationTicks,turnTicks(c.actors.PLAYER,"PIERCE"));
+ assert.equal(s.clock.actors.PLAYER.spentApByRound["1"],1);
+ const launch=await resolveBasicTimelineWindow(c,s,dice);
+ assert.equal(launch.combat.tick,fired.endsAtTick);
+ assert.equal(launch.combat.actors.NPC.hp,200);
+ assert.equal(launch.combat.timelineProjectiles.length,1);
+ assert.equal(launch.combat.timelineProjectiles[0].impactTick,fired.endsAtTick+8);
  assert.deepEqual(c,original);
- const done=await resolveBasicTimelineWindow(c,session,dice);
- assert.equal(done.combat.tick,fired.endsAtTick);
- assert.ok(done.combat.actors.NPC.hp<200);
- assert.equal(done.combat.actors.PLAYER.equippedWeapon.characterItemId,51);
- assert.equal(done.combat.droppedWeapons?.length??0,0);
- assert.deepEqual(c,original);
+ const hit=await advance(launch.combat,launch.timeline);
+ assert.equal(hit.combat.tick,fired.endsAtTick+8);
+ assert.ok(hit.combat.actors.NPC.hp<200);
+ assert.equal(hit.combat.timelineProjectiles.length,0);
+ assert.equal(hit.combat.actors.PLAYER.equippedWeapon.characterItemId,51);
 });
 
-test("an approved throw lands one equipped copy only at impact",async()=>{
+test("thrown copy leaves hand at launch and lands once at impact",async()=>{
  const c=fight(true,1);
  c.physicalPathEnds={PLAYER:{MAIN_HAND:{x:.5,y:.5}}};
- const original=structuredClone(c);
- const session=prepare(c,attack(true));
- assert.equal(c.actors.PLAYER.equippedWeapon.characterItemId,51);
- const done=await resolveBasicTimelineWindow(c,session,dice);
- assert.equal(done.combat.actors.PLAYER.equippedWeapon,undefined);
- assert.equal(done.combat.droppedWeapons.length,1);
- assert.equal(done.combat.droppedWeapons[0].owner,"PLAYER");
- assert.equal(done.combat.droppedWeapons[0].weapon.characterItemId,51);
- assert.equal(done.combat.droppedWeapons[0].slot,"MAIN_HAND");
- assert.equal(done.combat.droppedWeapons[0].fieldPosition.x,1);
- assert.equal(done.combat.physicalPathEnds?.PLAYER?.MAIN_HAND,undefined,
-   "the discarded weapon cannot retain a physical stroke");
- assert.equal(done.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
- assert.deepEqual(c,original);
+ const launch=await resolveBasicTimelineWindow(c,prepare(c,attack(true)),dice);
+ assert.equal(launch.combat.actors.PLAYER.equippedWeapon,undefined);
+ assert.equal(launch.combat.droppedWeapons?.length??0,0);
+ assert.equal(launch.combat.physicalPathEnds?.PLAYER?.MAIN_HAND,undefined);
+ const hit=await advance(launch.combat,launch.timeline);
+ assert.equal(hit.combat.droppedWeapons.length,1);
+ assert.equal(hit.combat.droppedWeapons[0].weapon.characterItemId,51);
+ assert.equal(hit.combat.droppedWeapons[0].fieldPosition.x,1);
+ assert.equal(hit.timeline.clock.actors.PLAYER.spentApByRound["1"],2);
 });
 
-test("arc height increases real flight ticks using measured path length",()=>{
+test("the shooter can move while an earlier projectile is flying",async()=>{
+ const c=fight(false,2),launch=await resolveBasicTimelineWindow(c,prepare(c,attack()),dice);
+ const movement={kind:"MOVE",meters:.5,direction:"AWAY"};
+ const hit=await advance(launch.combat,launch.timeline,movement,"move-shooter");
+ assert.ok(hit.combat.actors.NPC.hp<200);
+ assert.equal(hit.combat.actors.PLAYER.positionMeters,0,
+   "impact must precede the still-queued move completion");
+ const moved=await resolveBasicTimelineWindow(hit.combat,hit.timeline,dice);
+ assert.equal(moved.combat.actors.PLAYER.positionMeters,-.5);
+});
+
+test("enemy moving away before launch makes the original world target miss",async()=>{
+ const c=fight(false,2);
+ c.actors.NPC.agility=250;
+ let s=newTimelineDeclarationSession(c);
+ s=declareTimelineCommand(s,c,"PLAYER",attack(),"shot-one");
+ s=declareTimelineCommand(s,c,"NPC",
+   {kind:"MOVE",meters:.5,direction:"AWAY"},"escape");
+ const escaped=await resolveBasicTimelineWindow(c,s,dice);
+ assert.ok(escaped.combat.actors.NPC.positionMeters>2);
+ assert.equal(escaped.combat.timelineProjectiles?.length??0,0);
+ const next=wait(escaped.timeline,escaped.combat,"NPC","wait-after-escape");
+ const launch=await resolveBasicTimelineWindow(escaped.combat,next,dice);
+ assert.equal(launch.combat.timelineProjectiles.length,1);
+ const missed=await advance(launch.combat,launch.timeline);
+ assert.equal(missed.combat.timelineProjectiles.length,0);
+ assert.equal(missed.combat.actors.NPC.hp,200);
+});
+
+test("curved flight takes longer without extra action PA",()=>{
  const c=fight(false,2);
  const flat=prepare(c,attack()).clock.events[0];
  const arc=prepare(c,attack(false,{
    projectileHeights:{launchMeters:1,impactMeters:1,arcRiseMeters:3},
  })).clock.events[0];
  assert.ok(arc.projectileFlightTicks>flat.projectileFlightTicks);
+ assert.equal(arc.durationTicks,flat.durationTicks);
+ assert.equal(arc.paidAp,1);
 });
 
-test("invalid, distant or forged projectile intent is rejected before PA",()=>{
- const c=fight();
- const s=newTimelineDeclarationSession(c);
- assert.throws(()=>declareTimelineCommand(s,c,"PLAYER",
-   attack(false,{projectileHeights:undefined}),"bad"),/alturas|puntería/i);
- assert.throws(()=>declareTimelineCommand(s,c,"PLAYER",
-   attack(false,{areaCenter:{x:5,y:0}}),"bad"),/alturas|puntería/i);
- assert.throws(()=>declareTimelineCommand(s,c,"PLAYER",
-   attack(false,{planarMove:{x:.1,y:0}}),"bad"),/sin movimiento|combinado/i);
- assert.throws(()=>declareTimelineCommand(s,c,"PLAYER",
-   attack(false,{projectileHeights:{launchMeters:50,impactMeters:1}}),"bad"),
-   /altura|proyectil|metro/i);
- const distant=fight(false,10);
- assert.throws(()=>declareTimelineCommand(newTimelineDeclarationSession(distant),
-   distant,"PLAYER",attack(false),"far"),/alcance/);
+test("illegal projectile coordinates and combined action fail before PA",()=>{
+ const c=fight(),s=newTimelineDeclarationSession(c);
+ for(const command of [
+   attack(false,{projectileHeights:undefined}),
+   attack(false,{areaCenter:{x:5,y:0}}),
+   attack(false,{planarMove:{x:.1,y:0}}),
+   attack(false,{projectileHeights:{launchMeters:50,impactMeters:1}}),
+ ])assert.throws(()=>declareTimelineCommand(s,c,"PLAYER",command,"bad"));
+ const far=fight(false,10);
+ assert.throws(()=>declareTimelineCommand(newTimelineDeclarationSession(far),
+   far,"PLAYER",attack(),"far"),/alcance/);
  assert.deepEqual(s.clock.actors.PLAYER.spentApByRound,{});
 });
 
-test("forged throw copy and landing coordinates reject the entire batch",()=>{
+test("forged world-impact receipt rejects the entire batch",()=>{
  const c=fight(true,1),original=structuredClone(c);
  let clock=newContinuousCombatTimeline(25,25);
  clock=queueTimelineAction(clock,"PLAYER",
-   {id:"shot",kind:"ATTACK",durationTicks:14,paCost:1,projectileFlightTicks:4});
+   {id:"hit",kind:"ATTACK",durationTicks:10,paCost:1});
  clock=queueTimelineAction(clock,"NPC",
    {id:"wait",kind:"WAIT",durationTicks:100,paCost:0});
  const batch=completeNextTimelineBatch(clock);
- for(const change of [
-   {characterItemId:99,landing:{x:1,y:0}},
-   {characterItemId:51,landing:{x:9,y:0}},
- ]){
-   assert.throws(()=>commitAuthorizedTimelineBatch(c,batch,[
-     {eventId:"shot",weaponThrows:[{owner:"PLAYER",
-       slot:"MAIN_HAND",...change}]},
-   ]),/arma|punto|encuentro/i);
- }
+ assert.throws(()=>commitAuthorizedTimelineBatch(c,batch,[
+   {eventId:"hit",projectilesImpacted:[{id:"forged",owner:"PLAYER",weaponWear:0}]},
+ ]),/proyectil|impacto/i);
  assert.deepEqual(c,original);
 });
 
-test("flight is a tick interval, not extra PA or a new actor request",async()=>{
- const c=fight(false,2);
- const s=prepare(c,attack());
- assert.deepEqual(s.clock.actors.PLAYER.spentApByRound,{1:1});
- const impactTick=s.clock.events.find(e=>e.id==="shot-one").endsAtTick;
- const done=await resolveBasicTimelineWindow(c,s,dice);
- assert.equal(done.combat.tick,impactTick);
- assert.equal(done.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
- assert.ok(done.combat.log.some(e=>e.kind==="RESOLVE"&&e.tick===impactTick));
-});
-
-test("a raised shield lasts through projectile flight, not only its declaration",async()=>{
+test("guard can block a delayed autonomous projectile without paying twice",async()=>{
  const c=fight(false,1);
  c.actors.NPC.agility=40;
  c.actors.NPC.offhandWeapon={name:"Escudo",itemId:78,characterItemId:78,
    mode:"MELEE",attackType:"BLUNT",effectiveRangeMeters:1.5,
    maximumRangeMeters:1.5,durability:100};
  let s=newTimelineDeclarationSession(c);
- s=declareTimelineCommand(s,c,"PLAYER",attack(false),"shot-shield");
- s=declareTimelineCommand(s,c,"NPC",
-   {kind:"GUARD",weaponSlot:"OFF_HAND"},"guard-shield");
- const impact=s.clock.events.find(e=>e.id==="shot-shield").endsAtTick;
- const guard=s.clock.events.find(e=>e.id==="guard-shield").endsAtTick;
- assert.ok(impact<guard,"the shield must overlap the delayed impact");
- const next=await resolveBasicTimelineWindow(c,s,dice);
- assert.equal(next.combat.tick,impact);
- assert.ok(next.combat.actors.NPC.offhandWeapon.durability<100);
- assert.equal(next.timeline.clock.actors.NPC.spentApByRound["1"],1);
+ s=declareTimelineCommand(s,c,"PLAYER",attack(),"shot-one");
+ s=declareTimelineCommand(s,c,"NPC",{kind:"GUARD",weaponSlot:"OFF_HAND"},"guard");
+ const launch=await resolveBasicTimelineWindow(c,s,dice);
+ const hit=await advance(launch.combat,launch.timeline);
+ assert.ok(hit.combat.actors.NPC.offhandWeapon.durability<100);
+ assert.equal(hit.timeline.clock.actors.NPC.spentApByRound["1"],1);
+});
+
+test("already-fired projectile remains live after shooter HP becomes zero",async()=>{
+ const c=fight(false,2);
+ const launch=await resolveBasicTimelineWindow(c,prepare(c,attack()),dice);
+ const fallen=structuredClone(launch.combat);
+ fallen.actors.PLAYER.hp=0; // represents a simultaneous KO before impact
+ const hit=await resolveBasicTimelineWindow(fallen,launch.timeline,dice);
+ assert.ok(hit.combat.actors.NPC.hp<200);
+ assert.equal(hit.combat.timelineProjectiles.length,0);
+ assert.equal(hit.combat.status,"FINISHED");
+ assert.equal(hit.combat.winner,"NPC");
 });

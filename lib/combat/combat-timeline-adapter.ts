@@ -10,7 +10,7 @@ import {
 } from "./turn-engine.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
-import {validatePlanarMove} from "./field-plane.ts";
+import {fieldPosition,validatePlanarMove} from "./field-plane.ts";
 import {physicalProjectileFlightTicks} from "./timeline-projectile-flight.ts";
 import {
   newContinuousCombatTimeline,queueTimelineAction,
@@ -96,6 +96,8 @@ export function compileCombatTimelineIntent(
    throw new Error("El combate temporal no está activo.");
  if(by!=="PLAYER"&&by!=="NPC")throw new Error("Combatiente inválido.");
  const actor=snapshot.actors[by];
+ if(actor.hp<=0&&command.kind!=="WAIT")
+   throw new Error("Un combatiente derrotado solo puede esperar los impactos pendientes.");
  if(command.kind==="ATTACK"||command.kind==="CAST_SKILL"){
    if(command.movementOrder!==undefined&&command.planarMove===undefined)
      throw new Error("Debes trazar un desplazamiento para combinarlo con ataque.");
@@ -178,8 +180,11 @@ export function compileCombatTimelineIntent(
       attackSource:command.attackSource});
     if(command.rangedPhysical===true||command.throwWeapon===true){
       const {flightTicks}=physicalProjectileFlightTicks(snapshot,by,command);
-      return {...base,kind:"ATTACK",durationTicks:actionTicks+flightTicks,
-        projectileFlightTicks:flightTicks,paCost:1};
+      const rival=by==="PLAYER"?"NPC":"PLAYER";
+      return {...base,kind:"ATTACK",durationTicks:actionTicks,
+        projectileFlightTicks:flightTicks,
+        projectileOrigin:{...fieldPosition(actor)},
+        projectileTarget:{...fieldPosition(snapshot.actors[rival])},paCost:1};
     }
     if(command.projectileHeights!==undefined)
       throw new Error("Las alturas de proyectil solo corresponden a un ataque a distancia.");

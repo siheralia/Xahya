@@ -419,9 +419,8 @@ export function commitAuthorizedTimelineBatch(
        thrown.characterItemId<1||
        !["MAIN_HAND","OFF_HAND"].includes(thrown.slot)||
        !validPosition(thrown.landing)||
-       throws.some(previous=>previous.owner===thrown.owner&&
-         (previous.slot===thrown.slot||
-           previous.characterItemId===thrown.characterItemId)))
+       throws.some(previous=>previous.owner===thrown.owner||
+         previous.characterItemId===thrown.characterItemId))
        throw new Error("Lanzamiento temporal de arma inválido o repetido.");
      const selected=thrown.slot==="MAIN_HAND"?
        original.actors[thrown.owner].equippedWeapon:

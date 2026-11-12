@@ -31,6 +31,10 @@ export type AuthorizedTimelineEffect={
   /** Heal values are resolved at the same instant as damage. */
   hpHealing?:Partial<Record<Side,number>>;
   equipmentWear?:CopyWear[];
+  /** Recover a specific existing ground weapon after a validated MOVE.
+   * The batch restores its post-impact copy, never a client-supplied item. */
+  weaponRecoveries?:Array<{owner:Side;characterItemId:number;
+    slot:"MAIN_HAND"|"OFF_HAND"}>;
   /** Physical structures take atomic per-hit wear with shared snapshot rules. */
   constructionWear?:Array<{id:string;amount:number;hitCountDelta:number}>;
   /** Only server-reviewed CONSTRUCTION casts can create an object. */
@@ -160,6 +164,7 @@ export function commitAuthorizedTimelineBatch(
  const damages:Record<Side,number>={PLAYER:0,NPC:0};
  const healing:Record<Side,number>={PLAYER:0,NPC:0};
  const wear=new Map<string,{owner:Side;characterItemId:number;amount:number}>();
+ const recoveries:NonNullable<AuthorizedTimelineEffect["weaponRecoveries"]>=[];
  const constructionWear=new Map<string,{id:string;amount:number;hitCountDelta:number}>();
  const constructionsCreated:CombatConstruction[]=[];
  const consumableUses:NonNullable<AuthorizedTimelineEffect["consumableUses"]>=[];
@@ -374,6 +379,34 @@ export function commitAuthorizedTimelineBatch(
        throw new Error("Desgaste de objeto acumulado fuera de rango.");
      constructionWear.set(change.id,{id:change.id,amount,hitCountDelta});
    }
+   for(const recovery of effect.weaponRecoveries??[]){
+     const event=batch.events.find(e=>e.id===effect.eventId);
+     if(!recovery||!validSide(recovery.owner)||
+       event?.kind!=="MOVE"||event.owner!==recovery.owner||
+       !Number.isSafeInteger(recovery.characterItemId)||
+       recovery.characterItemId<1||
+       !["MAIN_HAND","OFF_HAND"].includes(recovery.slot)||
+       recoveries.some(previous=>previous.owner===recovery.owner&&
+         (previous.slot===recovery.slot||
+           previous.characterItemId===recovery.characterItemId)))
+       throw new Error("Recuperación temporal de arma inválida o duplicada.");
+     const fighter=original.actors[recovery.owner];
+     const key=recovery.slot==="MAIN_HAND"?"equippedWeapon":"offhandWeapon";
+     const candidates=(original.droppedWeapons??[]).filter(entry=>
+       entry.owner===recovery.owner&&
+       (entry.slot??"MAIN_HAND")===recovery.slot&&
+       entry.weapon.characterItemId===recovery.characterItemId);
+     const move=effect.positionDelta?.[recovery.owner]??{x:0,y:0};
+     const from=fieldPosition(fighter);
+     const to={x:from.x+move.x,y:from.y+move.y};
+     const target=candidates[0]?.fieldPosition??
+       {x:candidates[0]?.positionMeters??NaN,y:from.y};
+     if(fighter[key]||candidates.length!==1||
+       !validPosition(move)||!validPosition(target)||
+       !validPosition(to)||Math.hypot(target.x-to.x,target.y-to.y)>=0.2)
+       throw new Error("El arma no está disponible en el punto de recuperación.");
+     recoveries.push(recovery);
+   }
    for(const item of effect.equipmentWear??[]){
      if(!SIDES.includes(item.owner)||!Number.isSafeInteger(item.characterItemId)||
        item.characterItemId<1||!finiteNonnegative(item.amount)||
@@ -536,6 +569,19 @@ export function commitAuthorizedTimelineBatch(
  // Both concurrent strikes use the SAME previous armor durability. Wear
  // is accumulated before a single exact replay of the surviving equipment.
  applyTimelineEquipmentWear(next,[...wear.values()]);
+ for(const recovery of recoveries){
+   const key=recovery.slot==="MAIN_HAND"?"equippedWeapon":"offhandWeapon";
+   const index=(next.droppedWeapons??[]).findIndex(entry=>
+     entry.owner===recovery.owner&&
+     (entry.slot??"MAIN_HAND")===recovery.slot&&
+     entry.weapon.characterItemId===recovery.characterItemId);
+   if(index<0||next.actors[recovery.owner][key])
+     throw new Error("El arma recuperada dejó de estar disponible.");
+   const [entry]=next.droppedWeapons!.splice(index,1);
+   next.actors[recovery.owner][key]={...entry.weapon};
+   if(key==="equippedWeapon")
+     next.actors[recovery.owner].weaponIntegrity=entry.weapon.durability??100;
+ }
  for(const side of SIDES){
    const delta=moved[side],fighter=next.actors[side];
    if(delta.x!==0||delta.y!==0){

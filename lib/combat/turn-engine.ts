@@ -30,6 +30,7 @@ import {offhandArmorShield,type CombatWearable} from "../items/combat-wearables.
 import {reconcileWearableStatBonuses} from "./wearable-stat-bonus.ts";
 import {equipmentStatLabel} from "./equipment-feedback.ts";
 import {reconcileEquipmentDerived,type EquipmentDerivedReplay} from "./equipment-derived-replay.ts";
+import type {TimelineFlyingProjectile} from "./timeline-projectile-flight.ts";
 import {assertMovementClear,blockingMovement,coversAlongStroke,coversAlongProjectileFlight,validateProjectileHeights,measuredBlock,validatePhysicalCollider} from "./physical-obstacles.ts";
 import {fieldDistance,fieldPosition,moveFighterOnField,pointFromFieldView,
  validatePlanarMove} from "./field-plane.ts";
@@ -195,6 +196,8 @@ export type CombatState = {
   /** Ordered rays to resolve on the start of a new round. */
   mirrorRayQueue?: string[];
   droppedWeapons?: Array<{owner:Side;weapon:CombatWeapon;slot?:"MAIN_HAND"|"OFF_HAND";positionMeters:number;fieldPosition?:Point}>;
+  /** Server-owned projectiles whose impact has not happened yet. */
+  timelineProjectiles?:TimelineFlyingProjectile[];
   /** All chronological events needed to narrate a long fight (not just the last 100 on-screen entries). */
   narrativeHistory?: CombatLog[];
   /** Persisted final chronicle. Created exactly once when the fight ends. */

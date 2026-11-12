@@ -9,7 +9,7 @@
  */
 export const TIMELINE_TICKS_PER_ROUND = 100;
 export type TimelineSide = "PLAYER" | "NPC";
-export type TimelineActionKind = "ATTACK" | "MOVE" | "BLOCK" | "REACT" | "SKILL" | "SUMMON" | "ITEM" | "KARMA" | "WAIT" | "AUTO_SUMMON" | "AUTO_MIRROR";
+export type TimelineActionKind = "ATTACK" | "MOVE" | "BLOCK" | "REACT" | "SKILL" | "SUMMON" | "ITEM" | "KARMA" | "WAIT" | "AUTO_SUMMON" | "AUTO_MIRROR" | "AUTO_PROJECTILE";
 export type TimelineEventStatus = "QUEUED" | "RESOLVED" | "INTERRUPTED";
 
 export interface TimelineEvent {
@@ -26,6 +26,9 @@ export interface TimelineEvent {
   blockToolSlot?: "MAIN_HAND" | "OFF_HAND";
   /** Server-reserved travel ticks, added after attack wind-up for ranged shots. */
   projectileFlightTicks?: number;
+  /** Frozen server-measured world geometry, not public UI inputs. */
+  projectileOrigin?:{x:number;y:number};
+  projectileTarget?:{x:number;y:number};
   status: TimelineEventStatus;
   /** Stable insertion sequence for resolving simultaneous events. */
   sequence: number;
@@ -55,6 +58,8 @@ export type TimelineIntent = {
   blockToolCopyId?: number;
   blockToolSlot?: "MAIN_HAND" | "OFF_HAND";
   projectileFlightTicks?: number;
+  projectileOrigin?:{x:number;y:number};
+  projectileTarget?:{x:number;y:number};
 };
 
 const SIDES: readonly TimelineSide[] = ["PLAYER", "NPC"];
@@ -107,10 +112,14 @@ export function queueTimelineAction(
     throw new Error("Solo BLOQUEAR puede reservar una mano equipada.");
   if(intent.kind!=="BLOCK"&&intent.blockToolCopyId!==undefined)
     throw new Error("Solo BLOQUEAR puede reservar una copia de equipo.");
-  if(intent.projectileFlightTicks!==undefined&&
-    (intent.kind!=="ATTACK"||!validDuration(intent.projectileFlightTicks)||
-      intent.durationTicks<=intent.projectileFlightTicks))
-    throw new Error("El vuelo del proyectil debe pertenecer a un ataque real.");
+  const worldPoint=(p:{x:number;y:number}|undefined)=>!!p&&
+    Number.isFinite(p.x)&&Number.isFinite(p.y)&&
+    Math.abs(p.x)<=1_000_000&&Math.abs(p.y)<=1_000_000;
+  if(intent.projectileFlightTicks!==undefined
+    ?intent.kind!=="ATTACK"||!validDuration(intent.projectileFlightTicks)||
+      !worldPoint(intent.projectileOrigin)||!worldPoint(intent.projectileTarget)
+    :intent.projectileOrigin!==undefined||intent.projectileTarget!==undefined)
+    throw new Error("El vuelo requiere un origen y objetivo oficiales.");
   if(original.seenActionIds.includes(intent.id)||original.events.some(x=>x.id===intent.id))
     throw new Error("Identificador de acción temporal duplicado.");
   // Waiting for a fighter to select a new intent is deliberate: the other
@@ -136,7 +145,9 @@ export function queueTimelineAction(
     ...(intent.kind==="BLOCK"&&intent.blockToolSlot!==undefined
       ?{blockToolSlot:intent.blockToolSlot}:{}),
     ...(intent.projectileFlightTicks!==undefined
-      ?{projectileFlightTicks:intent.projectileFlightTicks}:{}),
+      ?{projectileFlightTicks:intent.projectileFlightTicks,
+        projectileOrigin:{...intent.projectileOrigin!},
+        projectileTarget:{...intent.projectileTarget!}}:{}),
     status:"QUEUED",sequence:next.nextSequence++});
   return next;
 }

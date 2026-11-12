@@ -14,7 +14,8 @@ import {applyCombatCommand,basicCounterAttack,turnTicks,type CombatCommand,type 
   type Side} from "./turn-engine.ts";
 import {fieldPosition} from "./field-plane.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
-import {activeTimelineReactionAt,type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
+import {activeTimelineReactionAt,pendingTimelineSides,
+ type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import {type AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
 import {simulateBasicPhysicalTimelineHit,activeBlockSlot}
  from "./timeline-basic-strike.ts";
@@ -30,12 +31,15 @@ import {
 import {
  preparedTimelineReactionAt,timelineDefenseForImpact,
 } from "./timeline-defense.ts";
-import {type TimelineDeclarationSession} from "./timeline-declarations.ts";
+import {declareTimelineCommand,
+ type TimelineDeclarationSession} from "./timeline-declarations.ts";
 import {resolveWorldTimelineBatch} from "./timeline-world-batch.ts";
 import {
  simulateAutonomousTimelineSummon,simulateAutonomousTimelineMirror,
 } from "./timeline-autonomous-effects.ts";
 import type {TimelineCombatCommand} from "./combat-timeline-adapter.ts";
+import {simulateTimelineProjectileLaunch,
+ simulateAutonomousTimelineProjectile} from "./timeline-projectile-flight.ts";
 
 type Move=Extract<CombatCommand,{kind:"MOVE"}>;
 type Guard=Extract<TimelineCombatCommand,{kind:"GUARD"}>;
@@ -202,9 +206,19 @@ export async function resolveBasicTimelineWindow(
  combat:CombatState,session:TimelineDeclarationSession,makeDice:()=>TimelineDice,
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession}|null>{
  assertBasicTimelineEligible(combat);
- const charged=new Set(session.chargedReactionIds??[]);
- const countered=new Set(session.usedCounterReactionIds??[]);
- const dodgedMovement=new Set(session.usedDodgeMovementIds??[]);
+ let activeSession=session;
+ // An in-flight shot can outlive its owner. Once either fighter has fallen,
+ // the missing commands are server-generated free WAITs to the next boundary.
+ if((combat.timelineProjectiles?.length??0)>0&&
+   (combat.actors.PLAYER.hp<=0||combat.actors.NPC.hp<=0)){
+   for(const side of pendingTimelineSides(activeSession.clock)){
+     activeSession=declareTimelineCommand(activeSession,combat,side,
+       {kind:"WAIT"},"V2_ENDGAME_WAIT:"+side+":"+activeSession.clock.nowTick);
+   }
+ }
+ const charged=new Set(activeSession.chargedReactionIds??[]);
+ const countered=new Set(activeSession.usedCounterReactionIds??[]);
+ const dodgedMovement=new Set(activeSession.usedDodgeMovementIds??[]);
  const defend=(
    event:TimelineEvent,batchState:ContinuousCombatTimeline,
    incoming:{usesMagic:boolean;isArea:boolean;hybrid?:boolean},
@@ -213,7 +227,7 @@ export async function resolveBasicTimelineWindow(
    const rival=other(event.owner);
    const reaction=preparedTimelineReactionAt(batchState,rival,
      event.endsAtTick,(id,owner)=>{
-       const saved=session.declarations[id];
+       const saved=activeSession.declarations[id];
        return saved?.owner===owner?saved.command:undefined;
      });
    let posture=timelineDefenseForImpact(reaction,incoming);
@@ -226,6 +240,7 @@ export async function resolveBasicTimelineWindow(
        posture.counterMagic===true);
      if(!actualEvent||countered.has(actualEvent.id)||
         event.kind==="AUTO_SUMMON"||event.kind==="AUTO_MIRROR"||
+        event.kind==="AUTO_PROJECTILE"||
         !basic||
         basic.attackSource==="MAIN_HAND"&&
           snapshot.actors[rival].equippedWeapon?.durability===0||
@@ -252,10 +267,13 @@ export async function resolveBasicTimelineWindow(
    }
    return effect;
  };
- const finish=await resolveWorldTimelineBatch(combat,session,
+ const finish=await resolveWorldTimelineBatch(combat,activeSession,
    (snapshot,declaration,event,batch)=>{
      const state=snapshot as CombatState;
      const command=declaration.command;
+     if(event.kind==="ATTACK"&&command.kind==="ATTACK"&&
+       (command.rangedPhysical===true||command.throwWeapon===true))
+       return simulateTimelineProjectileLaunch(state,batch.state,event,command);
      if(event.kind==="ATTACK"&&command.kind==="ATTACK"){
        const strike=makeDice(),defense=makeDice();
        const reaction=defend(event,batch.state,{usesMagic:command.usesMagic===true,
@@ -315,6 +333,16 @@ export async function resolveBasicTimelineWindow(
    },(snapshot,event,batch)=>{
      const state=snapshot as CombatState;
      const dice=makeDice(),defenseDice=makeDice();
+     if(event.kind==="AUTO_PROJECTILE"){
+       const reaction=defend(event,batch.state,{usesMagic:false,isArea:false},state);
+       const slot=activeBlockSlot(state,batch.state,other(event.owner),
+         event.endsAtTick);
+       const posture=slot?{kind:"DEFEND" as const,defense:"BLOCK" as const,
+         weaponSlot:slot}:reaction.posture;
+       const effect=simulateAutonomousTimelineProjectile(state,batch.state,
+         event,dice,defenseDice,posture);
+       return collect(effect,reaction);
+     }
      if(event.kind==="AUTO_SUMMON"){
        const reaction=defend(event,batch.state,{usesMagic:false,isArea:false},state);
        const slot=activeBlockSlot(state,batch.state,other(event.owner),

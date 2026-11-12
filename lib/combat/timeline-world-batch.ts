@@ -26,7 +26,7 @@ import {scheduleAutonomousSummonTicks} from "./timeline-summon-world.ts";
 import {scheduleMirrorRayTicks} from "./timeline-construction-world.ts";
 
 export type WorldTimelineEvent=TimelineEvent&{
- kind:"AUTO_SUMMON"|"AUTO_MIRROR";sourceEntityId:string;
+ kind:"AUTO_SUMMON"|"AUTO_MIRROR"|"AUTO_PROJECTILE";sourceEntityId:string;
 };
 export type WorldTimelineResolve=(
  snapshot:Readonly<CombatState>,event:Readonly<WorldTimelineEvent>,
@@ -38,7 +38,8 @@ export type DeclaredTimelineResolve=(
 )=>AuthorizedTimelineEffect|Promise<AuthorizedTimelineEffect>;
 
 const auto=(event:TimelineEvent):event is WorldTimelineEvent=>
- event.kind==="AUTO_SUMMON"||event.kind==="AUTO_MIRROR";
+ event.kind==="AUTO_SUMMON"||event.kind==="AUTO_MIRROR"||
+ event.kind==="AUTO_PROJECTILE";
 const key=(kind:WorldTimelineEvent["kind"],id:string,tick:number)=>
   "WORLD:"+kind+":"+tick+":"+encodeURIComponent(id);
 
@@ -76,11 +77,17 @@ export function nextWorldTimelineBatch(
  const dueSummons=scheduleAutonomousSummonTicks(combat,from,until)
    .filter(d=>!occupiesCreatureSlot(session,expected.batch,d.owner,d.summonId,d.tick));
  const dueMirrors=scheduleMirrorRayTicks(combat,from,until);
+ if((combat.timelineProjectiles??[]).some(p=>p.impactTick<=from))
+   throw new Error("Existe un proyectil vencido detrás del reloj.");
+ const dueProjectiles=(combat.timelineProjectiles??[]).filter(p=>
+   p.impactTick>from&&p.impactTick<=until);
  const first=Math.min(until,
-   ...dueSummons.map(e=>e.tick),...dueMirrors.map(e=>e.tick));
+   ...dueSummons.map(e=>e.tick),...dueMirrors.map(e=>e.tick),
+   ...dueProjectiles.map(p=>p.impactTick));
  const earliestSummons=dueSummons.filter(e=>e.tick===first);
  const earliestMirrors=dueMirrors.filter(e=>e.tick===first);
- if(earliestSummons.length+earliestMirrors.length>256)
+ const earliestProjectiles=dueProjectiles.filter(p=>p.impactTick===first);
+ if(earliestSummons.length+earliestMirrors.length+earliestProjectiles.length>256)
    throw new Error("Demasiados sucesos autónomos simultáneos.");
  const hasDeclaredEvents=first===until;
  const clock=hasDeclaredEvents?expected.batch.state:structuredClone(session.clock);
@@ -98,6 +105,14 @@ export function nextWorldTimelineBatch(
    worldEvents.push({
      id:key("AUTO_MIRROR",due.constructionId,first),kind:"AUTO_MIRROR",
      owner:due.owner,sourceEntityId:due.constructionId,
+     startsAtTick:first,endsAtTick:first,durationTicks:0,paidAp:0,
+     sequence:clock.nextSequence+worldEvents.length,status:"RESOLVED",
+   });
+ }
+ for(const projectile of earliestProjectiles){
+   worldEvents.push({
+     id:key("AUTO_PROJECTILE",projectile.id,first),kind:"AUTO_PROJECTILE",
+     owner:projectile.owner,sourceEntityId:projectile.id,
      startsAtTick:first,endsAtTick:first,durationTicks:0,paidAp:0,
      sequence:clock.nextSequence+worldEvents.length,status:"RESOLVED",
    });
@@ -142,8 +157,11 @@ export async function resolveWorldTimelineBatch(
  const timeline=proposed.hasDeclaredEvents
    ?finalizeTimelineCommit(session,pre):structuredClone(session);
  if(!proposed.hasDeclaredEvents)timeline.clock.nowTick=proposed.batch.atTick;
- if(nextCombat.status==="FINISHED"){
+ if(nextCombat.status==="FINISHED"||
+   nextCombat.actors.PLAYER.hp<=0||nextCombat.actors.NPC.hp<=0){
    for(const owner of ["PLAYER","NPC"] as const){
+     if(nextCombat.status!=="FINISHED"&&nextCombat.actors[owner].hp>0)
+       continue;
      const running=timeline.clock.events.find(event=>
        event.owner===owner&&event.status==="QUEUED");
      if(running){

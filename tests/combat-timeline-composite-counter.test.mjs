@@ -125,7 +125,9 @@ test("a prepared counter trades two real attacks, one defender PA",async()=>{
 });
 
 test("a single counter posture retaliates only once against two attacks",async()=>{
- const c=state(.5,{agility:50,speedValue:50});
+ const c=state(.5,{agility:50,speedValue:50,strength:1,massKg:300});
+ c.actors.PLAYER.strength=1;
+ c.actors.PLAYER.massKg=300;
  let s=prepare(newTimelineDeclarationSession(c),c,"NPC","counter-slow","COUNTER");
  s=attack(s,c,"PLAYER","strike-one",physical());
  const first=await resolveBasicTimelineWindow(c,s,dice);

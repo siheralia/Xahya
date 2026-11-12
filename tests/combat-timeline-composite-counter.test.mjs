@@ -135,7 +135,8 @@ test("a single counter posture retaliates only once against two attacks",async()
  assert.equal(first.timeline.usedCounterReactionIds.length,1);
  const retaliations=first.combat.log.filter(x=>x.simultaneousCounter).length;
  assert.ok(retaliations>0);
- s=attack(first.timeline,first.combat,"PLAYER","strike-two",physical());
+ s=attack(first.timeline,first.combat,"PLAYER","strike-two",
+   physical(undefined,undefined,{attackSource:"KICK"}));
  const second=await resolveBasicTimelineWindow(first.combat,s,dice);
  assert.equal(second.combat.tick,20);
  assert.equal(second.combat.log.filter(x=>x.simultaneousCounter).length,retaliations);

@@ -126,8 +126,9 @@ test("flight is a tick interval, not extra PA or a new actor request",async()=>{
  const c=fight(false,2);
  const s=prepare(c,attack());
  assert.deepEqual(s.clock.actors.PLAYER.spentApByRound,{1:1});
+ const impactTick=s.clock.events.find(e=>e.id==="shot-one").endsAtTick;
  const done=await resolveBasicTimelineWindow(c,s,dice);
- assert.equal(done.combat.tick,18);
+ assert.equal(done.combat.tick,impactTick);
  assert.equal(done.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
- assert.ok(done.combat.log.some(e=>e.kind==="RESOLVE"&&e.tick===18));
+ assert.ok(done.combat.log.some(e=>e.kind==="RESOLVE"&&e.tick===impactTick));
 });

@@ -76,7 +76,8 @@ test("thrown copy leaves hand at launch and lands once at impact",async()=>{
  assert.equal(hit.combat.droppedWeapons.length,1);
  assert.equal(hit.combat.droppedWeapons[0].weapon.characterItemId,51);
  assert.equal(hit.combat.droppedWeapons[0].fieldPosition.x,1);
- assert.equal(hit.timeline.clock.actors.PLAYER.spentApByRound["1"],2);
+ assert.equal(hit.timeline.clock.actors.PLAYER.spentApByRound["1"],1,
+   "WAIT to advance the world must not consume another PA");
 });
 
 test("the shooter can move while an earlier projectile is flying",async()=>{
@@ -172,4 +173,34 @@ test("already-fired projectile remains live after shooter HP becomes zero",async
  assert.equal(hit.combat.timelineProjectiles.length,0);
  assert.equal(hit.combat.status,"FINISHED");
  assert.equal(hit.combat.winner,"NPC");
+});
+
+test("target movement AFTER release but BEFORE impact avoids a frozen shot",async()=>{
+ const c=fight(false,2);
+ c.actors.PLAYER.agility=70; // 13-tick pierced-weapon wind-up
+ c.actors.NPC.agility=250;   // 10-tick guard, then 4-tick move
+ c.actors.NPC.offhandWeapon={name:"Escudo",itemId:88,characterItemId:88,
+   mode:"MELEE",attackType:"BLUNT",effectiveRangeMeters:1.5,
+   maximumRangeMeters:1.5,durability:100};
+ let s=newTimelineDeclarationSession(c);
+ s=declareTimelineCommand(s,c,"PLAYER",attack(),"shot-one");
+ s=declareTimelineCommand(s,c,"NPC",
+   {kind:"GUARD",weaponSlot:"OFF_HAND"},"guard-short");
+ const guardFinished=await resolveBasicTimelineWindow(c,s,dice);
+ assert.equal(guardFinished.combat.timelineProjectiles?.length??0,0);
+ assert.equal(guardFinished.combat.tick,10);
+ const move=declareTimelineCommand(guardFinished.timeline,guardFinished.combat,
+   "NPC",{kind:"MOVE",meters:.5,direction:"AWAY"},"escape-after-guard");
+ const launch=await resolveBasicTimelineWindow(guardFinished.combat,move,dice);
+ assert.equal(launch.combat.timelineProjectiles.length,1);
+ assert.equal(launch.combat.actors.NPC.positionMeters,2);
+ const timed=await advance(launch.combat,launch.timeline,{kind:"WAIT"},"wait-for-flight");
+ assert.ok(timed.combat.actors.NPC.positionMeters>2);
+ assert.equal(timed.combat.timelineProjectiles.length,1);
+ const finalSession=wait(timed.timeline,timed.combat,"NPC","wait-after-escape");
+ const impact=await resolveBasicTimelineWindow(timed.combat,finalSession,dice);
+ assert.equal(impact.combat.timelineProjectiles.length,0);
+ assert.equal(impact.combat.actors.NPC.hp,200);
+ assert.ok(impact.combat.log.some(e=>e.kind==="PROJECTILE"&&
+   e.summary.includes("posición original")));
 });

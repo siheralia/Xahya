@@ -15,7 +15,8 @@ export const PROJECTILE_METERS_PER_TICK=0.25;
 const sideOther=(s:Side):Side=>s==="PLAYER"?"NPC":"PLAYER";
 const isPoint=(p:unknown):p is {x:number;y:number}=>{
  const v=p as {x?:number;y?:number}|null;
- return !!v&&Number.isFinite(v.x)&&Number.isFinite(v.y)&&
+ return !!v&&typeof v.x==="number"&&typeof v.y==="number"&&
+   Number.isFinite(v.x)&&Number.isFinite(v.y)&&
    v.x>=0&&v.x<=1&&v.y>=0&&v.y<=1;
 };
 

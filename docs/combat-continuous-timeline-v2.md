@@ -200,3 +200,33 @@ simplemente por la existencia de armas caídas.
 proyectiles con tiempo de vuelo, ataques dirigidos a objetos externos
 ni reparaciones de inventario persistente. La API y el HUD reales
 siguen en V1; esta entrega es una biblioteca aislada de V2.
+
+
+## V2.14b — proyectiles físicos con vuelo temporal y armas arrojadas (librería)
+
+Los ataques físicos a distancia se reservan con un tiempo de preparación
+real **más** un vuelo basado en la distancia espacial, las alturas declaradas
+y la curvatura parabólica validada del motor de obstáculos. El servidor
+usa una velocidad fija inicial de `0,25 m/tick` y calcula la longitud
+de la trayectoria en 16 segmentos; el cliente no elige ticks, velocidad
+ni PA. El ataque cuesta **1 PA** y termina únicamente tras completar
+preparación + vuelo. Los campos defensivos y escudos anticipados se
+consultan exactamente en el tick de impacto; los daños, intercepciones
+y resistencias utilizan las mismas fórmulas del motor V1 en sombra.
+
+Si se **arroja** una copia física válida (arma con `throwable`),
+`weaponThrows` autoriza su traslado al suelo en el impacto, preservando
+su desgaste calculado por los golpes simultáneos. Se rechazan una
+copia duplicada, ranura incorrecta o caída en un punto inesperado.
+El ataque sin lanzamiento deja el arma equipada. La recuperación
+de armas de V2.14a sigue siendo una acción de movimiento aparte.
+
+**Limitación deliberada:** esta primera versión mantiene al atacante
+ocupado hasta que finaliza el vuelo; aún no representa un proyectil
+independiente que continúe viajando mientras el tirador inicia una
+segunda acción. Tampoco congela el origen del disparo frente a
+movimientos ajenos durante su vuelo: eso requerirá un evento autónomo
+de lanzamiento/impacto separado antes de activar V2 en la API.
+Se rechazan objetivos externos, ataques con movimiento compuesto,
+lanzamientos sin alturas explícitas y parámetros de vuelo del cliente.
+No hay modificación de partidas reales ni despliegue Vercel.

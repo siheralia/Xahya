@@ -31,6 +31,9 @@ export type AuthorizedTimelineEffect={
   /** Heal values are resolved at the same instant as damage. */
   hpHealing?:Partial<Record<Side,number>>;
   equipmentWear?:CopyWear[];
+  /** A thrown equipped copy lands at impact, preserving approved wear. */
+  weaponThrows?:Array<{owner:Side;characterItemId:number;
+    slot:"MAIN_HAND"|"OFF_HAND";landing:Point}>;
   /** Recover a specific existing ground weapon after a validated MOVE.
    * The batch restores its post-impact copy, never a client-supplied item. */
   weaponRecoveries?:Array<{owner:Side;characterItemId:number;
@@ -164,6 +167,7 @@ export function commitAuthorizedTimelineBatch(
  const damages:Record<Side,number>={PLAYER:0,NPC:0};
  const healing:Record<Side,number>={PLAYER:0,NPC:0};
  const wear=new Map<string,{owner:Side;characterItemId:number;amount:number}>();
+ const throws:NonNullable<AuthorizedTimelineEffect["weaponThrows"]>=[];
  const recoveries:NonNullable<AuthorizedTimelineEffect["weaponRecoveries"]>=[];
  const constructionWear=new Map<string,{id:string;amount:number;hitCountDelta:number}>();
  const constructionsCreated:CombatConstruction[]=[];
@@ -407,6 +411,33 @@ export function commitAuthorizedTimelineBatch(
        throw new Error("El arma no está disponible en el punto de recuperación.");
      recoveries.push(recovery);
    }
+   for(const thrown of effect.weaponThrows??[]){
+     const event=batch.events.find(e=>e.id===effect.eventId);
+     if(!thrown||event?.kind!=="ATTACK"||event.owner!==thrown.owner||
+       !validSide(thrown.owner)||
+       !Number.isSafeInteger(thrown.characterItemId)||
+       thrown.characterItemId<1||
+       !["MAIN_HAND","OFF_HAND"].includes(thrown.slot)||
+       !validPosition(thrown.landing)||
+       throws.some(previous=>previous.owner===thrown.owner&&
+         (previous.slot===thrown.slot||
+           previous.characterItemId===thrown.characterItemId)))
+       throw new Error("Lanzamiento temporal de arma inválido o repetido.");
+     const selected=thrown.slot==="MAIN_HAND"?
+       original.actors[thrown.owner].equippedWeapon:
+       original.actors[thrown.owner].offhandWeapon;
+     const target=fieldPosition(original.actors[
+       thrown.owner==="PLAYER"?"NPC":"PLAYER"]);
+     if(!selected||selected.characterItemId!==thrown.characterItemId||
+       !selected.throwable||!selected.throwRangeMeters||
+       (selected.durability??100)<=0||
+       (original.droppedWeapons??[]).some(x=>
+         x.weapon.characterItemId===thrown.characterItemId&&
+         x.owner===thrown.owner)||
+       Math.hypot(target.x-thrown.landing.x,target.y-thrown.landing.y)>1e-6)
+       throw new Error("El arma o su punto de caída no corresponden al encuentro.");
+     throws.push(thrown);
+   }
    for(const item of effect.equipmentWear??[]){
      if(!SIDES.includes(item.owner)||!Number.isSafeInteger(item.characterItemId)||
        item.characterItemId<1||!finiteNonnegative(item.amount)||
@@ -569,6 +600,18 @@ export function commitAuthorizedTimelineBatch(
  // Both concurrent strikes use the SAME previous armor durability. Wear
  // is accumulated before a single exact replay of the surviving equipment.
  applyTimelineEquipmentWear(next,[...wear.values()]);
+ for(const thrown of throws){
+   const actor=next.actors[thrown.owner];
+   const key=thrown.slot==="MAIN_HAND"?"equippedWeapon":"offhandWeapon";
+   const item=actor[key];
+   if(!item||item.characterItemId!==thrown.characterItemId)
+     throw new Error("La copia arrojada cambió antes de confirmar el impacto.");
+   next.droppedWeapons??=[];
+   next.droppedWeapons.push({owner:thrown.owner,slot:thrown.slot,
+     weapon:structuredClone(item),positionMeters:thrown.landing.x,
+     fieldPosition:{...thrown.landing}});
+   actor[key]=undefined;
+ }
  for(const recovery of recoveries){
    const key=recovery.slot==="MAIN_HAND"?"equippedWeapon":"offhandWeapon";
    const index=(next.droppedWeapons??[]).findIndex(entry=>

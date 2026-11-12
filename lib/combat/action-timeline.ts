@@ -24,6 +24,8 @@ export interface TimelineEvent {
   /** The exact item copy being held, not an item catalog definition. */
   blockToolCopyId?: number;
   blockToolSlot?: "MAIN_HAND" | "OFF_HAND";
+  /** Server-reserved travel ticks, added after attack wind-up for ranged shots. */
+  projectileFlightTicks?: number;
   status: TimelineEventStatus;
   /** Stable insertion sequence for resolving simultaneous events. */
   sequence: number;
@@ -52,6 +54,7 @@ export type TimelineIntent = {
   paCost: number;
   blockToolCopyId?: number;
   blockToolSlot?: "MAIN_HAND" | "OFF_HAND";
+  projectileFlightTicks?: number;
 };
 
 const SIDES: readonly TimelineSide[] = ["PLAYER", "NPC"];
@@ -104,6 +107,10 @@ export function queueTimelineAction(
     throw new Error("Solo BLOQUEAR puede reservar una mano equipada.");
   if(intent.kind!=="BLOCK"&&intent.blockToolCopyId!==undefined)
     throw new Error("Solo BLOQUEAR puede reservar una copia de equipo.");
+  if(intent.projectileFlightTicks!==undefined&&
+    (intent.kind!=="ATTACK"||!validDuration(intent.projectileFlightTicks)||
+      intent.durationTicks<=intent.projectileFlightTicks))
+    throw new Error("El vuelo del proyectil debe pertenecer a un ataque real.");
   if(original.seenActionIds.includes(intent.id)||original.events.some(x=>x.id===intent.id))
     throw new Error("Identificador de acción temporal duplicado.");
   // Waiting for a fighter to select a new intent is deliberate: the other
@@ -128,6 +135,8 @@ export function queueTimelineAction(
       ?{blockToolCopyId:intent.blockToolCopyId}:{}),
     ...(intent.kind==="BLOCK"&&intent.blockToolSlot!==undefined
       ?{blockToolSlot:intent.blockToolSlot}:{}),
+    ...(intent.projectileFlightTicks!==undefined
+      ?{projectileFlightTicks:intent.projectileFlightTicks}:{}),
     status:"QUEUED",sequence:next.nextSequence++});
   return next;
 }

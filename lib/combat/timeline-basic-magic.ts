@@ -44,7 +44,6 @@ export function simulateBasicMagicTimelineHit(
    event.endsAtTick!==clock.nowTick||!validDice(attackDice)||!validDice(defenseDice))
    throw new Error("La magia todavía no puede ejecutarse en este tick.");
  if(attack.kind!=="ATTACK"||attack.usesMagic!==true||
-   attack.planarMove!==undefined||attack.movementOrder!==undefined||
    attack.rangedPhysical||attack.throwWeapon||
    attack.targetSummonId||attack.targetConstructionId||
    attack.areaAngleDegrees!==undefined||attack.projectileHeights!==undefined)
@@ -57,7 +56,10 @@ export function simulateBasicMagicTimelineHit(
    Object.values(combat.microEffects?.definitions??{}).some(list=>list?.length))
    throw new Error("Existen efectos que requieren el resolutor temporal avanzado.");
  const owner=event.owner,target=other(owner);
- if(event.durationTicks!==turnTicks(combat.actors[owner])||event.paidAp!==1)
+ const composite=attack.planarMove!==undefined;
+ if(!composite&&attack.movementOrder!==undefined||
+   event.durationTicks!==turnTicks(combat.actors[owner])||
+   event.paidAp!==(composite?2:1))
    throw new Error("La reserva temporal de magia no coincide con sus ticks y PA.");
  const sourceMana=combat.mana?.[owner];
  if(!sourceMana||!Number.isSafeInteger(sourceMana.current)||sourceMana.current<1)

@@ -18,6 +18,8 @@ import type {CombatConstruction} from "./constructs.ts";
 import {measuredBlock} from "./physical-obstacles.ts";
 import type {CombatSummon} from "./summons.ts";
 import {upkeepTimelineSummonsAtRound} from "./timeline-summon-world.ts";
+import {applyWeaponSelfRepairAtRoundStart} from "./turn-engine.ts";
+import {applyTimelineEquipmentWear} from "./timeline-equipment-replay.ts";
 import type {StatusStat} from "./summon-status.ts";
 import type {TimelineBatch,TimelineEvent} from "./action-timeline.ts";
 
@@ -110,6 +112,7 @@ export function prepareTimelineImpactSnapshot(
  const state=structuredClone(original);
  for(const crossing of expected){
    state.round=timelineRoundOf(crossing);
+   state.tick=crossing;
    const expiring=(state.skillBonuses??[]).filter(x=>x.expiresAtRound<=state.round);
    for(const bonus of expiring){
      const fighter=state.actors[bonus.by];
@@ -120,6 +123,16 @@ export function prepareTimelineImpactSnapshot(
    for(const bonus of expiring)
      reconcileSummonStatusStat(state,bonus.by,bonus.stat);
    upkeepTimelineSummonsAtRound(state,crossing);
+   state.narrativeHistory??=[...state.log];
+   const roundEntry:CombatLog={kind:"ROUND",tick:crossing,
+     by:"PLAYER",summary:"Comienza el turno "+state.round};
+   state.narrativeHistory.push(roundEntry);
+   state.log.push(roundEntry);
+   // The canonical V1 round contract: upkeep first, then passive item
+   // repair. Failed formula configs disable ONLY that item, not the fight.
+   state.itemRepairsThisRound=[];
+   for(const side of SIDES)
+     applyWeaponSelfRepairAtRoundStart(state,side);
  }
  return state;
 }
@@ -520,15 +533,9 @@ export function commitAuthorizedTimelineBatch(
    const base=original.actors[side].hp;
    actor.hp=Math.min(actor.maxHp,Math.max(0,base-damages[side]+healing[side]));
  }
- for(const item of wear.values()){
-   const actor=next.actors[item.owner];
-   const candidates=[actor.equippedWeapon,actor.offhandWeapon,...(actor.equippedWearables??[]),
-     ...(next.droppedWeapons??[]).filter(w=>w.owner===item.owner).map(w=>w.weapon)];
-   const copy=candidates.find(c=>c?.characterItemId===item.characterItemId);
-   if(!copy)throw new Error("El desgaste apunta a una copia no equipada ni arrojada.");
-   copy.durability=Math.max(0,(copy.durability??100)-item.amount);
-   if(copy===actor.equippedWeapon)actor.weaponIntegrity=copy.durability;
- }
+ // Both concurrent strikes use the SAME previous armor durability. Wear
+ // is accumulated before a single exact replay of the surviving equipment.
+ applyTimelineEquipmentWear(next,[...wear.values()]);
  for(const side of SIDES){
    const delta=moved[side],fighter=next.actors[side];
    if(delta.x!==0||delta.y!==0){
@@ -553,17 +560,10 @@ export function commitAuthorizedTimelineBatch(
    next.physicalPathEnds[stroke.owner]??={};
    next.physicalPathEnds[stroke.owner]![stroke.source]={...stroke.end};
  }
- // Emit crossed round boundaries BEFORE the final batch's impact log.
- // Advanced time-driven buffs/upkeep remain a separate, guarded integration.
+ // Round boundaries, summon upkeep and item self-repair were already
+ // applied BEFORE all simultaneous strikes in prepareTimelineImpactSnapshot.
  const priorLog=next.narrativeHistory??next.log.slice();
  next.narrativeHistory=[...priorLog];
- for(const crossing of batch.crossedRoundBoundaries){
-   const n=timelineRoundOf(crossing);
-   const entry:CombatLog={kind:"ROUND",tick:crossing,by:"PLAYER",
-     summary:"Comienza el turno "+n};
-   next.narrativeHistory.push(entry);
-   next.log.push(entry);
- }
  for(const entry of logs){
    next.narrativeHistory.push(entry);
    next.log.push(entry);

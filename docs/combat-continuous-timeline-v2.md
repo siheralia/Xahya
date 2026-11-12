@@ -155,3 +155,12 @@ Una creación de espejo genera su **primer rayo** mediante las reglas actuales y
 Los espejos emiten sus rayos periódicos desde el punto real de construcción, respetan alcance, colisión y reflexión del motor oficial, y no gastan otro PA ni otro maná. El campo mágico anticipado solo cobra el maná de su intervalo cuando corresponde. No se inventa un origen para espejos históricos ni se transforma la posición del sprite en un punto de mundo.
 
 **Límites de esta entrega:** se rechazan los contactos con inversión de estados o acumuladores no portados y construcciones avanzadas que modifiquen otras entidades sin un parche V2 seguro. No está conectada la ruta de combates reales ni el HUD; los encuentros históricos permanecen en V1. El reloj no depende de temporizadores ni de peticiones periódicas del cliente: progresa únicamente al confirmar declaraciones y acontecimientos autorizados del servidor.
+
+
+## V2.12 — rotura, fórmulas derivadas y autorreparación sincronizadas
+
+El desgaste de equipamiento de golpes simultáneos se suma sobre la misma integridad anterior y se confirma una vez. Si uno o varios objetos llegan a cero durabilidad, `timeline-equipment-replay.ts` invoca exactamente el reconciliador de estadísticas del catálogo actual: reevalúa bonificaciones planas, multiplicadores sumatorios y las dependencias configuradas de atributos básicos/derivados, sin invertir factores ni restar aproximaciones. La pérdida de límites máximos conserva la vida/maná actual salvo la reducción necesaria para no exceder el nuevo máximo, y recuperar la armadura nunca llena recursos. El resultado del cálculo V1 en la copia aislada se coteja con los deltas del replay para rechazar efectos adicionales no autorizados.
+
+Al cruzar ticks 100, 200 y siguientes, `prepareTimelineImpactSnapshot` ejecuta los mismos contratos oficiales de mantenimiento, vencimiento de bonos, orden de ronda y autorreparación de objetos del motor V1. Las fórmulas modulares de reparación leyeron solo el objeto equipado y las estadísticas autorizadas; el maná se paga solo una vez por activación y se registra la copia exacta en `itemRepairsThisRound`. Una fórmula incompatible desactiva exclusivamente la autorreparación de esa copia. Todos los impactos que terminan en ese mismo tick ven **el estado ya reparado**; la resolución descartada o fallida nunca debita existencias ni maná del encuentro persistente.
+
+Esta subfase es de librería y de pruebas. Los combates históricos, API e inventario persistente aún funcionan con V1; no se ha activado V2 en producción.

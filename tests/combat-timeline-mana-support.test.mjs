@@ -274,7 +274,7 @@ test("expiring flat bonus rebuilds a still-active multiplicative status",()=>{
    "the 1.2 multiplier must be recalculated against 8, not 12");
 });
 
-test("unsupported automatic equipment repair cannot be skipped at round crossings",async()=>{
+test("an incomplete legacy repair config remains inert at round crossings",async()=>{
  const c=state();
  c.actors.NPC.equippedWearables=[{
    itemType:"ARMOR",slot:"HEAD",characterItemId:606,itemId:7,
@@ -284,6 +284,9 @@ test("unsupported automatic equipment repair cannot be skipped at round crossing
  let session=newTimelineDeclarationSession(c);
  session=declareTimelineCommand(session,c,"PLAYER",{kind:"WAIT"},"repair-wait-a");
  session=declareTimelineCommand(session,c,"NPC",{kind:"WAIT"},"repair-wait-b");
- await assert.rejects(()=>resolveBasicTimelineWindow(c,session,dice),/resolutor temporal completo/);
+ const result=await resolveBasicTimelineWindow(c,session,dice);
+ assert.equal(result.combat.tick,100);
+ assert.equal(result.combat.actors.NPC.equippedWearables[0].durability,65);
+ assert.equal(result.combat.mana.NPC.current,24);
  assert.equal(c.actors.NPC.equippedWearables[0].durability,65);
 });

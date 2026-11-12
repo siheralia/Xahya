@@ -19,6 +19,7 @@ import {timelineRoundOf,
  type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import {fieldPosition} from "./field-plane.ts";
 import {diffConstructionWorld} from "./timeline-construction-world.ts";
+import {assertEquipmentOnlyShadowStats} from "./timeline-equipment-replay.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
 import type {StatusStat} from "./summon-status.ts";
 import {
@@ -151,19 +152,10 @@ export function simulateApprovedTimelineOffense(
        owner:side,characterItemId,amount:integrity-afterDurability,
      });
    }
-   for(const key of numericStats){
-     const beforeValue=old[key],afterValue=after[key];
-     if(beforeValue===afterValue)continue;
-     const beforeStatusDelta=oldStatuses.filter(s=>s.target===side&&s.stat===key)
-       .reduce((v,s)=>v+s.appliedDelta,0);
-     const afterStatusDelta=newStatuses.filter(s=>s.target===side&&s.stat===key)
-       .reduce((v,s)=>v+s.appliedDelta,0);
-     const expected=(beforeValue??0)+afterStatusDelta-beforeStatusDelta;
-     if(typeof afterValue!=="number"||
-       Math.abs(afterValue-expected)>1e-7)
-       throw new Error("El ataque cambió estadísticas sin un estado modular autorizado.");
-   }
+   // Stats from approved statuses and equipped armor are verified as
+   // independent, replayable sources below.
  }
+ assertEquipmentOnlyShadowStats(combat,resolved,equipmentWear);
  const structures=diffConstructionWorld(combat.constructions,resolved.constructions);
  if(structures.created.length)
    throw new Error("Una habilidad ofensiva creó un objeto no autorizado.");

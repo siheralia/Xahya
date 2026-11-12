@@ -19,12 +19,14 @@ import {
  * occupies an interval, never one reaction fee per incoming strike. */
 export type TimelinePreparedReaction={
  kind:"PREPARE_REACTION";
- defense:"DODGE"|"ENDURE"|"REPEL"|"DEFLECT"|"MAGIC_FIELD";
+ defense:"DODGE"|"ENDURE"|"REPEL"|"DEFLECT"|"MAGIC_FIELD"|"COUNTER";
  requestId?:string;
  /** A guess for AoE/ranged magic; only used for DODGE. */
  predictedCenter?:{x:number;y:number};
  /** Physical deflection in degrees; only used for DEFLECT. */
  defenseAngle?:number;
+ dodgeDirection?:"TOWARD"|"AWAY";
+ counterMagic?:boolean;
 };
 /** Proactive raised guard for continuous combat. V1 DEFEND is reactive. */
 export type TimelineCombatCommand=CombatCommand|TimelinePreparedReaction|{
@@ -114,7 +116,7 @@ export function compileCombatTimelineIntent(
     const reaction=command;
     const keys=Object.keys(reaction);
     if(keys.some(key=>!["kind","defense","requestId","predictedCenter",
-      "defenseAngle"].includes(key)))
+      "defenseAngle","dodgeDirection","counterMagic"].includes(key)))
       throw new Error("La reacción anticipada incluye parámetros desconocidos.");
     if(reaction.defense==="DEFLECT"){
       if(!Number.isFinite(reaction.defenseAngle)||reaction.defenseAngle!<0||
@@ -124,15 +126,26 @@ export function compileCombatTimelineIntent(
       const center=reaction.predictedCenter;
       if(!center||!Number.isFinite(center.x)||!Number.isFinite(center.y)||
         center.x<0||center.x>1||center.y<0||center.y>1||
-        reaction.defenseAngle!==undefined)
+        reaction.defenseAngle!==undefined||
+        reaction.counterMagic!==undefined||
+        reaction.dodgeDirection!==undefined&&
+          !["TOWARD","AWAY"].includes(reaction.dodgeDirection))
         throw new Error("Para esquivar debes marcar una predicción válida.");
-    }else if(reaction.defenseAngle!==undefined||reaction.predictedCenter!==undefined){
+    }else if(reaction.defense==="COUNTER"){
+      if(reaction.defenseAngle!==undefined||
+        reaction.predictedCenter!==undefined||
+        reaction.dodgeDirection!==undefined||
+        reaction.counterMagic!==undefined&&typeof reaction.counterMagic!=="boolean")
+        throw new Error("Contraatacar no admite dibujo ni desplazamiento.");
+    }else if(reaction.defenseAngle!==undefined||reaction.predictedCenter!==undefined||
+      reaction.dodgeDirection!==undefined||reaction.counterMagic!==undefined){
       throw new Error("Esta reacción no admite trazo ni predicción.");
     }
     if(reaction.defense==="MAGIC_FIELD"&&
       (snapshot.mana?.[by]?.current??0)<1)
       throw new Error("Necesitas al menos un maná para preparar un campo mágico.");
-    return {...base,kind:"REACT",durationTicks:normal(actor),paCost:1};
+    return {...base,kind:"REACT",durationTicks:normal(actor),
+      paCost:reaction.defense==="DODGE"&&reaction.dodgeDirection?2:1};
   }
   case "GUARD": {
     const equipped=blockingEquipment(actor,command.weaponSlot);

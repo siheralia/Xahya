@@ -105,7 +105,7 @@ export function simulateBasicTimelineMove(
    throw new Error("El movimiento alteró armas del suelo sin autorización.");
  const recoveredSlot=pickup?(pickup.slot??"MAIN_HAND"):undefined;
  if(pickup&&(!Number.isSafeInteger(pickup.weapon.characterItemId)||
-   pickup.weapon.characterItemId<1||
+   pickup.weapon.characterItemId!<1||
    combat.actors[event.owner][recoveredSlot==="MAIN_HAND"?
      "equippedWeapon":"offhandWeapon"]))
    throw new Error("La recuperación no corresponde a una copia equipada válida.");
@@ -126,7 +126,7 @@ export function simulateBasicTimelineMove(
    eventId:event.id,
    positionDelta:{[event.owner]:delta},
    ...(pickup?{weaponRecoveries:[{owner:event.owner,
-     characterItemId:pickup.weapon.characterItemId,
+     characterItemId:pickup.weapon.characterItemId!,
      slot:recoveredSlot!}]}:{}),
    ...(delta.x!==0||delta.y!==0?{resetPhysicalStrokes:[event.owner]}:{}),
    logs:moved.log.filter(entry=>entry.kind==="MOVE")

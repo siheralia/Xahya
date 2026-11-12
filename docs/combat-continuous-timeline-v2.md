@@ -230,3 +230,41 @@ de lanzamiento/impacto separado antes de activar V2 en la API.
 Se rechazan objetivos externos, ataques con movimiento compuesto,
 lanzamientos sin alturas explícitas y parámetros de vuelo del cliente.
 No hay modificación de partidas reales ni despliegue Vercel.
+
+
+## V2.14c — vuelos autónomos y fin de la espera artificial
+
+La implementación V2.14b ocupaba la acción del tirador durante toda la
+preparación **más** el tiempo de vuelo. V2.14c reemplaza esa limitación:
+una acción de disparo cuesta **1 PA** y dura solamente su preparación,
+según `turnTicks` oficial. Al cumplirse esa preparación, el motor
+congela origen, objetivo, arma y estadísticas del tirador en un registro
+de `timelineProjectiles`. El disparo queda en el mundo con
+`impactTick = launchTick + flightTicks`; no requiere otra orden del
+tirador y no concede PA adicional.
+
+Las criaturas, espejos y proyectiles comparten la cola de sucesos
+autónomos. El proyectil puede impactar mientras el tirador se desplaza
+o efectúa otra acción. Su trayectoria permanece fijada al mundo desde
+la declaración: si el objetivo se aparta de la posición capturada,
+el disparo no lo persigue. Se reutilizan las fórmulas físicas y el
+desgaste de escudos/barreras del motor V1 en una simulación aislada,
+con la defensa vigente exactamente al tick de impacto.
+
+Un arma arrojada abandona su ranura **al lanzamiento**; durante el vuelo
+no es recuperable ni aparece duplicada en el suelo. Al impactar se
+coloca una sola copia auténtica en el punto calculado, aplicando su
+desgaste. El fin de un combate con tiros aún pendientes se difiere
+hasta que esos tiros concluyan, conservando ataques post mortem y
+anulando órdenes futuras de combatientes caídos. Las esperas necesarias
+durante ese cierre son gratuitas y generadas por el servidor.
+
+**Seguridad:** los datos de vuelo y lanzamiento los construye el
+motor, no el cliente. Los eventos autónomos consumen cada registro
+una sola vez en el commit atómico; las colisiones y daño siguen siendo
+simultáneos para un mismo tick. Esto sigue siendo una biblioteca
+aislada y NO cambia las sesiones V1 existentes.
+
+**Próxima prioridad:** integración de sesiones V2 con transacciones
+PostgreSQL, autorización, interfaz opt-in para encuentros nuevos y
+regresiones reales. Evitar seguir dividiendo el motor en microetapas.

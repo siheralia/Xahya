@@ -16,6 +16,7 @@ import {
 import {offhandArmorShield} from "../items/combat-wearables.ts";
 import {fieldPosition} from "./field-plane.ts";
 import {diffConstructionWorld} from "./timeline-construction-world.ts";
+import {assertEquipmentOnlyShadowStats} from "./timeline-equipment-replay.ts";
 import {activeTimelineBlockAt,
   type ContinuousCombatTimeline,type TimelineEvent} from "./action-timeline.ts";
 import type {AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
@@ -142,16 +143,9 @@ export function simulateBasicPhysicalTimelineHit(
    if(to.x!==from.x||to.y!==from.y)
      positionDelta[side]={x:to.x-from.x,y:to.y-from.y};
  }
- // Breaking a wearable can remove stats from its owner. Until the V2 patch
- // format can replay those derived stat changes, never pretend only the HP
- // and item durability changed.
- const statKeys=["strength","agility","constitution","precision","dodge",
-   "physicalAttack","physicalDefense","magicAttack","magicDefense",
-   "critical","luck","race","maxHp","speedValue"] as const;
- for(const side of ["PLAYER","NPC"] as const){
-   if(statKeys.some(key=>combat.actors[side][key]!==resolved.actors[side][key]))
-     throw new Error("La rotura de equipo requiere actualización temporal de estadísticas.");
- }
+ // Verify exact catalog-derived changes in the V1 shadow, then let the
+ // atomic commit replay them ONCE after all concurrent strikes.
+ assertEquipmentOnlyShadowStats(combat,resolved,equipmentWear);
  const ending=resolved.physicalPathEnds?.[attacker]?.[source];
  const physicalStrokes=ending?[{owner:attacker,source,end:{...ending}}]:[];
  const logs=resolved.log.filter(x=>x.kind!=="ROUND"&&x.kind!=="END")

@@ -15,6 +15,7 @@ import {
 } from "./turn-engine.ts";
 import {fieldPosition} from "./field-plane.ts";
 import {diffConstructionWorld} from "./timeline-construction-world.ts";
+import {assertEquipmentOnlyShadowStats} from "./timeline-equipment-replay.ts";
 import {
   isolatePhysicalShadow,weaponCopies,
 } from "./timeline-basic-strike.ts";
@@ -98,9 +99,9 @@ export function simulateBasicMagicTimelineHit(
        owner:side,characterItemId,amount:oldDurability-current,
      });
    }
-   if(stats.some(key=>combat.actors[side][key]!==resolved.actors[side][key]))
-     throw new Error("Este golpe mágico requiere recalcular estadísticas de equipo.");
+   // Armor replay is verified after all equipped-copy wear is gathered.
  }
+ assertEquipmentOnlyShadowStats(combat,resolved,equipmentWear);
  // A prepared magic field reserves one mana for its entire time interval.
  // V1 shadows charge once per strike; do NOT copy that per-hit charge.
  const defenderManaDelta=(combat.mana?.[target]?.current??NaN)-

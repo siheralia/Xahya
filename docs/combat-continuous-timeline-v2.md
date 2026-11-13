@@ -517,3 +517,29 @@ Las inversiones con selección manual de debilitamiento, los campos de
 caos espaciales y las pasivas generales que requieren eventos periódicos
 adicionales siguen sin habilitarse de forma general hasta portar sus
 interacciones. Los encuentros V1 no cambian.
+
+## V2.25 — Reino del Caos: campo espacial con tiempo compartido
+
+Las fusiones oficiales con `CHAOS_FIELD` pueden entrar en el laboratorio
+V2. Su criatura materializada conserva radio, ángulo de rotación, ciclo por
+ronda, vida propia, mantenimiento y turnos autónomos. El catálogo y la
+simulación toman exclusivamente un plan aprobado de sistema; el navegador
+no puede configurar el ángulo, radio ni duración de un campo enemigo.
+
+El campo afecta solo **desplazamientos deliberados de combatientes**,
+incluyendo MOVE y los desplazamientos combinados o evasivos que usa el
+resolutor V1 en un cálculo aislado. No reorienta trayectorias de ataque,
+proyectiles, empujones ni movimientos pasivos de invocaciones. El campo
+hostil más cercano se selecciona desde la posición original del
+combatiente; el motor valida colisiones después de girar el vector, antes
+de cargar PA.
+
+Los campos creados en el mismo tick que otro movimiento no cambian
+retroactivamente ese movimiento: ambos resultados se calculan desde
+la instantánea anterior al lote. El giro de 90°/180°/270° usa la
+**ronda real del tick de impacto**, no una ronda ficticia del motor V1.
+Los campos desaparecen cuando su criatura expira o es derrotada.
+
+Las fusiones, invocaciones y órdenes existentes continúan funcionando
+aunque haya un campo hostil activo. V1, rankings y modo predeterminado
+no cambian.

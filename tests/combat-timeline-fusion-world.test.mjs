@@ -5,7 +5,8 @@ import {compileCombatSkill} from "../lib/combat/skill-casting.ts";
 import {newCombatState} from "../lib/combat/turn-engine.ts";
 import {newTimelineDeclarationSession,declareTimelineCommand}
  from "../lib/combat/timeline-declarations.ts";
-import {resolveBasicTimelineWindow} from "../lib/combat/timeline-basic-actions.ts";
+import {resolveBasicTimelineWindow,simulateBasicTimelineMove} from "../lib/combat/timeline-basic-actions.ts";
+import {activeChaosField,distortChaosMove} from "../lib/combat/chaos-fusion.ts";
 import {commitAuthorizedTimelineBatch} from "../lib/combat/timeline-batch-resolver.ts";
 import {newContinuousCombatTimeline,queueTimelineAction,
  completeNextTimelineBatch} from "../lib/combat/action-timeline.ts";
@@ -163,17 +164,60 @@ test("fusion and lethal hit on one source at the same tick both commit",()=>{
  ]),/dos veces/);
 });
 
-test("chaos fusion stays blocked by dedicated V2 resolver",()=>{
- const c=battle(),p=skill(true);
- const clock=newTimelineDeclarationSession(c);
- const declared=cast(clock,c,"PLAYER",p);
- const event={id:"fake",owner:"PLAYER",kind:"SKILL",status:"RESOLVED",
-   endsAtTick:10,durationTicks:10,paidAp:1};
- assert.throws(()=>simulateApprovedTimelineFusion(c,{
-   ...declared.clock,nowTick:10,
- },event,{kind:"CAST_SKILL",skillId:p.id,
-   requestId:"safe-chaos-request-0001"},p),/caos/);
+test("authorized chaos fusion creates a persistent field at exactly its finished tick",async()=>{
+ const c=battle(),before=structuredClone(c),p=skill(true);
+ let session=cast(newTimelineDeclarationSession(c),c,"PLAYER",p);
+ session=declareTimelineCommand(session,c,"NPC",{
+   kind:"MOVE",meters:1,direction:"VECTOR",planarMove:{x:1,y:0},
+ },"npc-move-same-tick");
+ const resolved=await resolveBasicTimelineWindow(c,session,dice);
+ assert.equal(resolved.combat.tick,10);
+ assert.equal(resolved.combat.summons.length,1);
+ const merged=resolved.combat.summons[0];
+ assert.deepEqual(merged.chaosField,{radiusMeters:5,
+   rotationDegrees:90,rotateEachRound:true});
+ assert.equal(merged.createdRound,1);
+ assert.equal(resolved.combat.mana.PLAYER.current,65);
+ assert.equal(resolved.combat.actors.NPC.fieldPosition.y??0,0,
+   "a chaos field created at t10 cannot retroactively rotate a same-tick move");
+ assert.deepEqual(c,before);
  const catalog=readFileSync(new URL("../lib/combat/timeline-lab-skills.ts",
    import.meta.url),"utf8");
- assert.match(catalog,/!plan\.fusion\.chaosField/);
+ assert.match(catalog,/plan.category==="FUSION"&&!!plan.fusion/);
+});
+
+test("later V2 moves rotate inside hostile chaos field, not in its owner's movement",async()=>{
+ const c=battle(),p=skill(true);
+ let s=cast(newTimelineDeclarationSession(c),c,"PLAYER",p);
+ s=declareTimelineCommand(s,c,"NPC",{kind:"WAIT"},"npc-wait-for-fusion");
+ const fused=(await resolveBasicTimelineWindow(c,s,dice)).combat;
+ assert.equal(fused.tick,10);
+ assert.equal(activeChaosField(fused,"NPC").degrees,90);
+ assert.equal(activeChaosField(fused,"PLAYER"),null);
+ const move={kind:"MOVE",meters:1,direction:"VECTOR",planarMove:{x:1,y:0}};
+ const clock={...newTimelineDeclarationSession(fused).clock,nowTick:20};
+ const event={id:"chaos-next",owner:"NPC",kind:"MOVE",
+   startsAtTick:10,endsAtTick:20,durationTicks:10,paidAp:1,
+   sequence:1,status:"RESOLVED"};
+ const effect=simulateBasicTimelineMove({...fused,
+   round:1},clock,event,move);
+ assert.ok(Math.abs(effect.positionDelta.NPC.x)<1e-8);
+ assert.ok(Math.abs(effect.positionDelta.NPC.y-1)<1e-8);
+ assert.deepEqual(distortChaosMove(fused,"NPC",{x:1,y:0}),{x:0,y:1});
+});
+
+test("chaos rotation changes at round boundaries and expires with its summon",async()=>{
+ const c=battle(),p=skill(true);
+ let s=cast(newTimelineDeclarationSession(c),c,"PLAYER",p);
+ s=declareTimelineCommand(s,c,"NPC",{kind:"WAIT"},"npc-long-wait");
+ let resolved=await resolveBasicTimelineWindow(c,s,dice);
+ const active=resolved.combat;
+ assert.deepEqual(distortChaosMove(active,"NPC",{x:1,y:0}),{x:0,y:1});
+ active.round=2;active.tick=100;
+ assert.deepEqual(distortChaosMove(active,"NPC",{x:1,y:0}),{x:-1,y:0});
+ active.round=3;active.tick=200;
+ assert.deepEqual(distortChaosMove(active,"NPC",{x:1,y:0}),{x:0,y:-1});
+ active.round=4;active.tick=300;
+ assert.equal(activeChaosField(active,"NPC"),null,
+   "expired fields cannot distort later movements");
 });

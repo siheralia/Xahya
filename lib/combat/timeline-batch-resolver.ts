@@ -271,7 +271,15 @@ export function commitAuthorizedTimelineBatch(
        typeof summon.autoNextTick!=="number"||
        !Number.isSafeInteger(summon.autoNextTick)||
        summon.autoNextTick<=batch.atTick||
-       summon.chargesMigrated!==true||summon.chaosField!==undefined||
+       summon.chargesMigrated!==true||
+       (summon.chaosField!==undefined&&(
+         typeof summon.chaosField!=="object"||
+         summon.chaosField.radiusMeters<0.5||
+         summon.chaosField.radiusMeters>15||
+         !Number.isFinite(summon.chaosField.radiusMeters)||
+         ![90,180,270].includes(summon.chaosField.rotationDegrees)||
+         typeof summon.chaosField.rotateEachRound!=="boolean"
+       ))||
        summonsCreated.some(previous=>previous.id===summon.id||
          previous.owner===summon.owner&&previous.entityKey===summon.entityKey))
        throw new Error("Invocación temporal inválida o duplicada.");

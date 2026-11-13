@@ -327,7 +327,7 @@ export default function CombatV2AttackPlanner({
          :chosenSkill.category==="SUMMON"
            ?"La criatura aparece al concluir la acción y luego sigue su conducta autónoma."
            :chosenSkill.category==="FUSION"
-             ?"Las criaturas existentes de la receta se consumen al terminar la acción; la criatura fusionada aparece en su lugar."
+             ?"Las criaturas de la receta se consumen al terminar; la fusionada aparece con sus efectos propios, incluidos campos de caos que giran el movimiento enemigo."
            :chosenSkill.category==="CHARGE_BUFF"
              ?"Utiliza tus cargas acumuladas para potenciar estadísticas temporalmente. El consumo se confirma al terminar la acción."
            :chosenSkill.category==="CONSTRUCTION"

@@ -46,7 +46,7 @@ export function simulateApprovedTimelineSummon(
    !safeId(command.requestId)||plan.category!=="SUMMON"||
    !plan.summons?.length)
    throw new Error("La criatura requiere una invocación temporal aprobada.");
- if((combat.summons??[]).some(s=>s.chaosField||!s.chargesMigrated))
+ if((combat.summons??[]).some(s=>!s.chargesMigrated))
    throw new Error("La creación requiere un resolutor de obstáculos o cargas avanzado.");
  const mana=combat.mana?.[event.owner]?.current??0;
  if(!Number.isFinite(mana)||mana<plan.cost)
@@ -107,7 +107,7 @@ export function simulateTimelineSummonOrder(
    throw new Error("La orden necesita el resolutor temporal de ataques de criatura.");
  const creature=(combat.summons??[]).find(x=>
    x.id===command.summonId&&x.owner===event.owner);
- if(!creature||!creature.chargesMigrated||creature.chaosField)
+ if(!creature||!creature.chargesMigrated)
    throw new Error("No controlas esa criatura temporal.");
  const shadow=shadowForWorld(combat,event.owner,event.endsAtTick);
  const resolved=applyCombatCommand(shadow,event.owner,command,
@@ -146,7 +146,7 @@ export function upkeepTimelineSummonsAtRound(state:CombatState,tick:number):void
    timelineRoundOf(tick)!==state.round)
    throw new Error("Límite de mantenimiento temporal inválido.");
  const existing=state.summons??[];
- if(existing.some(x=>!x.chargesMigrated||x.chaosField))
+ if(existing.some(x=>!x.chargesMigrated))
    throw new Error("La criatura requiere migración de cargas o campo especial.");
  const retained:CombatSummon[]=[];
  for(const summon of existing){
@@ -191,7 +191,7 @@ export function scheduleAutonomousSummonTicks(
  for(const summon of combat.summons??[]){
    if(summon.integrity<=0||["HOLD","MANUAL"].includes(summon.behavior.mode))
      continue;
-   if(!summon.chargesMigrated||summon.chaosField)
+   if(!summon.chargesMigrated)
      throw new Error("El familiar requiere ejecución temporal avanzada.");
    const dueAt=summon.autoNextTick;
    if(typeof dueAt!=="number"||!Number.isSafeInteger(dueAt)||dueAt<0)

@@ -12,11 +12,14 @@ import {meetsEffectRequirements} from "../skills/effect-requirements";
 
 export type LabSkillSummary={
  id:number;name:string;cost:number;
- category:"OFFENSE"|"SUPPORT";usesMagic:boolean;
+ category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION";usesMagic:boolean;
  requiresPath:boolean;needsCenter:boolean;
 };
 const eligible=(plan:CombatSkillPlan)=>
- plan.category==="OFFENSE"||plan.category==="SUPPORT"&&!!plan.approvedActivation;
+ plan.category==="OFFENSE"||
+ plan.category==="SUPPORT"&&!!plan.approvedActivation||
+ plan.category==="SUMMON"&&!!plan.summons?.length||
+ plan.category==="CONSTRUCTION"&&!!plan.construction;
 
 async function stolenSkillIds(characterId:number):Promise<Set<number>>{
  const q=db.raw.sql`
@@ -80,12 +83,13 @@ export async function listApprovedLabSkills(
  const plans=await skillPlans(characterId,tx);
  return [...plans.values()].map(plan=>({
    id:plan.id,name:plan.name,cost:plan.cost,
-   category:plan.category as "OFFENSE"|"SUPPORT",
+   category:plan.category as "OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION",
    usesMagic:plan.usesMagic===true,
    requiresPath:plan.category==="OFFENSE"&&
      plan.usesMagic!==true&&plan.attackArea?.shape!=="SELF_FIELD",
-   needsCenter:plan.category==="OFFENSE"&&
-     (plan.usesMagic===true||Boolean(plan.attackArea&&
-       plan.attackArea.shape!=="SELF_FIELD")),
+   needsCenter:plan.category==="CONSTRUCTION"||
+     plan.category==="OFFENSE"&&
+       (plan.usesMagic===true||Boolean(plan.attackArea&&
+         plan.attackArea.shape!=="SELF_FIELD")),
  })).sort((a,b)=>a.name.localeCompare(b.name,"es"));
 }

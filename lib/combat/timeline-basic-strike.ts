@@ -57,7 +57,9 @@ export function activeBlockSlot(
 
 export function isolatePhysicalShadow(original:CombatState,attacker:Side):CombatState{
  const shadow=structuredClone(original);
- shadow.round=1;shadow.tick=0;
+ // V2's prepared batch already crossed every intervening round boundary.
+ // Reusing round one here would mis-rotate a hostile chaos field.
+ shadow.round=original.round;shadow.tick=(original.round-1)*100;
  shadow.pending=null;shadow.timelineMode=undefined;shadow.tieOpener=attacker;
  shadow.activeBlocks={};shadow.mirrorRayQueue=[];
  shadow.log=[];shadow.narrativeHistory=[];

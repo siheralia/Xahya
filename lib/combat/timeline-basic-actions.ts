@@ -67,7 +67,10 @@ export function assertBasicTimelineEligible(combat:CombatState):void{
 
 function shadowForBasicMove(combat:CombatState,owner:Side):CombatState{
  const shadow=structuredClone(combat);
- shadow.round=1;shadow.tick=0;shadow.pending=null;
+ // Use the impact round, not round one: chaotic fields may rotate at
+ // every 100-tick boundary while an earlier action remains in progress.
+ shadow.round=combat.round;
+ shadow.tick=(combat.round-1)*100;shadow.pending=null;
  shadow.timelineMode=undefined;shadow.tieOpener=owner;
  shadow.log=[];shadow.narrativeHistory=[];
  shadow.activeBlocks={};shadow.mirrorRayQueue=[];

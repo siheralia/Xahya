@@ -7,7 +7,6 @@
  * updates against the original owned CharacterItem copy. This prevents both
  * stock duplication and a second concurrent fight from restoring wear.
  */
-import {db} from "../db";
 import type {CombatState,Side} from "./turn-engine.ts";
 
 type Copy={characterItemId:number;itemId:number;durability:number};
@@ -153,6 +152,8 @@ export async function commitV2InventoryMutations(
  before:CombatState,after:CombatState,tx:any,
 ):Promise<void>{
  const changes=inventoryMutationsBetween(before,after);
+ if(!changes.length)return;
+ const {db}=await import("../db");
  for(const change of changes){
    if(change.kind==="CONSUME"){
      const sql=db.raw.sql`

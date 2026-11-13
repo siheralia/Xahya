@@ -66,8 +66,11 @@ test("two-user handoff: private declarations, strict replay, persistent guard",a
  assert.equal(blocked.timeline.clock.actors.NPC.spentApByRound["1"],1);
  assert.deepEqual(publicPvPTimelineStatus(blocked.timeline,"NPC").waitingFor,
    ["PLAYER"]);
+ // A second stroke continues from the end of the previous stroke,
+ // rather than teleporting the punching hand back to its first origin.
+ const following={...attack,trajectory:[{x:.5,y:.5},{x:.8,y:.5}]};
  const second=await submit(blocked.combat,blocked.timeline,"PLAYER",
-   attack,"two-owners-attack-00002");
+   following,"two-owners-attack-00002");
  assert.equal(second.combat.tick,20);
  assert.equal(second.timeline.clock.actors.NPC.spentApByRound["1"],1,
    "guard holds across two independent strikes for one AP");

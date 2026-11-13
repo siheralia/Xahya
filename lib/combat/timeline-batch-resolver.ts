@@ -674,12 +674,9 @@ export function commitAuthorizedTimelineBatch(
    if(creature.integrity<=0||creature.hitCount>=creature.hitLimit)
      next.summons=next.summons.filter((s:CombatSummon)=>s.id!==creature.id);
  }
- // Resolve a source's same-tick action/hit first; then remove only the
- // exact owned sources that the trusted fusion recipe committed.
- for(const source of summonsConsumed){
-   if(!next.summons.some(s=>s.id===source.id&&s.owner===source.owner))
-     throw new Error("La criatura fusionada desapareció durante el lote.");
- }
+ // Resolve a source's same-tick action/hit first, then retire its
+ // official ID even if an opposing impact also destroyed it at this tick.
+ // Those simultaneous effects are both legal against the same snapshot.
  if(summonsConsumed.length){
    const consumedIds=new Set(summonsConsumed.map(s=>s.id));
    next.summons=next.summons.filter(s=>!consumedIds.has(s.id));

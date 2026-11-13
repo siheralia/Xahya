@@ -64,6 +64,8 @@ async function access(id:string) {
 export async function GET(req:Request,{params}:{params:Promise<{id:string}>}) {
   const a=await access((await params).id);
   if(!a)return NextResponse.json({error:"Combate no encontrado o sin permiso."},{status:403});
+  if((a.session.lastAction as any)?.combatV2)
+    return NextResponse.json({error:"Este encuentro utiliza V2; abre su interfaz de línea temporal."},{status:409});
   const resource=(db.orm.public as any).CharacterResource;
   const karma:Partial<Record<Side,number>>={};
   for(const side of ["PLAYER","NPC"] as const){
@@ -94,6 +96,8 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}) {
 export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
   const a=await access((await params).id);
   if(!a)return NextResponse.json({error:"Combate no encontrado o sin permiso."},{status:403});
+  if((a.session.lastAction as any)?.combatV2)
+    return NextResponse.json({error:"Las acciones V1 están deshabilitadas en este encuentro V2."},{status:409});
   const body=await req.json().catch(()=>null);
   const side=body?.side as Side;
   if(!["PLAYER","NPC"].includes(side)||!body?.command||typeof body.command!=="object")
@@ -112,6 +116,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
       const Session=(tx.orm.public as any).CombatSession;
       const fresh=await Session.where({id:a.encounterId}).first();
       const state=(fresh?.lastAction as any)?.combatV1 as CombatState|undefined;
+      if((fresh?.lastAction as any)?.combatV2)
+        throw new Error("Las acciones V1 no pueden modificar una sesión V2.");
       if(!state||state.version!==1)
         throw new Error("Este encuentro no admite estas acciones.");
       // Inside the session row lock: distinguish retries from new actions

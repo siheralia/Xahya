@@ -6,13 +6,15 @@ import {db} from "@/lib/db";
 import {canApproveCombat} from "@/lib/combat/permissions";
 import {combatClientView} from "@/lib/combat/magic-area";
 import {combatSnapshotEtag,combatEtagMatches} from "@/lib/combat/poll-cache";
-import {publicTimelineSessionStatus,type TimelineDeclarationSession}
+import {publicTimelineSessionStatus,isRecordedTimelineReplay,
+ type TimelineDeclarationSession}
  from "@/lib/combat/timeline-declarations";
 import {pendingTimelineSides} from "@/lib/combat/action-timeline";
 import {publicPvPTimelineStatus,submitPvPTimelineCommand}
  from "@/lib/combat/timeline-pvp";
 import type {Side} from "@/lib/combat/turn-engine";
-import {advanceExperimentalTimeline,submitExperimentalTimelineCommand} from "@/lib/combat/timeline-experiment";
+import {advanceExperimentalTimeline,submitExperimentalTimelineCommand,
+ parseExperimentalV2Command} from "@/lib/combat/timeline-experiment";
 import {approvedLabSkillPlan,listApprovedLabSkills} from "@/lib/combat/timeline-lab-skills";
 import {commitV2InventoryMutations} from "@/lib/combat/timeline-inventory-commit";
 import {compileCombatConsumable} from "@/lib/items/combat-consumables";
@@ -129,13 +131,23 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
        :!ownsPlayer&&!accessInfo.gm))
        throw new Error("No controlas a este combatiente.");
      const owner:Side=pvp?(ownsPlayer?"PLAYER":"NPC"):"PLAYER";
-     if(original.combat.status!=="ACTIVE"||String(fresh.status)!=="ACTIVE")
-       throw new Error("El combate experimental ya terminó.");
      const advance=body.command?.kind==="ADVANCE";
      const cast=body.command?.kind==="CAST_SKILL";
      const useItem=body.command?.kind==="USE_ITEM";
      const actionId=String(body.requestId??"");
      const command=cast||useItem?{...body.command,requestId:actionId}:body.command;
+     // The final strike may have committed while the HTTP response was
+     // lost. Return the stored terminal snapshot ONLY for the identical
+     // authenticated command and original receipt. No inventory/PA writes.
+     if(original.combat.status!=="ACTIVE"||String(fresh.status)!=="ACTIVE"){
+       if(advance)throw new Error("El combate experimental ya terminó.");
+       const parsed=parseExperimentalV2Command(command);
+       const same=isRecordedTimelineReplay(original.timeline,owner,parsed,
+         "V2_"+owner+":"+actionId);
+       if(!same)throw new Error("El combate experimental ya terminó.");
+       return {...publicPayload(original.combat,original.timeline,
+           accessInfo.viewerSide),replayed:true,batches:0};
+     }
      const onBatch=async(before:CombatState,after:CombatState)=>
        commitV2InventoryMutations(before,after,tx);
      // ADVANCE is server-side NPC/workflow progress ONLY, not a paid action.

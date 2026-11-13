@@ -37,6 +37,11 @@ test("V2 laboratory accepts only a narrow action command vocabulary",()=>{
    {kind:"GUARD",weaponSlot:"FAKE"},
    {kind:"ATTACK",attackType:"PIERCE",targetSummonId:"foo"},
    {kind:"ATTACK",attackType:"BLUNT",trajectory:[{x:999,y:0}]},
+   {...hit,planarMove:{x:3,y:0},movementOrder:"BEFORE"},
+   {...hit,planarMove:{x:.5,y:0}},
+   {...hit,movementOrder:"BEFORE"},
+   {...hit,planarMove:{x:.5,y:0},movementOrder:"FORGED"},
+   {...hit,planarMove:{x:.5,y:0},movementOrder:"AFTER",rangedPhysical:true},
    {kind:"PREPARE_REACTION",defense:"DODGE",charges:99},
  ]){
    assert.throws(()=>parseExperimentalV2Command(input),/V2|autorizada/);
@@ -145,6 +150,18 @@ test("guard uses one paid PA to block the announced NPC strike",async()=>{
  assert.equal(c.actors.PLAYER.offhandWeapon.durability,100);
 });
 
+test("user-drawn V2 physical strike combines movement and strike on one clock",async()=>{
+ const initial=newExperimentalTimeline(combat());
+ const command={...hit,planarMove:{x:-.2,y:0},movementOrder:"AFTER"};
+ assert.deepEqual(parseExperimentalV2Command(command),command);
+ const done=await submitExperimentalTimelineCommand(initial.combat,
+   initial.timeline,command,"v2-ui-composite-attack-001",dice);
+ assert.equal(done.combat.tick,10);
+ assert.equal(done.combat.actors.PLAYER.positionMeters,-.2);
+ assert.equal(done.timeline.clock.actors.PLAYER.spentApByRound["1"],2);
+ assert.equal(initial.combat.actors.PLAYER.positionMeters,0);
+});
+
 test("NPC AI moves toward a far opponent and attacks without client orders",()=>{
  const distant=combat(2);
  const move=experimentalTrainingNpcCommand(distant);
@@ -177,5 +194,13 @@ test("new encounter opt-in, private projection and V1 route separation are wired
  assert.match(reactions,/endsAtTick/);
  assert.match(load("app/combat/[id]/CombatV2Encounter.tsx"),
    /<CombatV2Reactions/);
+ const planner=load("app/combat/[id]/CombatV2AttackPlanner.tsx");
+ assert.match(planner,/onPointerDown/);
+ assert.match(planner,/onPointerMove/);
+ assert.match(planner,/previewViewportMove/);
+ assert.match(planner,/movementOrder:/);
+ assert.match(planner,/areaCenter:/);
+ assert.match(load("app/combat/[id]/CombatV2Encounter.tsx"),
+   /<CombatV2AttackPlanner/);
  assert.match(launcher,/experimentalV2:options\.experimentalV2Available/);
 });

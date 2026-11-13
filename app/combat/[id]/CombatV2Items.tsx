@@ -2,10 +2,11 @@
 import {FlaskConical} from "lucide-react";
 import type {CombatState} from "@/lib/combat/turn-engine.ts";
 
-type Props={state:CombatState;canOrder:boolean;paLeft:number;
+type Props={state:CombatState;ownerSide:"PLAYER"|"NPC";
+ canOrder:boolean;paLeft:number;
  onOrder:(command:Record<string,unknown>)=>void};
-export default function CombatV2Items({state,canOrder,paLeft,onOrder}:Props){
- const items=(state.consumables?.PLAYER??[]).filter(x=>
+export default function CombatV2Items({state,ownerSide,canOrder,paLeft,onOrder}:Props){
+ const items=(state.consumables?.[ownerSide]??[]).filter(x=>
    x.quantity>0&&x.characterItemId!==undefined);
  if(!items.length)return null;
  return <section className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-900/70 p-4">
@@ -20,8 +21,8 @@ export default function CombatV2Items({state,canOrder,paLeft,onOrder}:Props){
    <div className="grid gap-2 sm:grid-cols-2">
      {items.map(item=>{
        const full=item.action==="HEAL_HP"
-         ?state.actors.PLAYER.hp>=state.actors.PLAYER.maxHp
-         :(state.mana?.PLAYER?.current??0)>=(state.mana?.PLAYER?.max??0);
+         ?state.actors[ownerSide].hp>=state.actors[ownerSide].maxHp
+         :(state.mana?.[ownerSide]?.current??0)>=(state.mana?.[ownerSide]?.max??0);
        const benefit=item.action==="HEAL_HP"?"Recupera "+item.amount+" HP":
          "Recupera "+item.amount+" maná";
        return <div key={item.characterItemId}

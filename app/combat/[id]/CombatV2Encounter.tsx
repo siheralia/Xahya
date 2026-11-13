@@ -16,9 +16,10 @@ type Status={
    startsAtTick:number;endsAtTick:number}>;
 };
 type PublicV2={
- mode:"EXPERIMENTAL_V2";state:CombatState;
+ mode:"EXPERIMENTAL_V2";state:CombatState;pvp?:boolean;
+ viewerSide?:"PLAYER"|"NPC"|"SPECTATOR";
  skills?:Array<{id:number;name:string;cost:number;
-   category:"OFFENSE"|"SUPPORT";usesMagic:boolean;
+   category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION";usesMagic:boolean;
    requiresPath:boolean;needsCenter:boolean}>;
  timeline:Status;projectiles:Array<{id:string;owner:string;
    launchTick:number;impactTick:number}>;
@@ -35,6 +36,7 @@ export default function CombatV2Encounter({id}:{id:string}){
  const [meters,setMeters]=useState(".5");
  const [lastMessage,setLastMessage]=useState("");
  const etag=useRef<string|null>(null);
+ const lastRequest=useRef<{signature:string;id:string}|null>(null);
  const load=useCallback(async()=>{
    const response=await fetch("/api/combat/"+id+"/timeline",{
      cache:"no-store",headers:etag.current?{"If-None-Match":etag.current}:{},
@@ -54,11 +56,25 @@ export default function CombatV2Encounter({id}:{id:string}){
    })();
    return()=>{active=false;};
  },[load]);
+ // Poll only PvP while visible; unchanged states return ETag 304,
+ // avoiding repeated download of the full combat snapshot.
+ useEffect(()=>{
+   if(!data?.pvp||data.state.status!=="ACTIVE")return;
+   const timer=window.setInterval(()=>{
+     if(document.visibilityState==="visible"&&!busy)
+       void load().catch(()=>{});
+   },4000);
+   return()=>window.clearInterval(timer);
+ },[data?.pvp,data?.state.status,busy,load]);
  const submit=async(command:Record<string,unknown>)=>{
    if(busy||!data)return;
    setBusy(true);setError("");setLastMessage("");
    try{
-     const requestId="lab-"+crypto.randomUUID().replace(/-/g,"");
+     const signature=JSON.stringify(command);
+     const requestId=lastRequest.current?.signature===signature
+       ?lastRequest.current.id
+       :"lab-"+crypto.randomUUID().replace(/-/g,"");
+     lastRequest.current={signature,id:requestId};
      const response=await fetch("/api/combat/"+id+"/timeline",{
        method:"POST",headers:{"Content-Type":"application/json"},
        body:JSON.stringify({command,requestId}),
@@ -66,6 +82,7 @@ export default function CombatV2Encounter({id}:{id:string}){
      const body=await response.json();
      if(!response.ok)throw new Error(body.error??"No se pudo ejecutar la acción.");
      etag.current=null;
+     lastRequest.current=null;
      // POST returns only the changing combat snapshot, while the approved
      // skill list stays server-read and is refreshed on subsequent GET.
      setData(previous=>({...body,skills:previous?.skills??[]}));
@@ -82,9 +99,13 @@ export default function CombatV2Encounter({id}:{id:string}){
    <Link className="text-cyan-300 underline" href="/combat">Regresar a combates</Link>
  </main>;
  const {state,timeline,projectiles}=data;
- const player=state.actors.PLAYER,npc=state.actors.NPC;
- const waiting=timeline.waitingFor.includes("PLAYER");
- const canOrder=waiting&&state.status==="ACTIVE"&&player.hp>0&&!busy;
+ const ownerSide=data.viewerSide==="NPC"?"NPC":"PLAYER";
+ const opponentSide=ownerSide==="PLAYER"?"NPC":"PLAYER";
+ const isSpectator=data.viewerSide==="SPECTATOR";
+ const player=state.actors[ownerSide],npc=state.actors[opponentSide];
+ const waiting=timeline.waitingFor.includes(ownerSide);
+ const canOrder=waiting&&!isSpectator&&state.status==="ACTIVE"&&
+   player.hp>0&&!busy;
  const moveMax=Math.max(1,Math.round(player.race/10));
  const distance=Math.hypot(
    (player.fieldPosition?.x??player.positionMeters)-
@@ -94,7 +115,8 @@ export default function CombatV2Encounter({id}:{id:string}){
   <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4">
     <div className="flex justify-between gap-3">
       <div><p className="font-semibold">{p.name}</p><p className="text-xs text-zinc-400">
-        {side==="PLAYER"?"Tu personaje":"NPC de entrenamiento"}</p></div>
+        {isSpectator?"Combatiente":side===ownerSide?"Tu personaje":
+          data.pvp?"Rival PvP":"NPC de entrenamiento"}</p></div>
       <span className="text-sm text-rose-200">{Math.max(0,p.hp)}/{p.maxHp} HP</span>
     </div>
     <div className="my-3 h-2 overflow-hidden rounded bg-zinc-700">
@@ -111,7 +133,10 @@ export default function CombatV2Encounter({id}:{id:string}){
    <header className="flex flex-wrap items-start justify-between gap-3">
      <div><p className="text-xs font-medium uppercase tracking-widest text-cyan-300">
        Combate experimental V2</p>
-       <h1 className="text-2xl font-bold">Línea temporal compartida</h1>
+       <h1 className="text-2xl font-bold">
+         {data.pvp?"Duelo PvP V2 · Línea temporal compartida":
+           "Línea temporal compartida"}
+       </h1>
        <p className="mt-1 text-xs text-zinc-400">
          Laboratorio V2 · Objetos consumidos y desgaste de equipo persistentes; HP y maná aislados
        </p>
@@ -126,7 +151,7 @@ export default function CombatV2Encounter({id}:{id:string}){
      </div>
    </header>
    <section className="grid gap-3 sm:grid-cols-2">
-     {top(player,"PLAYER")}{top(npc,"NPC")}
+     {top(player,ownerSide)}{top(npc,opponentSide)}
    </section>
    <section className="rounded-xl border border-zinc-700 bg-zinc-900/70 p-4">
      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -138,37 +163,42 @@ export default function CombatV2Encounter({id}:{id:string}){
        {timeline.running.map((r,i)=>
          <span key={r.owner+"-"+r.startsAtTick+"-"+i}
            className="rounded-full border border-cyan-800/70 bg-cyan-950/30 px-3 py-1 text-xs">
-           {r.owner==="PLAYER"?"Tú":"NPC"} · {r.kind} · {r.startsAtTick}–{r.endsAtTick}
+           {r.kind==="RESERVED"?"Orden del rival oculta":
+             (r.owner===ownerSide?"Tú":"Rival")+" · "+r.kind+
+               " · "+r.startsAtTick+"–"+r.endsAtTick}
          </span>)}
        {projectiles.map(p=><span key={p.id}
          className="rounded-full border border-amber-800/70 bg-amber-950/30 px-3 py-1 text-xs">
          <Target size={12} className="mr-1 inline"/>
-         Proyectil {p.owner==="PLAYER"?"tuyo":"NPC"} · impacto t{p.impactTick}
+         Proyectil {p.owner===ownerSide?"tuyo":"del rival"} · impacto t{p.impactTick}
        </span>)}
        {!timeline.running.length&&!projectiles.length&&
          <span className="text-sm text-zinc-400">Sin sucesos en curso</span>}
      </div>
      {state.status==="FINISHED"
        ?<p className="mt-3 font-semibold text-emerald-300">
-         Combate terminado · {state.winner==="PLAYER"?"Victoria":
-           state.winner==="NPC"?"Derrota":"Empate"}
+         Combate terminado · {state.winner===null?"Empate":
+           isSpectator?"Ganó "+state.actors[state.winner].name:
+           state.winner===ownerSide?"Victoria":"Derrota"}
        </p>
        :<p className="mt-3 text-xs text-zinc-300">
-         {waiting?"El siguiente ataque del NPC ya está anunciado si hay uno pendiente. Elige atacar, moverte o preparar una reacción.":
+         {isSpectator?"Observando las decisiones de los dos propietarios.":
+           waiting?"Puedes actuar o reaccionar según los sucesos visibles.":
+           data.pvp?"Tu orden está reservada; esperando al otro jugador.":
            "Tu acción sigue en curso. El NPC actúa mientras transcurre el tiempo."}
        </p>}
    </section>
    <CombatV2Reactions state={state} clock={timeline}
-     projectiles={projectiles} canOrder={canOrder}
+     ownerSide={ownerSide} projectiles={projectiles} canOrder={canOrder}
      onOrder={command=>void submit(command)}/>
-   <CombatV2Summons state={state} canOrder={canOrder}
+   <CombatV2Summons state={state} ownerSide={ownerSide} canOrder={canOrder}
      onOrder={command=>void submit(command)}/>
-   <CombatV2Items state={state} canOrder={canOrder}
-     paLeft={Math.max(0,timeline.pa.PLAYER.limit-timeline.pa.PLAYER.used)}
+   <CombatV2Items state={state} ownerSide={ownerSide} canOrder={canOrder}
+     paLeft={Math.max(0,timeline.pa[ownerSide].limit-timeline.pa[ownerSide].used)}
      onOrder={command=>void submit(command)}/>
-   <CombatV2AttackPlanner state={state} canOrder={canOrder}
+   <CombatV2AttackPlanner state={state} ownerSide={ownerSide} canOrder={canOrder}
      skills={data.skills??[]}
-     paLeft={Math.max(0,timeline.pa.PLAYER.limit-timeline.pa.PLAYER.used)}
+     paLeft={Math.max(0,timeline.pa[ownerSide].limit-timeline.pa[ownerSide].used)}
      onOrder={command=>void submit(command)}/>
    <section className="space-y-4 rounded-xl border border-zinc-700 bg-zinc-950/70 p-4">
      <h2 className="flex items-center gap-2 font-semibold">
@@ -191,7 +221,7 @@ export default function CombatV2Encounter({id}:{id:string}){
          className="inline-flex items-center gap-2 rounded-lg border border-zinc-600 px-3 py-2 disabled:opacity-40">
          <ArrowLeft size={16}/> Alejarme
        </button>
-       {(state.droppedWeapons??[]).some(x=>x.owner==="PLAYER")&&
+       {(state.droppedWeapons??[]).some(x=>x.owner===ownerSide)&&
          <button disabled={!canOrder} onClick={()=>void submit({
            kind:"MOVE",direction:"WEAPON",meters:Number(meters)})}
            className="inline-flex items-center gap-2 rounded-lg border border-zinc-600 px-3 py-2 disabled:opacity-40">
@@ -203,7 +233,7 @@ export default function CombatV2Encounter({id}:{id:string}){
          className="inline-flex items-center gap-2 rounded-lg border border-zinc-600 px-3 py-2 disabled:opacity-40">
          <Hourglass size={16}/> Esperar (0 PA)
        </button>
-       {!waiting&&state.status==="ACTIVE"&&
+       {!data.pvp&&!waiting&&state.status==="ACTIVE"&&
          <button disabled={busy} onClick={()=>void submit({kind:"ADVANCE"})}
            className="rounded-lg bg-cyan-900 px-3 py-2 text-sm disabled:opacity-40">
            Avanzar tiempo del NPC

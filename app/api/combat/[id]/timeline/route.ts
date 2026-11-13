@@ -8,6 +8,10 @@ import {combatClientView} from "@/lib/combat/magic-area";
 import {combatSnapshotEtag,combatEtagMatches} from "@/lib/combat/poll-cache";
 import {publicTimelineSessionStatus,type TimelineDeclarationSession}
  from "@/lib/combat/timeline-declarations";
+import {pendingTimelineSides} from "@/lib/combat/action-timeline";
+import {publicPvPTimelineStatus,submitPvPTimelineCommand}
+ from "@/lib/combat/timeline-pvp";
+import type {Side} from "@/lib/combat/turn-engine";
 import {advanceExperimentalTimeline,submitExperimentalTimelineCommand} from "@/lib/combat/timeline-experiment";
 import {approvedLabSkillPlan,listApprovedLabSkills} from "@/lib/combat/timeline-lab-skills";
 import {commitV2InventoryMutations} from "@/lib/combat/timeline-inventory-commit";
@@ -36,29 +40,39 @@ async function access(id:string){
  if(!session)return null;
  const player=await db.orm.public.Character.where({
    id:Number(session.playerCharacterId)}).first();
+ const rivalId=Number((session.npcStats as any)?.opponentCharacterId??0);
+ const rival=Number.isSafeInteger(rivalId)&&rivalId>0
+   ?await db.orm.public.Character.where({id:rivalId}).first():null;
  const gm=await canApproveCombat(user);
- if(!player||!gm&&Number(player.userId)!==Number(user.id))
-   return null;
- return {session,sessionId:value,user,gm};
+ if(!player)return null;
+ const ownedPlayer=Number(player.userId)===Number(user.id);
+ const ownedRival=!!rival&&Number(rival.userId)===Number(user.id);
+ if(!ownedPlayer&&!ownedRival&&!gm)return null;
+ const viewerSide:Side|"SPECTATOR"=ownedPlayer?"PLAYER":
+   ownedRival?"NPC":rival?"SPECTATOR":"PLAYER";
+ return {session,sessionId:value,user,gm,viewerSide};
 }
 function read(saved:any):{combat:CombatState;timeline:TimelineDeclarationSession}{
  const combat=saved?.combatV1 as CombatState|undefined;
  const timeline=saved?.combatV2 as SavedV2|undefined;
  if(!combat||combat.version!==1||combat.timelineMode!=="SHARED"||
     !timeline||timeline.version!==2||!timeline.clock||
-    combat.tick!==timeline.clock.nowTick||
-    combat.actors.NPC.characterId!==null)
+    combat.tick!==timeline.clock.nowTick)
    throw new Error("El encuentro no tiene una sesión V2 experimental válida.");
  return {combat,timeline};
 }
-function publicPayload(combat:CombatState,timeline:TimelineDeclarationSession){
+function publicPayload(combat:CombatState,timeline:TimelineDeclarationSession,
+ viewerSide:Side|"SPECTATOR"){
  // Frozen shooter and target/aim remain private, like uncommitted commands.
  const projected=combatClientView(combat);
  const {timelineProjectiles:privateProjectiles,...state}=projected;
  const flying=(privateProjectiles??[]).map(({id,owner,launchTick,impactTick})=>
    ({id,owner,launchTick,impactTick}));
- return {mode:"EXPERIMENTAL_V2" as const,state,
-   projectiles:flying,timeline:publicTimelineSessionStatus(timeline),
+ const pvp=combat.actors.NPC.characterId!==null;
+ return {mode:"EXPERIMENTAL_V2" as const,state,pvp,viewerSide,
+   projectiles:flying,timeline:pvp
+     ?publicPvPTimelineStatus(timeline,viewerSide==="SPECTATOR"?null:viewerSide)
+     :publicTimelineSessionStatus(timeline),
    limitations:"Laboratorio V2: inventario y durabilidad de equipo reales, ficha HP/maná de combate aislada. Pasivas modulares avanzadas sujetas a compatibilidad."};
 }
 export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
@@ -68,12 +82,15 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
    const saved=accessInfo.session.lastAction as any;
    const {combat,timeline}=read(saved);
-   payload=publicPayload(combat,timeline);
+   payload=publicPayload(combat,timeline,accessInfo.viewerSide);
  }catch{return error("Este combate no utiliza el laboratorio V2.",409);}
  // Only the owner (or management) can read the approved active loadout.
  // Expose IDs and labels, not the server-approved effect graph.
- const skills=await listApprovedLabSkills(Number(accessInfo.session.playerCharacterId))
-   .catch(()=>[]);
+ const actingId=accessInfo.viewerSide==="SPECTATOR"?null:
+   accessInfo.viewerSide==="NPC"
+     ?Number((accessInfo.session.npcStats as any)?.opponentCharacterId??0)
+     :Number(accessInfo.session.playerCharacterId);
+ const skills=actingId?await listApprovedLabSkills(actingId).catch(()=>[]):[];
  const text=JSON.stringify({...payload,skills});
  const etag=combatSnapshotEtag(text);
  const headers={"ETag":etag,"Cache-Control":"private, no-store","Vary":"Cookie"};
@@ -98,12 +115,20 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
        throw new Error("El encuentro ya no existe.");
      const Session=(tx.orm.public as any).CombatSession;
      const fresh=await Session.where({id:accessInfo.sessionId}).first();
-     const character=await tx.orm.public.Character.where({
-       id:Number(fresh?.playerCharacterId??0)}).first();
-     if(!fresh||!character||
-       !accessInfo.gm&&Number(character.userId)!==Number(accessInfo.user.id))
-       throw new Error("No tienes autorización sobre este encuentro.");
+     if(!fresh)throw new Error("El encuentro ya no existe.");
      const original=read(fresh.lastAction);
+     const pvp=original.combat.actors.NPC.characterId!==null;
+     const player=await tx.orm.public.Character.where({
+       id:Number(fresh.playerCharacterId)}).first();
+     const rival=pvp?await tx.orm.public.Character.where({
+       id:Number(original.combat.actors.NPC.characterId)}).first():null;
+     const ownsPlayer=player&&Number(player.userId)===Number(accessInfo.user.id);
+     const ownsRival=rival&&Number(rival.userId)===Number(accessInfo.user.id);
+     if(!player||(pvp
+       ?!ownsPlayer&&!ownsRival
+       :!ownsPlayer&&!accessInfo.gm))
+       throw new Error("No controlas a este combatiente.");
+     const owner:Side=pvp?(ownsPlayer?"PLAYER":"NPC"):"PLAYER";
      if(original.combat.status!=="ACTIVE"||String(fresh.status)!=="ACTIVE")
        throw new Error("El combate experimental ya terminó.");
      const advance=body.command?.kind==="ADVANCE";
@@ -114,20 +139,20 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
      const onBatch=async(before:CombatState,after:CombatState)=>
        commitV2InventoryMutations(before,after,tx);
      // ADVANCE is server-side NPC/workflow progress ONLY, not a paid action.
-     if(advance&&(Object.keys(body.command).length!==1))
-       throw new Error("El avance temporal no admite parámetros externos.");
+     if(advance&&(pvp||Object.keys(body.command).length!==1))
+       throw new Error("Solo el entrenamiento admite avance autónomo del NPC.");
      // Compile inside the SAME session lock. A replay uses its persisted
      // receipt and never reruns a subsequently changed skill approval.
      const isReplay=Object.hasOwn(original.timeline.receipts,
-       "V2_PLAYER:"+actionId);
+       "V2_"+owner+":"+actionId);
      const approvedSkill=cast&&!isReplay
        ?await approvedLabSkillPlan(
-          Number(fresh.playerCharacterId),Number(command.skillId),tx)
+          Number(original.combat.actors[owner].characterId),Number(command.skillId),tx)
        :undefined;
      // The original combat snapshot records exact item copy, action and
      // amount. Verify the official recipe has not changed since creation.
      if(useItem&&!isReplay){
-       const stock=(original.combat.consumables?.PLAYER??[]).find(x=>
+       const stock=(original.combat.consumables?.[owner]??[]).find(x=>
          x.itemId===Number(command.itemId)&&
          x.characterItemId===Number(command.characterItemId));
        const Item=(tx.orm.public as any).Item;
@@ -137,24 +162,30 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
          stock.amount!==recipe.amount)
          throw new Error("La receta o copia de inventario cambió. Crea un encuentro nuevo.");
      }
+     const context=approvedSkill?{approvedSkill}:{};
      const result=advance
        ?{...await advanceExperimentalTimeline(original.combat,
           original.timeline,dice,20,onBatch),replayed:false}
+       :pvp?await submitPvPTimelineCommand(
+          original.combat,original.timeline,owner,command,actionId,dice,
+          context,onBatch)
        :await submitExperimentalTimelineCommand(
           original.combat,original.timeline,command,actionId,dice,
-          approvedSkill?{approvedSkill}:{},onBatch);
+          context,onBatch);
      if(!result.replayed&&result.batches>0||!result.replayed&&!advance){
        await Session.where({id:accessInfo.sessionId}).update({
          lastAction:{combatV1:result.combat,combatV2:result.timeline},
          currentTick:result.combat.tick,turn:result.combat.round,
          status:result.combat.status,
-         activeActor:result.combat.status==="ACTIVE"?"PLAYER":"NPC",
+         activeActor:result.combat.status==="ACTIVE"&&
+           !pendingTimelineSides(result.timeline.clock).includes("PLAYER")
+            ?"NPC":"PLAYER",
          playerNextActionTick:result.timeline.clock.actors.PLAYER.availableAtTick,
          npcNextActionTick:result.timeline.clock.actors.NPC.availableAtTick,
          updatedAt:Temporal.Now.instant(),
        });
      }
-     return {...publicPayload(result.combat,result.timeline),
+     return {...publicPayload(result.combat,result.timeline,accessInfo.viewerSide),
        replayed:result.replayed,batches:result.batches};
    });
    return NextResponse.json(committed,{headers:{"Cache-Control":"private, no-store"}});

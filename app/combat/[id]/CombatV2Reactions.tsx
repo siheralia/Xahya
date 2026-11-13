@@ -15,7 +15,7 @@ export type ReactionClock={tick:number;
  pa:Record<"PLAYER"|"NPC",{used:number;limit:number}>;
  running:RunningAction[]};
 type Props={state:CombatState;clock:ReactionClock;
- projectiles:Projectile[];canOrder:boolean;
+ ownerSide:"PLAYER"|"NPC";projectiles:Projectile[];canOrder:boolean;
  onOrder:(command:Record<string,unknown>)=>void};
 
 const initial:Point={x:.5,y:.5};
@@ -40,21 +40,24 @@ const isThreat=(kind:string)=>["ATTACK","SKILL",
  * rewind already committed strikes or interrupt an occupied action.
  */
 export default function CombatV2Reactions({
- state,clock,projectiles,canOrder,onOrder,
+ state,clock,ownerSide,projectiles,canOrder,onOrder,
 }:Props){
  const [prediction,setPrediction]=useState<Point>(initial);
  const [dodgeDirection,setDodgeDirection]=useState<"STAY"|"AWAY"|"TOWARD">("STAY");
  const [deflection,setDeflection]=useState(0);
- const fighter=state.actors.PLAYER,opponent=state.actors.NPC;
+ const fighter=state.actors[ownerSide];
+ const opponentSide=ownerSide==="PLAYER"?"NPC":"PLAYER";
+ const opponent=state.actors[opponentSide];
  const normal=turnTicks(fighter);
- const threats=clock.running.filter(x=>x.owner==="NPC"&&isThreat(x.kind));
+ const threats=clock.running.filter(x=>
+   x.owner===opponentSide&&isThreat(x.kind));
  const unique=new Map<number,string[]>();
  for(const threat of threats){
    unique.set(threat.endsAtTick,[
      ...(unique.get(threat.endsAtTick)??[]),threatKind(threat.kind),
    ]);
  }
- for(const projectile of projectiles.filter(x=>x.owner==="NPC")){
+ for(const projectile of projectiles.filter(x=>x.owner===opponentSide)){
    unique.set(projectile.impactTick,[
      ...(unique.get(projectile.impactTick)??[]),"Proyectil en vuelo",
    ]);
@@ -66,7 +69,7 @@ export default function CombatV2Reactions({
  const shieldSlot=off?.durability!==0&&off?.characterItemId
    ?"OFF_HAND":main?.durability!==0&&main?.characterItemId
    ?"MAIN_HAND":null;
- const pa=clock.pa.PLAYER;
+ const pa=clock.pa[ownerSide];
  const remaining=pa.limit-pa.used;
  const viewport=battleFieldViewport(fighter,opponent);
  const own=fieldToViewport(viewport,fieldPosition(fighter));
@@ -213,7 +216,7 @@ export default function CombatV2Reactions({
          <Swords size={16}/> Contraatacar
        </button>
        <button type="button" disabled={!canOrder||remaining<1||
-         (state.mana?.PLAYER?.current??0)<1}
+         (state.mana?.[ownerSide]?.current??0)<1}
          onClick={()=>onOrder({kind:"PREPARE_REACTION",defense:"MAGIC_FIELD"})}
          className="inline-flex items-center gap-2 rounded-lg border border-violet-700 px-3 py-2 text-sm disabled:opacity-40">
          <Sparkles size={16}/> Campo mágico

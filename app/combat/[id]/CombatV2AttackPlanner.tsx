@@ -10,14 +10,14 @@ type Command=Record<string,unknown>;
 type LabSkill={id:number;name:string;cost:number;
  category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION";usesMagic:boolean;
  requiresPath:boolean;needsCenter:boolean};
-type Props={state:CombatState;canOrder:boolean;skills:LabSkill[];
+type Props={state:CombatState;ownerSide:"PLAYER"|"NPC";canOrder:boolean;skills:LabSkill[];
  paLeft:number;onOrder:(command:Command)=>void};
 const bound=(v:number)=>Math.max(0,Math.min(1,v));
 const fmt=(v:number)=>Math.round(v*100)/100;
 const length=(p:Point)=>Math.hypot(p.x,p.y);
 
 export default function CombatV2AttackPlanner({
- state,canOrder,paLeft,onOrder,skills,
+ state,ownerSide,canOrder,paLeft,onOrder,skills,
 }:Props){
  const [source,setSource]=useState<"FIST_RIGHT"|"FIST_LEFT"|"KICK"|
    "MAIN_HAND"|"OFF_HAND">("FIST_RIGHT");
@@ -36,10 +36,11 @@ export default function CombatV2AttackPlanner({
    setPath([]);
    setStep({x:0,y:0});
  },[state.tick]);
- const fighter=state.actors.PLAYER,foe=state.actors.NPC;
+ const fighter=state.actors[ownerSide];
+ const foe=state.actors[ownerSide==="PLAYER"?"NPC":"PLAYER"];
  const weapon=source==="MAIN_HAND"?fighter.equippedWeapon:
    source==="OFF_HAND"?fighter.offhandWeapon:undefined;
- const starts=physicalAttackStart(state,"PLAYER",source)??{x:.1,y:.5};
+ const starts=physicalAttackStart(state,ownerSide,source)??{x:.1,y:.5};
  const validPath=path.length>=2&&
    Math.hypot(path.at(-1)!.x-starts.x,path.at(-1)!.y-starts.y)>.04;
  const move=order!=="NONE";
@@ -48,11 +49,11 @@ export default function CombatV2AttackPlanner({
  const canStrike=canOrder&&paLeft>=paidAp&&moveReady&&
    validPath&&weapon?.mode!=="RANGED";
  const canMagic=canOrder&&paLeft>=paidAp&&moveReady&&
-   (state.mana?.PLAYER?.current??0)>=1;
+   (state.mana?.[ownerSide]?.current??0)>=1;
  const chosenSkill=skills.find(x=>String(x.id)===skillId);
  const skillCostAp=chosenSkill?.category==="OFFENSE"?paidAp:1;
  const canSkill=canOrder&&!!chosenSkill&&paLeft>=skillCostAp&&
-   (state.mana?.PLAYER?.current??0)>=(chosenSkill?.cost??Infinity)&&
+   (state.mana?.[ownerSide]?.current??0)>=(chosenSkill?.cost??Infinity)&&
    (chosenSkill?.category!=="OFFENSE"||moveReady)&&
    (!chosenSkill.requiresPath||validPath);
  const viewport=battleFieldViewport(fighter,foe);

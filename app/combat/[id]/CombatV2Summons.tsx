@@ -3,14 +3,15 @@ import {Rabbit,Target,ArrowRight,ArrowLeft} from "lucide-react";
 import type {CombatState} from "@/lib/combat/turn-engine.ts";
 import {fieldPosition} from "@/lib/combat/field-plane.ts";
 
-type Props={state:CombatState;canOrder:boolean;
+type Props={state:CombatState;ownerSide:"PLAYER"|"NPC";canOrder:boolean;
  onOrder:(command:Record<string,unknown>)=>void};
 const meters=(n:number)=>Math.round(n*100)/100;
-export default function CombatV2Summons({state,canOrder,onOrder}:Props){
+export default function CombatV2Summons({state,ownerSide,canOrder,onOrder}:Props){
  const summons=(state.summons??[]).filter(s=>
-   s.owner==="PLAYER"&&s.integrity>0);
- const opponent=fieldPosition(state.actors.NPC);
- const opponentLabel=state.actors.NPC.name;
+   s.owner===ownerSide&&s.integrity>0);
+ const opponentSide=ownerSide==="PLAYER"?"NPC":"PLAYER";
+ const opponent=fieldPosition(state.actors[opponentSide]);
+ const opponentLabel=state.actors[opponentSide].name;
  const getMove=(creature:typeof summons[number],toward:boolean)=>{
    const dx=opponent.x-creature.fieldPosition.x;
    const dy=opponent.y-creature.fieldPosition.y;
@@ -62,7 +63,7 @@ export default function CombatV2Summons({state,canOrder,onOrder}:Props){
          {creature.behavior.target==="OPPONENT"&&
            <button type="button" disabled={!canOrder}
              onClick={()=>onOrder({kind:"COMMAND_SUMMON",summonId:creature.id,
-               order:"CHANGE_TARGET",targetId:"FIGHTER:NPC"})}
+               order:"CHANGE_TARGET",targetId:"FIGHTER:"+opponentSide})}
              className="inline-flex items-center gap-2 rounded-md border border-amber-700 px-2 py-1 text-xs disabled:opacity-35">
              <Target size={13}/> Enfocar a {opponentLabel}
            </button>}

@@ -437,3 +437,33 @@ entrenamiento.
 **Sigue pendiente la activación PvP V2 y la migración de categorías
 modulares complejas (fusión y cargas) y pasivas; el laboratorio
 no se vuelve predeterminado por esta etapa.**
+
+## V2.21 — PvP de dos propietarios bajo la misma sesión transaccional
+
+Gestión puede crear un **PvP experimental nuevo** seleccionando dos personajes
+reales y el opt-in V2. No afecta PvP históricos ni convierte V2 en modo
+predeterminado. Al crearlo, **ningún NPC actúa en nombre del segundo usuario**.
+
+El endpoint identifica por el personaje guardado y la fila User al dueño
+de cada lado, comprueba la pertenencia nuevamente dentro del bloqueo
+`CombatSession` y asigna el `owner` del reloj SIN aceptar un parámetro
+`side` del navegador. Los administradores pueden observar sesiones en las
+que no participan, pero no enviar órdenes en nombre de los jugadores.
+
+Cada lado conserva sus propios recibos de idempotencia, PA por ronda,
+hechizos, maná, familiares, objetos y copias reales de equipo. El primer
+usuario que declara una nueva acción no revela al segundo ni la clase ni
+los ticks de su intención, ni sus PA recién reservados; solo aparece
+«orden reservada». La acción se revela cuando su ejecución temporal ya
+empezó y es observable, sin divulgar puntería ni el grafo privado.
+
+La pantalla V2 admite órdenes desde ambos lados: fichas, distancia,
+reacciones, puntería, inventario, invocaciones y resultados se muestran
+desde la perspectiva del propietario autenticado. En PvP hay refresco cada
+4 segundos solo mientras la pestaña está visible y el encuentro activo;
+ETag responde 304 sin transferir otra instantánea cuando no hay cambios.
+
+**Esta modalidad sigue etiquetada experimental.** Sus resultados no
+incrementan rankings públicos mientras no finalice la auditoría de
+habilidades modulares restantes, condiciones pasivas y regresiones
+concurrentes de inventario bajo dos clientes simultáneos.

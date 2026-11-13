@@ -10,6 +10,7 @@
  */
 import type {CombatState,Side} from "./turn-engine.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
+import {combatChargeBalance} from "./charge-pools.ts";
 import {
   compileCombatTimelineIntent,newTimelineForCombat,
   type CompilationContext,type TimelineCombatCommand,
@@ -119,6 +120,13 @@ export function declareTimelineCommand(
    const availableAt=snapshot.skillCooldowns?.[owner]?.[String(plan.id)]??0;
    if(availableAt===-1||availableAt>currentRound)
      throw new Error("Esta habilidad continúa en enfriamiento.");
+   if(plan.category==="CHARGE_BUFF"&&plan.chargeBuff){
+     const count=command.chargesToSpend,buff=plan.chargeBuff;
+     if(!Number.isSafeInteger(count)||count===undefined||
+       count<buff.minCharges||count>buff.maxCharges||
+       combatChargeBalance(snapshot,owner,buff.accumulator)<count)
+       throw new Error("No tienes suficientes cargas oficiales para declarar esta habilidad.");
+   }
  }
  if(command.kind==="COMMAND_SUMMON"){
    if(Object.keys(command).some(key=>

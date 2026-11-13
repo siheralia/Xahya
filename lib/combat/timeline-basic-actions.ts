@@ -22,6 +22,7 @@ import {simulateBasicPhysicalTimelineHit,activeBlockSlot}
 import {simulateBasicMagicTimelineHit} from "./timeline-basic-magic.ts";
 import {simulateApprovedTimelineSupport} from "./timeline-basic-support.ts";
 import {simulateApprovedTimelineFusion} from "./timeline-fusion-world.ts";
+import {simulateApprovedTimelineChargeBuff} from "./timeline-charge-buffs.ts";
 import {simulateApprovedTimelineOffense} from "./timeline-offensive-skill.ts";
 import {simulateBasicTimelineConsumable} from "./timeline-consumables.ts";
 import {simulateApprovedTimelineConstruction}
@@ -56,6 +57,7 @@ export function assertBasicTimelineEligible(combat:CombatState):void{
    
    (combat.summonStatuses??[]).some(status=>
      !(status.id.startsWith("V2_SUPPORT:")&&status.by===status.target)&&
+     !(status.id.startsWith("V2_CHARGE:")&&status.by===status.target)&&
      !(status.id.startsWith("V2_HOSTILE:")&&status.by!==status.target)&&
      !status.id.startsWith("V2_SUMMON:"))||
    Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length)||
@@ -292,6 +294,9 @@ export async function resolveBasicTimelineWindow(
        if(plan.category==="FUSION")
          return simulateApprovedTimelineFusion(state,batch.state,event,
            command,plan);
+       if(plan.category==="CHARGE_BUFF")
+         return simulateApprovedTimelineChargeBuff(state,batch.state,event,
+           command,plan);
        if(plan.category==="CONSTRUCTION"){
          const strike=makeDice(),defense=makeDice();
          const reaction=defend(event,batch.state,{usesMagic:Boolean(plan.mirror),isArea:false},state);
@@ -355,7 +360,11 @@ export async function resolveBasicTimelineWindow(
          weaponSlot:slot}:reaction.posture;
        const effect=simulateAutonomousTimelineSummon(state,batch.state,
          event,dice,defenseDice,posture);
-       return collect(effect,reaction);
+       // A FOLLOW contact or a status inversion is not a hostile strike.
+       // A prepared magic field must not charge mana for a non-attack.
+       const hostile=effect.logs?.some(log=>
+         log.kind==="ATTACK"||log.kind==="RESOLVE");
+       return collect(effect,hostile?reaction:{...reaction,fieldId:undefined});
      }
      if(event.kind==="AUTO_MIRROR"){
        const reaction=defend(event,batch.state,{usesMagic:true,isArea:false},state);

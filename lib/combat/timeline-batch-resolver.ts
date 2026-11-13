@@ -12,7 +12,9 @@ import type {CombatState,CombatLog,Side,Point,PhysicalAttackSource} from "./turn
 import {fieldPosition} from "./field-plane.ts";
 import {timelineRoundOf} from "./action-timeline.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "./narration.ts";
-import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat} from "./summon-status.ts";
+import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat,
+ invertSummonStatus,isDebuffStatus} from "./summon-status.ts";
+import {spendCombatCharges,creditCombatCharge} from "./charge-pools.ts";
 import type {CombatBuffStat} from "./skill-casting.ts";
 import type {CombatConstruction} from "./constructs.ts";
 import {measuredBlock} from "./physical-obstacles.ts";
@@ -59,6 +61,8 @@ export type AuthorizedTimelineEffect={
   /** Multiple concurrent creature hits add to target integrity/hit count. */
   summonImpacts?:Array<{id:string;owner:Side;damage:number;hitCountDelta:number}>;
   /** Statuses produced by the official approved creature-contact resolver. */
+  summonInversions?:Array<{id:string;sourceSummonId:string;
+    owner:Side;target:Side;chargeAccumulator?:string}>;
   summonContactStatuses?:Array<{id:string;sourceSummonId:string;by:Side;
     target:Side;stat:StatusStat;operation:"BONUS"|"MULTIPLIER";
     value:number;durationTurns:number}>;
@@ -67,6 +71,8 @@ export type AuthorizedTimelineEffect={
    * catalog copy. Never trust amounts or quantities sent by the player.
    */
   consumableUses?:Array<{owner:Side;itemId:number;characterItemId?:number}>;
+  /** Charge spending is owner-scoped and only occurs at the skill deadline. */
+  combatChargeSpends?:Array<{owner:Side;accumulator:string;amount:number}>;
   /** Only trusted, authorized resolution may spend encounter-local mana. */
   manaSpent?:Partial<Record<Side,number>>;
   manaRestored?:Partial<Record<Side,number>>;
@@ -74,7 +80,7 @@ export type AuthorizedTimelineEffect={
   statBonuses?:Array<{owner:Side;skillId:number;skillName:string;
     stat:CombatBuffStat;value:number;durationTurns:number}>;
   /** Approved personal status with the same stacking semantics as V1. */
-  selfStatuses?:Array<{owner:Side;id:string;skillId:number;stat:CombatBuffStat;
+  selfStatuses?:Array<{owner:Side;id:string;skillId:number;stat:StatusStat;
     operation:"BONUS"|"MULTIPLIER";value:number;durationTurns:number}>;
   /** Staff-approved enemy CONTACT / HP_DAMAGE rider, verified in a V1
    * shadow after the real hit. No client may supply one to the session API.
@@ -185,6 +191,7 @@ export function commitAuthorizedTimelineBatch(
  const constructionWear=new Map<string,{id:string;amount:number;hitCountDelta:number}>();
  const constructionsCreated:CombatConstruction[]=[];
  const consumableUses:NonNullable<AuthorizedTimelineEffect["consumableUses"]>=[];
+ const combatChargeSpends:NonNullable<AuthorizedTimelineEffect["combatChargeSpends"]>=[];
  const moved:Record<Side,Point>={PLAYER:{x:0,y:0},NPC:{x:0,y:0}};
  const clears=new Set<Side>();
  const strokes:Array<{owner:Side;source:PhysicalAttackSource;end:Point}>=[];
@@ -198,6 +205,7 @@ export function commitAuthorizedTimelineBatch(
  const summonUpdates:NonNullable<AuthorizedTimelineEffect["summonUpdates"]>=[];
  const summonImpacts=new Map<string,{id:string;owner:Side;damage:number;hitCountDelta:number}>();
  const summonContactStatuses:NonNullable<AuthorizedTimelineEffect["summonContactStatuses"]>=[];
+ const summonInversions:NonNullable<AuthorizedTimelineEffect["summonInversions"]>=[];
  const hostileStatuses:NonNullable<AuthorizedTimelineEffect["hostileStatuses"]>=[];
  const skillCooldowns:NonNullable<AuthorizedTimelineEffect["skillCooldowns"]>=[];
  for(const effect of effects){
@@ -220,6 +228,14 @@ export function commitAuthorizedTimelineBatch(
        throw new Error("Maná acumulado fuera de rango.");
      if(!Number.isFinite(damages[side])||!Number.isFinite(healing[side]))
        throw new Error("Acumulación de daño fuera de rango.");
+   }
+   for(const charge of effect.combatChargeSpends??[]){
+     if(!charge||!validSide(charge.owner)||
+       typeof charge.accumulator!=="string"||
+       !/^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/.test(charge.accumulator)||
+       !Number.isSafeInteger(charge.amount)||charge.amount<1||charge.amount>6)
+       throw new Error("El consumo de cargas temporales no está autorizado.");
+     combatChargeSpends.push(charge);
    }
    for(const use of effect.consumableUses??[]){
      if(!validSide(use.owner)||!Number.isSafeInteger(use.itemId)||use.itemId<1||
@@ -313,6 +329,29 @@ export function commitAuthorizedTimelineBatch(
        hitCountDelta:(previous?.hitCountDelta??0)+impact.hitCountDelta,
      });
    }
+   for(const inversion of effect.summonInversions??[]){
+     if(!inversion||!validSide(inversion.owner)||
+       !validSide(inversion.target)||
+       typeof inversion.id!=="string"||!inversion.id||
+       inversion.id.length>160||
+       typeof inversion.sourceSummonId!=="string"||
+       inversion.sourceSummonId.length>160||
+       inversion.chargeAccumulator!==undefined&&
+         !/^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/.test(inversion.chargeAccumulator)||
+       summonInversions.some(x=>x.id===inversion.id))
+       throw new Error("Inversión simultánea de un estado repetido o inválido.");
+     const old=snapshot.summonStatuses?.find(s=>
+       s.id===inversion.id&&s.target===inversion.target);
+     const source=snapshot.summons?.find(s=>
+       s.id===inversion.sourceSummonId&&s.owner===inversion.owner);
+     const target=inversion.owner===inversion.target?"USER":"OPPONENT";
+     if(!old||!isDebuffStatus(old)||!source||source.integrity<=0||
+       !source.contactEffects?.some(e=>e.kind==="INVERT_STATUS"&&
+         e.target===target&&
+         e.chargeAccumulator===inversion.chargeAccumulator))
+       throw new Error("El familiar no autorizó invertir este debilitamiento.");
+     summonInversions.push(inversion);
+   }
    for(const status of effect.summonContactStatuses??[]){
      if(!status||!validSide(status.by)||!validSide(status.target)||
        typeof status.sourceSummonId!=="string"||
@@ -339,15 +378,25 @@ export function commitAuthorizedTimelineBatch(
      statBonuses.push(buff);
    }
    for(const status of effect.selfStatuses??[]){
+     const charged=status.id.startsWith("V2_CHARGE:");
+     const validChargedStat=[
+       "strength","agility","speedValue","constitution",
+       "precision","dodge","physicalAttack","physicalDefense",
+       "magicAttack","magicDefense","critical","luck","race",
+     ].includes(status.stat);
      if(!validSide(status.owner)||!Number.isSafeInteger(status.skillId)||
-       status.skillId<1||!buffStats.has(status.stat)||
-       !status.id.startsWith("V2_SUPPORT:")||status.id.length>160||
+       status.skillId<1||status.id.length>160||
        !validDuration(status.durationTurns)||
        !Number.isFinite(status.value)||
-       status.operation==="BONUS"&&(status.value<=0||status.value>100)||
-       status.operation==="MULTIPLIER"&&(status.value<=1||status.value>1.3)||
-       !["BONUS","MULTIPLIER"].includes(status.operation))
-       throw new Error("Estado de soporte modular inválido.");
+       (charged
+         ?(!validChargedStat||status.operation!=="MULTIPLIER"||
+           status.value<=1||status.value>3)
+         :(!buffStats.has(status.stat)||
+           !status.id.startsWith("V2_SUPPORT:")||
+           status.operation==="BONUS"&&(status.value<=0||status.value>100)||
+           status.operation==="MULTIPLIER"&&(status.value<=1||status.value>1.3)||
+           !["BONUS","MULTIPLIER"].includes(status.operation))))
+       throw new Error("Estado de soporte o cargas modular inválido.");
      if(selfStatuses.some(existing=>existing.id===status.id))
        throw new Error("Estado de soporte duplicado.");
      selfStatuses.push(status);
@@ -567,6 +616,11 @@ export function commitAuthorizedTimelineBatch(
      account.current=Math.min(account.max,account.current-manaSpent[side]+manaRestored[side]);
    }
  }
+ // Each approved skill consumes its owner wallet only when the whole
+ // simultaneous event batch is committed. A negative pool rejects the batch;
+ // no client-chosen amount reaches this stage.
+ for(const charge of combatChargeSpends)
+   spendCombatCharges(next,charge.owner,charge.accumulator,charge.amount);
  // Approved constructions share the real terrain. Only a fully measured
  // solid cylinder may obstruct movement, not an illustrative 2D sprite.
  next.constructions??=[];
@@ -800,6 +854,15 @@ export function commitAuthorizedTimelineBatch(
      skillId:buff.skillId,skillName:buff.skillName,
      expiresAtRound:next.round+buff.durationTurns,
    });
+ }
+ // Inversions operate on statuses that already existed at the common
+ // snapshot. Fresh simultaneous contacts are applied afterward and cannot
+ // be retroactively consumed by an earlier creature action.
+ for(const inversion of summonInversions){
+   const updated=invertSummonStatus(next,inversion.target,inversion.id);
+   if(!updated)throw new Error("El debilitamiento ya no se puede invertir.");
+   if(inversion.chargeAccumulator)
+     creditCombatCharge(next,inversion.owner,inversion.chargeAccumulator);
  }
  for(const status of selfStatuses){
    applySummonStatus(next,{

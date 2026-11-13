@@ -219,16 +219,18 @@ test("no autonomous hit may spend mana for an out-of-range mirror",async()=>{
  assert.ok(next.combat.log.some(x=>x.kind==="MIRROR"&&x.summary.includes("no alcanzó")));
 });
 
-test("unsupported invert-status contact rejects atomically without granting mana",async()=>{
+test("invert-status contact without an actual debuff costs no mana or charge",async()=>{
  const c=state();
  c.summons=[familiar("inverter",{
    behavior:{mode:"FOLLOW",allowedModes:["FOLLOW"],target:"USER",trigger:"CONTACT"},
    contactEffects:[{kind:"INVERT_STATUS",target:"USER",selection:"LATEST_DEBUFF",
-     manaCost:5}],
+     manaCost:5,chargeAccumulator:"LUNAR_CHARGES"}],
  })];
- await assert.rejects(()=>resolveBasicTimelineWindow(c,shared(c),dice),
-   /resolutor avanzado/);
- assert.equal(c.tick,0);
- assert.equal(c.mana.PLAYER.current,100);
- assert.equal(c.summons[0].autoSpentAp,0);
+ const original=structuredClone(c);
+ const next=await resolveBasicTimelineWindow(c,shared(c),dice);
+ assert.equal(next.combat.tick,10);
+ assert.equal(next.combat.mana.PLAYER.current,100);
+ assert.equal(next.combat.combatCharges?.PLAYER?.LUNAR_CHARGES??0,0);
+ assert.equal(next.combat.summons[0].autoSpentAp,1);
+ assert.deepEqual(c,original);
 });

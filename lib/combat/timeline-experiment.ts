@@ -101,8 +101,12 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
      "trajectory","areaCenter","areaAngleDegrees","planarMove",
      "movementOrder","constructionFieldPoint","constructionForm",
      "constructionHeightMeters","constructionFootprintRadiusMeters",
-     "constructionSolidHeightMeters","constructionLabel"])||
+     "constructionSolidHeightMeters","constructionLabel",
+     "chargesToSpend"])||
      !Number.isSafeInteger(sid)||Number(sid)<1||
+     raw.chargesToSpend!==undefined&&
+       (!Number.isSafeInteger(raw.chargesToSpend)||
+        Number(raw.chargesToSpend)<1||Number(raw.chargesToSpend)>6)||
      typeof requestId!=="string"||
      !/^[a-zA-Z0-9:_-]{12,100}$/.test(requestId)||
      raw.attackSource!==undefined&&

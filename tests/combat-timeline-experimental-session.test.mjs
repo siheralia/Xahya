@@ -70,7 +70,9 @@ test("one player order queues autonomous NPC and resolves together on server dic
  assert.ok(received.combat.actors.NPC.hp<1000);
  assert.ok(received.combat.actors.PLAYER.hp<1000);
  assert.equal(received.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
- assert.equal(received.timeline.clock.actors.NPC.spentApByRound["1"],1);
+ // NPC commits one resolved action and has already reserved the next
+ // telegraphed action in the same 100-tick round.
+ assert.equal(received.timeline.clock.actors.NPC.spentApByRound["1"],2);
  assert.ok(received.timeline.receipts["V2_PLAYER:experiment-unique-0001"]);
  assert.deepEqual(initial.combat,before,"the transaction input stays unchanged");
  const retry=await submitExperimentalTimelineCommand(received.combat,

@@ -6,6 +6,7 @@ import {Hourglass,RefreshCw,
 import CombatV2Reactions from "./CombatV2Reactions";
 import CombatV2AttackPlanner from "./CombatV2AttackPlanner";
 import CombatV2Summons from "./CombatV2Summons";
+import CombatV2Items from "./CombatV2Items";
 import type {CombatState} from "@/lib/combat/turn-engine";
 
 type Status={
@@ -112,7 +113,7 @@ export default function CombatV2Encounter({id}:{id:string}){
        Combate experimental V2</p>
        <h1 className="text-2xl font-bold">Línea temporal compartida</h1>
        <p className="mt-1 text-xs text-zinc-400">
-         Entrenamiento aislado · Sin consumo de inventario persistente ni pasivas modulares
+         Laboratorio V2 · Objetos consumidos y desgaste de equipo persistentes; HP y maná aislados
        </p>
      </div>
      <div className="flex items-center gap-3">
@@ -161,6 +162,9 @@ export default function CombatV2Encounter({id}:{id:string}){
      projectiles={projectiles} canOrder={canOrder}
      onOrder={command=>void submit(command)}/>
    <CombatV2Summons state={state} canOrder={canOrder}
+     onOrder={command=>void submit(command)}/>
+   <CombatV2Items state={state} canOrder={canOrder}
+     paLeft={Math.max(0,timeline.pa.PLAYER.limit-timeline.pa.PLAYER.used)}
      onOrder={command=>void submit(command)}/>
    <CombatV2AttackPlanner state={state} canOrder={canOrder}
      skills={data.skills??[]}

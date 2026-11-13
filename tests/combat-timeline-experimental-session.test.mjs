@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {newCombatState} from "../lib/combat/turn-engine.ts";
+import {compileCombatSkill} from "../lib/combat/skill-casting.ts";
 import {
  parseExperimentalV2Command,newExperimentalTimeline,
  submitExperimentalTimelineCommand,experimentalTrainingNpcCommand,
@@ -24,6 +25,55 @@ const hit={kind:"ATTACK",attackType:"BLUNT",attackSource:"FIST_RIGHT",
  trajectory:[{x:.1,y:.5},{x:.5,y:.5}]};
 const load=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const dodgeDice=()=>({hit:.999,critical:.99,defense:.99});
+
+test("experimental skills accept only server-approved IDs and aim",async()=>{
+ const raw={kind:"CAST_SKILL",skillId:712,requestId:"v2-lab-approved-skill-001",
+   trajectory:[{x:.1,y:.5},{x:.5,y:.5}],attackSource:"FIST_RIGHT"};
+ assert.deepEqual(parseExperimentalV2Command(raw),raw);
+ for(const attempt of [
+   {...raw,approvedSkill:{damageMultiplier:999}},
+   {...raw,cost:0},
+   {...raw,skillId:-1},
+   {...raw,movementOrder:"BEFORE"},
+   {...raw,planarMove:{x:2,y:0},movementOrder:"AFTER"},
+   {...raw,areaCenter:{x:2,y:0}},
+ ]){
+   assert.throws(()=>parseExperimentalV2Command(attempt),/V2|autorizada/);
+ }
+ const plan=compileCombatSkill({
+   id:712,name:"Impacto certificado",characterId:10,
+   status:"APPROVED",approvedAt:"2026-11-11T00:00:00Z",
+   category:"OFFENSIVE",cost:5,pchCost:40,
+   maintenanceCost:0,accumulationCost:0,accumulationPerTick:0,
+   attackType:"BLUNT",duration:"Instantánea",
+   cooldown:"1 turno",areaOfEffect:"Contacto | Alcance máximo: 2 m",
+   mechanics:{},condition:"",
+   effect:[{type:"DAMAGE_MULTIPLIER",target:"PHYSICAL_ATTACK",value:100}],
+ });
+ const c=combat();
+ c.mana={PLAYER:{current:50,max:50},NPC:{current:10,max:10}};
+ const before=structuredClone(c);
+ const initial=newExperimentalTimeline(c);
+ await assert.rejects(()=>submitExperimentalTimelineCommand(initial.combat,
+   initial.timeline,raw,"v2-lab-approved-skill-001",dice),
+   /aprobaci[oó]n|habilidad/i,
+   "a raw skill ID without a trusted plan cannot be cast");
+ const result=await submitExperimentalTimelineCommand(initial.combat,
+   initial.timeline,raw,"v2-lab-approved-skill-001",dice,
+   {approvedSkill:plan});
+ assert.equal(result.combat.tick,10);
+ assert.equal(result.combat.mana.PLAYER.current,45);
+ assert.ok(result.combat.actors.NPC.hp<1000,
+   "the approved offensive plan must hit using the official physical formula");
+ assert.ok((result.combat.skillCooldowns?.PLAYER?.["712"]??0)>0,
+   "the skill must register its authoritative cooldown");
+ assert.equal(result.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
+ assert.deepEqual(c,before);
+ const retry=await submitExperimentalTimelineCommand(result.combat,
+   result.timeline,raw,"v2-lab-approved-skill-001",dice);
+ assert.equal(retry.replayed,true);
+ assert.equal(retry.combat.mana.PLAYER.current,45);
+});
 
 test("V2 laboratory accepts only a narrow action command vocabulary",()=>{
  assert.deepEqual(parseExperimentalV2Command({kind:"WAIT"}),{kind:"WAIT"});
@@ -184,6 +234,12 @@ test("new encounter opt-in, private projection and V1 route separation are wired
  assert.match(creation,/lastAction:\{combatV1:state,/);
  assert.match(route,/UPDATE public\."combatSession" SET id=id/);
  assert.match(route,/submitExperimentalTimelineCommand\(/);
+ assert.match(route,/approvedLabSkillPlan\(/);
+ assert.match(route,/listApprovedLabSkills\(/);
+ assert.match(load("lib/combat/timeline-lab-skills.ts"),/compileCombatSkill\(/);
+ assert.match(load("lib/combat/timeline-lab-skills.ts"),/stolenSkillIds\(/);
+ assert.match(load("app/combat/[id]/CombatV2AttackPlanner.tsx"),
+   /Lanzar habilidad aprobada/);
  assert.match(route,/privateProjectiles/);
  assert.match(legacy,/Las acciones V1 no pueden modificar una sesión V2/);
  assert.match(read,/combatV2:\{version:2,experimental:true\}/);

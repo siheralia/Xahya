@@ -7,17 +7,21 @@ import {battleFieldViewport,fieldPosition,fieldToViewport,previewViewportMove}
  from "@/lib/combat/field-plane";
 
 type Command=Record<string,unknown>;
-type Props={state:CombatState;canOrder:boolean;
+type LabSkill={id:number;name:string;cost:number;
+ category:"OFFENSE"|"SUPPORT";usesMagic:boolean;
+ requiresPath:boolean;needsCenter:boolean};
+type Props={state:CombatState;canOrder:boolean;skills:LabSkill[];
  paLeft:number;onOrder:(command:Command)=>void};
 const bound=(v:number)=>Math.max(0,Math.min(1,v));
 const fmt=(v:number)=>Math.round(v*100)/100;
 const length=(p:Point)=>Math.hypot(p.x,p.y);
 
 export default function CombatV2AttackPlanner({
- state,canOrder,paLeft,onOrder,
+ state,canOrder,paLeft,onOrder,skills,
 }:Props){
  const [source,setSource]=useState<"FIST_RIGHT"|"FIST_LEFT"|"KICK"|
    "MAIN_HAND"|"OFF_HAND">("FIST_RIGHT");
+ const [skillId,setSkillId]=useState("");
  const [path,setPath]=useState<Point[]>([]);
  const [aim,setAim]=useState<Point>({x:.5,y:.5});
  const [order,setOrder]=useState<"NONE"|"BEFORE"|"AFTER">("NONE");
@@ -42,6 +46,12 @@ export default function CombatV2AttackPlanner({
    validPath&&weapon?.mode!=="RANGED";
  const canMagic=canOrder&&paLeft>=paidAp&&moveReady&&
    (state.mana?.PLAYER?.current??0)>=1;
+ const chosenSkill=skills.find(x=>String(x.id)===skillId);
+ const skillCostAp=chosenSkill?.category==="OFFENSE"?paidAp:1;
+ const canSkill=canOrder&&!!chosenSkill&&paLeft>=skillCostAp&&
+   (state.mana?.PLAYER?.current??0)>=(chosenSkill?.cost??Infinity)&&
+   (chosenSkill?.category!=="OFFENSE"||moveReady)&&
+   (!chosenSkill.requiresPath||validPath);
  const viewport=battleFieldViewport(fighter,foe);
  const own=fieldToViewport(viewport,fieldPosition(fighter));
  const enemy=fieldToViewport(viewport,fieldPosition(foe));
@@ -109,6 +119,17 @@ export default function CombatV2AttackPlanner({
  });
  const cast=()=>onOrder({kind:"ATTACK",attackType:"BLUNT",
    usesMagic:true,areaCenter:{...aim},...base()});
+ const castSkill=()=>{
+   if(!chosenSkill)return;
+   onOrder({kind:"CAST_SKILL",skillId:chosenSkill.id,
+     ...(chosenSkill.category==="OFFENSE"?{
+       attackSource:source,
+       ...(chosenSkill.requiresPath?{trajectory:path.map(p=>({...p}))}:{}),
+       ...(chosenSkill.needsCenter?{areaCenter:{...aim}}:{}),
+       ...base(),
+     }:{}),
+   });
+ };
  return <section className="space-y-4 rounded-xl border border-zinc-700 bg-zinc-950/70 p-4">
    <h2 className="flex items-center gap-2 font-semibold">
      <Swords size={18}/> Preparar ataque y trayectoria
@@ -256,6 +277,38 @@ export default function CombatV2AttackPlanner({
        className="inline-flex items-center gap-2 rounded-lg border border-amber-700 px-3 py-2 text-sm disabled:opacity-40">
        <MoveUpRight size={16}/> Lanzar arma (1 PA)
      </button>}
+   </div>
+   <div className="space-y-3 rounded-lg border border-violet-800/50 bg-violet-950/10 p-3">
+     <label className="block text-sm text-zinc-300">
+       Habilidades aprobadas del personaje
+       <select disabled={!canOrder||!skills.length}
+         value={skillId} onChange={e=>setSkillId(e.target.value)}
+         className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-900 p-2">
+         <option value="">Selecciona una habilidad compatible</option>
+         {skills.map(skill=><option key={skill.id} value={skill.id}>
+           {skill.name} · {skill.cost} maná ·
+           {skill.category==="OFFENSE"?" Ofensiva":" Apoyo"}
+         </option>)}
+       </select>
+     </label>
+     {chosenSkill&&<p className="text-xs text-zinc-400">
+       {chosenSkill.category==="SUPPORT"
+         ?"El apoyo se aplica a ti mismo; no necesita diana ni trazo."
+         :chosenSkill.requiresPath
+           ?"Esta habilidad usa el recorrido físico dibujado arriba."
+           :"Esta habilidad usa su área aprobada o su puntería mágica."}
+       {chosenSkill.category==="OFFENSE"&&move?
+         " Desplazamiento combinado: 2 PA.":""}
+     </p>}
+     <button type="button" disabled={!canSkill} onClick={castSkill}
+       className="inline-flex items-center gap-2 rounded-lg border border-violet-500 bg-violet-900/30 px-4 py-2 text-sm font-semibold disabled:opacity-40">
+       <WandSparkles size={16}/> Lanzar habilidad aprobada
+       {chosenSkill?" ("+skillCostAp+" PA)":""}
+     </button>
+     {!skills.length&&<p className="text-xs text-zinc-400">
+       No hay habilidades ofensivas o de apoyo modular compatibles con el
+       laboratorio. Las demás siguen disponibles en combate V1.
+     </p>}
    </div>
    <p className="text-xs text-zinc-400">
      Los comandos y costes siguen verificándose en el servidor.

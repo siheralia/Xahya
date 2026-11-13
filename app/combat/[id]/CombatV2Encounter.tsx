@@ -15,6 +15,9 @@ type Status={
 };
 type PublicV2={
  mode:"EXPERIMENTAL_V2";state:CombatState;
+ skills?:Array<{id:number;name:string;cost:number;
+   category:"OFFENSE"|"SUPPORT";usesMagic:boolean;
+   requiresPath:boolean;needsCenter:boolean}>;
  timeline:Status;projectiles:Array<{id:string;owner:string;
    launchTick:number;impactTick:number}>;
  limitations:string;batches?:number;replayed?:boolean;
@@ -61,7 +64,9 @@ export default function CombatV2Encounter({id}:{id:string}){
      const body=await response.json();
      if(!response.ok)throw new Error(body.error??"No se pudo ejecutar la acción.");
      etag.current=null;
-     setData(body);
+     // POST returns only the changing combat snapshot, while the approved
+     // skill list stays server-read and is refreshed on subsequent GET.
+     setData(previous=>({...body,skills:previous?.skills??[]}));
      if(body.batches===0&&command.kind==="ADVANCE")
        setLastMessage("El reloj ya necesita una nueva orden tuya.");
      else if(body.batches>0)setLastMessage("Se resolvieron "+body.batches+
@@ -155,6 +160,7 @@ export default function CombatV2Encounter({id}:{id:string}){
      projectiles={projectiles} canOrder={canOrder}
      onOrder={command=>void submit(command)}/>
    <CombatV2AttackPlanner state={state} canOrder={canOrder}
+     skills={data.skills??[]}
      paLeft={Math.max(0,timeline.pa.PLAYER.limit-timeline.pa.PLAYER.used)}
      onOrder={command=>void submit(command)}/>
    <section className="space-y-4 rounded-xl border border-zinc-700 bg-zinc-950/70 p-4">

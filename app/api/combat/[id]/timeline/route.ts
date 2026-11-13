@@ -9,6 +9,7 @@ import {combatSnapshotEtag,combatEtagMatches} from "@/lib/combat/poll-cache";
 import {publicTimelineSessionStatus,type TimelineDeclarationSession}
  from "@/lib/combat/timeline-declarations";
 import {advanceExperimentalTimeline,submitExperimentalTimelineCommand} from "@/lib/combat/timeline-experiment";
+import {approvedLabSkillPlan,listApprovedLabSkills} from "@/lib/combat/timeline-lab-skills";
 import type {CombatState} from "@/lib/combat/turn-engine";
 
 type SavedV2={version:2;clock:TimelineDeclarationSession["clock"];
@@ -67,7 +68,11 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
    const {combat,timeline}=read(saved);
    payload=publicPayload(combat,timeline);
  }catch{return error("Este combate no utiliza el laboratorio V2.",409);}
- const text=JSON.stringify(payload);
+ // Only the owner (or management) can read the approved active loadout.
+ // Expose IDs and labels, not the server-approved effect graph.
+ const skills=await listApprovedLabSkills(Number(accessInfo.session.playerCharacterId))
+   .catch(()=>[]);
+ const text=JSON.stringify({...payload,skills});
  const etag=combatSnapshotEtag(text);
  const headers={"ETag":etag,"Cache-Control":"private, no-store","Vary":"Cookie"};
  if(combatEtagMatches(req.headers.get("if-none-match"),etag))
@@ -100,15 +105,26 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
      if(original.combat.status!=="ACTIVE"||String(fresh.status)!=="ACTIVE")
        throw new Error("El combate experimental ya terminó.");
      const advance=body.command?.kind==="ADVANCE";
+     const cast=body.command?.kind==="CAST_SKILL";
+     const actionId=String(body.requestId??"");
+     const command=cast?{...body.command,requestId:actionId}:body.command;
      // ADVANCE is server-side NPC/workflow progress ONLY, not a paid action.
      if(advance&&(Object.keys(body.command).length!==1))
        throw new Error("El avance temporal no admite parámetros externos.");
+     // Compile inside the SAME session lock. A replay uses its persisted
+     // receipt and never reruns a subsequently changed skill approval.
+     const isReplay=Object.hasOwn(original.timeline.receipts,
+       "V2_PLAYER:"+actionId);
+     const approvedSkill=cast&&!isReplay
+       ?await approvedLabSkillPlan(
+          Number(fresh.playerCharacterId),Number(command.skillId),tx)
+       :undefined;
      const result=advance
        ?{...await advanceExperimentalTimeline(original.combat,original.timeline,dice),
           replayed:false}
        :await submitExperimentalTimelineCommand(
-          original.combat,original.timeline,body.command,
-          String(body.requestId??""),dice);
+          original.combat,original.timeline,command,actionId,dice,
+          approvedSkill?{approvedSkill}:{});
      if(!result.replayed&&result.batches>0||!result.replayed&&!advance){
        await Session.where({id:accessInfo.sessionId}).update({
          lastAction:{combatV1:result.combat,combatV2:result.timeline},

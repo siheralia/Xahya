@@ -1,6 +1,5 @@
 "use client";
-import {Rabbit,Shield,Footprints,Target,ArrowRight,
-  ArrowLeft,Anchor} from "lucide-react";
+import {Rabbit,Target,ArrowRight,ArrowLeft} from "lucide-react";
 import type {CombatState} from "@/lib/combat/turn-engine.ts";
 import {fieldPosition} from "@/lib/combat/field-plane.ts";
 
@@ -17,7 +16,7 @@ export default function CombatV2Summons({state,canOrder,onOrder}:Props){
    const dy=opponent.y-creature.fieldPosition.y;
    const size=Math.hypot(dx,dy);
    if(size<.01)return null;
-   const factor=Math.min(1,Math.max(.01,size))*(toward?1:-1)/size;
+   const factor=Math.min(.98,Math.max(.01,size))*(toward?1:-1)/size;
    return {x:meters(dx*factor),y:meters(dy*factor)};
  };
  if(!summons.length)return null;

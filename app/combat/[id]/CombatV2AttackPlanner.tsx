@@ -8,7 +8,8 @@ import {battleFieldViewport,fieldPosition,fieldToViewport,previewViewportMove}
 
 type Command=Record<string,unknown>;
 type LabSkill={id:number;name:string;cost:number;
- category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION"|"FUSION";usesMagic:boolean;
+ category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION"|"FUSION"|"CHARGE_BUFF";usesMagic:boolean;
+ chargePool?:string;minCharges?:number;maxCharges?:number;
  requiresPath:boolean;needsCenter:boolean};
 type Props={state:CombatState;ownerSide:"PLAYER"|"NPC";canOrder:boolean;skills:LabSkill[];
  paLeft:number;onOrder:(command:Command)=>void};
@@ -22,6 +23,7 @@ export default function CombatV2AttackPlanner({
  const [source,setSource]=useState<"FIST_RIGHT"|"FIST_LEFT"|"KICK"|
    "MAIN_HAND"|"OFF_HAND">("FIST_RIGHT");
  const [skillId,setSkillId]=useState("");
+ const [chargeCount,setChargeCount]=useState("1");
  const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK"|"DECOR">("FIELD");
  const [height,setHeight]=useState("2");
  const [radius,setRadius]=useState(".15");
@@ -51,8 +53,16 @@ export default function CombatV2AttackPlanner({
  const canMagic=canOrder&&paLeft>=paidAp&&moveReady&&
    (state.mana?.[ownerSide]?.current??0)>=1;
  const chosenSkill=skills.find(x=>String(x.id)===skillId);
+ const chargeBalance=chosenSkill?.chargePool?
+   state.combatCharges?.[ownerSide]?.[chosenSkill.chargePool]??0:0;
+ const chargeAmount=Number(chargeCount);
+ const chargesReady=chosenSkill?.category!=="CHARGE_BUFF"||
+   Number.isSafeInteger(chargeAmount)&&
+   chargeAmount>=(chosenSkill.minCharges??1)&&
+   chargeAmount<=(chosenSkill.maxCharges??6)&&
+   chargeAmount<=chargeBalance;
  const skillCostAp=chosenSkill?.category==="OFFENSE"?paidAp:1;
- const canSkill=canOrder&&!!chosenSkill&&paLeft>=skillCostAp&&
+ const canSkill=canOrder&&!!chosenSkill&&chargesReady&&paLeft>=skillCostAp&&
    (state.mana?.[ownerSide]?.current??0)>=(chosenSkill?.cost??Infinity)&&
    (chosenSkill?.category!=="OFFENSE"||moveReady)&&
    (!chosenSkill.requiresPath||validPath);
@@ -126,6 +136,9 @@ export default function CombatV2AttackPlanner({
  const castSkill=()=>{
    if(!chosenSkill)return;
    onOrder({kind:"CAST_SKILL",skillId:chosenSkill.id,
+     ...(chosenSkill.category==="CHARGE_BUFF"?{
+       chargesToSpend:chargeAmount,
+     }:{}),
      ...(chosenSkill.category==="CONSTRUCTION"?{
        areaCenter:{...aim},constructionFieldPoint:{...aim},
        constructionForm,
@@ -303,7 +316,8 @@ export default function CombatV2AttackPlanner({
            {skill.category==="OFFENSE"?" Ofensiva":
              skill.category==="SUPPORT"?" Apoyo":
              skill.category==="SUMMON"?" Invocación":
-             skill.category==="FUSION"?" Fusión":" Construcción"}
+             skill.category==="FUSION"?" Fusión":
+             skill.category==="CHARGE_BUFF"?" Cargas":" Construcción"}
          </option>)}
        </select>
      </label>
@@ -314,6 +328,8 @@ export default function CombatV2AttackPlanner({
            ?"La criatura aparece al concluir la acción y luego sigue su conducta autónoma."
            :chosenSkill.category==="FUSION"
              ?"Las criaturas existentes de la receta se consumen al terminar la acción; la criatura fusionada aparece en su lugar."
+           :chosenSkill.category==="CHARGE_BUFF"
+             ?"Utiliza tus cargas acumuladas para potenciar estadísticas temporalmente. El consumo se confirma al terminar la acción."
            :chosenSkill.category==="CONSTRUCTION"
              ?"Usa la diana para colocar el objeto en el plano; el sistema verifica material y coste."
              :chosenSkill.requiresPath
@@ -322,6 +338,18 @@ export default function CombatV2AttackPlanner({
        {chosenSkill.category==="OFFENSE"&&move?
          " Desplazamiento combinado: 2 PA.":""}
      </p>}
+     {chosenSkill?.category==="CHARGE_BUFF"&&
+       <label className="block text-xs text-zinc-300">
+         Cargas a consumir · disponibles: {chargeBalance} ({chosenSkill.chargePool})
+         <input type="number" min={chosenSkill.minCharges??1}
+           max={chosenSkill.maxCharges??6} step="1"
+           value={chargeCount} onChange={e=>setChargeCount(e.target.value)}
+           disabled={!canOrder}
+           className="mt-1 block w-28 rounded border border-zinc-700 bg-zinc-900 p-2"/>
+         {!chargesReady&&<span className="mt-1 block text-amber-300">
+           Necesitas suficientes cargas para esta habilidad.
+         </span>}
+       </label>}
      {chosenSkill?.category==="CONSTRUCTION"&&
        <div className="grid gap-3 sm:grid-cols-3">
          <label className="text-xs text-zinc-300">Forma

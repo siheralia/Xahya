@@ -50,6 +50,9 @@ export type AuthorizedTimelineEffect={
   /** Only server-reviewed CONSTRUCTION casts can create an object. */
   constructionsCreated?:CombatConstruction[];
   summonsCreated?:CombatSummon[];
+  /** A trusted FUSION can retire only concrete preexisting, owned sources.
+   * Source actions on the same tick still finish before their retirement. */
+  summonsConsumed?:Array<{id:string;owner:Side}>;
   summonUpdates?:Array<{id:string;owner:Side;
     fieldPosition?:Point;behaviorMode?:CombatSummon["behavior"]["mode"];
     targetId?:string;autoNextTick?:number;autoRound?:number;autoSpentAp?:number}>;
@@ -191,6 +194,7 @@ export function commitAuthorizedTimelineBatch(
  const statBonuses:NonNullable<AuthorizedTimelineEffect["statBonuses"]>=[];
  const selfStatuses:NonNullable<AuthorizedTimelineEffect["selfStatuses"]>=[];
  const summonsCreated:CombatSummon[]=[];
+ const summonsConsumed:NonNullable<AuthorizedTimelineEffect["summonsConsumed"]>=[];
  const summonUpdates:NonNullable<AuthorizedTimelineEffect["summonUpdates"]>=[];
  const summonImpacts=new Map<string,{id:string;owner:Side;damage:number;hitCountDelta:number}>();
  const summonContactStatuses:NonNullable<AuthorizedTimelineEffect["summonContactStatuses"]>=[];
@@ -228,6 +232,16 @@ export function commitAuthorizedTimelineBatch(
        x.characterItemId===use.characterItemId))
        throw new Error("Un consumible se usó dos veces en el mismo lote.");
      consumableUses.push(use);
+   }
+   for(const use of effect.summonsConsumed??[]){
+     if(!use||typeof use.id!=="string"||!use.id||use.id.length>160||
+       !validSide(use.owner)||
+       summonsConsumed.some(x=>x.id===use.id))
+       throw new Error("Una criatura fue consumida dos veces por fusión temporal.");
+     const previous=snapshot.summons?.find(x=>x.id===use.id&&x.owner===use.owner);
+     if(!previous||previous.integrity<=0)
+       throw new Error("La fusión intenta retirar una criatura inexistente o ajena.");
+     summonsConsumed.push(use);
    }
    for(const summon of effect.summonsCreated??[]){
      if(!summon||!validSide(summon.owner)||
@@ -598,6 +612,16 @@ export function commitAuthorizedTimelineBatch(
    matches[0].quantity-=1;
  }
  next.summons??=[];
+ // The fusion recipe and exact retirements must agree; a random skill may
+ // never remove an unrelated summon. Existing creature actions resolve first.
+ const fused=summonsCreated.filter(s=>s.fusedFrom?.length);
+ const required=fused.flatMap(s=>(s.fusedFrom??[]).map(id=>({
+   id,owner:s.owner,
+ })));
+ if(required.length!==summonsConsumed.length||
+   required.some(x=>!summonsConsumed.some(y=>y.id===x.id&&y.owner===x.owner))||
+   new Set(required.map(x=>x.id)).size!==required.length)
+   throw new Error("La fusión no corresponde a las criaturas consumidas.");
  for(const summon of summonsCreated){
    if(next.summons.length>=30||
      next.summons.some(existing=>existing.id===summon.id||
@@ -649,6 +673,13 @@ export function commitAuthorizedTimelineBatch(
    creature.hitCount+=impact.hitCountDelta;
    if(creature.integrity<=0||creature.hitCount>=creature.hitLimit)
      next.summons=next.summons.filter((s:CombatSummon)=>s.id!==creature.id);
+ }
+ // Resolve a source's same-tick action/hit first, then retire its
+ // official ID even if an opposing impact also destroyed it at this tick.
+ // Those simultaneous effects are both legal against the same snapshot.
+ if(summonsConsumed.length){
+   const consumedIds=new Set(summonsConsumed.map(s=>s.id));
+   next.summons=next.summons.filter(s=>!consumedIds.has(s.id));
  }
  // Damage is not canceled by a heal or by a simultaneous lethal attack.
  for(const side of SIDES){

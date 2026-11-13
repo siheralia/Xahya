@@ -8,7 +8,7 @@ import {battleFieldViewport,fieldPosition,fieldToViewport,previewViewportMove}
 
 type Command=Record<string,unknown>;
 type LabSkill={id:number;name:string;cost:number;
- category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION";usesMagic:boolean;
+ category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION"|"FUSION";usesMagic:boolean;
  requiresPath:boolean;needsCenter:boolean};
 type Props={state:CombatState;ownerSide:"PLAYER"|"NPC";canOrder:boolean;skills:LabSkill[];
  paLeft:number;onOrder:(command:Command)=>void};
@@ -302,7 +302,8 @@ export default function CombatV2AttackPlanner({
            {skill.name} · {skill.cost} maná ·
            {skill.category==="OFFENSE"?" Ofensiva":
              skill.category==="SUPPORT"?" Apoyo":
-             skill.category==="SUMMON"?" Invocación":" Construcción"}
+             skill.category==="SUMMON"?" Invocación":
+             skill.category==="FUSION"?" Fusión":" Construcción"}
          </option>)}
        </select>
      </label>
@@ -311,6 +312,8 @@ export default function CombatV2AttackPlanner({
          ?"El apoyo se aplica a ti mismo; no necesita diana ni trazo."
          :chosenSkill.category==="SUMMON"
            ?"La criatura aparece al concluir la acción y luego sigue su conducta autónoma."
+           :chosenSkill.category==="FUSION"
+             ?"Las criaturas existentes de la receta se consumen al terminar la acción; la criatura fusionada aparece en su lugar."
            :chosenSkill.category==="CONSTRUCTION"
              ?"Usa la diana para colocar el objeto en el plano; el sistema verifica material y coste."
              :chosenSkill.requiresPath

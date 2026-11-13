@@ -21,6 +21,7 @@ import {simulateBasicPhysicalTimelineHit,activeBlockSlot}
  from "./timeline-basic-strike.ts";
 import {simulateBasicMagicTimelineHit} from "./timeline-basic-magic.ts";
 import {simulateApprovedTimelineSupport} from "./timeline-basic-support.ts";
+import {simulateApprovedTimelineFusion} from "./timeline-fusion-world.ts";
 import {simulateApprovedTimelineOffense} from "./timeline-offensive-skill.ts";
 import {simulateBasicTimelineConsumable} from "./timeline-consumables.ts";
 import {simulateApprovedTimelineConstruction}
@@ -288,6 +289,9 @@ export async function resolveBasicTimelineWindow(
      if(event.kind==="SKILL"&&command.kind==="CAST_SKILL"){
        const plan=declaration.approvedSkill;
        if(!plan)throw new Error("La habilidad no tiene un plan revisado en su declaración.");
+       if(plan.category==="FUSION")
+         return simulateApprovedTimelineFusion(state,batch.state,event,
+           command,plan);
        if(plan.category==="CONSTRUCTION"){
          const strike=makeDice(),defense=makeDice();
          const reaction=defend(event,batch.state,{usesMagic:Boolean(plan.mirror),isArea:false},state);

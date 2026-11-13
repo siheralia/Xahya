@@ -359,7 +359,11 @@ export async function resolveBasicTimelineWindow(
          weaponSlot:slot}:reaction.posture;
        const effect=simulateAutonomousTimelineSummon(state,batch.state,
          event,dice,defenseDice,posture);
-       return collect(effect,reaction);
+       // A FOLLOW contact or a status inversion is not a hostile strike.
+       // A prepared magic field must not charge mana for a non-attack.
+       const hostile=effect.logs?.some(log=>
+         log.kind==="ATTACK"||log.kind==="RESOLVE");
+       return collect(effect,hostile?reaction:{...reaction,fieldId:undefined});
      }
      if(event.kind==="AUTO_MIRROR"){
        const reaction=defend(event,batch.state,{usesMagic:true,isArea:false},state);

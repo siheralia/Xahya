@@ -6,6 +6,9 @@ import {newCombatState} from "../lib/combat/turn-engine.ts";
 import {newTimelineDeclarationSession,declareTimelineCommand}
  from "../lib/combat/timeline-declarations.ts";
 import {resolveBasicTimelineWindow} from "../lib/combat/timeline-basic-actions.ts";
+import {commitAuthorizedTimelineBatch} from "../lib/combat/timeline-batch-resolver.ts";
+import {newContinuousCombatTimeline,queueTimelineAction,
+ completeNextTimelineBatch} from "../lib/combat/action-timeline.ts";
 import {simulateApprovedTimelineFusion}
  from "../lib/combat/timeline-fusion-world.ts";
 
@@ -129,6 +132,35 @@ test("missing, stolen, expired or paid-out sources fail without mutation",async(
    }
    assert.deepEqual(c,previous);
  }
+});
+
+test("fusion and lethal hit on one source at the same tick both commit",()=>{
+ const c=battle();
+ const old=structuredClone(c),used=c.summons.map(x=>({id:x.id,owner:x.owner}));
+ let clock=newContinuousCombatTimeline(20,20);
+ clock=queueTimelineAction(clock,"PLAYER",{
+   id:"fuse",kind:"SKILL",durationTicks:10,paCost:1,
+ });
+ clock=queueTimelineAction(clock,"NPC",{
+   id:"destroy",kind:"ATTACK",durationTicks:10,paCost:1,
+ });
+ const batch=completeNextTimelineBatch(clock);
+ const fused={...structuredClone(c.summons[0]),id:"PLAYER:992:merged",
+   sourceSkillId:992,entityKey:"FINAL",label:"Familiar superior",
+   fusedFrom:c.summons.map(x=>x.id),createdRound:1,expiresAtRound:4,
+   autoNextTick:25,autoSpentAp:0,autoRound:1,
+ };
+ const out=commitAuthorizedTimelineBatch(c,batch,[
+   {eventId:"fuse",summonsConsumed:used,summonsCreated:[fused]},
+   {eventId:"destroy",summonImpacts:[{id:c.summons[0].id,
+     owner:"PLAYER",damage:50,hitCountDelta:1}]},
+ ]);
+ assert.deepEqual(out.summons.map(x=>x.id),[fused.id]);
+ assert.deepEqual(c,old);
+ assert.throws(()=>commitAuthorizedTimelineBatch(c,batch,[
+   {eventId:"fuse",summonsConsumed:used,summonsCreated:[fused]},
+   {eventId:"destroy",summonsConsumed:[used[0]]},
+ ]),/dos veces/);
 });
 
 test("chaos fusion stays blocked by dedicated V2 resolver",()=>{

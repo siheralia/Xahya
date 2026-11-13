@@ -1,5 +1,5 @@
 "use client";
-import {useRef,useState,type PointerEvent,type MouseEvent} from "react";
+import {useEffect,useRef,useState,type PointerEvent,type MouseEvent} from "react";
 import {Swords,Target,WandSparkles,MoveUpRight,Undo2} from "lucide-react";
 import type {CombatState,Point} from "@/lib/combat/turn-engine";
 import {physicalAttackStart,turnTicks} from "@/lib/combat/turn-engine";
@@ -23,6 +23,12 @@ export default function CombatV2AttackPlanner({
  const [order,setOrder]=useState<"NONE"|"BEFORE"|"AFTER">("NONE");
  const [step,setStep]=useState<Point>({x:0,y:0});
  const drawing=useRef(false);
+ // The geometry of a completed attack cannot be replayed after the fighters
+ // move. Force a fresh trajectory for each new player opportunity.
+ useEffect(()=>{
+   setPath([]);
+   setStep({x:0,y:0});
+ },[state.tick]);
  const fighter=state.actors.PLAYER,foe=state.actors.NPC;
  const weapon=source==="MAIN_HAND"?fighter.equippedWeapon:
    source==="OFF_HAND"?fighter.offhandWeapon:undefined;
@@ -254,7 +260,8 @@ export default function CombatV2AttackPlanner({
    <p className="text-xs text-zinc-400">
      Los comandos y costes siguen verificándose en el servidor.
      Movimiento combinado exige un trazo válido de máximo 1 m,
-     cuesta 2 PA y no duplica los ticks.
+     cuesta 2 PA y no duplica los ticks. Disparos y armas arrojadas
+     se declaran sin movimiento combinado en esta etapa.
    </p>
  </section>;
 }

@@ -406,3 +406,34 @@ Esto continúa siendo laboratorio experimental: pasivas globales,
 fusiones, cargas y otros efectos complejos aún requieren adaptadores V2;
 el almacenamiento real de inventario y la sincronización PvP se abordan
 por separado. No se modifican encuentros históricos V1.
+
+## V2.20 — inventario real y desgaste atómico
+
+Cada lote temporal ejecutado por V2 concilia **dentro de la misma transacción
+con bloqueo de CombatSession** las diferencias de inventario a partir de dos
+fotografías oficiales consecutivas. Se actualiza la unidad concreta de
+`CharacterItem` por id, dueño e itemId; la sentencia exige
+`quantity >= consumed`. Si alguien vendió o gastó antes el último ejemplar,
+se revierte la acción completa sin cargar PA ni adelantar ticks.
+
+El desgaste se aplica sobre las copias equipadas, caídas y armas en vuelo,
+conservando el desgaste más severo bajo peleas concurrentes mediante
+`LEAST(durability, after)`. Las autorreparaciones registradas por la
+fórmula oficial del objeto pueden elevar la durabilidad solo por la
+cantidad efectivamente reparada, tras restar desgaste del mismo lote.
+Un aumento sin recibo de ronda y pieza se rechaza.
+
+La API permite `USE_ITEM` exclusivamente por copia id e itemId
+existentes en el encuentro, con receta comprobada de nuevo contra
+el catálogo de sistema. La restauración de HP/maná y la reducción de
+stock suceden al acabar la acción. Repetir una clave de declaración
+no aplica otro consumo ni una segunda reparación.
+
+El HUD muestra pociones disponibles con cantidad real del encuentro;
+HP y maná permanecen aislados en el estado del combate como en V1.
+No se aplican consumibles a la ficha general como efecto externo de
+entrenamiento.
+
+**Sigue pendiente la activación PvP V2 y la migración de categorías
+modulares complejas (fusión y cargas) y pasivas; el laboratorio
+no se vuelve predeterminado por esta etapa.**

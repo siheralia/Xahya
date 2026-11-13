@@ -55,6 +55,33 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
        !["TOWARD","AWAY"].includes(String(raw.dodgeDirection)))
      return wrong();
    return raw as TimelineCombatCommand;
+ case "COMMAND_SUMMON":{
+   const id=raw.summonId;
+   if(!keys(raw,["kind","summonId","order","targetId","newBehavior",
+      "planarMove"])||
+      typeof id!=="string"||id.length<1||id.length>160||
+      !["CHANGE_BEHAVIOR","CHANGE_TARGET","MOVE"].includes(String(raw.order))||
+      raw.order==="CHANGE_BEHAVIOR"&&
+        (!["FOLLOW","ATTACK","PROTECT","HOLD","MANUAL"]
+          .includes(String(raw.newBehavior))||
+         raw.targetId!==undefined||raw.planarMove!==undefined)||
+      raw.order==="CHANGE_TARGET"&&
+        (typeof raw.targetId!=="string"||
+         !/^(FIGHTER:(PLAYER|NPC)|SUMMON:[a-zA-Z0-9:_-]{1,150})$/.test(raw.targetId)||
+         raw.newBehavior!==undefined||raw.planarMove!==undefined)||
+      raw.order==="MOVE"&&
+        (raw.newBehavior!==undefined||raw.targetId!==undefined||
+         !object(raw.planarMove)||
+         !keys(raw.planarMove,["x","y"])||
+         typeof raw.planarMove.x!=="number"||
+         typeof raw.planarMove.y!=="number"||
+         !Number.isFinite(raw.planarMove.x)||
+         !Number.isFinite(raw.planarMove.y)||
+         Math.hypot(raw.planarMove.x,raw.planarMove.y)<.01||
+         Math.hypot(raw.planarMove.x,raw.planarMove.y)>1.000001))
+       return wrong();
+   return raw as TimelineCombatCommand;
+ }
  case "CAST_SKILL":{
    // The caller supplies only a reference and aiming geometry.
    // The trusted server must compile the entire approved plan.
@@ -62,7 +89,9 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
    const p=raw.planarMove;
    if(!keys(raw,["kind","skillId","requestId","attackSource",
      "trajectory","areaCenter","areaAngleDegrees","planarMove",
-     "movementOrder"])||
+     "movementOrder","constructionFieldPoint","constructionForm",
+     "constructionHeightMeters","constructionFootprintRadiusMeters",
+     "constructionSolidHeightMeters","constructionLabel"])||
      !Number.isSafeInteger(sid)||Number(sid)<1||
      typeof requestId!=="string"||
      !/^[a-zA-Z0-9:_-]{12,100}$/.test(requestId)||
@@ -70,6 +99,18 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
        !["MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT","KICK"]
          .includes(String(raw.attackSource))||
      raw.areaCenter!==undefined&&!position(raw.areaCenter)||
+     raw.constructionFieldPoint!==undefined&&
+       !position(raw.constructionFieldPoint)||
+     raw.constructionForm!==undefined&&
+       !["FIELD","BLOCK","DECOR"].includes(String(raw.constructionForm))||
+     raw.constructionLabel!==undefined&&
+       (typeof raw.constructionLabel!=="string"||
+        raw.constructionLabel.length>80)||
+     ["constructionHeightMeters","constructionFootprintRadiusMeters",
+      "constructionSolidHeightMeters"].some(k=>
+       raw[k]!==undefined&&
+       (typeof raw[k]!=="number"||!Number.isFinite(raw[k])||
+        raw[k]<0||raw[k]>10))||
      raw.areaAngleDegrees!==undefined&&
        (typeof raw.areaAngleDegrees!=="number"||
         !Number.isFinite(raw.areaAngleDegrees)||

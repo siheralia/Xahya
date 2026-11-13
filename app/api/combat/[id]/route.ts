@@ -5,6 +5,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { combatClientView } from "@/lib/combat/magic-area";
+import { publicV2CombatState } from "@/lib/combat/timeline-client-projection";
 import type { CombatState } from "@/lib/combat/turn-engine";
 import { canApproveCombat } from "@/lib/combat/permissions";
 import { resolvePingPongAction, type CombatAttackType } from "@/lib/combat/engine";
@@ -40,7 +41,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const v2=(session.lastAction as any)?.combatV2;
   // Never return server escrow, weapon snapshots or unrevealed target geometry
   // through a legacy endpoint. V2 clients use the projected timeline route.
-  const visibleCombat=rawCombat?combatClientView(rawCombat):undefined;
+  const visibleCombat=rawCombat?(v2
+    ?publicV2CombatState(rawCombat,
+      Number(character.userId)===Number(user.id)?"PLAYER":"SPECTATOR")
+    :combatClientView(rawCombat)):undefined;
   const projected=visibleCombat&&v2
     ?(()=>{const {timelineProjectiles:_flying,...publicState}=visibleCombat;
       void _flying;return publicState;})()

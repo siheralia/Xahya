@@ -4,7 +4,7 @@ import {randomInt} from "node:crypto";
 import {Temporal} from "@js-temporal/polyfill";
 import {db} from "@/lib/db";
 import {canApproveCombat} from "@/lib/combat/permissions";
-import {combatClientView} from "@/lib/combat/magic-area";
+import {publicV2CombatState} from "@/lib/combat/timeline-client-projection";
 import {combatSnapshotEtag,combatEtagMatches} from "@/lib/combat/poll-cache";
 import {publicTimelineSessionStatus,isRecordedTimelineReplay,
  type TimelineDeclarationSession}
@@ -66,7 +66,7 @@ function read(saved:any):{combat:CombatState;timeline:TimelineDeclarationSession
 function publicPayload(combat:CombatState,timeline:TimelineDeclarationSession,
  viewerSide:Side|"SPECTATOR"){
  // Frozen shooter and target/aim remain private, like uncommitted commands.
- const projected=combatClientView(combat);
+ const projected=publicV2CombatState(combat,viewerSide);
  const {timelineProjectiles:privateProjectiles,...state}=projected;
  const flying=(privateProjectiles??[]).map(({id,owner,launchTick,impactTick})=>
    ({id,owner,launchTick,impactTick}));

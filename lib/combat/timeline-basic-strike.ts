@@ -16,6 +16,7 @@ import {
 import {offhandArmorShield} from "../items/combat-wearables.ts";
 import {fieldPosition} from "./field-plane.ts";
 import {diffConstructionWorld} from "./timeline-construction-world.ts";
+import {assertApprovedV2Passives} from "./timeline-approved-passives.ts";
 import {assertEquipmentOnlyShadowStats} from "./timeline-equipment-replay.ts";
 import {validateProjectileHeights} from "./physical-obstacles.ts";
 import {activeTimelineBlockAt,
@@ -98,9 +99,9 @@ export function simulateBasicPhysicalTimelineHit(
      !(status.id.startsWith("V2_SUPPORT:")&&status.by===status.target)&&
      !(status.id.startsWith("V2_CHARGE:")&&status.by===status.target)&&
      !(status.id.startsWith("V2_HOSTILE:")&&status.by!==status.target)&&
-     !status.id.startsWith("V2_SUMMON:"))||
-   Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length))
+     !status.id.startsWith("V2_SUMMON:")))
    throw new Error("El combate contiene efectos que requieren resolución temporal avanzada.");
+ assertApprovedV2Passives(combat);
  const attacker=event.owner,target=other(attacker);
  const source=attack.attackSource??defaultAttackSource(combat.actors[attacker]);
  const selected=weaponForSource(combat.actors[attacker],source);

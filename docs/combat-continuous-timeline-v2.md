@@ -563,3 +563,31 @@ Los PvP V2 entre personajes del mismo usuario se rechazan desde su
 creación. Como el servidor determina el lado por el propietario real,
 aceptar ese duelo dejaría al segundo combatiente sin forma de declarar
 su propia acción. Las pruebas humanas exigen dos cuentas diferentes.
+
+## V2.27 — pasivas COMPOSED revisadas en el reloj V2
+
+Las pasivas que superan el mismo filtro oficial de V1 (aprobación
+por gestión, PCH pagados, activación, propiedad, requisitos y no robo)
+se congelan al comenzar la sesión V2. Por ahora, únicamente la familia
+comprobada `DAMAGE_RESOLVED → STORE(MITIGATED_DAMAGE)`,
+`PASSIVE → MODIFIER(RESISTANCE)` y
+`TURN_START → HEAL(% MAX_HP)` puede ejecutarse.
+
+Una defensa se calcula con el acumulador **antes** del impacto.
+Si dos golpes llegan en un mismo tick, ninguno se beneficia de
+las cargas que acaba de generar el otro. Los sucesos de contacto
+que realmente registran mitigación alimentan sus acumuladores
+en orden determinista, dentro del lote atómico. Los impactos sin
+contacto no generan cargas. La regeneración se evalúa una sola vez
+por combatiente en cada cruce de 100 ticks, antes de nuevos impactos
+y sin duplicarse por polling o reintentos.
+
+El sistema valida cada definición congelada como APPROVED_PASSIVE
+del subtipo implementado: no se aceptan HEAL libres, DAMAGE arbitrario,
+modificadores sin condición ni módulos entregados por el navegador.
+El estado de acumuladores nunca se devuelve en las respuestas V2
+y no toca los recursos persistentes de la ficha.
+
+Los demás módulos pasivos o condiciones aún sin compilador oficial
+continúan fuera del reloj; no se interpretan silenciosamente como
+bonos gratuitos.

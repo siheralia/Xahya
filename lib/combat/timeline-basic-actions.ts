@@ -23,6 +23,7 @@ import {simulateBasicMagicTimelineHit} from "./timeline-basic-magic.ts";
 import {simulateApprovedTimelineSupport} from "./timeline-basic-support.ts";
 import {simulateApprovedTimelineFusion} from "./timeline-fusion-world.ts";
 import {simulateApprovedTimelineChargeBuff} from "./timeline-charge-buffs.ts";
+import {assertApprovedV2Passives} from "./timeline-approved-passives.ts";
 import {simulateApprovedTimelineOffense} from "./timeline-offensive-skill.ts";
 import {simulateBasicTimelineConsumable} from "./timeline-consumables.ts";
 import {simulateApprovedTimelineConstruction}
@@ -60,9 +61,9 @@ export function assertBasicTimelineEligible(combat:CombatState):void{
      !(status.id.startsWith("V2_CHARGE:")&&status.by===status.target)&&
      !(status.id.startsWith("V2_HOSTILE:")&&status.by!==status.target)&&
      !status.id.startsWith("V2_SUMMON:"))||
-   Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length)||
    Object.values(combat.karmaBoosts??{}).some(x=>Object.keys(x??{}).length>0))
    throw new Error("El encuentro requiere el resolutor temporal completo de efectos.");
+ assertApprovedV2Passives(combat);
 }
 
 function shadowForBasicMove(combat:CombatState,owner:Side):CombatState{

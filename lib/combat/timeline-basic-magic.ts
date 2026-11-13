@@ -20,6 +20,7 @@ import {
   isolatePhysicalShadow,weaponCopies,
 } from "./timeline-basic-strike.ts";
 import type {AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
+import {assertApprovedV2Passives} from "./timeline-approved-passives.ts";
 import type {ContinuousCombatTimeline,TimelineEvent} from "./action-timeline.ts";
 
 type BasicMagic=Extract<CombatCommand,{kind:"ATTACK"}>;
@@ -53,9 +54,9 @@ export function simulateBasicMagicTimelineHit(
      !(s.id.startsWith("V2_SUPPORT:")&&s.by===s.target)&&
      !(s.id.startsWith("V2_CHARGE:")&&s.by===s.target)&&
      !(s.id.startsWith("V2_HOSTILE:")&&s.by!==s.target)&&
-     !s.id.startsWith("V2_SUMMON:"))||
-   Object.values(combat.microEffects?.definitions??{}).some(list=>list?.length))
+     !s.id.startsWith("V2_SUMMON:")))
    throw new Error("Existen efectos que requieren el resolutor temporal avanzado.");
+ assertApprovedV2Passives(combat);
  const owner=event.owner,target=other(owner);
  const composite=attack.planarMove!==undefined;
  if(!composite&&attack.movementOrder!==undefined||

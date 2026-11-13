@@ -26,6 +26,7 @@ import {
  activeBlockSlot,isolatePhysicalShadow,weaponCopies,
 } from "./timeline-basic-strike.ts";
 import type {AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
+import {assertApprovedV2Passives} from "./timeline-approved-passives.ts";
 
 type Skill=Extract<CombatCommand,{kind:"CAST_SKILL"}>;
 type Defend=Extract<CombatCommand,{kind:"DEFEND"}>;
@@ -64,8 +65,7 @@ export function simulateApprovedTimelineOffense(
    command.movementOrder!==undefined&&command.planarMove===undefined||
    plan.construction||plan.summons?.length||plan.fusion||plan.chargeBuff)
    throw new Error("La habilidad requiere un resolutor ofensivo avanzado.");
- if(Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length))
-   throw new Error("Existen entidades o módulos que requieren otro resolutor V2.");
+ assertApprovedV2Passives(combat);
  const owner=event.owner,target=other(owner);
  const mana=combat.mana?.[owner];
  if(!mana||!Number.isFinite(mana.current)||mana.current<plan.cost)

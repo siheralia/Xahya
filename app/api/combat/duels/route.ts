@@ -357,6 +357,8 @@ export async function POST(req:Request) {
   let timeline:ReturnType<typeof newExperimentalTimeline>["timeline"]|undefined;
   if(experiment){
     try{
+      // Approved, paid and activated passives use the official V1 snapshot.
+      initial=await snapshotApprovedEncounterPassives(initial);
       const saved=newExperimentalTimeline(initial,{
         pvp:opponent.characterId!==null,
       });

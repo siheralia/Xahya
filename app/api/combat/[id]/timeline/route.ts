@@ -124,8 +124,9 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
        id:Number(original.combat.actors.NPC.characterId)}).first():null;
      const ownsPlayer=player&&Number(player.userId)===Number(accessInfo.user.id);
      const ownsRival=rival&&Number(rival.userId)===Number(accessInfo.user.id);
-     if(!player||pvp?!(!ownsPlayer&&!ownsRival):
-         !(!ownsPlayer&&!accessInfo.gm))
+     if(!player||(pvp
+       ?!ownsPlayer&&!ownsRival
+       :!ownsPlayer&&!accessInfo.gm))
        throw new Error("No controlas a este combatiente.");
      const owner:Side=pvp?(ownsPlayer?"PLAYER":"NPC"):"PLAYER";
      if(original.combat.status!=="ACTIVE"||String(fresh.status)!=="ACTIVE")

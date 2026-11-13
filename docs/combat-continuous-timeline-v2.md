@@ -268,3 +268,43 @@ aislada y NO cambia las sesiones V1 existentes.
 **Próxima prioridad:** integración de sesiones V2 con transacciones
 PostgreSQL, autorización, interfaz opt-in para encuentros nuevos y
 regresiones reales. Evitar seguir dividiendo el motor en microetapas.
+
+## V2.15 laboratorio jugable — primeras sesiones transaccionales
+
+V2 ya tiene una vía de juego **exclusiva de entrenamiento nuevo**:
+quien puede gestionar combates puede activar «Probar Combate V2» en
+el selector de duelos. La opción NO afecta combates históricos, PvP,
+personajes existentes ni duelos V1 nuevos.
+
+Los estados `combatV1` (fotografía compatible con fórmulas V1) y
+`combatV2` (reloj, reservas, recibos e idempotencia) comparten
+**una misma fila CombatSession**. El servidor bloquea esa fila
+dentro de una transacción antes de aceptar la orden, escoger acciones
+del NPC, resolver lotes y guardar el tiempo, HP y equipo. Las rutas V1
+rechazan explícitamente una sesión marcada V2.
+
+La pantalla `/combat/[id]` usa un HUD V2 específico para ver ticks
+absolutos, PA de cada actor, acciones pendientes, proyectiles en vuelo,
+crónica y comandos de ataque, defensa, movimiento o espera. El NPC
+de entrenamiento decide acercarse o golpear automáticamente, sin
+exigir una orden de ataque manual por cada tick. Se avanza en lotes
+acotados; los recorridos largos disponen de avance adicional.
+El refresco usa ETag para no transferir un estado sin cambios.
+
+**Protecciones y restricciones de esta primera versión jugable:**
+- Solo opt-in explícito, entrenamiento vs NPC y permisos de gestión.
+- La API rechaza habilidad modular, karma, consumibles y órdenes que
+  intenten enviar ticks, PA, efectos o objetivos externos arbitrarios.
+- Para no perder ni cobrar recursos, el laboratorio **no instala las
+  pasivas micromodulares aún no portadas, ni escribe desgaste real de
+  inventario ni HP/maná persistentes del personaje**. Los recursos de
+  combate sí se miden dentro de la sesión.
+- No se envían a clientes las declaraciones privadas, puntería
+  congelada de los proyectiles ni copias completas del tirador.
+- Este laboratorio no sustituye el combate V1. Se activa por primera
+  vez en el dominio solo mediante un despliegue **manual** posterior,
+  nunca reactivando deploys automáticos.
+
+Para la activación general aún falta portada completa de habilidades
+modulares, compatibilidad de PvP, seguridad/regresión extensa,
+persistencia de efectos de inventario y ampliar la interacción visual.

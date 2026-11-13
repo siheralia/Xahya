@@ -467,3 +467,24 @@ ETag responde 304 sin transferir otra instantánea cuando no hay cambios.
 incrementan rankings públicos mientras no finalice la auditoría de
 habilidades modulares restantes, condiciones pasivas y regresiones
 concurrentes de inventario bajo dos clientes simultáneos.
+
+## V2.22 — fusión autorizada de criaturas sin campo de caos
+
+La ruta V2 admite habilidades `FUSION` compiladas con el catálogo oficial
+siempre que **no** activen `CHAOS_FIELD`. Se exigen dos o más fuentes
+existentes, vivas, únicas, del mismo propietario, en alcance y dentro de
+su duración. La interfaz no acepta IDs de criaturas o valores de fusión
+suministrados por el navegador: solo se remite el ID de habilidad.
+
+La fusión ocupa 1 PA y su duración nominal; al completarla, el lote
+atómico elimina las copias exactas de las criaturas originales y añade
+el familiar resultante con un próximo tick autónomo calculado desde las
+estadísticas aprobadas. Se cargan el maná y el enfriamiento una sola vez.
+Un ataque autónomo que coincida con la creación puede completar su
+evento temporal antes de retirar la fuente. Dos fusiones de lados
+opuestos se resuelven sobre la misma instantánea y no mezclan propietarios.
+
+Las fusiones con caos permanecen fuera del catálogo V2 por su regla
+espacial de rotación al desplazarse. Se requieren pruebas adicionales
+de trayectorias alteradas y concurrencia para habilitarlas. V1 no
+cambia y V2 sigue opt-in.

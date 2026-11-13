@@ -45,7 +45,7 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
     body:JSON.stringify({characterId:Number(characterId),
       opponentCharacterId:options.canApprovePvP&&opponentCharacterId?Number(opponentCharacterId):undefined,
       npcDifficulty:options.canApprovePvP&&opponentCharacterId?undefined:npcDifficulty,
-      experimentalV2:options.experimentalV2Available&&!opponentCharacterId&&experimentalV2})
+      experimentalV2:options.experimentalV2Available&&experimentalV2})
    });
    const data=await resp.json();
    if(!resp.ok)throw new Error(data.error??"No fue posible iniciar el combate");
@@ -86,15 +86,16 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
     </select>
     <span className="mt-1 block text-xs text-zinc-400">El NPC hereda sus perks raciales y sortea tres perks generales con probabilidad mayor que 0%, sin repetir. Algunos perks generales no tienen efectos aplicables al combate.</span>
    </label>}
-   {options?.experimentalV2Available&&!opponentCharacterId&&
+   {options?.experimentalV2Available&&
      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-cyan-700/50 bg-cyan-950/25 p-3 text-sm">
        <input type="checkbox" checked={experimentalV2} disabled={busy||loading}
          onChange={e=>setExperimentalV2(e.target.checked)}
          className="mt-1 accent-cyan-400"/>
        <span><strong>Probar Combate V2 (laboratorio)</strong>
          <span className="mt-1 block text-xs text-zinc-300">
-           Ticks simultáneos, guardias persistentes, NPC autónomo y proyectiles.
-           Solo entrenamiento nuevo; sin habilidades modulares ni cambios de inventario persistente.
+           Ticks compartidos, esquivas, familiares, habilidades aprobadas,
+           proyectiles y objetos reales. Contra otro personaje, cada dueño
+           actúa con sus permisos y las órdenes se ocultan hasta declararse.
          </span>
        </span>
      </label>}
@@ -104,6 +105,7 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
     {busy?"Iniciando…":"Iniciar combate"}
    </button>
   </div>
-  <p className="mt-5 text-xs text-zinc-500">El combate no descuenta HP ni maná persistentes de la ficha. La persistencia de consumibles y durabilidad de armas continúa pendiente.</p>
+  <p className="mt-5 text-xs text-zinc-500">El combate mantiene HP y maná aislados de la ficha. Las pociones y el
+   desgaste de equipo sí se guardan sobre el inventario real en V2.</p>
  </main>;
 }

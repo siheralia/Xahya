@@ -219,6 +219,9 @@ export async function resolveBasicTimelineWindow(
  if((combat.timelineProjectiles?.length??0)>0&&
    (combat.actors.PLAYER.hp<=0||combat.actors.NPC.hp<=0)){
    for(const side of pendingTimelineSides(activeSession.clock)){
+     // Only dead combatants yield automatic free waits while their projectiles
+     // remain in flight. Living players keep their defensive declaration.
+     if(combat.actors[side].hp>0)continue;
      activeSession=declareTimelineCommand(activeSession,combat,side,
        {kind:"WAIT"},"V2_ENDGAME_WAIT:"+side+":"+activeSession.clock.nowTick);
    }

@@ -52,7 +52,12 @@ export async function advancePvPTimeline(
    throw new Error("Límite de acciones simultáneas inválido.");
  let combat=original,timeline=originalSession,steps=0;
  while(steps<maxBatches&&combat.status==="ACTIVE"){
-   if(pendingTimelineSides(timeline.clock).length)break;
+   const missing=pendingTimelineSides(timeline.clock);
+   // The last projectile keeps the encounter alive after its shooter falls.
+   // Missing declarations from DEAD actors are automatic free WAITs; a living
+   // participant must still choose whether to dodge, block or move.
+   if(missing.some(side=>combat.actors[side].hp>0)||(
+     missing.length>0&&!(combat.timelineProjectiles?.length)))break;
    const next=await resolveBasicTimelineWindow(combat,timeline,makeDice);
    if(!next)break;
    await onCommittedBatch?.(combat,next.combat);

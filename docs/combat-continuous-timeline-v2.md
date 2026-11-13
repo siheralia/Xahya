@@ -488,3 +488,32 @@ Las fusiones con caos permanecen fuera del catálogo V2 por su regla
 espacial de rotación al desplazarse. Se requieren pruebas adicionales
 de trayectorias alteradas y concurrencia para habilitarlas. V1 no
 cambia y V2 sigue opt-in.
+
+## V2.24 — cargas ganadas por inversión y potenciaciones oficiales
+
+El motor V2 resuelve `INVERT_STATUS` en el turno independiente del familiar
+solo si el contacto autorizado y un debilitamiento activo se confirmaron
+en la copia de cálculo V1. El lote temporal guarda el ID del estado
+invertido, su dueño, el familiar productor, el maná exacto que pagó
+y, cuando la receta lo dispone, un crédito al acumulador del propietario.
+Los dos estados (antes y después) deben coincidir exactamente con la
+transformación de signo o la conversión `factor -> 2-factor`.
+
+La inversión nunca regala maná ni cargas por permanecer cerca de un
+usuario sin debilitamientos. Los créditos tienen el tope oficial de
+6 y se generan solo una vez por inversión válida. Si dos criaturas
+intentan invertir el mismo estado en el mismo tick, el lote se
+rechaza en vez de duplicar el crédito o aplicar una inversión doble.
+
+`CHARGE_BUFF` permite declarar cuántas cargas oficiales gastar, dentro
+de los mínimos, máximos y multiplicadores configurados. El catálogo
+del servidor valida el plan, el cliente envía solo el número entero y
+el lote aplica el gasto, maná, estado temporal y cooldown a la vez.
+Los bonos se retiran al caducar por las fronteras de 100 ticks;
+no se transfieren a la ficha persistente. Guardias de campo mágico
+no cobran por simples contactos de apoyo del familiar.
+
+Las inversiones con selección manual de debilitamiento, los campos de
+caos espaciales y las pasivas generales que requieren eventos periódicos
+adicionales siguen sin habilitarse de forma general hasta portar sus
+interacciones. Los encuentros V1 no cambian.

@@ -10,7 +10,7 @@ import {assertBasicTimelineEligible,resolveBasicTimelineWindow,
   type TimelineDice} from "./timeline-basic-actions.ts";
 import {declareTimelineCommand,newTimelineDeclarationSession,
   type TimelineDeclarationSession} from "./timeline-declarations.ts";
-import type {TimelineCombatCommand} from "./combat-timeline-adapter.ts";
+import type {TimelineCombatCommand,CompilationContext} from "./combat-timeline-adapter.ts";
 
 const object=(o:unknown):o is Record<string,unknown>=>
   !!o&&typeof o==="object"&&!Array.isArray(o);
@@ -55,6 +55,38 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
        !["TOWARD","AWAY"].includes(String(raw.dodgeDirection)))
      return wrong();
    return raw as TimelineCombatCommand;
+ case "CAST_SKILL":{
+   // The caller supplies only a reference and aiming geometry.
+   // The trusted server must compile the entire approved plan.
+   const sid=raw.skillId,requestId=raw.requestId;
+   const p=raw.planarMove;
+   if(!keys(raw,["kind","skillId","requestId","attackSource",
+     "trajectory","areaCenter","areaAngleDegrees","planarMove",
+     "movementOrder"])||
+     !Number.isSafeInteger(sid)||Number(sid)<1||
+     typeof requestId!=="string"||
+     !/^[a-zA-Z0-9:_-]{12,100}$/.test(requestId)||
+     raw.attackSource!==undefined&&
+       !["MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT","KICK"]
+         .includes(String(raw.attackSource))||
+     raw.areaCenter!==undefined&&!position(raw.areaCenter)||
+     raw.areaAngleDegrees!==undefined&&
+       (typeof raw.areaAngleDegrees!=="number"||
+        !Number.isFinite(raw.areaAngleDegrees)||
+        raw.areaAngleDegrees<0||raw.areaAngleDegrees>=360)||
+     raw.trajectory!==undefined&&
+       (!Array.isArray(raw.trajectory)||raw.trajectory.length<2||
+        raw.trajectory.length>16||!raw.trajectory.every(position))||
+     (p===undefined)!==(raw.movementOrder===undefined)||
+     raw.movementOrder!==undefined&&
+       !["BEFORE","AFTER"].includes(String(raw.movementOrder))||
+     p!==undefined&&(!object(p)||!keys(p,["x","y"])||
+       typeof p.x!=="number"||typeof p.y!=="number"||
+       !Number.isFinite(p.x)||!Number.isFinite(p.y)||
+       Math.hypot(p.x,p.y)<.01||Math.hypot(p.x,p.y)>1.000001))
+     return wrong();
+   return raw as TimelineCombatCommand;
+ }
  case "ATTACK":{
    const types=["CUT","BLUNT","PIERCE"],sources=[
      "MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT","KICK"];
@@ -184,6 +216,7 @@ export async function advanceExperimentalTimeline(
 export async function submitExperimentalTimelineCommand(
  combat:CombatState,session:TimelineDeclarationSession,
  raw:unknown,requestId:string,makeDice:()=>TimelineDice,
+ context:CompilationContext={},
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession;
  replayed:boolean;batches:number}>{
  if(!/^[a-zA-Z0-9_-]{12,72}$/.test(requestId))
@@ -191,7 +224,7 @@ export async function submitExperimentalTimelineCommand(
  const command=parseExperimentalV2Command(raw);
  const id="V2_PLAYER:"+requestId;
  const hadReceipt=Object.hasOwn(session.receipts,id);
- const declared=declareTimelineCommand(session,combat,"PLAYER",command,id);
+ const declared=declareTimelineCommand(session,combat,"PLAYER",command,id,context);
  if(hadReceipt)return {combat,timeline:session,replayed:true,batches:0};
  const advanced=await advanceExperimentalTimeline(combat,declared,makeDice);
  return {...advanced,replayed:false};

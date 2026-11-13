@@ -91,6 +91,15 @@ test("active, legacy, invalid and inconsistent fights do not invent a win or inf
   assert.equal(standings.size, 2);
 });
 
+test("experimental V2 encounters cannot farm victories or win rates",()=>{
+ const normal=completed(12,null,"PLAYER");
+ const laboratory=completed(12,null,"PLAYER");
+ laboratory.lastAction.combatV2={version:2,clock:{nowTick:30}};
+ const stats=summarizeFinishedCombats([normal,laboratory]);
+ assert.equal(stats.get(12)?.combatWins,1);
+ assert.equal(stats.get(12)?.combatTotal,1);
+});
+
 test("rankings endpoint is management-protected and includes authoritative saved sessions", () => {
   const api = readFileSync(new URL("../app/api/management/rankings/route.ts", import.meta.url), "utf8");
   const ui = readFileSync(new URL("../app/management/rankings/page.tsx", import.meta.url), "utf8");

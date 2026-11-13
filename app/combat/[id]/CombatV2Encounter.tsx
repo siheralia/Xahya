@@ -1,8 +1,9 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from "react";
 import Link from "next/link";
-import {Swords,Shield,Footprints,Hourglass,RefreshCw,
+import {Swords,Hourglass,RefreshCw,
   Target,ArrowLeft,ArrowRight,Hand,Activity} from "lucide-react";
+import CombatV2Reactions from "./CombatV2Reactions";
 import type {CombatState,CombatCommand,Point} from "@/lib/combat/turn-engine";
 import {physicalAttackStart} from "@/lib/combat/turn-engine";
 
@@ -168,13 +169,16 @@ export default function CombatV2Encounter({id}:{id:string}){
            state.winner==="NPC"?"Derrota":"Empate"}
        </p>
        :<p className="mt-3 text-xs text-zinc-300">
-         {waiting?"Puedes declarar tu siguiente acción.":
+         {waiting?"El siguiente ataque del NPC ya está anunciado si hay uno pendiente. Elige atacar, moverte o preparar una reacción.":
            "Tu acción sigue en curso. El NPC actúa mientras transcurre el tiempo."}
        </p>}
    </section>
+   <CombatV2Reactions state={state} clock={timeline}
+     projectiles={projectiles} canOrder={canOrder}
+     onOrder={command=>void submit(command)}/>
    <section className="space-y-4 rounded-xl border border-zinc-700 bg-zinc-950/70 p-4">
      <h2 className="flex items-center gap-2 font-semibold"><Swords size={18}/>
-       Acciones</h2>
+       Ataque, movimiento y espera</h2>
      <label className="block text-sm text-zinc-300">Ataque físico
        <select value={selected} onChange={e=>
          setHand(e.target.value as typeof hand)}
@@ -236,22 +240,6 @@ export default function CombatV2Encounter({id}:{id:string}){
          </button>}
      </div>
      <div className="flex flex-wrap gap-2 border-t border-zinc-800 pt-3">
-       <button disabled={!canOrder} onClick={()=>void submit({
-         kind:"GUARD",weaponSlot:"OFF_HAND"})}
-         className="inline-flex items-center gap-2 rounded-lg border border-zinc-600 px-3 py-2 disabled:opacity-40">
-         <Shield size={16}/> Guardia (escudo)
-       </button>
-       <button disabled={!canOrder} onClick={()=>void submit({
-         kind:"PREPARE_REACTION",defense:"DODGE",
-         predictedCenter:center})}
-         className="inline-flex items-center gap-2 rounded-lg border border-zinc-600 px-3 py-2 disabled:opacity-40">
-         <Footprints size={16}/> Esquivar
-       </button>
-       <button disabled={!canOrder} onClick={()=>void submit({
-         kind:"PREPARE_REACTION",defense:"ENDURE"})}
-         className="rounded-lg border border-zinc-600 px-3 py-2 disabled:opacity-40">
-         Resistir
-       </button>
        <button disabled={!canOrder} onClick={()=>void submit({kind:"WAIT"})}
          className="inline-flex items-center gap-2 rounded-lg border border-zinc-600 px-3 py-2 disabled:opacity-40">
          <Hourglass size={16}/> Esperar (0 PA)

@@ -109,7 +109,31 @@ export function newExperimentalTimeline(
    throw new Error("V2 experimental solo acepta un entrenamiento nuevo.");
  const combat=structuredClone(snapshot);
  combat.timelineMode="SHARED";
- return {combat,timeline:newTimelineDeclarationSession(combat)};
+ return {combat,timeline:reserveNextTrainingNpcIntent(combat,
+   newTimelineDeclarationSession(combat))};
+}
+
+/**
+ * Publish only the telegraphed KIND and deadlines through the existing public
+ * clock. The NPC's exact trajectory stays in its server-side declaration.
+ *
+ * Pre-reserving the NPC BEFORE asking the player allows a genuinely informed
+ * reaction choice at tick zero and after each batch. It does NOT resolve an
+ * impact or charge a player reaction; player still gets their own action slot.
+ */
+export function reserveNextTrainingNpcIntent(
+ combat:CombatState,original:TimelineDeclarationSession,
+):TimelineDeclarationSession{
+ if(combat.status!=="ACTIVE"||
+   !pendingTimelineSides(original.clock).includes("NPC"))return original;
+ const actor=original.clock.actors.NPC;
+ const at=Math.max(original.clock.nowTick,actor.availableAtTick);
+ const currentRound=String(timelineRoundOf(at));
+ const spent=actor.spentApByRound[currentRound]??0;
+ const command=spent>=actor.apLimitPerRound
+   ?{kind:"WAIT" as const}:experimentalTrainingNpcCommand(combat);
+ return declareTimelineCommand(original,combat,"NPC",command,
+   "NPC_AUTO:"+original.clock.nextSequence);
 }
 
 /** Drive independent NPC actions while a player command is in progress.
@@ -124,25 +148,18 @@ export async function advanceExperimentalTimeline(
  if(!Number.isSafeInteger(maxBatches)||maxBatches<1||maxBatches>32)
    throw new Error("Límite de avances experimentales inválido.");
  while(steps<maxBatches&&combat.status==="ACTIVE"){
+   timeline=reserveNextTrainingNpcIntent(combat,timeline);
    const missing=pendingTimelineSides(timeline.clock);
    if(missing.includes("PLAYER")&&combat.actors.PLAYER.hp>0)break;
-   if(missing.includes("NPC")){
-     const actor=timeline.clock.actors.NPC;
-     const nextAt=Math.max(timeline.clock.nowTick,actor.availableAtTick);
-     const used=actor.spentApByRound[String(timelineRoundOf(nextAt))]??0;
-     // The AI must not roll back a player's valid order when it runs out
-     // of PA. Instead it waits to the next shared round for free.
-     const command=used>=actor.apLimitPerRound
-       ?{kind:"WAIT" as const}:experimentalTrainingNpcCommand(combat);
-     timeline=declareTimelineCommand(timeline,combat,"NPC",command,
-       "NPC_AUTO:"+timeline.clock.nextSequence);
-   }
    const resolved=await resolveBasicTimelineWindow(combat,timeline,makeDice);
    if(!resolved)break;
    combat=resolved.combat;
    timeline=resolved.timeline;
    steps++;
  }
+ // At the moment player control returns, the next NPC intention should
+ // already be visible. Otherwise the player cannot react to a warned strike.
+ timeline=reserveNextTrainingNpcIntent(combat,timeline);
  return {combat,timeline,batches:steps};
 }
 

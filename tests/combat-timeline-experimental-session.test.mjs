@@ -5,6 +5,7 @@ import {newCombatState} from "../lib/combat/turn-engine.ts";
 import {
  parseExperimentalV2Command,newExperimentalTimeline,
  submitExperimentalTimelineCommand,experimentalTrainingNpcCommand,
+ advanceExperimentalTimeline,
 } from "../lib/combat/timeline-experiment.ts";
 
 const fighter=(name,x)=>({
@@ -22,6 +23,7 @@ const dice=()=>({hit:0.01,critical:0.99,defense:0.99});
 const hit={kind:"ATTACK",attackType:"BLUNT",attackSource:"FIST_RIGHT",
  trajectory:[{x:.1,y:.5},{x:.5,y:.5}]};
 const load=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
+const dodgeDice=()=>({hit:.999,critical:.99,defense:.99});
 
 test("V2 laboratory accepts only a narrow action command vocabulary",()=>{
  assert.deepEqual(parseExperimentalV2Command({kind:"WAIT"}),{kind:"WAIT"});
@@ -46,6 +48,10 @@ test("experimental V2 is a clean fresh session and never modifies its seed",()=>
  const instance=newExperimentalTimeline(seed);
  assert.equal(instance.combat.timelineMode,"SHARED");
  assert.equal(instance.timeline.clock.nowTick,0);
+ assert.equal(instance.timeline.clock.events.length,1);
+ assert.equal(instance.timeline.clock.events[0].kind,"ATTACK");
+ assert.equal(instance.timeline.clock.events[0].owner,"NPC");
+ assert.equal(instance.timeline.clock.events[0].endsAtTick,10);
  assert.equal(instance.combat.tick,0);
  assert.deepEqual(seed,previous);
  const pvp=combat();pvp.actors.NPC.characterId=80;
@@ -64,7 +70,9 @@ test("one player order queues autonomous NPC and resolves together on server dic
  assert.ok(received.combat.actors.NPC.hp<1000);
  assert.ok(received.combat.actors.PLAYER.hp<1000);
  assert.equal(received.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
- assert.equal(received.timeline.clock.actors.NPC.spentApByRound["1"],1);
+ // NPC commits one resolved action and has already reserved the next
+ // telegraphed action in the same 100-tick round.
+ assert.equal(received.timeline.clock.actors.NPC.spentApByRound["1"],2);
  assert.ok(received.timeline.receipts["V2_PLAYER:experiment-unique-0001"]);
  assert.deepEqual(initial.combat,before,"the transaction input stays unchanged");
  const retry=await submitExperimentalTimelineCommand(received.combat,
@@ -85,6 +93,56 @@ test("the autonomous NPC waits for free after exhausting its round PA",async()=>
  assert.equal(advanced.combat.tick,100);
  assert.equal(advanced.timeline.clock.actors.NPC.spentApByRound["1"],1);
  assert.ok(advanced.combat.actors.PLAYER.hp<1000);
+});
+
+test("NPC telegraph pauses time for the player's defensive decision",async()=>{
+ const initial=newExperimentalTimeline(combat());
+ const early=await advanceExperimentalTimeline(initial.combat,initial.timeline,dice);
+ assert.equal(early.batches,0);
+ assert.equal(early.combat.tick,0);
+ assert.deepEqual(early.timeline,initial.timeline);
+ const {publicTimelineSessionStatus}=await import("../lib/combat/timeline-declarations.ts");
+ const hud=publicTimelineSessionStatus(initial.timeline);
+ assert.deepEqual(hud.waitingFor,["PLAYER"]);
+ assert.deepEqual(hud.running,[{owner:"NPC",kind:"ATTACK",
+   startsAtTick:0,endsAtTick:10}]);
+ assert.ok(!JSON.stringify(hud).includes("FIST_RIGHT"));
+});
+
+test("player can dodge the warned strike and move half a meter once",async()=>{
+ const initial=newExperimentalTimeline(combat());
+ const command={kind:"PREPARE_REACTION",defense:"DODGE",
+   predictedCenter:{x:.25,y:.75},dodgeDirection:"AWAY"};
+ const done=await submitExperimentalTimelineCommand(initial.combat,
+   initial.timeline,command,"v2-warning-dodge-001",dodgeDice);
+ assert.equal(done.combat.tick,10);
+ assert.equal(done.combat.actors.PLAYER.hp,1000);
+ assert.ok(done.combat.actors.PLAYER.positionMeters<0);
+ assert.equal(done.timeline.clock.actors.PLAYER.spentApByRound["1"],2);
+ assert.equal(done.timeline.usedDodgeMovementIds.length,1);
+ assert.ok(done.timeline.clock.events.some(e=>
+   e.owner==="NPC"&&e.status==="QUEUED"&&e.startsAtTick===10));
+ const retry=await submitExperimentalTimelineCommand(done.combat,
+   done.timeline,command,"v2-warning-dodge-001",dodgeDice);
+ assert.equal(retry.replayed,true);
+ assert.equal(retry.combat.tick,done.combat.tick);
+});
+
+test("guard uses one paid PA to block the announced NPC strike",async()=>{
+ const c=combat();
+ c.actors.PLAYER.offhandWeapon={
+   name:"Escudo de hierro",attackType:"BLUNT",mode:"MELEE",
+   effectiveRangeMeters:1.5,maximumRangeMeters:1.5,
+   itemId:301,characterItemId:801,durability:100,
+ };
+ const initial=newExperimentalTimeline(c);
+ const done=await submitExperimentalTimelineCommand(initial.combat,
+   initial.timeline,{kind:"GUARD",weaponSlot:"OFF_HAND"},
+   "v2-warning-guard-001",()=>({hit:.01,critical:.99,defense:.01}));
+ assert.equal(done.combat.tick,10);
+ assert.equal(done.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
+ assert.ok(done.combat.actors.PLAYER.offhandWeapon.durability<100);
+ assert.equal(c.actors.PLAYER.offhandWeapon.durability,100);
 });
 
 test("NPC AI moves toward a far opponent and attacks without client orders",()=>{
@@ -113,5 +171,11 @@ test("new encounter opt-in, private projection and V1 route separation are wired
  assert.match(legacy,/Las acciones V1 no pueden modificar una sesión V2/);
  assert.match(read,/combatV2:\{version:2,experimental:true\}/);
  assert.match(page,/CombatV2Encounter/);
+ const reactions=load("app/combat/[id]/CombatV2Reactions.tsx");
+ assert.match(reactions,/predictedCenter/);
+ assert.match(reactions,/dodgeDirection/);
+ assert.match(reactions,/endsAtTick/);
+ assert.match(load("app/combat/[id]/CombatV2Encounter.tsx"),
+   /<CombatV2Reactions/);
  assert.match(launcher,/experimentalV2:options\.experimentalV2Available/);
 });

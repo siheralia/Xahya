@@ -308,3 +308,28 @@ El refresco usa ETag para no transferir un estado sin cambios.
 Para la activación general aún falta portada completa de habilidades
 modulares, compatibilidad de PvP, seguridad/regresión extensa,
 persistencia de efectos de inventario y ampliar la interacción visual.
+
+## V2.16 — reacciones ante golpes anunciados
+
+El laboratorio V2 ahora **reserva el siguiente ataque del NPC antes de pedir
+una orden al jugador**, y repite esa reserva al finalizar cada lote. El reloj
+expone solo la **categoría visible** y los ticks de inicio/fin: no revela el
+dibujo del golpe, la predicción del centro de ataque ni intenciones privadas.
+
+La pantalla de encuentro añade un panel para:
+- Ver ataques anunciados y su posible tick de impacto, además de un aviso
+  cuando la reacción que empezarías en ese momento caduca antes del ataque.
+- Comparar las posiciones auténticas en vista cenital.
+- Tocar un plano independiente para **predecir** el punto de impacto, sin
+  que el servidor lo precargue con la puntería secreta del adversario.
+- Preparar esquiva por 1 PA, o esquiva + hasta 0,5 m de movimiento por 2 PA.
+  El desplazamiento solo ocurre si la esquiva triunfa y como máximo una vez
+  por postura.
+- Mantener guardia con equipo equipado, resistir, repeler, desviar con un
+  ángulo elegido, contraatacar una sola vez y preparar campo mágico.
+
+Son reacciones **antes del impacto** cuando el combatiente está libre para
+declarar; no interrumpen acciones ya comprometidas ni rebobinan el tiempo.
+Si un ataque termina después de la postura, esta no puede defenderlo. Los
+ejemplos de habilidades modulares avanzadas y PvP aún no están disponibles en
+el laboratorio; su migración sigue siendo pendiente de V2.

@@ -380,3 +380,29 @@ charge-buffs, pasivas persistentes y consumo/desgaste de inventario
 todavía no están habilitados en la ruta experimental. El motor puro
 contiene resolutores adicionales, pero requieren validar dependencias
 y persistencia real antes de la activación general.
+
+## V2.19 — invocaciones oficiales y construcciones en el laboratorio
+
+La pantalla V2 activa el catálogo compilado por servidor de habilidades
+`SUMMON` y `CONSTRUCTION`, además de ofensivas y apoyos aprobados.
+Invocar reserva 1 PA y el coste de maná indicado por el plan; la criatura
+se materializa únicamente al llegar a su tick de fin y luego sus propias
+acciones se programan independientemente de los PA de su dueño.
+
+El panel permite cambiar la conducta permitida (seguir, atacar, permanecer,
+proteger o manual), fijar al rival como objetivo y desplazar manualmente
+un familiar si su definición permite modo manual. Se conserva la verificación
+de control de alcance, propietario, PA, IDs y órdenes aceptables en el motor.
+Ataque manual directo y ACT de familiar **no se habilitan** desde la API,
+porque el motor de contacto autónomo requiere conciliación adicional.
+
+Para construcciones se permite elegir centro, posición en el plano, forma
+(campo, sólido, decorativo) y dimensiones positivas acotadas, sujetas a la
+validación del plan de construcción ya revisado por el sistema. Barreras y
+espejos obedecen geometrías reales y se procesan en los lotes V2; las
+acciones autónomas permanecen en el reloj del mundo.
+
+Esto continúa siendo laboratorio experimental: pasivas globales,
+fusiones, cargas y otros efectos complejos aún requieren adaptadores V2;
+el almacenamiento real de inventario y la sincronización PvP se abordan
+por separado. No se modifican encuentros históricos V1.

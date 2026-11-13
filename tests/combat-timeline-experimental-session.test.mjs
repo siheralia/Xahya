@@ -327,7 +327,7 @@ test("new encounter opt-in, private projection and V1 route separation are wired
  const read=load("app/api/combat/[id]/route.ts");
  const page=load("app/combat/[id]/page.tsx");
  const launcher=load("app/combat/DuelLauncher.tsx");
- assert.match(creation,/experiment&&\(!gm/);
+ assert.match(creation,/experiment&&!gm/);
  assert.match(creation,/newExperimentalTimeline\(initial\)/);
  assert.match(creation,/lastAction:\{combatV1:state,/);
  assert.match(route,/UPDATE public\."combatSession" SET id=id/);

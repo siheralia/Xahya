@@ -1,11 +1,11 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from "react";
 import Link from "next/link";
-import {Swords,Hourglass,RefreshCw,
+import {Hourglass,RefreshCw,
   Target,ArrowLeft,ArrowRight,Hand,Activity} from "lucide-react";
 import CombatV2Reactions from "./CombatV2Reactions";
-import type {CombatState,CombatCommand,Point} from "@/lib/combat/turn-engine";
-import {physicalAttackStart} from "@/lib/combat/turn-engine";
+import CombatV2AttackPlanner from "./CombatV2AttackPlanner";
+import type {CombatState} from "@/lib/combat/turn-engine";
 
 type Status={
  tick:number;round:number;waitingFor:("PLAYER"|"NPC")[];
@@ -19,8 +19,6 @@ type PublicV2={
    launchTick:number;impactTick:number}>;
  limitations:string;batches?:number;replayed?:boolean;
 };
-const center:Point={x:.5,y:.5};
-const attackTypeLabel={CUT:"Corte",BLUNT:"Golpe",PIERCE:"Perforación"};
 function bar(health:number,max:number){
  return Math.max(0,Math.min(100,100*health/Math.max(1,max)))+"%";
 }
@@ -30,7 +28,6 @@ export default function CombatV2Encounter({id}:{id:string}){
  const [busy,setBusy]=useState(false);
  const [loading,setLoading]=useState(true);
  const [meters,setMeters]=useState(".5");
- const [hand,setHand]=useState<"MAIN_HAND"|"OFF_HAND"|"FIST_RIGHT">("FIST_RIGHT");
  const [lastMessage,setLastMessage]=useState("");
  const etag=useRef<string|null>(null);
  const load=useCallback(async()=>{
@@ -86,25 +83,6 @@ export default function CombatV2Encounter({id}:{id:string}){
    (player.fieldPosition?.x??player.positionMeters)-
      (npc.fieldPosition?.x??npc.positionMeters),
    (player.fieldPosition?.y??0)-(npc.fieldPosition?.y??0));
- const slots=[
-   ...(player.equippedWeapon?[{value:"MAIN_HAND" as const,label:"Mano principal: "+
-     player.equippedWeapon.name}]:[]),
-   ...(player.offhandWeapon?[{value:"OFF_HAND" as const,label:"Mano secundaria: "+
-     player.offhandWeapon.name}]:[]),
-   {value:"FIST_RIGHT" as const,label:"Puño derecho"},
- ];
- const selected=slots.find(s=>s.value===hand)?.value??slots[0].value;
- const tool=selected==="MAIN_HAND"?player.equippedWeapon:
-   selected==="OFF_HAND"?player.offhandWeapon:undefined;
- const stroke=(()=>{
-   const start=physicalAttackStart(state,"PLAYER",selected)??{x:.1,y:.5};
-   const finish={x:start.x>.6?.1:.9,y:.5};
-   return [start,finish];
- })();
- const physical:Extract<CombatCommand,{kind:"ATTACK"}>={
-   kind:"ATTACK",attackType:tool?.attackType??"BLUNT",
-   attackSource:selected,trajectory:stroke,
- };
  const top=(p:typeof player,side:"PLAYER"|"NPC")=>
   <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4">
     <div className="flex justify-between gap-3">
@@ -176,45 +154,13 @@ export default function CombatV2Encounter({id}:{id:string}){
    <CombatV2Reactions state={state} clock={timeline}
      projectiles={projectiles} canOrder={canOrder}
      onOrder={command=>void submit(command)}/>
+   <CombatV2AttackPlanner state={state} canOrder={canOrder}
+     paLeft={Math.max(0,timeline.pa.PLAYER.limit-timeline.pa.PLAYER.used)}
+     onOrder={command=>void submit(command)}/>
    <section className="space-y-4 rounded-xl border border-zinc-700 bg-zinc-950/70 p-4">
-     <h2 className="flex items-center gap-2 font-semibold"><Swords size={18}/>
-       Ataque, movimiento y espera</h2>
-     <label className="block text-sm text-zinc-300">Ataque físico
-       <select value={selected} onChange={e=>
-         setHand(e.target.value as typeof hand)}
-         disabled={!canOrder}
-         className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2">
-         {slots.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}
-       </select>
-     </label>
-     <div className="flex flex-wrap gap-2">
-       <button disabled={!canOrder||tool?.mode==="RANGED"}
-         onClick={()=>void submit(physical)}
-         className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 font-semibold text-zinc-950 disabled:opacity-40">
-         <Swords size={16}/> {attackTypeLabel[physical.attackType]}
-       </button>
-       {tool?.mode==="RANGED"&&
-         <button disabled={!canOrder} onClick={()=>void submit({
-           kind:"ATTACK",attackType:tool.attackType,attackSource:selected,
-           rangedPhysical:true,areaCenter:center,
-           projectileHeights:{launchMeters:1,impactMeters:1}})}
-           className="rounded-lg border border-amber-500/60 px-4 py-2 disabled:opacity-40">
-           <Target size={16} className="mr-2 inline"/>Disparar
-         </button>}
-       {tool?.throwable&&
-         <button disabled={!canOrder} onClick={()=>void submit({
-           kind:"ATTACK",attackType:tool.attackType,attackSource:selected,
-           throwWeapon:true,areaCenter:center,
-           projectileHeights:{launchMeters:1,impactMeters:1}})}
-           className="rounded-lg border border-amber-500/60 px-4 py-2 disabled:opacity-40">
-           Lanzar arma
-         </button>}
-       <button disabled={!canOrder} onClick={()=>void submit({
-         kind:"ATTACK",attackType:"BLUNT",usesMagic:true,areaCenter:center})}
-         className="rounded-lg border border-violet-600 px-4 py-2 disabled:opacity-40">
-         Magia básica (1 maná)
-       </button>
-     </div>
+     <h2 className="flex items-center gap-2 font-semibold">
+       Movimiento independiente y espera
+     </h2>
      <div className="flex flex-wrap items-end gap-2 border-t border-zinc-800 pt-3">
        <label className="text-sm text-zinc-300">Metros
          <input type="number" min=".1" max={moveMax} step=".1"

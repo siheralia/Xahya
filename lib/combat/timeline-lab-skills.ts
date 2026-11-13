@@ -21,7 +21,7 @@ const eligible=(plan:CombatSkillPlan)=>
  plan.category==="SUPPORT"&&!!plan.approvedActivation||
  plan.category==="SUMMON"&&!!plan.summons?.length||
  plan.category==="CONSTRUCTION"&&!!plan.construction||
- plan.category==="FUSION"&&!!plan.fusion&&!plan.fusion.chaosField||
+ plan.category==="FUSION"&&!!plan.fusion||
  plan.category==="CHARGE_BUFF"&&!!plan.chargeBuff;
 
 async function stolenSkillIds(characterId:number):Promise<Set<number>>{

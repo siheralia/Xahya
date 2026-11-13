@@ -8,7 +8,7 @@ import {combatClientView} from "@/lib/combat/magic-area";
 import {combatSnapshotEtag,combatEtagMatches} from "@/lib/combat/poll-cache";
 import {publicTimelineSessionStatus,type TimelineDeclarationSession}
  from "@/lib/combat/timeline-declarations";
-import {submitExperimentalTimelineCommand} from "@/lib/combat/timeline-experiment";
+import {advanceExperimentalTimeline,submitExperimentalTimelineCommand} from "@/lib/combat/timeline-experiment";
 import type {CombatState} from "@/lib/combat/turn-engine";
 
 type SavedV2={version:2;clock:TimelineDeclarationSession["clock"];
@@ -99,10 +99,17 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
      const original=read(fresh.lastAction);
      if(original.combat.status!=="ACTIVE"||String(fresh.status)!=="ACTIVE")
        throw new Error("El combate experimental ya terminó.");
-     const result=await submitExperimentalTimelineCommand(
-       original.combat,original.timeline,body.command,
-       String(body.requestId??""),dice);
-     if(!result.replayed){
+     const advance=body.command?.kind==="ADVANCE";
+     // ADVANCE is server-side NPC/workflow progress ONLY, not a paid action.
+     if(advance&&(Object.keys(body.command).length!==1))
+       throw new Error("El avance temporal no admite parámetros externos.");
+     const result=advance
+       ?{...await advanceExperimentalTimeline(original.combat,original.timeline,dice),
+          replayed:false}
+       :await submitExperimentalTimelineCommand(
+          original.combat,original.timeline,body.command,
+          String(body.requestId??""),dice);
+     if(!result.replayed&&result.batches>0||!result.replayed&&!advance){
        await Session.where({id:accessInfo.sessionId}).update({
          lastAction:{combatV1:result.combat,combatV2:result.timeline},
          currentTick:result.combat.tick,turn:result.combat.round,

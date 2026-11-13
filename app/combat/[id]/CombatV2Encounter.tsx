@@ -8,6 +8,7 @@ import {physicalAttackStart} from "@/lib/combat/turn-engine";
 
 type Status={
  tick:number;round:number;waitingFor:("PLAYER"|"NPC")[];
+ pa:Record<"PLAYER"|"NPC",{used:number;limit:number}>;
  running:Array<{owner:"PLAYER"|"NPC";kind:string;
    startsAtTick:number;endsAtTick:number}>;
 };
@@ -115,17 +116,12 @@ export default function CombatV2Encounter({id}:{id:string}){
     </div>
     <div className="grid grid-cols-2 gap-2 text-xs text-zinc-300">
       <span>AGI: {p.agility}</span><span>CON: {p.constitution}</span>
-      <span>PA usados: {timeline.round in
-        timelineSpentFor(side)?timelineSpentFor(side)[String(timeline.round)]:0}</span>
+      <span>PA: {Math.max(0,timeline.pa[side].limit-
+        timeline.pa[side].used)}/{timeline.pa[side].limit}</span>
       <span>Maná: {state.mana?.[side]?.current??0}</span>
     </div>
   </div>;
- function timelineSpentFor(side:"PLAYER"|"NPC"){
-   // Server's public status includes no private intent; PA from the public
-   // clock is not exposed, so show no exact budget in this initial HUD.
-   void side;return {} as Record<string,number>;
- }
- return <main className="mx-auto max-w-5xl space-y-5 px-3 py-6 text-zinc-100 sm:px-5">
+  return <main className="mx-auto max-w-5xl space-y-5 px-3 py-6 text-zinc-100 sm:px-5">
    <header className="flex flex-wrap items-start justify-between gap-3">
      <div><p className="text-xs font-medium uppercase tracking-widest text-cyan-300">
        Combate experimental V2</p>
@@ -188,7 +184,8 @@ export default function CombatV2Encounter({id}:{id:string}){
        </select>
      </label>
      <div className="flex flex-wrap gap-2">
-       <button disabled={!canOrder} onClick={()=>void submit(physical)}
+       <button disabled={!canOrder||tool?.mode==="RANGED"}
+         onClick={()=>void submit(physical)}
          className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 font-semibold text-zinc-950 disabled:opacity-40">
          <Swords size={16}/> {attackTypeLabel[physical.attackType]}
        </button>

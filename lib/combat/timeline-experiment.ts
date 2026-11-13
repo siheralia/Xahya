@@ -60,13 +60,30 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
      "MAIN_HAND","OFF_HAND","FIST_RIGHT","FIST_LEFT","KICK"];
    const heights=raw.projectileHeights;
    if(!keys(raw,["kind","attackType","attackSource","usesMagic","trajectory",
-      "areaCenter","rangedPhysical","throwWeapon","projectileHeights"])||
+      "areaCenter","rangedPhysical","throwWeapon","projectileHeights",
+      "planarMove","movementOrder"])||
      !types.includes(String(raw.attackType))||
      raw.attackSource!==undefined&&!sources.includes(String(raw.attackSource))||
      raw.usesMagic!==undefined&&typeof raw.usesMagic!=="boolean"||
      raw.rangedPhysical!==undefined&&typeof raw.rangedPhysical!=="boolean"||
      raw.throwWeapon!==undefined&&typeof raw.throwWeapon!=="boolean"||
      raw.areaCenter!==undefined&&!position(raw.areaCenter)||
+     // Only two approved movement orders are legal, with a real
+     // 0.01–1 m vector. A projectile cannot receive a free movement
+     // by smuggling composite metadata into its launch declaration.
+     (raw.planarMove===undefined)!==(raw.movementOrder===undefined)||
+     raw.movementOrder!==undefined&&
+       !["BEFORE","AFTER"].includes(String(raw.movementOrder))||
+     raw.planarMove!==undefined&&
+       (!object(raw.planarMove)||!keys(raw.planarMove,["x","y"])||
+        typeof raw.planarMove.x!=="number"||
+        typeof raw.planarMove.y!=="number"||
+        !Number.isFinite(raw.planarMove.x)||
+        !Number.isFinite(raw.planarMove.y)||
+        Math.hypot(raw.planarMove.x,raw.planarMove.y)<.01||
+        Math.hypot(raw.planarMove.x,raw.planarMove.y)>1.000001||
+        raw.throwWeapon===true||raw.rangedPhysical===true)||
+
      raw.trajectory!==undefined&&
        (!Array.isArray(raw.trajectory)||raw.trajectory.length<2||
         raw.trajectory.length>16||!raw.trajectory.every(position))||

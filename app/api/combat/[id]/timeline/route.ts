@@ -114,7 +114,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
          lastAction:{combatV1:result.combat,combatV2:result.timeline},
          currentTick:result.combat.tick,turn:result.combat.round,
          status:result.combat.status,
-         activeActor:result.combat.status==="ACTIVE"?"PLAYER":"FINISHED",
+         activeActor:result.combat.status==="ACTIVE"?"PLAYER":"NPC",
          playerNextActionTick:result.timeline.clock.actors.PLAYER.availableAtTick,
          npcNextActionTick:result.timeline.clock.actors.NPC.availableAtTick,
          updatedAt:Temporal.Now.instant(),

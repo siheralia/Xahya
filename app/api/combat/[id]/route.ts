@@ -46,6 +46,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       void _flying;return publicState;})()
     :visibleCombat;
   const safeSession=rawCombat ? {...session,lastAction:{
+    // Preserve the complete legacy V1 response; only V2 must hide the
+    // private escrow and frozen projectile payload.
+    ...(v2?{}:session.lastAction as Record<string,unknown>),
     combatV1:projected,...(v2?{combatV2:{version:2,experimental:true}}:{}),
   }} : session;
   return NextResponse.json({ session:safeSession });

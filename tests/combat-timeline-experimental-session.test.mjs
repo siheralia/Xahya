@@ -63,7 +63,10 @@ test("experimental skills accept only server-approved IDs and aim",async()=>{
    {approvedSkill:plan});
  assert.equal(result.combat.tick,10);
  assert.equal(result.combat.mana.PLAYER.current,45);
- assert.ok(result.combat.log.some(e=>e.kind==="SKILL"&&e.skillId===712));
+ assert.ok(result.combat.actors.NPC.hp<1000,
+   "the approved offensive plan must hit using the official physical formula");
+ assert.ok((result.combat.skillCooldowns?.PLAYER?.["712"]??0)>0,
+   "the skill must register its authoritative cooldown");
  assert.equal(result.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
  assert.deepEqual(c,before);
  const retry=await submitExperimentalTimelineCommand(result.combat,

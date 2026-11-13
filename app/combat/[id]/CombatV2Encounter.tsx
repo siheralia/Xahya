@@ -5,6 +5,7 @@ import {Hourglass,RefreshCw,
   Target,ArrowLeft,ArrowRight,Hand,Activity} from "lucide-react";
 import CombatV2Reactions from "./CombatV2Reactions";
 import CombatV2AttackPlanner from "./CombatV2AttackPlanner";
+import CombatV2Summons from "./CombatV2Summons";
 import type {CombatState} from "@/lib/combat/turn-engine";
 
 type Status={
@@ -158,6 +159,8 @@ export default function CombatV2Encounter({id}:{id:string}){
    </section>
    <CombatV2Reactions state={state} clock={timeline}
      projectiles={projectiles} canOrder={canOrder}
+     onOrder={command=>void submit(command)}/>
+   <CombatV2Summons state={state} canOrder={canOrder}
      onOrder={command=>void submit(command)}/>
    <CombatV2AttackPlanner state={state} canOrder={canOrder}
      skills={data.skills??[]}

@@ -8,7 +8,7 @@ import {battleFieldViewport,fieldPosition,fieldToViewport,previewViewportMove}
 
 type Command=Record<string,unknown>;
 type LabSkill={id:number;name:string;cost:number;
- category:"OFFENSE"|"SUPPORT";usesMagic:boolean;
+ category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION";usesMagic:boolean;
  requiresPath:boolean;needsCenter:boolean};
 type Props={state:CombatState;canOrder:boolean;skills:LabSkill[];
  paLeft:number;onOrder:(command:Command)=>void};
@@ -22,6 +22,9 @@ export default function CombatV2AttackPlanner({
  const [source,setSource]=useState<"FIST_RIGHT"|"FIST_LEFT"|"KICK"|
    "MAIN_HAND"|"OFF_HAND">("FIST_RIGHT");
  const [skillId,setSkillId]=useState("");
+ const [constructionForm,setConstructionForm]=useState<"FIELD"|"BLOCK"|"DECOR">("FIELD");
+ const [height,setHeight]=useState("2");
+ const [radius,setRadius]=useState(".15");
  const [path,setPath]=useState<Point[]>([]);
  const [aim,setAim]=useState<Point>({x:.5,y:.5});
  const [order,setOrder]=useState<"NONE"|"BEFORE"|"AFTER">("NONE");
@@ -122,6 +125,15 @@ export default function CombatV2AttackPlanner({
  const castSkill=()=>{
    if(!chosenSkill)return;
    onOrder({kind:"CAST_SKILL",skillId:chosenSkill.id,
+     ...(chosenSkill.category==="CONSTRUCTION"?{
+       areaCenter:{...aim},constructionFieldPoint:{...aim},
+       constructionForm,
+       ...(constructionForm==="BLOCK"?{
+         constructionHeightMeters:Number(height),
+         constructionSolidHeightMeters:Number(height),
+         constructionFootprintRadiusMeters:Number(radius),
+       }:{}),
+     }:{}),
      ...(chosenSkill.category==="OFFENSE"?{
        attackSource:source,
        ...(chosenSkill.requiresPath?{trajectory:path.map(p=>({...p}))}:{}),
@@ -287,27 +299,61 @@ export default function CombatV2AttackPlanner({
          <option value="">Selecciona una habilidad compatible</option>
          {skills.map(skill=><option key={skill.id} value={skill.id}>
            {skill.name} · {skill.cost} maná ·
-           {skill.category==="OFFENSE"?" Ofensiva":" Apoyo"}
+           {skill.category==="OFFENSE"?" Ofensiva":
+             skill.category==="SUPPORT"?" Apoyo":
+             skill.category==="SUMMON"?" Invocación":" Construcción"}
          </option>)}
        </select>
      </label>
      {chosenSkill&&<p className="text-xs text-zinc-400">
        {chosenSkill.category==="SUPPORT"
          ?"El apoyo se aplica a ti mismo; no necesita diana ni trazo."
-         :chosenSkill.requiresPath
-           ?"Esta habilidad usa el recorrido físico dibujado arriba."
-           :"Esta habilidad usa su área aprobada o su puntería mágica."}
+         :chosenSkill.category==="SUMMON"
+           ?"La criatura aparece al concluir la acción y luego sigue su conducta autónoma."
+           :chosenSkill.category==="CONSTRUCTION"
+             ?"Usa la diana para colocar el objeto en el plano; el sistema verifica material y coste."
+             :chosenSkill.requiresPath
+               ?"Esta habilidad usa el recorrido físico dibujado arriba."
+               :"Esta habilidad usa su área aprobada o su puntería mágica."}
        {chosenSkill.category==="OFFENSE"&&move?
          " Desplazamiento combinado: 2 PA.":""}
      </p>}
-     <button type="button" disabled={!canSkill} onClick={castSkill}
+     {chosenSkill?.category==="CONSTRUCTION"&&
+       <div className="grid gap-3 sm:grid-cols-3">
+         <label className="text-xs text-zinc-300">Forma
+           <select value={constructionForm} disabled={!canOrder}
+             onChange={e=>setConstructionForm(e.target.value as typeof constructionForm)}
+             className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2">
+             <option value="FIELD">Campo</option>
+             <option value="BLOCK">Barrera sólida</option>
+             <option value="DECOR">Decoración</option>
+           </select>
+         </label>
+         {constructionForm==="BLOCK"&&<>
+           <label className="text-xs text-zinc-300">Altura (m)
+             <input type="number" min=".1" max="10" step=".1"
+               value={height} onChange={e=>setHeight(e.target.value)}
+               className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2"/>
+           </label>
+           <label className="text-xs text-zinc-300">Radio de huella (m)
+             <input type="number" min=".01" max="10" step=".01"
+               value={radius} onChange={e=>setRadius(e.target.value)}
+               className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2"/>
+           </label>
+         </>}
+       </div>}
+     <button type="button" disabled={!canSkill||
+         chosenSkill?.category==="CONSTRUCTION"&&constructionForm==="BLOCK"&&(
+           !Number.isFinite(Number(height))||Number(height)<=0||Number(height)>10||
+           !Number.isFinite(Number(radius))||Number(radius)<=0||Number(radius)>10)}
+       onClick={castSkill}
        className="inline-flex items-center gap-2 rounded-lg border border-violet-500 bg-violet-900/30 px-4 py-2 text-sm font-semibold disabled:opacity-40">
        <WandSparkles size={16}/> Lanzar habilidad aprobada
        {chosenSkill?" ("+skillCostAp+" PA)":""}
      </button>
      {!skills.length&&<p className="text-xs text-zinc-400">
-       No hay habilidades ofensivas o de apoyo modular compatibles con el
-       laboratorio. Las demás siguen disponibles en combate V1.
+       No hay habilidades compatibles en el catálogo aprobado del personaje.
+       Las categorías no migradas siguen disponibles en combate V1.
      </p>}
    </div>
    <p className="text-xs text-zinc-400">

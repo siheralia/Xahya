@@ -209,7 +209,7 @@ export function simulateAutonomousTimelineSummon(
  // A 100-tick upkeep may expire the creature at exactly its due tick. That
  // disappearance has already been committed to this common snapshot.
  if(!creature)return {eventId:event.id};
- if(creature.integrity<=0||!creature.chargesMigrated||creature.chaosField)
+ if(creature.integrity<=0||!creature.chargesMigrated)
    throw new Error("El familiar requiere un resolutor avanzado de efectos.");
  if(creature.autoNextTick!==event.endsAtTick||
    ["HOLD","MANUAL"].includes(creature.behavior.mode))

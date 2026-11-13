@@ -21,6 +21,8 @@ import {measuredBlock} from "./physical-obstacles.ts";
 import type {CombatSummon} from "./summons.ts";
 import {upkeepTimelineSummonsAtRound} from "./timeline-summon-world.ts";
 import {applyWeaponSelfRepairAtRoundStart} from "./turn-engine.ts";
+import {assertApprovedV2Passives,applyV2ApprovedPassiveRoundStart,
+ applyV2ApprovedPassiveContact} from "./timeline-approved-passives.ts";
 import {applyTimelineEquipmentWear} from "./timeline-equipment-replay.ts";
 import type {StatusStat} from "./summon-status.ts";
 import type {TimelineBatch,TimelineEvent} from "./action-timeline.ts";
@@ -133,6 +135,7 @@ export function prepareTimelineImpactSnapshot(
    expected.some((v,i)=>v!==batch.crossedRoundBoundaries[i]))
    throw new Error("Las fronteras del tiempo compartido no corresponden al lote.");
  const state=structuredClone(original);
+ assertApprovedV2Passives(state);
  for(const crossing of expected){
    state.round=timelineRoundOf(crossing);
    state.tick=crossing;
@@ -154,6 +157,7 @@ export function prepareTimelineImpactSnapshot(
    // The canonical V1 round contract: upkeep first, then passive item
    // repair. Failed formula configs disable ONLY that item, not the fight.
    state.itemRepairsThisRound=[];
+   applyV2ApprovedPassiveRoundStart(state);
    for(const side of SIDES)
      applyWeaponSelfRepairAtRoundStart(state,side);
  }
@@ -746,7 +750,9 @@ export function commitAuthorizedTimelineBatch(
  // Damage is not canceled by a heal or by a simultaneous lethal attack.
  for(const side of SIDES){
    const actor=next.actors[side];
-   const base=original.actors[side].hp;
+   // The pre-impact state already includes passive regeneration at every
+   // crossed 100-tick boundary. Never overwrite it from stale original HP.
+   const base=next.actors[side].hp;
    actor.hp=Math.min(actor.maxHp,Math.max(0,base-damages[side]+healing[side]));
  }
  // Both concurrent strikes use the SAME previous armor durability. Wear
@@ -843,6 +849,7 @@ export function commitAuthorizedTimelineBatch(
  const priorLog=next.narrativeHistory??next.log.slice();
  next.narrativeHistory=[...priorLog];
  for(const entry of logs){
+   applyV2ApprovedPassiveContact(next,entry);
    next.narrativeHistory.push(entry);
    next.log.push(entry);
  }

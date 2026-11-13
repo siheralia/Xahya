@@ -210,7 +210,7 @@ test("experimental V2 is a clean fresh session and never modifies its seed",()=>
  const pvp=combat();pvp.actors.NPC.characterId=80;
  assert.throws(()=>newExperimentalTimeline(pvp),/entrenamiento/);
  const passive=combat();passive.microEffects={definitions:{foo:[{moduleId:"x"}]}};
- assert.throws(()=>newExperimentalTimeline(passive),/resolutor temporal/);
+ assert.throws(()=>newExperimentalTimeline(passive),/resolutor temporal|pasiva/i);
 });
 
 test("one player order queues autonomous NPC and resolves together on server dice",async()=>{

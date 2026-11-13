@@ -10,6 +10,8 @@ import {publicTimelineSessionStatus,type TimelineDeclarationSession}
  from "@/lib/combat/timeline-declarations";
 import {advanceExperimentalTimeline,submitExperimentalTimelineCommand} from "@/lib/combat/timeline-experiment";
 import {approvedLabSkillPlan,listApprovedLabSkills} from "@/lib/combat/timeline-lab-skills";
+import {commitV2InventoryMutations} from "@/lib/combat/timeline-inventory-commit";
+import {compileCombatConsumable} from "@/lib/items/combat-consumables";
 import type {CombatState} from "@/lib/combat/turn-engine";
 
 type SavedV2={version:2;clock:TimelineDeclarationSession["clock"];
@@ -57,7 +59,7 @@ function publicPayload(combat:CombatState,timeline:TimelineDeclarationSession){
    ({id,owner,launchTick,impactTick}));
  return {mode:"EXPERIMENTAL_V2" as const,state,
    projectiles:flying,timeline:publicTimelineSessionStatus(timeline),
-   limitations:"Laboratorio: golpes, guardias, movimiento y magia básica. Sin pasivas modulares ni gasto de inventario real."};
+   limitations:"Laboratorio V2: inventario y durabilidad de equipo reales, ficha HP/maná de combate aislada. Pasivas modulares avanzadas sujetas a compatibilidad."};
 }
 export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
  const accessInfo=await access((await params).id);
@@ -106,8 +108,11 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
        throw new Error("El combate experimental ya terminó.");
      const advance=body.command?.kind==="ADVANCE";
      const cast=body.command?.kind==="CAST_SKILL";
+     const useItem=body.command?.kind==="USE_ITEM";
      const actionId=String(body.requestId??"");
-     const command=cast?{...body.command,requestId:actionId}:body.command;
+     const command=cast||useItem?{...body.command,requestId:actionId}:body.command;
+     const onBatch=async(before:CombatState,after:CombatState)=>
+       commitV2InventoryMutations(before,after,tx);
      // ADVANCE is server-side NPC/workflow progress ONLY, not a paid action.
      if(advance&&(Object.keys(body.command).length!==1))
        throw new Error("El avance temporal no admite parámetros externos.");
@@ -119,12 +124,25 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
        ?await approvedLabSkillPlan(
           Number(fresh.playerCharacterId),Number(command.skillId),tx)
        :undefined;
+     // The original combat snapshot records exact item copy, action and
+     // amount. Verify the official recipe has not changed since creation.
+     if(useItem&&!isReplay){
+       const stock=(original.combat.consumables?.PLAYER??[]).find(x=>
+         x.itemId===Number(command.itemId)&&
+         x.characterItemId===Number(command.characterItemId));
+       const Item=(tx.orm.public as any).Item;
+       const row=await Item.where({id:Number(command.itemId)}).first();
+       const recipe=row?compileCombatConsumable(row):null;
+       if(!stock||!recipe||stock.action!==recipe.action||
+         stock.amount!==recipe.amount)
+         throw new Error("La receta o copia de inventario cambió. Crea un encuentro nuevo.");
+     }
      const result=advance
-       ?{...await advanceExperimentalTimeline(original.combat,original.timeline,dice),
-          replayed:false}
+       ?{...await advanceExperimentalTimeline(original.combat,
+          original.timeline,dice,20,onBatch),replayed:false}
        :await submitExperimentalTimelineCommand(
           original.combat,original.timeline,command,actionId,dice,
-          approvedSkill?{approvedSkill}:{});
+          approvedSkill?{approvedSkill}:{},onBatch);
      if(!result.replayed&&result.batches>0||!result.replayed&&!advance){
        await Session.where({id:accessInfo.sessionId}).update({
          lastAction:{combatV1:result.combat,combatV2:result.timeline},

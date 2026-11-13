@@ -57,6 +57,25 @@ const stableJson=(value:unknown):string=>{
 };
 const validSide=(side:Side)=>side==="PLAYER"||side==="NPC";
 
+/** Check a completed receipt without scheduling a new action or requiring an
+ * ACTIVE combat. Used only for an identical HTTP retry after the final hit.
+ * A stale request ID with altered command remains an error, not success.
+ */
+export function isRecordedTimelineReplay(
+ session:TimelineDeclarationSession,owner:Side,
+ command:TimelineCombatCommand,eventId:string,
+):boolean{
+ if(session.version!==2||!validSide(owner))
+   throw new Error("Sesión temporal no válida para verificar una orden.");
+ const receipt=Object.hasOwn(session.receipts,eventId)
+   ?session.receipts[eventId]:undefined;
+ if(!receipt)return false;
+ const signature=stableJson({owner,command});
+ if(receipt.owner!==owner||receipt.signature!==signature)
+   throw new Error("Se reutilizó un identificador con una acción diferente.");
+ return true;
+}
+
 export function newTimelineDeclarationSession(snapshot:CombatState):TimelineDeclarationSession{
  return {version:2,clock:newTimelineForCombat(snapshot),declarations:{},receipts:{},
    chargedReactionIds:[],usedCounterReactionIds:[],usedDodgeMovementIds:[]};

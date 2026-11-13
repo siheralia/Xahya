@@ -353,3 +353,30 @@ origen después de cambiar de posición.
 La migración de habilidades aprobadas, los consumibles y el desgaste
 persistente siguen siendo necesarios antes de activar V2 de manera general.
 No cambia el comportamiento de V1 ni habilita PvP V2.
+
+## V2.18 — primeras habilidades aprobadas en sesión experimental
+
+La interfaz de laboratorio muestra solo habilidades que el servidor
+puede compilar desde el catálogo oficial del personaje: **ofensivas**
+y **apoyos modulares personales revisados**. Cada lanzamiento incluye
+el identificador de la habilidad y, si corresponde, el dibujo de ataque
+o centro de impacto ya elegido por el jugador.
+
+El endpoint V2 lee las filas `Skill` aprobadas y su estado de
+activación bajo la transacción de la sesión antes de aceptar un
+lanzamiento. Filtra habilidades robadas temporalmente, condiciones y
+requisitos incumplidos, dependencias de padre y categorías cuyo
+resolutor no esté integrado. El navegador no puede enviar multiplicadores,
+costes, duraciones, pasivas ni grafos de efectos.
+
+La declaración congela un plan compilado de servidor; la resolución
+carga únicamente su maná autorizado, cooldown, daño o apoyo al tick
+correspondiente. Si una petición se repite con el mismo ID no
+duplica el gasto. La API rechaza planes sin aprobación incluso si
+el cliente falsifica un skillId válido.
+
+**Limitación:** invocaciones especiales, construcciones, fusión,
+charge-buffs, pasivas persistentes y consumo/desgaste de inventario
+todavía no están habilitados en la ruta experimental. El motor puro
+contiene resolutores adicionales, pero requieren validar dependencias
+y persistencia real antes de la activación general.

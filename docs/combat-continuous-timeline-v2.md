@@ -543,3 +543,23 @@ Los campos desaparecen cuando su criatura expira o es derrotada.
 Las fusiones, invocaciones y órdenes existentes continúan funcionando
 aunque haya un campo hostil activo. V1, rankings y modo predeterminado
 no cambian.
+
+## V2.26 — privacidad previa a pruebas con jugadores
+
+Toda respuesta V2, incluidas las rutas de lectura heredada y creación de
+duelos, devuelve una proyección sin las copias de inventario del rival,
+identificadores privados de piezas equipadas, fórmulas de familiares,
+recetas de autorreparación, acumuladores privados, enfriamientos ajenos,
+cola de espejos ni recibos internos. El propietario puede seguir viendo
+sus propias pociones y cargas; un gestor que solo observa no recibe
+ninguno de los dos inventarios. Posición, HP, maná, nombres de equipo,
+estados visibles y crónica pública permanecen visibles.
+
+La proyección se aplica a una copia y **jamás se reintroduce en la
+simulación**. El combate definitivo y todas las decisiones de inventario
+siguen en la sesión transaccional autenticada.
+
+Los PvP V2 entre personajes del mismo usuario se rechazan desde su
+creación. Como el servidor determina el lado por el propietario real,
+aceptar ese duelo dejaría al segundo combatiente sin forma de declarar
+su propia acción. Las pruebas humanas exigen dos cuentas diferentes.

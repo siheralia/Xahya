@@ -20,6 +20,7 @@ import {compileWeaponAutoRepair} from "@/lib/items/auto-repair";
 import {snapshotEquippedWearables} from "@/lib/items/combat-wearables";
 import {snapshotApprovedEncounterPassives} from "@/lib/combat/server-approved-micro";
 import {newExperimentalTimeline} from "@/lib/combat/timeline-experiment";
+import {publicV2CombatState} from "@/lib/combat/timeline-client-projection";
 
 async function snapshotEquippedWeapons(characterId:number):Promise<{
   main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
@@ -186,6 +187,13 @@ export async function POST(req:Request) {
     const rival=await db.orm.public.Character.where({id:opponentId}).first();
     const stats=await getEffectiveCombatCharacterStats(opponentId);
     if(!rival||!stats)return NextResponse.json({error:"Oponente no encontrado."},{status:404});
+    // A V2 PvP session derives the controlling side from Character.userId.
+    // If one account owns both, one side can never be authorized to commit:
+    // reject that deadlock at encounter creation, not after PA reservation.
+    if(experiment&&Number(rival.userId)===Number(character.userId))
+      return NextResponse.json({error:
+        "PvP V2 requiere personajes de dos usuarios diferentes para declarar acciones independientes."},
+        {status:400});
     rivalWearableStatBonuses=stats.combatWearableStatBonuses;
     rivalDerivedReplay=stats.combatEquipmentDerivedReplay;
     opponent=buildFighter(String(rival.name),opponentId,stats.effectiveStats,stats.derived,
@@ -380,5 +388,7 @@ export async function POST(req:Request) {
   });
   return NextResponse.json({id:Number(session.id),
     experimentalV2:experiment,
-    state:combatClientView(state)},{status:201});
+    state:experiment?publicV2CombatState(state,
+      Number(character.userId)===Number(user.id)?"PLAYER":"SPECTATOR"):
+      combatClientView(state)},{status:201});
 }

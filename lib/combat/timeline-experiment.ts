@@ -233,6 +233,7 @@ export function reserveNextTrainingNpcIntent(
 export async function advanceExperimentalTimeline(
  original:CombatState,session:TimelineDeclarationSession,
  makeDice:()=>TimelineDice,maxBatches=20,
+ onCommittedBatch?:(before:CombatState,after:CombatState)=>Promise<void>,
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession;batches:number}>{
  let combat=original,timeline=session,steps=0;
  if(!Number.isSafeInteger(maxBatches)||maxBatches<1||maxBatches>32)
@@ -243,6 +244,9 @@ export async function advanceExperimentalTimeline(
    if(missing.includes("PLAYER")&&combat.actors.PLAYER.hp>0)break;
    const resolved=await resolveBasicTimelineWindow(combat,timeline,makeDice);
    if(!resolved)break;
+   // The authoritative state transition is durable only after inventory
+   // side-effects are committed in the same transaction, per world batch.
+   await onCommittedBatch?.(combat,resolved.combat);
    combat=resolved.combat;
    timeline=resolved.timeline;
    steps++;
@@ -258,6 +262,7 @@ export async function submitExperimentalTimelineCommand(
  combat:CombatState,session:TimelineDeclarationSession,
  raw:unknown,requestId:string,makeDice:()=>TimelineDice,
  context:CompilationContext={},
+ onCommittedBatch?:(before:CombatState,after:CombatState)=>Promise<void>,
 ):Promise<{combat:CombatState;timeline:TimelineDeclarationSession;
  replayed:boolean;batches:number}>{
  if(!/^[a-zA-Z0-9_-]{12,72}$/.test(requestId))
@@ -267,6 +272,7 @@ export async function submitExperimentalTimelineCommand(
  const hadReceipt=Object.hasOwn(session.receipts,id);
  const declared=declareTimelineCommand(session,combat,"PLAYER",command,id,context);
  if(hadReceipt)return {combat,timeline:session,replayed:true,batches:0};
- const advanced=await advanceExperimentalTimeline(combat,declared,makeDice);
+ const advanced=await advanceExperimentalTimeline(combat,declared,makeDice,
+   20,onCommittedBatch);
  return {...advanced,replayed:false};
 }

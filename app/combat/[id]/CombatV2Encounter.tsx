@@ -19,7 +19,7 @@ type PublicV2={
  mode:"EXPERIMENTAL_V2";state:CombatState;pvp?:boolean;
  viewerSide?:"PLAYER"|"NPC"|"SPECTATOR";
  skills?:Array<{id:number;name:string;cost:number;
-   category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION";usesMagic:boolean;
+   category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION"|"FUSION";usesMagic:boolean;
    requiresPath:boolean;needsCenter:boolean}>;
  timeline:Status;projectiles:Array<{id:string;owner:string;
    launchTick:number;impactTick:number}>;

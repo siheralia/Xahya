@@ -13,7 +13,7 @@ import {meetsEffectRequirements} from "../skills/effect-requirements";
 export type LabSkillSummary={
  id:number;name:string;cost:number;
  category:"OFFENSE"|"SUPPORT";usesMagic:boolean;
- requiresPath:boolean;isArea:boolean;
+ requiresPath:boolean;needsCenter:boolean;
 };
 const eligible=(plan:CombatSkillPlan)=>
  plan.category==="OFFENSE"||plan.category==="SUPPORT"&&!!plan.approvedActivation;
@@ -84,6 +84,8 @@ export async function listApprovedLabSkills(
    usesMagic:plan.usesMagic===true,
    requiresPath:plan.category==="OFFENSE"&&
      plan.usesMagic!==true&&plan.attackArea?.shape!=="SELF_FIELD",
-   isArea:Boolean(plan.attackArea),
+   needsCenter:plan.category==="OFFENSE"&&
+     (plan.usesMagic===true||Boolean(plan.attackArea&&
+       plan.attackArea.shape!=="SELF_FIELD")),
  })).sort((a,b)=>a.name.localeCompare(b.name,"es"));
 }

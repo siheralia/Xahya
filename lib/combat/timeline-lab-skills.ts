@@ -12,7 +12,8 @@ import {meetsEffectRequirements} from "../skills/effect-requirements";
 
 export type LabSkillSummary={
  id:number;name:string;cost:number;
- category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION"|"FUSION";usesMagic:boolean;
+ category:"OFFENSE"|"SUPPORT"|"SUMMON"|"CONSTRUCTION"|"FUSION"|"CHARGE_BUFF";usesMagic:boolean;
+ chargePool?:string;minCharges?:number;maxCharges?:number;
  requiresPath:boolean;needsCenter:boolean;
 };
 const eligible=(plan:CombatSkillPlan)=>
@@ -20,7 +21,8 @@ const eligible=(plan:CombatSkillPlan)=>
  plan.category==="SUPPORT"&&!!plan.approvedActivation||
  plan.category==="SUMMON"&&!!plan.summons?.length||
  plan.category==="CONSTRUCTION"&&!!plan.construction||
- plan.category==="FUSION"&&!!plan.fusion&&!plan.fusion.chaosField;
+ plan.category==="FUSION"&&!!plan.fusion&&!plan.fusion.chaosField||
+ plan.category==="CHARGE_BUFF"&&!!plan.chargeBuff;
 
 async function stolenSkillIds(characterId:number):Promise<Set<number>>{
  const q=db.raw.sql`
@@ -86,6 +88,11 @@ export async function listApprovedLabSkills(
    id:plan.id,name:plan.name,cost:plan.cost,
    category:plan.category as LabSkillSummary["category"],
    usesMagic:plan.usesMagic===true,
+   ...(plan.category==="CHARGE_BUFF"&&plan.chargeBuff?{
+     chargePool:plan.chargeBuff.accumulator,
+     minCharges:plan.chargeBuff.minCharges,
+     maxCharges:plan.chargeBuff.maxCharges,
+   }:{}),
    requiresPath:plan.category==="OFFENSE"&&
      plan.usesMagic!==true&&plan.attackArea?.shape!=="SELF_FIELD",
    needsCenter:plan.category==="CONSTRUCTION"||

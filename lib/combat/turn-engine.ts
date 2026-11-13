@@ -68,6 +68,10 @@ export type CombatFighter = {
   defenseType: CombatDefenseType; magicFieldType?: CombatDefenseType;
   magicFieldDescription?: string | null; damageTakenFactors?:DamageTakenFactors; perkIds?:number[]; weaponIntegrity: number;
   spentTicks: number; spentAp: number;
+  /** Preserve the full action duration across 100-tick boundaries. */
+  continuousTicks?:boolean;
+  /** Absolute finish tick and the PA window charged for the last action. */
+  absoluteTick?:number;apCycle?:number;
 };
 export type PendingAttack = {
   by: Side; against: Side; attackType: CombatAttackType;
@@ -144,6 +148,16 @@ export type CombatLog = {
   movementDirection?:"TOWARD"|"AWAY"|"WEAPON"|"VECTOR"; moveMeters?:number;
   fieldPosition?:Point;
 };
+export type CombatSkillAim={
+ requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";
+ constructionFieldPoint?:Point;constructionHeightMeters?:number;
+ trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;
+ attackSource?:PhysicalAttackSource;
+ constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;
+ targetConstructionId?:string;targetSummonId?:string;
+ constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;
+ chargesToSpend?:number;
+};
 export type CombatState = {
   /** NPC-only randomized loadout: persistent per encounter, never written to a character. */
   trainingNpc?: {difficulty:"BASIC"|"INTERMEDIATE"|"ADVANCED"|"ENDURANCE"|"AGGRESSIVE";
@@ -154,7 +168,19 @@ export type CombatState = {
     perks?:Array<{id:number;name:string}>;skills:CombatSkillPlan[]};
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
   /** Only new encounters opt into strict chronological initiative; old snapshots stay readable. */
-  timelineMode?:"SHARED";
+  timelineMode?:"SHARED"|"CONTINUOUS";
+  /** Queued proactive actions remain server-only until their completion tick. */
+  temporalQueued?:Partial<Record<Side,{
+    command?:Extract<CombatCommand,{kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"}>;
+    skill?:{plan:CombatSkillPlan;aim:CombatSkillAim};
+    boost?:{requestId:string;allocation:Record<string,number>;cost:number;deltas:Record<string,number>};
+    item?:{requestId:string;stock:CombatConsumable};
+    endsAtTick:number;durationTicks:number;
+  }>>;
+  /** Public, target-free reservation metadata for the client initiative HUD. */
+  temporalReserved?:Partial<Record<Side,{endsAtTick:number;kind:"MOVE"|"ATTACK"|"COMMAND_SUMMON"|"CAST_SKILL"|"BOOST_KARMA"|"USE_ITEM"}>>;
+  /** Internal only during server-side scheduled execution. */
+  temporalExecuting?:boolean;
   winner: Side | null; actors: Record<Side, CombatFighter>;
   /** Randomly resolved initial initiative tie; absent in older persisted fights. */
   tieOpener?: Side;
@@ -236,13 +262,33 @@ const normalize = (n: number) => Math.max(0, finite(n) ? n : 0);
  */
 export function applyResolvedKarmaBoost(
  original:CombatState,by:Side,requestId:string,allocation:Record<string,number>,
- cost:number,deltas:Record<string,number>,
+ cost:number,deltas:Record<string,number>,scheduled=false,
 ):CombatState {
- if(original.processedKarmaRequests?.includes(requestId))return original;
+ if(!scheduled&&(original.processedKarmaRequests?.includes(requestId)||
+   original.temporalQueued?.[by]?.boost?.requestId===requestId))return original;
  if(original.status!=="ACTIVE"||!canAct(original,by))throw new Error("No tienes la iniciativa para aumentar estadísticas.");
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(requestId))throw new Error("Identificador de boost inválido.");
  const points=Object.values(allocation).reduce((sum,n)=>sum+n,0);
  if(!Number.isSafeInteger(points)||points<=0||cost!==points*2)throw new Error("Coste de karma inválido.");
+ if(original.timelineMode==="CONTINUOUS"&&!scheduled&&!original.temporalExecuting){
+   const fighter=original.actors[by],rival=original.actors[other(by)];
+   const duration=turnTicks(fighter),deadline=(original.round-1)*LIMIT+fighter.spentTicks+duration;
+   const rivalSoon=(original.round-1)*LIMIT+rival.spentTicks+
+     Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
+   if(original.temporalQueued?.[other(by)]||
+      (hasInitiativeBudget(rival)&&deadline>=rivalSoon)){
+     const reserved=structuredClone(original);
+     reserved.temporalQueued??={};reserved.temporalReserved??={};
+     reserved.temporalQueued[by]={boost:{requestId,allocation:{...allocation},cost,
+       deltas:{...deltas}},endsAtTick:deadline,durationTicks:duration};
+     reserved.temporalReserved[by]={endsAtTick:deadline,kind:"BOOST_KARMA"};
+     reserved.processedKarmaRequests=[...(reserved.processedKarmaRequests??[]),requestId];
+     if(reserved.activeBlocks)delete reserved.activeBlocks[by];
+     addLog(reserved,{kind:"PREPARE",tick:reserved.tick,by,
+       summary:fighter.name+" comenzó una mejora de karma; concluirá en el tick "+deadline+"."});
+     return reserved;
+   }
+ }
  const state=structuredClone(original),actor=state.actors[by];
  for(const [key,value] of Object.entries(deltas)) {
   if(!Number.isFinite(value))throw new Error("Delta estadístico inválido.");
@@ -258,7 +304,7 @@ export function applyResolvedKarmaBoost(
  for(const [key,value] of Object.entries(allocation))state.karmaBoosts[by]![key]=(state.karmaBoosts[by]![key]??0)+value;
  state.karmaBoostDeltas??={};state.karmaBoostDeltas[by]??={};
  for(const [key,value] of Object.entries(deltas))state.karmaBoostDeltas[by]![key]=(state.karmaBoostDeltas[by]![key]??0)+value;
- state.processedKarmaRequests??=[];state.processedKarmaRequests.push(requestId);
+ if(!scheduled){state.processedKarmaRequests??=[];state.processedKarmaRequests.push(requestId);}
  if(state.activeBlocks)delete state.activeBlocks[by];
  spend(actor,turnTicks(actor)); // exactly one PA, independently of allocated points
  state.tick=Math.max(state.tick,(state.round-1)*LIMIT+actor.spentTicks);
@@ -272,17 +318,18 @@ export function applyResolvedKarmaBoost(
  * characterItem stack in the same DB transaction as the encounter.
  */
 export function applyResolvedCombatConsumable(
- original:CombatState,by:Side,item:CombatConsumable,requestId:string,
+ original:CombatState,by:Side,item:CombatConsumable,requestId:string,scheduled=false,
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(requestId))
   throw new Error("Identificador de consumo inválido.");
- if(original.processedItemRequests?.includes(requestId))return original;
+ if(!scheduled&&(original.processedItemRequests?.includes(requestId)||
+    original.temporalQueued?.[by]?.item?.requestId===requestId))return original;
  if(original.status!=="ACTIVE"||!canAct(original,by))
   throw new Error("Espera tu iniciativa para utilizar consumibles.");
  const state=structuredClone(original);
  const items=state.consumables?.[by]??[];
  const selected=items.find(x=>x.itemId===item.itemId&&
-  x.characterItemId===item.characterItemId&&x.quantity>0);
+  x.characterItemId===item.characterItemId&&(scheduled||x.quantity>0));
  if(!selected||selected.action!==item.action||selected.amount!==item.amount)
   throw new Error("No tienes disponible ese consumible en este encuentro.");
  const fighter=state.actors[by],mana=state.mana?.[by];
@@ -291,17 +338,40 @@ export function applyResolvedCombatConsumable(
  }else if(selected.action==="RESTORE_MANA"){
   if(!mana||mana.current>=mana.max)throw new Error("Ya tienes todo tu maná.");
  }else throw new Error("Este consumible no se puede usar en combate.");
+ if(state.timelineMode==="CONTINUOUS"&&!scheduled&&!state.temporalExecuting){
+   const rival=state.actors[other(by)],duration=turnTicks(fighter);
+   const deadline=(state.round-1)*LIMIT+fighter.spentTicks+duration;
+   const rivalSoon=(state.round-1)*LIMIT+rival.spentTicks+
+     Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
+   if(state.temporalQueued?.[other(by)]||
+     (hasInitiativeBudget(rival)&&deadline>=rivalSoon)){
+     // Inventory is claimed on declaration inside the existing transaction,
+     // while the healing/mana effect waits for the actual completed action.
+     selected.quantity--;
+     state.temporalQueued??={};state.temporalReserved??={};
+     state.temporalQueued[by]={item:{requestId,stock:{...item}},
+       endsAtTick:deadline,durationTicks:duration};
+     state.temporalReserved[by]={kind:"USE_ITEM",endsAtTick:deadline};
+     state.processedItemRequests=[...(state.processedItemRequests??[]),requestId].slice(-100);
+     if(state.activeBlocks)delete state.activeBlocks[by];
+     addLog(state,{kind:"PREPARE",tick:state.tick,by,
+       summary:fighter.name+" comenzó a utilizar "+selected.name+
+         "; terminará en el tick "+deadline+"."});
+     return state;
+   }
+ }
  const before=selected.action==="HEAL_HP"?fighter.hp:mana!.current;
  const after=selected.action==="HEAL_HP"?Math.min(fighter.maxHp,before+selected.amount):
   Math.min(mana!.max,before+selected.amount);
  const restored=after-before;
  if(selected.action==="HEAL_HP")fighter.hp=after;
  else mana!.current=after;
- selected.quantity--;
+ if(!scheduled)selected.quantity--;
  if(state.activeBlocks)delete state.activeBlocks[by];
  spend(fighter,turnTicks(fighter)); // paid, neutral action: no weapon speed modifier
  state.tick=Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
- state.processedItemRequests=[...(state.processedItemRequests??[]),requestId].slice(-100);
+ if(!scheduled)
+   state.processedItemRequests=[...(state.processedItemRequests??[]),requestId].slice(-100);
  addLog(state,{kind:"ITEM",tick:state.tick,by,
   summary:fighter.name+" utilizó "+selected.name+" y recuperó "+restored+
    (selected.action==="HEAL_HP"?" HP":" de maná")});
@@ -676,12 +746,14 @@ function validateFighter(f: CombatFighter) {
     || !finite(f.massKg) || f.massKg <= 0 || !finite(f.positionMeters) || !finite(f.weaponIntegrity) || f.weaponIntegrity < 0 || f.weaponIntegrity > 100)
     throw new Error("Combatiente inválido.");
 }
-export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpener: Side="PLAYER",sharedTimeline=false): CombatState {
+export function newCombatState(player: CombatFighter, npc: CombatFighter, tieOpener: Side="PLAYER",sharedTimeline=false,continuousClock=false): CombatState {
   validateFighter(player); validateFighter(npc);
   if (!SIDES.includes(tieOpener)) throw new Error("Iniciativa inicial inválida.");
   return {version:1,round:1,tick:0,status:"ACTIVE",winner:null,tieOpener,
-     ...(sharedTimeline?{timelineMode:"SHARED" as const}:{}),
-    actors:{PLAYER:{...player,spentTicks:0,spentAp:0},NPC:{...npc,spentTicks:0,spentAp:0}},
+     ...(continuousClock?{timelineMode:"CONTINUOUS" as const}:
+       sharedTimeline?{timelineMode:"SHARED" as const}:{}),
+    actors:{PLAYER:{...player,spentTicks:0,spentAp:0,...(continuousClock?{continuousTicks:true,absoluteTick:0,apCycle:0}:{})},
+      NPC:{...npc,spentTicks:0,spentAp:0,...(continuousClock?{continuousTicks:true,absoluteTick:0,apCycle:0}:{})}},
     physicalPathEnd:{},physicalPathEnds:{},constructions:[],summons:[],summonStatuses:[],combatCharges:{PLAYER:{},NPC:{}},mirrorRayQueue:[],karmaBoosts:{},karmaBoostDeltas:{},consumables:{},processedItemRequests:[],
     processedKarmaRequests:[],perHandWeaponDurability:true,narrativeHistory:[],pending:null,log:[]};
 }
@@ -718,6 +790,10 @@ export function hasActiveBlockGuard(state:CombatState,by:Side):boolean {
 }
 
 export function remainingAp(f: CombatFighter) {
+  if(f.continuousTicks){
+    const nextCycle=Math.floor((f.absoluteTick??f.spentTicks)/LIMIT);
+    if(nextCycle!==(f.apCycle??0))return actionPoints(f.constitution);
+  }
   return Math.max(0, actionPoints(f.constitution) - f.spentAp);
 }
 /** An action may begin while any tick remains. Exactly like individual
@@ -726,10 +802,10 @@ export function remainingAp(f: CombatFighter) {
  * It consumes 2 PA, but only the slower component's temporal window.
  */
 export function canStartComposite(f: CombatFighter): boolean {
-  return remainingAp(f)>=2 && f.spentTicks<LIMIT;
+  return remainingAp(f)>=2 && (f.continuousTicks||f.spentTicks<LIMIT);
 }
 const hasInitiativeBudget = (f: CombatFighter) =>
-  remainingAp(f) >= 1 && f.spentTicks < LIMIT;
+  remainingAp(f) >= 1 && (f.continuousTicks||f.spentTicks<LIMIT);
 
 /**
  * Only proactive actions (ATTACK, MOVE, WAIT) take an initiative slot.
@@ -746,7 +822,7 @@ const hasInitiativeBudget = (f: CombatFighter) =>
 function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEFORE"|"AFTER"="BEFORE",actionTicks?:number){
  const fighter=state.actors[by],vector=validatePlanarMove(requested);
  if(remainingAp(fighter)<2)throw new Error("Moverse y actuar a la vez requiere 2 PA.");
- if(fighter.spentTicks>=LIMIT)
+ if(!fighter.continuousTicks&&fighter.spentTicks>=LIMIT)
   throw new Error("Ya agotaste los 100 ticks de este turno.");
  // The second spend() below charges the attack's incremental ticks over
  // the movement, never a second complete temporal window.
@@ -791,6 +867,12 @@ export function canAct(state: CombatState, side: Side): boolean {
   if (state.status !== "ACTIVE" || state.pending) return false;
   const f = state.actors[side], rival = state.actors[other(side)];
   if (!hasInitiativeBudget(f)) return false;
+  if(state.timelineMode==="CONTINUOUS"){
+    // Either participant may DECLARE a proactive action. The resolver holds
+    // a slow action until all earlier completions have been handled.
+    // An already reserved participant cannot submit twice.
+    return !state.temporalReserved?.[side];
+  }
   if (effectiveCombatSpeed(f) === effectiveCombatSpeed(rival)) {
     // Equal speed: strict alternating initiative. Reactions consume ticks/AP
     // but never allow an actor to take two consecutive proactive actions if
@@ -909,15 +991,29 @@ function finishEncounter(state:CombatState,winner:Side) {
  state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
 }
 function advanceRoundIfComplete(state: CombatState) {
+  const continuous=state.timelineMode==="CONTINUOUS";
   const finished = (side: Side) => {
     const f = state.actors[side];
     return f.spentTicks >= LIMIT || remainingAp(f) === 0;
   };
   if (state.status === "ACTIVE" && !state.pending && SIDES.every(finished)) {
+    // An actor exhausting its PA early waits until the next real round edge.
+    if(continuous){
+      const edge=state.round*LIMIT;
+      for(const side of SIDES){
+        const actor=state.actors[side],at=actor.absoluteTick??((state.round-1)*LIMIT+actor.spentTicks);
+        if(remainingAp(actor)===0&&at<edge){
+          actor.absoluteTick=edge;
+          actor.spentTicks+=edge-at;
+        }
+      }
+      state.tick=Math.max(state.tick,edge);
+    }
     state.round++;
     for (const side of SIDES) {
-      state.actors[side].spentTicks = 0;
-      state.actors[side].spentAp = 0;
+      const actor=state.actors[side];
+      actor.spentTicks=continuous?Math.max(0,actor.spentTicks-LIMIT):0;
+      if(!continuous)actor.spentAp=0;
     }
     // Buffs use the same persisted round clock as normal initiatives.
     const active=state.skillBonuses??[];
@@ -942,8 +1038,17 @@ function advanceRoundIfComplete(state: CombatState) {
   }
 }
 function spend(f: CombatFighter, ticks: number) {
-  f.spentAp++;
-  f.spentTicks = Math.min(LIMIT, f.spentTicks + ticks);
+  if(f.continuousTicks){
+    const at=f.absoluteTick??f.spentTicks;
+    const cycle=Math.floor(at/LIMIT);
+    if((f.apCycle??0)!==cycle){f.apCycle=cycle;f.spentAp=0;}
+    f.spentAp++;
+    f.absoluteTick=at+ticks;
+    f.spentTicks+=ticks;
+  }else{
+    f.spentAp++;
+    f.spentTicks=Math.min(LIMIT,f.spentTicks+ticks);
+  }
 }
 /** Summons are encounter actors, but all orders spend their owner's PA/ticks.
  * No automatic free actions are created by merely owning seven creatures.
@@ -1574,7 +1679,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   /** Internal: an exchanged attack pays resources but not an extra initiative. */
   exchangedAttack=false,
   /** An independent server dice roll for the exchanged strike. */
-  counterRolls=rolls): CombatState {
+  counterRolls=rolls,
+  /** Server-planned parallel strike; never accepted directly from the client. */
+  timedCounterCommand?:Extract<CombatCommand,{kind:"ATTACK"}>): CombatState {
   const state = structuredClone(original);
   if (state.version !== 1 || state.status !== "ACTIVE") throw new Error("El combate no está activo.");
   if (!SIDES.includes(by)) throw new Error("Combatiente no válido.");
@@ -1648,7 +1755,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // Downgrade BEFORE validating/launching COUNTER or other paid defenses:
     // otherwise a stale client selection can strand the pending attack.
     const heldBlock=hasActiveBlockGuard(state,by);
-    const exhaustedReaction=remainingAp(fighter)<=0||fighter.spentTicks>=LIMIT;
+    const exhaustedReaction=remainingAp(fighter)<=0||(!fighter.continuousTicks&&fighter.spentTicks>=LIMIT);
     let defense:DefenseChoice=heldBlock?"BLOCK":exhaustedReaction?"NONE":command.defense;
     if(heldBlock&&command.planarMove!==undefined)
       throw new Error("Mantener un bloqueo activo no concede desplazamiento gratuito.");
@@ -1657,6 +1764,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // both results together so an otherwise lethal strike cannot cancel it.
     let exchange: {
      damageToAttacker:number;damageToDefender:number;spentAp:number;spentTicks:number;
+     absoluteTick?:number;apCycle?:number;
      manaRemaining?:number;physicalPathEnd?:CombatState["physicalPathEnd"];
      physicalPathEnds?:CombatState["physicalPathEnds"];events:CombatLog[];
      /** Counter resolves on a shadow to preserve simultaneous lethal damage.
@@ -1673,7 +1781,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     if(defense==="COUNTER"){
       if(pending.mirrorAuto||pending.mirrorId||pending.summonId)
         throw new Error("El ataque de un espejo o una invocación exige una defensa normal, no un contraataque simultáneo.");
-      const plan=basicCounterAttack(state,by,command.counterMagic===true);
+      const plan=timedCounterCommand??basicCounterAttack(state,by,command.counterMagic===true);
       if(!plan)throw new Error("No tienes PA, ticks o un ataque básico al alcance para contraatacar.");
       const shadow=structuredClone(state);
       shadow.pending=null;
@@ -1687,6 +1795,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
        // resolving the strike. Preserve the actual cost at launch instead;
        // the real state advances its round only after BOTH attacks land.
        spentAp:launched.actors[by].spentAp,spentTicks:launched.actors[by].spentTicks,
+       absoluteTick:launched.actors[by].absoluteTick,apCycle:launched.actors[by].apCycle,
        manaRemaining:launched.mana?.[by]?.current,
        physicalPathEnd:launched.physicalPathEnd,
        physicalPathEnds:launched.physicalPathEnds,
@@ -1707,6 +1816,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       };
       defense="NONE";
       fighter.spentAp=exchange.spentAp;fighter.spentTicks=exchange.spentTicks;
+      if(fighter.continuousTicks){fighter.absoluteTick=exchange.absoluteTick;fighter.apCycle=exchange.apCycle;}
       if(state.mana?.[by]&&exchange.manaRemaining!==undefined)
        state.mana[by].current=exchange.manaRemaining;
       if(exchange.physicalPathEnd)state.physicalPathEnd=exchange.physicalPathEnd;
@@ -1824,7 +1934,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         const start=Math.max(state.tick,pending.launchedAtTick);
         state.activeBlocks??={};
         state.activeBlocks[by]={startedAtTick:start,
-          endsAtTick:start+Math.min(LIMIT,Math.max(10,turnTicks(fighter))),weaponSlot:slot,
+          endsAtTick:start+(fighter.continuousTicks?Math.max(10,turnTicks(fighter)):
+          Math.min(LIMIT,Math.max(10,turnTicks(fighter)))),weaponSlot:slot,
           characterItemId:blockWeapon.characterItemId};
       }
     } else if (defense === "MAGIC_FIELD") {
@@ -2390,6 +2501,39 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   }
   if (command.kind === "DEFEND") throw new Error("No existe un ataque pendiente.");
   if (!exchangedAttack&&!canAct(state,by)) throw new Error("Espera el movimiento del otro participante o el siguiente turno.");
+  // V2: a slow strike or movement is an intention, not an immediate hit.
+  // Validate against a throwaway simulation, then leave HP, PA and position
+  // unchanged until the true end of its interval. All times are server-derived.
+  if(!exchangedAttack&&!state.temporalExecuting&&state.timelineMode==="CONTINUOUS"&&
+    (command.kind==="ATTACK"||command.kind==="MOVE"||command.kind==="COMMAND_SUMMON")&&
+    serverSkillRangeMeters===undefined){
+    const source=command.kind==="ATTACK"
+      ?command.attackSource??defaultAttackSource(fighter):undefined;
+    const tool=source?weaponForSource(fighter,source):undefined;
+    const magic=command.kind==="ATTACK"&&command.usesMagic===true;
+    const duration=command.kind!=="ATTACK"?turnTicks(fighter):
+      Math.max(command.planarMove?turnTicks(fighter):0,
+        turnTicks(fighter,tool&&!magic?command.attackType:undefined));
+    const targetDeadline=(state.round-1)*LIMIT+fighter.spentTicks+duration;
+    const prior=state.temporalQueued?.[other(by)];
+    const otherSoon=(state.round-1)*LIMIT+rival.spentTicks+
+      Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
+    if(prior || (hasInitiativeBudget(rival)&&targetDeadline>=otherSoon)){
+      // A shadow launch performs all normal validation; it is discarded.
+      applyCombatCommand(state,by,command,rolls,serverSkillRangeMeters,
+        mirrorSkill,serverSkillArea,true,counterRolls);
+      state.temporalQueued??={};state.temporalReserved??={};
+      state.temporalQueued[by]={command:structuredClone(command),
+        endsAtTick:targetDeadline,durationTicks:duration};
+      state.temporalReserved[by]={endsAtTick:targetDeadline,kind:command.kind};
+      // A new wind-up gives up the old fixed defensive stance immediately.
+      if(state.activeBlocks)delete state.activeBlocks[by];
+      addLog(state,{kind:"PREPARE",tick:state.tick,by,
+        summary:fighter.name+" comenzó una acción de "+duration+
+          " ticks que concluirá en el tick "+targetDeadline+"."});
+      return state;
+    }
+  }
    // A deliberate new action relinquishes the guard; overlapping strikes do not.
    if(state.activeBlocks)delete state.activeBlocks[by];
   if(command.kind==="BOOST_KARMA")throw new Error("El boost de karma debe ser aprobado por el servidor.");
@@ -2440,8 +2584,14 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     addLog(state,{kind:"MOVE",tick:state.tick,by,movementDirection:direction,moveMeters:command.meters,
       summary:recoveredWeapon?fighter.name+" recuperó "+recoveredWeapon+" tras desplazarse":fighter.name+" se desplazó "+command.meters+" m ("+direction+")"});
   } else if (command.kind === "WAIT") {
-    fighter.spentTicks = LIMIT;
-    fighter.spentAp = actionPoints(fighter.constitution);
+    if(fighter.continuousTicks){
+      const at=fighter.absoluteTick??((state.round-1)*LIMIT+fighter.spentTicks);
+      const end=(Math.floor(at/LIMIT)+1)*LIMIT;
+      fighter.spentTicks+=end-at;
+      fighter.absoluteTick=end;
+      fighter.apCycle=Math.floor(at/LIMIT);
+    }else fighter.spentTicks=LIMIT;
+    fighter.spentAp=actionPoints(fighter.constitution);
     state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
     addLog(state,{kind:"WAIT",tick:state.tick,by,summary:fighter.name+" finaliza su participación en el turno"});
   } else if (command.kind === "COMMAND_SUMMON") {
@@ -2626,6 +2776,137 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
   return state;
 }
 
+
+/** Execute declarations only after faster possible completions have passed.
+ * All geometry, damage, status and inventory changes use the existing engine.
+ * Run inside the encounter's serializable DB transaction.
+ */
+export function settleTemporalQueuedActions(
+ initial:CombatState, makeDice:()=>{hit:number;critical:number;defense:number},
+):CombatState {
+ if(initial.timelineMode!=="CONTINUOUS"||initial.status!=="ACTIVE"||initial.pending)
+   return initial;
+ let next=initial;
+ for(let attempt=0;attempt<16;attempt++){
+  if(next.status!=="ACTIVE"||next.pending)return next;
+  const queue=next.temporalQueued;
+  const scheduled=SIDES.flatMap(side=>queue?.[side]?[{
+    side,entry:queue[side]!,
+  }]:[]).sort((a,b)=>a.entry.endsAtTick-b.entry.endsAtTick||
+    Number(a.entry.command?.kind!=="MOVE")-Number(b.entry.command?.kind!=="MOVE")||
+    Number(a.side==="NPC")-Number(b.side==="NPC"));
+  if(!scheduled.length)return next;
+  const first=scheduled[0],second=scheduled[1];
+  const firstCommand=first.entry.command,secondCommand=second?.entry.command;
+  if(!second){
+   const rivalSide=other(first.side),rival=next.actors[rivalSide];
+   // The quicker actor may exhaust its PA before the slower wind-up ends.
+   // Automatically wait only to the next absolute 100-tick boundary, then
+   // let the actor choose its next action; never jump to the enemy impact.
+   if(rival.continuousTicks&&remainingAp(rival)===0){
+     const at=rival.absoluteTick??((next.round-1)*LIMIT+rival.spentTicks);
+     const edge=(Math.floor(at/LIMIT)+1)*LIMIT;
+     if(edge<first.entry.endsAtTick){
+       const waiting=structuredClone(next),actor=waiting.actors[rivalSide];
+       actor.absoluteTick=edge;
+       actor.spentTicks+=edge-at;
+       waiting.tick=Math.max(waiting.tick,edge);
+       addLog(waiting,{kind:"WAIT",tick:waiting.tick,by:rivalSide,
+         summary:actor.name+" agotó sus PA y esperó hasta el tick "+edge+"."});
+       next=waiting;
+       continue;
+     }
+   }
+   const rivalDeadline=(next.round-1)*LIMIT+rival.spentTicks+
+     Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
+   if(hasInitiativeBudget(rival)&&rivalDeadline<=first.entry.endsAtTick)
+     return next;
+  }
+  const base=structuredClone(next);
+  if(base.temporalQueued)delete base.temporalQueued[first.side];
+  if(base.temporalReserved)delete base.temporalReserved[first.side];
+  if(first.entry.skill){
+    try{
+      base.temporalExecuting=true;
+      next=applyResolvedCombatSkill(base,first.side,
+        first.entry.skill.plan,first.entry.skill.aim,makeDice());
+      delete next.temporalExecuting;
+    }catch{
+      const actor=base.actors[first.side];
+      spend(actor,first.entry.durationTicks);
+      base.tick=Math.max(base.tick,first.entry.endsAtTick);
+      delete base.temporalExecuting;
+      addLog(base,{kind:"FIZZLE",tick:base.tick,by:first.side,
+        summary:actor.name+" terminó una habilidad sin efecto: cambiaron las condiciones de activación."});
+      advanceRoundIfComplete(base);
+      next=base;
+    }
+    continue;
+  }
+  if(first.entry.boost||first.entry.item){
+    try{
+      base.temporalExecuting=true;
+      if(first.entry.boost){
+        const b=first.entry.boost;
+        next=applyResolvedKarmaBoost(base,first.side,b.requestId,
+          b.allocation,b.cost,b.deltas,true);
+      }else{
+        const item=first.entry.item!;
+        next=applyResolvedCombatConsumable(base,first.side,
+          item.stock,item.requestId,true);
+      }
+      delete next.temporalExecuting;
+    }catch{
+      const actor=base.actors[first.side];
+      spend(actor,first.entry.durationTicks);
+      base.tick=Math.max(base.tick,first.entry.endsAtTick);
+      delete base.temporalExecuting;
+      addLog(base,{kind:"FIZZLE",tick:base.tick,by:first.side,
+        summary:actor.name+" completó una acción de recurso sin efecto: las condiciones cambiaron."});
+      advanceRoundIfComplete(base);
+      next=base;
+    }
+    continue;
+  }
+  if(second&&second.entry.endsAtTick===first.entry.endsAtTick&&
+     firstCommand?.kind==="ATTACK"&&secondCommand?.kind==="ATTACK"){
+    // Simultaneous basic attacks run from the pre-impact snapshot; the
+    // existing COUNTER shadow applies both lethal hits together.
+    delete base.temporalQueued?.[second.side];
+    delete base.temporalReserved?.[second.side];
+    const launched=applyCombatCommand(base,first.side,firstCommand,
+      makeDice(),undefined,undefined,undefined,true);
+    if(launched.pending?.against===second.side &&
+       !launched.pending.summonId&&!launched.pending.mirrorAuto&&!launched.pending.mirrorId){
+      next=applyCombatCommand(launched,second.side,{
+        kind:"DEFEND",defense:"COUNTER",counterMagic:secondCommand.usesMagic===true,
+      },makeDice(),undefined,undefined,undefined,false,makeDice(),secondCommand);
+      continue;
+    }
+    if(launched.pending)return launched;
+    next=applyCombatCommand(launched,second.side,secondCommand,
+      makeDice(),undefined,undefined,undefined,true);
+    continue;
+  }
+  try{
+    if(!firstCommand)throw new Error("Acción programada inválida.");
+    next=applyCombatCommand(base,first.side,firstCommand,
+      makeDice(),undefined,undefined,undefined,true);
+  }catch{
+    // The declaration was valid earlier. A target might have moved behind
+    // a wall before impact; a failed contact still consumes time and PA.
+    const actor=base.actors[first.side];
+    spend(actor,first.entry.durationTicks);
+    base.tick=Math.max(base.tick,first.entry.endsAtTick);
+    addLog(base,{kind:"FIZZLE",tick:base.tick,by:first.side,
+      summary:actor.name+" terminó una acción sin éxito: el objetivo o la trayectoria cambiaron."});
+    advanceRoundIfComplete(base);
+    next=base;
+  }
+ }
+ return next;
+}
+
 /**
  * Executes an ALREADY VALIDATED server-side plan. Never trust client-supplied
  * effects, damage, price, cooldown or targets. All changes are pure; the
@@ -2634,15 +2915,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
  */
 export function applyResolvedCombatSkill(
  original:CombatState,by:Side,plan:CombatSkillPlan,
- aim:{requestId:string;planarMove?:Point;movementOrder?:"BEFORE"|"AFTER";constructionFieldPoint?:Point;constructionHeightMeters?:number;trajectory?:Point[];areaCenter?:Point;areaAngleDegrees?:number;attackSource?:PhysicalAttackSource;
-  constructionForm?:"FIELD"|"BLOCK"|"DECOR";constructionLabel?:string;targetConstructionId?:string;targetSummonId?:string;
-  constructionFootprintRadiusMeters?:number;constructionSolidHeightMeters?:number;
-  chargesToSpend?:number},
+ aim:CombatSkillAim,
  rolls:{hit:number;critical:number;defense:number},
 ):CombatState {
  if(!/^[a-zA-Z0-9:_-]{12,100}$/.test(aim.requestId))
   throw new Error("Identificador de acción inválido.");
- if(original.processedSkillRequests?.includes(aim.requestId))
+ if(original.processedSkillRequests?.includes(aim.requestId)||
+    original.temporalQueued?.[by]?.skill?.aim.requestId===aim.requestId)
   return original;
  if(!canAct(original,by))throw new Error("No puedes lanzar una habilidad fuera de tu iniciativa.");
  const available=original.mana?.[by];
@@ -2655,6 +2934,38 @@ export function applyResolvedCombatSkill(
  if(nextAllowed===-1 || nextAllowed>original.round)
   throw new Error(nextAllowed===-1?"Esta habilidad solo se usa una vez por combate.":
     "Habilidad en cooldown hasta el turno "+nextAllowed+".");
+ // New combats reserve slower approved spells just like physical attacks:
+ // no healing, damage, mana cost or summoned body may appear before its end.
+ if(original.timelineMode==="CONTINUOUS"&&!original.temporalExecuting){
+   const fighter=original.actors[by],rival=original.actors[other(by)];
+   const source=aim.attackSource??defaultAttackSource(fighter);
+   const weapon=weaponForSource(fighter,source);
+   const weaponStrike=plan.category==="OFFENSE"&&!plan.usesMagic&&!!weapon&&
+     (aim.attackSource==="MAIN_HAND"||aim.attackSource==="OFF_HAND");
+   const strikeDuration=plan.category==="OFFENSE"&&plan.attackType
+     ?turnTicks(fighter,weaponStrike?plan.attackType:undefined):turnTicks(fighter);
+   const duration=Math.max(aim.planarMove?turnTicks(fighter):0,strikeDuration);
+   const deadline=(original.round-1)*LIMIT+fighter.spentTicks+duration;
+   const rivalSoon=(original.round-1)*LIMIT+rival.spentTicks+
+     Math.min(turnTicks(rival,"PIERCE"),turnTicks(rival));
+   if(original.temporalQueued?.[other(by)]||
+      (hasInitiativeBudget(rival)&&deadline>=rivalSoon)){
+     // Validate the approved plan on a throwaway shadow; no early effects.
+     const shadow=structuredClone(original);
+     shadow.temporalExecuting=true;
+     applyResolvedCombatSkill(shadow,by,plan,aim,rolls);
+     const reserved=structuredClone(original);
+     reserved.temporalQueued??={};reserved.temporalReserved??={};
+     reserved.temporalQueued[by]={skill:{plan:structuredClone(plan),
+       aim:structuredClone(aim)},endsAtTick:deadline,durationTicks:duration};
+     reserved.temporalReserved[by]={kind:"CAST_SKILL",endsAtTick:deadline};
+     if(reserved.activeBlocks)delete reserved.activeBlocks[by];
+     addLog(reserved,{kind:"PREPARE",tick:reserved.tick,by,
+       summary:fighter.name+" empezó a preparar una habilidad de "+
+         duration+" ticks hasta el tick "+deadline+"."});
+     return reserved;
+   }
+ }
  // Pay approved skill costs before ANY effect that could advance the round.
  // Otherwise TURN_START equipment repair can spend the same mana first and
  // cause negative balances. Every failure remains pure on the original state.

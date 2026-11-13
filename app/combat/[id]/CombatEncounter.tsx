@@ -77,7 +77,9 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <div className="h-full bg-rose-400 transition-all" style={{width:(100*f.hp/f.maxHp)+"%"}}/>
   </div>
   <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-zinc-300">
-   <span>Ticks: {f.spentTicks}/100</span>
+   <span>{state.timelineMode==="CONTINUOUS"
+    ?"Disponible en tick "+((state.round-1)*100+f.spentTicks)
+    :"Ticks: "+f.spentTicks+"/100"}</span>
    <span>PA: {remainingAp(f)}/{actionPoints(f.constitution)}</span>
    <span>AGI: {f.agility}</span>
    <span>{turnTicks(f)} ticks/acción</span>
@@ -101,6 +103,11 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <span>Masa: {f.massKg} kg</span>
    {state.mana?.[side]&&<span className="font-semibold text-violet-300">Maná combate: {state.mana[side].current}/{state.mana[side].max}</span>}
   </div>
+  {state.timelineMode==="CONTINUOUS"&&state.temporalReserved?.[side]&&
+    <p className="mt-3 rounded-lg border border-amber-700/60 bg-amber-900/20 p-2 text-xs text-amber-200">
+      Acción en curso · termina en el tick {state.temporalReserved[side]?.endsAtTick}.
+      El resultado y los PA se aplican al finalizar.
+    </p>}
  </div>;
 }
 export default function CombatEncounter({id}:{id:string}) {
@@ -404,7 +411,7 @@ export default function CombatEncounter({id}:{id:string}) {
  const hasAvailableBlock=state?.constructions?.some(c=>c.owner===side&&c.form==="BLOCK"&&(c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35);
  // A fully spent 100-tick turn (or exhausted PA) cannot pay a defense.
  // Reflect the authoritative server fallback before the user draws an aim point.
- const hasReactionBudget=!!actor&&remainingAp(actor)>0&&actor.spentTicks<100;
+ const hasReactionBudget=!!actor&&remainingAp(actor)>0&&(actor.continuousTicks||actor.spentTicks<100);
  const counterPlan=state?basicCounterAttack(state,side,counterMagic):null;
  const counterAllowed=!(pending?.summonId||pending?.mirrorAuto||pending?.mirrorId);
  const requestedDefense:DefenseChoice=!counterAllowed&&defense==="COUNTER"?"DODGE":defense;
@@ -1186,7 +1193,7 @@ export default function CombatEncounter({id}:{id:string}) {
     {defending&&hasAccess&&<div ref={reactionSectionRef} className="mt-4 scroll-mt-24 space-y-3">
      <h2 className="font-bold text-lg">Elige tu respuesta</h2>
      {!hasReactionBudget&&<p role="status" className="rounded-lg border border-amber-400/50 bg-amber-400/10 p-3 text-sm text-amber-200">
-      No puedes esquivar ni defenderte activamente: {actor&&remainingAp(actor)<=0?"agotaste tus puntos de acción":"agotaste los 100 ticks de este turno"}. Puedes recibir el impacto sin gastar otra acción.
+      No puedes esquivar ni defenderte activamente: {actor&&remainingAp(actor)<=0?"agotaste tus puntos de acción":actor?.continuousTicks?"no hay reacción disponible en este instante":"agotaste los 100 ticks de este turno"}. Puedes recibir el impacto sin gastar otra acción.
      </p>}
      <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Opciones de defensa">
       {options.filter(opt=>!hasReactionBudget?opt.value==="NONE":pending.usesMagic

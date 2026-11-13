@@ -228,7 +228,7 @@ test("encounter 49: an exhausted Arissa can resolve Robin Hood's arrow without a
 
 test("combat UI explains exhausted reaction instead of offering impossible aim/prediction",()=>{
  const page=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
- assert.match(page,/const hasReactionBudget=.*remainingAp\(actor\)>0&&actor\.spentTicks<100/);
+ assert.match(page,/const hasReactionBudget=.*remainingAp\(actor\)>0&&\(actor\.continuousTicks\|\|actor\.spentTicks<100\)/);
  assert.match(page,/!hasReactionBudget\?opt\.value==="NONE"/);
  assert.match(page,/agotaste los 100 ticks de este turno/);
  assert.match(page,/Recibir impacto \(sin reacción\)/);

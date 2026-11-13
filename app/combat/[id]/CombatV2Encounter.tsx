@@ -177,8 +177,9 @@ export default function CombatV2Encounter({id}:{id:string}){
      </div>
      {state.status==="FINISHED"
        ?<p className="mt-3 font-semibold text-emerald-300">
-         Combate terminado · {state.winner==="PLAYER"?"Victoria":
-           state.winner==="NPC"?"Derrota":"Empate"}
+         Combate terminado · {state.winner===null?"Empate":
+           isSpectator?"Ganó "+state.actors[state.winner].name:
+           state.winner===ownerSide?"Victoria":"Derrota"}
        </p>
        :<p className="mt-3 text-xs text-zinc-300">
          {isSpectator?"Observando las decisiones de los dos propietarios.":
@@ -220,7 +221,7 @@ export default function CombatV2Encounter({id}:{id:string}){
          className="inline-flex items-center gap-2 rounded-lg border border-zinc-600 px-3 py-2 disabled:opacity-40">
          <ArrowLeft size={16}/> Alejarme
        </button>
-       {(state.droppedWeapons??[]).some(x=>x.owner==="PLAYER")&&
+       {(state.droppedWeapons??[]).some(x=>x.owner===ownerSide)&&
          <button disabled={!canOrder} onClick={()=>void submit({
            kind:"MOVE",direction:"WEAPON",meters:Number(meters)})}
            className="inline-flex items-center gap-2 rounded-lg border border-zinc-600 px-3 py-2 disabled:opacity-40">

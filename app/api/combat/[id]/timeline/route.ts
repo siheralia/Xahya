@@ -64,8 +64,8 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
  let payload;
  try{
    const saved=accessInfo.session.lastAction as any;
-   payload=publicPayload(...Object.values(read(saved)) as
-     [CombatState,TimelineDeclarationSession]);
+   const {combat,timeline}=read(saved);
+   payload=publicPayload(combat,timeline);
  }catch{return error("Este combate no utiliza el laboratorio V2.",409);}
  const text=JSON.stringify(payload);
  const etag=combatSnapshotEtag(text);

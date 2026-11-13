@@ -75,6 +75,104 @@ test("experimental skills accept only server-approved IDs and aim",async()=>{
  assert.equal(retry.combat.mana.PLAYER.current,45);
 });
 
+test("advanced lab orders reject unauthorized creatures and forged constructions",()=>{
+ const legal=[
+   {kind:"COMMAND_SUMMON",order:"CHANGE_BEHAVIOR",summonId:"PLAYER:77:s1",
+    newBehavior:"FOLLOW"},
+   {kind:"COMMAND_SUMMON",order:"CHANGE_TARGET",summonId:"PLAYER:77:s1",
+    targetId:"FIGHTER:NPC"},
+   {kind:"COMMAND_SUMMON",order:"MOVE",summonId:"PLAYER:77:s1",
+    planarMove:{x:.3,y:.2}},
+   {kind:"CAST_SKILL",skillId:300,requestId:"v2-world-construction-001",
+    areaCenter:{x:.5,y:.5},constructionFieldPoint:{x:.5,y:.5},
+    constructionForm:"BLOCK",constructionHeightMeters:2,
+    constructionFootprintRadiusMeters:.2,constructionSolidHeightMeters:2},
+ ];
+ for(const command of legal)assert.deepEqual(parseExperimentalV2Command(command),command);
+ for(const command of [
+   {...legal[0],cost:0},
+   {...legal[0],order:"ATTACK"},
+   {...legal[1],targetId:"FIGHTER:ADMIN"},
+   {...legal[2],planarMove:{x:10,y:0}},
+   {...legal[3],constructionSolidHeightMeters:Infinity},
+   {...legal[3],constructionForm:"EXPLOSIVE"},
+   {...legal[3],damageMultiplier:10000},
+ ]){
+   assert.throws(()=>parseExperimentalV2Command(command),/V2|autorizada/);
+ }
+});
+
+test("server-approved creature summons at a real V2 deadline and then acts autonomously",async()=>{
+ const plan=compileCombatSkill({
+   id:777,name:"Bnuuy test",status:"APPROVED",category:"UTILITY",cost:30,
+   maintenanceCost:20,effect:[{type:"COMPOSED",module:{
+     id:"BNUUY_GRAPH",name:"Bnuuy",type:"COMPOSED",trigger:"ACTIVATE",
+     description:"",steps:[
+       {kind:"SUMMON_ENTITY",entityKey:"RABBIT",label:"Bnuuy",
+         manaCost:30,maintenanceMana:20,durationTurns:4,
+         controlRangeMeters:15,hitLimit:3},
+       {kind:"LINK_ENTITY_STAT",entityKey:"RABBIT",
+         sourceStat:"PHYSICAL_ATTACK",destStat:"PHYSICAL_ATTACK",factor:.2},
+       {kind:"LINK_ENTITY_STAT",entityKey:"RABBIT",
+         sourceStat:"AGI",destStat:"AGI",factor:1},
+       {kind:"LINK_ENTITY_STAT",entityKey:"RABBIT",
+         sourceStat:"PHYSICAL_DEFENSE",destStat:"INTEGRITY",factor:2},
+       {kind:"SET_ENTITY_BEHAVIOR",entityKey:"RABBIT",mode:"FOLLOW",
+         allowedModes:["ATTACK","FOLLOW","HOLD","MANUAL"],
+         target:"USER",trigger:"CONTACT"},
+     ],
+   }}],
+ });
+ const c=combat(1.5);
+ c.mana={PLAYER:{current:100,max:100},NPC:{current:100,max:100}};
+ const original=newExperimentalTimeline(c);
+ const first=await submitExperimentalTimelineCommand(original.combat,
+   original.timeline,{kind:"CAST_SKILL",skillId:777,
+     requestId:"v2-legal-summon-001"},
+   "v2-legal-summon-001",dice,{approvedSkill:plan});
+ assert.equal(first.combat.tick,10);
+ assert.equal(first.combat.summons.length,1);
+ assert.equal(first.combat.summons[0].entityKey,"RABBIT");
+ assert.equal(first.combat.mana.PLAYER.current,70);
+ assert.equal(first.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
+ assert.ok(first.combat.summons[0].autoNextTick>10);
+ const summon=first.combat.summons[0];
+ const follow=await submitExperimentalTimelineCommand(first.combat,
+   first.timeline,{kind:"COMMAND_SUMMON",summonId:summon.id,
+     order:"CHANGE_BEHAVIOR",newBehavior:"MANUAL"},
+   "v2-summon-order-001",dice);
+ assert.equal(follow.combat.summons[0].behavior.mode,"MANUAL");
+ const retry=await submitExperimentalTimelineCommand(follow.combat,
+   follow.timeline,{kind:"COMMAND_SUMMON",summonId:summon.id,
+     order:"CHANGE_BEHAVIOR",newBehavior:"MANUAL"},
+   "v2-summon-order-001",dice);
+ assert.equal(retry.replayed,true);
+});
+
+test("authorized staff field appears at deadline with exactly one mana charge",async()=>{
+ const plan=compileCombatSkill({
+   id:140,name:"Tierra",status:"APPROVED",category:"UTILITY",cost:10,
+   effect:[{type:"NARRATIVE",value:1,target:"CARD:W002",
+     element:"EARTH",capability:"CREATE"}],
+   mechanics:{},areaOfEffect:"Objeto | Alcance máximo: 5 m",
+   duration:"No termina",
+ });
+ const c=combat(1.5);
+ c.mana={PLAYER:{current:100,max:100},NPC:{current:100,max:100}};
+ const original=newExperimentalTimeline(c);
+ const result=await submitExperimentalTimelineCommand(original.combat,
+   original.timeline,{kind:"CAST_SKILL",skillId:140,
+     requestId:"v2-legal-structure-001",
+     areaCenter:{x:.5,y:.5},constructionFieldPoint:{x:.5,y:.5},
+     constructionForm:"FIELD"},
+   "v2-legal-structure-001",dice,{approvedSkill:plan});
+ assert.equal(result.combat.tick,10);
+ assert.equal(result.combat.constructions.length,1);
+ assert.equal(result.combat.constructions[0].material,"EARTH");
+ assert.equal(result.combat.mana.PLAYER.current,90);
+ assert.equal(result.timeline.clock.actors.PLAYER.spentApByRound["1"],1);
+});
+
 test("V2 laboratory accepts only a narrow action command vocabulary",()=>{
  assert.deepEqual(parseExperimentalV2Command({kind:"WAIT"}),{kind:"WAIT"});
  assert.deepEqual(parseExperimentalV2Command({kind:"MOVE",direction:"TOWARD",meters:.5}),
@@ -258,5 +356,11 @@ test("new encounter opt-in, private projection and V1 route separation are wired
  assert.match(planner,/areaCenter:/);
  assert.match(load("app/combat/[id]/CombatV2Encounter.tsx"),
    /<CombatV2AttackPlanner/);
+ assert.match(load("app/combat/[id]/CombatV2Encounter.tsx"),
+   /<CombatV2Summons/);
+ assert.match(load("app/combat/[id]/CombatV2Summons.tsx"),
+   /CHANGE_BEHAVIOR/);
+ assert.match(load("app/combat/[id]/CombatV2AttackPlanner.tsx"),
+   /constructionFieldPoint/);
  assert.match(launcher,/experimentalV2:options\.experimentalV2Available/);
 });

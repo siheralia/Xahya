@@ -12,8 +12,9 @@ import type {CombatState,CombatLog,Side,Point,PhysicalAttackSource} from "./turn
 import {fieldPosition} from "./field-plane.ts";
 import {timelineRoundOf} from "./action-timeline.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "./narration.ts";
-import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat} from "./summon-status.ts";
-import {spendCombatCharges} from "./charge-pools.ts";
+import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat,
+ invertSummonStatus,isDebuffStatus} from "./summon-status.ts";
+import {spendCombatCharges,creditCombatCharge} from "./charge-pools.ts";
 import type {CombatBuffStat} from "./skill-casting.ts";
 import type {CombatConstruction} from "./constructs.ts";
 import {measuredBlock} from "./physical-obstacles.ts";
@@ -60,6 +61,8 @@ export type AuthorizedTimelineEffect={
   /** Multiple concurrent creature hits add to target integrity/hit count. */
   summonImpacts?:Array<{id:string;owner:Side;damage:number;hitCountDelta:number}>;
   /** Statuses produced by the official approved creature-contact resolver. */
+  summonInversions?:Array<{id:string;sourceSummonId:string;
+    owner:Side;target:Side;chargeAccumulator?:string}>;
   summonContactStatuses?:Array<{id:string;sourceSummonId:string;by:Side;
     target:Side;stat:StatusStat;operation:"BONUS"|"MULTIPLIER";
     value:number;durationTurns:number}>;
@@ -202,6 +205,7 @@ export function commitAuthorizedTimelineBatch(
  const summonUpdates:NonNullable<AuthorizedTimelineEffect["summonUpdates"]>=[];
  const summonImpacts=new Map<string,{id:string;owner:Side;damage:number;hitCountDelta:number}>();
  const summonContactStatuses:NonNullable<AuthorizedTimelineEffect["summonContactStatuses"]>=[];
+ const summonInversions:NonNullable<AuthorizedTimelineEffect["summonInversions"]>=[];
  const hostileStatuses:NonNullable<AuthorizedTimelineEffect["hostileStatuses"]>=[];
  const skillCooldowns:NonNullable<AuthorizedTimelineEffect["skillCooldowns"]>=[];
  for(const effect of effects){
@@ -324,6 +328,29 @@ export function commitAuthorizedTimelineBatch(
        damage:(previous?.damage??0)+impact.damage,
        hitCountDelta:(previous?.hitCountDelta??0)+impact.hitCountDelta,
      });
+   }
+   for(const inversion of effect.summonInversions??[]){
+     if(!inversion||!validSide(inversion.owner)||
+       !validSide(inversion.target)||
+       typeof inversion.id!=="string"||!inversion.id||
+       inversion.id.length>160||
+       typeof inversion.sourceSummonId!=="string"||
+       inversion.sourceSummonId.length>160||
+       inversion.chargeAccumulator!==undefined&&
+         !/^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/.test(inversion.chargeAccumulator)||
+       summonInversions.some(x=>x.id===inversion.id))
+       throw new Error("Inversión simultánea de un estado repetido o inválido.");
+     const old=snapshot.summonStatuses?.find(s=>
+       s.id===inversion.id&&s.target===inversion.target);
+     const source=snapshot.summons?.find(s=>
+       s.id===inversion.sourceSummonId&&s.owner===inversion.owner);
+     const target=inversion.owner===inversion.target?"USER":"OPPONENT";
+     if(!old||!isDebuffStatus(old)||!source||source.integrity<=0||
+       !source.contactEffects?.some(e=>e.kind==="INVERT_STATUS"&&
+         e.target===target&&
+         e.chargeAccumulator===inversion.chargeAccumulator))
+       throw new Error("El familiar no autorizó invertir este debilitamiento.");
+     summonInversions.push(inversion);
    }
    for(const status of effect.summonContactStatuses??[]){
      if(!status||!validSide(status.by)||!validSide(status.target)||
@@ -827,6 +854,15 @@ export function commitAuthorizedTimelineBatch(
      skillId:buff.skillId,skillName:buff.skillName,
      expiresAtRound:next.round+buff.durationTurns,
    });
+ }
+ // Inversions operate on statuses that already existed at the common
+ // snapshot. Fresh simultaneous contacts are applied afterward and cannot
+ // be retroactively consumed by an earlier creature action.
+ for(const inversion of summonInversions){
+   const updated=invertSummonStatus(next,inversion.target,inversion.id);
+   if(!updated)throw new Error("El debilitamiento ya no se puede invertir.");
+   if(inversion.chargeAccumulator)
+     creditCombatCharge(next,inversion.owner,inversion.chargeAccumulator);
  }
  for(const status of selfStatuses){
    applySummonStatus(next,{

@@ -206,7 +206,9 @@ export function newExperimentalTimeline(
  assertBasicTimelineEligible(snapshot);
  if(snapshot.tick!==0||snapshot.pending||
     (snapshot.actors.NPC.characterId!==null)!==Boolean(options.pvp))
-   throw new Error("V2 experimental requiere un encuentro nuevo del modo elegido.");
+   throw new Error(options.pvp?
+     "V2 experimental PvP requiere dos personajes nuevos y reales.":
+     "V2 experimental solo acepta un entrenamiento nuevo; PvP requiere activación explícita.");
  const combat=structuredClone(snapshot);
  combat.timelineMode="SHARED";
  const empty=newTimelineDeclarationSession(combat);

@@ -32,8 +32,8 @@ export function simulateApprovedTimelineFusion(
    !keyOk(command.requestId)||
    Object.keys(command).some(k=>!["kind","skillId","requestId"].includes(k))||
    plan.category!=="FUSION"||!plan.fusion||
-   plan.fusion.chaosField||plan.fusion.sourceEntityKeys.length<2)
-   throw new Error("La fusión requiere criaturas aprobadas sin campo de caos.");
+   plan.fusion.sourceEntityKeys.length<2)
+   throw new Error("La fusión requiere criaturas de origen aprobadas.");
  const by=event.owner,round=timelineRoundOf(event.endsAtTick);
  const currentMana=combat.mana?.[by]?.current;
  if(!Number.isSafeInteger(currentMana)||currentMana!<plan.cost)
@@ -41,8 +41,8 @@ export function simulateApprovedTimelineFusion(
  const available=combat.skillCooldowns?.[by]?.[String(plan.id)]??0;
  if(available===-1||available>round)
    throw new Error("La fusión todavía está en enfriamiento.");
- if((combat.summons??[]).some(s=>!s.chargesMigrated||s.chaosField))
-   throw new Error("El encuentro requiere un resolutor de cargas o caos avanzado.");
+ if((combat.summons??[]).some(s=>!s.chargesMigrated))
+   throw new Error("La fusión necesita migrar las cargas de familiares anteriores.");
  const owner=combat.actors[by],origin=fieldPosition(owner);
  const consumed=plan.fusion.sourceEntityKeys.map(entityKey=>{
    const existing=(combat.summons??[]).filter(s=>
@@ -78,7 +78,9 @@ export function simulateApprovedTimelineFusion(
    throw new Error("El resultado de la fusión no coincide con las fuentes aprobadas.");
  const result=created[0],template=plan.fusion.summon;
  if(result.owner!==by||result.entityKey!==template.entityKey||
-   result.sourceSkillId!==plan.id||result.chaosField||
+   result.sourceSkillId!==plan.id||
+   JSON.stringify(result.chaosField??null)!==
+     JSON.stringify(plan.fusion.chaosField??null)||
    JSON.stringify(result.fusedFrom)!==
      JSON.stringify(consumed.map(x=>x.id))||
    result.chargesMigrated!==true)

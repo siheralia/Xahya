@@ -20,7 +20,9 @@ import {weaponCopies,isolatePhysicalShadow}
 import {diffConstructionWorld} from "./timeline-construction-world.ts";
 import {assertEquipmentOnlyShadowStats} from "./timeline-equipment-replay.ts";
 import type {CombatSummon} from "./summons.ts";
-import type {StatusStat,SummonStatus} from "./summon-status.ts";
+import {isDebuffStatus,reconcileSummonStatusStat,
+ type StatusStat,type SummonStatus} from "./summon-status.ts";
+import {creditCombatCharge} from "./charge-pools.ts";
 
 type Dice={hit:number;critical:number;defense:number};
 type Defense=Extract<CombatCommand,{kind:"DEFEND"}>;
@@ -133,6 +135,65 @@ function approvedNewStatuses(
  }));
 }
 
+/** Convert only the inversions the official V1 creature actually
+ * performed into reversible V2 deltas. No new status or wallet from
+ * client data is accepted, and every inversion is tied to an approved
+ * creature-contact micromodule and its exact mana fee.
+ */
+function approvedInversions(
+ before:CombatState,after:CombatState,creature:CombatSummon,
+):{inversions:NonNullable<AuthorizedTimelineEffect["summonInversions"]>;
+   manaSpent:number;validation:CombatState}{
+ const originals=before.summonStatuses??[];
+ const modified=(after.summonStatuses??[]).filter(current=>{
+   const old=originals.find(s=>s.id===current.id);
+   return old&&old.value!==current.value;
+ });
+ const recipes=(creature.contactEffects??[]).filter(e=>e.kind==="INVERT_STATUS");
+ if(modified.length>recipes.length)
+   throw new Error("El familiar alteró más estados de los autorizados.");
+ const seen=new Set<number>();
+ const changes:NonNullable<AuthorizedTimelineEffect["summonInversions"]>=[];
+ let manaSpent=0;
+ const validation=structuredClone(after);
+ const predicted=structuredClone(before);
+ for(const status of modified){
+   const old=originals.find(s=>s.id===status.id)!;
+   if(!isDebuffStatus(old)||old.operation!==status.operation||
+     status.target!==old.target||status.by!==old.by||
+     status.sourceSummonId!==old.sourceSummonId||
+     status.stat!==old.stat||
+     Math.abs(status.value-(
+       old.operation==="MULTIPLIER"?2-old.value:-old.value))>1e-8)
+     throw new Error("Inversión sin estado debilitante original.");
+   const index=recipes.findIndex((recipe,i)=>!seen.has(i)&&
+     recipe.target===(status.target===creature.owner?"USER":"OPPONENT"));
+   if(index<0)throw new Error("La inversión no pertenece a un módulo de contacto aprobado.");
+   const recipe=recipes[index];
+   if(recipe.kind!=="INVERT_STATUS"||recipe.manaCost<0||
+     !Number.isSafeInteger(recipe.manaCost))
+     throw new Error("El coste de inversión no está autorizado.");
+   seen.add(index);
+   manaSpent+=recipe.manaCost;
+   const restored=validation.summonStatuses?.find(s=>s.id===status.id);
+   if(!restored)throw new Error("Falta el estado a restaurar.");
+   restored.value=old.value;
+   reconcileSummonStatusStat(validation,status.target,status.stat);
+   if(recipe.chargeAccumulator)
+     creditCombatCharge(predicted,creature.owner,recipe.chargeAccumulator);
+   changes.push({id:status.id,sourceSummonId:creature.id,
+     owner:creature.owner,target:status.target,
+     ...(recipe.chargeAccumulator?{
+       chargeAccumulator:recipe.chargeAccumulator,
+     }:{})});
+ }
+ if(JSON.stringify(predicted.combatCharges??{})!==
+   JSON.stringify(after.combatCharges??{}))
+   throw new Error("El familiar intentó crear cargas fuera de su inversión.");
+ validation.combatCharges=structuredClone(before.combatCharges);
+ return {inversions:changes,manaSpent,validation};
+}
+
 /** One creature's scheduled turn: FOLLOW can maintain ally contact bonuses,
  * ATTACK can hit a fighter or an enemy summon, and chasing uses the real
  * obstacle and speed rules. The other creatures are inert in this SHADOW
@@ -148,8 +209,7 @@ export function simulateAutonomousTimelineSummon(
  // A 100-tick upkeep may expire the creature at exactly its due tick. That
  // disappearance has already been committed to this common snapshot.
  if(!creature)return {eventId:event.id};
- if(creature.integrity<=0||!creature.chargesMigrated||creature.chaosField||
-   creature.contactEffects?.some(e=>e.kind==="INVERT_STATUS"))
+ if(creature.integrity<=0||!creature.chargesMigrated||creature.chaosField)
    throw new Error("El familiar requiere un resolutor avanzado de efectos.");
  if(creature.autoNextTick!==event.endsAtTick||
    ["HOLD","MANUAL"].includes(creature.behavior.mode))
@@ -201,10 +261,25 @@ export function simulateAutonomousTimelineSummon(
      hitCountDelta:Math.max(1,hitDelta),
    });
  }
- const effect=coreEffect(combat,settled,event);
+ const approved=approvedInversions(combat,settled,creature);
+ for(const side of sides){
+   const initial=combat.mana?.[side]?.current??0;
+   const actual=settled.mana?.[side]?.current??0;
+   const defensiveCost=advanced.pending&&
+     side===rival(event.owner)&&
+     preparedDefense.defense==="MAGIC_FIELD"?1:0;
+   const cost=(side===creature.owner?approved.manaSpent:0)+defensiveCost;
+   if(initial-actual!==cost)
+     throw new Error("El familiar modificó el maná fuera de su contacto aprobado.");
+ }
+ const effect=coreEffect(combat,approved.validation,event);
  const statuses=approvedNewStatuses(combat,settled,event,creature);
  return {...effect,summonUpdates:updates,summonImpacts:impacts,
-   summonContactStatuses:statuses};
+   summonContactStatuses:statuses,
+   summonInversions:approved.inversions,
+   ...(approved.manaSpent>0?{
+     manaSpent:{[creature.owner]:approved.manaSpent},
+   }:{})};
 }
 
 /** The recurring ray is launched from the placed mirror with exactly the

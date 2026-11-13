@@ -333,3 +333,23 @@ declarar; no interrumpen acciones ya comprometidas ni rebobinan el tiempo.
 Si un ataque termina después de la postura, esta no puede defenderlo. Los
 ejemplos de habilidades modulares avanzadas y PvP aún no están disponibles en
 el laboratorio; su migración sigue siendo pendiente de V2.
+
+## V2.17 — plano de ataque editable en el HUD de laboratorio
+
+El panel de entrenamiento V2 ya permite dibujar en móvil o escritorio
+una trayectoria de hasta 16 puntos desde el origen oficial del arma, puño
+o pie, y elegir el centro del ataque mágico o proyectil pulsando el plano.
+El plan se envía mediante comandos de combate existentes: no se envían PA,
+ticks, tiradas, daños ni payloads arbitrarios.
+
+Moverse y atacar comparte un intervalo temporal y utiliza 2 PA. El
+jugador elige en la vista superior un vector de hasta 1 m y la orden
+`BEFORE` o `AFTER`; el servidor valida longitud y formato de los
+vectores. Los proyectiles físicos y armas arrojadas no aceptan
+movimiento compuesto en esta fase. La trayectoria anterior se borra
+cuando avanza el tick para impedir reutilizar accidentalmente un
+origen después de cambiar de posición.
+
+La migración de habilidades aprobadas, los consumibles y el desgaste
+persistente siguen siendo necesarios antes de activar V2 de manera general.
+No cambia el comportamiento de V1 ni habilita PvP V2.

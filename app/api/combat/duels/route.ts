@@ -163,11 +163,11 @@ export async function POST(req:Request) {
   player.heightMeters=Math.max(0.3,numeric((character as any).height,170)/100);
   player.unarmedReachMeters=Math.round(player.heightMeters*0.45*100)/100;
   const opponentId=Number(body?.opponentCharacterId??0);
-  // Explicit staff-only opt-in; never enable V2 for existing encounters,
-  // PvP or ordinary new training encounters.
+  // Explicit staff-only opt-in. PvP is managed at creation but its turns
+  // belong only to the two real character owners after that.
   const experiment=body?.experimentalV2===true;
-  if(experiment&&(!gm||Number.isSafeInteger(opponentId)&&opponentId>0))
-    return NextResponse.json({error:"V2 experimental solo está disponible en entrenamiento de gestión."},{status:403});
+  if(experiment&&!gm)
+    return NextResponse.json({error:"V2 experimental requiere permisos de gestión para iniciar el encuentro."},{status:403});
   let opponent:CombatFighter;
   let trainingDifficulty:ReturnType<typeof parseTrainingDifficulty>="INTERMEDIATE";
   if(!(Number.isSafeInteger(opponentId)&&opponentId>0)) {
@@ -349,7 +349,9 @@ export async function POST(req:Request) {
   let timeline:ReturnType<typeof newExperimentalTimeline>["timeline"]|undefined;
   if(experiment){
     try{
-      const saved=newExperimentalTimeline(initial);
+      const saved=newExperimentalTimeline(initial,{
+        pvp:opponent.characterId!==null,
+      });
       state=saved.combat;timeline=saved.timeline;
     }catch(e){
       return NextResponse.json({error:e instanceof Error?e.message:

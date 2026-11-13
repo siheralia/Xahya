@@ -19,6 +19,7 @@ import {characterCombatConsumables,npcStartingConsumables} from "@/lib/items/com
 import {compileWeaponAutoRepair} from "@/lib/items/auto-repair";
 import {snapshotEquippedWearables} from "@/lib/items/combat-wearables";
 import {snapshotApprovedEncounterPassives} from "@/lib/combat/server-approved-micro";
+import {newExperimentalTimeline} from "@/lib/combat/timeline-experiment";
 
 async function snapshotEquippedWeapons(characterId:number):Promise<{
   main:CombatFighter["equippedWeapon"];offhand:CombatFighter["offhandWeapon"]
@@ -108,7 +109,8 @@ export async function GET() {
  const own=all.filter(c=>Number(c.userId)===Number(user.id));
  const chars=canApprovePvP?all:own;
  const characters=chars.map(c=>({id:Number(c.id),name:String(c.name),mine:Number(c.userId)===Number(user.id)}));
- return NextResponse.json({characters,canApprovePvP});
+ return NextResponse.json({characters,canApprovePvP,
+   experimentalV2Available:canApprovePvP});
 }
 function buildFighter(name:string, characterId:number|null, base:Record<string,number>,
  derived:Record<string,number>, weaponType:unknown="CUT", defenseType:unknown="SOLID",
@@ -161,6 +163,11 @@ export async function POST(req:Request) {
   player.heightMeters=Math.max(0.3,numeric((character as any).height,170)/100);
   player.unarmedReachMeters=Math.round(player.heightMeters*0.45*100)/100;
   const opponentId=Number(body?.opponentCharacterId??0);
+  // Explicit staff-only opt-in; never enable V2 for existing encounters,
+  // PvP or ordinary new training encounters.
+  const experiment=body?.experimentalV2===true;
+  if(experiment&&(!gm||Number.isSafeInteger(opponentId)&&opponentId>0))
+    return NextResponse.json({error:"V2 experimental solo está disponible en entrenamiento de gestión."},{status:403});
   let opponent:CombatFighter;
   let trainingDifficulty:ReturnType<typeof parseTrainingDifficulty>="INTERMEDIATE";
   if(!(Number.isSafeInteger(opponentId)&&opponentId>0)) {
@@ -336,9 +343,23 @@ export async function POST(req:Request) {
   // Install paid and approved passive micro graphs from each owner's DB
   // records before the first NPC action. Neither request bodies nor combat
   // commands can inject definitions into this server-only snapshot.
-  initial=await snapshotApprovedEncounterPassives(initial);
-  const state=progressTrainingNpc(initial,dice,
-    ()=>randomInt(1_000_000)/1_000_000);
+  // Laboratory V2 deliberately excludes unported passive micro graphs.
+  // A V1 duel still compiles and runs every existing approved passive.
+  let state:typeof initial;
+  let timeline:ReturnType<typeof newExperimentalTimeline>["timeline"]|undefined;
+  if(experiment){
+    try{
+      const saved=newExperimentalTimeline(initial);
+      state=saved.combat;timeline=saved.timeline;
+    }catch(e){
+      return NextResponse.json({error:e instanceof Error?e.message:
+        "Este personaje no es compatible con el laboratorio V2."},{status:400});
+    }
+  }else{
+    initial=await snapshotApprovedEncounterPassives(initial);
+    state=progressTrainingNpc(initial,dice,
+      ()=>randomInt(1_000_000)/1_000_000);
+  }
   const Session=(db.orm.public as any).CombatSession;
   const session=await Session.create({
     playerCharacterId:characterId,npcName:opponent.name,
@@ -350,9 +371,12 @@ export async function POST(req:Request) {
     }: {})},
     currentTick:state.tick,turn:state.round,
     activeActor:state.pending?.against??(canAct(state,"PLAYER")?"PLAYER":"NPC"),
-    status:state.status,lastAction:{combatV1:state},
+    status:state.status,lastAction:{combatV1:state,
+      ...(timeline?{combatV2:timeline}:{})},
     playerNextActionTick:state.actors.PLAYER.spentTicks,
     npcNextActionTick:state.actors.NPC.spentTicks,
   });
-  return NextResponse.json({id:Number(session.id),state:combatClientView(state)},{status:201});
+  return NextResponse.json({id:Number(session.id),
+    experimentalV2:experiment,
+    state:combatClientView(state)},{status:201});
 }

@@ -189,6 +189,7 @@ export function finalizeTimelineCommit(
 
 export type TimelineSessionStatus={
   tick:number;round:number;waitingFor:Side[];
+  pa:Record<Side,{used:number;limit:number}>;
   running:Array<{owner:Side;kind:TimelineEvent["kind"];
     startsAtTick:number;endsAtTick:number}>;
 };
@@ -202,6 +203,12 @@ export function publicTimelineSessionStatus(
  return {
    tick:session.clock.nowTick,round:timelineRoundOf(session.clock.nowTick),
    waitingFor:pendingTimelineSides(session.clock),
+   pa:Object.fromEntries((["PLAYER","NPC"] as const).map(side=>{
+     const actor=session.clock.actors[side];
+     return [side,{used:actor.spentApByRound[
+       String(timelineRoundOf(session.clock.nowTick))]??0,
+       limit:actor.apLimitPerRound}];
+   })) as Record<Side,{used:number;limit:number}>,
    running:session.clock.events.filter(e=>e.status==="QUEUED").map(e=>({
      owner:e.owner,kind:e.kind,startsAtTick:e.startsAtTick,endsAtTick:e.endsAtTick,
    })),

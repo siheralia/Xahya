@@ -37,8 +37,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // The legacy read endpoint must not leak the unrevealed magic blast
   // center stored in combatV1. Project it the same way as /actions GET/POST.
   const rawCombat=(session.lastAction as any)?.combatV1 as CombatState|undefined;
+  const v2=(session.lastAction as any)?.combatV2;
+  // Never return server escrow, weapon snapshots or unrevealed target geometry
+  // through a legacy endpoint. V2 clients use the projected timeline route.
+  const visibleCombat=rawCombat?combatClientView(rawCombat):undefined;
+  const projected=visibleCombat&&v2
+    ?(()=>{const {timelineProjectiles:_flying,...publicState}=visibleCombat;
+      void _flying;return publicState;})()
+    :visibleCombat;
   const safeSession=rawCombat ? {...session,lastAction:{
-    ...(session.lastAction as Record<string,unknown>),combatV1:combatClientView(rawCombat),
+    // Preserve the complete legacy V1 response; only V2 must hide the
+    // private escrow and frozen projectile payload.
+    ...(v2?{}:session.lastAction as Record<string,unknown>),
+    combatV1:projected,...(v2?{combatV2:{version:2,experimental:true}}:{}),
   }} : session;
   return NextResponse.json({ session:safeSession });
 }

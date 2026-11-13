@@ -4,13 +4,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type CharacterOption={id:number;name:string;mine:boolean};
-type LaunchOptions={characters:CharacterOption[];canApprovePvP:boolean};
+type LaunchOptions={characters:CharacterOption[];canApprovePvP:boolean;
+ experimentalV2Available?:boolean};
 export default function DuelLauncher({initialCharacterId}:{initialCharacterId:string}) {
  const router=useRouter();
  const [options,setOptions]=useState<LaunchOptions|null>(null);
  const [characterId,setCharacterId]=useState(initialCharacterId);
  const [opponentCharacterId,setOpponentCharacterId]=useState("");
  const [npcDifficulty,setNpcDifficulty]=useState("INTERMEDIATE");
+ const [experimentalV2,setExperimentalV2]=useState(false);
  const [busy,setBusy]=useState(false);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
@@ -42,7 +44,8 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({characterId:Number(characterId),
       opponentCharacterId:options.canApprovePvP&&opponentCharacterId?Number(opponentCharacterId):undefined,
-      npcDifficulty:options.canApprovePvP&&opponentCharacterId?undefined:npcDifficulty})
+      npcDifficulty:options.canApprovePvP&&opponentCharacterId?undefined:npcDifficulty,
+      experimentalV2:options.experimentalV2Available&&!opponentCharacterId&&experimentalV2})
    });
    const data=await resp.json();
    if(!resp.ok)throw new Error(data.error??"No fue posible iniciar el combate");
@@ -83,6 +86,18 @@ export default function DuelLauncher({initialCharacterId}:{initialCharacterId:st
     </select>
     <span className="mt-1 block text-xs text-zinc-400">El NPC hereda sus perks raciales y sortea tres perks generales con probabilidad mayor que 0%, sin repetir. Algunos perks generales no tienen efectos aplicables al combate.</span>
    </label>}
+   {options?.experimentalV2Available&&!opponentCharacterId&&
+     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-cyan-700/50 bg-cyan-950/25 p-3 text-sm">
+       <input type="checkbox" checked={experimentalV2} disabled={busy||loading}
+         onChange={e=>setExperimentalV2(e.target.checked)}
+         className="mt-1 accent-cyan-400"/>
+       <span><strong>Probar Combate V2 (laboratorio)</strong>
+         <span className="mt-1 block text-xs text-zinc-300">
+           Ticks simultáneos, guardias persistentes, NPC autónomo y proyectiles.
+           Solo entrenamiento nuevo; sin habilidades modulares ni cambios de inventario persistente.
+         </span>
+       </span>
+     </label>}
    {error&&<p role="alert" className="text-rose-400">{error}</p>}
    <button type="button" onClick={()=>void start()} disabled={busy||loading||!characterId}
     className="rounded-lg bg-cyan-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-50">

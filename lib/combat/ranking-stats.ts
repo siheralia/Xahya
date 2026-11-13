@@ -72,6 +72,9 @@ export function summarizeFinishedCombats(
 
   for (const session of sessions) {
     if (session.status !== "FINISHED") continue;
+    // Laboratory V2 outcomes are provisional and must never affect public
+    // victory or win-rate rankings while the engine remains opt-in.
+    if (object(session.lastAction)?.combatV2) continue;
     const battle = object(object(session.lastAction)?.combatV1);
     if (!battle || battle.version !== 1 || battle.status !== "FINISHED") continue;
     if (battle.winner !== "PLAYER" && battle.winner !== "NPC" && battle.winner !== null) continue;

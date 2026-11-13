@@ -94,6 +94,7 @@ export function simulateBasicPhysicalTimelineHit(
  // buff expiration and micro state in the same transaction.
  if( (combat.summonStatuses??[]).some(status=>
      !(status.id.startsWith("V2_SUPPORT:")&&status.by===status.target)&&
+     !(status.id.startsWith("V2_CHARGE:")&&status.by===status.target)&&
      !(status.id.startsWith("V2_HOSTILE:")&&status.by!==status.target)&&
      !status.id.startsWith("V2_SUMMON:"))||
    Object.values(combat.microEffects?.definitions??{}).some(x=>x?.length))

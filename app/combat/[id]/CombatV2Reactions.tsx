@@ -117,7 +117,7 @@ export default function CombatV2Reactions({
      <div className="rounded-lg border border-zinc-700 p-3">
        <p className="mb-2 text-xs font-medium text-zinc-300">Posiciones reales · vista superior</p>
        <svg viewBox="0 0 200 160" className="h-40 w-full rounded-md bg-zinc-900"
-         role="img" aria-label="Posiciones actuales de tu personaje y el NPC">
+         role="img" aria-label="Posiciones actuales de tu personaje y su rival">
          {Array.from({length:5},(_,i)=><g key={i} stroke="#3f3f46" strokeWidth=".7">
            <line x1={i*50} y1="0" x2={i*50} y2="160"/>
            <line x1="0" y1={i*40} x2="200" y2={i*40}/>
@@ -133,7 +133,7 @@ export default function CombatV2Reactions({
            Tú
          </text>
          <text x={foe.x*200} y={foe.y*160-13} fontSize="10" textAnchor="middle" fill="#fed7aa">
-           NPC
+           Rival
          </text>
        </svg>
        <p className="mt-2 text-xs text-zinc-400">

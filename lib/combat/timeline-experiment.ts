@@ -55,6 +55,16 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
        !["TOWARD","AWAY"].includes(String(raw.dodgeDirection)))
      return wrong();
    return raw as TimelineCombatCommand;
+ case "USE_ITEM":{
+   if(!keys(raw,["kind","itemId","characterItemId","requestId"])||
+      !Number.isSafeInteger(raw.itemId)||Number(raw.itemId)<1||
+      !Number.isSafeInteger(raw.characterItemId)||
+      Number(raw.characterItemId)<1||
+      typeof raw.requestId!=="string"||
+      !/^[a-zA-Z0-9:_-]{12,100}$/.test(raw.requestId))
+     return wrong();
+   return raw as TimelineCombatCommand;
+ }
  case "COMMAND_SUMMON":{
    const id=raw.summonId;
    if(!keys(raw,["kind","summonId","order","targetId","newBehavior",

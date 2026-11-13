@@ -22,6 +22,7 @@ import {simulateBasicPhysicalTimelineHit,activeBlockSlot}
 import {simulateBasicMagicTimelineHit} from "./timeline-basic-magic.ts";
 import {simulateApprovedTimelineSupport} from "./timeline-basic-support.ts";
 import {simulateApprovedTimelineFusion} from "./timeline-fusion-world.ts";
+import {simulateApprovedTimelineChargeBuff} from "./timeline-charge-buffs.ts";
 import {simulateApprovedTimelineOffense} from "./timeline-offensive-skill.ts";
 import {simulateBasicTimelineConsumable} from "./timeline-consumables.ts";
 import {simulateApprovedTimelineConstruction}
@@ -291,6 +292,9 @@ export async function resolveBasicTimelineWindow(
        if(!plan)throw new Error("La habilidad no tiene un plan revisado en su declaración.");
        if(plan.category==="FUSION")
          return simulateApprovedTimelineFusion(state,batch.state,event,
+           command,plan);
+       if(plan.category==="CHARGE_BUFF")
+         return simulateApprovedTimelineChargeBuff(state,batch.state,event,
            command,plan);
        if(plan.category==="CONSTRUCTION"){
          const strike=makeDice(),defense=makeDice();

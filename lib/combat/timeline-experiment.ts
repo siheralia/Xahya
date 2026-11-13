@@ -5,7 +5,7 @@
  */
 import {fieldDistance} from "./field-plane.ts";
 import {type CombatState} from "./turn-engine.ts";
-import {pendingTimelineSides} from "./action-timeline.ts";
+import {pendingTimelineSides,timelineRoundOf} from "./action-timeline.ts";
 import {assertBasicTimelineEligible,resolveBasicTimelineWindow,
   type TimelineDice} from "./timeline-basic-actions.ts";
 import {declareTimelineCommand,newTimelineDeclarationSession,
@@ -127,8 +127,14 @@ export async function advanceExperimentalTimeline(
    const missing=pendingTimelineSides(timeline.clock);
    if(missing.includes("PLAYER")&&combat.actors.PLAYER.hp>0)break;
    if(missing.includes("NPC")){
-     const cmd=experimentalTrainingNpcCommand(combat);
-     timeline=declareTimelineCommand(timeline,combat,"NPC",cmd,
+     const actor=timeline.clock.actors.NPC;
+     const nextAt=Math.max(timeline.clock.nowTick,actor.availableAtTick);
+     const used=actor.spentApByRound[String(timelineRoundOf(nextAt))]??0;
+     // The AI must not roll back a player's valid order when it runs out
+     // of PA. Instead it waits to the next shared round for free.
+     const command=used>=actor.apLimitPerRound
+       ?{kind:"WAIT" as const}:experimentalTrainingNpcCommand(combat);
+     timeline=declareTimelineCommand(timeline,combat,"NPC",command,
        "NPC_AUTO:"+timeline.clock.nextSequence);
    }
    const resolved=await resolveBasicTimelineWindow(combat,timeline,makeDice);

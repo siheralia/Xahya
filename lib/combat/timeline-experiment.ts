@@ -201,16 +201,18 @@ export function experimentalTrainingNpcCommand(state:CombatState):TimelineCombat
 }
 
 export function newExperimentalTimeline(
- snapshot:CombatState,
+ snapshot:CombatState,options:{pvp?:boolean}={},
 ):{combat:CombatState;timeline:TimelineDeclarationSession}{
  assertBasicTimelineEligible(snapshot);
  if(snapshot.tick!==0||snapshot.pending||
-   snapshot.actors.NPC.characterId!==null)
-   throw new Error("V2 experimental solo acepta un entrenamiento nuevo.");
+    (snapshot.actors.NPC.characterId!==null)!==Boolean(options.pvp))
+   throw new Error("V2 experimental requiere un encuentro nuevo del modo elegido.");
  const combat=structuredClone(snapshot);
  combat.timelineMode="SHARED";
- return {combat,timeline:reserveNextTrainingNpcIntent(combat,
-   newTimelineDeclarationSession(combat))};
+ const empty=newTimelineDeclarationSession(combat);
+ // PvP NEVER reserves a fabricated NPC action; both users choose separately.
+ return {combat,timeline:options.pvp?empty:
+   reserveNextTrainingNpcIntent(combat,empty)};
 }
 
 /**

@@ -77,6 +77,16 @@ test("one player order queues autonomous NPC and resolves together on server dic
    /diferente|reutiliz/);
 });
 
+test("the autonomous NPC waits for free after exhausting its round PA",async()=>{
+ const initial=newExperimentalTimeline(combat());
+ initial.timeline.clock.actors.NPC.apLimitPerRound=1;
+ const advanced=await submitExperimentalTimelineCommand(initial.combat,
+   initial.timeline,{kind:"WAIT"},"v2-wait-budget-0001",dice);
+ assert.equal(advanced.combat.tick,100);
+ assert.equal(advanced.timeline.clock.actors.NPC.spentApByRound["1"],1);
+ assert.ok(advanced.combat.actors.PLAYER.hp<1000);
+});
+
 test("NPC AI moves toward a far opponent and attacks without client orders",()=>{
  const distant=combat(2);
  const move=experimentalTrainingNpcCommand(distant);

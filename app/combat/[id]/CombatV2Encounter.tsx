@@ -37,15 +37,21 @@ export default function CombatV2Encounter({id}:{id:string}){
  const [meters,setMeters]=useState(".5");
  const [lastMessage,setLastMessage]=useState("");
  const etag=useRef<string|null>(null);
+ // A late GET must never replace a newly accepted POST result.
+ // Increment on every refresh request and just before submitting an action.
+ const responseSequence=useRef(0);
  const lastRequest=useRef<{signature:string;id:string}|null>(null);
  const load=useCallback(async()=>{
+   const sequence=++responseSequence.current;
    const response=await fetch("/api/combat/"+id+"/timeline",{
      cache:"no-store",headers:etag.current?{"If-None-Match":etag.current}:{},
    });
+   if(sequence!==responseSequence.current)return;
    if(response.status===304)return;
    const json=await response.json();
    if(!response.ok)throw new Error(json.error??"No se pudo leer el combate.");
    if(json.mode!=="EXPERIMENTAL_V2")throw new Error("Encuentro incompatible.");
+   if(sequence!==responseSequence.current)return;
    etag.current=response.headers.get("ETag");
    setData(json);
  },[id]);
@@ -69,6 +75,8 @@ export default function CombatV2Encounter({id}:{id:string}){
  },[data?.pvp,data?.state.status,busy,load]);
  const submit=async(command:Record<string,unknown>)=>{
    if(busy||!data)return;
+   // Invalidate GET responses started before the declaration.
+   ++responseSequence.current;
    setBusy(true);setError("");setLastMessage("");
    try{
      const signature=JSON.stringify(command);

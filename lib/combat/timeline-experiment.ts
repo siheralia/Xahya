@@ -89,7 +89,7 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
 /** NPC choices are always server-generated, with no player-supplied commands. */
 export function experimentalTrainingNpcCommand(state:CombatState):TimelineCombatCommand{
  const npc=state.actors.NPC;
- if(npc.hp<=0)return {kind:"WAIT"};
+ if(npc.hp<=0||state.actors.PLAYER.hp<=0)return {kind:"WAIT"};
  const distance=fieldDistance(npc,state.actors.PLAYER);
  if(distance>.65){
    const maxMeters=Math.max(1,Math.round(npc.race/10));

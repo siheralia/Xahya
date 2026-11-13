@@ -120,7 +120,7 @@ test("missing, stolen, expired or paid-out sources fail without mutation",async(
    let s;
    if(kind==="mana"){
      assert.throws(()=>cast(newTimelineDeclarationSession(c),c,"PLAYER"),
-       /maná/);
+       /maná/i);
    }else{
      s=cast(newTimelineDeclarationSession(c),c,"PLAYER");
      s=declareTimelineCommand(s,c,"NPC",{kind:"WAIT"},"skip-npc");

@@ -73,7 +73,10 @@ function shadowForBasicMove(combat:CombatState,owner:Side):CombatState{
  // every 100-tick boundary while an earlier action remains in progress.
  shadow.round=combat.round;
  shadow.tick=(combat.round-1)*100;shadow.pending=null;
- shadow.timelineMode=undefined;shadow.tieOpener=owner;
+ // V1 reverses tie initiative on even rounds. Compensate so the
+ // isolated actor is authorized at the genuine V2 impact round.
+ shadow.timelineMode=undefined;
+ shadow.tieOpener=shadow.round%2===1?owner:other(owner);
  shadow.log=[];shadow.narrativeHistory=[];
  shadow.activeBlocks={};shadow.mirrorRayQueue=[];
  for(const side of ["PLAYER","NPC"] as const){

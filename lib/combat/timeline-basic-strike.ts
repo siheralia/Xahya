@@ -62,7 +62,10 @@ export function isolatePhysicalShadow(original:CombatState,attacker:Side):Combat
  // V2's prepared batch already crossed every intervening round boundary.
  // Reusing round one here would mis-rotate a hostile chaos field.
  shadow.round=original.round;shadow.tick=(original.round-1)*100;
- shadow.pending=null;shadow.timelineMode=undefined;shadow.tieOpener=attacker;
+ shadow.pending=null;shadow.timelineMode=undefined;
+ // Retain real round for chaos while ensuring V1's alternating opener
+ // cannot reject the server-authorized V2 strike on even rounds.
+ shadow.tieOpener=shadow.round%2===1?attacker:other(attacker);
  shadow.activeBlocks={};shadow.mirrorRayQueue=[];
  shadow.log=[];shadow.narrativeHistory=[];
  for(const side of ["PLAYER","NPC"] as const){

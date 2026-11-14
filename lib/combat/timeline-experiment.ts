@@ -4,7 +4,7 @@
  * serializes the combat snapshot and declaration escrow in one DB row.
  */
 import {fieldDistance} from "./field-plane.ts";
-import {type CombatState} from "./turn-engine.ts";
+import {actionPoints,type CombatState} from "./turn-engine.ts";
 import {pendingTimelineSides,timelineRoundOf} from "./action-timeline.ts";
 import {assertBasicTimelineEligible,resolveBasicTimelineWindow,
   type TimelineDice} from "./timeline-basic-actions.ts";
@@ -238,7 +238,10 @@ export function reserveNextTrainingNpcIntent(
  const at=Math.max(original.clock.nowTick,actor.availableAtTick);
  const currentRound=String(timelineRoundOf(at));
  const spent=actor.spentApByRound[currentRound]??0;
- const command=spent>=actor.apLimitPerRound
+ const limit=actor.apLimitsByRound?.[currentRound]??(
+   Object.hasOwn(actor.spentApByRound,currentRound)||currentRound==="1"
+     ?actor.apLimitPerRound:actionPoints(combat.actors.NPC.constitution));
+ const command=spent>=limit
    ?{kind:"WAIT" as const}:experimentalTrainingNpcCommand(combat);
  return declareTimelineCommand(original,combat,"NPC",command,
    "NPC_AUTO:"+original.clock.nextSequence);

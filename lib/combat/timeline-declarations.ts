@@ -8,7 +8,7 @@
  * replacement for route-level permission, ownership, skill approval, range,
  * mana, inventory and geometry validation.
  */
-import type {CombatState,Side} from "./turn-engine.ts";
+import {actionPoints,type CombatState,type Side} from "./turn-engine.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
 import {combatChargeBalance} from "./charge-pools.ts";
 import {
@@ -17,6 +17,7 @@ import {
 } from "./combat-timeline-adapter.ts";
 import {
   completeNextTimelineBatch,interruptTimelineAction,pendingTimelineSides,queueTimelineAction,
+  reserveTimelineRoundBudget,
   timelineRoundOf,type ContinuousCombatTimeline,type TimelineBatch,type TimelineEvent,
 } from "./action-timeline.ts";
 import {
@@ -161,9 +162,13 @@ export function declareTimelineCommand(
  }
  // Only a fully approved intent is allowed into the clock. This compile
  // also rejects forged PA/tick durations and unauthorized skill plans.
- const intent=compileCombatTimelineIntent(snapshot,original.clock,owner,
+ const actorClock=original.clock.actors[owner];
+ const start=Math.max(original.clock.nowTick,actorClock.availableAtTick);
+ const withBudget=reserveTimelineRoundBudget(original.clock,owner,start,
+   actionPoints(snapshot.actors[owner].constitution));
+ const intent=compileCombatTimelineIntent(snapshot,withBudget,owner,
    command,eventId,context);
- const clock=queueTimelineAction(original.clock,owner,intent);
+ const clock=queueTimelineAction(withBudget,owner,intent);
  const next=structuredClone(original);
  next.clock=clock;
  next.declarations[eventId]={
@@ -225,16 +230,19 @@ export type TimelineSessionStatus={
  * uncommitted trajectory, hidden area/aim, target copy or command payload.
  */
 export function publicTimelineSessionStatus(
- session:TimelineDeclarationSession,
+ session:TimelineDeclarationSession,snapshot?:CombatState,
 ):TimelineSessionStatus {
  return {
    tick:session.clock.nowTick,round:timelineRoundOf(session.clock.nowTick),
    waitingFor:pendingTimelineSides(session.clock),
    pa:Object.fromEntries((["PLAYER","NPC"] as const).map(side=>{
      const actor=session.clock.actors[side];
-     return [side,{used:actor.spentApByRound[
-       String(timelineRoundOf(session.clock.nowTick))]??0,
-       limit:actor.apLimitPerRound}];
+     const round=String(timelineRoundOf(session.clock.nowTick));
+     const limit=actor.apLimitsByRound?.[round]??(
+       !snapshot||round==="1"||Object.hasOwn(actor.spentApByRound,round)
+         ?actor.apLimitPerRound
+         :actionPoints(snapshot.actors[side].constitution));
+     return [side,{used:actor.spentApByRound[round]??0,limit}];
    })) as Record<Side,{used:number;limit:number}>,
    running:session.clock.events.filter(e=>e.status==="QUEUED").map(e=>({
      owner:e.owner,kind:e.kind,startsAtTick:e.startsAtTick,endsAtTick:e.endsAtTick,

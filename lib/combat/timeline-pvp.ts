@@ -14,9 +14,9 @@ import {resolveBasicTimelineWindow,type TimelineDice}
  from "./timeline-basic-actions.ts";
 
 export function publicPvPTimelineStatus(
- session:TimelineDeclarationSession,viewer:Side|null,
+ session:TimelineDeclarationSession,viewer:Side|null,combat?:CombatState,
 ){
- const status=publicTimelineSessionStatus(session);
+ const status=publicTimelineSessionStatus(session,combat);
  const missing=pendingTimelineSides(session.clock);
  // Do not expose a freshly declared opponent's action, deadline, AP cost
  // or private trajectory before the viewer also commits a choice.

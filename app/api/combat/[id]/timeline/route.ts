@@ -73,8 +73,8 @@ function publicPayload(combat:CombatState,timeline:TimelineDeclarationSession,
  const pvp=combat.actors.NPC.characterId!==null;
  return {mode:"EXPERIMENTAL_V2" as const,state,pvp,viewerSide,
    projectiles:flying,timeline:pvp
-     ?publicPvPTimelineStatus(timeline,viewerSide==="SPECTATOR"?null:viewerSide)
-     :publicTimelineSessionStatus(timeline),
+     ?publicPvPTimelineStatus(timeline,viewerSide==="SPECTATOR"?null:viewerSide,combat)
+     :publicTimelineSessionStatus(timeline,combat),
    limitations:"Laboratorio V2: inventario y durabilidad de equipo reales, ficha HP/maná de combate aislada. Pasivas modulares avanzadas sujetas a compatibilidad."};
 }
 export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){

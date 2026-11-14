@@ -39,6 +39,8 @@ export interface TimelineEvent {
 export interface TimelineActor {
   availableAtTick: number;
   apLimitPerRound: number;
+  /** Locked the first time this actor declares in a given round. */
+  apLimitsByRound?: Record<string, number>;
   spentApByRound: Record<string, number>;
 }
 
@@ -85,8 +87,10 @@ export function newContinuousCombatTimeline(playerAp:number,npcAp:number):Contin
   return {
     version:2,nowTick:0,nextSequence:0,
     actors:{
-      PLAYER:{availableAtTick:0,apLimitPerRound:playerAp,spentApByRound:{}},
-      NPC:{availableAtTick:0,apLimitPerRound:npcAp,spentApByRound:{}},
+      PLAYER:{availableAtTick:0,apLimitPerRound:playerAp,
+        apLimitsByRound:{"1":playerAp},spentApByRound:{}},
+      NPC:{availableAtTick:0,apLimitPerRound:npcAp,
+        apLimitsByRound:{"1":npcAp},spentApByRound:{}},
     },
     events:[],seenActionIds:[],
   };
@@ -138,11 +142,14 @@ export function queueTimelineAction(
   const finish=start+intent.durationTicks;
   if(!validTick(finish))throw new Error("El horizonte temporal es demasiado largo.");
   const round=String(timelineRoundOf(start));
-  if((actor.spentApByRound[round]??0)+intent.paCost>actor.apLimitPerRound)
+  const budget=actor.apLimitsByRound?.[round]??actor.apLimitPerRound;
+  if((actor.spentApByRound[round]??0)+intent.paCost>budget)
     throw new Error("No quedan PA para iniciar esa acción en esta ronda.");
   if(original.seenActionIds.length>=20_000)throw new Error("Límite de acciones del encuentro superado.");
   const next=structuredClone(original),updated=next.actors[owner];
   next.seenActionIds.push(intent.id);
+  updated.apLimitsByRound??={};
+  updated.apLimitsByRound[round]??=budget;
   updated.spentApByRound[round]=(updated.spentApByRound[round]??0)+intent.paCost;
   updated.availableAtTick=finish;
   next.events.push({id:intent.id,owner,kind:intent.kind,startsAtTick:start,
@@ -159,6 +166,27 @@ export function queueTimelineAction(
         projectileTarget:{...intent.projectileTarget!}}:{}),
     status:"QUEUED",sequence:next.nextSequence++});
   return next;
+}
+
+/** Lock the new round's PA budget from server CON. Already-used rounds
+ * (including legacy snapshots) keep their original budget unchanged.
+ */
+export function reserveTimelineRoundBudget(
+ original:ContinuousCombatTimeline,owner:TimelineSide,
+ startTick:number,proposedLimit:number,
+):ContinuousCombatTimeline{
+ checkTimeline(original);
+ if(!SIDES.includes(owner)||!validTick(startTick)||!validApBudget(proposedLimit))
+   throw new Error("Presupuesto temporal de PA inválido.");
+ const key=String(timelineRoundOf(startTick));
+ if(original.actors[owner].apLimitsByRound?.[key]!==undefined)return original;
+ const next=structuredClone(original),actor=next.actors[owner];
+ actor.apLimitsByRound??={};
+ const wasSpent=Object.hasOwn(actor.spentApByRound,key);
+ const budget=wasSpent||key==="1"?actor.apLimitPerRound:proposedLimit;
+ actor.apLimitsByRound[key]=budget;
+ actor.apLimitPerRound=budget;
+ return next;
 }
 
 export function pendingTimelineSides(state:ContinuousCombatTimeline):TimelineSide[] {

@@ -20,6 +20,8 @@ export interface TimelineEvent {
   startsAtTick: number;
   endsAtTick: number;
   durationTicks: number;
+  /** Server-frozen speed; later status changes do not move this deadline. */
+  reservedSpeedValue?: number;
   paidAp: number;
   /** The exact item copy being held, not an item catalog definition. */
   blockToolCopyId?: number;
@@ -54,6 +56,7 @@ export type TimelineIntent = {
   id: string;
   kind: TimelineActionKind;
   durationTicks: number;
+  reservedSpeedValue?: number;
   paCost: number;
   blockToolCopyId?: number;
   blockToolSlot?: "MAIN_HAND" | "OFF_HAND";
@@ -102,6 +105,10 @@ export function queueTimelineAction(
   if(!intent||!validId(intent.id)||!validDuration(intent.durationTicks)||
     !validPa(intent.paCost)||!["ATTACK","MOVE","BLOCK","REACT","SKILL","SUMMON","ITEM","KARMA","WAIT"].includes(intent.kind))
     throw new Error("Acción temporal inválida.");
+  if(intent.reservedSpeedValue!==undefined&&
+    (!Number.isFinite(intent.reservedSpeedValue)||
+      intent.reservedSpeedValue<1||intent.reservedSpeedValue>1_000_000))
+    throw new Error("Velocidad de reserva temporal inválida.");
   if(intent.kind!=="WAIT"&&intent.paCost===0)
     throw new Error("Las acciones activas requieren PA; solo ESPERAR puede ser gratuito.");
   if(intent.kind==="BLOCK"&&intent.blockToolCopyId!==undefined&&
@@ -140,6 +147,8 @@ export function queueTimelineAction(
   updated.availableAtTick=finish;
   next.events.push({id:intent.id,owner,kind:intent.kind,startsAtTick:start,
     endsAtTick:finish,durationTicks:intent.durationTicks,paidAp:intent.paCost,
+    ...(intent.reservedSpeedValue!==undefined
+      ?{reservedSpeedValue:intent.reservedSpeedValue}:{}),
     ...(intent.kind==="BLOCK"&&intent.blockToolCopyId!==undefined
       ?{blockToolCopyId:intent.blockToolCopyId}:{}),
     ...(intent.kind==="BLOCK"&&intent.blockToolSlot!==undefined

@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * Approved construction / barrier / mirror creation for the V2 clock.
  *
@@ -10,7 +11,7 @@
  * Autonomous mirror rays on following rounds require their own world events.
  */
 import {
- applyResolvedCombatSkill,applyCombatCommand,turnTicks,
+ applyResolvedCombatSkill,applyCombatCommand,
  type CombatState,type CombatCommand,type Side,
 } from "./turn-engine.ts";
 import {timelineRoundOf,type ContinuousCombatTimeline,type TimelineEvent}
@@ -86,7 +87,7 @@ export function simulateApprovedTimelineConstruction(
  if(combat.status!=="ACTIVE"||combat.pending||clock.version!==2||
    event.kind!=="SKILL"||event.status!=="RESOLVED"||
    event.endsAtTick!==clock.nowTick||
-   event.paidAp!==1||event.durationTicks!==turnTicks(combat.actors[event.owner])||
+   event.paidAp!==1||event.durationTicks!==reservedTimelineTurnTicks(combat.actors[event.owner],event)||
    !validDice(hitDice)||!validDice(defenseDice))
    throw new Error("La construcción no llegó al tick autorizado.");
  if(command.kind!=="CAST_SKILL"||plan.category!=="CONSTRUCTION"||

@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * Atomic commit stage for the v2 timeline. All strikes in the same completion
  * batch are evaluated against the SAME pre-impact snapshot. The scheduler
@@ -28,7 +29,7 @@ import type {StatusStat} from "./summon-status.ts";
 import type {TimelineBatch,TimelineEvent} from "./action-timeline.ts";
 import {physicalProjectileFlightTicks,type TimelineFlyingProjectile}
  from "./timeline-projectile-flight.ts";
-import {turnTicks,weaponForSource} from "./turn-engine.ts";
+import {weaponForSource} from "./turn-engine.ts";
 
 type CopyWear={owner:Side;characterItemId:number;amount:number};
 export type AuthorizedTimelineEffect={
@@ -524,7 +525,7 @@ export function commitAuthorizedTimelineBatch(
        launch.command);
      const selected=weaponForSource(snapshot.actors[launch.owner],approved.source);
      if(approved.flightTicks!==launch.flightTicks||
-       event.durationTicks!==turnTicks(snapshot.actors[launch.owner],
+       event.durationTicks!==reservedTimelineTurnTicks(snapshot.actors[launch.owner],event,
          selected?launch.command.attackType:undefined)||
        JSON.stringify(launch.shooter)!==JSON.stringify(snapshot.actors[launch.owner]))
        throw new Error("El disparo no corresponde a su origen o arma auténtica.");

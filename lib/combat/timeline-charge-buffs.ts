@@ -1,10 +1,11 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * V2 activation of server-approved CHARGE_BUFF. Owner-scoped charges
  * are consumed at the action's deadline, never on declaration.
  * The same micro compiler as V1 guarantees a bounded 1..6 input and
  * a reviewed multiplier (max x3) with limited duration.
  */
-import {turnTicks,type CombatState,type CombatCommand}
+import {type CombatState,type CombatCommand}
  from "./turn-engine.ts";
 import {combatChargeBalance} from "./charge-pools.ts";
 import {resolveStatusStat,type StatusStat} from "./summon-status.ts";
@@ -21,7 +22,7 @@ export function simulateApprovedTimelineChargeBuff(
  if(combat.status!=="ACTIVE"||combat.pending||clock.version!==2||
    event.status!=="RESOLVED"||event.kind!=="SKILL"||
    event.endsAtTick!==clock.nowTick||event.paidAp!==1||
-   event.durationTicks!==turnTicks(combat.actors[event.owner])||
+   event.durationTicks!==reservedTimelineTurnTicks(combat.actors[event.owner],event)||
    command.kind!=="CAST_SKILL"||command.skillId!==plan.id||
    !/^[a-zA-Z0-9:_-]{12,100}$/.test(command.requestId)||
    Object.keys(command).some(k=>!["kind","skillId","requestId",

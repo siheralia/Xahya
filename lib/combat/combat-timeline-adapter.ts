@@ -5,7 +5,7 @@
  * mana, inventory and permissions before committing a combat action.
  */
 import {
-  actionPoints,defaultAttackSource,turnTicks,weaponForSource,
+  actionPoints,defaultAttackSource,effectiveCombatSpeed,turnTicks,weaponForSource,
   type CombatCommand,type CombatFighter,type CombatState,type PhysicalAttackSource,type Side,
 } from "./turn-engine.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
@@ -107,7 +107,7 @@ export function compileCombatTimelineIntent(
    if(command.planarMove!==undefined)validatePlanarMove(command.planarMove);
  }
  const nextAt=Math.max(timeline.nowTick,timeline.actors[by].availableAtTick);
- const base={id:serverEventId};
+ const base={id:serverEventId,reservedSpeedValue:effectiveCombatSpeed(actor)};
  if(command.kind==="DEFEND"){
    if(!snapshot.pending||snapshot.pending.against!==by)
      throw new Error("Solo puedes defender un impacto destinado a ti.");

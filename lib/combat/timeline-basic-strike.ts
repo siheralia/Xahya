@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * First trusted damage adapter for a V2 completed ATTACK event.
  *
@@ -10,7 +11,7 @@
  * it as a generic resolver for spells, summons, structures or a live API.
  */
 import {
-  applyCombatCommand,turnTicks,weaponForSource,defaultAttackSource,
+  applyCombatCommand,weaponForSource,defaultAttackSource,
   type CombatCommand,type CombatState,type Side,
 } from "./turn-engine.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
@@ -105,7 +106,7 @@ export function simulateBasicPhysicalTimelineHit(
  const attacker=event.owner,target=other(attacker);
  const source=attack.attackSource??defaultAttackSource(combat.actors[attacker]);
  const selected=weaponForSource(combat.actors[attacker],source);
- const attackTicks=turnTicks(combat.actors[attacker],selected?attack.attackType:undefined);
+ const attackTicks=reservedTimelineTurnTicks(combat.actors[attacker],event,selected?attack.attackType:undefined);
  const composite=attack.planarMove!==undefined;
  if(projectile){
    const center=attack.areaCenter,heights=attack.projectileHeights;
@@ -130,7 +131,7 @@ export function simulateBasicPhysicalTimelineHit(
      event.paidAp!==1)
      throw new Error("La reserva del vuelo no corresponde al ataque físico.");
  }else{
-   const expected=composite?Math.max(turnTicks(combat.actors[attacker]),attackTicks):attackTicks;
+   const expected=composite?Math.max(reservedTimelineTurnTicks(combat.actors[attacker],event),attackTicks):attackTicks;
    if(attack.movementOrder!==undefined&&!composite)
      throw new Error("El desplazamiento necesita un vector aprobado.");
    if(event.projectileFlightTicks!==undefined||

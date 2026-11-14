@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * Autonomous V2 projectile. Its action occupies only the wind-up; the
  * authoritative world queue resolves its separate future impact.
@@ -79,6 +80,8 @@ export function physicalProjectileFlightTicks(
 export type TimelineFlyingProjectile={
  id:string;owner:Side;launchTick:number;impactTick:number;
  flightTicks:number;origin:Point;target:Point;
+ /** Wind-up speed frozen at declaration, not recomputed at release. */
+ reservedSpeedValue?:number;
  shooter:CombatFighter;command:BasicProjectile;
 };
 type Dice={hit:number;critical:number;defense:number};
@@ -104,7 +107,7 @@ export function simulateTimelineProjectileLaunch(
  validation.actors[other].positionMeters=event.projectileTarget.x;
  const approved=physicalProjectileFlightTicks(validation,owner,command);
  const item=weaponForSource(combat.actors[owner],approved.source);
- const preparation=turnTicks(combat.actors[owner],
+ const preparation=reservedTimelineTurnTicks(combat.actors[owner],event,
    item?command.attackType:undefined);
  if(approved.flightTicks!==event.projectileFlightTicks||
    event.durationTicks!==preparation)
@@ -113,6 +116,8 @@ export function simulateTimelineProjectileLaunch(
    id:event.id,owner,launchTick:event.endsAtTick,
    impactTick:event.endsAtTick+approved.flightTicks,
    flightTicks:approved.flightTicks,
+   ...(event.reservedSpeedValue!==undefined
+     ?{reservedSpeedValue:event.reservedSpeedValue}:{}),
    origin:{...event.projectileOrigin},target:{...event.projectileTarget},
    shooter:structuredClone(combat.actors[owner]),
    command:structuredClone(command),
@@ -168,10 +173,17 @@ export function simulateAutonomousTimelineProjectile(
  const source=projectile.command.attackSource??
    defaultAttackSource(projectile.shooter);
  const sourceItem=weaponForSource(projectile.shooter,source);
+ const frozenShooter=projectile.reservedSpeedValue===undefined
+   ?projectile.shooter
+   :{...projectile.shooter,speedValue:projectile.reservedSpeedValue};
+ const durationTicks=turnTicks(frozenShooter,
+   sourceItem?projectile.command.attackType:undefined)+projectile.flightTicks;
+ // A world event has zero duration; virtual impact represents the whole shot.
  const virtual:TimelineEvent={...event,kind:"ATTACK",paidAp:1,
-   projectileFlightTicks:projectile.flightTicks,
-   durationTicks:turnTicks(projectile.shooter,
-     sourceItem?projectile.command.attackType:undefined)+projectile.flightTicks};
+   startsAtTick:event.endsAtTick-durationTicks,durationTicks,
+   ...(projectile.reservedSpeedValue!==undefined
+     ?{reservedSpeedValue:projectile.reservedSpeedValue}:{}),
+   projectileFlightTicks:projectile.flightTicks};
  const defense:Defense=posture.defense==="COUNTER"
    ?{kind:"DEFEND",defense:"NONE"}:posture;
  const effect=simulateBasicPhysicalTimelineHit(simulation,clock,virtual,

@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * Basic V2 action resolver for safe, completed MOVE / WAIT / GUARD.
  *
@@ -10,7 +11,7 @@
  * It is a PURE integration test target; the live API must still authorize
  * every action, lock the session and persist both objects together.
  */
-import {applyCombatCommand,basicCounterAttack,turnTicks,type CombatCommand,type CombatState,
+import {applyCombatCommand,basicCounterAttack,type CombatCommand,type CombatState,
   type Side} from "./turn-engine.ts";
 import {fieldPosition} from "./field-plane.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
@@ -96,7 +97,7 @@ export function simulateBasicTimelineMove(
  validateSimpleEvent(clock,event);
  assertBasicTimelineEligible(combat);
  if(event.kind!=="MOVE"||command.kind!=="MOVE"||
-   event.durationTicks!==turnTicks(combat.actors[event.owner])||event.paidAp!==1)
+   event.durationTicks!==reservedTimelineTurnTicks(combat.actors[event.owner],event)||event.paidAp!==1)
    throw new Error("El movimiento no coincide con su reserva temporal.");
  const from=fieldPosition(combat.actors[event.owner]);
  const moved=applyCombatCommand(shadowForBasicMove(combat,event.owner),
@@ -159,7 +160,7 @@ export function simulateBasicTimelinePassiveAction(
    const requiresTwoPa=command.defense==="DODGE"&&
      command.dodgeDirection!==undefined;
    if(event.paidAp!==(requiresTwoPa?2:1)||
-     event.durationTicks!==turnTicks(fighter))
+     event.durationTicks!==reservedTimelineTurnTicks(fighter,event))
      throw new Error("La reacción no coincide con la duración temporal aprobada.");
    const defense=command.defense;
    if(!["DODGE","ENDURE","REPEL","DEFLECT","MAGIC_FIELD","COUNTER"].includes(defense))
@@ -187,7 +188,7 @@ export function simulateBasicTimelinePassiveAction(
  }
  if(command.kind==="GUARD"&&event.kind==="BLOCK"){
    if(event.paidAp!==1||
-     event.durationTicks!==Math.max(10,turnTicks(fighter))||
+     event.durationTicks!==Math.max(10,reservedTimelineTurnTicks(fighter,event))||
      event.blockToolSlot!==command.weaponSlot)
      throw new Error("La guardia difiere de la reserva aprobada.");
    const item=command.weaponSlot==="MAIN_HAND"?fighter.equippedWeapon:

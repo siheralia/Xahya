@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * Strict V2 fusion adapter. Only staff-approved, non-chaos fusions are
  * supported. A V1 shadow checks the complete recipe and sources; the
@@ -27,7 +28,7 @@ export function simulateApprovedTimelineFusion(
  if(combat.status!=="ACTIVE"||combat.pending||clock.version!==2||
    event.status!=="RESOLVED"||event.kind!=="SKILL"||
    event.endsAtTick!==clock.nowTick||event.paidAp!==1||
-   event.durationTicks!==turnTicks(combat.actors[event.owner])||
+   event.durationTicks!==reservedTimelineTurnTicks(combat.actors[event.owner],event)||
    command.kind!=="CAST_SKILL"||command.skillId!==plan.id||
    !keyOk(command.requestId)||
    Object.keys(command).some(k=>!["kind","skillId","requestId"].includes(k))||

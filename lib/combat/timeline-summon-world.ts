@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * Creation and upkeep for server-approved summoned creatures under V2.
  * Shadow V1 is used only to compile legal formation/commands. Its clock, PA
@@ -22,7 +23,7 @@ const sides=["PLAYER","NPC"] as const;
 const validEvent=(c:CombatState,t:ContinuousCombatTimeline,e:TimelineEvent)=>
  c.status==="ACTIVE"&&!c.pending&&t.version===2&&e.status==="RESOLVED"&&
  t.nowTick===e.endsAtTick&&e.paidAp===1&&
- e.durationTicks===turnTicks(c.actors[e.owner]);
+ e.durationTicks===reservedTimelineTurnTicks(c.actors[e.owner],e);
 const safeId=(s:string)=>/^[a-zA-Z0-9:_-]{12,100}$/.test(s);
 
 function shadowForWorld(c:CombatState,owner:Side,finishTick:number):CombatState{

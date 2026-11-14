@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * Strict V2 adapter for trusted, approved COMPOSED support skills.
  *
@@ -9,7 +10,7 @@
  * OFFENSE, SUMMON, CONSTRUCTION, FUSION and CHARGE_BUFF continue to require
  * their dedicated timed mechanics and cannot enter through this adapter.
  */
-import {turnTicks,type CombatState,type CombatCommand} from "./turn-engine.ts";
+import {type CombatState,type CombatCommand} from "./turn-engine.ts";
 import {resolveApprovedSupportActivation} from "./approved-support-activation.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
 import type {ContinuousCombatTimeline,TimelineEvent} from "./action-timeline.ts";
@@ -26,7 +27,7 @@ export function simulateApprovedTimelineSupport(
  if(combat.status!=="ACTIVE"||combat.pending||clock.version!==2||
    event.status!=="RESOLVED"||event.kind!=="SKILL"||
    clock.nowTick!==event.endsAtTick||
-   event.paidAp!==1||event.durationTicks!==turnTicks(combat.actors[event.owner]))
+   event.paidAp!==1||event.durationTicks!==reservedTimelineTurnTicks(combat.actors[event.owner],event))
    throw new Error("El soporte no está autorizado para ejecutarse en este tick.");
  if(command.kind!=="CAST_SKILL"||command.skillId!==plan?.id||
    plan.category!=="SUPPORT"||!plan.approvedActivation||

@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * V2 consumables: official one-copy HP/mana potions resolved only on their
  * deadline, using Xahya's existing V1 consumable action as a pure calculator.
@@ -5,7 +6,7 @@
  * reserved the action. Actual stock and resource changes commit together.
  */
 import {
- applyResolvedCombatConsumable,turnTicks,
+ applyResolvedCombatConsumable,
  type CombatCommand,type CombatState,type Side,
 } from "./turn-engine.ts";
 import type {CombatConsumable} from "../items/combat-consumables.ts";
@@ -21,7 +22,7 @@ export function simulateBasicTimelineConsumable(
  if(combat.status!=="ACTIVE"||combat.pending||clock.version!==2||
    event.kind!=="ITEM"||event.status!=="RESOLVED"||
    event.endsAtTick!==clock.nowTick||event.paidAp!==1||
-   event.durationTicks!==turnTicks(combat.actors[event.owner]))
+   event.durationTicks!==reservedTimelineTurnTicks(combat.actors[event.owner],event))
    throw new Error("El consumible no ha llegado al tick de activación.");
  if(command.kind!=="USE_ITEM"||
    !/^[a-zA-Z0-9:_-]{12,100}$/.test(command.requestId)||

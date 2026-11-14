@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * Basic magic under the continuous V2 clock.
  *
@@ -10,7 +11,7 @@
  * hybrid techniques or external item mutations are silently approximated.
  */
 import {
-  applyCombatCommand,turnTicks,
+  applyCombatCommand,
   type CombatCommand,type CombatState,type Side,
 } from "./turn-engine.ts";
 import {fieldPosition} from "./field-plane.ts";
@@ -60,7 +61,7 @@ export function simulateBasicMagicTimelineHit(
  const owner=event.owner,target=other(owner);
  const composite=attack.planarMove!==undefined;
  if(!composite&&attack.movementOrder!==undefined||
-   event.durationTicks!==turnTicks(combat.actors[owner])||
+   event.durationTicks!==reservedTimelineTurnTicks(combat.actors[owner],event)||
    event.paidAp!==(composite?2:1))
    throw new Error("La reserva temporal de magia no coincide con sus ticks y PA.");
  const sourceMana=combat.mana?.[owner];

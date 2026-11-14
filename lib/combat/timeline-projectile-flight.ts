@@ -1,3 +1,4 @@
+import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
 /**
  * Autonomous V2 projectile. Its action occupies only the wind-up; the
  * authoritative world queue resolves its separate future impact.
@@ -104,7 +105,7 @@ export function simulateTimelineProjectileLaunch(
  validation.actors[other].positionMeters=event.projectileTarget.x;
  const approved=physicalProjectileFlightTicks(validation,owner,command);
  const item=weaponForSource(combat.actors[owner],approved.source);
- const preparation=turnTicks(combat.actors[owner],
+ const preparation=reservedTimelineTurnTicks(combat.actors[owner],event,
    item?command.attackType:undefined);
  if(approved.flightTicks!==event.projectileFlightTicks||
    event.durationTicks!==preparation)

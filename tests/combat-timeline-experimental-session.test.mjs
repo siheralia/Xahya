@@ -241,6 +241,7 @@ test("one player order queues autonomous NPC and resolves together on server dic
 test("the autonomous NPC waits for free after exhausting its round PA",async()=>{
  const initial=newExperimentalTimeline(combat());
  initial.timeline.clock.actors.NPC.apLimitPerRound=1;
+ initial.timeline.clock.actors.NPC.apLimitsByRound["1"]=1;
  const advanced=await submitExperimentalTimelineCommand(initial.combat,
    initial.timeline,{kind:"WAIT"},"v2-wait-budget-0001",dice);
  assert.equal(advanced.combat.tick,100);

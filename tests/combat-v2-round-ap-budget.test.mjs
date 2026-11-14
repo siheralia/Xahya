@@ -62,6 +62,24 @@ test("V2 recomputes PA from CON in a new round but freezes that budget",async()=
  }),/No quedan PA/);
 });
 
+test("V2 shadow resolves strikes on an even real round without false initiative",async()=>{
+ const combat=make();
+ let timeline=newTimelineDeclarationSession(combat);
+ timeline=declareTimelineCommand(timeline,combat,"PLAYER",{kind:"WAIT"},"round-first-p");
+ timeline=declareTimelineCommand(timeline,combat,"NPC",{kind:"WAIT"},"round-first-n");
+ const crossed=await resolveBasicTimelineWindow(combat,timeline,dice);
+ assert.equal(crossed.combat.round,2);
+ const attack={kind:"ATTACK",attackType:"BLUNT",
+   attackSource:"FIST_RIGHT",trajectory:[{x:.1,y:.5},{x:.5,y:.5}]};
+ let next=declareTimelineCommand(crossed.timeline,crossed.combat,"PLAYER",
+   attack,"round-two-hit");
+ next=declareTimelineCommand(next,crossed.combat,"NPC",
+   {kind:"WAIT"},"round-two-wait");
+ const resolved=await resolveBasicTimelineWindow(crossed.combat,next,dice);
+ assert.equal(resolved.combat.tick,110);
+ assert.ok(resolved.combat.log.some(entry=>entry.kind==="RESOLVE"&&entry.tick===110));
+});
+
 test("legacy V2 snapshots cannot reprice rounds with recorded PA",()=>{
  const clock=newContinuousCombatTimeline(19,19);
  delete clock.actors.PLAYER.apLimitsByRound;

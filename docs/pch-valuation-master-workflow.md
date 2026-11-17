@@ -841,3 +841,15 @@ The immediate blocker for O1 (and therefore the evidence-dependent portions of R
 - do not begin the computational phase.
 
 **Current phase status:** O0 source-baseline inspection is substantially prepared; O1 production-data import is blocked on database access/export; RD1–RD9 and O10 are not started/accepted. No valuation algorithm or production price has been changed by this workflow.
+
+
+## RD2 expanded research artifact
+
+The detailed cross-domain expansion of **Base-Stat Synergy** is maintained independently:
+
+- Research document: [RD2 — Base-Stat Synergy: Research Expansion](rd2-base-stat-synergy.md)
+- Workstream: `research/pch-rd2-base-stat-synergy`
+- Draft review: [PR #277](https://github.com/siheralia/Xahya/pull/277)
+- Status: theory proposal; not merged or accepted.
+
+The expansion defines general stat classes and functional types, orthogonal action classifications, typed stat-to-action affordances, interaction archetypes, model comparisons, Pareto-frontier strategy, qualitative impact expectations, evidence packages, conceptual schemas, and a twelve-step research process. It deliberately leaves empirical estimates, coefficient selection, and implementation unresolved.

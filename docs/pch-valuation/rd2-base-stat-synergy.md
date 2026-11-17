@@ -47,35 +47,44 @@ RD2 does **not** own the final value of derived-stat propagation (RD3), full gen
 ### 1.2 Fundamental state/action model
 
 Let:
-- (x=(x_1,ldots,x_p)) be the vector of base-stat values;
-- (a) be an action with a declared actor, target schema, preconditions, operation, and time semantics;
-- (e) be the context (environment, opposition, ruleset, available objects, current conditions);
-- (Y(a,x,e)) be the action-result vector;
-- (F(a,x,e)) be its feasibility/affordance state.
+- `x = (x_1, ..., x_p)` be the vector of base-stat values;
+- `a` be an action with a declared actor, target schema, preconditions, operation, and time semantics;
+- `e` be the context (environment, opposition, ruleset, available objects, current conditions);
+- `Y(a, x, e)` be the action-result vector;
+- `F(a, x, e)` be its feasibility/affordance state.
 
-Do not start by assuming that (Y) is a single scalar. Keep its dimensions separate:
+Do not assume `Y` is a single scalar. Keep its dimensions separate:
 
-[
-Y=(	ext{feasibility},	ext{magnitude},	ext{success},	ext{precision},
-	ext{latency},	ext{duration},	ext{scope},	ext{resource use},
-	ext{risk},	ext{counterability})
-]
+```
+Y = (
+  feasibility,
+  magnitude,
+  success,
+  precision,
+  latency,
+  duration,
+  scope,
+  resource_use,
+  risk,
+  counterability
+)
+```
 
 Orient every dimension explicitly. For example, higher damage dealt may be desirable, while higher mana consumed or latency may be undesirable. A raw interaction sign is meaningless until the outcome dimension's direction is declared.
 
 ### 1.3 Pairwise interaction estimand
 
-For a declared action/context, choose meaningful interventions (delta_i,delta_j) and define a cross-difference vector:
+For a declared action/context, choose meaningful interventions `delta_i` and `delta_j`. The cross-difference vector is:
 
-[
-\mathbf I_{ij}(a,x,e)=
-Y(a,x+\delta_i e_i+\delta_j e_j,e)
--Y(a,x+\delta_i e_i,e)
--Y(a,x+\delta_j e_j,e)
-+Y(a,x,e)
-]
+```
+I_ij(a, x, e) =
+  Y(a, x + delta_i + delta_j, e)
+  - Y(a, x + delta_i, e)
+  - Y(a, x + delta_j, e)
+  + Y(a, x, e)
+```
 
-where (e_i) is the unit vector for stat (i).
+Here each delta changes only its named stat. This comparison isolates the joint response beyond the two isolated changes.
 
 Interpretation per outcome dimension:
 - **complementarity:** the joint change improves a beneficial outcome more than the isolated changes would predict;

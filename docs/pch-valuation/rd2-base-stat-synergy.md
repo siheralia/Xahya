@@ -835,3 +835,162 @@ This recommendation is provisional because the project owner must decide whether
 - **D — Layered:** retain A, B and C as separate linked artifacts and do not collapse them prematurely.
 
 The research protocol recommends D, but this is an explicit owner decision.
+
+
+---
+
+# Addendum A — Exhaustive pair coverage and attribution discipline
+
+This addendum makes the pairwise and higher-order coverage rule explicit. It supplements the preceding taxonomy; it does not replace the need to research each concrete stat/action pair.
+
+## A1. Complete pair space
+
+For any finite set of p base stats, the unordered pair space is every distinct pair (i,j), with i != j. Its size is p(p-1)/2. A pair is not omitted because the two stats belong to distant semantic classes. A pair may be classified as "no known shared action path" or "unknown", but it must not disappear from the inventory.
+
+For each pair, preserve three identities:
+
+- **Stat identity:** the actual stat IDs and inherited class/type facets.
+- **Action identity:** the action family, target kind, operation semantics and temporal mode through which a relationship is hypothesized.
+- **Context identity:** the character-state region, opponent/target properties, environment and ruleset under which the relationship is claimed.
+
+The same stat pair may produce a positive interaction for one action, no interaction for another, and a negative interaction for a third. Therefore an entry such as "Force × Intelligence = positive synergy" is incomplete. The valid statement is "Force × Intelligence has a specified interaction for action A under context E and outcome dimension Y."
+
+## A2. Pair topology classes
+
+When both stats connect to the same action graph, classify the path topology before selecting a mathematical response family.
+
+| Topology | Graph pattern | Candidate interpretation |
+|---|---|---|
+| Parallel independent inputs | Stat A → action; Stat B → action | Additive unless the resolver couples inputs |
+| Convergent inputs | A → common intermediate; B → same intermediate | Redundancy, additive convergence, cap or complementarity |
+| Sequential pipeline | A → stage 1 → stage 2; B → stage 2 | Mediation/pipeline complementarity |
+| Gate + scaler | A → feasibility; B → magnitude | Threshold plus scaling; interaction changes sharply at eligibility boundary |
+| Output + control | A → magnitude; B → precision/reliability | Multiplicative expected output or risk-control interaction |
+| Resource + capability | A → capacity/efficiency; B → action output | Sustainable-use interaction; separate RD7 handoff |
+| Time + capability | A → latency/opportunity window; B → action result | Tempo/action-window interaction; separate RD8 handoff |
+| Competing routes | A or B can independently reach outcome | Substitution/compensation |
+| Opposing routes | A improves outcome; B increases resistance/cost | Contest or antagonism |
+| Shared target constraint | A and B both act on target susceptibility/state | Target-conditional interaction; do not treat target properties as actor stats |
+
+This topology classification is more informative than class labels alone. A physical and cognitive stat may interact strongly if they converge on one task; two physical stats may be nearly independent if they affect disjoint actions.
+
+## A3. Group interactions beyond pairs
+
+Pairwise interactions are not sufficient where an action requires a chain or conjunction of three or more capacities.
+
+Examples:
+- perception + reasoning + knowledge for diagnosis;
+- affinity + control + focus for a stable spell;
+- spatial awareness + motor control + endurance for prolonged traversal;
+- force + coordination + balance for controlled heavy lifting.
+
+RD2 must identify higher-order candidates using action structure:
+- a condition requiring three stats;
+- a pipeline with three dependent stages;
+- an outcome formed by the product or bottleneck of three inputs;
+- a pair interaction that changes sign when a third stat/context variable changes.
+
+Do not add every possible triple automatically. The action/affordance graph should justify which triples have a plausible shared path. The theoretical inventory must nevertheless record whether a triple was examined or explicitly deprioritized.
+
+## A4. Interaction sign and direction
+
+For a fixed action, context, intervention scale and outcome dimension, use this finite-difference notation:
+
+`I(i,j | a,e,y) = Y_y(x+di+dj) - Y_y(x+di) - Y_y(x+dj) + Y_y(x)`
+
+This cross-difference is symmetric in i and j under the same interventions and outcome definition. That does **not** mean causal dependencies are symmetric: A may feed B's derived value while B does not feed A. Record directed causal/path edges separately from the symmetric pair-interaction statistic.
+
+Classify the sign only after orienting the outcome:
+- a positive interaction in damage dealt may be beneficial;
+- a positive interaction in incoming damage, time taken, or resource use may be harmful;
+- one pair can have positive interaction on output and negative interaction on risk.
+
+Keep the full outcome vector until a later valuation direction explicitly chooses trade-offs.
+
+## A5. What does a high stat make harder?
+
+A high stat does not automatically make unrelated actions more difficult. RD2 may record a negative effect only where one of these mechanisms is identified:
+
+1. **Explicit mechanical coupling:** added mass changes movement rate; power changes precision under a specific tool rule.
+2. **Shared finite allocation:** investing in one stat displaces points that could have improved another.
+3. **Resource/temporal burden:** high output consumes more stamina, time or other finite resource.
+4. **Contextual exposure:** a conspicuous or forceful action increases detection/collateral risk in a particular scenario.
+5. **Saturation/over-specialization:** extra capacity no longer improves the chosen task and reduces versatility under a fixed budget.
+6. **Opponent/target response:** a stronger action changes defenses, reactions or counterplay.
+7. **Stat-definition coupling:** one bundled stat actually combines multiple dimensions with internal trade-offs.
+
+The first category is a direct rule relationship; the others may belong partly to RD6, RD7, RD8 or RD9. Each negative effect must be tagged with its owning research direction to prevent double counting.
+
+## A6. Model impact must be reported on two axes
+
+Do not combine:
+- **representational capability:** can the model express the relationship type?
+- **estimated game impact:** how large is the observed/predicted change for the actual stat/action distribution?
+
+For example, a product model has high representational capacity for smooth complementarity, but this does not imply that Force × Coordination has high empirical value in a particular game. The impact remains unknown until the action/output definition, input distribution, intervention scale and evidence are supplied.
+
+The qualitative M0–M8 table in the main document estimates representational capability only. Any later impact estimate must include:
+- the outcome definition;
+- intervention scale;
+- starting-state population;
+- action eligibility/denominator;
+- scenario/target distribution;
+- uncertainty interval;
+- counterfactual baseline.
+
+## A7. Pareto-frontier construction discipline
+
+The frontier is a set of non-dominated **stat packages**, not a ranking of isolated stats.
+
+For a declared budget, compare packages on a vector such as:
+- physical output;
+- accuracy/reliability;
+- survival;
+- control/utility;
+- tempo;
+- mobility;
+- sustained performance;
+- resource use;
+- scenario robustness;
+- breadth of actions unlocked.
+
+Create separate frontiers by action family and context first. Only after those are understood should RD9 consider any normative aggregation across them. A package can be Pareto-optimal for one action family and dominated for another.
+
+The frontier itself is not evidence that a package is balanced or fair. It only describes trade-offs under the specified outcome dimensions and constraints.
+
+## A8. Required pair-review card
+
+Every pair/group investigation must fill one card before it can be called reviewed:
+
+| Field | Required content |
+|---|---|
+| Stat IDs | Exact pair/group; no generic labels alone |
+| Inherited class/type | Primary class, facets and functional types |
+| Measurement scale | Units and chosen intervention normalization |
+| Action identity | Domain, intent, target, arity, operation and temporal semantics |
+| Affordance roles | Gate, scale, control, reliability, sustain, scope, etc. |
+| Path topology | Parallel, convergent, sequential, gate+scale, output+control, alternative routes |
+| Interaction hypotheses | Complementary, bottleneck, substitute, redundant, threshold, antagonistic, etc. |
+| Outcome vector | Exact dimensions affected and desirability orientation |
+| Context | Character-state region, target/opponent, scenario, ruleset |
+| Alternative models | At minimum additive baseline plus the most plausible nonlinear model |
+| Predicted representation | What each model can/cannot represent; no invented numeric results |
+| Evidence state | Code, DB, controlled comparison, test fixture, user report, hypothesis or missing |
+| Relevance | Magnitude, opportunity, criticality, affordance expansion, uniqueness, counterplay, confidence |
+| Other-track ownership | RD1/RD3/RD4/RD5/RD6/RD7/RD8/RD9 overlaps |
+| Decision | Accepted relationship, unresolved hypothesis or deprioritized with reason |
+
+## A9. RD2 stopping rule
+
+RD2 may close only when:
+- the stat ontology is extensible and its class/type inheritance is settled;
+- action classification is orthogonal and has no category/property confusion;
+- all concrete base-stat pairs are accounted for;
+- higher-order interactions are included where the action graph justifies them;
+- every material pair has a scoped pair-review card;
+- candidate models have been compared on common examples;
+- relevance and Pareto analysis remain separate from utility scalarization;
+- double-counting boundaries with RD1/RD3/RD4/RD5/RD6/RD7/RD8/RD9 are approved;
+- the project owner accepts the recommendation.
+
+Until then, RD2 remains open and no synergy coefficient is approved.

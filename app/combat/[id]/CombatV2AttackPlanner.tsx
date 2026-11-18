@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState,type PointerEvent,type MouseEvent} from "react";
 import {Swords,Target,WandSparkles,MoveUpRight,Undo2} from "lucide-react";
 import type {CombatState,Point} from "@/lib/combat/turn-engine";
-import {physicalAttackStart,turnTicks} from "@/lib/combat/turn-engine";
+import {turnTicks} from "@/lib/combat/turn-engine";
 import {battleFieldViewport,fieldPosition,fieldToViewport,previewViewportMove}
  from "@/lib/combat/field-plane";
 
@@ -42,9 +42,8 @@ export default function CombatV2AttackPlanner({
  const foe=state.actors[ownerSide==="PLAYER"?"NPC":"PLAYER"];
  const weapon=source==="MAIN_HAND"?fighter.equippedWeapon:
    source==="OFF_HAND"?fighter.offhandWeapon:undefined;
- const starts=physicalAttackStart(state,ownerSide,source)??{x:.1,y:.5};
- const validPath=path.length>=2&&
-   Math.hypot(path.at(-1)!.x-starts.x,path.at(-1)!.y-starts.y)>.04;
+  const validPath=path.length>=2&&
+   Math.hypot(path.at(-1)!.x-path[0].x,path.at(-1)!.y-path[0].y)>.04;
  const move=order!=="NONE";
  const moveReady=!move||length(step)>=.01&&length(step)<=1.000001;
  const paidAp=move?2:1;
@@ -93,14 +92,15 @@ export default function CombatV2AttackPlanner({
    if(!canOrder)return;
    drawing.current=true;
    const to=point(e);
-   setPath([{...starts},to]);
-   e.currentTarget.setPointerCapture(e.pointerId);
+   setPath([to,to]);
+   try{e.currentTarget.setPointerCapture(e.pointerId);}
+   catch{/* Some touch browsers do not support pointer capture. */}
  };
  const extend=(e:PointerEvent<HTMLDivElement>)=>{
    if(!drawing.current||!canOrder)return;
    const to=point(e);
    setPath(prev=>{
-     if(prev.length<2)return [{...starts},to];
+     if(prev.length<2)return [prev[0]??to,to];
      const last=prev.at(-1)!;
      if(Math.hypot(last.x-to.x,last.y-to.y)>.06&&prev.length<16)
        return [...prev,to];
@@ -186,7 +186,7 @@ export default function CombatV2AttackPlanner({
            <Undo2 size={13}/> Borrar
          </button>
        </div>
-       <div role="application" aria-label="Dibuja una trayectoria desde el arma hacia el punto de impacto"
+       <div role="application" aria-label="Dibuja un ataque comenzando en cualquier punto del plano"
          className="h-44 w-full touch-none overflow-hidden rounded-lg border border-dashed border-cyan-700 bg-zinc-900"
          onPointerDown={start} onPointerMove={extend}
          onPointerUp={finish} onPointerCancel={()=>{drawing.current=false;}}>
@@ -195,8 +195,8 @@ export default function CombatV2AttackPlanner({
              <line x1={i*25} y1="0" x2={i*25} y2="100"/>
              <line x1="0" y1={i*25} x2="100" y2={i*25}/>
            </g>)}
-           <circle cx={starts.x*100} cy={starts.y*100} r="2.5"
-             stroke="#fff" strokeWidth=".8" fill="#22d3ee"/>
+           {path.length>0&&<circle cx={path[0].x*100} cy={path[0].y*100} r="2.5"
+             stroke="#fff" strokeWidth=".8" fill="#22d3ee"/>}
            {path.length>=2&&<>
              <polyline points={path.map(p=>p.x*100+","+p.y*100).join(" ")}
                fill="none" stroke="#22d3ee" strokeWidth="2.3"
@@ -209,7 +209,7 @@ export default function CombatV2AttackPlanner({
        <p className="mt-2 text-xs text-zinc-400">
          {validPath?"Trayectoria lista · "+path.length+" puntos":
            "Traza con el dedo desde cualquier punto del recuadro hacia el objetivo."}
-         {" "}El punto inicial se fija automáticamente en tu arma.
+         {" "}Elige el inicio libremente; el alcance y el contacto se validan al resolver.
        </p>
      </div>
      <div className="rounded-lg border border-zinc-700 p-3">

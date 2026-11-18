@@ -65,3 +65,21 @@ test("the temporary V2 input starts strokes at the touch point, not a saved endp
  assert.match(ui,/touch-none/);
  assert.match(ui,/Elige el inicio libremente/);
 });
+
+test("V2 correctly narrates zero damage caused by no physical contact",()=>{
+ const c=newCombatState(fighter("Player",0),fighter("NPC",.5),"PLAYER",true);
+ let clock=newContinuousCombatTimeline(39,39);
+ clock=reserve(clock,"PLAYER","miss","ATTACK",10);
+ clock=reserve(clock,"NPC","waiting","WAIT",100);
+ const batch=completeNextTimelineBatch(clock);
+ const missed={...draw({x:.05,y:.05}),
+  trajectory:[{x:.05,y:.05},{x:.1,y:.1}]};
+ const effect=simulateBasicPhysicalTimelineHit(c,batch.state,
+  batch.events[0],missed,dice,dice);
+ const result=effect.logs?.find(entry=>entry.kind==="RESOLVE");
+ assert.ok(result);
+ assert.equal(result.contact,false);
+ assert.equal(result.damage,0);
+ assert.match(result.summary,/no alcanzó a/);
+ assert.doesNotMatch(result.summary,/impactó a/);
+});

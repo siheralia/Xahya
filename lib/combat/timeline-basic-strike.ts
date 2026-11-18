@@ -11,7 +11,7 @@ import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
  * it as a generic resolver for spells, summons, structures or a live API.
  */
 import {
-  applyCombatCommand,weaponForSource,defaultAttackSource,
+  applyCombatCommand,weaponForSource,defaultAttackSource,effectiveWeaponReachMeters,
   type CombatCommand,type CombatState,type Side,
 } from "./turn-engine.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
@@ -151,10 +151,49 @@ export function simulateBasicPhysicalTimelineHit(
  };
  const slot=activeBlockSlot(combat,clock,target,event.endsAtTick);
  const shadow=isolatePhysicalShadow(combat,attacker,event.endsAtTick);
+ // A dodge moves DURING an attack's already-authorized interval. The V1
+ // attack was valid against the defender at declaration, but the defender
+ // may have left maximum reach by its completion tick. Reconstruct only the
+ // part of server-frozen dodge travel DURING this attack for launch range
+ // validation. Never give an originally out-of-range attack a free hit.
+ const targetAtImpact=fieldPosition(shadow.actors[target]);
+ const attackerAtImpact=fieldPosition(shadow.actors[attacker]);
+ const during=clock.events.filter(e=>e.kind==="REACT"&&e.owner===target&&
+   e.status!=="INTERRUPTED"&&e.evasionVector&&
+   e.startsAtTick<event.endsAtTick&&e.endsAtTick>event.startsAtTick);
+ const drift=during.reduce((sum,e)=>{
+   const overlap=Math.max(0,Math.min(event.endsAtTick,e.endsAtTick)-
+     Math.max(event.startsAtTick,e.startsAtTick));
+   const fraction=overlap/(e.endsAtTick-e.startsAtTick);
+   return {x:sum.x+e.evasionVector!.x*fraction,
+     y:sum.y+e.evasionVector!.y*fraction};
+ },{x:0,y:0});
+ const startRangeTarget={x:targetAtImpact.x-drift.x,
+   y:targetAtImpact.y-drift.y};
+ const maxReach=effectiveWeaponReachMeters(shadow.actors[attacker],false,source);
+ const impactDistance=Math.hypot(attackerAtImpact.x-targetAtImpact.x,
+   attackerAtImpact.y-targetAtImpact.y);
+ const startDistance=Math.hypot(attackerAtImpact.x-startRangeTarget.x,
+   attackerAtImpact.y-startRangeTarget.y);
+ const escapedReach=!projectile&&!composite&&during.length>0&&
+   impactDistance>maxReach+1e-8&&startDistance<=maxReach+1e-8;
+ if(escapedReach){
+   // The original V1 launch uses a legal starting target. The original
+   // V1 DEFEND must then evaluate the ACTUAL position at impact. We only
+   // annotate the server-owned pending attack to prevent false contact.
+   shadow.actors[target].fieldPosition={...startRangeTarget};
+   shadow.actors[target].positionMeters=startRangeTarget.x;
+ }
  const launched=applyCombatCommand(shadow,attacker,attack,attackDice);
+ if(escapedReach&&launched.pending){
+   launched.actors[target].fieldPosition={...targetAtImpact};
+   launched.actors[target].positionMeters=targetAtImpact.x;
+   launched.pending.beyondMaximumRangeAtImpact=true;
+ }
  if(!launched.pending||launched.pending.against!==target)
    throw new Error("El golpe no produjo un impacto básico al rival.");
  const resolved=applyCombatCommand(launched,target,
+   escapedReach?{kind:"DEFEND",defense:"NONE"}:
    slot?{kind:"DEFEND",defense:"BLOCK",weaponSlot:slot}:preparedDefense,defenseDice);
  if(resolved.pending)
    throw new Error("El golpe dejó otro ataque sin resolver.");
@@ -226,7 +265,9 @@ export function simulateBasicPhysicalTimelineHit(
  }
  const logs=resolved.log.filter(x=>x.kind!=="ROUND"&&x.kind!=="END")
    .map(entry=>({...entry,tick:event.endsAtTick,
-     summary:entry.summary.replace(/; esperando reacción$/,"")}));
+     summary:entry.kind==="RESOLVE"&&entry.contact===false&&entry.damage===0
+       ?entry.summary.replace(" impactó a "," no alcanzó a ")
+       :entry.summary.replace(/; esperando reacción$/,"")}));
  const defenderMana=(combat.mana?.[target]?.current??0)-
    (resolved.mana?.[target]?.current??0);
  if(!Number.isSafeInteger(defenderMana)||defenderMana<0||

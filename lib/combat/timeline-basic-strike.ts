@@ -63,6 +63,11 @@ export function isolatePhysicalShadow(original:CombatState,attacker:Side):Combat
  // Reusing round one here would mis-rotate a hostile chaos field.
  shadow.round=original.round;shadow.tick=(original.round-1)*100;
  shadow.pending=null;shadow.timelineMode=undefined;
+ // V2 strokes are independent gestures: the V1 shadow still enforces contact,
+ // equipment and range, but must not inherit V1-only endpoint continuity.
+ // Do not alter the persisted V1 engine or the other fighter's endpoints.
+ if(shadow.physicalPathEnd)delete shadow.physicalPathEnd[attacker];
+ if(shadow.physicalPathEnds)delete shadow.physicalPathEnds[attacker];
  // Retain real round for chaos while ensuring V1's alternating opener
  // cannot reject the server-authorized V2 strike on even rounds.
  shadow.tieOpener=shadow.round%2===1?attacker:other(attacker);

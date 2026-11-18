@@ -8,7 +8,7 @@ Fecha de auditoría: 18 de noviembre de 2026. Base auditada: main @ 615bb8f29303
 
 - Confirmado por lectura del código de main: componentes, rutas, reglas y pruebas que se citan abajo.
 - Pendiente: contraste visual real con navegador en teléfono y ordenador; no se afirma haber hecho pruebas humanas.
-- Pendiente: identificar con autorización el último encuentro V2 de la usuaria y obtener su log; no se infiere una causa de daño cero.
+- Verificado con consulta de solo lectura a la base de Xahya: encuentro V2 #90 (Sarya Athos, entrenamiento elfo, 18-11-2026, 12:51 hora central). Tres ataques con daño 0 por contact=false y defensa NONE. La trayectoria y tiradas históricas no están disponibles para discriminar entre los submotivos del fallo de contacto.
 - Sin cambios de producción. Toda migración de la interfaz necesita PR y verificación visual antes de cambiar el selector.
 
 ## Inventario comparativo de interfaz
@@ -75,13 +75,14 @@ El planificador V2 ya registra eventos absolutos en action-timeline.ts:104–168
 - Solo en el planner experimental todavía activo: la trayectoria comienza en el lugar del pointerdown, y su marcador inicial sigue ese punto. Se evita un fallo de captura de puntero en ciertos navegadores táctiles.
 - El motor legacy turn-engine.ts, CombatEncounter.tsx y el selector page.tsx no se modifican; V1 conserva su política vigente hasta que se apruebe la experiencia temporal.
 - Prueba nueva: tests/combat-v2-free-stroke-origin.test.mjs; compara rechazo de V1 y aceptación de dos trazos con comienzos independientes en V2.
+- Los nuevos logs de golpes físicos V2 cambian «impactó» por «no alcanzó» cuando un RESOLVE tiene contact=false y damage=0; jamás alteran daño, contacto ni los logs V1. Se añade un test de narración de golpes fallados.
 - Este cambio no representa la restauración visual. No autoriza fusionar ni publicar la pantalla experimental como solución terminada.
 
 ## Investigación obligatoria del daño cero
 
-El registro CombatLog soporta campos contact, damage, defense, mitigatedByResistance, damageChannels y otros. CombatV2Encounter.tsx:254–263 solo imprime summary y tick, omitiendo muchos datos aunque estén en la respuesta. Por ahora **no sabemos** si los golpes reportados fallaron, fueron mitigados o si hubo un defecto.
+El registro CombatLog soporta contact, damage, defense, mitigatedByResistance, damageChannels y otros. CombatV2Encounter.tsx:254–263 solo imprime summary y tick, omitiendo muchos datos. La lectura de la tabla pública combatSession confirma en el encuentro #90 tres RESOLVE de Sarya con Mandoble de Acero Negro: ticks 17, 34 y 51; cada uno tiene damage=0, contact=false, defense=NONE, mitigatedByResistance=0 y summary incorrecto «Sarya Athos impactó … (0 HP)». Los dos golpes contundentes del elfo en ticks 34 y 68 sí tienen contact=true y causan 9 HP cada uno. El V2 clock conserva 8 eventos (incluye invocación en tick 68); las declaraciones históricas ya no están presentes.
 
-Procedimiento con acceso autorizado: localizar el último CombatSession de V2 correspondiente al usuario, leer combatV1.log y combatV2.clock/receipts, correlacionar las declaraciones con los eventos RESOLVE por tick y side, contrastar con vida/equipo/posición y emitir causa verificable por impacto. No adivinar ID, atacante ni explicación.
+**Conclusión comprobada**: los tres ceros NO proceden de bloqueo ni absorción por resistencia; el resolver descartó el contacto. Además hay una incoherencia verificable de narración, corregida para futuros golpes físicos V2 en esta rama. **Limitación**: no se guardó en el log público la trayectoria ni tiradas necesarias para saber si cada contact=false se debió a geometría, condición de alcance o tirada; no imputar causalidad más específica sin evidencia. Los registros históricos del #90 no se reescriben. La futura vista V1+reloj debe mostrar el campo contact explícitamente y no confiar únicamente en summary.
 
 ## Secuencia de PR y aceptación
 
@@ -100,7 +101,7 @@ Procedimiento con acceso autorizado: localizar el último CombatSession de V2 co
 - Ejecutar npm test, TypeScript, lint y build (no ejecutados en esta auditoría remota).
 - Validar visualmente 375 px móvil, escritorio y gestos táctiles reales; comprobar ausencia de scroll horizontal.
 - Inventariar cada habilidad concreta de V1 que aún no puede lanzarse por la API temporal.
-- Localizar el último encuentro humano y explicar cero daño con registros.
+- Mantener una explicación estructurada de contact=false, defensa, resistencia y demás motivos en la vista recuperada; la consulta del #90 y la contradicción de la narración ya están documentadas. Queda pendiente explicar los submotivos exactos, que el historial no conserva.
 - Confirmar preservación de privacidad PvP y costo de recursos en reintentos/reconexiones.
 - No fusionar main ni activar despliegues automáticos por esta auditoría.
 

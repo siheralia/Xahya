@@ -1587,6 +1587,35 @@ export function basicCounterAttack(state:CombatState,side:Side,preferMagic=false
  }
  return magic?spell():null;
 }
+/**
+ * Exactly the V1 directional dodge trajectory, extracted for the shared
+ * scheduler. LEGACY still moves only after a successful evasion; scheduled
+ * reactions reserve this same measured path at declaration and traverse it
+ * continuously over their real tick interval.
+ */
+export function plannedV1DodgeMovement(
+ state:CombatState,by:Side,direction:"AWAY"|"TOWARD"|"WEAPON",
+ weaponSlot?:"MAIN_HAND"|"OFF_HAND",targetPositionMeters=state.actors[other(by)].positionMeters,
+):Point{
+ if(!SIDES.includes(by)||!["AWAY","TOWARD","WEAPON"].includes(direction))
+   throw new Error("Dirección de esquive inválida.");
+ const fighter=state.actors[by];
+ const dropped=activeDroppedWeapon(state,by,weaponSlot);
+ if(direction==="WEAPON"&&!dropped)
+   throw new Error("No hay arma arrojada hacia la cual esquivar.");
+ const target=direction==="WEAPON"?dropped!.positionMeters:targetPositionMeters;
+ const sign=Math.sign(target-fighter.positionMeters)||1;
+ const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
+ const from=fieldPosition(fighter);
+ const vector=distortChaosMove(state,by,
+   direction==="WEAPON"&&dropped
+     ?vectorTowardDroppedWeapon(fighter,dropped,0.5)
+     :{x:sign*(direction==="AWAY"?-0.5:step),y:0});
+ assertMovementClear(state.constructions,from,
+   {x:from.x+vector.x,y:from.y+vector.y});
+ return vector;
+}
+
 export function applyCombatCommand(original: CombatState, by: Side, command: CombatCommand,
   rolls: {hit:number; critical:number; defense:number} = {hit:0.5,critical:0.5,defense:0.5},
   serverSkillRangeMeters?:number,
@@ -1929,23 +1958,13 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       if (!avoided) damageScale = 0.85;
     }
     if(defense==="DODGE"&&avoided&&command.dodgeDirection){
-      const direction=command.dodgeDirection;
-      if(!["AWAY","TOWARD","WEAPON"].includes(direction))throw new Error("Dirección de esquive inválida.");
       const dropped=activeDroppedWeapon(state,by,command.weaponSlot);
-      if(direction==="WEAPON"&&!dropped)throw new Error("No hay arma arrojada hacia la cual esquivar.");
-      const target=direction==="WEAPON"?dropped!.positionMeters:attacker.positionMeters;
-      const sign=Math.sign(target-fighter.positionMeters)||1;
-      const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
-      const from=fieldPosition(fighter);
-      const vector=distortChaosMove(state,by,
-        direction==="WEAPON"&&dropped
-          ?vectorTowardDroppedWeapon(fighter,dropped,0.5)
-          :{x:sign*(direction==="AWAY"?-0.5:step),y:0});
-      assertMovementClear(state.constructions,from,
-        {x:from.x+vector.x,y:from.y+vector.y});
+      const vector=plannedV1DodgeMovement(state,by,command.dodgeDirection,
+        command.weaponSlot,attacker.positionMeters);
       moveFighterOnField(fighter,vector);
       clearPhysicalStrokes(state,by);
-      if(direction==="WEAPON"&&dropped&&droppedWeaponDistance(fighter,dropped)<0.2){
+      if(command.dodgeDirection==="WEAPON"&&dropped&&
+         droppedWeaponDistance(fighter,dropped)<0.2){
         restoreWeapon(state,dropped);
       }
     }

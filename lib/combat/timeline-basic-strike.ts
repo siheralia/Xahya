@@ -57,12 +57,17 @@ export function activeBlockSlot(
  return block.blockToolSlot;
 }
 
-export function isolatePhysicalShadow(original:CombatState,attacker:Side):CombatState{
+export function isolatePhysicalShadow(original:CombatState,attacker:Side,
+ scheduledTick?:number):CombatState{
  const shadow=structuredClone(original);
  // V2's prepared batch already crossed every intervening round boundary.
  // Reusing round one here would mis-rotate a hostile chaos field.
- shadow.round=original.round;shadow.tick=(original.round-1)*100;
- shadow.pending=null;shadow.timelineMode=undefined;
+ shadow.round=original.round;shadow.tick=scheduledTick??(original.round-1)*100;
+ shadow.pending=null;
+ // When the scheduler supplies the completion tick, the SAME V1 rules use
+ // absolute event time instead of consuming a personal 100-tick balance.
+ // Existing callers without a completion tick retain their legacy shadow.
+ shadow.timelineMode=scheduledTick===undefined?undefined:"SCHEDULED";
  // Retain real round for chaos while ensuring V1's alternating opener
  // cannot reject the server-authorized V2 strike on even rounds.
  shadow.tieOpener=shadow.round%2===1?attacker:other(attacker);
@@ -145,7 +150,7 @@ export function simulateBasicPhysicalTimelineHit(
    PLAYER:weaponCopies(combat,"PLAYER"),NPC:weaponCopies(combat,"NPC"),
  };
  const slot=activeBlockSlot(combat,clock,target,event.endsAtTick);
- const shadow=isolatePhysicalShadow(combat,attacker);
+ const shadow=isolatePhysicalShadow(combat,attacker,event.endsAtTick);
  const launched=applyCombatCommand(shadow,attacker,attack,attackDice);
  if(!launched.pending||launched.pending.against!==target)
    throw new Error("El golpe no produjo un impacto básico al rival.");

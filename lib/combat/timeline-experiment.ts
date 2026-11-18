@@ -30,12 +30,20 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
    if(!keys(raw,["kind"]))return wrong();
    return {kind:"WAIT"};
  case "MOVE":
-   if(!keys(raw,["kind","meters","direction","weaponSlot"])||
+   if(!keys(raw,["kind","meters","direction","weaponSlot","planarMove"])||
      typeof raw.meters!=="number"||!Number.isFinite(raw.meters)||
-     raw.meters<=0||raw.meters>20||
-     !["TOWARD","AWAY","WEAPON"].includes(String(raw.direction))||
+     raw.meters<0||raw.meters>20||
+     !["TOWARD","AWAY","WEAPON","VECTOR"].includes(String(raw.direction))||
      raw.weaponSlot!==undefined&&
-       !["MAIN_HAND","OFF_HAND"].includes(String(raw.weaponSlot)))
+       !["MAIN_HAND","OFF_HAND"].includes(String(raw.weaponSlot))||
+     (raw.direction==="VECTOR"
+       ?!object(raw.planarMove)||!keys(raw.planarMove,["x","y"])||
+        typeof raw.planarMove.x!=="number"||typeof raw.planarMove.y!=="number"||
+        !Number.isFinite(raw.planarMove.x)||!Number.isFinite(raw.planarMove.y)||
+        Math.hypot(raw.planarMove.x,raw.planarMove.y)<.01||
+        Math.hypot(raw.planarMove.x,raw.planarMove.y)>1.000001||
+        Math.abs(Math.hypot(raw.planarMove.x,raw.planarMove.y)-raw.meters)>.02
+       :raw.planarMove!==undefined))
      return wrong();
    return raw as TimelineCombatCommand;
  case "GUARD":
@@ -131,7 +139,7 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
         raw.areaAngleDegrees<0||raw.areaAngleDegrees>=360)||
      raw.trajectory!==undefined&&
        (!Array.isArray(raw.trajectory)||raw.trajectory.length<2||
-        raw.trajectory.length>16||!raw.trajectory.every(position))||
+        raw.trajectory.length>80||!raw.trajectory.every(position))||
      (p===undefined)!==(raw.movementOrder===undefined)||
      raw.movementOrder!==undefined&&
        !["BEFORE","AFTER"].includes(String(raw.movementOrder))||
@@ -173,7 +181,7 @@ export function parseExperimentalV2Command(raw:unknown):TimelineCombatCommand{
 
      raw.trajectory!==undefined&&
        (!Array.isArray(raw.trajectory)||raw.trajectory.length<2||
-        raw.trajectory.length>16||!raw.trajectory.every(position))||
+        raw.trajectory.length>80||!raw.trajectory.every(position))||
      heights!==undefined&&
        (!object(heights)||!keys(heights,["launchMeters","impactMeters","arcRiseMeters"])||
         typeof heights.launchMeters!=="number"||

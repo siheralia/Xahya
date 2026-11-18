@@ -16,6 +16,7 @@ import {combatWeaponOperational} from "@/lib/combat/weapon-readiness";
 import {offhandArmorShield} from "@/lib/items/combat-wearables";
 import {combatChargeBalance} from "@/lib/combat/charge-pools";
 import {combatResourceRequestKey} from "@/lib/combat/resource-request-key";
+import {projectTimelineToV1,v1IntentToTimeline,type SharedClockDisplay} from "@/lib/combat/v1-temporal-client";
 import {summarizeIncomingDamage} from "@/lib/combat/incoming-damage";
 import {activeChaosField,chaosRotationDegrees} from "@/lib/combat/chaos-fusion";
 import {friendlyMicroKey} from "@/lib/effects/micro-labels";
@@ -29,7 +30,7 @@ import {
   type CombatCommand, type CombatState, type DefenseChoice, type PhysicalAttackSource, type Point, type Side,
 } from "@/lib/combat/turn-engine";
 
-type View = {state:CombatState;karma?:Partial<Record<Side,number>>;
+type View = {state:CombatState;timeline?:SharedClockDisplay;karma?:Partial<Record<Side,number>>;
  boostStats?:Array<{key:string;label:string}>;permissions:{PLAYER:boolean;NPC:boolean};
  canMove:{PLAYER:boolean;NPC:boolean}};
 const options: Array<{value:DefenseChoice,label:string,description:string}> = [
@@ -103,7 +104,8 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
   </div>
  </div>;
 }
-export default function CombatEncounter({id}:{id:string}) {
+export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEGACY"|"TIMELINE"}) {
+ const temporal=mode==="TIMELINE";
  const [view,setView]=useState<View|null>(null);
  const [hudOpen,setHudOpen]=useState(false);
  const [opponentInView,setOpponentInView]=useState(true);
@@ -119,6 +121,8 @@ export default function CombatEncounter({id}:{id:string}) {
  const lastNpcAdvance=useRef("");
  const [dataSaver,setDataSaver]=useState(false);
  const snapshotEtag=useRef<string|null>(null);
+ // Late polls may not overwrite an accepted action response.
+ const snapshotSequence=useRef(0);
  useEffect(()=>{
   try{setDataSaver(window.localStorage.getItem("xahya:combat:data-saver")==="1");}
   catch{/* Private browsing may disable storage; the toggle still works. */}
@@ -197,14 +201,19 @@ export default function CombatEncounter({id}:{id:string}) {
  // a new ID after the server response updates the snapshot.
  const actionRequestRef=useRef<{key:string;id:string}|null>(null);
  const load=useCallback(async()=>{
+  const sequence=++snapshotSequence.current;
   try {
    const headers:Record<string,string>={};
    if(snapshotEtag.current)headers["If-None-Match"]=snapshotEtag.current;
-   const r=await fetch("/api/combat/"+id+"/actions",{cache:"no-store",headers});
+   const endpoint="/api/combat/"+id+(temporal?"/timeline":"/actions");
+   const r=await fetch(endpoint,{cache:"no-store",headers});
+   if(sequence!==snapshotSequence.current)return;
    // An unchanged encounter is a header-only response, not an error or JSON.
    if(r.status===304)return;
-   const data=await r.json();
-   if(!r.ok)throw new Error(data.error??"Error al consultar el combate.");
+   const payload=await r.json();
+   if(!r.ok)throw new Error(payload.error??"Error al consultar el combate.");
+   const data:View=temporal?projectTimelineToV1(payload):payload;
+   if(sequence!==snapshotSequence.current)return;
    snapshotEtag.current=r.headers.get("etag");
    setView(previous=>previous?.state.status==="FINISHED"&&data.state.status!=="FINISHED"?previous:data);
    if(!data.permissions.PLAYER&&data.permissions.NPC)setSide("NPC");
@@ -218,7 +227,7 @@ export default function CombatEncounter({id}:{id:string}) {
    if(key)lastResolution.current=key;
    // A successful background poll must never erase a rejected player action.
   }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar el combate.");}
- },[id]);
+ },[id,temporal]);
  const onConstructionMaterialsChange=useCallback((owner:Side,materials:string[])=>{
   setConstructionMaterials(previous=>({...previous,[owner]:materials}));
  },[]);
@@ -284,19 +293,31 @@ export default function CombatEncounter({id}:{id:string}) {
   }
   setBusy(true);setError("");setActionFeedback("");
   try {
-   const r=await fetch("/api/combat/"+id+"/actions",{
+   const commandPayload=temporal?v1IntentToTimeline(outgoing):outgoing;
+   const requestId=outgoing.requestId??crypto.randomUUID();
+   // The timeline route authenticates its owner; the browser's side is never
+   // used as authority. An old V1 encounter keeps its original protocol.
+   const endpoint="/api/combat/"+id+(temporal?"/timeline":"/actions");
+   ++snapshotSequence.current;
+   const r=await fetch(endpoint,{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({side,command:outgoing}),
+    body:JSON.stringify(temporal
+      ?{command:commandPayload,requestId}
+      :{side,command:commandPayload}),
    });
    const data=await r.json();
    if(!r.ok)throw new Error(data.error??"Acción rechazada");
-   setView(v=>v?{...v,state:data.state}:v);
+   snapshotEtag.current=null;
+   const nextView:View|null=temporal?projectTimelineToV1(data):null;
+   setView(v=>nextView??(v?{...v,state:data.state}:v));
    // Basic actions also need immediate outcome feedback. Previously only
    // skills, consumables and karma showed a response near the controls.
    if(["MOVE","WAIT","ATTACK","DEFEND","COMMAND_SUMMON"].includes(command.kind)){
     const before=snapshot?.log.at(-1);
     const latest=(data.state as CombatState).log.at(-1);
-    if(latest&&(!before||before.tick!==latest.tick||before.summary!==latest.summary))
+    if(temporal&&data.batches===0)
+     setActionFeedback("Acción reservada en el reloj. Se resolverá cuando corresponda.");
+    else if(latest&&(!before||before.tick!==latest.tick||before.summary!==latest.summary))
      setActionFeedback("Resultado reciente: "+latest.summary);
    }
    if(["MOVE","WAIT","ATTACK","DEFEND","COMMAND_SUMMON"].includes(command.kind)){

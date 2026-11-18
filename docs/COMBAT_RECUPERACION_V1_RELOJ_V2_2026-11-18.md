@@ -29,6 +29,24 @@ Fecha de auditoría: 18 de noviembre de 2026. Base auditada: main @ 615bb8f29303
 
 Importante: el inventario anterior describe funcionalidad observable en el código, no garantiza su corrección en producción. V1 tampoco debe modificarse de forma destructiva.
 
+## Contrato de órdenes V1 frente a V2: diferencias concretas verificadas
+
+La tabla siguiente compara el tipo `CombatCommand` de `turn-engine.ts:211–225` con el parser autorizado de `timeline-experiment.ts:26–190` (este parser procesa las órdenes V2 que llegan por la API). **La ausencia en el parser es una brecha verificable, no una conclusión sobre si algún efecto similar puede ocurrir automáticamente.**
+
+| Entrada V1 | V2 autorizada actualmente | Riesgo / clasificación |
+|---|---|---|
+| MOVE TOWARD, AWAY, WEAPON y VECTOR con plano | Solo TOWARD, AWAY, WEAPON; **VECTOR/planarMove rechazado** | El trazo de desplazamiento de CombatTopDownPlane no se puede conectar directamente; migración pendiente (2) |
+| WAIT | WAIT | Compatible, pero ahora cede tiempo a límite de ronda; cambio temporal esperado (1) |
+| BOOST_KARMA con allocation | **No existe caso BOOST_KARMA en el parser**, aunque el compilador temporal sí conoce KARMA | Funcionalidad V1 inaccesible mediante API V2; regresión (3) |
+| USE_ITEM con objeto y copia opcional | USE_ITEM con copia y requestId obligatorios | Compatible condicionado a copia válida; adaptar selector y validar inventario (2) |
+| COMMAND_SUMMON: ACT, ATTACK, MOVE, CHANGE_BEHAVIOR, CHANGE_TARGET | Solo MOVE, CHANGE_BEHAVIOR, CHANGE_TARGET | Orden manual de ataque/ACT no admitida; migración pendiente (2) |
+| ATTACK con trayectoria, proyectil, movimiento, objetivos criatura/espejo | ATTACK general sí; **targetSummonId y targetConstructionId no admitidos** | Selección de objetivo V1 perdida; regresión funcional (3) |
+| ATTACK con hasta 80 puntos de trayectoria (motor V1) | Parser V2 impone máximo **16 puntos** | Pérdida de fidelidad del dibujo; restricción no solicitada (4) |
+| DEFEND: BLOCK, DODGE, ENDURE, REPEL, DEFLECT, MAGIC_FIELD, CONSTRUCTION, COUNTER, NONE | No admite DEFEND; reacciones anticipadas DODGE, ENDURE, REPEL, DEFLECT, MAGIC_FIELD, COUNTER; GUARD equivale a guardia equipada | Necesita adaptador temporal (1); CONSTRUCTION, bloqueo sin equipo y NONE requieren tratamiento explícito (2) |
+| CAST_SKILL con ataque, área, construcción, cargas y objetivo criatura/espejo | CAST_SKILL aprobada con áreas, construcciones y cargas; **sin targetSummonId/targetConstructionId** | Recuperar los objetivos de V1 y contrastar categoría por categoría (2/3) |
+
+Es importante no introducir estos comandos por simple relajación del parser: hay que actualizar también la compilación de intenciones, autorizaciones, ejecución atómica, validación de objetivos, privacidad PvP y pruebas, manteniendo los costes PA/maná/tiempo correctos.
+
 ## Mecánicas comparadas: decisiones y pendientes
 
 | Mecánica | Reutilización o implementación hallada | Clasificación |

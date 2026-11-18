@@ -26,6 +26,8 @@ export interface TimelineEvent {
   /** The exact item copy being held, not an item catalog definition. */
   blockToolCopyId?: number;
   blockToolSlot?: "MAIN_HAND" | "OFF_HAND";
+  /** Frozen V1 dodge delta. The world interpolates it at every hit tick. */
+  evasionVector?:{x:number;y:number};
   /** Server-reserved travel ticks, added after attack wind-up for ranged shots. */
   projectileFlightTicks?: number;
   /** Frozen server-measured world geometry, not public UI inputs. */
@@ -62,6 +64,7 @@ export type TimelineIntent = {
   paCost: number;
   blockToolCopyId?: number;
   blockToolSlot?: "MAIN_HAND" | "OFF_HAND";
+  evasionVector?:{x:number;y:number};
   projectileFlightTicks?: number;
   projectileOrigin?:{x:number;y:number};
   projectileTarget?:{x:number;y:number};
@@ -123,6 +126,12 @@ export function queueTimelineAction(
     throw new Error("Solo BLOQUEAR puede reservar una mano equipada.");
   if(intent.kind!=="BLOCK"&&intent.blockToolCopyId!==undefined)
     throw new Error("Solo BLOQUEAR puede reservar una copia de equipo.");
+  if(intent.evasionVector!==undefined&&
+    (intent.kind!=="REACT"||
+     !Number.isFinite(intent.evasionVector.x)||
+     !Number.isFinite(intent.evasionVector.y)||
+     Math.hypot(intent.evasionVector.x,intent.evasionVector.y)>1.000001))
+    throw new Error("La trayectoria evasiva no procede de una reacción válida.");
   const worldPoint=(p:{x:number;y:number}|undefined)=>!!p&&
     Number.isFinite(p.x)&&Number.isFinite(p.y)&&
     Math.abs(p.x)<=1_000_000&&Math.abs(p.y)<=1_000_000;
@@ -160,6 +169,7 @@ export function queueTimelineAction(
       ?{blockToolCopyId:intent.blockToolCopyId}:{}),
     ...(intent.kind==="BLOCK"&&intent.blockToolSlot!==undefined
       ?{blockToolSlot:intent.blockToolSlot}:{}),
+    ...(intent.evasionVector!==undefined?{evasionVector:{...intent.evasionVector}}:{}),
     ...(intent.projectileFlightTicks!==undefined
       ?{projectileFlightTicks:intent.projectileFlightTicks,
         projectileOrigin:{...intent.projectileOrigin!},

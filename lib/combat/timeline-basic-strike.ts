@@ -226,7 +226,11 @@ export function simulateBasicPhysicalTimelineHit(
  }
  const logs=resolved.log.filter(x=>x.kind!=="ROUND"&&x.kind!=="END")
    .map(entry=>({...entry,tick:event.endsAtTick,
-     summary:entry.summary.replace(/; esperando reacción$/,"")}));
+     // V1's legacy formatter can say "impactó (0 HP)" even when contact is
+     // explicitly false. Correct only the V2 replay text, never the math.
+     summary:(entry.kind==="RESOLVE"&&entry.contact===false&&entry.damage===0
+       ?entry.summary.replace(" impactó a "," no alcanzó a ")
+       :entry.summary).replace(/; esperando reacción$/,"")}));
  const defenderMana=(combat.mana?.[target]?.current??0)-
    (resolved.mana?.[target]?.current??0);
  if(!Number.isSafeInteger(defenderMana)||defenderMana<0||

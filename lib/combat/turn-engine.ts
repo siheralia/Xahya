@@ -962,7 +962,7 @@ function spend(state:CombatState,f: CombatFighter, ticks: number) {
 /** Timestamp in the sole V1 rule engine, selected by its time policy. */
 function actionClockTick(state:CombatState,actor:CombatFighter):number {
   return state.timelineMode==="SCHEDULED"
-    ?state.tick:actionClockTick(state,actor);
+    ?state.tick:(state.round-1)*LIMIT+actor.spentTicks;
 }
 /** Summons are encounter actors, but all orders spend their owner's PA/ticks.
  * No automatic free actions are created by merely owning seven creatures.

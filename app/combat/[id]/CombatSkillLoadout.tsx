@@ -21,7 +21,7 @@ const actionNames:Record<string,string>={
 };
 
 export default function CombatSkillLoadout({
- encounterId,side,authorized,canUseSkill,canUseAttackSkill,busy,round,mana,cooldowns,chargeState,onCast,onPrepareArea,preparedAreaSkillId,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,constructionDistanceMeters,
+ encounterId,side,authorized,canUseSkill,canUseAttackSkill,busy,round,mana,cooldowns,chargeState,onCast,onPrepareArea,preparedAreaSkillId,aimMode,magicAimReady,constructionAimReady,onConstructionMaterialsChange,onConstructionSkillsChange,categoryFilter,distanceMeters,constructionDistanceMeters,temporal=false,
 }:{encounterId:string;side:Side;authorized:boolean;
  canUseSkill:boolean;canUseAttackSkill:boolean;busy:boolean;round:number;mana:number|null;cooldowns:Record<string,number>;
  chargeState?:CombatState|null;
@@ -30,7 +30,7 @@ export default function CombatSkillLoadout({
  aimMode:"PHYSICAL"|"MAGIC_AREA";magicAimReady:boolean;constructionAimReady:boolean;
  onConstructionMaterialsChange:(side:Side,materials:string[])=>void;
  onConstructionSkillsChange?:(side:Side,skills:CombatSkillPreview[])=>void;
- categoryFilter?:string|null;distanceMeters?:number;constructionDistanceMeters?:number}) {
+ categoryFilter?:string|null;distanceMeters?:number;constructionDistanceMeters?:number;temporal?:boolean}) {
  const [skills,setSkills]=useState<Record<Side,CombatSkillPreview[]>>({PLAYER:[],NPC:[]});
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
@@ -64,7 +64,7 @@ export default function CombatSkillLoadout({
  const roster=(skills[side]??[]).filter(skill=>!categoryFilter||skill.category===categoryFilter);
  return <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
   <h2 className="text-lg font-semibold">{categoryFilter?("Habilidades "+(categories[categoryFilter]??categoryFilter)):"Habilidades del personaje"}</h2>
-  <p className="mt-1 text-sm text-zinc-400">Habilidades aprobadas de tu ficha. Los ataques compatibles usan el lienzo de arriba y consumen maná, PA y ticks del encuentro; los efectos no implementados siguen bloqueados.</p>
+  <p className="mt-1 text-sm text-zinc-400">Habilidades aprobadas de tu ficha. Los ataques compatibles usan el lienzo de arriba y {temporal?"consumen maná y PA; su duración se mide en ticks del reloj común":"consumen maná, PA y ticks del encuentro"}; los efectos no implementados siguen bloqueados.</p>
   {loading?<p className="mt-3 text-sm text-zinc-400">Consultando habilidades aprobadas…</p>
   :error?<p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>
   :roster.length===0?<p className="mt-3 text-sm text-zinc-400">Este personaje no tiene habilidades aprobadas y disponibles para consultar.</p>
@@ -163,7 +163,7 @@ export default function CombatSkillLoadout({
         </p>}
         {skill.modularSupport&&<p className="rounded-lg border border-cyan-700/40 bg-cyan-950/20 p-3 text-xs text-cyan-200">
          <b>Soporte modular aprobado.</b> Se aplica a tu personaje sin apuntar ni elegir enemigo.
-         Al utilizarlo se cobran el maná, los PA y los ticks habituales; la curación y los bonos
+         Al utilizarlo se cobran el maná y los PA{temporal?"; los ticks miden su duración":", además de los ticks habituales"}; la curación y los bonos
          temporales y estados personales aparecen en el registro y en «Estado y estadísticas».
         </p>}
         {skill.fusion&&<div className="space-y-2 rounded-lg border border-fuchsia-700/40 bg-fuchsia-950/20 p-3 text-xs">

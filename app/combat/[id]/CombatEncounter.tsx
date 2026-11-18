@@ -186,6 +186,7 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
  const [points,setPoints]=useState<Point[]>(defaultPath);
  const [drawing,setDrawing]=useState(false);
  const [defense,setDefense]=useState<DefenseChoice>("DODGE");
+ const [temporalDefenseOpen,setTemporalDefenseOpen]=useState(false);
  const [counterMagic,setCounterMagic]=useState(false);
  const [dodgeDirection,setDodgeDirection]=useState<"AWAY"|"TOWARD"|"WEAPON">("AWAY");
  const [angle,setAngle]=useState(90);
@@ -846,6 +847,24 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
         className="mt-3 rounded-lg border border-amber-400 px-4 py-2 text-sm text-amber-200 disabled:opacity-40">
         Avanzar IA del NPC (si quedó esperando)
       </button>}
+    {temporal&&state.status==="ACTIVE"&&hasAccess&&<section aria-label="Decisiones temporales"
+      className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-950/10 p-3 text-xs">
+      <span className="text-cyan-200">Reloj: <b>{clock?.tick??state.tick}</b> · PA disponibles: <b>{remainingClockPa}</b></span>
+      <button type="button" disabled={!ready} onClick={()=>setTemporalDefenseOpen(true)}
+       className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-amber-500/60 px-3 text-amber-200 disabled:opacity-35">
+       <Shield size={16}/> Preparar bloqueo o esquiva
+      </button>
+      {clock?.waitingFor.includes(side)&&remainingClockPa===0&&
+       <button type="button" disabled={busy} onClick={()=>void submit({kind:"WAIT"})}
+        className="min-h-10 rounded-lg border border-zinc-500 px-3 text-zinc-100 disabled:opacity-40">
+        Esperar (0 PA)
+       </button>}
+      {!clock?.waitingFor.includes(side)&&<span role="status" className="text-zinc-400">
+       {clock?.running.find(event=>event.owner===side)
+         ? "Acción en curso hasta tick "+clock.running.find(event=>event.owner===side)?.endsAtTick
+         : "Esperando el siguiente acontecimiento"}
+      </span>}
+     </section>}
     <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-4" aria-label="Dos planos del combate">
      <section className="min-w-0 space-y-2 rounded-xl border border-cyan-400/30 bg-zinc-950/70 p-2 sm:p-3">
       <h2 className="text-xs font-bold text-cyan-200 sm:text-base">Plano horizontal · terreno</h2>
@@ -1613,6 +1632,86 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
     onCast={(skill,charges)=>castSkill(skill,undefined,undefined,charges)} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance} constructionDistanceMeters={targetDistance}/>
 
    </CombatDialog>
+   {temporal&&<CombatDialog open={temporalDefenseOpen} title="Preparar defensa temporal" onClose={()=>setTemporalDefenseOpen(false)}>
+    <p className="text-sm text-zinc-300">Elige una postura ahora. Su duración dependerá de tu velocidad; el reloj decidirá qué golpes llegan mientras está activa. La defensa usa las reglas originales de V1.</p>
+    <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4" role="group" aria-label="Defensas anticipadas">
+     {options.filter(option=>option.value!=="CONSTRUCTION").map(option=>{
+      const DefenseIcon=defenseIcons[option.value];
+      const inactive=option.value==="BLOCK"&&!activeBlockSlot||
+       option.value==="COUNTER"&&!counterPlan||
+       option.value==="MAGIC_FIELD"&&(state.mana?.[side]?.current??0)<1;
+      return <button type="button" key={option.value} aria-label={option.label}
+       aria-pressed={defense===option.value} disabled={inactive}
+       onClick={()=>setDefense(option.value)}
+       className={"flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs disabled:opacity-35 "+
+        (defense===option.value?"border-amber-300 bg-amber-950/40 text-amber-200":"border-zinc-700 text-zinc-300")}>
+       <DefenseIcon size={19}/>{option.label}
+      </button>;
+     })}
+    </div>
+    <p className="mt-2 text-xs text-zinc-400">{options.find(option=>option.value===defense)?.description}</p>
+    {defense==="BLOCK"&&activeBlockSlot&&<label className="mt-3 block text-sm">Arma o escudo para la guardia
+     <select value={activeBlockSlot} onChange={e=>setBlockWeaponSlot(e.target.value as "MAIN_HAND"|"OFF_HAND")}
+      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2">
+      {combatWeaponOperational(actor?.equippedWeapon)&&<option value="MAIN_HAND">Mano principal · {actor?.equippedWeapon?.name}</option>}
+      {(combatWeaponOperational(actor?.offhandWeapon)||(offhandShield?.durability??0)>0)&&
+       <option value="OFF_HAND">Mano secundaria · {actor?.offhandWeapon?.name??offhandShield?.name}</option>}
+     </select>
+    </label>}
+    {defense==="DODGE"&&<div className="mt-3 space-y-2">
+      <p className="text-sm text-zinc-300">Marca una predicción del punto de impacto en el plano. La esquiva no concede invulnerabilidad: cada golpe conserva sus comprobaciones de contacto y evasión de V1.</p>
+      <svg viewBox="0 0 100 100" role="button" tabIndex={0}
+       aria-label="Elegir predicción de impacto para esquivar"
+       onPointerDown={e=>setPredictedCenter(toPoint(e))}
+       onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setPredictedCenter({x:.5,y:.5});}}}
+       className="aspect-[2/1] w-full max-w-sm touch-none cursor-crosshair rounded-lg border border-cyan-500/40 bg-zinc-950">
+       {Array.from({length:5},(_,i)=><g key={i} pointerEvents="none">
+        <line x1={i*25} y1="0" x2={i*25} y2="100" stroke="#334155" strokeWidth=".6"/>
+        <line x1="0" y1={i*25} x2="100" y2={i*25} stroke="#334155" strokeWidth=".6"/>
+       </g>)}
+       {predictedCenter&&<circle cx={predictedCenter.x*100} cy={predictedCenter.y*100} r="3"
+         fill="#38bdf8" stroke="#e0f2fe" strokeWidth="1" pointerEvents="none"/>}
+      </svg>
+      <label className="block text-sm">Dirección del movimiento evasivo
+       <select value={dodgeDirection==="WEAPON"?"AWAY":dodgeDirection}
+        onChange={e=>setDodgeDirection(e.target.value as "AWAY"|"TOWARD")}
+        className="ml-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2">
+        <option value="AWAY">Alejarse</option><option value="TOWARD">Acercarse</option>
+       </select>
+      </label>
+      <p className="text-xs text-zinc-400">{predictedCenter?"Predicción marcada.":"Toca el plano para establecer tu predicción."}</p>
+    </div>}
+    {defense==="DEFLECT"&&<label className="mt-3 block text-sm">Ángulo de desvío: {angle}°
+     <input type="range" min="0" max="359" value={angle} onChange={e=>setAngle(Number(e.target.value))}
+      className="mt-2 w-full"/>
+    </label>}
+    {defense==="COUNTER"&&<label className="mt-3 flex items-center gap-2 text-sm">
+     <input type="checkbox" checked={counterMagic} onChange={e=>setCounterMagic(e.target.checked)}/>
+     Priorizar magia en el contraataque
+    </label>}
+    <button type="button" disabled={!ready||busy||
+     defense==="BLOCK"&&!activeBlockSlot||
+     defense==="DODGE"&&!predictedCenter||
+     defense==="COUNTER"&&!counterPlan||
+     defense==="MAGIC_FIELD"&&(state.mana?.[side]?.current??0)<1||
+     defense==="CONSTRUCTION"}
+     onClick={()=>{
+      const chosen:Extract<CombatCommand,{kind:"DEFEND"}>={
+       kind:"DEFEND",defense,
+       ...(defense==="BLOCK"&&activeBlockSlot?{weaponSlot:activeBlockSlot}:{}),
+       ...(defense==="DODGE"&&predictedCenter?{
+        predictedCenter,dodgeDirection:dodgeDirection==="WEAPON"?"AWAY":dodgeDirection}:{}),
+       ...(defense==="DEFLECT"?{defenseAngle:angle}:{}),
+       ...(defense==="COUNTER"?{counterMagic}:{})
+      };
+      setTemporalDefenseOpen(false);
+      void submit(chosen);
+     }}
+     className="mt-4 w-full rounded-lg bg-amber-400 px-4 py-3 font-semibold text-zinc-950 disabled:opacity-35">
+     {defense==="NONE"?"Esperar sin reaccionar":"Preparar "+(options.find(x=>x.value===defense)?.label.toLowerCase()??"defensa")+
+      (defense==="DODGE"&&dodgeDirection!=="WEAPON"?" · 2 PA":" · 1 PA")}
+    </button>
+   </CombatDialog>}
    <CombatDialog open={panel==="stats"} title="Estado y estadísticas" onClose={closePanel}>
     <p className="mb-3 text-xs text-zinc-400">Estadísticas y recursos del encuentro actual. Los modificadores temporales no se guardan en la ficha.</p>
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

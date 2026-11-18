@@ -67,15 +67,16 @@ export function assertBasicTimelineEligible(combat:CombatState):void{
  assertApprovedV2Passives(combat);
 }
 
-function shadowForBasicMove(combat:CombatState,owner:Side):CombatState{
+function shadowForBasicMove(combat:CombatState,owner:Side,
+  scheduledTick:number):CombatState{
  const shadow=structuredClone(combat);
  // Use the impact round, not round one: chaotic fields may rotate at
  // every 100-tick boundary while an earlier action remains in progress.
  shadow.round=combat.round;
- shadow.tick=(combat.round-1)*100;shadow.pending=null;
- // V1 reverses tie initiative on even rounds. Compensate so the
- // isolated actor is authorized at the genuine V2 impact round.
- shadow.timelineMode=undefined;
+ shadow.tick=scheduledTick;shadow.pending=null;
+ // The same V1 movement rules now run at the authoritative completion
+ // tick. Legacy initiative, PA and tick bookkeeping are not persistent.
+ shadow.timelineMode="SCHEDULED";
  shadow.tieOpener=shadow.round%2===1?owner:other(owner);
  shadow.log=[];shadow.narrativeHistory=[];
  shadow.activeBlocks={};shadow.mirrorRayQueue=[];
@@ -103,7 +104,7 @@ export function simulateBasicTimelineMove(
    event.durationTicks!==reservedTimelineTurnTicks(combat.actors[event.owner],event)||event.paidAp!==1)
    throw new Error("El movimiento no coincide con su reserva temporal.");
  const from=fieldPosition(combat.actors[event.owner]);
- const moved=applyCombatCommand(shadowForBasicMove(combat,event.owner),
+ const moved=applyCombatCommand(shadowForBasicMove(combat,event.owner,event.endsAtTick),
    event.owner,structuredClone(command));
  const to=fieldPosition(moved.actors[event.owner]);
  // A WEAPON move may restore exactly one original ground copy. Other world
@@ -264,7 +265,13 @@ export async function resolveBasicTimelineWindow(
      else countered.add(actualEvent.id);
    }
    if(posture.defense==="DODGE"&&posture.dodgeDirection&&actualEvent){
-     if(dodgedMovement.has(actualEvent.id)){
+     if(actualEvent.evasionVector){
+       // The shared world snapshot already interpolated V1 movement to
+       // this impact tick. Never teleport the same dodge again inside V1.
+       dodgedMovement.add(actualEvent.id);
+       posture={...posture,dodgeDirection:undefined};
+     }else if(dodgedMovement.has(actualEvent.id)){
+       // Backward-compatible resolution of already-stored V2 declarations.
        posture={...posture,dodgeDirection:undefined};
      }else dodgedMovement.add(actualEvent.id);
    }

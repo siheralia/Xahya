@@ -164,12 +164,15 @@ test("a paid movement dodge moves at most once in its prepared time interval",as
  assert.equal(first.combat.tick,10);
  assert.equal(first.combat.actors.NPC.hp,250);
  const firstPosition=fieldPosition(first.combat.actors.NPC).x;
- assert.ok(firstPosition>.5);
+ assert.ok(firstPosition>.5&&firstPosition<1,
+   "the defender has traversed part of the V1 dodge vector by tick 10");
  assert.deepEqual(first.timeline.usedDodgeMovementIds,["dodge-away"]);
  s=attack(first.timeline,first.combat,"PLAYER","attack-two",magic());
  const next=await resolveBasicTimelineWindow(first.combat,s,dodgeDice);
  assert.equal(next.combat.tick,20);
- assert.equal(fieldPosition(next.combat.actors.NPC).x,firstPosition);
+ assert.ok(fieldPosition(next.combat.actors.NPC).x>firstPosition,
+   "the same dodge finishes traversing at tick 20, without another PA charge");
+ assert.ok(Math.abs(fieldPosition(next.combat.actors.NPC).x-1)<1e-7);
  assert.equal(next.timeline.clock.actors.NPC.spentApByRound["1"],2);
 });
 

@@ -73,6 +73,10 @@ export type PendingAttack = {
   by: Side; against: Side; attackType: CombatAttackType;
   trajectory: Point[]; launchedAtTick: number; usesMagic: boolean;
   rangedPhysical?: boolean; thrownWeapon?:boolean; beyondEffectiveRange?:boolean;
+  /** Trusted temporal-only condition: target left the V1 maximum reach
+   * after an already-legal attack was scheduled. Still launch the historic
+   * V1 strike, but its real impact is an unconditional contact miss. */
+  beyondMaximumRangeAtImpact?:boolean;
   attackSource?: PhysicalAttackSource;
   materialPerkBonus?:{perkId:number;attackBonus:number};
   /** Hidden from client while pending; attacker-selected basic magic blast. */
@@ -154,7 +158,7 @@ export type CombatState = {
     perks?:Array<{id:number;name:string}>;skills:CombatSkillPlan[]};
   version: 1; round: number; tick: number; status: "ACTIVE" | "FINISHED";
   /** Only new encounters opt into strict chronological initiative; old snapshots stay readable. */
-  timelineMode?:"SHARED";
+  timelineMode?:"SHARED"|"SCHEDULED";
   winner: Side | null; actors: Record<Side, CombatFighter>;
   /** Randomly resolved initial initiative tie; absent in older persisted fights. */
   tieOpener?: Side;
@@ -260,8 +264,8 @@ export function applyResolvedKarmaBoost(
  for(const [key,value] of Object.entries(deltas))state.karmaBoostDeltas[by]![key]=(state.karmaBoostDeltas[by]![key]??0)+value;
  state.processedKarmaRequests??=[];state.processedKarmaRequests.push(requestId);
  if(state.activeBlocks)delete state.activeBlocks[by];
- spend(actor,turnTicks(actor)); // exactly one PA, independently of allocated points
- state.tick=Math.max(state.tick,(state.round-1)*LIMIT+actor.spentTicks);
+ spend(state,actor,turnTicks(actor)); // exactly one PA, independently of allocated points
+ state.tick=Math.max(state.tick,actionClockTick(state,actor));
  addLog(state,{kind:"KARMA",tick:state.tick,by,karmaSpent:cost,karmaAllocation:{...allocation},
   summary:actor.name+" gastó "+cost+" karma para aumentar "+Object.entries(allocation).map(([key,n])=>key+" +"+n).join(", ")});
  advanceRoundIfComplete(state);
@@ -299,8 +303,8 @@ export function applyResolvedCombatConsumable(
  else mana!.current=after;
  selected.quantity--;
  if(state.activeBlocks)delete state.activeBlocks[by];
- spend(fighter,turnTicks(fighter)); // paid, neutral action: no weapon speed modifier
- state.tick=Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
+ spend(state,fighter,turnTicks(fighter)); // paid, neutral action: no weapon speed modifier
+ state.tick=Math.max(state.tick,actionClockTick(state,fighter));
  state.processedItemRequests=[...(state.processedItemRequests??[]),requestId].slice(-100);
  addLog(state,{kind:"ITEM",tick:state.tick,by,
   summary:fighter.name+" utilizó "+selected.name+" y recuperó "+restored+
@@ -709,7 +713,8 @@ export function hasActiveBlockGuard(state:CombatState,by:Side):boolean {
  const pending=state.pending,guard=state.activeBlocks?.[by];
  if(!pending||pending.against!==by||!guard||pending.usesMagic||pending.hybridContact)return false;
  const tick=Math.max(state.tick,pending.launchedAtTick);
- if(tick<guard.startedAtTick||tick>=guard.endsAtTick)return false;
+ if(tick<guard.startedAtTick||
+   (state.timelineMode==="SCHEDULED"?tick>guard.endsAtTick:tick>=guard.endsAtTick))return false;
  const fighter=state.actors[by],shield=offhandArmorShield(fighter.equippedWearables);
  const item=guard.weaponSlot==="OFF_HAND"?(fighter.offhandWeapon??shield):fighter.equippedWeapon;
  if(!item)return false;
@@ -746,11 +751,11 @@ const hasInitiativeBudget = (f: CombatFighter) =>
 function applyCompositeStep(state:CombatState,by:Side,requested:Point,order:"BEFORE"|"AFTER"="BEFORE",actionTicks?:number){
  const fighter=state.actors[by],vector=validatePlanarMove(requested);
  if(remainingAp(fighter)<2)throw new Error("Moverse y actuar a la vez requiere 2 PA.");
- if(fighter.spentTicks>=LIMIT)
+ if(state.timelineMode!=="SCHEDULED"&&fighter.spentTicks>=LIMIT)
   throw new Error("Ya agotaste los 100 ticks de este turno.");
  // The second spend() below charges the attack's incremental ticks over
  // the movement, never a second complete temporal window.
- spend(fighter,turnTicks(fighter));
+ spend(state,fighter,turnTicks(fighter));
  if(order==="BEFORE")finishCompositeStep(state,by,vector);
 }
 /** Apply an already paid and validated move, without charging a third PA. */
@@ -760,7 +765,7 @@ function finishCompositeStep(state:CombatState,by:Side,vector:Point){
  assertMovementClear(state.constructions,from,to);
  moveFighterOnField(fighter,vector);
  clearPhysicalStrokes(state,by);
- addLog(state,{kind:"POSITION",tick:(state.round-1)*LIMIT+fighter.spentTicks,by,
+ addLog(state,{kind:"POSITION",tick:actionClockTick(state,fighter),by,
   moveMeters:Math.round(Math.hypot(vector.x,vector.y)*100)/100,fieldPosition:{...fieldPosition(fighter)},
   summary:fighter.name+" se desplazó "+Math.hypot(vector.x,vector.y).toFixed(2)+" m como parte de su acción"});
 }
@@ -790,6 +795,9 @@ function lastInitiativeSide(state: CombatState): Side | null {
 export function canAct(state: CombatState, side: Side): boolean {
   if (state.status !== "ACTIVE" || state.pending) return false;
   const f = state.actors[side], rival = state.actors[other(side)];
+  // The authoritative clock already decided whose reserved event may run.
+  // This is NOT permission for a route to bypass timeline authorization.
+  if(state.timelineMode==="SCHEDULED")return remainingAp(f)>0;
   if (!hasInitiativeBudget(f)) return false;
   if (effectiveCombatSpeed(f) === effectiveCombatSpeed(rival)) {
     // Equal speed: strict alternating initiative. Reactions consume ticks/AP
@@ -909,6 +917,9 @@ function finishEncounter(state:CombatState,winner:Side) {
  state.narrativeVersion=COMBAT_NARRATIVE_VERSION;
 }
 function advanceRoundIfComplete(state: CombatState) {
+  // In scheduled resolution the clock, not consumed ticks or PA, owns
+  // round boundaries and their upkeep/expiry events.
+  if(state.timelineMode==="SCHEDULED")return;
   const finished = (side: Side) => {
     const f = state.actors[side];
     return f.spentTicks >= LIMIT || remainingAp(f) === 0;
@@ -941,9 +952,21 @@ function advanceRoundIfComplete(state: CombatState) {
     beginNextMirrorRay(state);
   }
 }
-function spend(f: CombatFighter, ticks: number) {
+/**
+ * Legacy actions spend both PA and a 100-tick balance. Scheduled V1 actions
+ * execute at a trusted global impact tick: their PA bookkeeping is temporary
+ * to the isolated V1 evaluation, while duration and PA escrow belong to the
+ * authoritative action timeline. The temporal engine NEVER spends ticks.
+ */
+function spend(state:CombatState,f: CombatFighter, ticks: number) {
   f.spentAp++;
-  f.spentTicks = Math.min(LIMIT, f.spentTicks + ticks);
+  if(state.timelineMode!=="SCHEDULED")
+    f.spentTicks = Math.min(LIMIT, f.spentTicks + ticks);
+}
+/** Timestamp in the sole V1 rule engine, selected by its time policy. */
+function actionClockTick(state:CombatState,actor:CombatFighter):number {
+  return state.timelineMode==="SCHEDULED"
+    ?state.tick:(state.round-1)*LIMIT+actor.spentTicks;
 }
 /** Summons are encounter actors, but all orders spend their owner's PA/ticks.
  * No automatic free actions are created by merely owning seven creatures.
@@ -1128,8 +1151,8 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
       command.targetId!=="FIGHTER:"+other(by)&&!hostile)
       throw new Error("El objetivo elegido no es un rival activo autorizado.");
     summon.targetId=command.targetId;
-    spend(owner,turnTicks(owner));
-    state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    spend(state,owner,turnTicks(owner));
+    state.tick=Math.max(state.tick,actionClockTick(state,owner));
     addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
       summary:summon.label+" recibió la orden de enfocar a "+
         (hostile?.label??state.actors[other(by)].name)+"."});
@@ -1141,8 +1164,8 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
       !(command.newBehavior==="FOLLOW"||summon.behavior.allowedModes.includes(command.newBehavior)))
       throw new Error("Ese comportamiento no está autorizado para la criatura.");
     summon.behavior.mode=command.newBehavior;
-    spend(owner,turnTicks(owner));
-    state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    spend(state,owner,turnTicks(owner));
+    state.tick=Math.max(state.tick,actionClockTick(state,owner));
     addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
       summary:summon.label+" cambió su comportamiento a "+command.newBehavior});
     advanceRoundIfComplete(state);return;
@@ -1167,8 +1190,8 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
       const target=summonTargetPosition(state,summon);
       distance=advanceSummonToward(state,summon,target,0.35);
     }
-    spend(owner,turnTicks(owner));
-    state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    spend(state,owner,turnTicks(owner));
+    state.tick=Math.max(state.tick,actionClockTick(state,owner));
     recordManualSummonAction(state,summon);
     addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
       summary:summon.label+(distance>0?" se movió "+distance.toFixed(2)+" m.":" alcanzó su posición de apoyo.")});
@@ -1184,16 +1207,16 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
     if(Math.hypot(enemy.x-summon.fieldPosition.x,enemy.y-summon.fieldPosition.y)>1.5){
       if(command.order==="ATTACK")throw new Error("El enemigo está fuera del alcance del familiar (1.5 m).");
       const distance=advanceSummonToward(state,summon,enemy,1.35);
-      spend(owner,turnTicks(owner));
-      state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+      spend(state,owner,turnTicks(owner));
+      state.tick=Math.max(state.tick,actionClockTick(state,owner));
       addLog(state,{kind:"SUMMON",tick:state.tick,by,summonId:summon.id,
         summary:summon.label+" persiguió al enemigo "+distance.toFixed(2)+" m."});
       advanceRoundIfComplete(state);return;
     }
     assertMovementClear(state.constructions,summon.fieldPosition,enemy);
     if(!hostile)validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
-    spend(owner,turnTicks(owner));
-    state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    spend(state,owner,turnTicks(owner));
+    state.tick=Math.max(state.tick,actionClockTick(state,owner));
     recordManualSummonAction(state,summon);
     if(hostile){
       hitHostileSummon(state,summon,hostile,rolls);
@@ -1201,7 +1224,7 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
     }
     state.pending={by,against:other(by),attackType:"BLUNT",
       trajectory:[{x:0.1,y:0.5},{x:0.5,y:0.5}],
-      explicitTrajectory:false,launchedAtTick:(state.round-1)*LIMIT+owner.spentTicks,
+      explicitTrajectory:false,launchedAtTick:actionClockTick(state,owner),
       usesMagic:false,summonId:summon.id,
       chosenSummonStat:command.chosenStat,
       chosenSummonStatusId:command.chosenStatusId};
@@ -1216,8 +1239,8 @@ function orderSummon(state:CombatState,by:Side,command:Extract<CombatCommand,{ki
     const near=Math.hypot(pos.x-summon.fieldPosition.x,pos.y-summon.fieldPosition.y)<=0.65;
     if(summon.contactEffects?.length&&near)
       validateSummonContactSelection(state,summon,command.chosenStat,command.chosenStatusId);
-    spend(owner,turnTicks(owner));
-    state.tick=Math.max(state.tick,(state.round-1)*LIMIT+owner.spentTicks);
+    spend(state,owner,turnTicks(owner));
+    state.tick=Math.max(state.tick,actionClockTick(state,owner));
     recordManualSummonAction(state,summon);
     if(near)resolveSummonContact(state,summon,{
       target,contact:true,hpDamage:0,randomRoll:rolls.hit,
@@ -1403,7 +1426,7 @@ function resolveTargetedMirrorAttack(
  const critical=contact&&rolls.critical<clamp(0.05+actor.critical/(actor.critical+100)*0.20,0.05,0.25);
  const damage=contact?Math.max(1,Math.round(Math.max(0,power)*(skill?.damageMultiplier??1)
   *(skill?.finalMultiplier??1)*(critical?1.5:1))):0;
- state.tick=Math.max(state.tick,(state.round-1)*LIMIT+actor.spentTicks);
+ state.tick=Math.max(state.tick,actionClockTick(state,actor));
  addLog(state,{kind:"ATTACK",tick:state.tick,by,against:mirror.owner,
   attackType:command.attackType,usesMagic:magic,rangedPhysical:ranged,
   constructionId:mirror.id,skillId:skill?.id,skillName:skill?.name,
@@ -1539,7 +1562,9 @@ function upgradeLegacyWeaponDurability(state:CombatState){
 export function basicCounterAttack(state:CombatState,side:Side,preferMagic=false):
  Extract<CombatCommand,{kind:"ATTACK"}>|null {
  const fighter=state.actors[side],target=state.actors[other(side)];
- if(remainingAp(fighter)<1||fighter.spentTicks>=LIMIT||state.status!=="ACTIVE")return null;
+ if(remainingAp(fighter)<1||
+   state.timelineMode!=="SCHEDULED"&&fighter.spentTicks>=LIMIT||
+   state.status!=="ACTIVE")return null;
  const distance=fieldDistance(fighter,target);
  const magic=state.mana?.[side]&&state.mana[side].current>=1&&
   fighter.magicAttack>0&&distance<=BASIC_MAGIC_RANGE_METERS;
@@ -1566,6 +1591,35 @@ export function basicCounterAttack(state:CombatState,side:Side,preferMagic=false
  }
  return magic?spell():null;
 }
+/**
+ * Exactly the V1 directional dodge trajectory, extracted for the shared
+ * scheduler. LEGACY still moves only after a successful evasion; scheduled
+ * reactions reserve this same measured path at declaration and traverse it
+ * continuously over their real tick interval.
+ */
+export function plannedV1DodgeMovement(
+ state:CombatState,by:Side,direction:"AWAY"|"TOWARD"|"WEAPON",
+ weaponSlot?:"MAIN_HAND"|"OFF_HAND",targetPositionMeters=state.actors[other(by)].positionMeters,
+):Point{
+ if(!SIDES.includes(by)||!["AWAY","TOWARD","WEAPON"].includes(direction))
+   throw new Error("Dirección de esquive inválida.");
+ const fighter=state.actors[by];
+ const dropped=activeDroppedWeapon(state,by,weaponSlot);
+ if(direction==="WEAPON"&&!dropped)
+   throw new Error("No hay arma arrojada hacia la cual esquivar.");
+ const target=direction==="WEAPON"?dropped!.positionMeters:targetPositionMeters;
+ const sign=Math.sign(target-fighter.positionMeters)||1;
+ const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
+ const from=fieldPosition(fighter);
+ const vector=distortChaosMove(state,by,
+   direction==="WEAPON"&&dropped
+     ?vectorTowardDroppedWeapon(fighter,dropped,0.5)
+     :{x:sign*(direction==="AWAY"?-0.5:step),y:0});
+ assertMovementClear(state.constructions,from,
+   {x:from.x+vector.x,y:from.y+vector.y});
+ return vector;
+}
+
 export function applyCombatCommand(original: CombatState, by: Side, command: CombatCommand,
   rolls: {hit:number; critical:number; defense:number} = {hit:0.5,critical:0.5,defense:0.5},
   serverSkillRangeMeters?:number,
@@ -1613,8 +1667,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         (pending.skill?.damageMultiplier??1)*(pending.skill?.finalMultiplier??1)));
       const reflected=Math.max(0,Math.round(direct*(mirror.mirror?.reflectionMultiplier??0)));
       attacker.hp=Math.max(0,attacker.hp-reflected);
-      state.tick=Math.max(state.tick,(state.round-1)*LIMIT+attacker.spentTicks,
-        (state.round-1)*LIMIT+fighter.spentTicks);
+      state.tick=Math.max(state.tick,actionClockTick(state,attacker),
+        actionClockTick(state,fighter));
       addLog(state,{kind:"REFLECTION",tick:state.tick,by,against:pending.by,
         constructionId:mirror.id,contact:true,damage:reflected,
         summary:mirror.label+" interceptó el rayo mágico de "+attacker.name+
@@ -1648,7 +1702,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // Downgrade BEFORE validating/launching COUNTER or other paid defenses:
     // otherwise a stale client selection can strand the pending attack.
     const heldBlock=hasActiveBlockGuard(state,by);
-    const exhaustedReaction=remainingAp(fighter)<=0||fighter.spentTicks>=LIMIT;
+    const exhaustedReaction=remainingAp(fighter)<=0||
+      (state.timelineMode!=="SCHEDULED"&&fighter.spentTicks>=LIMIT);
     let defense:DefenseChoice=heldBlock?"BLOCK":exhaustedReaction?"NONE":command.defense;
     if(heldBlock&&command.planarMove!==undefined)
       throw new Error("Mantener un bloqueo activo no concede desplazamiento gratuito.");
@@ -1735,7 +1790,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       if(defense==="NONE")throw new Error("No puedes combinar movimiento con una reacción sin PA.");
       applyCompositeStep(state,by,command.planarMove);
     }
-    if (defense !== "NONE"&&!heldBlock) spend(fighter,command.planarMove!==undefined?0:turnTicks(fighter));
+    if (defense !== "NONE"&&!heldBlock) spend(state,fighter,command.planarMove!==undefined?0:turnTicks(fighter));
     const materialAttackBonus=!pending.usesMagic&&pending.materialPerkBonus&&
       fighter.perkIds?.includes(pending.materialPerkBonus.perkId)
         ?pending.materialPerkBonus.attackBonus:0;
@@ -1907,29 +1962,21 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       if (!avoided) damageScale = 0.85;
     }
     if(defense==="DODGE"&&avoided&&command.dodgeDirection){
-      const direction=command.dodgeDirection;
-      if(!["AWAY","TOWARD","WEAPON"].includes(direction))throw new Error("Dirección de esquive inválida.");
       const dropped=activeDroppedWeapon(state,by,command.weaponSlot);
-      if(direction==="WEAPON"&&!dropped)throw new Error("No hay arma arrojada hacia la cual esquivar.");
-      const target=direction==="WEAPON"?dropped!.positionMeters:attacker.positionMeters;
-      const sign=Math.sign(target-fighter.positionMeters)||1;
-      const step=Math.min(0.5,Math.abs(target-fighter.positionMeters));
-      const from=fieldPosition(fighter);
-      const vector=distortChaosMove(state,by,
-        direction==="WEAPON"&&dropped
-          ?vectorTowardDroppedWeapon(fighter,dropped,0.5)
-          :{x:sign*(direction==="AWAY"?-0.5:step),y:0});
-      assertMovementClear(state.constructions,from,
-        {x:from.x+vector.x,y:from.y+vector.y});
+      const vector=plannedV1DodgeMovement(state,by,command.dodgeDirection,
+        command.weaponSlot,attacker.positionMeters);
       moveFighterOnField(fighter,vector);
       clearPhysicalStrokes(state,by);
-      if(direction==="WEAPON"&&dropped&&droppedWeaponDistance(fighter,dropped)<0.2){
+      if(command.dodgeDirection==="WEAPON"&&dropped&&
+         droppedWeaponDistance(fighter,dropped)<0.2){
         restoreWeapon(state,dropped);
       }
     }
     // No selected dodge means contact is checked against a small base margin,
     // not another invisible full Esquive roll.
-    let contact = !avoided && (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (
+    let contact = !avoided &&
+      !(state.timelineMode==="SCHEDULED"&&pending.beyondMaximumRangeAtImpact) &&
+      (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (
       // Basic magic preserves its established full-area effect. Projectile
       // placement and hand-drawn melee use the explicit geometric hitbox.
       pending.attackArea?.shape==="SELF_FIELD"
@@ -2171,7 +2218,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     if(summonedAttacker)
       summonedAttacker.fieldPosition={...fieldPosition(attacker)};
-    state.tick = Math.max(state.tick,(state.round-1)*LIMIT + attacker.spentTicks,(state.round-1)*LIMIT + fighter.spentTicks);
+    state.tick = Math.max(state.tick,actionClockTick(state,attacker),actionClockTick(state,fighter));
     const mirrorLabel=pending.mirrorId
       ?state.constructions?.find(c=>c.id===pending.mirrorId)?.label??"espejo mágico"
       :null;
@@ -2408,8 +2455,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       const start=fieldPosition(fighter);
       assertMovementClear(state.constructions,start,{x:start.x+vector.x,y:start.y+vector.y});
       moveFighterOnField(fighter,vector);clearPhysicalStrokes(state,by);
-      spend(fighter,turnTicks(fighter));
-      state.tick=Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
+      spend(state,fighter,turnTicks(fighter));
+      state.tick=Math.max(state.tick,actionClockTick(state,fighter));
       addLog(state,{kind:"MOVE",tick:state.tick,by,movementDirection:"VECTOR",moveMeters:command.meters,
         fieldPosition:{...fieldPosition(fighter)},
         summary:fighter.name+" se desplazó "+command.meters.toFixed(2)+" m en el plano horizontal"});
@@ -2435,15 +2482,20 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       recoveredWeapon=dropped.weapon.name;
     }
     if(magnitude!==0)clearPhysicalStrokes(state,by);
-    spend(fighter,turnTicks(fighter));
-    state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
+    spend(state,fighter,turnTicks(fighter));
+    state.tick = Math.max(state.tick,actionClockTick(state,fighter));
     addLog(state,{kind:"MOVE",tick:state.tick,by,movementDirection:direction,moveMeters:command.meters,
       summary:recoveredWeapon?fighter.name+" recuperó "+recoveredWeapon+" tras desplazarse":fighter.name+" se desplazó "+command.meters+" m ("+direction+")"});
   } else if (command.kind === "WAIT") {
-    fighter.spentTicks = LIMIT;
-    fighter.spentAp = actionPoints(fighter.constitution);
-    state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
-    addLog(state,{kind:"WAIT",tick:state.tick,by,summary:fighter.name+" finaliza su participación en el turno"});
+    if(state.timelineMode!=="SCHEDULED"){
+      fighter.spentTicks = LIMIT;
+      fighter.spentAp = actionPoints(fighter.constitution);
+    }
+    state.tick = Math.max(state.tick,actionClockTick(state,fighter));
+    addLog(state,{kind:"WAIT",tick:state.tick,by,
+      summary:state.timelineMode==="SCHEDULED"
+        ?fighter.name+" esperó hasta el tick "+state.tick
+        :fighter.name+" finaliza su participación en el turno"});
   } else if (command.kind === "COMMAND_SUMMON") {
     orderSummon(state,by,command,rolls);
     return state;
@@ -2548,7 +2600,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     const attackTicks=turnTicks(fighter,weaponStrike?command.attackType:undefined);
     // The movement was charged one full neutral temporal window already;
     // only the slower weapon's excess ticks remain for a combined attack.
-    spend(fighter,command.planarMove!==undefined?Math.max(0,attackTicks-turnTicks(fighter)):attackTicks);
+    spend(state,fighter,command.planarMove!==undefined?Math.max(0,attackTicks-turnTicks(fighter)):attackTicks);
     if(magic&&serverSkillRangeMeters===undefined)state.mana![by].current-=1;
     if(thrown&&selectedWeapon){
       const slot=source as "MAIN_HAND"|"OFF_HAND";
@@ -2598,7 +2650,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
           impactHeightMeters:command.projectileHeights.impactMeters,
           ...(command.projectileHeights.arcRiseMeters!==undefined
             ?{arcRiseMeters:command.projectileHeights.arcRiseMeters}:{})}:undefined,
-      launchedAtTick:(state.round-1)*LIMIT+fighter.spentTicks,usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
+      launchedAtTick:actionClockTick(state,fighter),usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,attackSource:source,
       beyondEffectiveRange:!magic&&!thrown&&distanceAtLaunch>effectiveAtLaunch,
       targetCenter:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?command.areaCenter:undefined,
       areaHint:magic||ranged||(serverSkillArea&&serverSkillArea.shape!=="SELF_FIELD")?magicImpactZone(command.areaCenter!):undefined,
@@ -2606,7 +2658,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
       materialPerkBonus:weaponStrike?selectedWeapon?.materialPerkBonus:undefined,
       planarMove:command.planarMove?{...command.planarMove}:undefined,
       movementOrder:command.planarMove?command.movementOrder??"BEFORE":undefined};
-    state.tick = Math.max(state.tick,(state.round-1)*LIMIT+fighter.spentTicks);
+    state.tick = Math.max(state.tick,actionClockTick(state,fighter));
     const labels:Record<CombatAttackType,string>={CUT:"corte",BLUNT:"golpe contundente",PIERCE:"perforación"};
     addLog(state,{kind:"ATTACK",tick:state.tick,by,against:other(by),attackType:command.attackType,attackSource:source,
       usesMagic:magic,rangedPhysical:ranged,thrownWeapon:thrown,weaponName:selectedWeapon?.name,
@@ -2621,7 +2673,7 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
         :ranged?fighter.name+" lanzó "+(thrown?"el arma ("+selectedWeapon?.name+") de ":"un proyectil físico de ")+labels[command.attackType]+"; esperando reacción"
         :fighter.name+" atacó con "+(selectedWeapon?.name??(source==="FIST_LEFT"?"puño izquierdo":source==="KICK"?"patada":"puño derecho"))+" ("+labels[command.attackType]+")"+"; esperando reacción"});
   } else throw new Error("Acción inválida o habilidad sin autorización del servidor.");
-  state.tick = Math.max(state.tick,(state.round-1)*LIMIT + fighter.spentTicks);
+  state.tick = Math.max(state.tick,actionClockTick(state,fighter));
   advanceRoundIfComplete(state);
   return state;
 }
@@ -2761,8 +2813,8 @@ export function applyResolvedCombatSkill(
    // Migrate old charge wallets before the sources disappear.
    ensureCombatChargePool(next,by);
    next.summons=[...(next.summons??[]).filter(x=>!consumedIds.has(x.id)),result];
-   spend(owner,turnTicks(owner));
-   next.tick=Math.max(next.tick,(next.round-1)*LIMIT+owner.spentTicks);
+   spend(next,owner,turnTicks(owner));
+   next.tick=Math.max(next.tick,actionClockTick(next,owner));
    // Charge before advancing a round and paying the fused creature's upkeep.
    next.mana![by].current-=plan.cost;
    addLog(next,{kind:"SUMMON",tick:next.tick,by,skillId:plan.id,
@@ -2793,8 +2845,8 @@ export function applyResolvedCombatSkill(
        operation:"MULTIPLIER",value:factor,durationTurns:buff.durationTurns,
      });
    }
-   spend(owner,turnTicks(owner));
-   next.tick=Math.max(next.tick,(next.round-1)*LIMIT+owner.spentTicks);
+   spend(next,owner,turnTicks(owner));
+   next.tick=Math.max(next.tick,actionClockTick(next,owner));
    // Pay the activation cost before an automatic round advance.
    next.mana![by].current-=plan.cost;
    addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,skillName:plan.name,
@@ -2843,8 +2895,8 @@ export function applyResolvedCombatSkill(
     });
   }
   next.summons=[...(next.summons??[]),...fresh];
-  spend(owner,turnTicks(owner));
-  next.tick=Math.max(next.tick,(next.round-1)*LIMIT+owner.spentTicks);
+  spend(next,owner,turnTicks(owner));
+  next.tick=Math.max(next.tick,actionClockTick(next,owner));
   for(const summon of fresh){
     summon.autoRound=next.round;summon.autoSpentAp=0;
     summon.autoNextTick=next.tick+turnTicks(summonAsFighter(summon,owner));
@@ -2946,8 +2998,8 @@ export function applyResolvedCombatSkill(
     passive:resistance?structuredClone(resistance):undefined,
   };
   next.constructions=[...existing,construction];
-  spend(owner,turnTicks(owner)); // casting is one action
-  next.tick=Math.max(next.tick,(next.round-1)*LIMIT+owner.spentTicks);
+  spend(next,owner,turnTicks(owner)); // casting is one action
+  next.tick=Math.max(next.tick,actionClockTick(next,owner));
   addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,skillName:plan.name,
     constructionId:construction.id,manaCost:plan.cost,
     summary:owner.name+" creó "+construction.label+" ("+form+")"+
@@ -3002,8 +3054,8 @@ export function applyResolvedCombatSkill(
     durationTurns:status.durationTurns,
    });
   }
-  spend(actor,turnTicks(actor));
-  next.tick=Math.max(next.tick,(next.round-1)*LIMIT+actor.spentTicks);
+  spend(next,actor,turnTicks(actor));
+  next.tick=Math.max(next.tick,actionClockTick(next,actor));
   addLog(next,{kind:"SKILL",tick:next.tick,by,skillId:plan.id,manaCost:plan.cost,
    skillName:plan.name,healingPoints:healed||undefined,
    summary:actor.name+" usó "+plan.name+

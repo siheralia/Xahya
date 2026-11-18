@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
  newContinuousCombatTimeline,queueTimelineAction,completeNextTimelineBatch,
- activeTimelineBlockAt,activeTimelineReactionAt,
+ activeTimelineBlockAt,activeTimelineReactionAt,interruptTimelineAction,
 } from "../lib/combat/action-timeline.ts";
 import {
  preparedTimelineReactionAt,timelineDefenseForImpact,
@@ -61,8 +61,11 @@ test("an interrupted defense stops covering future impacts without AP refund",()
  timeline=put(timeline,"NPC","shield","BLOCK",30,{
    blockToolSlot:"MAIN_HAND",blockToolCopyId:7,
  });
- const before=timeline.actors.NPC.spentApByRound["1"];
- // The exact interruption is tested through the scheduler API, not UI state.
- assert.equal(before,1);
- assert.equal(activeTimelineBlockAt(timeline,"NPC",31),null);
+ assert.equal(timeline.actors.NPC.spentApByRound["1"],1);
+ assert.equal(activeTimelineBlockAt(timeline,"NPC",10)?.id,"shield");
+ const stopped=interruptTimelineAction(timeline,"NPC");
+ assert.equal(stopped.events[0].status,"INTERRUPTED");
+ assert.equal(activeTimelineBlockAt(stopped,"NPC",10),null);
+ assert.equal(stopped.actors.NPC.spentApByRound["1"],1,
+   "interrupting the guard must not refund PA");
 });

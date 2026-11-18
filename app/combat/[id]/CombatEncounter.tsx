@@ -1629,7 +1629,7 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
     mana={state.mana?.[side]?.current??null}
     cooldowns={state.skillCooldowns?.[side]??{}}
     chargeState={state}
-    onCast={(skill,charges)=>castSkill(skill,undefined,undefined,charges)} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance} constructionDistanceMeters={targetDistance}/>
+    onCast={(skill,charges)=>castSkill(skill,undefined,undefined,charges)} aimMode={attackMode==="MAGIC_AREA"?"MAGIC_AREA":"PHYSICAL"} magicAimReady={areaCenter!==null} constructionAimReady={canCreateObjects&&constructionCenter!==null} onConstructionMaterialsChange={onConstructionMaterialsChange} onConstructionSkillsChange={onConstructionSkillsChange} categoryFilter={skillCategory} distanceMeters={attackDistance} constructionDistanceMeters={targetDistance} temporal={temporal}/>
 
    </CombatDialog>
    {temporal&&<CombatDialog open={temporalDefenseOpen} title="Preparar defensa temporal" onClose={()=>setTemporalDefenseOpen(false)}>

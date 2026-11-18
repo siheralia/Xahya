@@ -342,7 +342,8 @@ test("new encounter opt-in, private projection and V1 route separation are wired
  assert.match(route,/privateProjectiles/);
  assert.match(legacy,/Las acciones V1 no pueden modificar una sesión V2/);
  assert.match(read,/combatV2:\{version:2,experimental:true\}/);
- assert.match(page,/CombatV2Encounter/);
+ assert.match(page,/<CombatEncounter id=\{id\} mode="TIMELINE"\/>/);
+ assert.doesNotMatch(page,/import CombatV2Encounter/);
  const reactions=load("app/combat/[id]/CombatV2Reactions.tsx");
  assert.match(reactions,/predictedCenter/);
  assert.match(reactions,/dodgeDirection/);

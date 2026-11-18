@@ -111,8 +111,9 @@ export default function CombatV2AttackPlanner({
    if(!drawing.current)return;
    extend(e);
    drawing.current=false;
-   if(e.currentTarget.hasPointerCapture(e.pointerId))
-     e.currentTarget.releasePointerCapture(e.pointerId);
+   try{if(e.currentTarget.hasPointerCapture(e.pointerId))
+     e.currentTarget.releasePointerCapture(e.pointerId);}
+   catch{/* Release may not be supported by older touch browsers. */}
  };
  const pickAim=(e:MouseEvent<HTMLButtonElement>)=>{
    const rect=e.currentTarget.getBoundingClientRect();

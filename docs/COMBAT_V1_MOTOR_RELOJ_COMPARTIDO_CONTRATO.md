@@ -17,7 +17,7 @@ Base: `main`. La PR experimental #278 se cerró sin fusionar.
 6. Los PA siguen siendo un recurso separado. Sus reglas y reinicio se manejan en fronteras de ronda calculadas del reloj; no mediante `spentTicks`. El paso del tiempo y los PA no se cobran dos veces.
 7. Declarar una acción **no ejecuta** todavía daño, curación, desplazamiento, gasto de maná ni durabilidad. Se valida y reserva; la resolución ocurre cuando llega el evento. Las tiradas y reglas se ejecutan en servidor.
 8. Eventos simultáneos se resuelven respecto de la misma instantánea anterior y sus efectos se aplican una sola vez en una transacción consistente. Ningún participante obtiene ventaja mecánica por orden de llegada HTTP.
-9. Defensas persistentes como bloqueo tienen ventana `[inicio, fin)`, coste al declararse y reutilización ante todos los impactos cubiertos sin nuevo cobro; se respetan colisiones y desgaste por impacto.
+9. **Bloqueo y esquiva** ocupan ventanas absolutas `[inicio, fin)`, con coste al declararse. Un bloqueo ya activo se confronta con todos los impactos que lo alcancen durante su ventana, sin cobrar un segundo bloqueo; conserva geometría, resistencias y desgaste por impacto. Una esquiva también tiene comienzo, duración, desplazamiento/posición y fin: cada trayectoria debe evaluarse contra la posición y condiciones defensivas en el instante del impacto. La esquiva no es invulnerabilidad indiscriminada durante toda la ventana, ni debe cobrarse una esquiva adicional por cada golpe que coincida con un movimiento evasivo válido. Después de `fin`, esa defensa deja de proteger; no se aplica retroactivamente.
 10. Siguen vigentes permisos PvP, acciones idempotentes, privacidad de las trayectorias/predicciones, propiedad de objetos y habilidades, validación de la geometría y reconciliación de inventario.
 11. No cambiar la continuidad de los trazos físicos ni otras reglas V1 como parte de la migración de tiempo. Cualquier cambio de interacción solicitado por separado (p. ej. origen libre) requiere una PR y pruebas propias, nunca se introduce de contrabando.
 12. No fusionar ni desplegar antes de pruebas automatizadas, de integración y visuales. No reactivar despliegues automáticos.
@@ -61,7 +61,7 @@ Separar el efecto de `applyCombatCommand` del consumo/avance temporal sin escrib
 
 ### Reacciones y golpes simultáneos
 
-La cola determina **cuándo** se produce el impacto; la defensa V1 determina **qué sucede**. En un golpe contra guardia activa, no crear otra acción de bloqueo. Las acciones que terminan en el mismo tick se evalúan sobre una instantánea previa idéntica para evitar ventaja del orden de llegada. Los golpes sin contacto deben narrarse como fallo de contacto y no como impactos de cero daño.
+La cola determina **cuándo** se produce el impacto; la defensa V1 determina **qué sucede**. En un golpe contra guardia activa, no crear otra acción de bloqueo. Para una esquiva hay que conservar la trayectoria de movimiento, calcular la posición a tiempo de impacto y confrontarla con cada ataque; nunca inferir que «esquiva activa» significa inmunidad global. Las acciones que terminan en el mismo tick se evalúan sobre una instantánea previa idéntica para evitar ventaja del orden de llegada. Los golpes sin contacto deben narrarse como fallo de contacto y no como impactos de cero daño.
 
 ## Implementación incremental y puertas de aceptación
 

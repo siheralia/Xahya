@@ -1669,7 +1669,8 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     // Downgrade BEFORE validating/launching COUNTER or other paid defenses:
     // otherwise a stale client selection can strand the pending attack.
     const heldBlock=hasActiveBlockGuard(state,by);
-    const exhaustedReaction=remainingAp(fighter)<=0||fighter.spentTicks>=LIMIT;
+    const exhaustedReaction=remainingAp(fighter)<=0||
+      (state.timelineMode!=="SCHEDULED"&&fighter.spentTicks>=LIMIT);
     let defense:DefenseChoice=heldBlock?"BLOCK":exhaustedReaction?"NONE":command.defense;
     if(heldBlock&&command.planarMove!==undefined)
       throw new Error("Mantener un bloqueo activo no concede desplazamiento gratuito.");

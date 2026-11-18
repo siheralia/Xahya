@@ -265,7 +265,13 @@ export async function resolveBasicTimelineWindow(
      else countered.add(actualEvent.id);
    }
    if(posture.defense==="DODGE"&&posture.dodgeDirection&&actualEvent){
-     if(dodgedMovement.has(actualEvent.id)){
+     if(actualEvent.evasionVector){
+       // The shared world snapshot already interpolated V1 movement to
+       // this impact tick. Never teleport the same dodge again inside V1.
+       dodgedMovement.add(actualEvent.id);
+       posture={...posture,dodgeDirection:undefined};
+     }else if(dodgedMovement.has(actualEvent.id)){
+       // Backward-compatible resolution of already-stored V2 declarations.
        posture={...posture,dodgeDirection:undefined};
      }else dodgedMovement.add(actualEvent.id);
    }

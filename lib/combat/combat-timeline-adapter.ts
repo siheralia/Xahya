@@ -5,7 +5,7 @@
  * mana, inventory and permissions before committing a combat action.
  */
 import {
-  actionPoints,defaultAttackSource,effectiveCombatSpeed,turnTicks,weaponForSource,
+  actionPoints,defaultAttackSource,effectiveCombatSpeed,plannedV1DodgeMovement,turnTicks,weaponForSource,
   type CombatCommand,type CombatFighter,type CombatState,type PhysicalAttackSource,type Side,
 } from "./turn-engine.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
@@ -157,7 +157,10 @@ export function compileCombatTimelineIntent(
       (snapshot.mana?.[by]?.current??0)<1)
       throw new Error("Necesitas al menos un maná para preparar un campo mágico.");
     return {...base,kind:"REACT",durationTicks:normal(actor),
-      paCost:reaction.defense==="DODGE"&&reaction.dodgeDirection?2:1};
+      paCost:reaction.defense==="DODGE"&&reaction.dodgeDirection?2:1,
+      ...(reaction.defense==="DODGE"&&reaction.dodgeDirection
+        ?{evasionVector:plannedV1DodgeMovement(snapshot,by,
+          reaction.dodgeDirection)}:{})};
   }
   case "GUARD": {
     const equipped=blockingEquipment(actor,command.weaponSlot);

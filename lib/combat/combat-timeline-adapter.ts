@@ -5,12 +5,12 @@
  * mana, inventory and permissions before committing a combat action.
  */
 import {
-  actionPoints,defaultAttackSource,effectiveCombatSpeed,plannedV1DodgeMovement,turnTicks,weaponForSource,
+  actionPoints,defaultAttackSource,effectiveCombatSpeed,effectiveWeaponReachMeters,plannedV1DodgeMovement,turnTicks,weaponForSource,
   type CombatCommand,type CombatFighter,type CombatState,type PhysicalAttackSource,type Side,
 } from "./turn-engine.ts";
 import type {CombatSkillPlan} from "./skill-casting.ts";
 import {offhandArmorShield} from "../items/combat-wearables.ts";
-import {fieldPosition,validatePlanarMove} from "./field-plane.ts";
+import {fieldPosition,fieldDistance,validatePlanarMove} from "./field-plane.ts";
 import {physicalProjectileFlightTicks} from "./timeline-projectile-flight.ts";
 import {
   newContinuousCombatTimeline,queueTimelineAction,
@@ -178,6 +178,16 @@ export function compileCombatTimelineIntent(
     return {...base,kind:"WAIT",durationTicks:100-remainder,paCost:0};
   }
   case "ATTACK": {
+    // The V1 attack must be legal WHEN it is declared, not only when its
+    // animation reaches an enemy that might have dodged into or out of
+    // range meanwhile. Later loss of reach is resolved as a miss.
+    if(!command.usesMagic&&!command.rangedPhysical&&!command.throwWeapon&&
+      command.planarMove===undefined&&!command.targetSummonId&&
+      !command.targetConstructionId&&
+      fieldDistance(actor,snapshot.actors[by==="PLAYER"?"NPC":"PLAYER"])>
+        effectiveWeaponReachMeters(actor,false,
+          command.attackSource??defaultAttackSource(actor))+1e-8)
+      throw new Error("El objetivo está fuera del alcance máximo al declarar el ataque.");
     const actionTicks=strikeDuration(actor,{
       attackType:command.attackType,usesMagic:command.usesMagic,
       attackSource:command.attackSource});

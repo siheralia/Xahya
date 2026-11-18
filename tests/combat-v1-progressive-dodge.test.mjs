@@ -79,3 +79,14 @@ test("legacy V1 still moves its dodge only after a successful evasion",()=>{
  assert.equal(avoided.actors.NPC.spentTicks>0,true,
    "the legacy path still pays ticks; the scheduled path never does");
 });
+
+test("out-of-range attacks are rejected at declaration even if a moving defender might later enter reach",()=>{
+ const c=newCombatState(fighter("A",0),fighter("B",2,50));
+ const clock=newTimelineDeclarationSession(c);
+ assert.throws(()=>declareTimelineCommand(clock,c,"PLAYER",{
+   kind:"ATTACK",attackType:"BLUNT",attackSource:"FIST_RIGHT",
+   trajectory:[{x:.1,y:.5},{x:.5,y:.5}],
+ },"originally-out-of-range"),/fuera del alcance máximo al declarar/);
+ assert.equal(clock.clock.events.length,0);
+ assert.deepEqual(clock.clock.actors.PLAYER.spentApByRound,{});
+});

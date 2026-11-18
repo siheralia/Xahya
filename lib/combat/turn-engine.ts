@@ -73,6 +73,10 @@ export type PendingAttack = {
   by: Side; against: Side; attackType: CombatAttackType;
   trajectory: Point[]; launchedAtTick: number; usesMagic: boolean;
   rangedPhysical?: boolean; thrownWeapon?:boolean; beyondEffectiveRange?:boolean;
+  /** Trusted temporal-only condition: target left the V1 maximum reach
+   * after an already-legal attack was scheduled. Still launch the historic
+   * V1 strike, but its real impact is an unconditional contact miss. */
+  beyondMaximumRangeAtImpact?:boolean;
   attackSource?: PhysicalAttackSource;
   materialPerkBonus?:{perkId:number;attackBonus:number};
   /** Hidden from client while pending; attacker-selected basic magic blast. */
@@ -1970,7 +1974,9 @@ export function applyCombatCommand(original: CombatState, by: Side, command: Com
     }
     // No selected dodge means contact is checked against a small base margin,
     // not another invisible full Esquive roll.
-    let contact = !avoided && (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (
+    let contact = !avoided &&
+      !(state.timelineMode==="SCHEDULED"&&pending.beyondMaximumRangeAtImpact) &&
+      (!pending.beyondEffectiveRange || rolls.hit<=0.65) && (
       // Basic magic preserves its established full-area effect. Projectile
       // placement and hand-drawn melee use the explicit geometric hitbox.
       pending.attackArea?.shape==="SELF_FIELD"

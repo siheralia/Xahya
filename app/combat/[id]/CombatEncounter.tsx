@@ -62,7 +62,7 @@ function guardHint(alignment:number):string {
  if(alignment>=0.45)return "Intermedia";
  return "Desfavorable";
 }
-function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
+function Fighter({name,side,state,timeline}:{name:string;side:Side;state:CombatState;timeline?:SharedClockDisplay}) {
  const f=state.actors[side];
  return <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-4">
   <p className="font-bold">{name}</p>
@@ -78,8 +78,8 @@ function Fighter({name,side,state}:{name:string;side:Side;state:CombatState}) {
    <div className="h-full bg-rose-400 transition-all" style={{width:(100*f.hp/f.maxHp)+"%"}}/>
   </div>
   <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-zinc-300">
-   <span>Ticks: {f.spentTicks}/100</span>
-   <span>PA: {remainingAp(f)}/{actionPoints(f.constitution)}</span>
+   <span>{timeline?"Reloj: t"+timeline.tick:"Ticks: "+f.spentTicks+"/100"}</span>
+   <span>PA: {timeline?Math.max(0,timeline.pa[side].limit-timeline.pa[side].used):remainingAp(f)}/{timeline?.pa[side].limit??actionPoints(f.constitution)}</span>
    <span>AGI: {f.agility}</span>
    <span>{turnTicks(f)} ticks/acción</span>
    <span>STR: {f.strength}</span>
@@ -335,12 +335,12 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
    if(command.kind==="USE_ITEM"){
     itemRequestRef.current=null;
     const recent=(data.state as CombatState).log.filter(event=>event.kind==="ITEM").at(-1);
-    setActionFeedback(recent?.summary??"Poción utilizada.");
+    setActionFeedback(temporal&&data.batches===0?"Consumible reservado; se aplicará cuando termine la acción.":recent?.summary??"Poción utilizada.");
    }
    if(command.kind==="CAST_SKILL"){
     castRequestRef.current=null;
     const event=(data.state as CombatState).log.filter(e=>e.skillId===command.skillId).at(-1);
-    setActionFeedback(event?.summary??"Habilidad ejecutada. Revisa el registro de combate.");
+    setActionFeedback(temporal&&data.batches===0?"Habilidad programada; espera su resolución.":event?.summary??"Habilidad ejecutada. Revisa el registro de combate.");
     setPanel("none");setFieldMode("MOVE");setConstructionCenter(null);setConstructionFieldPoint(null);setPreparedAreaSkill(null);
    }else if(command.kind==="BOOST_KARMA"){
     setActionFeedback("Mini boost aplicado: el karma se descontó y los bonos duran este combate.");
@@ -382,6 +382,10 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
   setPoints(previous=>previous.length<2?[...previous,point]:previous);
  }
  const state=view?.state;
+ const clock=view?.timeline;
+ const ownClockPa=clock?.pa[side];
+ const remainingClockPa=ownClockPa?Math.max(0,ownClockPa.limit-ownClockPa.used):0;
+ const activeTemporalBlock=clock?.running.find(event=>event.owner===side&&event.kind==="BLOCK");
  const opposingSide:Side=side==="PLAYER"?"NPC":"PLAYER";
  const isPvp=state?.actors.NPC.characterId!==null && state?.actors.NPC.characterId!==undefined;
  async function shareEncounter(){
@@ -425,7 +429,8 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
  const hasAvailableBlock=state?.constructions?.some(c=>c.owner===side&&c.form==="BLOCK"&&(c.durability??0)>0&&Math.hypot(c.center.x-0.5,c.center.y-0.5)<=0.35);
  // A fully spent 100-tick turn (or exhausted PA) cannot pay a defense.
  // Reflect the authoritative server fallback before the user draws an aim point.
- const hasReactionBudget=!!actor&&remainingAp(actor)>0&&actor.spentTicks<100;
+ const hasReactionBudget=!!actor&&(temporal?remainingClockPa>0:
+   remainingAp(actor)>0&&actor.spentTicks<100);
  const counterPlan=state?basicCounterAttack(state,side,counterMagic):null;
  const counterAllowed=!(pending?.summonId||pending?.mirrorAuto||pending?.mirrorId);
  const requestedDefense:DefenseChoice=!counterAllowed&&defense==="COUNTER"?"DODGE":defense;
@@ -469,8 +474,9 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
   setConstructionOptionsOpen(false);
   reactionSectionRef.current?.scrollIntoView({behavior:"smooth",block:"start"});
  },[hasIncomingReaction,pending?.launchedAtTick]);
- const ready=!!state&&hasAccess&&canAct(state,side)&&!busy;
- const npcNeedsInitiative=Boolean(state&&state.status==="ACTIVE"&&
+ const ready=!!state&&hasAccess&&(temporal?view?.canMove[side]===true:
+   canAct(state,side))&&!busy;
+ const npcNeedsInitiative=Boolean(!temporal&&state&&state.status==="ACTIVE"&&
    state.actors.NPC.characterId===null&&hasAccess&&side==="PLAYER"&&!state.pending&&
    !canAct(state,"PLAYER")&&canAct(state,"NPC"));
  useEffect(()=>{
@@ -533,10 +539,10 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
   movedPosition.x-targetWorld.x,movedPosition.y-targetWorld.y):targetDistance;
  const attackDistance=movementOrder==="BEFORE"?afterMovementDistance:targetDistance;
  const missingMoveTrace=movementPlan!=="MOVE_ONLY"&&fieldMode==="MOVE"&&!proposedMovement;
- const canCombine=!!actor&&canStartComposite(actor);
+ const canCombine=!!actor&&(temporal?remainingClockPa>=2:canStartComposite(actor));
  // A combination costs 2 PA, but uses the SAME final tick window as
  // a single attack: even at 81/100 ticks it may finish the round.
- const canCombineAttack=!!actor&&canStartComposite(actor);
+ const canCombineAttack=!!actor&&(temporal?remainingClockPa>=2:canStartComposite(actor));
  const basicReach=attackMode==="MAGIC_AREA"?BASIC_MAGIC_RANGE_METERS:
    actor?effectiveWeaponReachMeters(actor,attackMode==="THROW",activeAttackSource):0;
  const basicOutOfRange=attackDistance>basicReach;
@@ -671,7 +677,8 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
  const combatStatRows:Array<[string,string|number|undefined]>=[
   ["HP",actor?actor.hp+"/"+actor.maxHp:"—"],
   ["Maná",state?.mana?.[side]?state.mana[side].current+"/"+state.mana[side].max:"—"],
-  ["PA",actor?remainingAp(actor)+"/"+actionPoints(actor.constitution):"—"],
+  ["PA",actor?(temporal&&ownClockPa?remainingClockPa+"/"+ownClockPa.limit:
+   remainingAp(actor)+"/"+actionPoints(actor.constitution)):"—"],
   ["Fuerza",actor?.strength],["Agilidad",actor?.agility],["Constitución",actor?.constitution],
   ["Ataque físico",actor?.physicalAttack],["Ataque mágico",actor?.magicAttack],
   ["Defensa física",actor?.physicalDefense],["Defensa mágica",actor?.magicDefense],
@@ -761,7 +768,7 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
    <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-zinc-700 p-3 text-sm">
     <span>Turno: <b>{state.round}</b></span><span>Tick global: <b>{state.tick}</b></span>
     <span>{state.status==="ACTIVE"?"En curso":"Finalizado"}</span>
-    {tiedSpeed&&state.status==="ACTIVE"&&
+    {!temporal&&tiedSpeed&&state.status==="ACTIVE"&&
       <span>Iniciativa alternada: <b>{
         state.pending?("Reacción de "+state.actors[state.pending.against].name)
           : canAct(state,"PLAYER")?state.actors.PLAYER.name
@@ -777,7 +784,7 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
      <span className="truncate font-semibold text-rose-200">{state.actors[opposingSide].name}</span>
      <span className="whitespace-nowrap text-rose-200">♥ {state.actors[opposingSide].hp}/{state.actors[opposingSide].maxHp}</span>
      <span className="whitespace-nowrap text-cyan-200">◆ {state.mana?.[opposingSide]?.current??"—"}</span>
-     <span className="whitespace-nowrap text-amber-200">{remainingAp(state.actors[opposingSide])} PA</span>
+     <span className="whitespace-nowrap text-amber-200">{temporal&&clock?Math.max(0,clock.pa[opposingSide].limit-clock.pa[opposingSide].used):remainingAp(state.actors[opposingSide])} PA</span>
      <ChevronDown size={15} className={opponentMiniOpen?"rotate-180":""}/>
     </button>
     <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-800">
@@ -785,13 +792,14 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
     </div>
     {opponentMiniOpen&&<p className="mt-2 text-zinc-300">
      Maná: {state.mana?.[opposingSide]?.current??"—"}/{state.mana?.[opposingSide]?.max??"—"} ·
-     Ticks: {100-state.actors[opposingSide].spentTicks}/100 ·
+     {temporal?"Tick absoluto: "+(clock?.tick??state.tick):
+       "Ticks: "+(100-state.actors[opposingSide].spentTicks)+"/100"} ·
      Distancia: {fieldDistance(state.actors[side],state.actors[opposingSide]).toFixed(2)} m
     </p>}
    </div>}
    <div ref={opponentCardRef} className="rounded-2xl border border-zinc-800 p-3">
     <p className="mb-2 text-xs uppercase tracking-[.15em] text-zinc-500">Adversario</p>
-    <Fighter name={state.actors[opposingSide].name} side={opposingSide} state={state}/>
+    <Fighter name={state.actors[opposingSide].name} side={opposingSide} state={state} timeline={clock}/>
    </div>
    <CombatCharacterHud fighter={state.actors[side]} opponent={state.actors[opposingSide]}
     side={side} mana={state.mana?.[side]} flair={characterData?.flair??characterData?.character?.flair}
@@ -799,7 +807,11 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
     canCreate={canCreateObjects} attackMode={attackMode} attackSource={activeAttackSource}
     onChooseAttack={chooseAttackMode} canActNow={ready} status={state.status}
     activeStatusCount={activeStatusViews.length}
-     guardEndsAtTick={state.activeBlocks?.[side]?.endsAtTick} combatTick={state.tick}/>
+     guardEndsAtTick={temporal?activeTemporalBlock?.endsAtTick:state.activeBlocks?.[side]?.endsAtTick}
+     combatTick={clock?.tick??state.tick}
+     temporal={temporal&&clock&&ownClockPa?{tick:clock.tick,
+       nextActionTick:clock.running.find(event=>event.owner===side)?.endsAtTick,
+       pa:ownClockPa}:undefined}/>
    <section className="mt-5 rounded-xl border border-zinc-700 bg-zinc-950 p-4">
     {view?.permissions.PLAYER&&view?.permissions.NPC&&<label className="mb-3 block text-xs text-zinc-400">Controlar personaje
      <select value={side} onChange={e=>setSide(e.target.value as Side)}
@@ -818,8 +830,9 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
        {defending?" Elige cómo responder.":" Esperando la decisión del defensor."}
       </p>:
       <p className="mt-4 text-sm text-zinc-400">
-       {ready?"Puedes actuar.":"En espera: el oponente debe avanzar sus ticks o se agotaron tus PA."}
-       {" "}Las acciones gastan PA y ticks según la velocidad; la IA rival avanza automáticamente.
+       {temporal?ready?"Puedes declarar una acción.":"Esperando la resolución del reloj o una nueva decisión."
+        :ready?"Puedes actuar.":"En espera: el oponente debe avanzar sus ticks o se agotaron tus PA."}
+       {" "}{temporal?"Las acciones duran ticks de tiempo global; no se gastan. Los PA son independientes.":"Las acciones gastan PA y ticks según la velocidad; la IA rival avanza automáticamente."}
       </p>}
     {ready&&counterRisk&&
      <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
@@ -1043,7 +1056,7 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
          </button>
          <button type="button" disabled={!ready} onClick={()=>void submit({kind:"WAIT"})}
           className="rounded-lg border border-zinc-700 px-2 py-1 text-[11px] disabled:opacity-35">
-          <Undo2 size={13} className="mr-1 inline-block"/>Terminar turno
+          <Undo2 size={13} className="mr-1 inline-block"/>{temporal?"Esperar":"Terminar turno"}
          </button>
         </div>
        </div>}
@@ -1360,7 +1373,7 @@ export default function CombatEncounter({id,mode="LEGACY"}:{id:string;mode?:"LEG
       <button disabled={!ready} onClick={()=>void submit({kind:"MOVE",meters,direction:moveDirection,weaponSlot:moveDirection==="WEAPON"?activeRecoverSlot:undefined})}
        className="rounded-lg border border-cyan-500 px-4 py-2 text-cyan-200 disabled:opacity-40"><Footprints size={17} className="mr-1 inline-block align-[-3px]"/> Mover</button>
       <button disabled={!ready} onClick={()=>void submit({kind:"WAIT"})}
-       className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40"><Undo2 size={17} className="mr-1 inline-block align-[-3px]"/> Terminar turno</button>
+       className="rounded-lg border border-zinc-500 px-4 py-2 disabled:opacity-40"><Undo2 size={17} className="mr-1 inline-block align-[-3px]"/> {temporal?"Esperar":"Terminar turno"}</button>
      </div>
      </details>
      <div className="rounded-xl border border-zinc-700 p-3">

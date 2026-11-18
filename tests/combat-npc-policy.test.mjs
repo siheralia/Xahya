@@ -228,7 +228,8 @@ test("encounter 49: an exhausted Arissa can resolve Robin Hood's arrow without a
 
 test("combat UI explains exhausted reaction instead of offering impossible aim/prediction",()=>{
  const page=readFileSync(new URL("../app/combat/[id]/CombatEncounter.tsx",import.meta.url),"utf8");
- assert.match(page,/const hasReactionBudget=.*remainingAp\(actor\)>0&&actor\.spentTicks<100/);
+ assert.match(page,/const hasReactionBudget=.*temporal\?remainingClockPa>0:/);
+ assert.match(page,/remainingAp\(actor\)>0&&actor\.spentTicks<100/);
  assert.match(page,/!hasReactionBudget\?opt\.value==="NONE"/);
  assert.match(page,/agotaste los 100 ticks de este turno/);
  assert.match(page,/Recibir impacto \(sin reacción\)/);
@@ -239,7 +240,8 @@ test("own combat HUD shows remaining ticks in both compact and expanded modes",(
  const hud=readFileSync(new URL("../app/combat/[id]/CombatCharacterHud.tsx",import.meta.url),"utf8");
  assert.match(hud,/const usedTicks=Math\.max\(0,Math\.min\(100,fighter\.spentTicks\)\)/);
  assert.match(hud,/const remainingTicks=100-usedTicks/);
- assert.match(hud,/const ticks=remainingTicks\+"\/"\+100|const ticks=remainingTicks\+"\/100"/);
+ assert.match(hud,/const ticks=temporal\?"t"\+temporal\.tick:remainingTicks\+"\/100"/);
+ assert.match(hud,/const clockTitle=temporal/);
  assert.match(hud,/Ticks disponibles: /);
  assert.match(hud,/Ticks gastados:/);
  assert.match(hud,/grid-cols-4/);

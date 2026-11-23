@@ -14,7 +14,7 @@ const fighter=(name,x)=>({
  attackType:"BLUNT",defenseType:"SOLID",spentTicks:0,spentAp:0,
 });
 const init=()=>{
- const c=newCombatState(fighter("A",0),fighter("B",.8),"PLAYER",true);
+ const c=newCombatState(fighter("A",0),fighter("B",.7),"PLAYER",true);
  c.mana={PLAYER:{current:20,max:20},NPC:{current:20,max:20}};
  return c;
 };

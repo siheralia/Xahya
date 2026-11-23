@@ -10,7 +10,7 @@ import {reservedTimelineTurnTicks} from "./timeline-tempo.ts";
  * formulas; it does not execute any untrusted client-supplied effect.
  */
 import type {CombatState,CombatLog,Side,Point,PhysicalAttackSource} from "./turn-engine.ts";
-import {fieldPosition} from "./field-plane.ts";
+import {fieldPosition,moveFighterOnField} from "./field-plane.ts";
 import {timelineRoundOf} from "./action-timeline.ts";
 import {narrateCombat,COMBAT_NARRATIVE_VERSION} from "./narration.ts";
 import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat,
@@ -18,7 +18,7 @@ import {applySummonStatus,expireSummonStatuses,reconcileSummonStatusStat,
 import {spendCombatCharges,creditCombatCharge} from "./charge-pools.ts";
 import type {CombatBuffStat} from "./skill-casting.ts";
 import type {CombatConstruction} from "./constructs.ts";
-import {measuredBlock} from "./physical-obstacles.ts";
+import {assertMovementClear,measuredBlock} from "./physical-obstacles.ts";
 import type {CombatSummon} from "./summons.ts";
 import {upkeepTimelineSummonsAtRound} from "./timeline-summon-world.ts";
 import {applyWeaponSelfRepairAtRoundStart} from "./turn-engine.ts";
@@ -137,7 +137,41 @@ export function prepareTimelineImpactSnapshot(
    throw new Error("Las fronteras del tiempo compartido no corresponden al lote.");
  const state=structuredClone(original);
  assertApprovedV2Passives(state);
+ // V1 supplies the dodge movement geometry. The timeline supplies the
+ // absolute progress. Advance every active motion exactly once to each
+ // boundary/impact so both sides see one identical world snapshot.
+ let previousMotionTick=original.tick;
+ const moveDodgersUntil=(tick:number)=>{
+   for(const event of batch.state.events){
+     if(event.kind!=="REACT"||!event.evasionVector||
+        event.status==="INTERRUPTED")continue;
+     const duration=event.endsAtTick-event.startsAtTick;
+     if(duration<=0)continue;
+     const progress=(time:number)=>Math.max(0,Math.min(1,
+       (time-event.startsAtTick)/duration));
+     const fraction=progress(tick)-progress(previousMotionTick);
+     if(fraction<=0)continue;
+     const move={x:event.evasionVector.x*fraction,
+       y:event.evasionVector.y*fraction};
+     if(Math.hypot(move.x,move.y)<1e-9)continue;
+     const fighter=state.actors[event.owner],from=fieldPosition(fighter);
+     assertMovementClear(state.constructions,from,
+       {x:from.x+move.x,y:from.y+move.y});
+     moveFighterOnField(fighter,move);
+     if(state.physicalPathEnd)delete state.physicalPathEnd[event.owner];
+     if(state.physicalPathEnds)delete state.physicalPathEnds[event.owner];
+     state.narrativeHistory??=[...state.log];
+     const entry:CombatLog={kind:"POSITION",tick,by:event.owner,
+       moveMeters:Math.round(Math.hypot(move.x,move.y)*100)/100,
+       fieldPosition:{...fieldPosition(fighter)},
+       summary:fighter.name+" avanzó "+Math.hypot(move.x,move.y).toFixed(2)+
+         " m durante su ventana de esquiva."};
+     state.log.push(entry);state.narrativeHistory.push(entry);
+   }
+   previousMotionTick=tick;
+ };
  for(const crossing of expected){
+   moveDodgersUntil(crossing);
    state.round=timelineRoundOf(crossing);
    state.tick=crossing;
    const expiring=(state.skillBonuses??[]).filter(x=>x.expiresAtRound<=state.round);
@@ -162,6 +196,7 @@ export function prepareTimelineImpactSnapshot(
    for(const side of SIDES)
      applyWeaponSelfRepairAtRoundStart(state,side);
  }
+ moveDodgersUntil(batch.atTick);
  return state;
 }
 

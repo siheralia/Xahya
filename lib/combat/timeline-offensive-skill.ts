@@ -75,11 +75,10 @@ export function simulateApprovedTimelineOffense(
  if(cooldown===-1||cooldown>hitRound)
    throw new Error("La habilidad continúa en enfriamiento.");
  const copies={PLAYER:weaponCopies(combat,"PLAYER"),NPC:weaponCopies(combat,"NPC")};
- const shadow=isolatePhysicalShadow(combat,owner);
- // Fresh V1 initiative is merely a calculator shell. The V2 scheduler
- // already took the PA and owns the actual action duration.
+ const shadow=isolatePhysicalShadow(combat,owner,event.endsAtTick);
+ // The original V1 skill rules now run at the scheduler's impact tick.
+ // Duration and PA escrow remain authoritative in the temporal queue.
  shadow.round=hitRound;
- shadow.tick=(hitRound-1)*100;
  const launched=applyResolvedCombatSkill(shadow,owner,plan,{
    requestId:command.requestId,
    trajectory:command.trajectory,areaCenter:command.areaCenter,

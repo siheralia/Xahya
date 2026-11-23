@@ -70,7 +70,7 @@ export function simulateBasicMagicTimelineHit(
  const pre={
    PLAYER:weaponCopies(combat,"PLAYER"),NPC:weaponCopies(combat,"NPC"),
  };
- const shadow=isolatePhysicalShadow(combat,owner);
+ const shadow=isolatePhysicalShadow(combat,owner,event.endsAtTick);
  const launched=applyCombatCommand(shadow,owner,attack,attackDice);
  if(!launched.pending||launched.pending.against!==target||
    launched.pending.usesMagic!==true)

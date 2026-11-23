@@ -116,9 +116,8 @@ export function simulateApprovedTimelineConstruction(
  const preWear={
    PLAYER:weaponCopies(combat,"PLAYER"),NPC:weaponCopies(combat,"NPC"),
  };
- const shadow=isolatePhysicalShadow(combat,owner);
+ const shadow=isolatePhysicalShadow(combat,owner,event.endsAtTick);
  shadow.round=round;
- shadow.tick=(round-1)*100;
  const launched=applyResolvedCombatSkill(shadow,owner,plan,{
    requestId:command.requestId,areaCenter:command.areaCenter,
    constructionFieldPoint:command.constructionFieldPoint,

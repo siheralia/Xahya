@@ -9,7 +9,7 @@ export type HudAttackMode="PHYSICAL"|"MAGIC_AREA"|"RANGED"|"THROW";
 
 export default function CombatCharacterHud({
  fighter,opponent,side,mana,flair,open,onOpenChange,onPanel,canCreate,attackMode,attackSource,
- onChooseAttack,canActNow,status,activeStatusCount=0,guardEndsAtTick,combatTick=0,
+ onChooseAttack,canActNow,status,activeStatusCount=0,guardEndsAtTick,combatTick=0,temporal,
 }:{
  fighter:CombatFighter;opponent:CombatFighter;side:Side;
  mana?:{current:number;max:number};flair?:string|null;
@@ -19,14 +19,19 @@ export default function CombatCharacterHud({
  onChooseAttack:(mode:"MAGIC_AREA"|"MAIN_HAND"|"OFF_HAND")=>void;
  canActNow:boolean;status:"ACTIVE"|"FINISHED";activeStatusCount?:number;
  guardEndsAtTick?:number;combatTick?:number;
+ temporal?:{tick:number;nextActionTick?:number;pa:{used:number;limit:number}};
 }){
  const hp=fighter.hp+"/"+fighter.maxHp;
  const mp=mana?mana.current+"/"+mana.max:"—";
- const pa=remainingAp(fighter)+"/"+actionPoints(fighter.constitution);
+ const pa=temporal
+   ?Math.max(0,temporal.pa.limit-temporal.pa.used)+"/"+temporal.pa.limit
+   :remainingAp(fighter)+"/"+actionPoints(fighter.constitution);
  // Exactly the same 100-tick budget that combat actions and reactions spend.
  const usedTicks=Math.max(0,Math.min(100,fighter.spentTicks));
  const remainingTicks=100-usedTicks;
- const ticks=remainingTicks+"/100";
+ const ticks=temporal?"t"+temporal.tick:remainingTicks+"/100";
+ const clockTitle=temporal?"Tick absoluto del encuentro: "+temporal.tick:
+   "Ticks disponibles: "+ticks;
  const brokenEquipment=fighter.equippedWearables?.filter(item=>item.durability===0).length??0;
  const guardRemaining=Math.max(0,(guardEndsAtTick??0)-combatTick);
  const distance=Math.abs(fighter.positionMeters-opponent.positionMeters);
@@ -53,8 +58,8 @@ export default function CombatCharacterHud({
      <span className="flex items-center gap-1.5"><Heart size={17} className="text-rose-400"/><b>{hp}</b></span>
      <span className="flex items-center gap-1.5"><Droplets size={17} className="text-cyan-400"/><b>{mp}</b></span>
      <span className="flex items-center gap-1"><Activity size={16} className="text-amber-300"/><b>{pa}</b></span>
-     <span className="flex items-center gap-1" title={"Ticks disponibles: "+ticks} aria-label={"Ticks disponibles: "+ticks}>
-      <Clock3 size={16} className={remainingTicks===0?"text-rose-400":"text-emerald-300"}/><b>{ticks}</b>
+     <span className="flex items-center gap-1" title={clockTitle} aria-label={clockTitle}>
+      <Clock3 size={16} className={temporal?"text-cyan-300":remainingTicks===0?"text-rose-400":"text-emerald-300"}/><b>{ticks}</b>
      </span>
      {guardRemaining>0&&<span className="inline-flex items-center gap-1 text-emerald-300"
        title={"Guardia activa: "+guardRemaining+" ticks restantes"}
@@ -92,9 +97,11 @@ export default function CombatCharacterHud({
      <div className="rounded-xl bg-zinc-950/85 px-1 py-3 text-center"><Heart size={17} className="mx-auto text-rose-400"/><p className="mt-1 text-[10px] text-zinc-500">HP</p><b className="text-xs sm:text-sm">{hp}</b></div>
      <div className="rounded-xl bg-zinc-950/85 px-1 py-3 text-center"><Droplets size={17} className="mx-auto text-cyan-400"/><p className="mt-1 text-[10px] text-zinc-500">Maná</p><b className="text-xs sm:text-sm">{mp}</b></div>
      <div className="rounded-xl bg-zinc-950/85 px-1 py-3 text-center"><Activity size={17} className="mx-auto text-amber-300"/><p className="mt-1 text-[10px] text-zinc-500">PA</p><b className="text-xs sm:text-sm">{pa}</b></div>
-     <div className="rounded-xl bg-zinc-950/85 px-1 py-3 text-center" aria-label={"Ticks disponibles: "+remainingTicks+" de 100"}><Clock3 size={17} className={"mx-auto "+(remainingTicks===0?"text-rose-400":"text-emerald-300")}/><p className="mt-1 text-[10px] text-zinc-500">Ticks</p><b className="text-xs sm:text-sm">{ticks}</b></div>
+     <div className="rounded-xl bg-zinc-950/85 px-1 py-3 text-center" aria-label={clockTitle}><Clock3 size={17} className={"mx-auto "+(temporal?"text-cyan-300":remainingTicks===0?"text-rose-400":"text-emerald-300")}/><p className="mt-1 text-[10px] text-zinc-500">{temporal?"Reloj":"Ticks"}</p><b className="text-xs sm:text-sm">{ticks}</b></div>
     </div>
-    <p className="mt-2 text-xs text-zinc-400">Ticks gastados: <b>{usedTicks}/100</b>. Las acciones y defensas consumen ticks y PA; los ticks se reinician cada turno.</p>
+    <p className="mt-2 text-xs text-zinc-400">{temporal
+      ?<>Tiempo global: <b>tick {temporal.tick}</b>. Las acciones duran ticks reales; no se gastan. Próxima acción programada: <b>{temporal.nextActionTick??"—"}</b>.</>
+      :<>Ticks gastados: <b>{usedTicks}/100</b>. Las acciones y defensas consumen ticks y PA; los ticks se reinician cada turno.</>}</p>
     {activeStatusCount>0&&<button type="button" onClick={()=>onPanel("stats")}
       className="mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/50 bg-cyan-950/25 px-3 text-xs font-semibold text-cyan-200">
       <Activity size={16}/> {activeStatusCount} {activeStatusCount===1?"estado temporal activo":"estados temporales activos"} · Ver duración
@@ -104,7 +111,9 @@ export default function CombatCharacterHud({
       <ShieldAlert size={16}/> {brokenEquipment} {brokenEquipment===1?"pieza rota":"piezas rotas"} · Ver equipo y reparación
     </button>}
     <p className={"mt-2 text-xs "+(canActNow?"text-emerald-300":"text-amber-300")}>
-     {status==="FINISHED"?"Encuentro finalizado":remainingTicks===0?"Sin ticks disponibles para atacar o defenderte activamente este turno.":canActNow?"Tu iniciativa: puedes actuar.":"Esperando la iniciativa o reacción del adversario."}
+     {status==="FINISHED"?"Encuentro finalizado":temporal
+       ?canActNow?"Puedes declarar tu próxima acción temporal.":"Esperando la resolución del reloj o una nueva decisión."
+       :remainingTicks===0?"Sin ticks disponibles para atacar o defenderte activamente este turno.":canActNow?"Tu iniciativa: puedes actuar.":"Esperando la iniciativa o reacción del adversario."}
     </p>
     <div className="mt-3 grid grid-cols-5 gap-1.5">
      {categories.map(({value,title,Icon})=><button key={value} type="button"

@@ -154,6 +154,8 @@ test("server checks replay under row lock before FINISHED, NPC progress and equi
   "a duplicate cannot roll new dice or modify a FINISHED encounter");
  assert.match(route,/if\(replayAction\)\s*next=recordCombatAction\(state,next,side,replayAction\)/);
  assert.match(ui,/const actionRequestRef=useRef/);
- assert.match(ui,/command:outgoing/);
+ assert.match(ui,/command:commandPayload/);
+ assert.match(ui,/v1IntentToTimeline\(outgoing\)/);
+ assert.match(ui,/side,command:commandPayload/);
  assert.match(ui,/requestId:"npc-advance-"\+key/);
 });

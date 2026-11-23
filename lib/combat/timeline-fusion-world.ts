@@ -60,8 +60,8 @@ export function simulateApprovedTimelineFusion(
  });
  if(new Set(consumed.map(x=>x.id)).size!==consumed.length)
    throw new Error("Las criaturas usadas en la fusión deben ser diferentes.");
- const shadow=isolatePhysicalShadow(combat,by);
- shadow.round=round;shadow.tick=(round-1)*100;
+ const shadow=isolatePhysicalShadow(combat,by,event.endsAtTick);
+ shadow.round=round;
  const cast=applyResolvedCombatSkill(shadow,by,plan,
    {requestId:command.requestId},{hit:.5,critical:.5,defense:.5});
  if(cast.pending||cast.status!=="ACTIVE"||

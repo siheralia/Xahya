@@ -27,9 +27,8 @@ const validEvent=(c:CombatState,t:ContinuousCombatTimeline,e:TimelineEvent)=>
 const safeId=(s:string)=>/^[a-zA-Z0-9:_-]{12,100}$/.test(s);
 
 function shadowForWorld(c:CombatState,owner:Side,finishTick:number):CombatState{
- const shadow=isolatePhysicalShadow(c,owner);
+ const shadow=isolatePhysicalShadow(c,owner,finishTick);
  shadow.round=timelineRoundOf(finishTick);
- shadow.tick=(shadow.round-1)*100;
  return shadow;
 }
 

@@ -12,6 +12,7 @@ import {
 import type {CombatConsumable} from "../items/combat-consumables.ts";
 import type {ContinuousCombatTimeline,TimelineEvent} from "./action-timeline.ts";
 import type {AuthorizedTimelineEffect} from "./timeline-batch-resolver.ts";
+import {isolatePhysicalShadow} from "./timeline-basic-strike.ts";
 
 type ItemCommand=Extract<CombatCommand,{kind:"USE_ITEM"}>;
 const SIDES=["PLAYER","NPC"] as const;
@@ -41,15 +42,9 @@ export function simulateBasicTimelineConsumable(
    approved.amount>1000||
    !["HEAL_HP","RESTORE_MANA"].includes(approved.action))
    throw new Error("La receta oficial del consumible es inválida.");
- const shadow=structuredClone(combat);
- shadow.round=1;shadow.tick=0;shadow.pending=null;
- shadow.timelineMode=undefined;shadow.tieOpener=owner;
- shadow.log=[];shadow.narrativeHistory=[];
- shadow.activeBlocks={};shadow.mirrorRayQueue=[];
- for(const side of SIDES){
-   shadow.actors[side].spentAp=0;
-   shadow.actors[side].spentTicks=0;
- }
+ // Resolve the original V1 consumable rule at the real event deadline.
+ // The shadow's temporary PA accounting never enters the world commit.
+ const shadow=isolatePhysicalShadow(combat,owner,event.endsAtTick);
  const resolved=applyResolvedCombatConsumable(shadow,owner,approved,command.requestId);
  const beforeHp=combat.actors[owner].hp;
  const gainedHp=resolved.actors[owner].hp-beforeHp;

@@ -68,7 +68,8 @@ test("bad reach and initiative must remain explained instead of silently doing n
  assert.match(page,/El objetivo está a \{attackDistance\.toFixed\(2\)\} m/);
  assert.match(page,/const npcNeedsInitiative=Boolean/);
  assert.match(page,/command:\{kind:"ADVANCE",requestId:"npc-advance-"\+key\}/);
- assert.match(page,/setActionFeedback\(event\?\.summary/);
+ assert.match(page,/setActionFeedback\(temporal&&data\.batches===0\?/);
+ assert.match(page,/event\?\.summary\?\?/);
  assert.match(page,/setConstructionCenter\(null\)/);
  const loadEffect=page.slice(page.indexOf("const load=useCallback"),page.indexOf("async function submit("));
  assert.doesNotMatch(loadEffect,/setError\(""\)/,"polling must not clear a rejected action");
